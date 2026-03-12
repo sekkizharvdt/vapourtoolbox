@@ -32,7 +32,6 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { DEFAULT_MED_PLANT_INPUTS } from '@vapour/constants';
 import type {
   MEDPlantType,
-  MEDFeedArrangement,
   CondensateExtraction,
   TubeMaterial,
   MEDPlantInputs,
@@ -51,12 +50,7 @@ import { solveMEDPlant } from '@/lib/thermal/med/medSolver';
 
 const PLANT_TYPE_OPTIONS: { value: MEDPlantType; label: string }[] = [
   { value: 'MED', label: 'MED (without TVC)' },
-  { value: 'MED_TVC', label: 'MED-TVC (coming soon)' },
-];
-
-const FEED_OPTIONS: { value: MEDFeedArrangement; label: string }[] = [
-  { value: 'PARALLEL', label: 'Parallel Feed' },
-  { value: 'FORWARD', label: 'Forward Feed' },
+  { value: 'MED_TVC', label: 'MED-TVC' },
 ];
 
 const CONDENSATE_OPTIONS: { value: CondensateExtraction; label: string }[] = [
@@ -83,7 +77,6 @@ const d = DEFAULT_MED_PLANT_INPUTS;
 export default function MEDPlantClient() {
   // ---- Input state ----
   const [plantType, setPlantType] = useState<MEDPlantType>(d.plantType);
-  const [feedArrangement, setFeedArrangement] = useState<MEDFeedArrangement>(d.feedArrangement);
   const [numberOfEffects, setNumberOfEffects] = useState(String(d.numberOfEffects));
   const [preheaters, setPreheaters] = useState<PreheaterConfig[]>(d.preheaters);
 
@@ -114,6 +107,10 @@ export default function MEDPlantClient() {
   const [condTubeLength, setCondTubeLength] = useState(String(d.condenserTubes.length));
   const [condTubeMaterial, setCondTubeMaterial] = useState<TubeMaterial>(d.condenserTubes.material);
 
+  // TVC parameters
+  const [tvcMotivePressure, setTvcMotivePressure] = useState('3');
+  const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState('');
+
   // ---- Dialog state ----
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
@@ -130,7 +127,6 @@ export default function MEDPlantClient() {
 
     return {
       plantType,
-      feedArrangement,
       numberOfEffects: n,
       preheaters,
       capacity: cap,
@@ -158,14 +154,19 @@ export default function MEDPlantClient() {
         length: parseFloat(condTubeLength) || 4,
         material: condTubeMaterial,
       },
+      ...(plantType === 'MED_TVC' && {
+        tvcMotivePressure: parseFloat(tvcMotivePressure) || 3,
+        tvcEntrainedEffect: tvcEntrainedEffect ? parseInt(tvcEntrainedEffect) : undefined,
+      }),
     };
   }, [
-    plantType, feedArrangement, numberOfEffects, preheaters, capacity, gorTarget,
+    plantType, numberOfEffects, preheaters, capacity, gorTarget,
     steamPressure, steamTemperature, seawaterInletTemp, seawaterDischargeTemp,
     seawaterSalinity, topBrineTemp, brineConcentrationFactor, condenserApproachTemp,
     distillateTemp, condensateExtraction, foulingFactor,
     evapTubeOd, evapTubeThickness, evapTubeLength, evapTubeMaterial,
     condTubeOd, condTubeThickness, condTubeLength, condTubeMaterial,
+    tvcMotivePressure, tvcEntrainedEffect,
   ]);
 
   // ---- Solve ----
@@ -211,7 +212,6 @@ export default function MEDPlantClient() {
   // ---- Reset ----
   const handleReset = useCallback(() => {
     setPlantType(d.plantType);
-    setFeedArrangement(d.feedArrangement);
     setNumberOfEffects(String(d.numberOfEffects));
     setPreheaters(d.preheaters);
     setCapacity(String(d.capacity));
@@ -227,12 +227,13 @@ export default function MEDPlantClient() {
     setDistillateTemp(String(d.distillateTemp));
     setCondensateExtraction(d.condensateExtraction);
     setFoulingFactor(String(d.foulingFactor));
+    setTvcMotivePressure('3');
+    setTvcEntrainedEffect('');
   }, []);
 
   // ---- Load callback ----
   const handleLoad = useCallback((saved: Record<string, unknown>) => {
     if (typeof saved.plantType === 'string') setPlantType(saved.plantType as MEDPlantType);
-    if (typeof saved.feedArrangement === 'string') setFeedArrangement(saved.feedArrangement as MEDFeedArrangement);
     if (saved.numberOfEffects != null) setNumberOfEffects(String(saved.numberOfEffects));
     if (Array.isArray(saved.preheaters)) setPreheaters(saved.preheaters as PreheaterConfig[]);
     if (saved.capacity != null) setCapacity(String(saved.capacity));
@@ -248,14 +249,17 @@ export default function MEDPlantClient() {
     if (saved.distillateTemp != null) setDistillateTemp(String(saved.distillateTemp));
     if (typeof saved.condensateExtraction === 'string') setCondensateExtraction(saved.condensateExtraction as CondensateExtraction);
     if (saved.foulingFactor != null) setFoulingFactor(String(saved.foulingFactor));
+    if (saved.tvcMotivePressure != null) setTvcMotivePressure(String(saved.tvcMotivePressure));
+    if (saved.tvcEntrainedEffect != null) setTvcEntrainedEffect(String(saved.tvcEntrainedEffect));
   }, []);
 
   // ---- Collect all inputs for save ----
   const allInputsForSave: Record<string, unknown> = {
-    plantType, feedArrangement, numberOfEffects, preheaters, capacity, gorTarget,
+    plantType, numberOfEffects, preheaters, capacity, gorTarget,
     steamPressure, steamTemperature, seawaterInletTemp, seawaterDischargeTemp,
     seawaterSalinity, topBrineTemp, brineConcentrationFactor, condenserApproachTemp,
     distillateTemp, condensateExtraction, foulingFactor,
+    tvcMotivePressure, tvcEntrainedEffect,
   };
 
   // ---- Render ----
@@ -292,20 +296,9 @@ export default function MEDPlantClient() {
                   onChange={(e) => setPlantType(e.target.value as MEDPlantType)}
                 >
                   {PLANT_TYPE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value} disabled={o.value === 'MED_TVC'}>
+                    <MenuItem key={o.value} value={o.value}>
                       {o.label}
                     </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  select fullWidth size="small" label="Feed Arrangement"
-                  value={feedArrangement}
-                  onChange={(e) => setFeedArrangement(e.target.value as MEDFeedArrangement)}
-                >
-                  {FEED_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                   ))}
                 </TextField>
               </Grid>
@@ -355,6 +348,34 @@ export default function MEDPlantClient() {
                 />
               </Grid>
             </Grid>
+
+            {/* TVC Parameters — only shown for MED-TVC */}
+            {plantType === 'MED_TVC' && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" gutterBottom>TVC Parameters</Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 6 }}>
+                    <TextField
+                      fullWidth size="small" label="Motive Steam (bar abs)"
+                      type="number" value={tvcMotivePressure}
+                      onChange={(e) => setTvcMotivePressure(e.target.value)}
+                      inputProps={{ min: 1, max: 45, step: 0.5 }}
+                      helperText="High-pressure steam to ejector"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 6 }}>
+                    <TextField
+                      fullWidth size="small" label="Entrained Effect #"
+                      type="number" value={tvcEntrainedEffect}
+                      onChange={(e) => setTvcEntrainedEffect(e.target.value)}
+                      inputProps={{ min: 1, max: parseInt(numberOfEffects) || 16 }}
+                      helperText={`Default: last effect (${numberOfEffects})`}
+                    />
+                  </Grid>
+                </Grid>
+              </>
+            )}
 
             <Divider sx={{ my: 2 }} />
             <Typography variant="subtitle2" gutterBottom>Seawater Conditions</Typography>
@@ -550,7 +571,7 @@ export default function MEDPlantClient() {
                   {[
                     { label: 'GOR', value: result.performance.gor, unit: '' },
                     { label: 'Net Production', value: result.performance.netProduction, unit: 'T/h' },
-                    { label: 'Steam Flow', value: result.performance.steamFlow.toFixed(0), unit: 'kg/hr' },
+                    { label: result.tvcResult ? 'Motive Steam' : 'Steam Flow', value: result.performance.steamFlow.toFixed(0), unit: 'kg/hr' },
                     { label: 'STE', value: result.performance.specificThermalEnergy, unit: 'kJ/kg' },
                     { label: 'STE', value: result.performance.specificThermalEnergy_kWh, unit: 'kWh/m\u00B3' },
                     { label: 'Seawater Intake', value: result.performance.seawaterIntake.toFixed(1), unit: 'T/h' },
@@ -588,6 +609,32 @@ export default function MEDPlantClient() {
                   />
                 </Box>
               </Paper>
+
+              {/* TVC Results */}
+              {result.tvcResult && (
+                <Paper sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>TVC Ejector Performance</Typography>
+                  <Grid container spacing={2}>
+                    {[
+                      { label: 'Motive Steam', value: result.tvcResult.motiveFlow.toFixed(0), unit: 'kg/hr' },
+                      { label: 'Entrained Vapor', value: result.tvcResult.entrainedFlow.toFixed(0), unit: 'kg/hr' },
+                      { label: 'Discharge Flow', value: result.tvcResult.dischargeFlow.toFixed(0), unit: 'kg/hr' },
+                      { label: 'Entrainment Ratio', value: result.tvcResult.entrainmentRatio.toFixed(3), unit: '' },
+                      { label: 'Compression Ratio', value: result.tvcResult.compressionRatio.toFixed(3), unit: '' },
+                      { label: 'Vapor to Eff. 1', value: result.tvcResult.vaporToEffect1Temp.toFixed(1), unit: '\u00B0C' },
+                      { label: 'Superheated', value: result.tvcResult.isSuperheated ? 'Yes' : 'No', unit: '' },
+                      ...(result.tvcResult.sprayWaterFlow > 0
+                        ? [{ label: 'Desuperheating Spray', value: result.tvcResult.sprayWaterFlow.toFixed(0), unit: 'kg/hr' }]
+                        : []),
+                    ].map((item) => (
+                      <Grid size={{ xs: 6, sm: 4 }} key={item.label}>
+                        <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                        <Typography variant="body2" fontWeight="bold">{item.value} {item.unit}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+              )}
 
               {/* Warnings */}
               {result.warnings.length > 0 && (

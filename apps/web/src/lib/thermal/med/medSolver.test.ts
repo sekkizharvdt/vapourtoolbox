@@ -149,3 +149,53 @@ describe('MED Solver — Edge Cases', () => {
     expect(result.performance.gor).toBeGreaterThan(result.performance.gor > 0 ? 4 : 0);
   });
 });
+
+describe('MED Solver — MED-TVC', () => {
+  // Use higher TBT and fewer effects to keep compression ratio within single-stage limits
+  // Entrain from an intermediate effect (effect 4) for a more favorable CR
+  const tvcInputs: MEDPlantInputs = {
+    ...CASE6_INPUTS,
+    plantType: 'MED_TVC',
+    numberOfEffects: 6,
+    topBrineTemp: 62,
+    steamPressure: 0.22, // ~62°C saturation
+    steamTemperature: 62,
+    tvcMotivePressure: 8, // 8 bar abs motive steam
+    tvcEntrainedEffect: 4, // entrain from effect 4 (mid-plant)
+    preheaters: [],
+  };
+
+  it('converges with TVC', () => {
+    const result = solveMEDPlant(tvcInputs);
+    expect(result.converged).toBe(true);
+  });
+
+  it('produces TVC result', () => {
+    const result = solveMEDPlant(tvcInputs);
+    expect(result.tvcResult).toBeDefined();
+  });
+
+  it('TVC has valid entrainment ratio', () => {
+    const result = solveMEDPlant(tvcInputs);
+    expect(result.tvcResult!.entrainmentRatio).toBeGreaterThan(0);
+    expect(result.tvcResult!.entrainmentRatio).toBeLessThan(3);
+  });
+
+  it('GOR is higher than plain MED (motive steam basis)', () => {
+    const result = solveMEDPlant(tvcInputs);
+    const plainResult = solveMEDPlant(CASE6_INPUTS);
+    // MED-TVC should achieve higher GOR because motive steam is less than total
+    // vapor to effect 1 (the TVC recycles entrained vapor)
+    expect(result.performance.gor).toBeGreaterThan(plainResult.performance.gor);
+  });
+
+  it('motive flow is less than total vapor to effect 1', () => {
+    const result = solveMEDPlant(tvcInputs);
+    expect(result.tvcResult!.motiveFlow).toBeLessThan(result.tvcResult!.dischargeFlow);
+  });
+
+  it('net production matches target', () => {
+    const result = solveMEDPlant(tvcInputs);
+    expect(result.performance.netProduction).toBeCloseTo(5.0, 0);
+  });
+});

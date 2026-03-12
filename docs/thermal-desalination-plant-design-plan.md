@@ -2,7 +2,7 @@
 
 > **Goal**: Build a complete MED/MED-TVC plant design tool that takes the engineer from
 > thermodynamic inputs all the way to cost of water, replacing the current Excel program
-> (Case 6.xlsx) and exceeding it with automation, validation, and multi-configuration support.
+> (Case 6.xlsx) and exceeding it with automation, validation, and configuration comparison.
 
 ## Reference: Current Excel Program (Case 6.xlsx)
 
@@ -132,8 +132,7 @@ apps/web/src/app/thermal/calculators/med-plant/
 
 ```
 MEDPlantConfiguration
-  ├── plantType: 'MED' | 'MED_TVC' | 'MED_MVC' | 'MSF' (future)
-  ├── feedArrangement: 'PARALLEL' | 'FORWARD' | 'BACKWARD' (future)
+  ├── plantType: 'MED' | 'MED_TVC'
   ├── numberOfEffects: number (2–16)
   ├── numberOfPreheaters: number
   ├── preheaterPositions: { effectNumber: number, vaporFlow: number }[]
@@ -218,7 +217,7 @@ MEDPlantResult
 Core function: `calculateEffect(effectNumber, inputs, previousEffects, preheaterConfig)`
 
 For each effect, solve the energy & mass balance:
-- **Inputs**: Vapor (from previous effect or steam), spray water, brine (if forward feed), distillate & condensate (cascade)
+- **Inputs**: Vapor (from previous effect or steam), spray water, distillate & condensate (cascade)
 - **Losses**: BPE (from seawater tables), NEA (empirical ~0.2–0.5°C), demister ΔP → ΔT
 - **Energy balance**: Heat from condensing vapor = heat to evaporate spray water + heat to raise spray water + heat to raise brine
 - **Mass balance**: Total in = Total out (verify to < 0.1% tolerance)
@@ -299,7 +298,7 @@ Algorithm:
 
 Phase 1 UI is functional, not polished:
 - **Input panels** (collapsible sections):
-  - Plant Configuration (type, # effects, feed arrangement)
+  - Plant Configuration (type, # effects)
   - Capacity & Performance Target (capacity, GOR target)
   - Steam Conditions (pressure, temperature)
   - Seawater Conditions (temps, salinity, chemistry)
@@ -313,15 +312,15 @@ Phase 1 UI is functional, not polished:
   - Warnings panel
 
 ### Deliverables — Phase 1
-- [ ] Types in `packages/types/src/thermal.ts`
-- [ ] Constants in `packages/constants/src/thermal/medConstants.ts`
-- [ ] `effectModel.ts` — single effect solver
-- [ ] `preheaterModel.ts` — preheater integration
-- [ ] `finalCondenserModel.ts` — final condenser
-- [ ] `medSolver.ts` — iterative plant solver
-- [ ] `MEDPlantClient.tsx` + input/output components
-- [ ] Validate against Case 6.xlsx (8-effect MED, GOR=6, 5 T/h)
-- [ ] Save/load integration
+- [x] Types in `packages/types/src/thermal.ts`
+- [x] Constants in `packages/constants/src/thermal/medConstants.ts`
+- [x] `effectModel.ts` — single effect solver
+- [x] `preheaterModel.ts` — preheater integration
+- [x] `finalCondenserModel.ts` — final condenser
+- [x] `medSolver.ts` — iterative plant solver
+- [x] `MEDPlantClient.tsx` + input/output components
+- [x] Validate against Case 6.xlsx (8-effect MED, GOR=6, 5 T/h)
+- [x] Save/load integration
 
 ### Validation Targets (from Case 6.xlsx)
 | Metric | Excel Value | Tolerance |
@@ -338,9 +337,9 @@ Phase 1 UI is functional, not polished:
 
 ---
 
-## Phase 2: MED-TVC & Forward Feed (Days 4–5)
+## Phase 2: MED-TVC & Desuperheating (Days 4–5)
 
-> **Goal**: Add TVC integration and forward feed arrangement.
+> **Goal**: Add TVC integration and desuperheating auto-calculation.
 
 ### 2.1 TVC Integration
 
@@ -363,19 +362,7 @@ New inputs:
 - Entrained vapor source (effect number)
 - TVC component efficiencies (or use defaults)
 
-### 2.2 Forward Feed Arrangement
-
-In forward feed:
-- Seawater enters effect 1 (hottest) → brine cascades to effect 2 → ... → effect N
-- Brine salinity increases through effects
-- Different spray water distribution vs parallel feed
-
-Modify `effectModel.ts`:
-- Brine from effect (i) becomes feed to effect (i+1)
-- Track salinity buildup through effects
-- Adjust BPE per effect based on local salinity
-
-### 2.3 Desuperheating Integration
+### 2.2 Desuperheating Integration
 
 If inlet steam is superheated, integrate `desuperheatingCalculator.ts`:
 - Calculate spray water required to desuperheat to saturation
@@ -383,11 +370,11 @@ If inlet steam is superheated, integrate `desuperheatingCalculator.ts`:
 - Match Excel "Desuperheating Requirement" sheet
 
 ### Deliverables — Phase 2
-- [ ] `tvcIntegration.ts` — TVC coupling
-- [ ] Forward feed mode in `effectModel.ts` and `medSolver.ts`
-- [ ] Desuperheating auto-calculation
-- [ ] UI: Configuration selector (MED / MED-TVC / MED-MVC)
-- [ ] UI: TVC parameter inputs (motive steam, entrainment source)
+- [x] `tvcIntegration.ts` — TVC coupling
+- [x] Desuperheating auto-calculation (integrated into TVC flow)
+- [x] UI: Configuration selector (MED / MED-TVC)
+- [x] UI: TVC parameter inputs (motive steam, entrainment source)
+- [x] Tests: 6 MED-TVC tests passing
 - [ ] Validate MED-TVC against known benchmarks (El-Dessouky data)
 
 ---
@@ -724,7 +711,7 @@ optimization within each (TBT, concentration factor using golden section or simi
 ### 7.3 Configuration Comparison
 
 Side-by-side comparison table:
-- MED vs MED-TVC (same capacity)
+- MED vs MED-TVC for same capacity
 - Different number of effects
 - Different TBT ranges
 - Cost of water comparison
@@ -779,14 +766,11 @@ Generate BOM from design:
 
 ---
 
-## Phase 9: MSF & Advanced Configurations (Future)
+## Phase 9: Advanced Configurations (Future)
 
-> **Scope for later**: Multi-Stage Flash (MSF), hybrid configurations.
+> **Scope for later**: Advanced MED configurations and integrations.
 
-- MSF (Multi-Stage Flash) — different thermodynamic model (flash stages vs evaporation effects)
 - MED-MVC — mechanical vapor compression integration (using existing `mvcCalculator.ts`)
-- Hybrid MED-MSF
-- Forward-feed with flash boxes between effects
 - Multiple-body evaporators (split shells)
 - Dual-purpose (power + water) integration
 
@@ -824,14 +808,14 @@ Generate BOM from design:
 | Phase | Description | Days | Depends On |
 |---|---|---|---|
 | 1 | Core thermodynamic engine + basic UI | 3 | — |
-| 2 | MED-TVC, forward feed, desuperheating | 2 | Phase 1 |
+| 2 | MED-TVC, desuperheating | 2 | Phase 1 |
 | 3 | Equipment sizing | 3 | Phase 1 |
 | 4 | Auxiliary systems | 3 | Phase 1, 3 |
 | 5 | Datasheets, PFD, reports | 3 | Phase 3, 4 |
 | 6 | Costing & economics | 3 | Phase 4 |
 | 7 | Scaling analysis & optimization | 2 | Phase 1, 3, 6 |
 | 8 | Graduate to design module | 4 | Phase 5, 6 |
-| 9 | MSF & advanced (future) | TBD | Phase 8 |
+| 9 | Advanced configurations (future) | TBD | Phase 8 |
 
 **Critical path**: Phase 1 → 3 → 4 → 5 → 8
 **Parallel track**: Phase 2 can run alongside Phase 3; Phase 6 alongside Phase 5

@@ -80,7 +80,7 @@ Vapour Toolbox is an integrated business management system with the following mo
 - **Material Database**: ASME/ASTM compliant materials database
 - **Shape Database**: Parametric shapes with weight/cost calculations
 - **Bought Out Items**: Valves, pumps, instruments catalog
-- **Thermal Desalination Design**: MED/MSF design calculations
+- **Thermal Desalination Design**: MED/MED-TVC plant design calculations
 - **Thermal Calculators**: Steam tables, seawater properties, pipe sizing
 - **Process Data (SSOT)**: Single source of truth for process engineering data
 

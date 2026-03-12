@@ -2,8 +2,7 @@
  * Single-Effect Thermodynamic Model for MED Plant
  *
  * Calculates the heat and mass balance for a single evaporator effect.
- * In parallel feed, each effect receives fresh seawater as spray.
- * In forward feed, brine cascades from the previous (hotter) effect.
+ * Each effect receives fresh seawater as spray (parallel feed).
  *
  * References:
  * - El-Dessouky & Ettouney (2002) "Fundamentals of Salt Water Desalination"
@@ -20,7 +19,7 @@ import {
   getSaturationPressure,
 } from '@vapour/constants';
 import { NEA_HOT_END, NEA_COLD_END, DELTA_T_PRESSURE_DROP } from '@vapour/constants';
-import type { MEDStream, MEDEffectResult, MEDPlantInputs, PreheaterConfig } from '@vapour/types';
+import type { MEDStream, MEDEffectResult, PreheaterConfig } from '@vapour/types';
 
 // ============================================================================
 // Helper — build a stream object
@@ -82,14 +81,6 @@ export interface EffectInput {
   /** Spray water salinity in ppm */
   sprayWaterSalinity: number;
 
-  // Forward-feed brine from previous effect (null for parallel or effect 1)
-  /** Brine flow from previous effect in kg/hr */
-  brineInFlow: number;
-  /** Brine temperature from previous effect in °C */
-  brineInTemp: number;
-  /** Brine salinity from previous effect in ppm */
-  brineInSalinity: number;
-
   // Distillate & condensate cascade from previous effects
   /** Accumulated distillate flow in kg/hr */
   distillateInFlow: number;
@@ -102,9 +93,6 @@ export interface EffectInput {
 
   /** Preheater config (if this effect has a preheater) */
   preheater: PreheaterConfig | null;
-
-  /** Feed arrangement */
-  feedArrangement: MEDPlantInputs['feedArrangement'];
 
   /** Brine concentration factor */
   brineConcentrationFactor: number;
@@ -133,15 +121,11 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     sprayWaterFlow,
     sprayWaterTemp,
     sprayWaterSalinity,
-    brineInFlow,
-    brineInTemp,
-    brineInSalinity,
     distillateInFlow,
     distillateInTemp,
     condensateInFlow,
     condensateInTemp,
     preheater,
-    feedArrangement,
     brineConcentrationFactor,
     seawaterSalinity,
   } = input;
@@ -149,10 +133,7 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   let vaporInFlow = input.vaporInFlow;
 
   // ---- Temperature losses ----
-  const brineSalinityForBPE =
-    feedArrangement === 'FORWARD' && brineInFlow > 0
-      ? brineInSalinity // forward feed: use cascading brine salinity
-      : seawaterSalinity * brineConcentrationFactor; // parallel: target brine salinity
+  const brineSalinityForBPE = seawaterSalinity * brineConcentrationFactor;
 
   const bpe = getBoilingPointElevation(
     Math.min(brineSalinityForBPE, 120000),
@@ -183,10 +164,6 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const h_vaporIn = getEnthalpyVapor(steamTemp); // kJ/kg — saturated vapor at steam temp
   const h_condensateOut = getEnthalpyLiquid(steamTemp); // kJ/kg — condensate at steam temp
   const h_sprayWater = getSeawaterEnthalpy(sprayWaterSalinity, sprayWaterTemp); // kJ/kg
-  const h_brineIn =
-    brineInFlow > 0
-      ? getSeawaterEnthalpy(Math.min(brineInSalinity, 120000), brineInTemp)
-      : 0;
   const h_distillateIn = distillateInFlow > 0 ? getEnthalpyLiquid(distillateInTemp) : 0;
   const h_condensateIn = condensateInFlow > 0 ? getEnthalpyLiquid(condensateInTemp) : 0;
 
@@ -214,31 +191,20 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
       ? (condensateInFlow * (h_condensateIn - getEnthalpyLiquid(effectTemp))) / 3600
       : 0;
 
-  // Heat from brine entering (forward feed only — brine flashes from higher temp):
-  const Q_brineFlash =
-    brineInFlow > 0
-      ? (brineInFlow *
-          (h_brineIn -
-            getSeawaterEnthalpy(Math.min(brineInSalinity, 120000), brineBoilingTemp))) /
-        3600
-      : 0;
-
   // Sensible heat needed to raise spray water to boiling:
   const cp_spray = getSeawaterSpecificHeat(sprayWaterSalinity, (sprayWaterTemp + brineBoilingTemp) / 2);
   const Q_sensible = (sprayWaterFlow * cp_spray * (brineBoilingTemp - sprayWaterTemp)) / 3600; // kW
 
   // Total available heat for evaporation:
-  const Q_available = Q_condensing + Q_distillateFlash + Q_condensateFlash + Q_brineFlash - Q_sensible;
+  const Q_available = Q_condensing + Q_distillateFlash + Q_condensateFlash - Q_sensible;
 
   // Vapor produced:
   const vaporProduced = Math.max(0, (Q_available * 3600) / latentHeatEffect); // kg/hr
-  const heatTransferred = Q_condensing + Q_distillateFlash + Q_condensateFlash + Q_brineFlash;
+  const heatTransferred = Q_condensing + Q_distillateFlash + Q_condensateFlash;
 
   // ---- Mass balance ----
-  // Total liquid in = spray water + brine in (forward feed)
-  const totalLiquidIn = sprayWaterFlow + brineInFlow;
-  // Brine out = total liquid in - vapor produced
-  const brineOutFlow = Math.max(0, totalLiquidIn - vaporProduced);
+  // Brine out = spray water in - vapor produced
+  const brineOutFlow = Math.max(0, sprayWaterFlow - vaporProduced);
 
   // Distillate accumulation: previous distillate + condensate from this effect's tube side
   // The inlet vapor condenses to become condensate/distillate
@@ -254,7 +220,7 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const netVaporOut = Math.max(0, vaporProduced - vaporToPreheaterFlow);
 
   // Mass balance check
-  const totalIn = vaporInFlow + sprayWaterFlow + brineInFlow + distillateInFlow + condensateInFlow;
+  const totalIn = vaporInFlow + sprayWaterFlow + distillateInFlow + condensateInFlow;
   const totalOut = netVaporOut + vaporToPreheaterFlow + brineOutFlow + distillateOutFlow;
   const massBalance = totalIn - totalOut;
 
@@ -286,17 +252,7 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
       h_sprayWater,
       sprayWaterSalinity
     ),
-    brineIn:
-      brineInFlow > 0
-        ? makeStream(
-            `Brine In to Effect ${effectNumber}`,
-            'BRINE',
-            brineInFlow,
-            brineInTemp,
-            h_brineIn,
-            brineInSalinity
-          )
-        : null,
+    brineIn: null,
     distillateIn:
       distillateInFlow > 0
         ? makeStream(

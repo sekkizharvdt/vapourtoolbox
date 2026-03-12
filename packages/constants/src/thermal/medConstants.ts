@@ -128,7 +128,6 @@ export const MED_SOLVER_CONFIG = {
  */
 export const DEFAULT_MED_PLANT_INPUTS = {
   plantType: 'MED' as const,
-  feedArrangement: 'PARALLEL' as const,
   numberOfEffects: 8,
   preheaters: [] as { effectNumber: number; vaporFlow: number }[],
 

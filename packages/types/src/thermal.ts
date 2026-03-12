@@ -568,9 +568,6 @@ export const PRESSURE_CONVERSIONS = {
 /** MED plant type — the high-level configuration */
 export type MEDPlantType = 'MED' | 'MED_TVC';
 
-/** Feed arrangement through the effects */
-export type MEDFeedArrangement = 'PARALLEL' | 'FORWARD';
-
 /** Where condensate is extracted from the plant */
 export type CondensateExtraction = 'FINAL_CONDENSER' | 'FIRST_EFFECT';
 
@@ -635,8 +632,6 @@ export interface MEDPlantInputs {
   // --- Plant configuration ---
   /** Plant type */
   plantType: MEDPlantType;
-  /** Feed arrangement */
-  feedArrangement: MEDFeedArrangement;
   /** Number of evaporator effects (2–16) */
   numberOfEffects: number;
   /** Preheater configurations (can be empty) */
@@ -713,7 +708,7 @@ export interface MEDEffectResult {
   vaporIn: MEDStream;
   /** Feed water sprayed on shell side */
   sprayWater: MEDStream;
-  /** Brine entering (only in forward feed, from previous effect) */
+  /** Brine entering (reserved, always null — parallel feed only) */
   brineIn: MEDStream | null;
   /** Distillate cascading in from previous effects */
   distillateIn: MEDStream | null;
@@ -821,6 +816,25 @@ export interface MEDPlantResult {
   finalCondenser: MEDFinalCondenserResult;
   /** Preheater results (may be empty) */
   preheaters: MEDPreheaterResult[];
+  /** TVC result (null for plain MED) */
+  tvcResult?: {
+    /** Motive steam flow in kg/hr */
+    motiveFlow: number;
+    /** Entrained vapor flow in kg/hr */
+    entrainedFlow: number;
+    /** Discharge flow in kg/hr */
+    dischargeFlow: number;
+    /** Entrainment ratio */
+    entrainmentRatio: number;
+    /** Compression ratio */
+    compressionRatio: number;
+    /** Whether discharge is superheated */
+    isSuperheated: boolean;
+    /** Desuperheating spray water flow in kg/hr (0 if saturated) */
+    sprayWaterFlow: number;
+    /** Vapor temperature to effect 1 in °C */
+    vaporToEffect1Temp: number;
+  };
   /** Overall plant balance */
   overallBalance: MEDOverallBalance;
   /** Performance summary */
@@ -835,8 +849,10 @@ export interface MEDPlantResult {
     grossProduction: number;
     /** Net production (effects + condenser) in T/h */
     netProduction: number;
-    /** Steam flow in kg/hr */
+    /** Steam flow in kg/hr (for MED-TVC: motive steam to TVC) */
     steamFlow: number;
+    /** Motive steam flow to TVC in kg/hr (0 for plain MED) */
+    motiveFlow: number;
     /** Total seawater intake in T/h */
     seawaterIntake: number;
     /** Cooling water (seawater rejected after condenser) in T/h */
