@@ -130,15 +130,12 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     seawaterSalinity,
   } = input;
 
-  let vaporInFlow = input.vaporInFlow;
+  const vaporInFlow = input.vaporInFlow;
 
   // ---- Temperature losses ----
   const brineSalinityForBPE = seawaterSalinity * brineConcentrationFactor;
 
-  const bpe = getBoilingPointElevation(
-    Math.min(brineSalinityForBPE, 120000),
-    effectTemp
-  );
+  const bpe = getBoilingPointElevation(Math.min(brineSalinityForBPE, 120000), effectTemp);
   const nea = getNEA(index, totalEffects);
   const deltaTP = DELTA_T_PRESSURE_DROP;
 
@@ -192,7 +189,10 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
       : 0;
 
   // Sensible heat needed to raise spray water to boiling:
-  const cp_spray = getSeawaterSpecificHeat(sprayWaterSalinity, (sprayWaterTemp + brineBoilingTemp) / 2);
+  const cp_spray = getSeawaterSpecificHeat(
+    sprayWaterSalinity,
+    (sprayWaterTemp + brineBoilingTemp) / 2
+  );
   const Q_sensible = (sprayWaterFlow * cp_spray * (brineBoilingTemp - sprayWaterTemp)) / 3600; // kW
 
   // Total available heat for evaporation:

@@ -43,6 +43,7 @@ import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { SaveCalculationDialog } from '../components/SaveCalculationDialog';
 import { LoadCalculationDialog } from '../components/LoadCalculationDialog';
 import { solveMEDPlant } from '@/lib/thermal/med/medSolver';
+import { sizeEquipment, type EquipmentSizingResult } from '@/lib/thermal/med/equipmentSizing';
 
 // ============================================================================
 // Constants
@@ -87,20 +88,30 @@ export default function MEDPlantClient() {
   const [steamTemperature, setSteamTemperature] = useState(String(d.steamTemperature));
 
   const [seawaterInletTemp, setSeawaterInletTemp] = useState(String(d.seawaterInletTemp));
-  const [seawaterDischargeTemp, setSeawaterDischargeTemp] = useState(String(d.seawaterDischargeTemp));
+  const [seawaterDischargeTemp, setSeawaterDischargeTemp] = useState(
+    String(d.seawaterDischargeTemp)
+  );
   const [seawaterSalinity, setSeawaterSalinity] = useState(String(d.seawaterSalinity));
 
   const [topBrineTemp, setTopBrineTemp] = useState(String(d.topBrineTemp));
-  const [brineConcentrationFactor, setBrineConcentrationFactor] = useState(String(d.brineConcentrationFactor));
-  const [condenserApproachTemp, setCondenserApproachTemp] = useState(String(d.condenserApproachTemp));
+  const [brineConcentrationFactor, setBrineConcentrationFactor] = useState(
+    String(d.brineConcentrationFactor)
+  );
+  const [condenserApproachTemp, setCondenserApproachTemp] = useState(
+    String(d.condenserApproachTemp)
+  );
   const [distillateTemp, setDistillateTemp] = useState(String(d.distillateTemp));
-  const [condensateExtraction, setCondensateExtraction] = useState<CondensateExtraction>(d.condensateExtraction);
+  const [condensateExtraction, setCondensateExtraction] = useState<CondensateExtraction>(
+    d.condensateExtraction
+  );
   const [foulingFactor, setFoulingFactor] = useState(String(d.foulingFactor));
 
   const [evapTubeOd, setEvapTubeOd] = useState(String(d.evaporatorTubes.od));
   const [evapTubeThickness, setEvapTubeThickness] = useState(String(d.evaporatorTubes.thickness));
   const [evapTubeLength, setEvapTubeLength] = useState(String(d.evaporatorTubes.length));
-  const [evapTubeMaterial, setEvapTubeMaterial] = useState<TubeMaterial>(d.evaporatorTubes.material);
+  const [evapTubeMaterial, setEvapTubeMaterial] = useState<TubeMaterial>(
+    d.evaporatorTubes.material
+  );
 
   const [condTubeOd, setCondTubeOd] = useState(String(d.condenserTubes.od));
   const [condTubeThickness, setCondTubeThickness] = useState(String(d.condenserTubes.thickness));
@@ -160,13 +171,32 @@ export default function MEDPlantClient() {
       }),
     };
   }, [
-    plantType, numberOfEffects, preheaters, capacity, gorTarget,
-    steamPressure, steamTemperature, seawaterInletTemp, seawaterDischargeTemp,
-    seawaterSalinity, topBrineTemp, brineConcentrationFactor, condenserApproachTemp,
-    distillateTemp, condensateExtraction, foulingFactor,
-    evapTubeOd, evapTubeThickness, evapTubeLength, evapTubeMaterial,
-    condTubeOd, condTubeThickness, condTubeLength, condTubeMaterial,
-    tvcMotivePressure, tvcEntrainedEffect,
+    plantType,
+    numberOfEffects,
+    preheaters,
+    capacity,
+    gorTarget,
+    steamPressure,
+    steamTemperature,
+    seawaterInletTemp,
+    seawaterDischargeTemp,
+    seawaterSalinity,
+    topBrineTemp,
+    brineConcentrationFactor,
+    condenserApproachTemp,
+    distillateTemp,
+    condensateExtraction,
+    foulingFactor,
+    evapTubeOd,
+    evapTubeThickness,
+    evapTubeLength,
+    evapTubeMaterial,
+    condTubeOd,
+    condTubeThickness,
+    condTubeLength,
+    condTubeMaterial,
+    tvcMotivePressure,
+    tvcEntrainedEffect,
   ]);
 
   // ---- Solve ----
@@ -180,6 +210,16 @@ export default function MEDPlantClient() {
   }, [inputs]);
 
   const { result, error } = computed;
+
+  // ---- Equipment sizing (computed from H&M balance) ----
+  const equipmentSizing = useMemo<EquipmentSizingResult | null>(() => {
+    if (!result || !inputs) return null;
+    try {
+      return sizeEquipment(result.effects, result.finalCondenser, result.preheaters, inputs);
+    } catch {
+      return null;
+    }
+  }, [result, inputs]);
 
   // ---- Preheater management ----
   const addPreheater = useCallback(() => {
@@ -201,9 +241,7 @@ export default function MEDPlantClient() {
   const updatePreheater = useCallback(
     (idx: number, field: keyof PreheaterConfig, value: string) => {
       setPreheaters((prev) =>
-        prev.map((p, i) =>
-          i === idx ? { ...p, [field]: parseFloat(value) || 0 } : p
-        )
+        prev.map((p, i) => (i === idx ? { ...p, [field]: parseFloat(value) || 0 } : p))
       );
     },
     []
@@ -241,13 +279,17 @@ export default function MEDPlantClient() {
     if (saved.steamPressure != null) setSteamPressure(String(saved.steamPressure));
     if (saved.steamTemperature != null) setSteamTemperature(String(saved.steamTemperature));
     if (saved.seawaterInletTemp != null) setSeawaterInletTemp(String(saved.seawaterInletTemp));
-    if (saved.seawaterDischargeTemp != null) setSeawaterDischargeTemp(String(saved.seawaterDischargeTemp));
+    if (saved.seawaterDischargeTemp != null)
+      setSeawaterDischargeTemp(String(saved.seawaterDischargeTemp));
     if (saved.seawaterSalinity != null) setSeawaterSalinity(String(saved.seawaterSalinity));
     if (saved.topBrineTemp != null) setTopBrineTemp(String(saved.topBrineTemp));
-    if (saved.brineConcentrationFactor != null) setBrineConcentrationFactor(String(saved.brineConcentrationFactor));
-    if (saved.condenserApproachTemp != null) setCondenserApproachTemp(String(saved.condenserApproachTemp));
+    if (saved.brineConcentrationFactor != null)
+      setBrineConcentrationFactor(String(saved.brineConcentrationFactor));
+    if (saved.condenserApproachTemp != null)
+      setCondenserApproachTemp(String(saved.condenserApproachTemp));
     if (saved.distillateTemp != null) setDistillateTemp(String(saved.distillateTemp));
-    if (typeof saved.condensateExtraction === 'string') setCondensateExtraction(saved.condensateExtraction as CondensateExtraction);
+    if (typeof saved.condensateExtraction === 'string')
+      setCondensateExtraction(saved.condensateExtraction as CondensateExtraction);
     if (saved.foulingFactor != null) setFoulingFactor(String(saved.foulingFactor));
     if (saved.tvcMotivePressure != null) setTvcMotivePressure(String(saved.tvcMotivePressure));
     if (saved.tvcEntrainedEffect != null) setTvcEntrainedEffect(String(saved.tvcEntrainedEffect));
@@ -255,11 +297,24 @@ export default function MEDPlantClient() {
 
   // ---- Collect all inputs for save ----
   const allInputsForSave: Record<string, unknown> = {
-    plantType, numberOfEffects, preheaters, capacity, gorTarget,
-    steamPressure, steamTemperature, seawaterInletTemp, seawaterDischargeTemp,
-    seawaterSalinity, topBrineTemp, brineConcentrationFactor, condenserApproachTemp,
-    distillateTemp, condensateExtraction, foulingFactor,
-    tvcMotivePressure, tvcEntrainedEffect,
+    plantType,
+    numberOfEffects,
+    preheaters,
+    capacity,
+    gorTarget,
+    steamPressure,
+    steamTemperature,
+    seawaterInletTemp,
+    seawaterDischargeTemp,
+    seawaterSalinity,
+    topBrineTemp,
+    brineConcentrationFactor,
+    condenserApproachTemp,
+    distillateTemp,
+    condensateExtraction,
+    foulingFactor,
+    tvcMotivePressure,
+    tvcEntrainedEffect,
   };
 
   // ---- Render ----
@@ -271,7 +326,9 @@ export default function MEDPlantClient() {
         {/* ---- INPUT COLUMN ---- */}
         <Grid size={{ xs: 12, md: 5 }}>
           <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
               <Typography variant="h6">Plant Configuration</Typography>
               <Box>
                 <Tooltip title="Load saved">
@@ -291,7 +348,10 @@ export default function MEDPlantClient() {
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  select fullWidth size="small" label="Plant Type"
+                  select
+                  fullWidth
+                  size="small"
+                  label="Plant Type"
                   value={plantType}
                   onChange={(e) => setPlantType(e.target.value as MEDPlantType)}
                 >
@@ -304,24 +364,33 @@ export default function MEDPlantClient() {
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Number of Effects"
-                  type="number" value={numberOfEffects}
+                  fullWidth
+                  size="small"
+                  label="Number of Effects"
+                  type="number"
+                  value={numberOfEffects}
                   onChange={(e) => setNumberOfEffects(e.target.value)}
                   inputProps={{ min: 2, max: 16, step: 1 }}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Capacity (T/h)"
-                  type="number" value={capacity}
+                  fullWidth
+                  size="small"
+                  label="Capacity (T/h)"
+                  type="number"
+                  value={capacity}
                   onChange={(e) => setCapacity(e.target.value)}
                   inputProps={{ min: 0.5, step: 0.5 }}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="GOR Target"
-                  type="number" value={gorTarget}
+                  fullWidth
+                  size="small"
+                  label="GOR Target"
+                  type="number"
+                  value={gorTarget}
                   onChange={(e) => setGorTarget(e.target.value)}
                   inputProps={{ min: 2, max: 16, step: 0.5 }}
                 />
@@ -329,20 +398,28 @@ export default function MEDPlantClient() {
             </Grid>
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>Steam Conditions</Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Steam Conditions
+            </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Pressure (bar abs)"
-                  type="number" value={steamPressure}
+                  fullWidth
+                  size="small"
+                  label="Pressure (bar abs)"
+                  type="number"
+                  value={steamPressure}
                   onChange={(e) => setSteamPressure(e.target.value)}
                   inputProps={{ min: 0.05, step: 0.01 }}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Temperature (\u00B0C)"
-                  type="number" value={steamTemperature}
+                  fullWidth
+                  size="small"
+                  label="Temperature (\u00B0C)"
+                  type="number"
+                  value={steamTemperature}
                   onChange={(e) => setSteamTemperature(e.target.value)}
                   inputProps={{ step: 0.1 }}
                 />
@@ -353,12 +430,17 @@ export default function MEDPlantClient() {
             {plantType === 'MED_TVC' && (
               <>
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle2" gutterBottom>TVC Parameters</Typography>
+                <Typography variant="subtitle2" gutterBottom>
+                  TVC Parameters
+                </Typography>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 6 }}>
                     <TextField
-                      fullWidth size="small" label="Motive Steam (bar abs)"
-                      type="number" value={tvcMotivePressure}
+                      fullWidth
+                      size="small"
+                      label="Motive Steam (bar abs)"
+                      type="number"
+                      value={tvcMotivePressure}
                       onChange={(e) => setTvcMotivePressure(e.target.value)}
                       inputProps={{ min: 1, max: 45, step: 0.5 }}
                       helperText="High-pressure steam to ejector"
@@ -366,8 +448,11 @@ export default function MEDPlantClient() {
                   </Grid>
                   <Grid size={{ xs: 6 }}>
                     <TextField
-                      fullWidth size="small" label="Entrained Effect #"
-                      type="number" value={tvcEntrainedEffect}
+                      fullWidth
+                      size="small"
+                      label="Entrained Effect #"
+                      type="number"
+                      value={tvcEntrainedEffect}
                       onChange={(e) => setTvcEntrainedEffect(e.target.value)}
                       inputProps={{ min: 1, max: parseInt(numberOfEffects) || 16 }}
                       helperText={`Default: last effect (${numberOfEffects})`}
@@ -378,78 +463,111 @@ export default function MEDPlantClient() {
             )}
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>Seawater Conditions</Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Seawater Conditions
+            </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 4 }}>
                 <TextField
-                  fullWidth size="small" label="Inlet (\u00B0C)"
-                  type="number" value={seawaterInletTemp}
+                  fullWidth
+                  size="small"
+                  label="Inlet (\u00B0C)"
+                  type="number"
+                  value={seawaterInletTemp}
                   onChange={(e) => setSeawaterInletTemp(e.target.value)}
                 />
               </Grid>
               <Grid size={{ xs: 4 }}>
                 <TextField
-                  fullWidth size="small" label="Discharge (\u00B0C)"
-                  type="number" value={seawaterDischargeTemp}
+                  fullWidth
+                  size="small"
+                  label="Discharge (\u00B0C)"
+                  type="number"
+                  value={seawaterDischargeTemp}
                   onChange={(e) => setSeawaterDischargeTemp(e.target.value)}
                 />
               </Grid>
               <Grid size={{ xs: 4 }}>
                 <TextField
-                  fullWidth size="small" label="Salinity (ppm)"
-                  type="number" value={seawaterSalinity}
+                  fullWidth
+                  size="small"
+                  label="Salinity (ppm)"
+                  type="number"
+                  value={seawaterSalinity}
                   onChange={(e) => setSeawaterSalinity(e.target.value)}
                 />
               </Grid>
             </Grid>
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>Design Parameters</Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Design Parameters
+            </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Top Brine Temp (\u00B0C)"
-                  type="number" value={topBrineTemp}
+                  fullWidth
+                  size="small"
+                  label="Top Brine Temp (\u00B0C)"
+                  type="number"
+                  value={topBrineTemp}
                   onChange={(e) => setTopBrineTemp(e.target.value)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Brine Conc. Factor"
-                  type="number" value={brineConcentrationFactor}
+                  fullWidth
+                  size="small"
+                  label="Brine Conc. Factor"
+                  type="number"
+                  value={brineConcentrationFactor}
                   onChange={(e) => setBrineConcentrationFactor(e.target.value)}
                   inputProps={{ min: 1.1, max: 2.0, step: 0.05 }}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Condenser Approach (\u00B0C)"
-                  type="number" value={condenserApproachTemp}
+                  fullWidth
+                  size="small"
+                  label="Condenser Approach (\u00B0C)"
+                  type="number"
+                  value={condenserApproachTemp}
                   onChange={(e) => setCondenserApproachTemp(e.target.value)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Distillate Temp (\u00B0C)"
-                  type="number" value={distillateTemp}
+                  fullWidth
+                  size="small"
+                  label="Distillate Temp (\u00B0C)"
+                  type="number"
+                  value={distillateTemp}
                   onChange={(e) => setDistillateTemp(e.target.value)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  select fullWidth size="small" label="Condensate From"
+                  select
+                  fullWidth
+                  size="small"
+                  label="Condensate From"
                   value={condensateExtraction}
                   onChange={(e) => setCondensateExtraction(e.target.value as CondensateExtraction)}
                 >
                   {CONDENSATE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    <MenuItem key={o.value} value={o.value}>
+                      {o.label}
+                    </MenuItem>
                   ))}
                 </TextField>
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
-                  fullWidth size="small" label="Fouling Factor (m\u00B2\u00B7\u00B0C/W)"
-                  type="number" value={foulingFactor}
+                  fullWidth
+                  size="small"
+                  label="Fouling Factor (m\u00B2\u00B7\u00B0C/W)"
+                  type="number"
+                  value={foulingFactor}
                   onChange={(e) => setFoulingFactor(e.target.value)}
                   inputProps={{ step: 0.00005 }}
                 />
@@ -458,7 +576,9 @@ export default function MEDPlantClient() {
 
             {/* Preheaters */}
             <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
+            >
               <Typography variant="subtitle2">Preheaters</Typography>
               <Button size="small" startIcon={<AddIcon />} onClick={addPreheater}>
                 Add
@@ -473,16 +593,22 @@ export default function MEDPlantClient() {
               <Grid container spacing={1} key={idx} sx={{ mb: 1 }} alignItems="center">
                 <Grid size={{ xs: 5 }}>
                   <TextField
-                    fullWidth size="small" label="Effect #"
-                    type="number" value={ph.effectNumber}
+                    fullWidth
+                    size="small"
+                    label="Effect #"
+                    type="number"
+                    value={ph.effectNumber}
                     onChange={(e) => updatePreheater(idx, 'effectNumber', e.target.value)}
                     inputProps={{ min: 2, max: parseInt(numberOfEffects) || 16 }}
                   />
                 </Grid>
                 <Grid size={{ xs: 5 }}>
                   <TextField
-                    fullWidth size="small" label="Vapor (kg/hr)"
-                    type="number" value={ph.vaporFlow}
+                    fullWidth
+                    size="small"
+                    label="Vapor (kg/hr)"
+                    type="number"
+                    value={ph.vaporFlow}
                     onChange={(e) => updatePreheater(idx, 'vaporFlow', e.target.value)}
                     inputProps={{ min: 0, step: 25 }}
                   />
@@ -506,17 +632,49 @@ export default function MEDPlantClient() {
                 </Typography>
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   <Grid size={{ xs: 3 }}>
-                    <TextField fullWidth size="small" label="OD (mm)" type="number" value={evapTubeOd} onChange={(e) => setEvapTubeOd(e.target.value)} />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="OD (mm)"
+                      type="number"
+                      value={evapTubeOd}
+                      onChange={(e) => setEvapTubeOd(e.target.value)}
+                    />
                   </Grid>
                   <Grid size={{ xs: 3 }}>
-                    <TextField fullWidth size="small" label="Thk (mm)" type="number" value={evapTubeThickness} onChange={(e) => setEvapTubeThickness(e.target.value)} />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Thk (mm)"
+                      type="number"
+                      value={evapTubeThickness}
+                      onChange={(e) => setEvapTubeThickness(e.target.value)}
+                    />
                   </Grid>
                   <Grid size={{ xs: 3 }}>
-                    <TextField fullWidth size="small" label="Length (m)" type="number" value={evapTubeLength} onChange={(e) => setEvapTubeLength(e.target.value)} />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Length (m)"
+                      type="number"
+                      value={evapTubeLength}
+                      onChange={(e) => setEvapTubeLength(e.target.value)}
+                    />
                   </Grid>
                   <Grid size={{ xs: 3 }}>
-                    <TextField select fullWidth size="small" label="Material" value={evapTubeMaterial} onChange={(e) => setEvapTubeMaterial(e.target.value as TubeMaterial)}>
-                      {TUBE_MATERIAL_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      label="Material"
+                      value={evapTubeMaterial}
+                      onChange={(e) => setEvapTubeMaterial(e.target.value as TubeMaterial)}
+                    >
+                      {TUBE_MATERIAL_OPTIONS.map((o) => (
+                        <MenuItem key={o.value} value={o.value}>
+                          {o.label}
+                        </MenuItem>
+                      ))}
                     </TextField>
                   </Grid>
                 </Grid>
@@ -525,17 +683,49 @@ export default function MEDPlantClient() {
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 3 }}>
-                    <TextField fullWidth size="small" label="OD (mm)" type="number" value={condTubeOd} onChange={(e) => setCondTubeOd(e.target.value)} />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="OD (mm)"
+                      type="number"
+                      value={condTubeOd}
+                      onChange={(e) => setCondTubeOd(e.target.value)}
+                    />
                   </Grid>
                   <Grid size={{ xs: 3 }}>
-                    <TextField fullWidth size="small" label="Thk (mm)" type="number" value={condTubeThickness} onChange={(e) => setCondTubeThickness(e.target.value)} />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Thk (mm)"
+                      type="number"
+                      value={condTubeThickness}
+                      onChange={(e) => setCondTubeThickness(e.target.value)}
+                    />
                   </Grid>
                   <Grid size={{ xs: 3 }}>
-                    <TextField fullWidth size="small" label="Length (m)" type="number" value={condTubeLength} onChange={(e) => setCondTubeLength(e.target.value)} />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Length (m)"
+                      type="number"
+                      value={condTubeLength}
+                      onChange={(e) => setCondTubeLength(e.target.value)}
+                    />
                   </Grid>
                   <Grid size={{ xs: 3 }}>
-                    <TextField select fullWidth size="small" label="Material" value={condTubeMaterial} onChange={(e) => setCondTubeMaterial(e.target.value as TubeMaterial)}>
-                      {TUBE_MATERIAL_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      label="Material"
+                      value={condTubeMaterial}
+                      onChange={(e) => setCondTubeMaterial(e.target.value as TubeMaterial)}
+                    >
+                      {TUBE_MATERIAL_OPTIONS.map((o) => (
+                        <MenuItem key={o.value} value={o.value}>
+                          {o.label}
+                        </MenuItem>
+                      ))}
                     </TextField>
                   </Grid>
                 </Grid>
@@ -546,7 +736,9 @@ export default function MEDPlantClient() {
             {result && (
               <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
                 <Button
-                  variant="outlined" size="small" startIcon={<SaveIcon />}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<SaveIcon />}
                   onClick={() => setSaveOpen(true)}
                 >
                   Save
@@ -559,26 +751,66 @@ export default function MEDPlantClient() {
         {/* ---- RESULTS COLUMN ---- */}
         <Grid size={{ xs: 12, md: 7 }}>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
           )}
 
           {result && (
             <>
               {/* Performance Summary */}
               <Paper sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h6" gutterBottom>Performance Summary</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Performance Summary
+                </Typography>
                 <Grid container spacing={2}>
                   {[
                     { label: 'GOR', value: result.performance.gor, unit: '' },
-                    { label: 'Net Production', value: result.performance.netProduction, unit: 'T/h' },
-                    { label: result.tvcResult ? 'Motive Steam' : 'Steam Flow', value: result.performance.steamFlow.toFixed(0), unit: 'kg/hr' },
-                    { label: 'STE', value: result.performance.specificThermalEnergy, unit: 'kJ/kg' },
-                    { label: 'STE', value: result.performance.specificThermalEnergy_kWh, unit: 'kWh/m\u00B3' },
-                    { label: 'Seawater Intake', value: result.performance.seawaterIntake.toFixed(1), unit: 'T/h' },
-                    { label: 'Cooling Water', value: result.performance.coolingWater.toFixed(1), unit: 'T/h' },
-                    { label: 'Brine Flow', value: result.performance.brineFlow.toFixed(2), unit: 'T/h' },
-                    { label: 'Brine Salinity', value: result.performance.brineSalinity.toLocaleString(), unit: 'ppm' },
-                    { label: 'Overdesign', value: (result.performance.overdesign * 100).toFixed(1), unit: '%' },
+                    {
+                      label: 'Net Production',
+                      value: result.performance.netProduction,
+                      unit: 'T/h',
+                    },
+                    {
+                      label: result.tvcResult ? 'Motive Steam' : 'Steam Flow',
+                      value: result.performance.steamFlow.toFixed(0),
+                      unit: 'kg/hr',
+                    },
+                    {
+                      label: 'STE',
+                      value: result.performance.specificThermalEnergy,
+                      unit: 'kJ/kg',
+                    },
+                    {
+                      label: 'STE',
+                      value: result.performance.specificThermalEnergy_kWh,
+                      unit: 'kWh/m\u00B3',
+                    },
+                    {
+                      label: 'Seawater Intake',
+                      value: result.performance.seawaterIntake.toFixed(1),
+                      unit: 'T/h',
+                    },
+                    {
+                      label: 'Cooling Water',
+                      value: result.performance.coolingWater.toFixed(1),
+                      unit: 'T/h',
+                    },
+                    {
+                      label: 'Brine Flow',
+                      value: result.performance.brineFlow.toFixed(2),
+                      unit: 'T/h',
+                    },
+                    {
+                      label: 'Brine Salinity',
+                      value: result.performance.brineSalinity.toLocaleString(),
+                      unit: 'ppm',
+                    },
+                    {
+                      label: 'Overdesign',
+                      value: (result.performance.overdesign * 100).toFixed(1),
+                      unit: '%',
+                    },
                   ].map((item) => (
                     <Grid size={{ xs: 6, sm: 4 }} key={item.label + item.unit}>
                       <Typography variant="caption" color="text.secondary">
@@ -596,11 +828,7 @@ export default function MEDPlantClient() {
                     color={result.converged ? 'success' : 'warning'}
                     size="small"
                   />
-                  <Chip
-                    label={`${result.iterations} iterations`}
-                    size="small"
-                    variant="outlined"
-                  />
+                  <Chip label={`${result.iterations} iterations`} size="small" variant="outlined" />
                   <Chip
                     label={`Energy balance: ${result.overallBalance.energyBalanceError.toFixed(2)}%`}
                     size="small"
@@ -613,23 +841,63 @@ export default function MEDPlantClient() {
               {/* TVC Results */}
               {result.tvcResult && (
                 <Paper sx={{ p: 2, mb: 2 }}>
-                  <Typography variant="h6" gutterBottom>TVC Ejector Performance</Typography>
+                  <Typography variant="h6" gutterBottom>
+                    TVC Ejector Performance
+                  </Typography>
                   <Grid container spacing={2}>
                     {[
-                      { label: 'Motive Steam', value: result.tvcResult.motiveFlow.toFixed(0), unit: 'kg/hr' },
-                      { label: 'Entrained Vapor', value: result.tvcResult.entrainedFlow.toFixed(0), unit: 'kg/hr' },
-                      { label: 'Discharge Flow', value: result.tvcResult.dischargeFlow.toFixed(0), unit: 'kg/hr' },
-                      { label: 'Entrainment Ratio', value: result.tvcResult.entrainmentRatio.toFixed(3), unit: '' },
-                      { label: 'Compression Ratio', value: result.tvcResult.compressionRatio.toFixed(3), unit: '' },
-                      { label: 'Vapor to Eff. 1', value: result.tvcResult.vaporToEffect1Temp.toFixed(1), unit: '\u00B0C' },
-                      { label: 'Superheated', value: result.tvcResult.isSuperheated ? 'Yes' : 'No', unit: '' },
+                      {
+                        label: 'Motive Steam',
+                        value: result.tvcResult.motiveFlow.toFixed(0),
+                        unit: 'kg/hr',
+                      },
+                      {
+                        label: 'Entrained Vapor',
+                        value: result.tvcResult.entrainedFlow.toFixed(0),
+                        unit: 'kg/hr',
+                      },
+                      {
+                        label: 'Discharge Flow',
+                        value: result.tvcResult.dischargeFlow.toFixed(0),
+                        unit: 'kg/hr',
+                      },
+                      {
+                        label: 'Entrainment Ratio',
+                        value: result.tvcResult.entrainmentRatio.toFixed(3),
+                        unit: '',
+                      },
+                      {
+                        label: 'Compression Ratio',
+                        value: result.tvcResult.compressionRatio.toFixed(3),
+                        unit: '',
+                      },
+                      {
+                        label: 'Vapor to Eff. 1',
+                        value: result.tvcResult.vaporToEffect1Temp.toFixed(1),
+                        unit: '\u00B0C',
+                      },
+                      {
+                        label: 'Superheated',
+                        value: result.tvcResult.isSuperheated ? 'Yes' : 'No',
+                        unit: '',
+                      },
                       ...(result.tvcResult.sprayWaterFlow > 0
-                        ? [{ label: 'Desuperheating Spray', value: result.tvcResult.sprayWaterFlow.toFixed(0), unit: 'kg/hr' }]
+                        ? [
+                            {
+                              label: 'Desuperheating Spray',
+                              value: result.tvcResult.sprayWaterFlow.toFixed(0),
+                              unit: 'kg/hr',
+                            },
+                          ]
                         : []),
                     ].map((item) => (
                       <Grid size={{ xs: 6, sm: 4 }} key={item.label}>
-                        <Typography variant="caption" color="text.secondary">{item.label}</Typography>
-                        <Typography variant="body2" fontWeight="bold">{item.value} {item.unit}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.label}
+                        </Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {item.value} {item.unit}
+                        </Typography>
                       </Grid>
                     ))}
                   </Grid>
@@ -640,7 +908,9 @@ export default function MEDPlantClient() {
               {result.warnings.length > 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
                   {result.warnings.map((w, i) => (
-                    <Typography key={i} variant="body2">{w}</Typography>
+                    <Typography key={i} variant="body2">
+                      {w}
+                    </Typography>
                   ))}
                 </Alert>
               )}
@@ -770,9 +1040,177 @@ export default function MEDPlantClient() {
                 </TableContainer>
               </Paper>
 
+              {/* Equipment Sizing */}
+              {equipmentSizing && (
+                <Paper sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Equipment Sizing
+                  </Typography>
+
+                  {/* Evaporator sizing table */}
+                  <Typography variant="subtitle2" gutterBottom>
+                    Evaporator Effects
+                  </Typography>
+                  <TableContainer sx={{ mb: 2 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Parameter</TableCell>
+                          <TableCell>Unit</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              Effect {ev.effectNumber}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell>Heat Duty</TableCell>
+                          <TableCell>kW</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              {ev.heatDuty.toFixed(1)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Overall U</TableCell>
+                          <TableCell>W/(m&sup2;&middot;K)</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              {ev.overallHTC.toFixed(0)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                          <TableCell>Design Area</TableCell>
+                          <TableCell>m&sup2;</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              {ev.designArea.toFixed(1)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Tube Count</TableCell>
+                          <TableCell>-</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              {ev.tubeCount}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Bundle Dia.</TableCell>
+                          <TableCell>mm</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              {ev.bundleDiameter}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                          <TableCell>Wetting Rate</TableCell>
+                          <TableCell>kg/(m&middot;s)</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              <Box
+                                component="span"
+                                sx={{
+                                  color:
+                                    ev.wettingStatus === 'poor'
+                                      ? 'error.main'
+                                      : ev.wettingStatus === 'marginal'
+                                        ? 'warning.main'
+                                        : 'success.main',
+                                }}
+                              >
+                                {ev.wettingRate.toFixed(4)}
+                              </Box>
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Demister Area</TableCell>
+                          <TableCell>m&sup2;</TableCell>
+                          {equipmentSizing.evaporators.map((ev) => (
+                            <TableCell key={ev.effectNumber} align="right">
+                              {ev.demisterArea.toFixed(2)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {/* Totals summary */}
+                  <Grid container spacing={2} sx={{ mb: 1 }}>
+                    {[
+                      {
+                        label: 'Total Evaporator Area',
+                        value: equipmentSizing.totalEvaporatorArea.toFixed(1),
+                        unit: 'm\u00B2',
+                      },
+                      {
+                        label: 'Condenser Area',
+                        value: equipmentSizing.totalCondenserArea.toFixed(1),
+                        unit: 'm\u00B2',
+                      },
+                      {
+                        label: 'Preheater Area',
+                        value: equipmentSizing.totalPreheaterArea.toFixed(1),
+                        unit: 'm\u00B2',
+                      },
+                      {
+                        label: 'Grand Total Area',
+                        value: equipmentSizing.grandTotalArea.toFixed(1),
+                        unit: 'm\u00B2',
+                      },
+                      {
+                        label: 'Condenser Tubes',
+                        value: String(equipmentSizing.condenser.tubeCount),
+                        unit: '',
+                      },
+                      {
+                        label: 'Condenser Shell ID',
+                        value: String(equipmentSizing.condenser.shellID),
+                        unit: 'mm',
+                      },
+                      {
+                        label: 'SW Tube Velocity',
+                        value: equipmentSizing.condenser.tubeVelocity.toFixed(2),
+                        unit: 'm/s',
+                      },
+                    ].map((item) => (
+                      <Grid size={{ xs: 6, sm: 3 }} key={item.label}>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.label}
+                        </Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {item.value} {item.unit}
+                        </Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  {equipmentSizing.warnings.length > 0 && (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      {equipmentSizing.warnings.map((w, i) => (
+                        <Typography key={i} variant="body2">
+                          {w}
+                        </Typography>
+                      ))}
+                    </Alert>
+                  )}
+                </Paper>
+              )}
+
               {/* Overall Balance */}
               <Paper sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h6" gutterBottom>Overall Plant H&amp;M Balance</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Overall Plant H&amp;M Balance
+                </Typography>
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
@@ -787,48 +1225,100 @@ export default function MEDPlantClient() {
                     </TableHead>
                     <TableBody>
                       <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                        <TableCell rowSpan={2}><strong>In</strong></TableCell>
+                        <TableCell rowSpan={2}>
+                          <strong>In</strong>
+                        </TableCell>
                         <TableCell>Sea Water</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.seawater.flow.toFixed(0)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.seawater.temperature.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.seawater.enthalpy.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.seawater.energy.toFixed(1)}</TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.seawater.flow.toFixed(0)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.seawater.temperature.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.seawater.enthalpy.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.seawater.energy.toFixed(1)}
+                        </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'action.hover' }}>
                         <TableCell>Steam</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.steam.flow.toFixed(0)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.steam.temperature.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.steam.enthalpy.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalIn.steam.energy.toFixed(1)}</TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.steam.flow.toFixed(0)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.steam.temperature.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.steam.enthalpy.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalIn.steam.energy.toFixed(1)}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell rowSpan={4}><strong>Out</strong></TableCell>
+                        <TableCell rowSpan={4}>
+                          <strong>Out</strong>
+                        </TableCell>
                         <TableCell>Sea Water</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.seawater.flow.toFixed(0)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.seawater.temperature.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.seawater.enthalpy.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.seawater.energy.toFixed(1)}</TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.seawater.flow.toFixed(0)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.seawater.temperature.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.seawater.enthalpy.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.seawater.energy.toFixed(1)}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell>Distillate</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.distillate.flow.toFixed(0)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.distillate.temperature.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.distillate.enthalpy.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.distillate.energy.toFixed(1)}</TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.distillate.flow.toFixed(0)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.distillate.temperature.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.distillate.enthalpy.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.distillate.energy.toFixed(1)}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell>Brine</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.brine.flow.toFixed(0)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.brine.temperature.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.brine.enthalpy.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.brine.energy.toFixed(1)}</TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.brine.flow.toFixed(0)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.brine.temperature.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.brine.enthalpy.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.brine.energy.toFixed(1)}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell>Vent</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.vent.flow.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.vent.temperature.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.vent.enthalpy.toFixed(1)}</TableCell>
-                        <TableCell align="right">{result.overallBalance.totalOut.vent.energy.toFixed(1)}</TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.vent.flow.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.vent.temperature.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.vent.enthalpy.toFixed(1)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {result.overallBalance.totalOut.vent.energy.toFixed(1)}
+                        </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -838,7 +1328,9 @@ export default function MEDPlantClient() {
               {/* Preheater Results */}
               {result.preheaters.length > 0 && (
                 <Paper sx={{ p: 2, mb: 2 }}>
-                  <Typography variant="h6" gutterBottom>Preheater Results</Typography>
+                  <Typography variant="h6" gutterBottom>
+                    Preheater Results
+                  </Typography>
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
@@ -870,18 +1362,44 @@ export default function MEDPlantClient() {
 
               {/* Final Condenser */}
               <Paper sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom>Final Condenser</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Final Condenser
+                </Typography>
                 <Grid container spacing={2}>
                   {[
-                    { label: 'Seawater Flow', value: result.finalCondenser.seawaterIn.flow.toFixed(0), unit: 'kg/hr' },
-                    { label: 'Vapor In', value: result.finalCondenser.vaporIn.flow.toFixed(0), unit: 'kg/hr' },
-                    { label: 'Distillate Out', value: result.finalCondenser.distillateOut.flow.toFixed(0), unit: 'kg/hr' },
-                    { label: 'Vent Out', value: result.finalCondenser.ventOut.flow.toFixed(1), unit: 'kg/hr' },
-                    { label: 'Heat Transferred', value: result.finalCondenser.heatTransferred.toFixed(1), unit: 'kW' },
+                    {
+                      label: 'Seawater Flow',
+                      value: result.finalCondenser.seawaterIn.flow.toFixed(0),
+                      unit: 'kg/hr',
+                    },
+                    {
+                      label: 'Vapor In',
+                      value: result.finalCondenser.vaporIn.flow.toFixed(0),
+                      unit: 'kg/hr',
+                    },
+                    {
+                      label: 'Distillate Out',
+                      value: result.finalCondenser.distillateOut.flow.toFixed(0),
+                      unit: 'kg/hr',
+                    },
+                    {
+                      label: 'Vent Out',
+                      value: result.finalCondenser.ventOut.flow.toFixed(1),
+                      unit: 'kg/hr',
+                    },
+                    {
+                      label: 'Heat Transferred',
+                      value: result.finalCondenser.heatTransferred.toFixed(1),
+                      unit: 'kW',
+                    },
                   ].map((item) => (
                     <Grid size={{ xs: 6, sm: 4 }} key={item.label}>
-                      <Typography variant="caption" color="text.secondary">{item.label}</Typography>
-                      <Typography variant="body2">{item.value} {item.unit}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {item.label}
+                      </Typography>
+                      <Typography variant="body2">
+                        {item.value} {item.unit}
+                      </Typography>
                     </Grid>
                   ))}
                 </Grid>
