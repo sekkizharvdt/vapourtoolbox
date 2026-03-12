@@ -62,8 +62,8 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
 
   // Contact (legacy single contact fields for backward compatibility)
   contactPerson: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   mobile?: string;
 
   // Contacts array (new multiple contacts support)
@@ -71,8 +71,8 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
     id: string;
     name: string;
     designation?: string;
-    email: string;
-    phone: string;
+    email?: string;
+    phone?: string;
     mobile?: string;
     isPrimary: boolean;
     notes?: string;
@@ -119,8 +119,8 @@ export interface EntityContact extends TimestampFields {
   entityId: string;
   name: string;
   designation?: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   mobile?: string;
   isPrimary: boolean;
   isActive: boolean;

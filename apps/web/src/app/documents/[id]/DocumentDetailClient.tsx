@@ -31,7 +31,7 @@ import {
 import { Edit as EditIcon } from '@mui/icons-material';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
-import type { MasterDocumentEntry } from '@vapour/types';
+import type { MasterDocumentEntry, ProjectMember } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { getMasterDocumentById } from '@/lib/documents/masterDocumentService';
 import DocumentOverview from '../components/DocumentOverview';
@@ -74,6 +74,7 @@ export default function DocumentDetailClient() {
   const [currentTab, setCurrentTab] = useState(0);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<ProjectMember[]>([]);
 
   // Extract document ID from pathname for static export compatibility
   useEffect(() => {
@@ -111,8 +112,9 @@ export default function DocumentDetailClient() {
     const { db } = getFirebase();
     getDoc(doc(db, 'projects', pid)).then((snap) => {
       if (snap.exists()) {
-        const data = snap.data() as { name?: string; code?: string };
+        const data = snap.data() as { name?: string; code?: string; team?: ProjectMember[] };
         setProjectName(data.name || data.code || null);
+        setTeamMembers(data.team || []);
       }
     });
   }, [document?.projectId, searchParams]);
@@ -266,7 +268,11 @@ export default function DocumentDetailClient() {
           </TabPanel>
 
           <TabPanel value={currentTab} index={1}>
-            <DocumentRevisions document={document} onUpdate={loadDocument} />
+            <DocumentRevisions
+              document={document}
+              onUpdate={loadDocument}
+              teamMembers={teamMembers}
+            />
           </TabPanel>
 
           <TabPanel value={currentTab} index={2}>

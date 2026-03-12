@@ -236,7 +236,7 @@ describe('ContactsManager', () => {
       expect(addButton).toBeDisabled();
     });
 
-    it('should not add contact without required email field', () => {
+    it('should allow adding contact without email field (optional)', () => {
       render(<ContactsManager contacts={[]} onChange={defaultOnChange} />);
 
       fireEvent.click(screen.getByRole('button', { name: /add contact/i }));
@@ -248,10 +248,10 @@ describe('ContactsManager', () => {
       fireEvent.change(phonePlaceholders[0]!, { target: { value: '+91 1111111111' } });
 
       const addButton = screen.getByRole('button', { name: /^add contact$/i });
-      expect(addButton).toBeDisabled();
+      expect(addButton).not.toBeDisabled();
     });
 
-    it('should not add contact without required phone field', () => {
+    it('should allow adding contact without phone field (optional)', () => {
       render(<ContactsManager contacts={[]} onChange={defaultOnChange} />);
 
       fireEvent.click(screen.getByRole('button', { name: /add contact/i }));
@@ -264,7 +264,7 @@ describe('ContactsManager', () => {
       });
 
       const addButton = screen.getByRole('button', { name: /^add contact$/i });
-      expect(addButton).toBeDisabled();
+      expect(addButton).not.toBeDisabled();
     });
 
     it('should cancel adding contact and reset form', () => {

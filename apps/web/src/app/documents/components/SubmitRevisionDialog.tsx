@@ -21,13 +21,14 @@ import {
   Box,
   LinearProgress,
   Chip,
+  Autocomplete,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
   Close as CloseIcon,
   AttachFile as AttachIcon,
 } from '@mui/icons-material';
-import type { MasterDocumentEntry } from '@vapour/types';
+import type { MasterDocumentEntry, ProjectMember } from '@vapour/types';
 import { submitDocument, type SubmissionFileData } from '@/lib/documents/submissionService';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ interface SubmitRevisionDialogProps {
   onClose: () => void;
   document: MasterDocumentEntry;
   onSuccess: () => void;
+  teamMembers?: ProjectMember[];
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +79,7 @@ export default function SubmitRevisionDialog({
   onClose,
   document: masterDocument,
   onSuccess,
+  teamMembers = [],
 }: SubmitRevisionDialogProps) {
   const { db, storage } = getFirebase();
   const { user } = useAuth();
@@ -87,6 +90,7 @@ export default function SubmitRevisionDialog({
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [supportingFiles, setSupportingFiles] = useState<File[]>([]);
   const [submissionNotes, setSubmissionNotes] = useState('');
+  const [selectedSubmitter, setSelectedSubmitter] = useState<ProjectMember | null>(null);
 
   // UI state
   const [uploading, setUploading] = useState(false);
@@ -103,6 +107,7 @@ export default function SubmitRevisionDialog({
     setPdfFiles([]);
     setSupportingFiles([]);
     setSubmissionNotes('');
+    setSelectedSubmitter(null);
     setError(null);
     setUploadedCount(0);
     setUploading(false);
@@ -195,8 +200,8 @@ export default function SubmitRevisionDialog({
         revision: revision.trim(),
         submissionNotes: submissionNotes.trim() || undefined,
         clientVisible: masterDocument.visibility === 'CLIENT_VISIBLE',
-        submittedBy: user.uid,
-        submittedByName: user.displayName || 'Unknown',
+        submittedBy: selectedSubmitter?.userId || user.uid,
+        submittedByName: selectedSubmitter?.userName || user.displayName || 'Unknown',
       });
 
       setUploadedCount(files.length);
@@ -288,6 +293,27 @@ export default function SubmitRevisionDialog({
             disabled={uploading}
             helperText={`Current revision: ${masterDocument.currentRevision}`}
           />
+
+          {/* Submitter */}
+          {teamMembers.length > 0 && (
+            <Autocomplete
+              options={teamMembers.filter((m) => m.isActive)}
+              getOptionLabel={(option) => option.userName}
+              value={selectedSubmitter}
+              onChange={(_e, value) => setSelectedSubmitter(value)}
+              isOptionEqualToValue={(option, value) => option.userId === value.userId}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Submitted By"
+                  size="small"
+                  placeholder={user?.displayName || 'Select team member'}
+                  helperText="Select the person who prepared this revision"
+                />
+              )}
+              disabled={uploading}
+            />
+          )}
 
           {/* File upload sections */}
           {renderFileSection(

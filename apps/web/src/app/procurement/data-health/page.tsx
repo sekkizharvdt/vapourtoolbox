@@ -95,11 +95,24 @@ export default function ProcurementDataHealthPage() {
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+      // Build set of PR IDs that are already linked to RFQs
+      const prsLinkedToRFQ = new Set<string>();
+      rfqsSnap?.forEach((doc) => {
+        const data = doc.data();
+        const prIds = data.purchaseRequestIds as string[] | undefined;
+        if (Array.isArray(prIds)) {
+          prIds.forEach((id) => prsLinkedToRFQ.add(id));
+        }
+      });
+
       // 1. Count stale PRs (DRAFT or SUBMITTED for more than 7 days)
+      // Exclude soft-deleted PRs and PRs already linked to an RFQ
       let stalePRCount = 0;
       let oldestPRDays = 0;
-      prsSnap?.forEach((doc) => {
-        const data = doc.data();
+      prsSnap?.forEach((d) => {
+        const data = d.data();
+        if (data.isDeleted) return;
+        if (prsLinkedToRFQ.has(d.id)) return;
         if (data.status === 'DRAFT' || data.status === 'SUBMITTED') {
           const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt);
           if (createdAt < sevenDaysAgo) {
@@ -184,7 +197,20 @@ export default function ProcurementDataHealthPage() {
         }
       });
 
-      const totalDocuments = (prsSnap?.size || 0) + (rfqsSnap?.size || 0) + (posSnap?.size || 0);
+      // Count non-deleted documents only
+      let activePRs = 0;
+      prsSnap?.forEach((d) => {
+        if (!d.data().isDeleted) activePRs++;
+      });
+      let activeRFQs = 0;
+      rfqsSnap?.forEach((d) => {
+        if (!d.data().isDeleted) activeRFQs++;
+      });
+      let activePOs = 0;
+      posSnap?.forEach((d) => {
+        if (!d.data().isDeleted) activePOs++;
+      });
+      const totalDocuments = activePRs + activeRFQs + activePOs;
 
       // Calculate health score
       const issueCount =

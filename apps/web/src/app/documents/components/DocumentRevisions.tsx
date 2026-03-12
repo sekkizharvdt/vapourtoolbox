@@ -49,6 +49,7 @@ const SubmitRevisionDialog = dynamic(() => import('./SubmitRevisionDialog'), {
 interface DocumentRevisionsProps {
   document: MasterDocumentEntry;
   onUpdate: () => void;
+  teamMembers?: import('@vapour/types').ProjectMember[];
 }
 
 // ============================================================================
@@ -122,7 +123,11 @@ function getFileTypeColor(fileType: SubmissionFile['fileType']): 'primary' | 'er
 // COMPONENT
 // ============================================================================
 
-export default function DocumentRevisions({ document, onUpdate }: DocumentRevisionsProps) {
+export default function DocumentRevisions({
+  document,
+  onUpdate,
+  teamMembers,
+}: DocumentRevisionsProps) {
   const { claims } = useAuth();
   const { db } = getFirebase();
 
@@ -390,6 +395,7 @@ export default function DocumentRevisions({ document, onUpdate }: DocumentRevisi
           onClose={() => handleDialogClose()}
           document={document}
           onSuccess={() => handleDialogClose(true)}
+          teamMembers={teamMembers}
         />
       )}
     </Box>

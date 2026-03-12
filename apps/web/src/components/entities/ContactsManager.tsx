@@ -27,8 +27,8 @@ export interface EntityContactData {
   id: string;
   name: string;
   designation?: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   mobile?: string;
   isPrimary: boolean;
   notes?: string;
@@ -64,14 +64,14 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
   const loadContactToForm = (contact: EntityContactData) => {
     setFormName(contact.name);
     setFormDesignation(contact.designation || '');
-    setFormEmail(contact.email);
-    setFormPhone(contact.phone);
+    setFormEmail(contact.email || '');
+    setFormPhone(contact.phone || '');
     setFormMobile(contact.mobile || '');
     setFormNotes(contact.notes || '');
   };
 
   const handleAdd = () => {
-    if (!formName.trim() || !formEmail.trim() || !formPhone.trim()) {
+    if (!formName.trim()) {
       return;
     }
 
@@ -92,7 +92,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
   };
 
   const handleEdit = (contactId: string) => {
-    if (!formName.trim() || !formEmail.trim() || !formPhone.trim()) {
+    if (!formName.trim()) {
       return;
     }
 
@@ -209,7 +209,6 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                       type="email"
                       value={formEmail}
                       onChange={(e) => setFormEmail(e.target.value)}
-                      required
                       fullWidth
                       size="small"
                       disabled={disabled}
@@ -220,7 +219,6 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                       label="Phone"
                       value={formPhone}
                       onChange={(e) => setFormPhone(e.target.value)}
-                      required
                       fullWidth
                       size="small"
                       disabled={disabled}
@@ -263,7 +261,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                     variant="contained"
                     startIcon={<CheckIcon />}
                     onClick={() => handleEdit(contact.id)}
-                    disabled={disabled || !formName || !formEmail || !formPhone}
+                    disabled={disabled || !formName}
                   >
                     Save
                   </Button>
@@ -338,18 +336,22 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                 </Box>
                 <Divider sx={{ my: 1 }} />
                 <Grid container spacing={1}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Email:
-                    </Typography>
-                    <Typography variant="body2">{contact.email}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Phone:
-                    </Typography>
-                    <Typography variant="body2">{contact.phone}</Typography>
-                  </Grid>
+                  {contact.email && (
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Email:
+                      </Typography>
+                      <Typography variant="body2">{contact.email}</Typography>
+                    </Grid>
+                  )}
+                  {contact.phone && (
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Phone:
+                      </Typography>
+                      <Typography variant="body2">{contact.phone}</Typography>
+                    </Grid>
+                  )}
                   {contact.mobile && (
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <Typography variant="caption" color="text.secondary">
@@ -408,7 +410,6 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
-                  required
                   fullWidth
                   size="small"
                   disabled={disabled}
@@ -420,7 +421,6 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                   label="Phone"
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
-                  required
                   fullWidth
                   size="small"
                   disabled={disabled}
@@ -466,7 +466,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleAdd}
-                disabled={disabled || !formName || !formEmail || !formPhone}
+                disabled={disabled || !formName}
               >
                 Add Contact
               </Button>

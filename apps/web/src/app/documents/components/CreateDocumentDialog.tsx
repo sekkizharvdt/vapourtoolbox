@@ -389,12 +389,31 @@ export default function CreateDocumentDialog({
           />
 
           {/* Document Type */}
-          <TextField
-            label="Document Type"
+          <Autocomplete
+            freeSolo
+            options={[
+              'Drawing',
+              'Calculation',
+              'Specification',
+              'Data Sheet',
+              'Report',
+              'Manual',
+              'Procedure',
+              'Schedule',
+              'List',
+              'General',
+            ]}
             value={documentType}
-            onChange={(e) => setDocumentType(e.target.value)}
-            fullWidth
-            placeholder="e.g., Drawing, Calculation, Specification"
+            onChange={(_e, value) => setDocumentType(value || '')}
+            onInputChange={(_e, value) => setDocumentType(value)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Document Type"
+                fullWidth
+                placeholder="Select or type a document type"
+              />
+            )}
           />
 
           {/* Client Visibility */}

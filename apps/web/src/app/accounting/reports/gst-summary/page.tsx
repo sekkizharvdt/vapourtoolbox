@@ -80,13 +80,24 @@ export default function GSTSummaryPage() {
     setLoading(true);
     setData(null);
     try {
-      const entityId = claims?.entityId;
-      if (!entityId) {
-        setData(null);
-        return;
-      }
+      const entityId = claims?.entityId || 'default-entity';
       const { db } = getFirebase();
       const accounts = await getSystemAccountIds(db, entityId);
+
+      // Validate that GST accounts exist
+      const missingAccounts: string[] = [];
+      if (!accounts.cgstInput) missingAccounts.push('CGST Input (1301)');
+      if (!accounts.sgstInput) missingAccounts.push('SGST Input (1302)');
+      if (!accounts.igstInput) missingAccounts.push('IGST Input (1303)');
+      if (!accounts.cgstPayable) missingAccounts.push('CGST Output (2201)');
+      if (!accounts.sgstPayable) missingAccounts.push('SGST Output (2202)');
+      if (!accounts.igstPayable) missingAccounts.push('IGST Output (2203)');
+      if (missingAccounts.length === 6) {
+        alert(
+          `Cannot generate GST summary: No GST accounts found in Chart of Accounts. Please ensure the following accounts exist with correct gstType and gstDirection properties:\n\n${missingAccounts.join('\n')}`
+        );
+        return;
+      }
 
       const start = new Date(startDate);
       const end = new Date(endDate);

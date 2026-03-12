@@ -27,8 +27,8 @@ interface EntityContactInfo {
   id: string;
   name: string;
   designation?: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   mobile?: string;
   isPrimary: boolean;
   notes?: string;
@@ -178,7 +178,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
       const primaryContact = entity.contacts.find((c) => c.isPrimary);
       if (primaryContact) {
         setValue('clientContactPerson', primaryContact.name);
-        setValue('clientEmail', primaryContact.email);
+        setValue('clientEmail', primaryContact.email || '');
         setValue('clientPhone', primaryContact.phone || primaryContact.mobile || '');
       }
     } else {
@@ -194,7 +194,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
     const contact = entityContacts.find((c) => c.id === contactId);
     if (contact) {
       setValue('clientContactPerson', contact.name);
-      setValue('clientEmail', contact.email);
+      setValue('clientEmail', contact.email || '');
       setValue('clientPhone', contact.phone || contact.mobile || '');
     }
   };
