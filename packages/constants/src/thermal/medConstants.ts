@@ -100,6 +100,49 @@ export const MED_PLANT_LIMITS = {
 export const MAX_WORKING_DELTA_T = 5.5; // °C
 
 // ============================================================================
+// Rognoni Reference Values
+// ============================================================================
+
+/**
+ * Reference assumptions from Dr. Marco Rognoni's MED design methodology.
+ *
+ * These are typical fixed values used in the original Excel model (Case 6.xlsx).
+ * The application computes values from first-principles correlations — these
+ * references allow engineers to compare computed vs. Rognoni assumptions.
+ */
+export const ROGNONI_REFERENCE = {
+  /** Evaporator overall HTC — Rognoni uses a fixed U per effect (W/(m²·K))
+   *  Typically 2000–3000 depending on effect temperature */
+  evaporatorOverallHTC: {
+    hotEnd: 2800, // W/(m²·K) — effects 1–3 (high temp, TBT ~55–65°C)
+    midRange: 2500, // W/(m²·K) — effects 4–6 (mid temp)
+    coldEnd: 2200, // W/(m²·K) — effects 7+ (low temp, ~38–42°C)
+  },
+  /** Falling film evaporation HTC — Rognoni fixed value (W/(m²·K)) */
+  fallingFilmHTC: 3000,
+  /** Tube-side condensation HTC — Rognoni fixed value (W/(m²·K)) */
+  condensationHTC: 6000,
+  /** Wetting rate — Rognoni typical design value (kg/(m·s)) */
+  wettingRate: 0.06,
+  /** Minimum wetting rate — Rognoni threshold (kg/(m·s)) */
+  minimumWettingRate: 0.03,
+  /** Condenser overall HTC — Rognoni fixed value (W/(m²·K)) */
+  condenserOverallHTC: 3000,
+  /** Preheater overall HTC — Rognoni fixed value (W/(m²·K)) */
+  preheaterOverallHTC: 2500,
+  /** Fouling resistance — seawater side (m²·K/W) */
+  foulingSeawater: 0.00009,
+  /** Fouling resistance — distillate side (m²·K/W) */
+  foulingDistillate: 0.00005,
+  /** Design area margin (fraction over required area) */
+  designMargin: 0.15,
+  /** Tube pitch ratio — Rognoni uses 1.3× OD triangular */
+  pitchRatio: 1.3,
+  /** Condenser design velocity (m/s) */
+  condenserTubeVelocity: 1.8,
+} as const;
+
+// ============================================================================
 // Solver Configuration
 // ============================================================================
 

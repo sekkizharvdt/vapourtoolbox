@@ -24,6 +24,7 @@ import {
   getSeawaterViscosity,
   getSeawaterThermalConductivity,
   MED_TUBE_CONDUCTIVITY,
+  ROGNONI_REFERENCE,
 } from '@vapour/constants';
 import type {
   MEDEffectResult,
@@ -40,6 +41,23 @@ import { calculateDemisterSizing } from '../demisterCalculator';
 // ============================================================================
 // Types
 // ============================================================================
+
+/**
+ * Comparison between our computed value and Rognoni's reference assumption.
+ * Allows engineers to see both values side by side.
+ */
+export interface RognoniComparison {
+  /** Label describing the parameter */
+  label: string;
+  /** Our computed value */
+  calculated: number;
+  /** Rognoni's fixed/assumed reference value */
+  rognoniRef: number;
+  /** Unit */
+  unit: string;
+  /** Deviation from Rognoni reference (%) — positive = our value is higher */
+  deviation: number;
+}
 
 export interface EvaporatorSizingResult {
   effectNumber: number;
@@ -77,6 +95,8 @@ export interface EvaporatorSizingResult {
   demisterArea: number;
   /** Demister pressure drop in Pa */
   demisterPressureDrop: number;
+  /** Rognoni reference comparisons for key parameters */
+  rognoniComparisons: RognoniComparison[];
   /** Warnings */
   warnings: string[];
 }
@@ -110,6 +130,8 @@ export interface CondenserSizingResult {
   shellID: number;
   /** Seawater velocity in tubes in m/s */
   tubeVelocity: number;
+  /** Rognoni reference comparisons for key parameters */
+  rognoniComparisons: RognoniComparison[];
   /** Warnings */
   warnings: string[];
 }
@@ -175,6 +197,23 @@ const CONDENSER_TUBE_PASSES = 4;
 /** Bundle layout constant for triangular pitch (TEMA) */
 const K1_TRIANGULAR = 0.319; // 1 pass
 const N1_TRIANGULAR = 2.142;
+
+/** Build a Rognoni comparison entry */
+function rognoniCompare(
+  label: string,
+  calculated: number,
+  rognoniRef: number,
+  unit: string
+): RognoniComparison {
+  const deviation = rognoniRef !== 0 ? ((calculated - rognoniRef) / rognoniRef) * 100 : 0;
+  return {
+    label,
+    calculated: Math.round(calculated * 100) / 100,
+    rognoniRef: Math.round(rognoniRef * 100) / 100,
+    unit,
+    deviation: Math.round(deviation * 10) / 10,
+  };
+}
 
 // ============================================================================
 // Evaporator Sizing
@@ -299,6 +338,30 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
     warnings.push(`Effect ${effect.effectNumber}: Demister sizing failed.`);
   }
 
+  // ---- Rognoni reference comparisons ----
+  // Rognoni uses fixed U values that vary by effect position
+  const totalEffects = inputs.numberOfEffects;
+  const effectFraction = (effect.effectNumber - 1) / Math.max(totalEffects - 1, 1);
+  const rognoniU =
+    effectFraction < 0.33
+      ? ROGNONI_REFERENCE.evaporatorOverallHTC.hotEnd
+      : effectFraction < 0.67
+        ? ROGNONI_REFERENCE.evaporatorOverallHTC.midRange
+        : ROGNONI_REFERENCE.evaporatorOverallHTC.coldEnd;
+
+  // Area from Rognoni's fixed U (for comparison)
+  const rognoniRequiredArea = calculateHeatExchangerArea(heatDuty, rognoniU, effectiveDeltaT);
+  const rognoniDesignArea = rognoniRequiredArea * (1 + ROGNONI_REFERENCE.designMargin);
+
+  const rognoniComparisons: RognoniComparison[] = [
+    rognoniCompare('Falling Film HTC', shellSideHTC, ROGNONI_REFERENCE.fallingFilmHTC, 'W/(m²·K)'),
+    rognoniCompare('Condensation HTC', tubeSideHTC, ROGNONI_REFERENCE.condensationHTC, 'W/(m²·K)'),
+    rognoniCompare('Overall U', overallHTC, rognoniU, 'W/(m²·K)'),
+    rognoniCompare('Required Area', requiredArea, rognoniRequiredArea, 'm²'),
+    rognoniCompare('Design Area', designArea, rognoniDesignArea, 'm²'),
+    rognoniCompare('Wetting Rate', wettingRate, ROGNONI_REFERENCE.wettingRate, 'kg/(m·s)'),
+  ];
+
   return {
     effectNumber: effect.effectNumber,
     heatDuty,
@@ -318,6 +381,7 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
     wettingStatus,
     demisterArea: Math.round(demisterArea * 100) / 100,
     demisterPressureDrop: Math.round(demisterPressureDrop * 10) / 10,
+    rognoniComparisons,
     warnings,
   };
 }
@@ -433,6 +497,18 @@ function sizeFinalCondenser(
     );
   }
 
+  // ---- Rognoni reference comparisons ----
+  const rognoniCondU = ROGNONI_REFERENCE.condenserOverallHTC;
+  const rognoniCondArea = calculateHeatExchangerArea(heatDuty, rognoniCondU, lmtd);
+  const rognoniCondDesignArea = rognoniCondArea * (1 + ROGNONI_REFERENCE.designMargin);
+
+  const rognoniComparisons: RognoniComparison[] = [
+    rognoniCompare('Overall U', overallHTC, rognoniCondU, 'W/(m²·K)'),
+    rognoniCompare('Required Area', requiredArea, rognoniCondArea, 'm²'),
+    rognoniCompare('Design Area', designArea, rognoniCondDesignArea, 'm²'),
+    rognoniCompare('Tube Velocity', tubeVelocity, ROGNONI_REFERENCE.condenserTubeVelocity, 'm/s'),
+  ];
+
   return {
     heatDuty: Math.round(heatDuty * 10) / 10,
     lmtd: Math.round(lmtd * 100) / 100,
@@ -448,6 +524,7 @@ function sizeFinalCondenser(
     bundleDiameter: Math.round(bundleDiameter),
     shellID: Math.round(shellID),
     tubeVelocity: Math.round(tubeVelocity * 100) / 100,
+    rognoniComparisons,
     warnings,
   };
 }
@@ -576,6 +653,7 @@ function emptyEvaporatorResult(
     wettingStatus: 'poor',
     demisterArea: 0,
     demisterPressureDrop: 0,
+    rognoniComparisons: [],
     warnings,
   };
 }
@@ -599,6 +677,7 @@ function emptyCondenserResult(
     bundleDiameter: 0,
     shellID: 0,
     tubeVelocity: 0,
+    rognoniComparisons: [],
     warnings,
   };
 }

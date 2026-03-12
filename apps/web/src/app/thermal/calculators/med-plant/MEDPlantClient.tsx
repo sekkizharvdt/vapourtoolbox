@@ -1144,6 +1144,152 @@ export default function MEDPlantClient() {
                     </Table>
                   </TableContainer>
 
+                  {/* Rognoni Reference Comparison — Evaporators */}
+                  <Accordion sx={{ mb: 2 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="subtitle2">
+                        Reference Comparison (Dr. Rognoni Assumptions)
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mb: 1, display: 'block' }}
+                      >
+                        Compares our first-principles calculations with Dr. Rognoni&apos;s typical
+                        fixed assumptions. Deviation shows how our computed value differs from the
+                        reference.
+                      </Typography>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Parameter</TableCell>
+                              <TableCell>Unit</TableCell>
+                              {equipmentSizing.evaporators.map((ev) => (
+                                <TableCell key={ev.effectNumber} align="right" colSpan={1}>
+                                  Eff. {ev.effectNumber}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {equipmentSizing.evaporators[0]?.rognoniComparisons.map((comp, idx) => (
+                              <TableRow
+                                key={comp.label}
+                                sx={idx % 2 === 0 ? { backgroundColor: 'action.hover' } : undefined}
+                              >
+                                <TableCell>{comp.label}</TableCell>
+                                <TableCell>{comp.unit}</TableCell>
+                                {equipmentSizing.evaporators.map((ev) => {
+                                  const c = ev.rognoniComparisons[idx];
+                                  if (!c)
+                                    return (
+                                      <TableCell key={ev.effectNumber} align="right">
+                                        -
+                                      </TableCell>
+                                    );
+                                  return (
+                                    <TableCell key={ev.effectNumber} align="right">
+                                      <Tooltip
+                                        title={`Rognoni ref: ${c.rognoniRef.toFixed(1)} ${c.unit} | Deviation: ${c.deviation > 0 ? '+' : ''}${c.deviation.toFixed(1)}%`}
+                                        arrow
+                                      >
+                                        <Box component="span">
+                                          <Typography
+                                            variant="body2"
+                                            component="span"
+                                            fontWeight="bold"
+                                          >
+                                            {c.calculated.toFixed(1)}
+                                          </Typography>
+                                          <Typography
+                                            variant="caption"
+                                            component="span"
+                                            sx={{
+                                              ml: 0.5,
+                                              color:
+                                                Math.abs(c.deviation) > 20
+                                                  ? 'warning.main'
+                                                  : 'text.secondary',
+                                            }}
+                                          >
+                                            ({c.rognoniRef.toFixed(0)})
+                                          </Typography>
+                                        </Box>
+                                      </Tooltip>
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 1, display: 'block' }}
+                      >
+                        Format: <strong>Calculated</strong> (Rognoni Ref). Hover for deviation %.
+                      </Typography>
+
+                      {/* Condenser Rognoni comparison */}
+                      {equipmentSizing.condenser.rognoniComparisons.length > 0 && (
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Final Condenser
+                          </Typography>
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Parameter</TableCell>
+                                  <TableCell>Unit</TableCell>
+                                  <TableCell align="right">Calculated</TableCell>
+                                  <TableCell align="right">Rognoni Ref</TableCell>
+                                  <TableCell align="right">Deviation</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {equipmentSizing.condenser.rognoniComparisons.map((c, idx) => (
+                                  <TableRow
+                                    key={c.label}
+                                    sx={
+                                      idx % 2 === 0
+                                        ? { backgroundColor: 'action.hover' }
+                                        : undefined
+                                    }
+                                  >
+                                    <TableCell>{c.label}</TableCell>
+                                    <TableCell>{c.unit}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                                      {c.calculated.toFixed(1)}
+                                    </TableCell>
+                                    <TableCell align="right">{c.rognoniRef.toFixed(1)}</TableCell>
+                                    <TableCell
+                                      align="right"
+                                      sx={{
+                                        color:
+                                          Math.abs(c.deviation) > 20
+                                            ? 'warning.main'
+                                            : 'text.secondary',
+                                      }}
+                                    >
+                                      {c.deviation > 0 ? '+' : ''}
+                                      {c.deviation.toFixed(1)}%
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Box>
+                      )}
+                    </AccordionDetails>
+                  </Accordion>
+
                   {/* Totals summary */}
                   <Grid container spacing={2} sx={{ mb: 1 }}>
                     {[

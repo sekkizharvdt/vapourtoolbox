@@ -100,6 +100,41 @@ describe('Equipment Sizing — Final Condenser', () => {
   });
 });
 
+describe('Equipment Sizing — Rognoni Reference Comparisons', () => {
+  it('every evaporator has rognoni comparisons', () => {
+    for (const ev of sizing.evaporators) {
+      expect(ev.rognoniComparisons.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('rognoni comparisons include expected parameters', () => {
+    const labels = sizing.evaporators[0]!.rognoniComparisons.map((c) => c.label);
+    expect(labels).toContain('Overall U');
+    expect(labels).toContain('Falling Film HTC');
+    expect(labels).toContain('Condensation HTC');
+    expect(labels).toContain('Wetting Rate');
+    expect(labels).toContain('Design Area');
+  });
+
+  it('all comparisons have valid structure (calculated, ref, deviation)', () => {
+    for (const ev of sizing.evaporators) {
+      for (const comp of ev.rognoniComparisons) {
+        expect(comp.calculated).toBeGreaterThanOrEqual(0);
+        expect(comp.rognoniRef).toBeGreaterThan(0);
+        expect(typeof comp.deviation).toBe('number');
+        expect(comp.unit.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('condenser has rognoni comparisons', () => {
+    expect(sizing.condenser.rognoniComparisons.length).toBeGreaterThan(0);
+    const labels = sizing.condenser.rognoniComparisons.map((c) => c.label);
+    expect(labels).toContain('Overall U');
+    expect(labels).toContain('Tube Velocity');
+  });
+});
+
 describe('Equipment Sizing — Totals', () => {
   it('total evaporator area is sum of individual effects', () => {
     const sum = sizing.evaporators.reduce((s, e) => s + e.designArea, 0);
