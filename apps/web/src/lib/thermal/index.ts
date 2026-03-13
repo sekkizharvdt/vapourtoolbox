@@ -324,6 +324,18 @@ export {
   type TimeStep,
 } from './vacuumBreakerCalculator';
 
+// Strainer Sizing
+export {
+  calculateStrainerSizing,
+  getAvailableLineSizes,
+  STRAINER_TYPE_LABELS,
+  FLUID_TYPE_LABELS as STRAINER_FLUID_TYPE_LABELS,
+  type StrainerType as StrainerSizingStrainerType,
+  type FluidType as StrainerFluidType,
+  type StrainerSizingInput,
+  type StrainerSizingResult,
+} from './strainerSizingCalculator';
+
 // Heat Exchanger Sizing
 export {
   sizeHeatExchanger,

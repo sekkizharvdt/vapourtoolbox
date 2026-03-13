@@ -527,7 +527,9 @@ export interface SavedCalculation {
     | 'FALLING_FILM'
     | 'GOR'
     | 'VACUUM_BREAKER'
-    | 'MED_PLANT';
+    | 'MED_PLANT'
+    | 'STRAINER_SIZING'
+    | 'STRAINER_SIZING_BATCH';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;

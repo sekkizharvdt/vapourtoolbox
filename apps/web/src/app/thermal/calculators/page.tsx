@@ -49,6 +49,7 @@ import {
   BubbleChart as NCGIcon,
   BlurOn as VacuumIcon,
   AirlineSeatFlat as VacuumBreakerIcon,
+  FilterList as StrainerIcon,
   BarChart as GORIcon,
   Waves as FallingFilmIcon,
   Warning as ScalingIcon,
@@ -269,6 +270,16 @@ const ALL_CALCULATORS: Calculator[] = [
     reference: 'Souders-Brown / GPSA',
     keywords: ['mist eliminator', 'flash chamber', 'droplet', 'Souders-Brown'],
   },
+  {
+    title: 'Strainer Sizing',
+    description:
+      'Size Y-type and bucket-type strainers — mesh selection and pressure drop at clean and 50% clogged conditions.',
+    icon: <StrainerIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/strainer-sizing',
+    status: 'available',
+    reference: 'Crane TP-410',
+    keywords: ['strainer', 'mesh', 'y-type', 'bucket', 'screen', 'filter', 'pressure drop'],
+  },
 
   // --- Plant Design & Auxiliaries ---
   {
@@ -406,6 +417,7 @@ const CATEGORIES: CalculatorCategory[] = [
         '/thermal/calculators/npsha',
         '/thermal/calculators/siphon-sizing',
         '/thermal/calculators/demister',
+        '/thermal/calculators/strainer-sizing',
       ].includes(c.href)
     ),
   },
