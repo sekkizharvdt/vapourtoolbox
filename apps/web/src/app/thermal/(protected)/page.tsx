@@ -11,6 +11,7 @@ import {
   Science as ScienceIcon,
   Opacity as OpacityIcon,
   Calculate as CalculateIcon,
+  Factory as FactoryIcon,
 } from '@mui/icons-material';
 import { ModuleLandingPage, type ModuleItem } from '@/components/modules';
 
@@ -41,6 +42,14 @@ export default function ThermalLandingPage() {
       icon: <ScienceIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/thermal/ejector',
       comingSoon: true,
+    },
+    {
+      id: 'reference-projects',
+      title: 'Reference Projects',
+      description:
+        'As-built design data from real MED-TVC desalination projects (Campiche, CADAFE, MORON) for engineering reference and validation.',
+      icon: <FactoryIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/thermal/reference-projects',
     },
   ];
 
