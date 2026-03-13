@@ -7,7 +7,7 @@
  * pressure drop at clean and 50% clogged conditions.
  */
 
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
   Container,
   Typography,
@@ -35,6 +35,42 @@ import {
   type FluidType as StrainerFluidType,
 } from '@/lib/thermal/strainerSizingCalculator';
 import { StrainerSizingInputs, StrainerSizingResults } from './components';
+import {
+  getFluidProperties,
+  type FluidType as ResolverFluidType,
+} from '@/lib/thermal/fluidProperties';
+
+/** Default salinities in ppm for fluid types that use seawater correlations */
+export const DEFAULT_SALINITY: Partial<Record<StrainerFluidType, number>> = {
+  seawater: 35000,
+  brine: 65000,
+};
+
+/** Map strainer fluid types to the unified fluid property resolver */
+function resolveFluidProps(
+  strainerFluid: StrainerFluidType,
+  tempC: number,
+  salinityPpm: number
+): { density: string; viscosity: string } | null {
+  if (strainerFluid === 'custom') return null;
+
+  const mapping: Record<Exclude<StrainerFluidType, 'custom'>, ResolverFluidType> = {
+    seawater: 'SEAWATER',
+    brine: 'SEAWATER',
+    dm_water: 'PURE_WATER',
+    condensate: 'CONDENSATE',
+    cooling_water: 'PURE_WATER',
+  };
+
+  const fluid = mapping[strainerFluid];
+  const salinity = fluid === 'SEAWATER' ? salinityPpm : 0;
+  const props = getFluidProperties(fluid, tempC, salinity);
+
+  return {
+    density: props.density.toFixed(1),
+    viscosity: (props.viscosity * 1000).toFixed(2), // Pa·s → cP
+  };
+}
 
 const GenerateReportDialog = lazy(() =>
   import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
@@ -52,6 +88,28 @@ export default function StrainerSizingClient() {
   const [fluidDensity, setFluidDensity] = useState<string>('1025');
   const [fluidViscosity, setFluidViscosity] = useState<string>('1.08');
   const [fluidTemperature, setFluidTemperature] = useState<string>('25');
+  const [salinity, setSalinity] = useState<string>('35000');
+
+  // Auto-populate density & viscosity from fluid tables when type, temperature, or salinity changes
+  useEffect(() => {
+    const temp = parseFloat(fluidTemperature);
+    const sal = parseFloat(salinity);
+    if (isNaN(temp)) return;
+    const props = resolveFluidProps(fluidType, temp, isNaN(sal) ? 0 : sal);
+    if (props) {
+      setFluidDensity(props.density);
+      setFluidViscosity(props.viscosity);
+    }
+  }, [fluidType, fluidTemperature, salinity]);
+
+  // When fluid type changes, reset salinity to the default for that type
+  const handleFluidTypeChange = useCallback((newType: StrainerFluidType) => {
+    setFluidType(newType);
+    const defaultSal = DEFAULT_SALINITY[newType];
+    if (defaultSal !== undefined) {
+      setSalinity(String(defaultSal));
+    }
+  }, []);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -65,6 +123,7 @@ export default function StrainerSizingClient() {
     setFluidDensity('1025');
     setFluidViscosity('1.08');
     setFluidTemperature('25');
+    setSalinity('35000');
   };
 
   // Calculate strainer sizing
@@ -108,6 +167,7 @@ export default function StrainerSizingClient() {
     fluidDensity,
     fluidViscosity,
     fluidTemperature,
+    salinity,
   };
 
   return (
@@ -160,13 +220,15 @@ export default function StrainerSizingClient() {
               fluidDensity={fluidDensity}
               fluidViscosity={fluidViscosity}
               fluidTemperature={fluidTemperature}
-              onFluidTypeChange={setFluidType}
+              salinity={salinity}
+              onFluidTypeChange={handleFluidTypeChange}
               onFlowRateChange={setFlowRate}
               onLineSizeChange={setLineSize}
               onStrainerTypeChange={setStrainerType}
               onFluidDensityChange={setFluidDensity}
               onFluidViscosityChange={setFluidViscosity}
               onFluidTemperatureChange={setFluidTemperature}
+              onSalinityChange={setSalinity}
             />
           </Paper>
 
@@ -280,6 +342,7 @@ export default function StrainerSizingClient() {
           if (typeof inputs.fluidViscosity === 'string') setFluidViscosity(inputs.fluidViscosity);
           if (typeof inputs.fluidTemperature === 'string')
             setFluidTemperature(inputs.fluidTemperature);
+          if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
         }}
       />
     </Container>

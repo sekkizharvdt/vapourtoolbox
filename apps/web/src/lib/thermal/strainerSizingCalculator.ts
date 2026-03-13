@@ -21,7 +21,13 @@ import { SCHEDULE_40_PIPES, type PipeVariant } from './pipeService';
 
 export type StrainerType = 'y_type' | 'bucket_type';
 
-export type FluidType = 'seawater' | 'dm_water' | 'condensate' | 'cooling_water' | 'custom';
+export type FluidType =
+  | 'seawater'
+  | 'brine'
+  | 'dm_water'
+  | 'condensate'
+  | 'cooling_water'
+  | 'custom';
 
 export interface StrainerSizingInput {
   /** Fluid type for mesh recommendation */
@@ -98,6 +104,7 @@ export const STRAINER_TYPE_LABELS: Record<StrainerType, string> = {
 /** Fluid type labels */
 export const FLUID_TYPE_LABELS: Record<FluidType, string> = {
   seawater: 'Seawater',
+  brine: 'Brine (MED/MSF Reject)',
   dm_water: 'DM Water / Condensate Return',
   condensate: 'Steam Condensate',
   cooling_water: 'Cooling Water',
@@ -144,6 +151,12 @@ const MESH_RECOMMENDATIONS: Record<FluidType, MeshRecommendation> = {
     meshSizeMm: 1.5,
     meshNumber: 14,
     description: 'Medium — suitable for seawater with marine debris',
+    openAreaRatio: 0.35,
+  },
+  brine: {
+    meshSizeMm: 1.5,
+    meshNumber: 14,
+    description: 'Medium — suitable for brine with scale/salt deposits',
     openAreaRatio: 0.35,
   },
   dm_water: {

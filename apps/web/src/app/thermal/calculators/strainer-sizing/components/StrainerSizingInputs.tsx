@@ -19,6 +19,9 @@ import {
   type FluidType as StrainerFluidType,
 } from '@/lib/thermal/strainerSizingCalculator';
 
+/** Fluid types that use salinity-dependent correlations */
+const SALINITY_FLUIDS: StrainerFluidType[] = ['seawater', 'brine'];
+
 interface StrainerSizingInputsProps {
   fluidType: StrainerFluidType;
   flowRate: string;
@@ -27,6 +30,7 @@ interface StrainerSizingInputsProps {
   fluidDensity: string;
   fluidViscosity: string;
   fluidTemperature: string;
+  salinity: string;
   onFluidTypeChange: (value: StrainerFluidType) => void;
   onFlowRateChange: (value: string) => void;
   onLineSizeChange: (value: string) => void;
@@ -34,6 +38,7 @@ interface StrainerSizingInputsProps {
   onFluidDensityChange: (value: string) => void;
   onFluidViscosityChange: (value: string) => void;
   onFluidTemperatureChange: (value: string) => void;
+  onSalinityChange: (value: string) => void;
 }
 
 const LINE_SIZES = getAvailableLineSizes();
@@ -46,6 +51,7 @@ export function StrainerSizingInputs({
   fluidDensity,
   fluidViscosity,
   fluidTemperature,
+  salinity,
   onFluidTypeChange,
   onFlowRateChange,
   onLineSizeChange,
@@ -53,7 +59,9 @@ export function StrainerSizingInputs({
   onFluidDensityChange,
   onFluidViscosityChange,
   onFluidTemperatureChange,
+  onSalinityChange,
 }: StrainerSizingInputsProps) {
+  const showSalinity = SALINITY_FLUIDS.includes(fluidType);
   return (
     <Stack spacing={2}>
       <Typography variant="subtitle2" color="text.secondary">
@@ -77,15 +85,52 @@ export function StrainerSizingInputs({
         </Select>
       </FormControl>
 
+      {showSalinity && (
+        <TextField
+          label="Salinity"
+          value={salinity}
+          onChange={(e) => onSalinityChange(e.target.value)}
+          type="number"
+          fullWidth
+          InputProps={{
+            endAdornment: <InputAdornment position="end">ppm</InputAdornment>,
+          }}
+          helperText={
+            fluidType === 'brine'
+              ? 'Typical MED/MSF reject: 60,000\u201370,000 ppm'
+              : 'Standard seawater: 35,000 ppm'
+          }
+        />
+      )}
+
+      <TextField
+        label="Fluid Temperature"
+        value={fluidTemperature}
+        onChange={(e) => onFluidTemperatureChange(e.target.value)}
+        type="number"
+        fullWidth
+        helperText={
+          fluidType !== 'custom'
+            ? 'Density & viscosity auto-calculated from fluid tables'
+            : 'Informational — used in report'
+        }
+        InputProps={{
+          endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+        }}
+      />
+
       <TextField
         label="Fluid Density"
         value={fluidDensity}
         onChange={(e) => onFluidDensityChange(e.target.value)}
         type="number"
         fullWidth
+        disabled={fluidType !== 'custom'}
         InputProps={{
           endAdornment: <InputAdornment position="end">kg/m&sup3;</InputAdornment>,
+          readOnly: fluidType !== 'custom',
         }}
+        helperText={fluidType !== 'custom' ? 'From fluid property tables' : undefined}
       />
 
       <TextField
@@ -94,21 +139,12 @@ export function StrainerSizingInputs({
         onChange={(e) => onFluidViscosityChange(e.target.value)}
         type="number"
         fullWidth
+        disabled={fluidType !== 'custom'}
         InputProps={{
           endAdornment: <InputAdornment position="end">cP</InputAdornment>,
+          readOnly: fluidType !== 'custom',
         }}
-      />
-
-      <TextField
-        label="Fluid Temperature"
-        value={fluidTemperature}
-        onChange={(e) => onFluidTemperatureChange(e.target.value)}
-        type="number"
-        fullWidth
-        helperText="Informational — used in report"
-        InputProps={{
-          endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
-        }}
+        helperText={fluidType !== 'custom' ? 'From fluid property tables' : undefined}
       />
 
       <Divider />
