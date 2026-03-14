@@ -11,6 +11,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableRow,
   Chip,
 } from '@mui/material';
@@ -37,7 +38,7 @@ export function StrainerSizingResults({ result }: StrainerSizingResultsProps) {
       >
         <CardContent>
           <Typography variant="caption" sx={{ opacity: 0.8 }}>
-            Recommended Mesh Size
+            {result.isRecommendedMesh ? 'Recommended Mesh Size' : 'Selected Mesh Size'}
           </Typography>
           <Stack direction="row" alignItems="baseline" spacing={2}>
             <Typography variant="h3">{result.meshSizeMm}</Typography>
@@ -46,8 +47,87 @@ export function StrainerSizingResults({ result }: StrainerSizingResultsProps) {
           <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
             Mesh #{result.meshNumber} &mdash; {result.meshDescription}
           </Typography>
+          {!result.isRecommendedMesh && (
+            <Typography variant="caption" sx={{ opacity: 0.7, mt: 0.5, display: 'block' }}>
+              (User override &mdash; differs from recommendation)
+            </Typography>
+          )}
         </CardContent>
       </Card>
+
+      {/* Mesh Comparison Table */}
+      {result.meshComparison.length > 1 && (
+        <Card variant="outlined" sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>
+              Mesh Size Comparison
+            </Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.5 }}>Mesh</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold', py: 0.5 }}>
+                    Opening
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold', py: 0.5 }}>
+                    Screen Vel.
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold', py: 0.5 }}>
+                    &Delta;P Clean
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold', py: 0.5 }}>
+                    &Delta;P 50%
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {result.meshComparison.map((entry) => (
+                  <TableRow
+                    key={entry.meshIndex}
+                    sx={{
+                      bgcolor: entry.isSelected ? 'action.selected' : undefined,
+                      fontWeight: entry.isSelected ? 'bold' : 'normal',
+                    }}
+                  >
+                    <TableCell sx={{ py: 0.5, whiteSpace: 'nowrap' }}>
+                      #{entry.mesh.meshNumber}
+                      {entry.isSelected && (
+                        <Chip label="Selected" size="small" color="primary" sx={{ ml: 1 }} />
+                      )}
+                      {entry.isRecommended && !entry.isSelected && (
+                        <Chip label="Recommended" size="small" variant="outlined" sx={{ ml: 1 }} />
+                      )}
+                    </TableCell>
+                    <TableCell align="right" sx={{ py: 0.5, fontFamily: 'monospace' }}>
+                      {entry.mesh.openingMm} mm
+                    </TableCell>
+                    <TableCell align="right" sx={{ py: 0.5, fontFamily: 'monospace' }}>
+                      {entry.screenVelocityClean.toFixed(2)} m/s
+                    </TableCell>
+                    <TableCell align="right" sx={{ py: 0.5, fontFamily: 'monospace' }}>
+                      {entry.totalPressureDropClean.toFixed(4)} bar
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        py: 0.5,
+                        fontFamily: 'monospace',
+                        color: entry.totalPressureDropClogged > 1.0 ? 'error.main' : undefined,
+                      }}
+                    >
+                      {entry.totalPressureDropClogged.toFixed(4)} bar
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Finer meshes (higher #) have smaller openings, higher velocity, and higher pressure
+              drop.
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Warnings */}
       {result.warnings.length > 0 && (

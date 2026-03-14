@@ -14,7 +14,9 @@ import {
 import {
   STRAINER_TYPE_LABELS,
   FLUID_TYPE_LABELS,
+  STANDARD_MESH_SIZES,
   getAvailableLineSizes,
+  getRecommendedMeshIndex,
   type StrainerType,
   type FluidType as StrainerFluidType,
 } from '@/lib/thermal/strainerSizingCalculator';
@@ -27,6 +29,7 @@ interface StrainerSizingInputsProps {
   flowRate: string;
   lineSize: string;
   strainerType: StrainerType;
+  meshIndex: number | null;
   fluidDensity: string;
   fluidViscosity: string;
   fluidTemperature: string;
@@ -35,6 +38,7 @@ interface StrainerSizingInputsProps {
   onFlowRateChange: (value: string) => void;
   onLineSizeChange: (value: string) => void;
   onStrainerTypeChange: (value: StrainerType) => void;
+  onMeshIndexChange: (value: number | null) => void;
   onFluidDensityChange: (value: string) => void;
   onFluidViscosityChange: (value: string) => void;
   onFluidTemperatureChange: (value: string) => void;
@@ -48,6 +52,7 @@ export function StrainerSizingInputs({
   flowRate,
   lineSize,
   strainerType,
+  meshIndex,
   fluidDensity,
   fluidViscosity,
   fluidTemperature,
@@ -56,12 +61,15 @@ export function StrainerSizingInputs({
   onFlowRateChange,
   onLineSizeChange,
   onStrainerTypeChange,
+  onMeshIndexChange,
   onFluidDensityChange,
   onFluidViscosityChange,
   onFluidTemperatureChange,
   onSalinityChange,
 }: StrainerSizingInputsProps) {
   const showSalinity = SALINITY_FLUIDS.includes(fluidType);
+  const recommendedIdx = getRecommendedMeshIndex(fluidType);
+  const effectiveMeshIdx = meshIndex ?? recommendedIdx;
   return (
     <Stack spacing={2}>
       <Typography variant="subtitle2" color="text.secondary">
@@ -201,6 +209,30 @@ export function StrainerSizingInputs({
           )}
         </Select>
       </FormControl>
+
+      <FormControl fullWidth>
+        <InputLabel>Mesh Size</InputLabel>
+        <Select
+          value={effectiveMeshIdx}
+          label="Mesh Size"
+          onChange={(e) => {
+            const val = e.target.value as number;
+            onMeshIndexChange(val === recommendedIdx ? null : val);
+          }}
+        >
+          {STANDARD_MESH_SIZES.map((m, idx) => (
+            <MenuItem key={idx} value={idx}>
+              {m.label}
+              {idx === recommendedIdx ? ' \u2714' : ''}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      {meshIndex !== null && meshIndex !== recommendedIdx && (
+        <Typography variant="caption" color="text.secondary">
+          Recommended for this fluid: {STANDARD_MESH_SIZES[recommendedIdx]?.label}
+        </Typography>
+      )}
     </Stack>
   );
 }

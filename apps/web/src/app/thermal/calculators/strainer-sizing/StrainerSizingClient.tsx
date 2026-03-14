@@ -85,6 +85,7 @@ export default function StrainerSizingClient() {
   const [flowRate, setFlowRate] = useState<string>('');
   const [lineSize, setLineSize] = useState<string>('4');
   const [strainerType, setStrainerType] = useState<StrainerType>('y_type');
+  const [meshIndex, setMeshIndex] = useState<number | null>(null); // null = use recommendation
   const [fluidDensity, setFluidDensity] = useState<string>('1025');
   const [fluidViscosity, setFluidViscosity] = useState<string>('1.08');
   const [fluidTemperature, setFluidTemperature] = useState<string>('25');
@@ -102,9 +103,10 @@ export default function StrainerSizingClient() {
     }
   }, [fluidType, fluidTemperature, salinity]);
 
-  // When fluid type changes, reset salinity to the default for that type
+  // When fluid type changes, reset salinity and mesh to defaults
   const handleFluidTypeChange = useCallback((newType: StrainerFluidType) => {
     setFluidType(newType);
+    setMeshIndex(null); // revert to recommendation for new fluid type
     const defaultSal = DEFAULT_SALINITY[newType];
     if (defaultSal !== undefined) {
       setSalinity(String(defaultSal));
@@ -120,6 +122,7 @@ export default function StrainerSizingClient() {
     setFlowRate('');
     setLineSize('4');
     setStrainerType('y_type');
+    setMeshIndex(null);
     setFluidDensity('1025');
     setFluidViscosity('1.08');
     setFluidTemperature('25');
@@ -148,13 +151,23 @@ export default function StrainerSizingClient() {
           fluidDensity: density,
           fluidViscosity: viscosity,
           fluidTemperature: isNaN(temp) ? undefined : temp,
+          meshIndex: meshIndex ?? undefined,
         }),
         error: null,
       };
     } catch (err) {
       return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
-  }, [fluidType, flowRate, lineSize, strainerType, fluidDensity, fluidViscosity, fluidTemperature]);
+  }, [
+    fluidType,
+    flowRate,
+    lineSize,
+    strainerType,
+    meshIndex,
+    fluidDensity,
+    fluidViscosity,
+    fluidTemperature,
+  ]);
 
   const result = computed?.result ?? null;
   const error = computed?.error ?? null;
@@ -164,6 +177,7 @@ export default function StrainerSizingClient() {
     flowRate,
     lineSize,
     strainerType,
+    meshIndex,
     fluidDensity,
     fluidViscosity,
     fluidTemperature,
@@ -217,6 +231,7 @@ export default function StrainerSizingClient() {
               flowRate={flowRate}
               lineSize={lineSize}
               strainerType={strainerType}
+              meshIndex={meshIndex}
               fluidDensity={fluidDensity}
               fluidViscosity={fluidViscosity}
               fluidTemperature={fluidTemperature}
@@ -225,6 +240,7 @@ export default function StrainerSizingClient() {
               onFlowRateChange={setFlowRate}
               onLineSizeChange={setLineSize}
               onStrainerTypeChange={setStrainerType}
+              onMeshIndexChange={setMeshIndex}
               onFluidDensityChange={setFluidDensity}
               onFluidViscosityChange={setFluidViscosity}
               onFluidTemperatureChange={setFluidTemperature}
@@ -338,6 +354,7 @@ export default function StrainerSizingClient() {
           if (typeof inputs.lineSize === 'string') setLineSize(inputs.lineSize);
           if (typeof inputs.strainerType === 'string')
             setStrainerType(inputs.strainerType as StrainerType);
+          setMeshIndex(typeof inputs.meshIndex === 'number' ? inputs.meshIndex : null);
           if (typeof inputs.fluidDensity === 'string') setFluidDensity(inputs.fluidDensity);
           if (typeof inputs.fluidViscosity === 'string') setFluidViscosity(inputs.fluidViscosity);
           if (typeof inputs.fluidTemperature === 'string')

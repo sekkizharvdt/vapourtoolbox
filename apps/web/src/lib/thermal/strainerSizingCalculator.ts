@@ -44,6 +44,19 @@ export interface StrainerSizingInput {
   fluidViscosity: number;
   /** Fluid temperature in °C (informational) */
   fluidTemperature?: number;
+  /** Override mesh size — index into STANDARD_MESH_SIZES (if undefined, uses recommendation) */
+  meshIndex?: number;
+}
+
+/** A single row in the mesh comparison table */
+export interface MeshComparisonEntry {
+  mesh: MeshSize;
+  meshIndex: number;
+  isSelected: boolean;
+  isRecommended: boolean;
+  screenVelocityClean: number;
+  totalPressureDropClean: number;
+  totalPressureDropClogged: number;
 }
 
 export interface StrainerSizingResult {
@@ -55,6 +68,12 @@ export interface StrainerSizingResult {
   meshNumber: number;
   /** Screen open area ratio (fraction, typically 0.3–0.5) */
   screenOpenAreaRatio: number;
+  /** Whether this is the recommended mesh or a user override */
+  isRecommendedMesh: boolean;
+  /** Index of the selected mesh in STANDARD_MESH_SIZES */
+  selectedMeshIndex: number;
+  /** Comparison table: selected mesh ± 2 neighbors */
+  meshComparison: MeshComparisonEntry[];
   /** Pipe inner diameter in mm */
   pipeIdMm: number;
   /** Pipe flow area in mm² */
@@ -137,53 +156,59 @@ const SCREEN_AREA_RATIOS: Record<StrainerType, number> = {
 const SCREEN_K_FACTOR = 1.5;
 
 /**
- * Recommended mesh sizes by fluid type
+ * Standard wire mesh sizes — from coarsest to finest.
+ * Data from standard mesh tables (ASTM E11 / ISO 565).
  */
-interface MeshRecommendation {
-  meshSizeMm: number;
+export interface MeshSize {
+  /** Mesh opening in mm */
+  openingMm: number;
+  /** Mesh number (openings per inch) */
   meshNumber: number;
-  description: string;
+  /** Screen open area ratio (fraction) */
   openAreaRatio: number;
+  /** Human-readable label */
+  label: string;
 }
 
-const MESH_RECOMMENDATIONS: Record<FluidType, MeshRecommendation> = {
-  seawater: {
-    meshSizeMm: 1.5,
-    meshNumber: 14,
-    description: 'Medium — suitable for seawater with marine debris',
-    openAreaRatio: 0.35,
-  },
-  brine: {
-    meshSizeMm: 1.5,
-    meshNumber: 14,
-    description: 'Medium — suitable for brine with scale/salt deposits',
-    openAreaRatio: 0.35,
-  },
-  dm_water: {
-    meshSizeMm: 0.5,
-    meshNumber: 30,
-    description: 'Fine — suitable for DM water / condensate return',
-    openAreaRatio: 0.3,
-  },
-  condensate: {
-    meshSizeMm: 0.8,
-    meshNumber: 20,
-    description: 'Medium-fine — suitable for steam condensate with scale particles',
-    openAreaRatio: 0.33,
-  },
-  cooling_water: {
-    meshSizeMm: 2.0,
+export const STANDARD_MESH_SIZES: MeshSize[] = [
+  { openingMm: 6.3, meshNumber: 3, openAreaRatio: 0.56, label: '6.3 mm — Mesh #3 (Very Coarse)' },
+  { openingMm: 4.0, meshNumber: 5, openAreaRatio: 0.49, label: '4.0 mm — Mesh #5 (Coarse)' },
+  { openingMm: 3.35, meshNumber: 6, openAreaRatio: 0.47, label: '3.35 mm — Mesh #6 (Coarse)' },
+  {
+    openingMm: 2.0,
     meshNumber: 10,
-    description: 'Coarse — suitable for cooling water circuits',
     openAreaRatio: 0.4,
+    label: '2.0 mm — Mesh #10 (Medium-Coarse)',
   },
-  custom: {
-    meshSizeMm: 1.0,
-    meshNumber: 18,
-    description: 'General-purpose — adjust as needed',
-    openAreaRatio: 0.35,
+  { openingMm: 1.5, meshNumber: 14, openAreaRatio: 0.35, label: '1.5 mm — Mesh #14 (Medium)' },
+  { openingMm: 1.0, meshNumber: 18, openAreaRatio: 0.35, label: '1.0 mm — Mesh #18 (Medium-Fine)' },
+  { openingMm: 0.8, meshNumber: 20, openAreaRatio: 0.33, label: '0.8 mm — Mesh #20 (Fine)' },
+  { openingMm: 0.5, meshNumber: 30, openAreaRatio: 0.3, label: '0.5 mm — Mesh #30 (Fine)' },
+  { openingMm: 0.25, meshNumber: 60, openAreaRatio: 0.27, label: '0.25 mm — Mesh #60 (Very Fine)' },
+  {
+    openingMm: 0.15,
+    meshNumber: 100,
+    openAreaRatio: 0.24,
+    label: '0.15 mm — Mesh #100 (Ultra Fine)',
   },
+];
+
+/**
+ * Recommended mesh size index (into STANDARD_MESH_SIZES) by fluid type.
+ */
+const RECOMMENDED_MESH_INDEX: Record<FluidType, number> = {
+  seawater: 4, // 1.5 mm — Mesh #14
+  brine: 4, // 1.5 mm — Mesh #14
+  dm_water: 7, // 0.5 mm — Mesh #30
+  condensate: 6, // 0.8 mm — Mesh #20
+  cooling_water: 3, // 2.0 mm — Mesh #10
+  custom: 5, // 1.0 mm — Mesh #18
 };
+
+/** Get the recommended mesh index for a fluid type */
+export function getRecommendedMeshIndex(fluidType: FluidType): number {
+  return RECOMMENDED_MESH_INDEX[fluidType];
+}
 
 // ============================================================================
 // Main Calculation
@@ -203,8 +228,14 @@ export function calculateStrainerSizing(input: StrainerSizingInput): StrainerSiz
 
   const warnings: string[] = [];
 
-  // Mesh recommendation
-  const mesh = MESH_RECOMMENDATIONS[fluidType];
+  // Resolve mesh: user override or recommendation
+  const recommendedIdx = RECOMMENDED_MESH_INDEX[fluidType];
+  const selectedIdx = Math.min(
+    Math.max(0, input.meshIndex ?? recommendedIdx),
+    STANDARD_MESH_SIZES.length - 1
+  );
+  const mesh = STANDARD_MESH_SIZES[selectedIdx]!;
+  const isRecommendedMesh = selectedIdx === recommendedIdx;
 
   // Flow conversion: m³/hr → m³/s
   const flowM3s = flowRate / 3600;
@@ -253,6 +284,16 @@ export function calculateStrainerSizing(input: StrainerSizingInput): StrainerSiz
   // Total 50% clogged
   const totalPressureDropClogged = bodyPressureDrop + screenPressureDropClogged;
 
+  // Build mesh comparison: selected ± 2 neighbors
+  const meshComparison = buildMeshComparison(
+    selectedIdx,
+    recommendedIdx,
+    flowM3s,
+    screenAreaMm2,
+    bodyPressureDrop,
+    fluidDensity
+  );
+
   // Warnings
   if (pipeVelocity > 3.0) {
     warnings.push(
@@ -281,10 +322,13 @@ export function calculateStrainerSizing(input: StrainerSizingInput): StrainerSiz
   }
 
   return {
-    meshSizeMm: mesh.meshSizeMm,
-    meshDescription: mesh.description,
+    meshSizeMm: mesh.openingMm,
+    meshDescription: mesh.label,
     meshNumber: mesh.meshNumber,
     screenOpenAreaRatio: mesh.openAreaRatio,
+    isRecommendedMesh,
+    selectedMeshIndex: selectedIdx,
+    meshComparison,
     pipeIdMm: pipe.id_mm,
     pipeAreaMm2: pipe.area_mm2,
     pipeVelocity: round4(pipeVelocity),
@@ -303,6 +347,39 @@ export function calculateStrainerSizing(input: StrainerSizingInput): StrainerSiz
     lineSize,
     warnings,
   };
+}
+
+/** Build comparison rows for the selected mesh ± 2 neighbors */
+function buildMeshComparison(
+  selectedIdx: number,
+  recommendedIdx: number,
+  flowM3s: number,
+  screenAreaMm2: number,
+  bodyPressureDrop: number,
+  fluidDensity: number
+): MeshComparisonEntry[] {
+  const startIdx = Math.max(0, selectedIdx - 2);
+  const endIdx = Math.min(STANDARD_MESH_SIZES.length - 1, selectedIdx + 2);
+
+  const entries: MeshComparisonEntry[] = [];
+  for (let i = startIdx; i <= endIdx; i++) {
+    const m = STANDARD_MESH_SIZES[i]!;
+    const openAreaM2 = (screenAreaMm2 * m.openAreaRatio) / 1e6;
+    const vClean = flowM3s / openAreaM2;
+    const screenDpClean = (SCREEN_K_FACTOR * fluidDensity * Math.pow(vClean, 2)) / 2 / 1e5;
+    const screenDpClogged = (SCREEN_K_FACTOR * fluidDensity * Math.pow(vClean * 2, 2)) / 2 / 1e5;
+
+    entries.push({
+      mesh: m,
+      meshIndex: i,
+      isSelected: i === selectedIdx,
+      isRecommended: i === recommendedIdx,
+      screenVelocityClean: round4(vClean),
+      totalPressureDropClean: round4(bodyPressureDrop + screenDpClean),
+      totalPressureDropClogged: round4(bodyPressureDrop + screenDpClogged),
+    });
+  }
+  return entries;
 }
 
 // ============================================================================
