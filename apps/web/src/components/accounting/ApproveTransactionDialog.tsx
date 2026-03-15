@@ -7,7 +7,8 @@
  * Consolidates ApproveInvoiceDialog and ApproveBillDialog.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import {
   Dialog,
   DialogTitle,
@@ -63,6 +64,11 @@ export function ApproveTransactionDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [action, setAction] = useState<'approve' | 'reject' | null>(null);
+
+  const handleTallySubmit = useCallback(() => {
+    // Comments field is multiline, so Enter-to-submit is handled by the Approve button focus
+  }, []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: handleTallySubmit, disabled: loading });
 
   const config = TRANSACTION_CONFIGS[transactionType];
 
@@ -224,6 +230,8 @@ export function ApproveTransactionDialog({
             disabled={loading}
             required={action === 'reject'}
             error={action === 'reject' && !comments.trim() && !!error}
+            autoFocus
+            {...getFieldProps(0, { multiline: true })}
           />
         </Box>
       </DialogContent>

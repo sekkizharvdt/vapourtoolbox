@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -24,6 +24,7 @@ import { useToast } from '@/components/common/Toast';
 import { createFixedAsset } from '@/lib/accounting/fixedAssetService';
 import type { AssetCategory, DepreciationMethod } from '@vapour/types';
 import { ASSET_CATEGORY_LABELS, DEPRECIATION_RATES } from '@vapour/types';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface CreateAssetDialogProps {
   open: boolean;
@@ -51,6 +52,10 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: saving });
 
   // Form state
   const [name, setName] = useState('');
@@ -144,6 +149,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
       setSaving(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -174,6 +180,8 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               fullWidth
               required
               placeholder="e.g., Dell OptiPlex 7020 - Raaja"
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -183,6 +191,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
                 value={category}
                 label="Category"
                 onChange={(e) => handleCategoryChange(e.target.value as AssetCategory)}
+                {...getFieldProps(1)}
               >
                 {CATEGORY_OPTIONS.map((opt) => (
                   <MenuItem key={opt.value} value={opt.value}>
@@ -200,6 +209,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               fullWidth
               multiline
               rows={2}
+              {...getFieldProps(2, { multiline: true })}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -211,6 +221,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               fullWidth
               required
               slotProps={{ inputLabel: { shrink: true } }}
+              {...getFieldProps(3)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -224,6 +235,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               InputProps={{
                 startAdornment: <InputAdornment position="start">&#8377;</InputAdornment>,
               }}
+              {...getFieldProps(4)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -232,6 +244,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
               fullWidth
+              {...getFieldProps(5)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -241,6 +254,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               onChange={(e) => setLocation(e.target.value)}
               fullWidth
               placeholder="e.g., Main Office, Factory Floor"
+              {...getFieldProps(6)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -250,6 +264,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               onChange={(e) => setAssignedTo(e.target.value)}
               fullWidth
               placeholder="Employee name"
+              {...getFieldProps(7)}
             />
           </Grid>
         </Grid>
@@ -268,6 +283,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
                 value={depMethod}
                 label="Method"
                 onChange={(e) => handleMethodChange(e.target.value as DepreciationMethod)}
+                {...getFieldProps(8)}
               >
                 <MenuItem value="WDV">WDV (Written Down Value)</MenuItem>
                 <MenuItem value="SLM">SLM (Straight Line)</MenuItem>
@@ -285,6 +301,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
                 endAdornment: <InputAdornment position="end">%</InputAdornment>,
               }}
               helperText={`Default for ${ASSET_CATEGORY_LABELS[category]}`}
+              {...getFieldProps(9)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 3 }}>
@@ -294,6 +311,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               onChange={(e) => setUsefulLife(e.target.value)}
               fullWidth
               type="number"
+              {...getFieldProps(10)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 3 }}>
@@ -306,6 +324,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
               InputProps={{
                 startAdornment: <InputAdornment position="start">&#8377;</InputAdornment>,
               }}
+              {...getFieldProps(11)}
             />
           </Grid>
         </Grid>
@@ -320,6 +339,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
           multiline
           rows={2}
           placeholder="Warranty info, serial number, etc."
+          {...getFieldProps(12, { multiline: true })}
         />
       </DialogContent>
       <DialogActions>

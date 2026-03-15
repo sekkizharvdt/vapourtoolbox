@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -24,6 +24,7 @@ import { useToast } from '@/components/common/Toast';
 import { updateFixedAsset } from '@/lib/accounting/fixedAssetService';
 import type { FixedAsset, DepreciationMethod } from '@vapour/types';
 import { ASSET_CATEGORY_LABELS } from '@vapour/types';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface EditAssetDialogProps {
   open: boolean;
@@ -38,6 +39,10 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: saving });
 
   // Form state — only editable non-financial fields
   const [name, setName] = useState('');
@@ -105,6 +110,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
       setSaving(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -128,6 +134,8 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
               onChange={(e) => setName(e.target.value)}
               fullWidth
               required
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -146,6 +154,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
               fullWidth
               multiline
               rows={2}
+              {...getFieldProps(1, { multiline: true })}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -155,6 +164,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
               onChange={(e) => setLocation(e.target.value)}
               fullWidth
               placeholder="e.g., Main Office, Factory Floor"
+              {...getFieldProps(2)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -164,6 +174,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
               onChange={(e) => setAssignedTo(e.target.value)}
               fullWidth
               placeholder="Employee name"
+              {...getFieldProps(3)}
             />
           </Grid>
         </Grid>
@@ -182,6 +193,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
                 value={depMethod}
                 label="Method"
                 onChange={(e) => setDepMethod(e.target.value as DepreciationMethod)}
+                {...getFieldProps(4)}
               >
                 <MenuItem value="WDV">WDV (Written Down Value)</MenuItem>
                 <MenuItem value="SLM">SLM (Straight Line)</MenuItem>
@@ -198,6 +210,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
               InputProps={{
                 endAdornment: <InputAdornment position="end">%</InputAdornment>,
               }}
+              {...getFieldProps(5)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 3 }}>
@@ -207,6 +220,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
               onChange={(e) => setUsefulLife(e.target.value)}
               fullWidth
               type="number"
+              {...getFieldProps(6)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 3 }}>
@@ -219,6 +233,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
               InputProps={{
                 startAdornment: <InputAdornment position="start">&#8377;</InputAdornment>,
               }}
+              {...getFieldProps(7)}
             />
           </Grid>
         </Grid>
@@ -233,6 +248,7 @@ export default function EditAssetDialog({ open, onClose, asset, onUpdated }: Edi
           multiline
           rows={2}
           placeholder="Warranty info, serial number, etc."
+          {...getFieldProps(8, { multiline: true })}
         />
       </DialogContent>
       <DialogActions>

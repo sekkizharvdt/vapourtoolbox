@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TextField,
   Grid,
@@ -45,6 +45,7 @@ import { validateLedgerEntries, calculateBalance } from '@/lib/accounting/ledger
 import { getEntityControlAccount } from '@/lib/accounting/systemAccountResolver';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface TransactionOption {
   id: string;
@@ -90,6 +91,10 @@ export function CreateJournalEntryDialog({
 }: CreateJournalEntryDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
 
   // Form fields
   const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0] || '');
@@ -408,6 +413,7 @@ export function CreateJournalEntryDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSave;
 
   const balance = calculateBalance(entries);
   const isBalanced = balance.isBalanced;
@@ -440,6 +446,8 @@ export function CreateJournalEntryDialog({
             onChange={(e) => setDate(e.target.value)}
             required
             InputLabelProps={{ shrink: true }}
+            autoFocus
+            {...getFieldProps(0)}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -450,6 +458,7 @@ export function CreateJournalEntryDialog({
             value={status}
             onChange={(e) => setStatus(e.target.value as TransactionStatus)}
             required
+            {...getFieldProps(1)}
           >
             <MenuItem value="DRAFT">Draft</MenuItem>
             <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
@@ -466,6 +475,7 @@ export function CreateJournalEntryDialog({
             onChange={(e) => setDescription(e.target.value)}
             multiline
             rows={2}
+            {...getFieldProps(2, { multiline: true })}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -475,6 +485,7 @@ export function CreateJournalEntryDialog({
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             helperText="Invoice number, PO number, etc."
+            {...getFieldProps(3)}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -482,6 +493,7 @@ export function CreateJournalEntryDialog({
             value={projectId}
             onChange={setProjectId}
             label="Project / Cost Centre"
+            {...getFieldProps(4, { isAutocomplete: true })}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>

@@ -75,6 +75,10 @@ interface ApproverSelectorProps {
   showDepartment?: boolean;
   /** Exclude specific user IDs */
   excludeUserIds?: string[];
+  /** Ref callback for the underlying input element (for keyboard navigation) */
+  inputRef?: (el: HTMLInputElement | null) => void;
+  /** KeyDown handler for keyboard navigation (e.g., Enter to advance) */
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 /**
@@ -124,6 +128,8 @@ function ApproverSelectorComponent({
   placeholder = 'Select an approver...',
   showDepartment = true,
   excludeUserIds = [],
+  inputRef: externalInputRef,
+  onKeyDown,
 }: ApproverSelectorProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -277,6 +283,8 @@ function ApproverSelectorComponent({
           required={required}
           error={error}
           helperText={helperText}
+          inputRef={externalInputRef}
+          onKeyDown={onKeyDown}
           InputProps={{
             ...params.InputProps,
             endAdornment: (

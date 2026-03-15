@@ -7,7 +7,8 @@
  * Consolidates SubmitForApprovalDialog (invoices) and SubmitBillForApprovalDialog.
  */
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import {
   Dialog,
   DialogTitle,
@@ -63,6 +64,10 @@ export function SubmitForApprovalDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
+
   const config = TRANSACTION_CONFIGS[transactionType];
 
   const getDisplayNumber = () => {
@@ -111,6 +116,7 @@ export function SubmitForApprovalDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   const handleClose = () => {
     if (!loading) {
@@ -172,6 +178,7 @@ export function SubmitForApprovalDialog({
               required
               placeholder={`Choose who should approve this ${config.entityLabelLower}...`}
               excludeUserIds={user ? [user.uid] : []}
+              {...getFieldProps(0, { isAutocomplete: true })}
             />
           </Box>
 
@@ -184,6 +191,7 @@ export function SubmitForApprovalDialog({
             rows={3}
             placeholder="Add any notes for the approver..."
             disabled={loading}
+            {...getFieldProps(1, { multiline: true })}
           />
         </Box>
       </DialogContent>

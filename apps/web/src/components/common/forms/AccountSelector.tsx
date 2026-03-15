@@ -21,6 +21,10 @@ interface AccountSelectorProps {
   filterByBankAccount?: boolean;
   excludeGroups?: boolean;
   size?: 'small' | 'medium';
+  /** Ref callback for the underlying input element (for keyboard navigation) */
+  inputRef?: (el: HTMLInputElement | null) => void;
+  /** KeyDown handler for keyboard navigation (e.g., Enter to advance) */
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 /**
@@ -45,6 +49,8 @@ export function AccountSelector({
   filterByBankAccount = false,
   excludeGroups = false,
   size = 'small',
+  inputRef: externalInputRef,
+  onKeyDown,
 }: AccountSelectorProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,6 +179,8 @@ export function AccountSelector({
           error={error}
           helperText={helperText}
           size={size}
+          inputRef={externalInputRef}
+          onKeyDown={onKeyDown}
           InputProps={{
             ...params.InputProps,
             endAdornment: (

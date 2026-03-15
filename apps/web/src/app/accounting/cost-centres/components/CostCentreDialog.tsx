@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -24,6 +24,7 @@ import {
   createAuditContext,
   createFieldChanges,
 } from '@/lib/audit/clientAuditService';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface CostCentreDialogProps {
   open: boolean;
@@ -68,6 +69,10 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
 
   // Initialize form when dialog opens or costCentre changes
   useEffect(() => {
@@ -267,6 +272,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -288,7 +294,9 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
               onChange={handleChange('code')}
               placeholder="CC-001"
               required
-              disabled={!!costCentre} // Code cannot be changed after creation
+              disabled={!!costCentre}
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
 
@@ -300,6 +308,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
               onChange={handleChange('name')}
               placeholder="Project Alpha - R&D"
               required
+              {...getFieldProps(1)}
             />
           </Grid>
 
@@ -312,6 +321,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
               placeholder="Research and development costs for Project Alpha"
               multiline
               rows={2}
+              {...getFieldProps(2, { multiline: true })}
             />
           </Grid>
 
@@ -323,6 +333,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
               onChange={handleChange('category')}
               select
               required
+              {...getFieldProps(3)}
               helperText={
                 CATEGORY_OPTIONS.find((opt) => opt.value === formData.category)?.description
               }
@@ -349,6 +360,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
                 label="Linked Project"
                 helperText="Select the project this cost centre will track"
                 includeCostCentres={false}
+                {...getFieldProps(4, { isAutocomplete: true })}
               />
             </Grid>
           )}
@@ -361,6 +373,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
               value={formData.budget}
               onChange={handleChange('budget')}
               placeholder="1000000"
+              {...getFieldProps(5)}
               slotProps={{
                 htmlInput: {
                   step: '0.01',
@@ -378,6 +391,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
               value={formData.budgetCurrency}
               onChange={handleChange('budgetCurrency')}
               select
+              {...getFieldProps(6)}
               slotProps={{
                 select: {
                   native: true,

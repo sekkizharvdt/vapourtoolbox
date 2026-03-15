@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TextField,
   Grid,
@@ -37,6 +37,7 @@ import {
   CURRENCIES,
   useOutstandingInvoices,
 } from './customer-payment';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface RecordCustomerPaymentDialogProps {
   open: boolean;
@@ -52,6 +53,10 @@ export function RecordCustomerPaymentDialog({
   const { user, claims } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
 
   // Form fields
   const [paymentDate, setPaymentDate] = useState<string>(
@@ -307,6 +312,7 @@ export function RecordCustomerPaymentDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <FormDialog
@@ -339,6 +345,8 @@ export function RecordCustomerPaymentDialog({
               onChange={(e) => setPaymentDate(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
               required
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
 
@@ -352,6 +360,7 @@ export function RecordCustomerPaymentDialog({
               filterByRole="CUSTOMER"
               label="Customer"
               required
+              {...getFieldProps(1, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -361,6 +370,7 @@ export function RecordCustomerPaymentDialog({
               onChange={setProjectId}
               label="Project / Cost Centre"
               onlyActive
+              {...getFieldProps(2, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -373,6 +383,7 @@ export function RecordCustomerPaymentDialog({
               onChange={(e) => setAmount(e.target.value)}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               required
+              {...getFieldProps(3)}
             />
           </Grid>
 
@@ -384,6 +395,7 @@ export function RecordCustomerPaymentDialog({
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
               required
+              {...getFieldProps(4)}
             >
               {CURRENCIES.map((curr) => (
                 <MenuItem key={curr.code} value={curr.code}>
@@ -429,6 +441,7 @@ export function RecordCustomerPaymentDialog({
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
               required
+              {...getFieldProps(5)}
             >
               {PAYMENT_METHODS.map((method) => (
                 <MenuItem key={method} value={method}>
@@ -446,6 +459,7 @@ export function RecordCustomerPaymentDialog({
                 value={chequeNumber}
                 onChange={(e) => setChequeNumber(e.target.value)}
                 required
+                {...getFieldProps(6)}
               />
             </Grid>
           )}
@@ -458,6 +472,7 @@ export function RecordCustomerPaymentDialog({
                 value={upiTransactionId}
                 onChange={(e) => setUpiTransactionId(e.target.value)}
                 required
+                {...getFieldProps(6)}
               />
             </Grid>
           )}
@@ -470,6 +485,7 @@ export function RecordCustomerPaymentDialog({
               filterByBankAccount
               excludeGroups
               placeholder="Search bank accounts..."
+              {...getFieldProps(7, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -480,6 +496,7 @@ export function RecordCustomerPaymentDialog({
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="External reference number"
+              {...getFieldProps(8)}
             />
           </Grid>
 
@@ -492,6 +509,7 @@ export function RecordCustomerPaymentDialog({
               multiline
               rows={2}
               placeholder="Payment description or notes"
+              {...getFieldProps(9, { multiline: true })}
             />
           </Grid>
 

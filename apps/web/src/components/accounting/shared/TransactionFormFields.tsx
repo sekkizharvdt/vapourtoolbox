@@ -6,6 +6,12 @@ import type { TransactionStatus } from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 
+/** Props returned by useTallyKeyboard().getFieldProps() */
+interface TallyFieldProps {
+  inputRef: (el: HTMLInputElement | null) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+}
+
 interface TransactionFormFieldsProps {
   /**
    * Transaction date (ISO date string)
@@ -75,6 +81,19 @@ interface TransactionFormFieldsProps {
    * Whether fields are disabled (read-only mode)
    */
   disabled?: boolean;
+  /**
+   * Tally keyboard field props for each internal field.
+   * Keys: date, dueDate, entity, status, description, reference, project
+   */
+  tallyFieldProps?: {
+    date?: TallyFieldProps;
+    dueDate?: TallyFieldProps;
+    entity?: TallyFieldProps;
+    status?: TallyFieldProps;
+    description?: TallyFieldProps;
+    reference?: TallyFieldProps;
+    project?: TallyFieldProps;
+  };
 }
 
 /**
@@ -121,6 +140,7 @@ export function TransactionFormFields({
   entityLabel,
   entityRole,
   disabled = false,
+  tallyFieldProps,
 }: TransactionFormFieldsProps) {
   return (
     <Grid container spacing={2}>
@@ -134,6 +154,8 @@ export function TransactionFormFields({
           required
           disabled={disabled}
           InputLabelProps={{ shrink: true }}
+          inputRef={tallyFieldProps?.date?.inputRef}
+          onKeyDown={tallyFieldProps?.date?.onKeyDown}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -145,6 +167,8 @@ export function TransactionFormFields({
           onChange={(e) => onDueDateChange(e.target.value)}
           disabled={disabled}
           InputLabelProps={{ shrink: true }}
+          inputRef={tallyFieldProps?.dueDate?.inputRef}
+          onKeyDown={tallyFieldProps?.dueDate?.onKeyDown}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -155,6 +179,8 @@ export function TransactionFormFields({
           required
           filterByRole={entityRole}
           disabled={disabled}
+          inputRef={tallyFieldProps?.entity?.inputRef}
+          onKeyDown={tallyFieldProps?.entity?.onKeyDown}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -166,6 +192,8 @@ export function TransactionFormFields({
           onChange={(e) => onStatusChange(e.target.value as TransactionStatus)}
           required
           disabled={disabled}
+          inputRef={tallyFieldProps?.status?.inputRef}
+          onKeyDown={tallyFieldProps?.status?.onKeyDown}
           slotProps={{
             select: {
               MenuProps: {
@@ -192,6 +220,8 @@ export function TransactionFormFields({
           rows={2}
           disabled={disabled}
           spellCheck={false}
+          inputRef={tallyFieldProps?.description?.inputRef}
+          onKeyDown={tallyFieldProps?.description?.onKeyDown}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -202,6 +232,8 @@ export function TransactionFormFields({
           onChange={(e) => onReferenceChange(e.target.value)}
           helperText="PO number, job reference, etc."
           disabled={disabled}
+          inputRef={tallyFieldProps?.reference?.inputRef}
+          onKeyDown={tallyFieldProps?.reference?.onKeyDown}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -210,6 +242,8 @@ export function TransactionFormFields({
           onChange={onProjectChange}
           label="Project / Cost Centre"
           disabled={disabled}
+          inputRef={tallyFieldProps?.project?.inputRef}
+          onKeyDown={tallyFieldProps?.project?.onKeyDown}
         />
       </Grid>
     </Grid>

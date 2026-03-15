@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -55,6 +55,7 @@ import type {
 } from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface AddPaymentDialogProps {
   open: boolean;
@@ -79,6 +80,10 @@ export default function AddPaymentDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabValue>('bills');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: saving });
 
   // Bills tab state
   const [bills, setBills] = useState<VendorBill[]>([]);
@@ -264,6 +269,7 @@ export default function AddPaymentDialog({
       setSaving(false);
     }
   };
+  submitRef.current = handleAddManual;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -412,6 +418,7 @@ export default function AddPaymentDialog({
                 value={payeeType}
                 label="Payee Type"
                 onChange={(e) => setPayeeType(e.target.value as BatchPayeeType)}
+                {...getFieldProps(0)}
               >
                 <MenuItem value="VENDOR">Vendor</MenuItem>
                 <MenuItem value="EMPLOYEE">Employee</MenuItem>
@@ -426,6 +433,7 @@ export default function AddPaymentDialog({
                 onEntitySelect={(entity: BusinessEntity | null) => setSelectedEntity(entity)}
                 label="Vendor"
                 filterByRole="VENDOR"
+                {...getFieldProps(1, { isAutocomplete: true })}
               />
             ) : (
               <TextField
@@ -435,6 +443,7 @@ export default function AddPaymentDialog({
                 fullWidth
                 required
                 placeholder="e.g., Sathiyamoorthi"
+                {...getFieldProps(1)}
               />
             )}
 
@@ -449,6 +458,7 @@ export default function AddPaymentDialog({
                 InputProps={{
                   startAdornment: <InputAdornment position="start">INR</InputAdornment>,
                 }}
+                {...getFieldProps(2)}
               />
               <TextField
                 label="TDS Amount"
@@ -459,6 +469,7 @@ export default function AddPaymentDialog({
                 InputProps={{
                   startAdornment: <InputAdornment position="start">INR</InputAdornment>,
                 }}
+                {...getFieldProps(3)}
               />
               <TextField
                 label="TDS Section"
@@ -466,6 +477,7 @@ export default function AddPaymentDialog({
                 onChange={(e) => setTdsSection(e.target.value)}
                 sx={{ width: 120 }}
                 placeholder="194C"
+                {...getFieldProps(4)}
               />
             </Box>
 
@@ -475,6 +487,7 @@ export default function AddPaymentDialog({
                 value={category}
                 label="Category"
                 onChange={(e) => setCategory(e.target.value as BatchPaymentCategory)}
+                {...getFieldProps(5)}
               >
                 <MenuItem value="">
                   <em>None</em>
@@ -498,6 +511,7 @@ export default function AddPaymentDialog({
               }}
               label="Project (Optional)"
               helperText="Assign this payment to a project"
+              {...getFieldProps(6, { isAutocomplete: true })}
             />
 
             <TextField
@@ -508,6 +522,7 @@ export default function AddPaymentDialog({
               multiline
               rows={2}
               placeholder="e.g., 7500 TDS, Loan repayment"
+              {...getFieldProps(7, { multiline: true })}
             />
           </Box>
         )}

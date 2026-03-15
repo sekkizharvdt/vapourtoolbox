@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -25,6 +25,7 @@ import {
 import type { CashFlowDirection, ManualCashFlowCategory } from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface ManualCashFlowDialogProps {
   open: boolean;
@@ -38,6 +39,10 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
+
   // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -47,7 +52,9 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
   const [amount, setAmount] = useState<number>(0);
   const [expectedDate, setExpectedDate] = useState<Date | null>(new Date());
   const [isRecurring, setIsRecurring] = useState(false);
-  const [recurrenceFrequency, setRecurrenceFrequency] = useState<'WEEKLY' | 'MONTHLY' | 'QUARTERLY'>('MONTHLY');
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<
+    'WEEKLY' | 'MONTHLY' | 'QUARTERLY'
+  >('MONTHLY');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | null>(null);
   const [entityId, setEntityId] = useState<string | null>(null);
   const [entityName, setEntityName] = useState<string | undefined>();
@@ -106,7 +113,7 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
         expectedDate,
         isRecurring,
         recurrenceFrequency: isRecurring ? recurrenceFrequency : undefined,
-        recurrenceEndDate: isRecurring ? recurrenceEndDate ?? undefined : undefined,
+        recurrenceEndDate: isRecurring ? (recurrenceEndDate ?? undefined) : undefined,
         entityId: entityId ?? undefined,
         entityName,
         projectId: projectId ?? undefined,
@@ -124,12 +131,11 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Add Expected {direction === 'INFLOW' ? 'Receipt' : 'Payment'}
-      </DialogTitle>
+      <DialogTitle>Add Expected {direction === 'INFLOW' ? 'Receipt' : 'Payment'}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -145,7 +151,13 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder={direction === 'INFLOW' ? 'e.g., Expected payment from ABC Corp' : 'e.g., Office rent payment'}
+              placeholder={
+                direction === 'INFLOW'
+                  ? 'e.g., Expected payment from ABC Corp'
+                  : 'e.g., Office rent payment'
+              }
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
 
@@ -157,6 +169,7 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
               onChange={(e) => setDescription(e.target.value)}
               multiline
               rows={2}
+              {...getFieldProps(1, { multiline: true })}
             />
           </Grid>
 
@@ -168,6 +181,7 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
               value={category}
               onChange={(e) => setCategory(e.target.value as ManualCashFlowCategory)}
               required
+              {...getFieldProps(2)}
             >
               {categories.map((cat) => (
                 <MenuItem key={cat} value={cat}>
@@ -189,6 +203,7 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
               InputProps={{
                 startAdornment: <span style={{ marginRight: 8 }}>INR</span>,
               }}
+              {...getFieldProps(3)}
             />
           </Grid>
 
@@ -213,6 +228,7 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
               onEntitySelect={(entity) => setEntityName(entity?.name)}
               label={direction === 'INFLOW' ? 'Customer (optional)' : 'Vendor (optional)'}
               filterByRole={direction === 'INFLOW' ? 'CUSTOMER' : 'VENDOR'}
+              {...getFieldProps(5, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -221,16 +237,14 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
               value={projectId}
               onChange={setProjectId}
               label="Project (optional)"
+              {...getFieldProps(6, { isAutocomplete: true })}
             />
           </Grid>
 
           <Grid size={{ xs: 12 }}>
             <FormControlLabel
               control={
-                <Switch
-                  checked={isRecurring}
-                  onChange={(e) => setIsRecurring(e.target.checked)}
-                />
+                <Switch checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} />
               }
               label="This is a recurring item"
             />
@@ -244,7 +258,9 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
                   select
                   label="Frequency"
                   value={recurrenceFrequency}
-                  onChange={(e) => setRecurrenceFrequency(e.target.value as 'WEEKLY' | 'MONTHLY' | 'QUARTERLY')}
+                  onChange={(e) =>
+                    setRecurrenceFrequency(e.target.value as 'WEEKLY' | 'MONTHLY' | 'QUARTERLY')
+                  }
                 >
                   <MenuItem value="WEEKLY">Weekly</MenuItem>
                   <MenuItem value="MONTHLY">Monthly</MenuItem>
@@ -275,6 +291,7 @@ export function ManualCashFlowDialog({ open, direction, onClose }: ManualCashFlo
               onChange={(e) => setNotes(e.target.value)}
               multiline
               rows={2}
+              {...getFieldProps(7, { multiline: true })}
             />
           </Grid>
         </Grid>

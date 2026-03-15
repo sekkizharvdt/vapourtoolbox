@@ -27,6 +27,10 @@ interface EntitySelectorProps {
   helperText?: string;
   filterByRole?: EntityRole | EntityRole[];
   size?: 'small' | 'medium';
+  /** Ref callback for the underlying input element (for keyboard navigation) */
+  inputRef?: (el: HTMLInputElement | null) => void;
+  /** KeyDown handler for keyboard navigation (e.g., Enter to advance) */
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 /**
@@ -49,6 +53,8 @@ function EntitySelectorComponent({
   helperText,
   filterByRole,
   size = 'small',
+  inputRef: externalInputRef,
+  onKeyDown,
 }: EntitySelectorProps) {
   const [entities, setEntities] = useState<BusinessEntity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,6 +220,8 @@ function EntitySelectorComponent({
           error={error}
           helperText={helperText}
           size={size}
+          inputRef={externalInputRef}
+          onKeyDown={onKeyDown}
           InputProps={{
             ...params.InputProps,
             endAdornment: (

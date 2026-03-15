@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TextField,
   Grid,
@@ -34,6 +34,7 @@ import {
   TDS_SECTIONS,
 } from './vendor-payment';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface RecordVendorPaymentDialogProps {
   open: boolean;
@@ -49,6 +50,10 @@ export function RecordVendorPaymentDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
 
   // Form fields
   const [paymentDate, setPaymentDate] = useState<string>(
@@ -596,6 +601,7 @@ export function RecordVendorPaymentDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   const totalAllocated = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
   const netPayment = amount - (tdsDeducted ? tdsAmount : 0);
@@ -631,6 +637,8 @@ export function RecordVendorPaymentDialog({
               onChange={(e) => setPaymentDate(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
               required
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
 
@@ -644,6 +652,7 @@ export function RecordVendorPaymentDialog({
               filterByRole="VENDOR"
               label="Vendor"
               required
+              {...getFieldProps(1, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -681,6 +690,7 @@ export function RecordVendorPaymentDialog({
               onChange={setProjectId}
               label="Project / Cost Centre"
               onlyActive
+              {...getFieldProps(2, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -693,6 +703,7 @@ export function RecordVendorPaymentDialog({
               onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               required
+              {...getFieldProps(3)}
             />
           </Grid>
 
@@ -704,6 +715,7 @@ export function RecordVendorPaymentDialog({
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
               required
+              {...getFieldProps(4)}
             >
               {PAYMENT_METHODS.map((method) => (
                 <MenuItem key={method} value={method}>
@@ -721,6 +733,7 @@ export function RecordVendorPaymentDialog({
                 value={chequeNumber}
                 onChange={(e) => setChequeNumber(e.target.value)}
                 required
+                {...getFieldProps(5)}
               />
             </Grid>
           )}
@@ -733,6 +746,7 @@ export function RecordVendorPaymentDialog({
                 value={upiTransactionId}
                 onChange={(e) => setUpiTransactionId(e.target.value)}
                 required
+                {...getFieldProps(5)}
               />
             </Grid>
           )}
@@ -745,6 +759,7 @@ export function RecordVendorPaymentDialog({
               filterByBankAccount
               excludeGroups
               placeholder="Search bank accounts..."
+              {...getFieldProps(6, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -755,6 +770,7 @@ export function RecordVendorPaymentDialog({
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="External reference number"
+              {...getFieldProps(7)}
             />
           </Grid>
 
@@ -767,6 +783,7 @@ export function RecordVendorPaymentDialog({
               multiline
               rows={2}
               placeholder="Payment description or notes"
+              {...getFieldProps(8, { multiline: true })}
             />
           </Grid>
 

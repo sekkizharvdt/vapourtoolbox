@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TextField, Box, Typography, MenuItem, Alert } from '@mui/material';
 import { Grid } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
@@ -10,6 +10,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBankStatement } from '@/lib/accounting/bankReconciliation';
 import type { Account } from '@vapour/types';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface CreateBankStatementDialogProps {
   open: boolean;
@@ -21,6 +22,10 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [bankAccounts, setBankAccounts] = useState<Account[]>([]);
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
 
   // Form fields
   const [accountId, setAccountId] = useState('');
@@ -152,6 +157,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <FormDialog open={open} onClose={onClose} title="Create Bank Statement" maxWidth="md">
@@ -179,6 +185,8 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => handleAccountChange(e.target.value)}
               required
               disabled={bankAccounts.length === 0}
+              autoFocus
+              {...getFieldProps(0)}
               helperText={
                 bankAccounts.length === 0
                   ? 'No bank accounts found. Please create a bank account in Chart of Accounts first.'
@@ -221,6 +229,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => setStatementDate(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
               required
+              {...getFieldProps(1)}
             />
           </Grid>
 
@@ -233,6 +242,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => setStartDate(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
               required
+              {...getFieldProps(2)}
             />
           </Grid>
 
@@ -245,6 +255,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => setEndDate(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
               required
+              {...getFieldProps(3)}
             />
           </Grid>
 
@@ -264,6 +275,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => setOpeningBalance(e.target.value)}
               slotProps={{ htmlInput: { step: 0.01 } }}
               required
+              {...getFieldProps(4)}
             />
           </Grid>
 
@@ -276,6 +288,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => setClosingBalance(e.target.value)}
               slotProps={{ htmlInput: { step: 0.01 } }}
               required
+              {...getFieldProps(5)}
             />
           </Grid>
 
@@ -288,6 +301,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => setTotalDebits(e.target.value)}
               slotProps={{ htmlInput: { step: 0.01 } }}
               helperText="Optional: Total of all debit transactions"
+              {...getFieldProps(6)}
             />
           </Grid>
 
@@ -300,6 +314,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               onChange={(e) => setTotalCredits(e.target.value)}
               slotProps={{ htmlInput: { step: 0.01 } }}
               helperText="Optional: Total of all credit transactions"
+              {...getFieldProps(7)}
             />
           </Grid>
 
@@ -313,6 +328,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
               multiline
               rows={3}
               placeholder="Optional notes about this statement"
+              {...getFieldProps(8, { multiline: true })}
             />
           </Grid>
 

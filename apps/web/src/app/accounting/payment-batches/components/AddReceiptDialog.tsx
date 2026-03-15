@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -22,6 +22,7 @@ import { addBatchReceipt, updateBatchReceipt } from '@/lib/accounting/paymentBat
 import type { BatchReceiptSourceType, BatchReceipt, Project, BusinessEntity } from '@vapour/types';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface AddReceiptDialogProps {
   open: boolean;
@@ -41,6 +42,10 @@ export default function AddReceiptDialog({
   const isEditing = !!editingReceipt;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: saving });
 
   // Form state
   const [sourceType, setSourceType] = useState<BatchReceiptSourceType>('OTHER_RECEIPT');
@@ -147,6 +152,7 @@ export default function AddReceiptDialog({
       setSaving(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -165,6 +171,7 @@ export default function AddReceiptDialog({
               value={sourceType}
               label="Receipt Type"
               onChange={(e) => setSourceType(e.target.value as BatchReceiptSourceType)}
+              {...getFieldProps(0)}
             >
               <MenuItem value="CUSTOMER_PAYMENT">Customer Payment</MenuItem>
               <MenuItem value="OTHER_RECEIPT">Other Receipt</MenuItem>
@@ -179,6 +186,7 @@ export default function AddReceiptDialog({
             required
             placeholder="e.g., Desolenator USD 13,922 x 89.62"
             helperText="Describe the receipt source"
+            {...getFieldProps(1)}
           />
 
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -192,6 +200,7 @@ export default function AddReceiptDialog({
               InputProps={{
                 startAdornment: <InputAdornment position="start">INR</InputAdornment>,
               }}
+              {...getFieldProps(2)}
             />
             <FormControl sx={{ minWidth: 100 }}>
               <InputLabel>Currency</InputLabel>
@@ -199,6 +208,7 @@ export default function AddReceiptDialog({
                 value={currency}
                 label="Currency"
                 onChange={(e) => setCurrency(e.target.value)}
+                {...getFieldProps(3)}
               >
                 <MenuItem value="INR">INR</MenuItem>
                 <MenuItem value="USD">USD</MenuItem>
@@ -227,6 +237,7 @@ export default function AddReceiptDialog({
             }}
             label="Project (Optional)"
             helperText="Link this receipt to a project for interproject loan tracking"
+            {...getFieldProps(5, { isAutocomplete: true })}
           />
 
           {sourceType === 'CUSTOMER_PAYMENT' && (
@@ -236,6 +247,7 @@ export default function AddReceiptDialog({
               onEntitySelect={(entity: BusinessEntity | null) => setSelectedEntity(entity)}
               label="Customer"
               filterByRole="CUSTOMER"
+              {...getFieldProps(6, { isAutocomplete: true })}
             />
           )}
         </Box>

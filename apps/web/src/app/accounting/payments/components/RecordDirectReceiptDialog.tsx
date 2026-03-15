@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TextField, Grid, MenuItem, Box, Typography, Alert } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { getFirebase } from '@/lib/firebase';
 import { Timestamp, collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,6 +55,10 @@ export function RecordDirectReceiptDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
 
   // Form fields
   const [receiptDate, setReceiptDate] = useState<string>(
@@ -297,6 +302,7 @@ export function RecordDirectReceiptDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <FormDialog
@@ -334,6 +340,8 @@ export function RecordDirectReceiptDialog({
               onChange={(e) => setReceiptDate(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
               required
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
 
@@ -346,6 +354,7 @@ export function RecordDirectReceiptDialog({
               onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               required
+              {...getFieldProps(1)}
             />
           </Grid>
 
@@ -364,6 +373,7 @@ export function RecordDirectReceiptDialog({
               excludeGroups
               required
               placeholder="Search chart of accounts..."
+              {...getFieldProps(2, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -380,6 +390,7 @@ export function RecordDirectReceiptDialog({
               excludeGroups
               required
               placeholder="Search bank accounts..."
+              {...getFieldProps(3, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -398,6 +409,7 @@ export function RecordDirectReceiptDialog({
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
               required
+              {...getFieldProps(4)}
             >
               {PAYMENT_METHODS.map((method) => (
                 <MenuItem key={method} value={method}>
@@ -415,6 +427,7 @@ export function RecordDirectReceiptDialog({
                 value={chequeNumber}
                 onChange={(e) => setChequeNumber(e.target.value)}
                 required
+                {...getFieldProps(5)}
               />
             </Grid>
           )}
@@ -427,6 +440,7 @@ export function RecordDirectReceiptDialog({
                 value={upiTransactionId}
                 onChange={(e) => setUpiTransactionId(e.target.value)}
                 required
+                {...getFieldProps(5)}
               />
             </Grid>
           )}
@@ -437,6 +451,7 @@ export function RecordDirectReceiptDialog({
               onChange={setProjectId}
               label="Project / Cost Centre"
               onlyActive
+              {...getFieldProps(6, { isAutocomplete: true })}
             />
           </Grid>
 
@@ -447,6 +462,7 @@ export function RecordDirectReceiptDialog({
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="External reference number"
+              {...getFieldProps(7)}
             />
           </Grid>
 
@@ -460,6 +476,7 @@ export function RecordDirectReceiptDialog({
               rows={2}
               placeholder="Receipt description (e.g., Interest received from bank, Insurance claim)"
               required
+              {...getFieldProps(8, { multiline: true })}
             />
           </Grid>
         </Grid>

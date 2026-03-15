@@ -34,6 +34,10 @@ interface ProjectSelectorProps {
   /** Include standalone cost centres (ADMINISTRATION, OVERHEAD) in addition to projects */
   includeCostCentres?: boolean;
   size?: 'small' | 'medium';
+  /** Ref callback for the underlying input element (for keyboard navigation) */
+  inputRef?: (el: HTMLInputElement | null) => void;
+  /** KeyDown handler for keyboard navigation (e.g., Enter to advance) */
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 /**
@@ -56,6 +60,8 @@ export function ProjectSelector({
   onlyActive = true,
   includeCostCentres = true,
   size = 'small',
+  inputRef: externalInputRef,
+  onKeyDown,
 }: ProjectSelectorProps) {
   const [options, setOptions] = useState<ProjectOrCostCentre[]>([]);
   const [loading, setLoading] = useState(true);
@@ -327,6 +333,8 @@ export function ProjectSelector({
           error={error || !!loadError}
           helperText={loadError || helperText}
           size={size}
+          inputRef={externalInputRef}
+          onKeyDown={onKeyDown}
           InputProps={{
             ...params.InputProps,
             endAdornment: (

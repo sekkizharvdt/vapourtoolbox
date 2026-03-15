@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -26,6 +26,7 @@ import {
   createAuditContext,
   createFieldChanges,
 } from '@/lib/audit/clientAuditService';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface CreateAccountDialogProps {
   open: boolean;
@@ -51,6 +52,10 @@ export function CreateAccountDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: loading });
 
   // Form state
   const [code, setCode] = useState('');
@@ -314,6 +319,7 @@ export function CreateAccountDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   const handleClose = () => {
     if (!loading) {
@@ -339,6 +345,8 @@ export function CreateAccountDialog({
                 required
                 disabled={!!editingAccount}
                 helperText="4-digit code"
+                autoFocus
+                {...getFieldProps(0)}
               />
             </Grid>
 
@@ -351,6 +359,7 @@ export function CreateAccountDialog({
                 placeholder="e.g., Cash in Hand"
                 fullWidth
                 required
+                {...getFieldProps(1)}
               />
             </Grid>
 
@@ -364,6 +373,7 @@ export function CreateAccountDialog({
                 fullWidth
                 multiline
                 rows={2}
+                {...getFieldProps(2, { multiline: true })}
               />
             </Grid>
 
@@ -379,6 +389,7 @@ export function CreateAccountDialog({
                     setAccountType(newType);
                     setAccountCategory(ACCOUNT_CATEGORIES[newType][0]!);
                   }}
+                  {...getFieldProps(3)}
                 >
                   <MenuItem value="ASSET">Asset</MenuItem>
                   <MenuItem value="LIABILITY">Liability</MenuItem>
@@ -397,6 +408,7 @@ export function CreateAccountDialog({
                   value={accountCategory}
                   label="Account Category"
                   onChange={(e) => setAccountCategory(e.target.value as AccountCategory)}
+                  {...getFieldProps(4)}
                 >
                   {ACCOUNT_CATEGORIES[accountType].map((cat) => (
                     <MenuItem key={cat} value={cat}>
@@ -416,6 +428,7 @@ export function CreateAccountDialog({
                 onChange={(e) => setOpeningBalance(e.target.value)}
                 fullWidth
                 disabled={isGroup}
+                {...getFieldProps(5)}
               />
             </Grid>
 
@@ -426,6 +439,7 @@ export function CreateAccountDialog({
                   value={currency}
                   label="Currency"
                   onChange={(e) => setCurrency(e.target.value)}
+                  {...getFieldProps(6)}
                 >
                   <MenuItem value="INR">INR - Indian Rupee</MenuItem>
                   <MenuItem value="USD">USD - US Dollar</MenuItem>

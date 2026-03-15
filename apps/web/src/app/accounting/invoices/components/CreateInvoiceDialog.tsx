@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
   Grid,
   Box,
@@ -29,6 +29,7 @@ import { useEntityStateFetch } from '@/hooks/accounting/useEntityStateFetch';
 import { useGSTCalculation } from '@/hooks/accounting/useGSTCalculation';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface CreateInvoiceDialogProps {
   open: boolean;
@@ -46,6 +47,13 @@ export function CreateInvoiceDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({
+    onSubmit: tallySubmit,
+    disabled: loading || viewOnly,
+  });
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [currency, setCurrency] = useState<CurrencyCode>(
@@ -319,6 +327,7 @@ export function CreateInvoiceDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSave;
 
   const dialogTitle = viewOnly
     ? 'View Invoice'
@@ -387,6 +396,15 @@ export function CreateInvoiceDialog({
           entityLabel="Customer"
           entityRole="CUSTOMER"
           disabled={viewOnly}
+          tallyFieldProps={{
+            date: getFieldProps(1),
+            dueDate: getFieldProps(2),
+            entity: getFieldProps(3, { isAutocomplete: true }),
+            status: getFieldProps(4),
+            description: getFieldProps(5, { multiline: true }),
+            reference: getFieldProps(6),
+            project: getFieldProps(7, { isAutocomplete: true }),
+          }}
         />
 
         {/* Currency Selection */}
@@ -405,6 +423,7 @@ export function CreateInvoiceDialog({
               }
             }}
             disabled={viewOnly}
+            {...getFieldProps(8)}
           >
             {Object.values(CURRENCIES).map((curr) => (
               <MenuItem key={curr.code} value={curr.code}>

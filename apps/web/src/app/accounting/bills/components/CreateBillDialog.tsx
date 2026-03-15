@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { Grid, Box, Typography, Stack, Button as MuiButton } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
@@ -21,6 +21,7 @@ import { useTDSCalculation } from '@/hooks/accounting/useTDSCalculation';
 import type { TDSSection as TDSSectionType } from '@/lib/accounting/tdsCalculator';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface CreateBillDialogProps {
   open: boolean;
@@ -38,6 +39,13 @@ export function CreateBillDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({
+    onSubmit: tallySubmit,
+    disabled: loading || viewOnly,
+  });
   const [vendorBillNumber, setVendorBillNumber] = useState('');
 
   // Memoize initial data to prevent useEffect re-runs on every render
@@ -307,6 +315,7 @@ export function CreateBillDialog({
       setLoading(false);
     }
   };
+  submitRef.current = handleSave;
 
   return (
     <FormDialog
@@ -360,6 +369,15 @@ export function CreateBillDialog({
           entityLabel="Vendor"
           entityRole="VENDOR"
           disabled={viewOnly}
+          tallyFieldProps={{
+            date: getFieldProps(1),
+            dueDate: getFieldProps(2),
+            entity: getFieldProps(3, { isAutocomplete: true }),
+            status: getFieldProps(4),
+            description: getFieldProps(5, { multiline: true }),
+            reference: getFieldProps(6),
+            project: getFieldProps(7, { isAutocomplete: true }),
+          }}
         />
 
         {/* Line Items Table */}

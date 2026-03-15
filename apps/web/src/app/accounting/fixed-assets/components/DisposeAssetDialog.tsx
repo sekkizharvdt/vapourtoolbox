@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -19,6 +19,7 @@ import { useToast } from '@/components/common/Toast';
 import { disposeAsset } from '@/lib/accounting/fixedAssetService';
 import type { FixedAsset } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface DisposeAssetDialogProps {
   open: boolean;
@@ -38,6 +39,10 @@ export default function DisposeAssetDialog({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const submitRef = useRef<() => void>(() => {});
+  const tallySubmit = useCallback(() => submitRef.current(), []);
+  const { getFieldProps } = useTallyKeyboard({ onSubmit: tallySubmit, disabled: saving });
 
   const [disposalDate, setDisposalDate] = useState(new Date().toISOString().slice(0, 10));
   const [disposalAmount, setDisposalAmount] = useState('');
@@ -80,6 +85,7 @@ export default function DisposeAssetDialog({
       setSaving(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -109,6 +115,8 @@ export default function DisposeAssetDialog({
               fullWidth
               required
               slotProps={{ inputLabel: { shrink: true } }}
+              autoFocus
+              {...getFieldProps(0)}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -122,6 +130,7 @@ export default function DisposeAssetDialog({
                 startAdornment: <InputAdornment position="start">&#8377;</InputAdornment>,
               }}
               helperText="Enter 0 if scrapped without sale"
+              {...getFieldProps(1)}
             />
           </Grid>
           <Grid size={{ xs: 12 }}>
@@ -134,6 +143,7 @@ export default function DisposeAssetDialog({
               multiline
               rows={2}
               placeholder="e.g., Sold to third party, Scrapped, Donated"
+              {...getFieldProps(2, { multiline: true })}
             />
           </Grid>
         </Grid>
