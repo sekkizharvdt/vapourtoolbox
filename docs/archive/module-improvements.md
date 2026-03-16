@@ -301,6 +301,7 @@ interface BOM {
 **File:** `apps/web/src/app/proposals/[id]/scope/components/LinkBOMDialog.tsx`
 
 Dialog to:
+
 - Search existing BOMs
 - Create new BOM (redirects to /estimation/new with proposal context)
 - Link selected BOM to current scope item

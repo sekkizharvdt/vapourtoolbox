@@ -8,27 +8,27 @@
 
 The Excel program is a 22-sheet MED design tool authored by SEK. It covers:
 
-| Sheet | Purpose |
-|---|---|
-| Overall Project | Master inputs (capacity, GOR, steam, seawater, tentative design parameters) |
-| Effect Performance | Effect-by-effect tube-side & shell-side H&M balance with preheater integration |
-| Summary Effects | Production totals, spray water flows, manifold sizing |
-| Exchange Surf. | Evaporator heat exchange surface calculations |
-| Preheaters | Preheater sizing (HTC, LMTD, surface, tube selection) |
-| 1. Interface | Summary datasheet — all effects + heat exchangers in one view |
-| Edit PFD | Plant flow diagram with all stream data |
-| Evaporator Data Sheet | Equipment datasheet for evaporator |
-| Final Cond Data Sheet | Equipment datasheet for final condenser |
-| Wetting factor | Falling film wetting rate verification |
-| Demisters | Demister sizing per effect |
-| NCG | Non-condensable gas load estimation |
-| Vacuum | Vacuum system sizing |
-| I A Condenser | Inter-stage / auxiliary condenser |
-| Siphons | Brine & distillate siphon sizing between effects |
-| Desuperheating Requirement | Spray water for superheated steam |
-| Manpower Costs | O&M staffing cost model |
-| Cost of Water | Levelised cost per m³ (CAPEX + OPEX) |
-| Life Cycle Costs | 25-year NPV with inflation & depreciation |
+| Sheet                      | Purpose                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| Overall Project            | Master inputs (capacity, GOR, steam, seawater, tentative design parameters)    |
+| Effect Performance         | Effect-by-effect tube-side & shell-side H&M balance with preheater integration |
+| Summary Effects            | Production totals, spray water flows, manifold sizing                          |
+| Exchange Surf.             | Evaporator heat exchange surface calculations                                  |
+| Preheaters                 | Preheater sizing (HTC, LMTD, surface, tube selection)                          |
+| 1. Interface               | Summary datasheet — all effects + heat exchangers in one view                  |
+| Edit PFD                   | Plant flow diagram with all stream data                                        |
+| Evaporator Data Sheet      | Equipment datasheet for evaporator                                             |
+| Final Cond Data Sheet      | Equipment datasheet for final condenser                                        |
+| Wetting factor             | Falling film wetting rate verification                                         |
+| Demisters                  | Demister sizing per effect                                                     |
+| NCG                        | Non-condensable gas load estimation                                            |
+| Vacuum                     | Vacuum system sizing                                                           |
+| I A Condenser              | Inter-stage / auxiliary condenser                                              |
+| Siphons                    | Brine & distillate siphon sizing between effects                               |
+| Desuperheating Requirement | Spray water for superheated steam                                              |
+| Manpower Costs             | O&M staffing cost model                                                        |
+| Cost of Water              | Levelised cost per m³ (CAPEX + OPEX)                                           |
+| Life Cycle Costs           | 25-year NPV with inflation & depreciation                                      |
 
 **Key limitation**: The Excel uses manual iteration ("digit in green box by tentatives until
 the kW in yellow boxes are equal"). Our tool will automate this convergence.
@@ -39,33 +39,33 @@ the kW in yellow boxes are equal"). Our tool will automate this convergence.
 
 These calculators/libraries already exist and will be consumed by the plant designer:
 
-| Capability | File | Status |
-|---|---|---|
-| Steam tables (IAPWS-IF97) | `@vapour/constants` steamTables | Complete |
-| Seawater properties (Sharqawy) | `@vapour/constants` seawaterTables | Complete |
-| BPE correlation | `@vapour/constants` seawaterTables | Complete |
-| NCG properties | `ncgCalculator.ts` | Complete |
-| TVC ejector | `tvcCalculator.ts` | Complete — entrainment ratio, discharge conditions |
-| MVC compressor | `mvcCalculator.ts` | Complete — power, discharge conditions |
-| Siphon sizing | `siphonSizingCalculator.ts` | Complete — pipe selection, flash fraction |
-| Demister sizing | `demisterCalculator.ts` | Complete — Souders-Brown, carryover |
-| Vacuum system | `vacuumSystemCalculator.ts` | Complete — ejector trains, LRVP |
-| Desuperheating | `desuperheatingCalculator.ts` | Complete — spray water flow |
-| Heat duty & LMTD | `heatDutyCalculator.ts` | Complete |
-| HTC correlations | `heatTransfer.ts` | Complete — Nusselt, Kern, etc. |
-| HX sizing | `heatExchangerSizing.ts` | Complete — tube count, shell ID |
-| Falling film evaporator | `fallingFilmCalculator.ts` | Complete — wetting rate |
-| Fouling & scaling | `foulingScalingCalculator.ts` | Complete — CaSO₄, CaCO₃ |
-| Pipe sizing & pressure drop | `pipeService.ts`, `pressureDropCalculator.ts` | Complete |
-| Pump sizing | `pumpSizing.ts` | Complete — TDH, power |
-| Spray nozzle selection | `sprayNozzleCalculator.ts` | Complete |
-| Chemical dosing | `chemicalDosingCalculator.ts` | Complete |
-| Suction system (NPSHa) | `suctionSystemCalculator.ts` | Complete |
-| Flash chamber design | `flashChamberCalculator.ts` | Complete |
-| Vacuum breaker | `vacuumBreakerCalculator.ts` | Complete |
-| GOR estimator | `gorCalculator.ts` | To be superseded by this work |
-| PDF report framework | `@/lib/pdf/reportComponents.tsx` | Complete |
-| Saved calculations | `savedCalculationService.ts` | Complete |
+| Capability                     | File                                          | Status                                             |
+| ------------------------------ | --------------------------------------------- | -------------------------------------------------- |
+| Steam tables (IAPWS-IF97)      | `@vapour/constants` steamTables               | Complete                                           |
+| Seawater properties (Sharqawy) | `@vapour/constants` seawaterTables            | Complete                                           |
+| BPE correlation                | `@vapour/constants` seawaterTables            | Complete                                           |
+| NCG properties                 | `ncgCalculator.ts`                            | Complete                                           |
+| TVC ejector                    | `tvcCalculator.ts`                            | Complete — entrainment ratio, discharge conditions |
+| MVC compressor                 | `mvcCalculator.ts`                            | Complete — power, discharge conditions             |
+| Siphon sizing                  | `siphonSizingCalculator.ts`                   | Complete — pipe selection, flash fraction          |
+| Demister sizing                | `demisterCalculator.ts`                       | Complete — Souders-Brown, carryover                |
+| Vacuum system                  | `vacuumSystemCalculator.ts`                   | Complete — ejector trains, LRVP                    |
+| Desuperheating                 | `desuperheatingCalculator.ts`                 | Complete — spray water flow                        |
+| Heat duty & LMTD               | `heatDutyCalculator.ts`                       | Complete                                           |
+| HTC correlations               | `heatTransfer.ts`                             | Complete — Nusselt, Kern, etc.                     |
+| HX sizing                      | `heatExchangerSizing.ts`                      | Complete — tube count, shell ID                    |
+| Falling film evaporator        | `fallingFilmCalculator.ts`                    | Complete — wetting rate                            |
+| Fouling & scaling              | `foulingScalingCalculator.ts`                 | Complete — CaSO₄, CaCO₃                            |
+| Pipe sizing & pressure drop    | `pipeService.ts`, `pressureDropCalculator.ts` | Complete                                           |
+| Pump sizing                    | `pumpSizing.ts`                               | Complete — TDH, power                              |
+| Spray nozzle selection         | `sprayNozzleCalculator.ts`                    | Complete                                           |
+| Chemical dosing                | `chemicalDosingCalculator.ts`                 | Complete                                           |
+| Suction system (NPSHa)         | `suctionSystemCalculator.ts`                  | Complete                                           |
+| Flash chamber design           | `flashChamberCalculator.ts`                   | Complete                                           |
+| Vacuum breaker                 | `vacuumBreakerCalculator.ts`                  | Complete                                           |
+| GOR estimator                  | `gorCalculator.ts`                            | To be superseded by this work                      |
+| PDF report framework           | `@/lib/pdf/reportComponents.tsx`              | Complete                                           |
+| Saved calculations             | `savedCalculationService.ts`                  | Complete                                           |
 
 ---
 
@@ -79,6 +79,7 @@ Phase 5+:   /thermal/(protected)/med-plant/      (design module pattern)
 ```
 
 **Why calculators first:**
+
 - Faster iteration without Firestore project integration overhead
 - Uses existing save/load pattern (user-scoped)
 - Can be used standalone for quick studies and proposals
@@ -217,6 +218,7 @@ MEDPlantResult
 Core function: `calculateEffect(effectNumber, inputs, previousEffects, preheaterConfig)`
 
 For each effect, solve the energy & mass balance:
+
 - **Inputs**: Vapor (from previous effect or steam), spray water, distillate & condensate (cascade)
 - **Losses**: BPE (from seawater tables), NEA (empirical ~0.2–0.5°C), demister ΔP → ΔT
 - **Energy balance**: Heat from condensing vapor = heat to evaporate spray water + heat to raise spray water + heat to raise brine
@@ -224,6 +226,7 @@ For each effect, solve the energy & mass balance:
 - **Outputs**: All exit streams with flows, temperatures, enthalpies
 
 The Excel iterates manually. We will:
+
 1. Start with an initial guess (equal ΔT distribution)
 2. Solve effect-by-effect forward
 3. Check overall energy balance
@@ -234,11 +237,13 @@ The Excel iterates manually. We will:
 **File**: `apps/web/src/lib/thermal/med/preheaterModel.ts`
 
 The Excel allows preheaters on any effect (effects 2, 4, 6 in Case 6). Each preheater:
+
 - **Diverts** a specified vapor flow from an effect to heat incoming seawater
 - **Reduces** vapor available to the next effect (reduces distillate)
 - **Increases** feed water temperature (improves thermal efficiency)
 
 The preheater model calculates:
+
 - Heat exchanged (LMTD × U × A)
 - Seawater outlet temperature
 - Condensate produced
@@ -249,6 +254,7 @@ The preheater model calculates:
 **File**: `apps/web/src/lib/thermal/med/finalCondenserModel.ts`
 
 The final condenser:
+
 - Condenses residual vapor from the last effect
 - Produces additional distillate
 - Heats seawater from ambient to feed temperature
@@ -297,6 +303,7 @@ Algorithm:
 **File**: `apps/web/src/app/thermal/calculators/med-plant/MEDPlantClient.tsx`
 
 Phase 1 UI is functional, not polished:
+
 - **Input panels** (collapsible sections):
   - Plant Configuration (type, # effects)
   - Capacity & Performance Target (capacity, GOR target)
@@ -312,6 +319,7 @@ Phase 1 UI is functional, not polished:
   - Warnings panel
 
 ### Deliverables — Phase 1
+
 - [x] Types in `packages/types/src/thermal.ts`
 - [x] Constants in `packages/constants/src/thermal/medConstants.ts`
 - [x] `effectModel.ts` — single effect solver
@@ -323,17 +331,18 @@ Phase 1 UI is functional, not polished:
 - [x] Save/load integration
 
 ### Validation Targets (from Case 6.xlsx)
-| Metric | Excel Value | Tolerance |
-|---|---|---|
-| Net Production | 5.0 T/h | ±2% |
-| GOR | 6.0 | ±5% |
-| Steam flow | 833 kg/h | ±5% |
-| Seawater intake | 86.8 T/h | ±5% |
-| Brine salinity | 52,500 ppm | exact |
-| Top Brine Temp | 55.1°C | ±0.5°C |
-| Effect 1 vapor out | 745 kg/h | ±5% |
-| Effect 8 vapor out | 735 kg/h | ±5% |
-| Overdesign | 18.7% | ±3% |
+
+| Metric             | Excel Value | Tolerance |
+| ------------------ | ----------- | --------- |
+| Net Production     | 5.0 T/h     | ±2%       |
+| GOR                | 6.0         | ±5%       |
+| Steam flow         | 833 kg/h    | ±5%       |
+| Seawater intake    | 86.8 T/h    | ±5%       |
+| Brine salinity     | 52,500 ppm  | exact     |
+| Top Brine Temp     | 55.1°C      | ±0.5°C    |
+| Effect 1 vapor out | 745 kg/h    | ±5%       |
+| Effect 8 vapor out | 735 kg/h    | ±5%       |
+| Overdesign         | 18.7%       | ±3%       |
 
 ---
 
@@ -346,18 +355,21 @@ Phase 1 UI is functional, not polished:
 **File**: `apps/web/src/lib/thermal/med/tvcIntegration.ts`
 
 MED-TVC modifies the plant:
+
 - Motive steam (higher pressure, typically 2–10 bar) drives the TVC ejector
 - TVC entrains vapor from a selected effect (typically last or intermediate)
 - Discharge vapor feeds effect 1 at higher pressure than the entrained vapor
 - Result: higher GOR (8–16) for same number of effects
 
 Integration with existing `tvcCalculator.ts`:
+
 - Call TVC calculator to get entrainment ratio, discharge conditions
 - Feed TVC discharge as "steam" to effect 1
 - Subtract entrained vapor from the source effect's output
 - Re-solve the plant balance
 
 New inputs:
+
 - Motive steam pressure & temperature
 - Entrained vapor source (effect number)
 - TVC component efficiencies (or use defaults)
@@ -365,11 +377,13 @@ New inputs:
 ### 2.2 Desuperheating Integration
 
 If inlet steam is superheated, integrate `desuperheatingCalculator.ts`:
+
 - Calculate spray water required to desuperheat to saturation
 - Add desuperheated condensate to the plant balance
 - Match Excel "Desuperheating Requirement" sheet
 
 ### Deliverables — Phase 2
+
 - [x] `tvcIntegration.ts` — TVC coupling
 - [x] Desuperheating auto-calculation (integrated into TVC flow)
 - [x] UI: Configuration selector (MED / MED-TVC)
@@ -389,6 +403,7 @@ If inlet steam is superheated, integrate `desuperheatingCalculator.ts`:
 **File**: `apps/web/src/lib/thermal/med/equipmentSizing.ts`
 
 Per effect:
+
 - **Heat transfer area**: A = Q / (U × ΔT_effective)
   - U from falling film HTC (shell side) + condensation HTC (tube side) + fouling + tube wall
   - Consume existing `heatTransfer.ts` for HTC correlations
@@ -402,6 +417,7 @@ Per effect:
 ### 3.2 Final Condenser Sizing
 
 Same approach but:
+
 - Shell side: vapor condensation (last effect conditions)
 - Tube side: seawater flowing through (forced convection HTC)
 - Multi-pass layout (typically 4 passes as in Excel)
@@ -410,6 +426,7 @@ Same approach but:
 ### 3.3 Preheater Sizing
 
 Per preheater:
+
 - LMTD from vapor/seawater temperatures
 - U from condensation (shell) + forced convection (tube) + fouling
 - Surface area, tube count, shell diameter
@@ -418,6 +435,7 @@ Per preheater:
 ### 3.4 Demister Sizing Per Effect
 
 Consume existing `demisterCalculator.ts` for each effect:
+
 - Vapor flow & density at effect conditions
 - Wire mesh or vane type selection
 - Required demister area → confirms shell diameter is adequate
@@ -426,17 +444,22 @@ Consume existing `demisterCalculator.ts` for each effect:
 ### 3.5 Wetting Rate Verification
 
 Consume existing `fallingFilmCalculator.ts` per effect:
+
 - Feed spray flow per tube
 - Minimum wetting rate check (Γ ≥ Γ_min)
 - If insufficient: flag warning, suggest increasing recycled brine flow
 
 ### Deliverables — Phase 3
-- [ ] `equipmentSizing.ts` — evaporator, condenser, preheater sizing
-- [ ] Per-effect sizing results (area, tube count, shell diameter)
-- [ ] Wetting rate verification per effect
-- [ ] Demister sizing per effect
-- [ ] UI: Equipment sizing results table (matching Excel "Exchange Surf." sheet)
-- [ ] UI: Tube specification inputs (material, OD, thickness, length)
+
+- [x] `equipmentSizing.ts` — evaporator, condenser, preheater sizing
+- [x] Per-effect sizing results (area, tube count, shell diameter, bundle diameter)
+- [x] Wetting rate verification per effect
+- [x] Demister sizing per effect (Souders-Brown)
+- [x] UI: Equipment sizing results table (matching Excel "Exchange Surf." sheet)
+- [x] UI: Tube specification inputs (material, OD, thickness, length)
+- [x] Dr. Rognoni reference comparisons — computed vs. fixed assumptions side-by-side
+- [x] Expandable Accordion UI for Rognoni comparison (evaporator + condenser)
+- [x] `equipmentSizing.test.ts` — 21 tests (evaporators, condenser, Rognoni comparisons, totals)
 - [ ] Validate surface areas against Case 6 (1,447 m² per effect, 8 effects)
 
 ---
@@ -451,6 +474,7 @@ Consume existing `fallingFilmCalculator.ts` per effect:
 **File**: `apps/web/src/lib/thermal/med/auxiliarySizing.ts`
 
 Consume existing `siphonSizingCalculator.ts` for each inter-effect transfer:
+
 - Brine siphons: Effect 1→2, 2→3, ..., N→brine pump
 - Distillate siphons: Effect 1→2, 2→3, ..., N→final condenser or distillate pump
 - Pipe size, depth, velocity, flash fraction
@@ -460,6 +484,7 @@ Match Excel "Siphons" sheet — brine siphons (rows 57–65) and distillate siph
 ### 4.2 Vacuum System Sizing
 
 Consume existing `vacuumSystemCalculator.ts`:
+
 - Calculate NCG load from all effects (using `ncgCalculator.ts`)
 - NCG from seawater deaeration + air leakage
 - Size ejector train (typically 2-stage for MED)
@@ -481,6 +506,7 @@ Match Excel "Summary Effects" sheet manifold sizing section.
 ### 4.4 Pump Sizing
 
 Consume existing `pumpSizing.ts` for each pump:
+
 - **Seawater pump**: Total intake flow, pressure from intake to final condenser + distribution
 - **Brine pump**: Final brine flow, from last effect vacuum to atmospheric discharge
 - **Distillate pump**: Total distillate flow, from condenser vacuum to storage
@@ -492,6 +518,7 @@ Each pump: TDH, hydraulic power, brake power, motor power (kW).
 ### 4.5 Nozzle Sizing
 
 For each vessel (evaporator effects, final condenser):
+
 - Inlet nozzle (spray water)
 - Vapor inlet / outlet
 - Brine outlet
@@ -501,6 +528,7 @@ For each vessel (evaporator effects, final condenser):
 Use `pipeService.ts` for standard pipe selection based on velocity limits.
 
 ### Deliverables — Phase 4
+
 - [ ] `auxiliarySizing.ts` — siphons, vacuum, NCG integration
 - [ ] `pipingManifolds.ts` — spray, brine, distillate headers
 - [ ] Pump sizing for all plant pumps
@@ -521,6 +549,7 @@ Use `pipeService.ts` for standard pipe selection based on velocity limits.
 **File**: `apps/web/src/lib/thermal/med/datasheetGenerator.ts`
 
 Structured data matching standard format:
+
 - Shell: diameter, length, thickness, material, design pressure/temperature
 - Tubes: material (upper rows/lower rows), OD, thickness, length, count, pitch
 - Tube sheets: thickness, material
@@ -534,6 +563,7 @@ Match Excel "Evaporator Data Sheet" format.
 ### 5.2 Final Condenser Datasheet
 
 Similar structure:
+
 - Shell (kettle type): larger diameter, smaller water box diameter
 - Tubes: material, geometry, multi-pass arrangement
 - Nozzles: seawater in/out, vapor in, distillate in/out, vent
@@ -544,12 +574,14 @@ Match Excel "Final Cond Data Sheet" format.
 ### 5.3 Preheater Datasheets
 
 One per preheater:
+
 - Shell & tube geometry
 - Operating conditions (vapor side, seawater side)
 
 ### 5.4 Process Flow Diagram (Interactive)
 
 React SVG component showing:
+
 - All effects with connecting streams
 - Preheaters positioned correctly
 - Final condenser
@@ -564,6 +596,7 @@ Match Excel "Edit PFD" sheet concept but interactive.
 Using existing `@/lib/pdf/reportComponents.tsx` framework:
 
 **Comprehensive Design Report:**
+
 1. Cover page (project data, revision, prepared/checked/approved)
 2. Design basis (all inputs)
 3. Overall H&M balance table
@@ -574,11 +607,13 @@ Using existing `@/lib/pdf/reportComponents.tsx` framework:
 8. PFD (static version for PDF)
 
 **Equipment Datasheets** (separate PDFs):
+
 - Evaporator datasheet
 - Final condenser datasheet
 - Preheater datasheets (one per)
 
 ### Deliverables — Phase 5
+
 - [ ] `datasheetGenerator.ts` — structured datasheet data
 - [ ] Evaporator datasheet PDF
 - [ ] Final condenser datasheet PDF
@@ -599,6 +634,7 @@ Using existing `@/lib/pdf/reportComponents.tsx` framework:
 **File**: `apps/web/src/lib/thermal/med/costModel.ts`
 
 Equipment cost estimation (parametric):
+
 - **Evaporator**: f(surface_area, material, # effects)
   - Base cost per m² of heat transfer surface (material-dependent)
   - Shell/structure cost scaling with diameter
@@ -619,6 +655,7 @@ Cost inputs should be configurable (INR, USD, EUR) with exchange rate.
 ### 6.2 OPEX Model
 
 Annual operating costs:
+
 - **Electricity**: Total pump power × operating hours × electricity rate (Rs/kWh)
 - **Steam**: Steam flow × operating hours × steam cost (Rs/ton)
 - **Chemicals**: From `chemicalDosingCalculator.ts` outputs × chemical prices
@@ -649,6 +686,7 @@ Match Excel "Cost of Water" sheet structure.
 ### 6.4 Life Cycle Cost Analysis
 
 25-year (configurable) NPV analysis:
+
 - Year-by-year cash flows
 - CAPEX depreciation schedule (straight-line or declining balance)
 - OPEX escalation with inflation rate
@@ -661,6 +699,7 @@ Match Excel "Life Cycle Costs" sheet structure.
 ### 6.5 Sensitivity Analysis
 
 Automated parametric study showing cost of water sensitivity to:
+
 - GOR (±20%)
 - Steam cost (±50%)
 - Electricity cost (±50%)
@@ -671,6 +710,7 @@ Automated parametric study showing cost of water sensitivity to:
 Visualised as tornado chart or spider diagram.
 
 ### Deliverables — Phase 6
+
 - [ ] `costModel.ts` — CAPEX, OPEX, cost of water, LCC
 - [ ] CAPEX breakdown table
 - [ ] OPEX breakdown table
@@ -690,6 +730,7 @@ Visualised as tornado chart or spider diagram.
 ### 7.1 Scaling Risk Assessment
 
 Consume existing `foulingScalingCalculator.ts` per effect:
+
 - CaSO₄ saturation index at each effect's temperature & concentration
 - CaCO₃ saturation index
 - Mg(OH)₂ risk (if pH > 8.5)
@@ -701,6 +742,7 @@ This validates the designer's TBT and concentration factor choices.
 ### 7.2 Design Optimization
 
 Automated search for optimal design parameters:
+
 - **Objective**: Minimize cost of water (or maximize GOR, or minimize CAPEX)
 - **Variables**: Number of effects, TBT, concentration factor, preheater positions
 - **Constraints**: Scaling limits, minimum wetting rate, approach temperatures
@@ -711,12 +753,14 @@ optimization within each (TBT, concentration factor using golden section or simi
 ### 7.3 Configuration Comparison
 
 Side-by-side comparison table:
+
 - MED vs MED-TVC for same capacity
 - Different number of effects
 - Different TBT ranges
 - Cost of water comparison
 
 ### Deliverables — Phase 7
+
 - [ ] Scaling risk assessment per effect in results
 - [ ] Maximum safe TBT recommendation
 - [ ] Basic optimization (grid search over key parameters)
@@ -741,6 +785,7 @@ Side-by-side comparison table:
 ### 8.2 Design Module UI
 
 Move to `/thermal/(protected)/med-plant/`:
+
 - Multi-step wizard for initial setup
 - Real-time recalculation (debounced) as inputs change
 - Tabbed results: H&M Balance | Equipment | Auxiliaries | PFD | Datasheets | Economics
@@ -750,6 +795,7 @@ Move to `/thermal/(protected)/med-plant/`:
 ### 8.3 Bill of Materials
 
 Generate BOM from design:
+
 - Equipment list with specifications
 - Piping materials (by size, schedule, material)
 - Valve list
@@ -757,6 +803,7 @@ Generate BOM from design:
 - Estimated weights
 
 ### Deliverables — Phase 8
+
 - [ ] Firestore collection schema and security rules
 - [ ] Design CRUD service with versioning
 - [ ] Design module layout and navigation
@@ -779,24 +826,28 @@ Generate BOM from design:
 ## Cross-Cutting Concerns
 
 ### Testing Strategy
+
 - **Unit tests**: Each model function (effectModel, preheaterModel, etc.) with known inputs/outputs
 - **Integration test**: Full plant solve against Case 6.xlsx values (regression test)
 - **Property tests**: Mass balance closes for any valid input combination
 - **Benchmark tests**: Compare against published MED performance data (El-Dessouky & Ettouney Table 6.1)
 
 ### What to Do with the Existing GOR Calculator
+
 - **Keep it** as a quick estimator (5-second answer vs full design)
 - Update its description: "Quick GOR Estimate" vs the new "MED Plant Design"
 - Link from GOR calculator: "Need a full design? → MED Plant Designer"
 - The GOR calculator remains useful for early-stage feasibility when you don't need equipment sizing
 
 ### Performance Considerations
+
 - The iterative solver should converge in < 1 second for 16 effects
 - Use `useMemo` with debounced inputs (300ms) for live recalculation
 - Equipment sizing can be computed lazily (only when that tab is viewed)
 - PDF generation is async (Web Worker if needed for large reports)
 
 ### Unit System
+
 - Internal calculations: SI (kg, m, °C, bar, kJ, kW, W/m²K)
 - Display: Configurable (SI / Imperial) — but SI primary for thermal desal
 - Currency: INR primary, USD/EUR configurable
@@ -805,17 +856,17 @@ Generate BOM from design:
 
 ## Summary Timeline
 
-| Phase | Description | Days | Depends On |
-|---|---|---|---|
-| 1 | Core thermodynamic engine + basic UI | 3 | — |
-| 2 | MED-TVC, desuperheating | 2 | Phase 1 |
-| 3 | Equipment sizing | 3 | Phase 1 |
-| 4 | Auxiliary systems | 3 | Phase 1, 3 |
-| 5 | Datasheets, PFD, reports | 3 | Phase 3, 4 |
-| 6 | Costing & economics | 3 | Phase 4 |
-| 7 | Scaling analysis & optimization | 2 | Phase 1, 3, 6 |
-| 8 | Graduate to design module | 4 | Phase 5, 6 |
-| 9 | Advanced configurations (future) | TBD | Phase 8 |
+| Phase | Description                          | Days | Depends On    |
+| ----- | ------------------------------------ | ---- | ------------- |
+| 1     | Core thermodynamic engine + basic UI | 3    | —             |
+| 2     | MED-TVC, desuperheating              | 2    | Phase 1       |
+| 3     | Equipment sizing                     | 3    | Phase 1       |
+| 4     | Auxiliary systems                    | 3    | Phase 1, 3    |
+| 5     | Datasheets, PFD, reports             | 3    | Phase 3, 4    |
+| 6     | Costing & economics                  | 3    | Phase 4       |
+| 7     | Scaling analysis & optimization      | 2    | Phase 1, 3, 6 |
+| 8     | Graduate to design module            | 4    | Phase 5, 6    |
+| 9     | Advanced configurations (future)     | TBD  | Phase 8       |
 
 **Critical path**: Phase 1 → 3 → 4 → 5 → 8
 **Parallel track**: Phase 2 can run alongside Phase 3; Phase 6 alongside Phase 5
@@ -840,3 +891,14 @@ Generate BOM from design:
 
 5. **Progressive disclosure** — the basic H&M balance is useful on its own. Equipment sizing
    adds value. Costing completes the picture. Each phase delivers standalone value.
+
+---
+
+## Commit History
+
+| Commit     | Description                                                              | Phase |
+| ---------- | ------------------------------------------------------------------------ | ----- |
+| `534fd3a5` | feat(thermal): add MED plant heat & mass balance calculator (Phase 1)    | 1     |
+| `7022c251` | feat(thermal): add MED-TVC integration, remove forward feed and MSF      | 2     |
+| `4d571a99` | feat(thermal): add MED equipment sizing (Phase 3)                        | 3     |
+| `033865b0` | feat(thermal): add Dr. Rognoni reference comparisons to equipment sizing | 3     |

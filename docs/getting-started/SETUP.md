@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node.js 20+
-- pnpm 9+
+- pnpm 10+
 - Firebase CLI (`npm install -g firebase-tools`)
 
 ## Installation
@@ -11,7 +11,7 @@
 ```bash
 # Clone repository
 git clone <repo-url>
-cd VDT-Unified
+cd vapourtoolbox
 
 # Install dependencies
 pnpm install

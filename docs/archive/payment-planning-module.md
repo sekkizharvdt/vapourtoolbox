@@ -291,10 +291,10 @@ export type RecurrenceFrequency =
  * Type of recurring transaction
  */
 export type RecurringTransactionType =
-  | 'SALARY'           // Employee salaries
-  | 'VENDOR_BILL'      // Recurring vendor bills (rent, subscriptions)
+  | 'SALARY' // Employee salaries
+  | 'VENDOR_BILL' // Recurring vendor bills (rent, subscriptions)
   | 'CUSTOMER_INVOICE' // Recurring customer invoices (retainers)
-  | 'JOURNAL_ENTRY';   // Recurring journal entries (depreciation)
+  | 'JOURNAL_ENTRY'; // Recurring journal entries (depreciation)
 
 /**
  * Recurring transaction template
@@ -311,25 +311,25 @@ export interface RecurringTransaction {
   // Schedule
   frequency: RecurrenceFrequency;
   startDate: Timestamp;
-  endDate?: Timestamp;           // Optional end date
-  nextOccurrence: Timestamp;     // Next scheduled date
-  dayOfMonth?: number;           // For MONTHLY: 1-31, use 0 for last day
-  dayOfWeek?: number;            // For WEEKLY: 0-6 (Sun-Sat)
+  endDate?: Timestamp; // Optional end date
+  nextOccurrence: Timestamp; // Next scheduled date
+  dayOfMonth?: number; // For MONTHLY: 1-31, use 0 for last day
+  dayOfWeek?: number; // For WEEKLY: 0-6 (Sun-Sat)
 
   // Financial
   amount: Money;
   currency: string;
 
   // For SALARY type
-  employeeIds?: string[];        // Which employees (empty = all active)
+  employeeIds?: string[]; // Which employees (empty = all active)
 
   // For VENDOR_BILL type
   vendorId?: string;
-  expenseAccountId?: string;     // Default expense account
+  expenseAccountId?: string; // Default expense account
 
   // For CUSTOMER_INVOICE type
   customerId?: string;
-  revenueAccountId?: string;     // Default revenue account
+  revenueAccountId?: string; // Default revenue account
 
   // For JOURNAL_ENTRY type
   journalTemplate?: {
@@ -339,9 +339,9 @@ export interface RecurringTransaction {
   };
 
   // Auto-generation settings
-  autoGenerate: boolean;         // Auto-create or just notify
-  daysBeforeToGenerate: number;  // Generate N days before due
-  requiresApproval: boolean;     // Needs approval before posting
+  autoGenerate: boolean; // Auto-create or just notify
+  daysBeforeToGenerate: number; // Generate N days before due
+  requiresApproval: boolean; // Needs approval before posting
 
   // Audit
   createdBy: string;
@@ -387,12 +387,12 @@ export interface RecurringOccurrence {
 
 ### Current Gap Analysis
 
-| Feature | Status | Impact |
-|---------|--------|--------|
-| Recurring Invoices | ❌ Missing | Cannot forecast retainer income |
-| Recurring Bills | ❌ Missing | Cannot forecast subscriptions, rent |
-| Salary Provisioning | ❌ Missing | Cannot forecast monthly payroll |
-| Scheduled Journal Entries | ❌ Missing | Cannot auto-post depreciation |
+| Feature                   | Status     | Impact                              |
+| ------------------------- | ---------- | ----------------------------------- |
+| Recurring Invoices        | ❌ Missing | Cannot forecast retainer income     |
+| Recurring Bills           | ❌ Missing | Cannot forecast subscriptions, rent |
+| Salary Provisioning       | ❌ Missing | Cannot forecast monthly payroll     |
+| Scheduled Journal Entries | ❌ Missing | Cannot auto-post depreciation       |
 
 ### What Exists
 
@@ -403,6 +403,7 @@ export interface RecurringOccurrence {
 ### Recurring Transactions UI
 
 **New Pages:**
+
 ```
 /accounting/recurring/
 ├── page.tsx                    # List all recurring transactions
@@ -412,6 +413,7 @@ export interface RecurringOccurrence {
 ```
 
 **Hub Page Features:**
+
 1. **All Recurring Transactions** - Grid view with filters by type
 2. **Upcoming This Month** - Calendar showing what's due
 3. **Quick Actions** - Create salary template, subscription, etc.
@@ -535,10 +537,7 @@ async function calculateEntityPaymentMetrics(
 #### 3. Confidence Scoring Logic
 
 ```typescript
-function calculateConfidence(
-  item: ForecastItem,
-  entityMetrics: EntityMetrics
-): ForecastConfidence {
+function calculateConfidence(item: ForecastItem, entityMetrics: EntityMetrics): ForecastConfidence {
   // HIGH: Payment reliability > 80%, not overdue
   // MEDIUM: Payment reliability 50-80%, or slightly overdue (< 30 days)
   // LOW: Payment reliability < 50%, or significantly overdue (> 30 days)
@@ -569,6 +568,7 @@ function calculateConfidence(
 **File:** `apps/web/src/app/accounting/payment-planning/page.tsx`
 
 Cards/sections:
+
 1. **Cash Flow Summary** - Quick metrics (30-day outlook)
 2. **Cash Flow Forecast** - Detailed projections
 3. **Expected Receipts** - Outstanding customer invoices
@@ -580,6 +580,7 @@ Cards/sections:
 **File:** `apps/web/src/app/accounting/payment-planning/forecast/page.tsx`
 
 Features:
+
 - Date range selector (7/14/30/60/90 days)
 - Chart: Projected cash balance over time
 - Chart: Daily inflows vs outflows
@@ -592,6 +593,7 @@ Features:
 **File:** `apps/web/src/app/accounting/payment-planning/receivables/page.tsx`
 
 Features:
+
 - Table of outstanding invoices
 - Columns: Customer, Invoice #, Amount, Due Date, Days Overdue, Confidence
 - Sorting by due date, amount, risk
@@ -604,6 +606,7 @@ Features:
 **File:** `apps/web/src/app/accounting/payment-planning/payables/page.tsx`
 
 Features:
+
 - Table of outstanding bills
 - Columns: Vendor, Bill #, Amount, Due Date, Days Until Due, Priority
 - Sorting by due date, amount, priority
@@ -616,6 +619,7 @@ Features:
 **File:** `apps/web/src/app/accounting/payment-planning/schedule/page.tsx`
 
 Features:
+
 - Calendar view of scheduled payments
 - List view with filters
 - Create/edit/cancel scheduled payments
@@ -738,6 +742,7 @@ paymentSchedules/
 ## Implementation Phases
 
 ### Phase 0: Recurring Transactions (Prerequisite) ⚠️ BUILD FIRST
+
 - [ ] Create `recurringTransaction.ts` types
 - [ ] Create Firestore collection `recurringTransactions`
 - [ ] Implement `recurringTransactionService.ts`
@@ -748,12 +753,14 @@ paymentSchedules/
 - [ ] Auto-generation scheduler (background job)
 
 ### Phase 0.5: Salary Provisioning
+
 - [ ] Create salary recurring template
 - [ ] Link to employee HR data
 - [ ] Generate monthly salary entries
 - [ ] Integration with payment execution
 
 ### Phase 1: Core Forecast (MVP)
+
 - [ ] Create `paymentPlanning.ts` types
 - [ ] Implement `paymentPlanningService.ts`
 - [ ] Create hub page with summary cards
@@ -763,6 +770,7 @@ paymentSchedules/
 - [ ] **Include recurring transactions in forecast**
 
 ### Phase 2: Enhanced Analytics
+
 - [ ] Entity payment metrics calculation
 - [ ] Confidence scoring algorithm
 - [ ] Aging analysis integration
@@ -770,6 +778,7 @@ paymentSchedules/
 - [ ] Export to Excel
 
 ### Phase 3: Payment Scheduling
+
 - [ ] Payment schedule collection
 - [ ] Schedule CRUD operations
 - [ ] Calendar view
@@ -777,6 +786,7 @@ paymentSchedules/
 - [ ] Integration with payment execution
 
 ### Phase 4: Advanced Features
+
 - [ ] Scenario planning ("what-if" analysis)
 - [ ] Email reminders for overdue invoices
 - [ ] Auto-prioritization of payments
@@ -834,27 +844,32 @@ paymentSchedules/
 ## Files to Create
 
 ### Types Package
+
 - `packages/types/src/recurringTransaction.ts` **(Phase 0)**
 - `packages/types/src/paymentPlanning.ts`
 - Update `packages/types/src/index.ts` (export new types)
 
 ### Web App - Services
+
 - `apps/web/src/lib/accounting/recurringTransactionService.ts` **(Phase 0)**
 - `apps/web/src/lib/accounting/paymentPlanningService.ts`
 
 ### Web App - Recurring Transactions Pages (Phase 0)
+
 - `apps/web/src/app/accounting/recurring/page.tsx`
 - `apps/web/src/app/accounting/recurring/new/page.tsx`
 - `apps/web/src/app/accounting/recurring/[id]/page.tsx`
 - `apps/web/src/app/accounting/recurring/upcoming/page.tsx`
 
 ### Web App - Recurring Transactions Components (Phase 0)
+
 - `apps/web/src/app/accounting/recurring/components/RecurringTransactionForm.tsx`
 - `apps/web/src/app/accounting/recurring/components/RecurringTransactionList.tsx`
 - `apps/web/src/app/accounting/recurring/components/UpcomingOccurrencesCalendar.tsx`
 - `apps/web/src/app/accounting/recurring/components/SalaryTemplateWizard.tsx`
 
 ### Web App - Payment Planning Pages
+
 - `apps/web/src/app/accounting/payment-planning/page.tsx`
 - `apps/web/src/app/accounting/payment-planning/forecast/page.tsx`
 - `apps/web/src/app/accounting/payment-planning/receivables/page.tsx`
@@ -862,6 +877,7 @@ paymentSchedules/
 - `apps/web/src/app/accounting/payment-planning/schedule/page.tsx`
 
 ### Web App - Payment Planning Components
+
 - `apps/web/src/app/accounting/payment-planning/components/CashFlowChart.tsx`
 - `apps/web/src/app/accounting/payment-planning/components/ForecastSummaryCards.tsx`
 - `apps/web/src/app/accounting/payment-planning/components/OutstandingInvoicesTable.tsx`
@@ -869,17 +885,19 @@ paymentSchedules/
 - `apps/web/src/app/accounting/payment-planning/components/PaymentScheduleCalendar.tsx`
 
 ### Firestore
+
 - Add `recurringTransactions` collection
 - Add `recurringOccurrences` subcollection
 - Add indexes to `firestore.indexes.json`
 
 ### Accounting Hub
+
 - Update `apps/web/src/app/accounting/page.tsx` (add Recurring Transactions and Payment Planning cards)
 
 ---
 
-*Document created: 2026-01-14*
-*Last updated: 2026-01-14*
+_Document created: 2026-01-14_
+_Last updated: 2026-01-14_
 
 ---
 
@@ -898,6 +916,7 @@ paymentSchedules/
    - Bank payment processing
 
 Only after these foundational features exist can the Payment Planning module provide accurate forecasts that include:
+
 - Outstanding one-time invoices/bills
 - **Recurring subscriptions and rent**
 - **Monthly payroll obligations**
