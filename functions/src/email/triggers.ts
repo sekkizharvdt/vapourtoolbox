@@ -7,6 +7,7 @@
 
 import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
+import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
 
@@ -65,7 +66,25 @@ export const onPRSubmittedNotify = onDocumentUpdated(
     if (before.status === after.status) return;
 
     if (after.status === 'SUBMITTED' || after.status === 'PENDING_APPROVAL') {
-      logger.info(`PR ${after.number} submitted — sending notification`);
+      // Resolve approver email so the email goes to the designated approver
+      let approverEmail: string | undefined;
+      if (after.approverId) {
+        try {
+          const approverDoc = await admin.firestore().doc(`users/${after.approverId}`).get();
+          if (approverDoc.exists) {
+            approverEmail = approverDoc.data()?.email;
+          }
+        } catch (err) {
+          logger.warn('Failed to resolve approver email — falling back to default recipients', {
+            approverId: after.approverId,
+            error: err,
+          });
+        }
+      }
+
+      logger.info(`PR ${after.number} submitted — sending notification`, {
+        approverEmail: approverEmail || 'default recipients',
+      });
       await sendNotificationEmail({
         eventId: 'pr_submitted',
         subject: `PR Submitted: ${after.number}`,
@@ -75,8 +94,31 @@ export const onPRSubmittedNotify = onDocumentUpdated(
           details: [
             { label: 'PR Number', value: after.number || event.params.prId },
             { label: 'Requested By', value: after.createdByName || 'Unknown' },
+            { label: 'Approver', value: after.approverName || '-' },
             { label: 'Project', value: after.projectName || '-' },
             { label: 'Description', value: after.description || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/procurement/purchase-requests/${event.params.prId}`,
+        },
+        // Send directly to the approver — same person who gets the Flow task
+        directRecipientEmails: approverEmail ? [approverEmail] : undefined,
+      });
+    }
+
+    if (after.status === 'APPROVED' && before.status !== 'APPROVED') {
+      logger.info(`PR ${after.number} approved — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'pr_approved',
+        subject: `PR Approved: ${after.number}`,
+        templateData: {
+          title: 'Purchase Request Approved',
+          message: `A purchase request has been approved and is ready for procurement action.`,
+          details: [
+            { label: 'PR Number', value: after.number || event.params.prId },
+            { label: 'Title', value: after.title || '-' },
+            { label: 'Requested By', value: after.createdByName || 'Unknown' },
+            { label: 'Approved By', value: after.approvedByName || '-' },
+            { label: 'Project', value: after.projectName || '-' },
           ],
           linkUrl: `https://toolbox.vapourdesal.com/procurement/purchase-requests/${event.params.prId}`,
         },

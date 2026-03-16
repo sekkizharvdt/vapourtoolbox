@@ -50,6 +50,11 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         description: 'When a purchase request is submitted for approval',
       },
       {
+        id: 'pr_approved',
+        label: 'PR Approved',
+        description: 'When a purchase request is approved — notifies procurement team',
+      },
+      {
         id: 'po_approved',
         label: 'PO Approved',
         description: 'When a purchase order is approved',
