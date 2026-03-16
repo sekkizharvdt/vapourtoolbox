@@ -80,6 +80,10 @@
         "destination": "/procurement/amendments/placeholder.html"
       },
       {
+        "source": "/procurement/service-orders/*",
+        "destination": "/procurement/service-orders/placeholder.html"
+      },
+      {
         "source": "/procurement/goods-receipts/*",
         "destination": "/procurement/goods-receipts/placeholder.html"
       },

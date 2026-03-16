@@ -54,7 +54,8 @@ import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
-import type { Material, MaterialVariant } from '@vapour/types';
+import ServicePickerDialog from '@/components/services/ServicePickerDialog';
+import type { Material, MaterialVariant, Service } from '@vapour/types';
 
 interface FormData {
   type: 'PROJECT' | 'BUDGETARY' | 'INTERNAL';
@@ -78,6 +79,8 @@ export default function NewPurchaseRequestPage() {
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
   const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [servicePickerIndex, setServicePickerIndex] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -160,6 +163,31 @@ export default function NewPurchaseRequestPage() {
     }
     setMaterialPickerOpen(false);
   };
+
+  const handleServiceSelect = (service: Service) => {
+    const updatedItems = [...lineItems];
+    const item = updatedItems[servicePickerIndex];
+    if (item) {
+      updatedItems[servicePickerIndex] = {
+        ...item,
+        itemType: 'SERVICE',
+        description: service.name,
+        specification: service.description || '',
+        unit: (service.unit || 'NOS').toUpperCase(),
+        serviceId: service.id,
+        serviceCode: service.serviceCode,
+        serviceName: service.name,
+        serviceCategory: service.category,
+        turnaroundDays: service.estimatedTurnaroundDays,
+        testMethodStandard: service.testMethodStandard,
+        sampleRequirements: service.sampleRequirements,
+      };
+      setLineItems(updatedItems);
+    }
+    setServicePickerOpen(false);
+  };
+
+  const isServiceCategory = formData.category === 'SERVICE';
 
   const validateForm = (requireApprover: boolean = false): boolean => {
     setError(null);
@@ -539,12 +567,23 @@ export default function NewPurchaseRequestPage() {
                             multiline
                             maxRows={3}
                           />
-                          <Tooltip title="Pick from Materials DB">
+                          <Tooltip
+                            title={
+                              isServiceCategory
+                                ? 'Pick from Services Catalog'
+                                : 'Pick from Materials DB'
+                            }
+                          >
                             <IconButton
                               size="small"
                               onClick={() => {
-                                setMaterialPickerIndex(index);
-                                setMaterialPickerOpen(true);
+                                if (isServiceCategory) {
+                                  setServicePickerIndex(index);
+                                  setServicePickerOpen(true);
+                                } else {
+                                  setMaterialPickerIndex(index);
+                                  setMaterialPickerOpen(true);
+                                }
                               }}
                               sx={{ mt: 0.25 }}
                             >
@@ -558,6 +597,15 @@ export default function NewPurchaseRequestPage() {
                             size="small"
                             variant="outlined"
                             color="primary"
+                            sx={{ mt: 0.5 }}
+                          />
+                        )}
+                        {item.serviceCode && (
+                          <Chip
+                            label={item.serviceCode}
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
                             sx={{ mt: 0.5 }}
                           />
                         )}
@@ -602,6 +650,23 @@ export default function NewPurchaseRequestPage() {
                           <MenuItem value="BOX">BOX</MenuItem>
                           <MenuItem value="SET">SET</MenuItem>
                           <MenuItem value="UNIT">UNIT</MenuItem>
+                          {isServiceCategory && [
+                            <MenuItem key="PER TEST" value="PER TEST">
+                              PER TEST
+                            </MenuItem>,
+                            <MenuItem key="PER SAMPLE" value="PER SAMPLE">
+                              PER SAMPLE
+                            </MenuItem>,
+                            <MenuItem key="PER DAY" value="PER DAY">
+                              PER DAY
+                            </MenuItem>,
+                            <MenuItem key="LUMP SUM" value="LUMP SUM">
+                              LUMP SUM
+                            </MenuItem>,
+                            <MenuItem key="PER HOUR" value="PER HOUR">
+                              PER HOUR
+                            </MenuItem>,
+                          ]}
                         </TextField>
                       </TableCell>
                       <TableCell>
@@ -703,6 +768,13 @@ export default function NewPurchaseRequestPage() {
         onSelect={handleMaterialSelect}
         title="Select Material for Line Item"
         requireVariantSelection={false}
+      />
+
+      {/* Service Picker Dialog */}
+      <ServicePickerDialog
+        open={servicePickerOpen}
+        onClose={() => setServicePickerOpen(false)}
+        onSelect={handleServiceSelect}
       />
     </Box>
   );

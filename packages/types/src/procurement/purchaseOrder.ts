@@ -178,6 +178,13 @@ export interface PurchaseOrderItem {
   materialCode?: string;
   materialName?: string;
 
+  // Service catalog linkage (carried from offer/RFQ chain)
+  itemType?: 'MATERIAL' | 'SERVICE';
+  serviceId?: string;
+  serviceCode?: string;
+  serviceName?: string;
+  serviceCategory?: string;
+
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

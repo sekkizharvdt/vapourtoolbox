@@ -119,6 +119,13 @@ export interface RFQItem {
   materialCode?: string;
   materialName?: string;
 
+  // Service catalog linkage (carried from PR item)
+  itemType?: 'MATERIAL' | 'SERVICE';
+  serviceId?: string;
+  serviceCode?: string;
+  serviceName?: string;
+  serviceCategory?: string;
+
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

@@ -99,6 +99,7 @@ export const COLLECTIONS = {
   GOODS_RECEIPT_ITEMS: 'goodsReceiptItems',
   RECEIPT_PHOTOS: 'receiptPhotos',
   WORK_COMPLETION_CERTIFICATES: 'workCompletionCertificates',
+  SERVICE_ORDERS: 'serviceOrders',
   RAW_MATERIALS: 'rawMaterials',
 
   // 3-Way Matching

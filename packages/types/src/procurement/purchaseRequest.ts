@@ -79,9 +79,14 @@ export interface PurchaseRequest {
   updatedBy: string;
 }
 
+export type PurchaseRequestItemType = 'MATERIAL' | 'SERVICE';
+
 export interface PurchaseRequestItem {
   id: string;
   purchaseRequestId: string;
+
+  // Item type discriminator (defaults to MATERIAL for backward compat)
+  itemType?: PurchaseRequestItemType;
 
   // Item details
   lineNumber: number;
@@ -90,12 +95,21 @@ export interface PurchaseRequestItem {
 
   // Quantity
   quantity: number;
-  unit: string; // e.g., 'pcs', 'kg', 'meter'
+  unit: string; // e.g., 'pcs', 'kg', 'meter', 'per test', 'per day'
 
-  // Material database linkage (optional)
+  // Material database linkage (optional — for MATERIAL items)
   materialId?: string;
   materialCode?: string;
   materialName?: string;
+
+  // Service catalog linkage (optional — for SERVICE items)
+  serviceId?: string;
+  serviceCode?: string;
+  serviceName?: string;
+  serviceCategory?: string;
+  turnaroundDays?: number;
+  testMethodStandard?: string;
+  sampleRequirements?: string;
 
   // Equipment linkage (optional)
   equipmentId?: string;

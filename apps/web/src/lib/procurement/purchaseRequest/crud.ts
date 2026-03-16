@@ -123,10 +123,22 @@ export async function createPurchaseRequest(
         quantity: item.quantity,
         unit: item.unit,
 
-        // Material linkage (optional)
+        // Item type
+        ...(item.itemType && { itemType: item.itemType }),
+
+        // Material linkage (optional — for MATERIAL items)
         ...(item.materialId && { materialId: item.materialId }),
         ...(item.materialCode && { materialCode: item.materialCode }),
         ...(item.materialName && { materialName: item.materialName }),
+
+        // Service linkage (optional — for SERVICE items)
+        ...(item.serviceId && { serviceId: item.serviceId }),
+        ...(item.serviceCode && { serviceCode: item.serviceCode }),
+        ...(item.serviceName && { serviceName: item.serviceName }),
+        ...(item.serviceCategory && { serviceCategory: item.serviceCategory }),
+        ...(item.turnaroundDays && { turnaroundDays: item.turnaroundDays }),
+        ...(item.testMethodStandard && { testMethodStandard: item.testMethodStandard }),
+        ...(item.sampleRequirements && { sampleRequirements: item.sampleRequirements }),
 
         // Equipment linkage (optional)
         ...(item.equipmentId && { equipmentId: item.equipmentId }),

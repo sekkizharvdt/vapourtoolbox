@@ -100,6 +100,13 @@ export default function ProcurementPage() {
           path: '/procurement/goods-receipts',
         },
         {
+          id: 'service-orders',
+          title: 'Service Orders',
+          description: 'Track service execution: sample submission, progress, and results',
+          icon: <AssignmentIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+          path: '/procurement/service-orders',
+        },
+        {
           id: 'work-completion',
           title: 'Work Completion',
           description: 'Issue work completion certificates for service POs',

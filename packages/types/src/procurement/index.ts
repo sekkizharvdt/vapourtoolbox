@@ -20,6 +20,7 @@
 export {
   type PurchaseRequestType,
   type PurchaseRequestCategory,
+  type PurchaseRequestItemType,
   type PurchaseRequestStatus,
   type PurchaseRequest,
   type PurchaseRequestItem,
@@ -95,3 +96,11 @@ export {
   type MatchDiscrepancy,
   type MatchToleranceConfig,
 } from './threeWayMatching';
+
+// Service Order types
+export {
+  type ServiceOrderStatus,
+  SERVICE_ORDER_STATUS_LABELS,
+  SERVICE_ORDER_STATUS_COLORS,
+  type ServiceOrder,
+} from './serviceOrder';

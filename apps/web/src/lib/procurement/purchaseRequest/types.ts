@@ -41,6 +41,9 @@ export interface CreatePurchaseRequestInput {
 }
 
 export interface CreatePurchaseRequestItemInput {
+  // Item type (defaults to MATERIAL for backward compat)
+  itemType?: 'MATERIAL' | 'SERVICE';
+
   // Item details
   description: string;
   specification?: string;
@@ -49,10 +52,19 @@ export interface CreatePurchaseRequestItemInput {
   quantity: number;
   unit: string;
 
-  // Material linkage
+  // Material linkage (for MATERIAL items)
   materialId?: string;
   materialCode?: string;
   materialName?: string;
+
+  // Service linkage (for SERVICE items)
+  serviceId?: string;
+  serviceCode?: string;
+  serviceName?: string;
+  serviceCategory?: string;
+  turnaroundDays?: number;
+  testMethodStandard?: string;
+  sampleRequirements?: string;
 
   // Equipment linkage
   equipmentId?: string;
