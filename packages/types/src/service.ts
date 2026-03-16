@@ -1,15 +1,19 @@
 /**
- * Service Types for BOM Costing
- * Phase 3: Service Costs
+ * Service Types — Unified Service Catalog
  *
- * Defines services that can be associated with BOM items:
+ * Services used across both estimation (BOM costing) and procurement:
  * - Engineering/Drawing Generation
  * - Fabrication Services
  * - Inspection & QC
- * - Testing & Certification
+ * - Testing & Certification (lab tests, NDT, material analysis)
  * - Transportation
  * - Erection & Installation
  * - Commissioning
+ * - Consulting (technical advisory, design review)
+ * - Calibration (instrument calibration, gauge verification)
+ * - Maintenance (preventive, corrective, AMC)
+ * - Training (operator training, safety training)
+ * - Other
  */
 
 import { Timestamp } from 'firebase/firestore';
@@ -27,6 +31,11 @@ export enum ServiceCategory {
   TRANSPORTATION = 'TRANSPORTATION',
   ERECTION = 'ERECTION',
   COMMISSIONING = 'COMMISSIONING',
+  CONSULTING = 'CONSULTING',
+  CALIBRATION = 'CALIBRATION',
+  MAINTENANCE = 'MAINTENANCE',
+  TRAINING = 'TRAINING',
+  OTHER = 'OTHER',
 }
 
 /**
@@ -40,6 +49,11 @@ export const SERVICE_CATEGORY_LABELS: Record<ServiceCategory, string> = {
   [ServiceCategory.TRANSPORTATION]: 'Transportation',
   [ServiceCategory.ERECTION]: 'Erection & Installation',
   [ServiceCategory.COMMISSIONING]: 'Commissioning',
+  [ServiceCategory.CONSULTING]: 'Consulting & Advisory',
+  [ServiceCategory.CALIBRATION]: 'Calibration',
+  [ServiceCategory.MAINTENANCE]: 'Maintenance & AMC',
+  [ServiceCategory.TRAINING]: 'Training',
+  [ServiceCategory.OTHER]: 'Other',
 };
 
 /**
@@ -91,6 +105,16 @@ export interface Service extends TimestampFields {
   applicableToCategories?: BOMCategory[]; // Empty = all categories
   applicableToItemTypes?: BOMItemType[]; // Empty = all types
   applicableToComponentTypes?: BOMComponentType[]; // Empty = all component types
+
+  // Procurement Fields (optional — used when service is procured externally)
+  preferredVendors?: string[]; // Entity IDs of preferred labs/vendors/consultants
+  estimatedTurnaroundDays?: number; // Expected delivery time in days
+  unit?: string; // e.g., "per test", "per sample", "per day", "lump sum"
+  requiredAccreditations?: string[]; // e.g., "NABL", "ISO 17025", "BIS"
+  testMethodStandard?: string; // e.g., "ASTM D3172", "ISO 11722"
+  sampleRequirements?: string; // Description of sample needed for testing
+  deliverables?: string[]; // e.g., "Test Certificate", "Analysis Report"
+  tags?: string[]; // Searchable tags
 
   // Organization
   entityId: string; // Multi-tenant support

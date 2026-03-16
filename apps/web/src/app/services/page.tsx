@@ -9,6 +9,11 @@ import {
   LocalShipping as TransportIcon,
   Construction as ErectionIcon,
   PlaylistAddCheck as CommissioningIcon,
+  SupportAgent as ConsultingIcon,
+  Straighten as CalibrationIcon,
+  Build as MaintenanceIcon,
+  School as TrainingIcon,
+  MoreHoriz as OtherIcon,
 } from '@mui/icons-material';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
@@ -21,6 +26,8 @@ const logger = createLogger({ context: 'ServicesPage' });
 
 type CategoryCounts = Record<ServiceCategory, number>;
 
+const ICON_SX = { fontSize: 48, color: 'primary.main' };
+
 const CATEGORY_CONFIG: {
   key: ServiceCategory;
   title: string;
@@ -31,43 +38,73 @@ const CATEGORY_CONFIG: {
     key: ServiceCategory.ENGINEERING,
     title: 'Engineering',
     description: 'Engineering design, drawing generation, and technical consultancy',
-    icon: <EngineeringIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+    icon: <EngineeringIcon sx={ICON_SX} />,
   },
   {
     key: ServiceCategory.FABRICATION,
     title: 'Fabrication',
     description: 'Fabrication, machining, welding, and manufacturing services',
-    icon: <FabricationIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+    icon: <FabricationIcon sx={ICON_SX} />,
   },
   {
     key: ServiceCategory.TESTING,
     title: 'Testing & Certification',
-    description: 'Lab tests, material analysis, NDT, and certification services',
-    icon: <TestingIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+    description: 'Lab tests, proximate/ultimate analysis, NDT, and certification services',
+    icon: <TestingIcon sx={ICON_SX} />,
   },
   {
     key: ServiceCategory.INSPECTION,
     title: 'Inspection & QC',
     description: 'Quality inspection, third-party inspection, and audit services',
-    icon: <InspectionIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+    icon: <InspectionIcon sx={ICON_SX} />,
+  },
+  {
+    key: ServiceCategory.CONSULTING,
+    title: 'Consulting & Advisory',
+    description: 'Technical advisory, design review, and specialist consulting',
+    icon: <ConsultingIcon sx={ICON_SX} />,
+  },
+  {
+    key: ServiceCategory.CALIBRATION,
+    title: 'Calibration',
+    description: 'Instrument calibration, gauge verification, and metrology services',
+    icon: <CalibrationIcon sx={ICON_SX} />,
   },
   {
     key: ServiceCategory.TRANSPORTATION,
     title: 'Transportation',
     description: 'Freight, logistics, and heavy equipment transportation',
-    icon: <TransportIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+    icon: <TransportIcon sx={ICON_SX} />,
   },
   {
     key: ServiceCategory.ERECTION,
     title: 'Erection & Installation',
     description: 'On-site erection, piping installation, and structural assembly',
-    icon: <ErectionIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+    icon: <ErectionIcon sx={ICON_SX} />,
   },
   {
     key: ServiceCategory.COMMISSIONING,
     title: 'Commissioning',
     description: 'Pre-commissioning, commissioning, and performance guarantee testing',
-    icon: <CommissioningIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+    icon: <CommissioningIcon sx={ICON_SX} />,
+  },
+  {
+    key: ServiceCategory.MAINTENANCE,
+    title: 'Maintenance & AMC',
+    description: 'Preventive maintenance, corrective maintenance, and annual contracts',
+    icon: <MaintenanceIcon sx={ICON_SX} />,
+  },
+  {
+    key: ServiceCategory.TRAINING,
+    title: 'Training',
+    description: 'Operator training, safety training, and skill development',
+    icon: <TrainingIcon sx={ICON_SX} />,
+  },
+  {
+    key: ServiceCategory.OTHER,
+    title: 'Other Services',
+    description: 'Miscellaneous services not covered by other categories',
+    icon: <OtherIcon sx={ICON_SX} />,
   },
 ];
 

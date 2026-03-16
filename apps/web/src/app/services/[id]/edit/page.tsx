@@ -51,6 +51,13 @@ export default function EditServicePage() {
   );
   const [defaultRateValue, setDefaultRateValue] = useState<string>('');
   const [isStandard, setIsStandard] = useState(false);
+  // Procurement fields
+  const [unit, setUnit] = useState('');
+  const [estimatedTurnaroundDays, setEstimatedTurnaroundDays] = useState<string>('');
+  const [testMethodStandard, setTestMethodStandard] = useState('');
+  const [sampleRequirements, setSampleRequirements] = useState('');
+  const [requiredAccreditations, setRequiredAccreditations] = useState('');
+  const [deliverables, setDeliverables] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
@@ -74,6 +81,15 @@ export default function EditServicePage() {
             result.defaultRateValue != null ? String(result.defaultRateValue) : ''
           );
           setIsStandard(result.isStandard);
+          // Procurement fields
+          setUnit(result.unit ?? '');
+          setEstimatedTurnaroundDays(
+            result.estimatedTurnaroundDays != null ? String(result.estimatedTurnaroundDays) : ''
+          );
+          setTestMethodStandard(result.testMethodStandard ?? '');
+          setSampleRequirements(result.sampleRequirements ?? '');
+          setRequiredAccreditations((result.requiredAccreditations ?? []).join(', '));
+          setDeliverables((result.deliverables ?? []).join(', '));
         }
       } catch (err) {
         console.error('Error loading service:', err);
@@ -96,6 +112,15 @@ export default function EditServicePage() {
     setError('');
 
     try {
+      const accreditationsList = requiredAccreditations
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const deliverablesList = deliverables
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       await updateService(
         db,
         serviceId,
@@ -106,6 +131,14 @@ export default function EditServicePage() {
           calculationMethod,
           ...(defaultRateValue ? { defaultRateValue: parseFloat(defaultRateValue) } : {}),
           isStandard,
+          ...(unit.trim() ? { unit: unit.trim() } : {}),
+          ...(estimatedTurnaroundDays
+            ? { estimatedTurnaroundDays: parseInt(estimatedTurnaroundDays, 10) }
+            : {}),
+          ...(testMethodStandard.trim() ? { testMethodStandard: testMethodStandard.trim() } : {}),
+          ...(sampleRequirements.trim() ? { sampleRequirements: sampleRequirements.trim() } : {}),
+          requiredAccreditations: accreditationsList,
+          deliverables: deliverablesList,
         },
         user.uid
       );
@@ -235,6 +268,77 @@ export default function EditServicePage() {
                   ? 'Percentage applied to material/total cost'
                   : 'Fixed amount or per-unit rate'
               }
+            />
+          </Grid>
+
+          {/* Procurement */}
+          <Grid size={12}>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+              Procurement
+            </Typography>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              label="Unit"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              fullWidth
+              placeholder="e.g., per test, per sample, per day, lump sum"
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              label="Estimated Turnaround (days)"
+              value={estimatedTurnaroundDays}
+              onChange={(e) => setEstimatedTurnaroundDays(e.target.value)}
+              fullWidth
+              type="number"
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              label="Test Method / Standard"
+              value={testMethodStandard}
+              onChange={(e) => setTestMethodStandard(e.target.value)}
+              fullWidth
+              placeholder="e.g., ASTM D3172, ISO 11722"
+            />
+          </Grid>
+
+          <Grid size={12}>
+            <TextField
+              label="Sample Requirements"
+              value={sampleRequirements}
+              onChange={(e) => setSampleRequirements(e.target.value)}
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Description of sample needed (quantity, condition, preparation)"
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              label="Required Accreditations"
+              value={requiredAccreditations}
+              onChange={(e) => setRequiredAccreditations(e.target.value)}
+              fullWidth
+              placeholder="e.g., NABL, ISO 17025, BIS (comma-separated)"
+              helperText="Comma-separated list"
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              label="Deliverables"
+              value={deliverables}
+              onChange={(e) => setDeliverables(e.target.value)}
+              fullWidth
+              placeholder="e.g., Test Certificate, Analysis Report (comma-separated)"
+              helperText="Comma-separated list"
             />
           </Grid>
 

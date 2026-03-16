@@ -190,6 +190,64 @@ export default function ServiceDetailPage() {
         </Grid>
       </Paper>
 
+      {/* Procurement Details */}
+      {(service.unit ||
+        service.estimatedTurnaroundDays ||
+        service.testMethodStandard ||
+        service.sampleRequirements ||
+        service.requiredAccreditations?.length ||
+        service.deliverables?.length) && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Procurement Details
+          </Typography>
+          <Grid container spacing={2}>
+            {service.unit && <DetailRow label="Unit" value={service.unit} />}
+            {service.estimatedTurnaroundDays != null && (
+              <DetailRow
+                label="Estimated Turnaround"
+                value={`${service.estimatedTurnaroundDays} days`}
+              />
+            )}
+            {service.testMethodStandard && (
+              <DetailRow label="Test Method / Standard" value={service.testMethodStandard} />
+            )}
+            {service.sampleRequirements && (
+              <Grid size={12}>
+                <Typography variant="caption" color="text.secondary">
+                  Sample Requirements
+                </Typography>
+                <Typography variant="body1">{service.sampleRequirements}</Typography>
+              </Grid>
+            )}
+            {service.requiredAccreditations?.length ? (
+              <Grid size={12}>
+                <Typography variant="caption" color="text.secondary">
+                  Required Accreditations
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  {service.requiredAccreditations.map((acc) => (
+                    <Chip key={acc} label={acc} size="small" color="info" variant="outlined" />
+                  ))}
+                </Box>
+              </Grid>
+            ) : null}
+            {service.deliverables?.length ? (
+              <Grid size={12}>
+                <Typography variant="caption" color="text.secondary">
+                  Deliverables
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  {service.deliverables.map((d) => (
+                    <Chip key={d} label={d} size="small" variant="outlined" />
+                  ))}
+                </Box>
+              </Grid>
+            ) : null}
+          </Grid>
+        </Paper>
+      )}
+
       {(service.applicableToCategories?.length ||
         service.applicableToItemTypes?.length ||
         service.applicableToComponentTypes?.length) && (

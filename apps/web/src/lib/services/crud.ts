@@ -186,6 +186,11 @@ async function generateServiceCode(db: Firestore, category: ServiceCategory): Pr
     TRANSPORTATION: 'TRN',
     ERECTION: 'ERC',
     COMMISSIONING: 'COM',
+    CONSULTING: 'CON',
+    CALIBRATION: 'CAL',
+    MAINTENANCE: 'MNT',
+    TRAINING: 'TRG',
+    OTHER: 'OTH',
   };
 
   const prefix = prefixMap[category] || 'GEN';
