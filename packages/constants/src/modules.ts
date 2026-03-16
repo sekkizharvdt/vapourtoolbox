@@ -153,6 +153,21 @@ export const MODULES: Record<string, ModuleDefinition> = {
 
   // ===== COMING SOON MODULES =====
 
+  SERVICE_CATALOG: {
+    id: 'service-catalog',
+    name: 'Services',
+    shortName: 'Services',
+    description:
+      'Service catalog for engineering, fabrication, lab testing, inspection, and consulting',
+    icon: 'MiscellaneousServices',
+    color: '#0EA5E9', // Sky blue
+    path: '/services',
+    status: 'active',
+    // No requiredPermissions - open to all users (like materials)
+    category: 'application',
+    priority: 6,
+  },
+
   MATERIAL_DATABASE: {
     id: 'material-database',
     name: 'Material Database',
@@ -164,7 +179,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     status: 'active',
     // No requiredPermissions - open to all users
     category: 'application',
-    priority: 6,
+    priority: 7,
   },
 
   SHAPE_DATABASE: {

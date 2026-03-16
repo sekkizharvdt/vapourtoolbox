@@ -57,6 +57,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Timeline as TimelineIcon,
   EventNote as EventNoteIcon,
+  MiscellaneousServices as ServicesIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 // NOTE: Using <img> instead of next/image because app uses output: 'export'
@@ -89,6 +90,7 @@ const moduleIcons: Record<string, React.ReactNode> = {
   accounting: <AccountBalanceIcon />,
   'thermal-desal': <ThermostatIcon />,
   'process-data': <StorageIcon />,
+  'service-catalog': <ServicesIcon />,
   'material-database': <InventoryIcon />,
   'shape-database': <CalculateIcon />,
   'bought-out-database': <LocalShippingIcon />,
@@ -162,6 +164,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
     moduleIds: [
       'thermal-desal', // Thermal Desal Design - requires VIEW_THERMAL_DESAL (permissions2)
       'process-data', // Process Data - shares VIEW_THERMAL_DESAL
+      'service-catalog', // Service Catalog - open to all
       'material-database', // Material DB - open to all
       'shape-database', // Shape DB - open to all
       'bought-out-database', // Bought Out DB - open to all

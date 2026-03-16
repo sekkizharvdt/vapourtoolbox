@@ -40,6 +40,14 @@
         "destination": "/accounting/payment-batches/placeholder.html"
       },
       {
+        "source": "/services/*/edit",
+        "destination": "/services/placeholder/edit.html"
+      },
+      {
+        "source": "/services/*",
+        "destination": "/services/placeholder.html"
+      },
+      {
         "source": "/bought-out/*",
         "destination": "/bought-out/placeholder.html"
       },
