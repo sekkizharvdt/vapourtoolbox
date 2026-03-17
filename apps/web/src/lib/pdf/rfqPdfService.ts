@@ -209,11 +209,22 @@ async function uploadPDFBlob(
   storage: FirebaseStorage,
   blob: Blob,
   storagePath: string
-): Promise<{ downloadUrl: string; fileSize: number }> {
-  const storageRef = ref(storage, storagePath);
-  await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
-  const downloadUrl = await getDownloadURL(storageRef);
-  return { downloadUrl, fileSize: blob.size };
+): Promise<{ downloadUrl: string; fileSize: number; isLocalBlob?: boolean }> {
+  try {
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { downloadUrl, fileSize: blob.size };
+  } catch (error) {
+    // Fallback: if storage upload fails (e.g., 403 permission error),
+    // create a local blob URL so the user can still download the PDF
+    console.warn(
+      `[rfqPdfService] Storage upload failed for ${storagePath}, falling back to local blob URL:`,
+      error instanceof Error ? error.message : error
+    );
+    const localUrl = URL.createObjectURL(blob);
+    return { downloadUrl: localUrl, fileSize: blob.size, isLocalBlob: true };
+  }
 }
 
 /* ─── Data Preparation ───────────────────────────────────── */
@@ -457,33 +468,35 @@ export async function generateRFQPDFs(
           const sanitizedName = vendor.name.replace(/[^a-zA-Z0-9]/g, '_');
           const storagePath = `rfq-pdfs/${options.rfqId}/${Date.now()}-${sanitizedName}.pdf`;
 
-          const { downloadUrl, fileSize } = await uploadPDFBlob(storage, blob, storagePath);
+          const uploadResult = await uploadPDFBlob(storage, blob, storagePath);
 
-          // Version tracking
-          const previousDoc = await findLatestRFQDocument(db, options.rfqId, vendor.id);
-
-          const documentId = await createDocumentRecord(db, {
-            fileName: `${rfq.number}-${sanitizedName}.pdf`,
-            downloadUrl,
-            storageRef: storagePath,
-            fileSize,
-            rfqId: rfq.id,
-            rfqNumber: rfq.number,
-            projectId: rfq.projectIds?.[0],
-            projectName: rfq.projectNames?.[0],
-            vendorId: vendor.id,
-            vendorName: vendor.name,
-            userId,
-            userName,
-            version: previousDoc ? previousDoc.version + 1 : 1,
-            previousDocumentId: previousDoc?.documentId,
-            revisionNotes: newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined,
-          });
+          // Only create document records if upload succeeded (not a local blob fallback)
+          let documentId: string | undefined;
+          if (!uploadResult.isLocalBlob) {
+            const previousDoc = await findLatestRFQDocument(db, options.rfqId, vendor.id);
+            documentId = await createDocumentRecord(db, {
+              fileName: `${rfq.number}-${sanitizedName}.pdf`,
+              downloadUrl: uploadResult.downloadUrl,
+              storageRef: storagePath,
+              fileSize: uploadResult.fileSize,
+              rfqId: rfq.id,
+              rfqNumber: rfq.number,
+              projectId: rfq.projectIds?.[0],
+              projectName: rfq.projectNames?.[0],
+              vendorId: vendor.id,
+              vendorName: vendor.name,
+              userId,
+              userName,
+              version: previousDoc ? previousDoc.version + 1 : 1,
+              previousDocumentId: previousDoc?.documentId,
+              revisionNotes: newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined,
+            });
+          }
 
           result.vendorPdfs.push({
             vendorId: vendor.id,
             vendorName: vendor.name,
-            pdfUrl: downloadUrl,
+            pdfUrl: uploadResult.downloadUrl,
             pdfPath: storagePath,
             documentId,
           });
@@ -515,27 +528,29 @@ export async function generateRFQPDFs(
         const blob = await generatePDFBlob(element);
 
         const storagePath = `rfq-pdfs/${options.rfqId}/${Date.now()}-combined.pdf`;
-        const { downloadUrl, fileSize } = await uploadPDFBlob(storage, blob, storagePath);
+        const uploadResult = await uploadPDFBlob(storage, blob, storagePath);
 
-        const previousDoc = await findLatestRFQDocument(db, options.rfqId);
+        let documentId: string | undefined;
+        if (!uploadResult.isLocalBlob) {
+          const previousDoc = await findLatestRFQDocument(db, options.rfqId);
+          documentId = await createDocumentRecord(db, {
+            fileName: `${rfq.number}-combined.pdf`,
+            downloadUrl: uploadResult.downloadUrl,
+            storageRef: storagePath,
+            fileSize: uploadResult.fileSize,
+            rfqId: rfq.id,
+            rfqNumber: rfq.number,
+            projectId: rfq.projectIds?.[0],
+            projectName: rfq.projectNames?.[0],
+            userId,
+            userName,
+            version: previousDoc ? previousDoc.version + 1 : 1,
+            previousDocumentId: previousDoc?.documentId,
+            revisionNotes: newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined,
+          });
+        }
 
-        const documentId = await createDocumentRecord(db, {
-          fileName: `${rfq.number}-combined.pdf`,
-          downloadUrl,
-          storageRef: storagePath,
-          fileSize,
-          rfqId: rfq.id,
-          rfqNumber: rfq.number,
-          projectId: rfq.projectIds?.[0],
-          projectName: rfq.projectNames?.[0],
-          userId,
-          userName,
-          version: previousDoc ? previousDoc.version + 1 : 1,
-          previousDocumentId: previousDoc?.documentId,
-          revisionNotes: newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined,
-        });
-
-        result.combinedPdfUrl = downloadUrl;
+        result.combinedPdfUrl = uploadResult.downloadUrl;
         result.combinedPdfPath = storagePath;
         result.combinedDocumentId = documentId;
         totalFiles++;
@@ -557,21 +572,23 @@ export async function generateRFQPDFs(
       updatedBy: userId,
     });
 
-    // Save audit record
+    // Save audit record (use conditional spreads to avoid undefined values)
     await addDoc(collection(db, 'rfqPdfRecords'), {
       rfqId: options.rfqId,
       rfqNumber: rfq.number,
       mode: options.mode,
       version: newPdfVersion,
       vendorPdfs: result.vendorPdfs || [],
-      combinedPdfUrl: result.combinedPdfUrl,
-      combinedPdfPath: result.combinedPdfPath,
-      combinedDocumentId: result.combinedDocumentId,
+      ...(result.combinedPdfUrl !== undefined && { combinedPdfUrl: result.combinedPdfUrl }),
+      ...(result.combinedPdfPath !== undefined && { combinedPdfPath: result.combinedPdfPath }),
+      ...(result.combinedDocumentId !== undefined && {
+        combinedDocumentId: result.combinedDocumentId,
+      }),
       termsSnapshot: {
-        general: options.generalTerms,
-        payment: options.paymentTerms,
-        delivery: options.deliveryTerms,
-        warranty: options.warrantyTerms,
+        ...(options.generalTerms !== undefined && { general: options.generalTerms }),
+        ...(options.paymentTerms !== undefined && { payment: options.paymentTerms }),
+        ...(options.deliveryTerms !== undefined && { delivery: options.deliveryTerms }),
+        ...(options.warrantyTerms !== undefined && { warranty: options.warrantyTerms }),
       },
       downloadCount: 0,
       generatedBy: userId,

@@ -288,7 +288,7 @@ export interface RFQPDFGenerationResult {
     vendorName: string;
     pdfUrl: string;
     pdfPath: string;
-    documentId: string; // Document management system ID
+    documentId?: string; // Document management system ID (absent if storage upload failed)
   }>;
 
   // For COMBINED mode - single PDF
