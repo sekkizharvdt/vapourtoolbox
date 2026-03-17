@@ -12,6 +12,14 @@ import {
   CircularProgress,
   Typography,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  OutlinedInput,
+  TextField,
+  Grid,
 } from '@mui/material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -79,6 +87,10 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
   const [shippingState, setShippingState] = useState('');
   const [shippingPostalCode, setShippingPostalCode] = useState('');
   const [shippingCountry, setShippingCountry] = useState('India');
+
+  // Form state - Vendor Categorization
+  const [vendorCategories, setVendorCategories] = useState<string[]>([]);
+  const [servicesOffered, setServicesOffered] = useState('');
 
   // Form state - Credit Terms
   const [creditDays, setCreditDays] = useState('');
@@ -204,6 +216,10 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
       // Load opening balance
       setOpeningBalance(entity.openingBalance?.toString() || '');
       setOpeningBalanceType(entity.openingBalanceType || 'CR');
+
+      // Load vendor categorization
+      setVendorCategories(entity.vendorCategories ?? []);
+      setServicesOffered((entity.servicesOffered ?? []).join(', '));
     }
   }, [entity]);
 
@@ -382,6 +398,15 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
         updateData.openingBalanceType = null;
       }
 
+      // Add vendor categorization
+      updateData.vendorCategories = vendorCategories.length > 0 ? vendorCategories : null;
+      updateData.servicesOffered = servicesOffered.trim()
+        ? servicesOffered
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        : null;
+
       await updateDoc(entityRef, updateData);
 
       // Log audit event for entity update
@@ -545,6 +570,67 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
             disabled={loading}
             entityId={entity?.id}
           />
+
+          {/* Vendor Categorization — only shown when VENDOR role is selected */}
+          {roles.includes('VENDOR') && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+                Vendor Categorization
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <FormControl fullWidth disabled={loading}>
+                    <InputLabel>Vendor Categories</InputLabel>
+                    <Select<string[]>
+                      multiple
+                      value={vendorCategories}
+                      onChange={(e) => setVendorCategories(e.target.value as string[])}
+                      input={<OutlinedInput label="Vendor Categories" />}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(selected as string[]).map((value: string) => (
+                            <Chip key={value} label={value} size="small" />
+                          ))}
+                        </Box>
+                      )}
+                    >
+                      {[
+                        'Raw Materials',
+                        'Bought Out Items',
+                        'Fabrication',
+                        'Lab Testing',
+                        'Inspection',
+                        'Calibration',
+                        'Engineering',
+                        'Consulting',
+                        'Transportation',
+                        'Erection',
+                        'Maintenance',
+                        'IT Services',
+                        'Office Supplies',
+                      ].map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {cat}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Services Offered"
+                    value={servicesOffered}
+                    onChange={(e) => setServicesOffered(e.target.value)}
+                    fullWidth
+                    disabled={loading}
+                    placeholder="e.g., Proximate Analysis, TGA, Calibration"
+                    helperText="Comma-separated list of specific services"
+                  />
+                </Grid>
+              </Grid>
+            </>
+          )}
         </Box>
       </DialogContent>
 

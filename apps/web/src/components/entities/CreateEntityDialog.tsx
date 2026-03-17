@@ -82,6 +82,10 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
   const [shippingPostalCode, setShippingPostalCode] = useState('');
   const [shippingCountry, setShippingCountry] = useState('India');
 
+  // Form state - Vendor Categorization
+  const [vendorCategories, setVendorCategories] = useState<string[]>([]);
+  const [servicesOffered, setServicesOffered] = useState('');
+
   // Form state - Credit Terms
   const [creditDays, setCreditDays] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
@@ -261,6 +265,14 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
           openingBalance && parseFloat(openingBalance) > 0 ? parseFloat(openingBalance) : undefined,
         openingBalanceType:
           openingBalance && parseFloat(openingBalance) > 0 ? openingBalanceType : undefined,
+        // Vendor categorization
+        ...(vendorCategories.length > 0 && { vendorCategories }),
+        ...(servicesOffered.trim() && {
+          servicesOffered: servicesOffered
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        }),
         isActive: true,
       };
 
@@ -309,6 +321,8 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
     setShippingCountry('India');
     setCreditDays('');
     setCreditLimit('');
+    setVendorCategories([]);
+    setServicesOffered('');
     setError('');
   };
 
@@ -681,6 +695,67 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                 </Grid>
               </Grid>
             </Box>
+
+            {/* Vendor Categorization — only shown when VENDOR role is selected */}
+            {roles.includes('VENDOR') && (
+              <Box>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+                  Vendor Categorization
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <FormControl fullWidth disabled={loading}>
+                      <InputLabel>Vendor Categories</InputLabel>
+                      <Select<string[]>
+                        multiple
+                        value={vendorCategories}
+                        onChange={(e) => setVendorCategories(e.target.value as string[])}
+                        input={<OutlinedInput label="Vendor Categories" />}
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {(selected as string[]).map((value: string) => (
+                              <Chip key={value} label={value} size="small" />
+                            ))}
+                          </Box>
+                        )}
+                      >
+                        {[
+                          'Raw Materials',
+                          'Bought Out Items',
+                          'Fabrication',
+                          'Lab Testing',
+                          'Inspection',
+                          'Calibration',
+                          'Engineering',
+                          'Consulting',
+                          'Transportation',
+                          'Erection',
+                          'Maintenance',
+                          'IT Services',
+                          'Office Supplies',
+                        ].map((cat) => (
+                          <MenuItem key={cat} value={cat}>
+                            {cat}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      label="Services Offered"
+                      value={servicesOffered}
+                      onChange={(e) => setServicesOffered(e.target.value)}
+                      fullWidth
+                      disabled={loading}
+                      placeholder="e.g., Proximate Analysis, TGA, Calibration"
+                      helperText="Comma-separated list of specific services"
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
           </Box>
         </Box>
       </DialogContent>
