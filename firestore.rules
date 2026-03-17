@@ -910,6 +910,21 @@ service cloud.firestore {
     }
 
     // ============================================
+    // RFQ PDF Records Collection
+    // ============================================
+
+    match /rfqPdfRecords/{recordId} {
+      // Read: All authenticated internal users
+      allow read: if isInternalUser();
+
+      // Create/Update: Users with procurement access
+      allow create, update: if isInternalUser();
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Document Folders Collection
     // ============================================
 
