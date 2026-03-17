@@ -335,9 +335,16 @@ export default function UploadOfferDialog({
         const timestamp = Date.now();
         storagePath = `offers/${rfq.id}/${timestamp}_${file.name}`;
         const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        setFileUrl(url);
+        try {
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+          setFileUrl(url);
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+          throw new Error(
+            `Storage upload failed: ${msg}. Check Firebase Storage permissions for the offers/ path.`
+          );
+        }
       }
 
       setProgress(30);

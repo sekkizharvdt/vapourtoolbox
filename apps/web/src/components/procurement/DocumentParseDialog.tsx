@@ -152,7 +152,14 @@ export default function DocumentParseDialog({
       const storageRef = ref(storage, storagePath);
 
       setProgress(20);
-      await uploadBytes(storageRef, file);
+      try {
+        await uploadBytes(storageRef, file);
+      } catch (uploadErr) {
+        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        throw new Error(
+          `File upload failed: ${msg}. Check Firebase Storage permissions for the parsing/ path.`
+        );
+      }
       setProgress(40);
       setUploading(false);
       setParsing(true);
