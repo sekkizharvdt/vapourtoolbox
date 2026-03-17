@@ -30,16 +30,25 @@ import {
   Chip,
   Breadcrumbs,
   Link,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
   Home as HomeIcon,
+  Search as SearchIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
-import { listPurchaseRequests } from '@/lib/procurement/purchaseRequest';
-import { createRFQFromPRs } from '@/lib/procurement/rfq';
+import { listPurchaseRequests, getPurchaseRequestItems } from '@/lib/procurement/purchaseRequest';
+import { createRFQFromPRs, type VendorSuggestion } from '@/lib/procurement/rfq';
+import { suggestVendorsForRFQ } from '@/lib/procurement/rfq/suggestions';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -54,6 +63,8 @@ interface Vendor {
   email?: string;
   phone?: string;
   isDeleted?: boolean;
+  vendorCategories?: string[];
+  servicesOffered?: string[];
 }
 
 export default function NewRFQPage() {
@@ -72,6 +83,10 @@ export default function NewRFQPage() {
   // Step 2: Select Vendors
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
+  const [vendorSuggestions, setVendorSuggestions] = useState<VendorSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [vendorSearch, setVendorSearch] = useState('');
+  const [vendorCategoryFilter, setVendorCategoryFilter] = useState('');
 
   // Step 3: RFQ Details
   const [title, setTitle] = useState('');
@@ -147,6 +162,8 @@ export default function NewRFQPage() {
             email: data.email,
             phone: data.phone,
             isDeleted: data.isDeleted,
+            vendorCategories: data.vendorCategories,
+            servicesOffered: data.servicesOffered,
           };
           return vendor;
         })
@@ -158,6 +175,28 @@ export default function NewRFQPage() {
     }
   };
 
+  const loadVendorSuggestions = async () => {
+    const { db } = getFirebase();
+    setSuggestionsLoading(true);
+    try {
+      // Get all PR items to extract materialIds
+      const allItems = await Promise.all(selectedPRs.map((prId) => getPurchaseRequestItems(prId)));
+      const materialIds = allItems.flat().map((item) => item.materialId);
+
+      const suggestions = await suggestVendorsForRFQ(db, materialIds);
+      setVendorSuggestions(suggestions);
+
+      // Auto-select suggested vendors
+      if (suggestions.length > 0 && selectedVendors.length === 0) {
+        setSelectedVendors(suggestions.map((s) => s.vendorId));
+      }
+    } catch (err) {
+      console.error('[NewRFQPage] Error loading vendor suggestions:', err);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
   const handleNext = () => {
     // Validation
     if (activeStep === 0 && selectedPRs.length === 0) {
@@ -165,10 +204,12 @@ export default function NewRFQPage() {
       return;
     }
 
-    if (activeStep === 1 && selectedVendors.length === 0) {
-      setError('Please select at least one vendor');
-      return;
+    // Load vendor suggestions when moving from Step 1 (PRs) to Step 2 (Vendors)
+    if (activeStep === 0) {
+      loadVendorSuggestions();
     }
+
+    // Vendors are optional in DRAFT — user can add them later before issuing
 
     // Auto-populate description when moving from step 1 to step 2
     if (activeStep === 1) {
@@ -340,18 +381,101 @@ export default function NewRFQPage() {
           </Box>
         );
 
-      case 1:
+      case 1: {
+        // Build a set of suggested vendor IDs for quick lookup
+        const suggestedIds = new Set(vendorSuggestions.map((s) => s.vendorId));
+        const suggestionMap = new Map(vendorSuggestions.map((s) => [s.vendorId, s]));
+
+        // Collect unique vendor categories for the filter dropdown
+        const allCategories = new Set<string>();
+        vendors.forEach((v) => v.vendorCategories?.forEach((c) => allCategories.add(c)));
+
+        // Apply search and category filters
+        const filteredVendors = vendors.filter((vendor) => {
+          if (vendorSearch.trim()) {
+            const term = vendorSearch.toLowerCase();
+            const matchesSearch =
+              vendor.name.toLowerCase().includes(term) ||
+              (vendor.contactPerson ?? '').toLowerCase().includes(term) ||
+              (vendor.email ?? '').toLowerCase().includes(term);
+            if (!matchesSearch) return false;
+          }
+          if (vendorCategoryFilter) {
+            if (!vendor.vendorCategories?.includes(vendorCategoryFilter)) return false;
+          }
+          return true;
+        });
+
+        // Sort: suggested vendors first, then alphabetical
+        const sortedVendors = [...filteredVendors].sort((a, b) => {
+          const aIsSuggested = suggestedIds.has(a.id) ? 0 : 1;
+          const bIsSuggested = suggestedIds.has(b.id) ? 0 : 1;
+          if (aIsSuggested !== bIsSuggested) return aIsSuggested - bIsSuggested;
+          return a.name.localeCompare(b.name);
+        });
+
         return (
           <Box>
             <Typography variant="h6" gutterBottom>
               Select Vendors
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Choose vendors to invite for quotations
+              Choose vendors to invite for quotations. You can skip this step and add vendors later
+              before issuing the RFQ.
             </Typography>
 
+            {/* Vendor Suggestions Banner */}
+            {suggestionsLoading && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Loading vendor suggestions based on materials in selected PRs...
+              </Alert>
+            )}
+            {!suggestionsLoading && vendorSuggestions.length > 0 && (
+              <Alert severity="success" icon={<StarIcon />} sx={{ mb: 2 }}>
+                {vendorSuggestions.length} vendor(s) suggested based on preferred vendors for
+                materials in the selected PRs. They have been pre-selected.
+              </Alert>
+            )}
+
+            {/* Search and Category Filter */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                placeholder="Search vendors..."
+                value={vendorSearch}
+                onChange={(e) => setVendorSearch(e.target.value)}
+                size="small"
+                sx={{ flex: 1, minWidth: 250 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              {allCategories.size > 0 && (
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={vendorCategoryFilter}
+                    label="Category"
+                    onChange={(e) => setVendorCategoryFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Categories</MenuItem>
+                    {Array.from(allCategories)
+                      .sort()
+                      .map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {cat}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Box>
+
             <TableContainer>
-              <Table>
+              <Table size="small">
                 <TableHead>
                   <TableRow>
                     <TableCell padding="checkbox">Select</TableCell>
@@ -359,34 +483,75 @@ export default function NewRFQPage() {
                     <TableCell>Contact Person</TableCell>
                     <TableCell>Email</TableCell>
                     <TableCell>Phone</TableCell>
+                    {allCategories.size > 0 && <TableCell>Categories</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {vendors.map((vendor) => (
-                    <TableRow
-                      key={vendor.id}
-                      hover
-                      onClick={() => toggleVendorSelection(vendor.id)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell padding="checkbox">
-                        <Checkbox checked={selectedVendors.includes(vendor.id)} />
-                      </TableCell>
-                      <TableCell>{vendor.name}</TableCell>
-                      <TableCell>{vendor.contactPerson || '-'}</TableCell>
-                      <TableCell>{vendor.email || '-'}</TableCell>
-                      <TableCell>{vendor.phone || '-'}</TableCell>
-                    </TableRow>
-                  ))}
+                  {sortedVendors.map((vendor) => {
+                    const suggestion = suggestionMap.get(vendor.id);
+                    return (
+                      <TableRow
+                        key={vendor.id}
+                        hover
+                        onClick={() => toggleVendorSelection(vendor.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          ...(suggestion && {
+                            backgroundColor: 'action.hover',
+                          }),
+                        }}
+                      >
+                        <TableCell padding="checkbox">
+                          <Checkbox checked={selectedVendors.includes(vendor.id)} />
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {vendor.name}
+                            {suggestion && (
+                              <Tooltip
+                                title={`Preferred vendor for ${suggestion.materialCodes.join(', ')} (${suggestion.materialCount} item${suggestion.materialCount > 1 ? 's' : ''})`}
+                              >
+                                <Chip
+                                  icon={<StarIcon />}
+                                  label="Suggested"
+                                  size="small"
+                                  color="success"
+                                  variant="outlined"
+                                />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>{vendor.contactPerson || '-'}</TableCell>
+                        <TableCell>{vendor.email || '-'}</TableCell>
+                        <TableCell>{vendor.phone || '-'}</TableCell>
+                        {allCategories.size > 0 && (
+                          <TableCell>
+                            {vendor.vendorCategories?.map((cat) => (
+                              <Chip
+                                key={cat}
+                                label={cat}
+                                size="small"
+                                variant="outlined"
+                                sx={{ mr: 0.5, mb: 0.5 }}
+                              />
+                            )) || '-'}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
 
             <Typography variant="body2" sx={{ mt: 2 }}>
               Selected: {selectedVendors.length} vendor(s)
+              {selectedVendors.length === 0 && ' (you can add vendors later before issuing)'}
             </Typography>
           </Box>
         );
+      }
 
       case 2:
         return (
@@ -509,9 +674,15 @@ export default function NewRFQPage() {
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Selected Vendors ({selectedVendorDetails.length})
                 </Typography>
-                {selectedVendorDetails.map((vendor) => (
-                  <Chip key={vendor.id} label={vendor.name} sx={{ mr: 1, mb: 1 }} />
-                ))}
+                {selectedVendorDetails.length > 0 ? (
+                  selectedVendorDetails.map((vendor) => (
+                    <Chip key={vendor.id} label={vendor.name} sx={{ mr: 1, mb: 1 }} />
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No vendors selected. You can add vendors later before issuing the RFQ.
+                  </Typography>
+                )}
               </Paper>
 
               <Paper sx={{ p: 2 }} variant="outlined">

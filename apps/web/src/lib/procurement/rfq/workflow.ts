@@ -30,6 +30,11 @@ export async function issueRFQ(rfqId: string, userId: string, userName: string):
 
   requireValidTransition(rfqStateMachine, rfq.status, 'ISSUED', 'RFQ');
 
+  // Vendors are required to issue an RFQ
+  if (!rfq.vendorIds?.length) {
+    throw new Error('Cannot issue RFQ without at least one vendor. Please add vendors first.');
+  }
+
   const now = Timestamp.now();
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), {

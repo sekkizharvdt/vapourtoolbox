@@ -93,19 +93,22 @@ export async function createRFQ(
   });
   assertValid(prValidation);
 
-  const vendorValidation = validateArray(input.vendorIds, 'Vendors', {
-    required: true,
-    minLength: 1,
-    maxLength: 20,
-  });
-  assertValid(vendorValidation);
+  // Vendors are optional in DRAFT — required only when issuing
+  if (input.vendorIds.length > 0) {
+    const vendorValidation = validateArray(input.vendorIds, 'Vendors', {
+      required: false,
+      minLength: 0,
+      maxLength: 20,
+    });
+    assertValid(vendorValidation);
 
-  if (input.vendorIds.length !== input.vendorNames.length) {
-    throw new Error('Vendor IDs and names must match in length');
-  }
+    if (input.vendorIds.length !== input.vendorNames.length) {
+      throw new Error('Vendor IDs and names must match in length');
+    }
 
-  if (input.vendorIds.some((id) => !id?.trim())) {
-    throw new Error('All vendor IDs must be non-empty');
+    if (input.vendorIds.some((id) => !id?.trim())) {
+      throw new Error('All vendor IDs must be non-empty');
+    }
   }
 
   if (!input.dueDate || input.dueDate < new Date()) {

@@ -93,6 +93,10 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
   openingBalance?: number;
   openingBalanceType?: 'DR' | 'CR'; // Debit or Credit
 
+  // Vendor categorization (used for filtering on RFQ vendor selection)
+  vendorCategories?: string[]; // e.g., "Raw Materials", "Lab Testing", "Fabrication"
+  servicesOffered?: string[]; // e.g., "Proximate Analysis", "Calibration"
+
   // Notes
   notes?: string;
 
