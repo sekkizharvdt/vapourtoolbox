@@ -74,6 +74,13 @@ export interface CreateRFQItemInput {
   materialId?: string;
   materialCode?: string;
   materialName?: string;
+
+  // Service catalog linkage (from PR item)
+  itemType?: 'MATERIAL' | 'SERVICE';
+  serviceId?: string;
+  serviceCode?: string;
+  serviceName?: string;
+  serviceCategory?: string;
 }
 
 /**

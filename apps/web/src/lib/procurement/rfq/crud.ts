@@ -239,6 +239,18 @@ export async function createRFQ(
     if (item.deliveryLocation) itemData.deliveryLocation = item.deliveryLocation;
     if (item.conditions) itemData.conditions = item.conditions;
 
+    // Material database linkage
+    if (item.materialId) itemData.materialId = item.materialId;
+    if (item.materialCode) itemData.materialCode = item.materialCode;
+    if (item.materialName) itemData.materialName = item.materialName;
+
+    // Service catalog linkage
+    if (item.itemType) itemData.itemType = item.itemType;
+    if (item.serviceId) itemData.serviceId = item.serviceId;
+    if (item.serviceCode) itemData.serviceCode = item.serviceCode;
+    if (item.serviceName) itemData.serviceName = item.serviceName;
+    if (item.serviceCategory) itemData.serviceCategory = item.serviceCategory;
+
     const itemRef = doc(collection(db, COLLECTIONS.RFQ_ITEMS));
     batch.set(itemRef, itemData);
   });
@@ -354,6 +366,13 @@ export async function createRFQFromPRs(
       if (prItem.materialId) rfqItem.materialId = prItem.materialId;
       if (prItem.materialCode) rfqItem.materialCode = prItem.materialCode;
       if (prItem.materialName) rfqItem.materialName = prItem.materialName;
+
+      // Service catalog linkage
+      if (prItem.itemType) rfqItem.itemType = prItem.itemType;
+      if (prItem.serviceId) rfqItem.serviceId = prItem.serviceId;
+      if (prItem.serviceCode) rfqItem.serviceCode = prItem.serviceCode;
+      if (prItem.serviceName) rfqItem.serviceName = prItem.serviceName;
+      if (prItem.serviceCategory) rfqItem.serviceCategory = prItem.serviceCategory;
 
       allItems.push(rfqItem);
     });

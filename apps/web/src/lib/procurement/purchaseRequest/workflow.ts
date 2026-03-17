@@ -17,7 +17,8 @@ import {
 import { getPurchaseRequestItems } from './crud';
 import { validateProjectBudget } from './utils';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
-import { requireApprover, preventSelfApproval } from '@/lib/auth';
+import { requirePermission, requireApprover, preventSelfApproval } from '@/lib/auth';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 const logger = createLogger({ context: 'purchaseRequestWorkflow' });
 
@@ -27,9 +28,17 @@ const logger = createLogger({ context: 'purchaseRequestWorkflow' });
 export async function submitPurchaseRequestForApproval(
   prId: string,
   userId: string,
-  userName: string
+  userName: string,
+  userPermissions: number = 0
 ): Promise<void> {
   const { db } = getFirebase();
+
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'submit purchase request for approval'
+  );
 
   try {
     const docRef = doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId);
@@ -133,8 +142,16 @@ export async function approvePurchaseRequest(
   prId: string,
   userId: string,
   userName: string,
-  comments?: string
+  comments?: string,
+  userPermissions: number = 0
 ): Promise<void> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'approve purchase request'
+  );
+
   const { db } = getFirebase();
 
   try {
@@ -281,8 +298,16 @@ export async function rejectPurchaseRequest(
   prId: string,
   userId: string,
   userName: string,
-  reason: string
+  reason: string,
+  userPermissions: number = 0
 ): Promise<void> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'reject purchase request'
+  );
+
   const { db } = getFirebase();
 
   try {

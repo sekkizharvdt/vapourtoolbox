@@ -13,14 +13,23 @@ import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
 import { rfqStateMachine } from '@/lib/workflow/stateMachines';
+import { requirePermission } from '@/lib/auth';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 const logger = createLogger({ context: 'rfqService' });
 
 /**
  * Issue RFQ to vendors
  */
-export async function issueRFQ(rfqId: string, userId: string, userName: string): Promise<void> {
+export async function issueRFQ(
+  rfqId: string,
+  userId: string,
+  userName: string,
+  userPermissions: number = 0
+): Promise<void> {
   const { db } = getFirebase();
+
+  requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'issue RFQ');
 
   // Get RFQ and validate transition
   const rfq = await getRFQById(rfqId);
@@ -209,9 +218,12 @@ export async function cancelRFQ(
   rfqId: string,
   reason: string,
   userId: string,
-  userName: string
+  userName: string,
+  userPermissions: number = 0
 ): Promise<void> {
   const { db } = getFirebase();
+
+  requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'cancel RFQ');
 
   // Get RFQ and validate transition
   const rfq = await getRFQById(rfqId);

@@ -65,6 +65,16 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         description: 'When a purchase order is issued to vendor',
       },
       {
+        id: 'po_rejected',
+        label: 'PO Rejected',
+        description: 'When a purchase order is rejected',
+      },
+      {
+        id: 'rfq_completed',
+        label: 'RFQ Completed',
+        description: 'When RFQ evaluation is complete and offer selected',
+      },
+      {
         id: 'delivery_overdue',
         label: 'Delivery Overdue',
         description: 'When a purchase order delivery is past due date',
@@ -73,6 +83,16 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         id: 'gr_completed',
         label: 'Goods Receipt Completed',
         description: 'When a goods receipt inspection is completed',
+      },
+      {
+        id: 'service_order_results',
+        label: 'Service Results Received',
+        description: 'When service order results are received',
+      },
+      {
+        id: 'service_order_completed',
+        label: 'Service Order Completed',
+        description: 'When a service order is completed',
       },
     ],
   },

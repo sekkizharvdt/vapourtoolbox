@@ -299,6 +299,11 @@ export async function createPOFromOffer(
           materialId?: string;
           materialCode?: string;
           materialName?: string;
+          itemType?: string;
+          serviceId?: string;
+          serviceCode?: string;
+          serviceName?: string;
+          serviceCategory?: string;
         }
       >();
 
@@ -320,6 +325,11 @@ export async function createPOFromOffer(
                 materialId: rfqItemData.materialId,
                 materialCode: rfqItemData.materialCode,
                 materialName: rfqItemData.materialName,
+                itemType: rfqItemData.itemType,
+                serviceId: rfqItemData.serviceId,
+                serviceCode: rfqItemData.serviceCode,
+                serviceName: rfqItemData.serviceName,
+                serviceCategory: rfqItemData.serviceCategory,
               },
             };
           } else {
@@ -412,6 +422,13 @@ export async function createPOFromOffer(
         if (matId) poItemData.materialId = matId;
         if (matCode) poItemData.materialCode = matCode;
         if (matName) poItemData.materialName = matName;
+
+        // Service catalog linkage (from RFQ item)
+        if (rfqItemInfo.itemType) poItemData.itemType = rfqItemInfo.itemType;
+        if (rfqItemInfo.serviceId) poItemData.serviceId = rfqItemInfo.serviceId;
+        if (rfqItemInfo.serviceCode) poItemData.serviceCode = rfqItemInfo.serviceCode;
+        if (rfqItemInfo.serviceName) poItemData.serviceName = rfqItemInfo.serviceName;
+        if (rfqItemInfo.serviceCategory) poItemData.serviceCategory = rfqItemInfo.serviceCategory;
 
         const itemRef = doc(collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS));
         batch.set(itemRef, poItemData);

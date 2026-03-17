@@ -173,6 +173,108 @@ export const onPOStatusNotify = onDocumentUpdated(
         },
       });
     }
+
+    if (after.status === 'REJECTED' && before.status !== 'REJECTED') {
+      logger.info(`PO ${after.number} rejected — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'po_rejected',
+        subject: `PO Rejected: ${after.number}`,
+        templateData: {
+          title: 'Purchase Order Rejected',
+          message: `A purchase order has been rejected and requires revision.`,
+          details: [
+            { label: 'PO Number', value: after.number || event.params.poId },
+            { label: 'Vendor', value: after.entityName || '-' },
+            { label: 'Rejected By', value: after.rejectedByName || '-' },
+            { label: 'Reason', value: after.rejectionReason || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/procurement/pos/${event.params.poId}`,
+        },
+      });
+    }
+  }
+);
+
+/**
+ * RFQ completed (offer selected, ready for PO creation)
+ */
+export const onRFQCompletedNotify = onDocumentUpdated(
+  { document: 'rfqs/{rfqId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    if (after.status === 'COMPLETED' && before.status !== 'COMPLETED') {
+      logger.info(`RFQ ${after.number} completed — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'rfq_completed',
+        subject: `RFQ Completed: ${after.number}`,
+        templateData: {
+          title: 'RFQ Evaluation Complete — Ready for PO',
+          message: `An RFQ has been evaluated and an offer has been selected. A purchase order can now be created.`,
+          details: [
+            { label: 'RFQ Number', value: after.number || event.params.rfqId },
+            { label: 'Title', value: after.title || '-' },
+            { label: 'Project', value: (after.projectNames || []).join(', ') || '-' },
+            { label: 'Vendors Invited', value: String((after.vendorIds || []).length) },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/procurement/rfqs/${event.params.rfqId}`,
+        },
+      });
+    }
+  }
+);
+
+/**
+ * Service Order status changes (milestones)
+ */
+export const onServiceOrderNotify = onDocumentUpdated(
+  { document: 'serviceOrders/{soId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    if (after.status === 'RESULTS_RECEIVED') {
+      logger.info(`Service order ${after.number} results received — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'service_order_results',
+        subject: `Service Results Received: ${after.number}`,
+        templateData: {
+          title: 'Service Order — Results Received',
+          message: `Results have been received for a service order and are ready for review.`,
+          details: [
+            { label: 'SO Number', value: after.number || event.params.soId },
+            { label: 'Service', value: after.serviceName || '-' },
+            { label: 'Vendor', value: after.vendorName || '-' },
+            { label: 'Project', value: after.projectName || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/procurement/service-orders/${event.params.soId}`,
+        },
+      });
+    }
+
+    if (after.status === 'COMPLETED' && before.status !== 'COMPLETED') {
+      logger.info(`Service order ${after.number} completed — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'service_order_completed',
+        subject: `Service Completed: ${after.number}`,
+        templateData: {
+          title: 'Service Order Completed',
+          message: `A service order has been completed.`,
+          details: [
+            { label: 'SO Number', value: after.number || event.params.soId },
+            { label: 'Service', value: after.serviceName || '-' },
+            { label: 'Vendor', value: after.vendorName || '-' },
+            { label: 'Result', value: after.resultSummary || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/procurement/service-orders/${event.params.soId}`,
+        },
+      });
+    }
   }
 );
 
