@@ -79,6 +79,11 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
+      - name: Deploy Storage Rules
+        run: firebase deploy --only storage --project vapour-toolbox
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
+
       - name: Delete Removed Functions
         run: |
           # Delete functions that were removed from codebase
