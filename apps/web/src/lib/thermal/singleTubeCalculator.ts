@@ -24,14 +24,12 @@ import {
   getLatentHeat,
   getDensityLiquid,
   getDensityVapor,
-  TUBE_CONDUCTIVITY,
 } from '@vapour/constants';
 import type {
   SingleTubeInput,
   SingleTubeResult,
   FilmAnalysis,
   SingleTubeHeatMassBalance,
-  TubeMaterialKey,
 } from '@vapour/types';
 
 // ============================================================================
@@ -42,38 +40,27 @@ const g = 9.81; // m/s²
 const DEFAULT_FOULING = 0.00009; // m²·K/W
 const DEFAULT_DESIGN_MARGIN = 0.15;
 
-/** Map TubeMaterialKey to TUBE_CONDUCTIVITY key */
-const MATERIAL_KEY_MAP: Record<TubeMaterialKey, string> = {
-  al_5052: 'aluminium_5052',
-  ti_sb338_gr2: 'titanium_sb338_gr2',
-  cu_ni_90_10: 'copper_nickel_90_10',
-  cu_ni_70_30: 'copper_nickel_70_30',
-  al_brass: 'aluminium_brass',
-  ss_316l: 'stainless_316',
-  duplex_2205: 'duplex_2205',
-};
+/**
+ * Quick-select tube material defaults for the UI.
+ * These provide fallback values when the user hasn't picked a material from
+ * the material database. Each entry carries the conductivity and default
+ * wall thickness so the UI can pre-populate fields.
+ */
+export interface QuickSelectMaterial {
+  label: string;
+  conductivity: number; // W/(m·K)
+  defaultWallThickness: number; // mm
+}
 
-/** Default wall thickness per material (mm) */
-const DEFAULT_WALL_THICKNESS: Record<TubeMaterialKey, number> = {
-  al_5052: 1.0,
-  ti_sb338_gr2: 0.4,
-  cu_ni_90_10: 0.7,
-  cu_ni_70_30: 0.7,
-  al_brass: 0.7,
-  ss_316l: 0.7,
-  duplex_2205: 0.7,
-};
-
-/** Material labels for display */
-export const SINGLE_TUBE_MATERIAL_LABELS: Record<TubeMaterialKey, string> = {
-  al_5052: 'Aluminium 5052',
-  ti_sb338_gr2: 'Titanium SB 338 Gr 2',
-  cu_ni_90_10: 'Cu-Ni 90/10',
-  cu_ni_70_30: 'Cu-Ni 70/30',
-  al_brass: 'Aluminium Brass',
-  ss_316l: 'SS 316L',
-  duplex_2205: 'Duplex 2205',
-};
+export const QUICK_SELECT_MATERIALS: QuickSelectMaterial[] = [
+  { label: 'Aluminium 5052', conductivity: 138, defaultWallThickness: 1.0 },
+  { label: 'Titanium SB 338 Gr 2', conductivity: 22, defaultWallThickness: 0.4 },
+  { label: 'Cu-Ni 90/10', conductivity: 45, defaultWallThickness: 0.7 },
+  { label: 'Cu-Ni 70/30', conductivity: 29, defaultWallThickness: 0.7 },
+  { label: 'Aluminium Brass', conductivity: 100, defaultWallThickness: 0.7 },
+  { label: 'SS 316L', conductivity: 16, defaultWallThickness: 0.7 },
+  { label: 'Duplex 2205', conductivity: 19, defaultWallThickness: 0.7 },
+];
 
 // ============================================================================
 // Pure water property correlations (for condensate film)
@@ -133,9 +120,11 @@ export function validateSingleTubeInput(input: SingleTubeInput): ValidationResul
   if (input.spraySalinity < 0) errors.push('Salinity cannot be negative');
   if (input.spraySalinity > 120000) errors.push('Salinity exceeds valid range (120,000 ppm)');
 
-  // Material
-  if (!MATERIAL_KEY_MAP[input.tubeMaterial])
-    errors.push(`Unknown tube material "${input.tubeMaterial}"`);
+  // Conductivity
+  if (input.wallConductivity <= 0) errors.push('Wall conductivity must be > 0');
+
+  // Material name
+  if (!(input.tubeMaterial ?? '').trim()) warnings.push('No material name specified');
 
   // Fouling
   if (input.insideFouling !== undefined && input.insideFouling < 0)
@@ -188,9 +177,8 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
   const outerSurfaceArea = Math.PI * D_o * input.tubeLength; // m²
   const innerSurfaceArea = Math.PI * D_i * input.tubeLength; // m²
 
-  // Wall conductivity
-  const matKey = MATERIAL_KEY_MAP[input.tubeMaterial];
-  const wallConductivity = TUBE_CONDUCTIVITY[matKey]?.value ?? 22; // W/(m·K)
+  // Wall conductivity — supplied directly from material database or quick-select
+  const wallConductivity = input.wallConductivity;
 
   // ========================================================================
   // Outside: Spray water / falling film properties
@@ -455,8 +443,17 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
 }
 
 /**
- * Get the default wall thickness for a given tube material.
+ * Get the default wall thickness for a quick-select material by label.
  */
-export function getDefaultWallThickness(material: TubeMaterialKey): number {
-  return DEFAULT_WALL_THICKNESS[material] ?? 1.0;
+export function getDefaultWallThickness(materialLabel: string): number {
+  const mat = QUICK_SELECT_MATERIALS.find((m) => m.label === materialLabel);
+  return mat?.defaultWallThickness ?? 1.0;
+}
+
+/**
+ * Get the conductivity for a quick-select material by label.
+ */
+export function getQuickSelectConductivity(materialLabel: string): number | null {
+  const mat = QUICK_SELECT_MATERIALS.find((m) => m.label === materialLabel);
+  return mat?.conductivity ?? null;
 }

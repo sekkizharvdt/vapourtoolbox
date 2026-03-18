@@ -17,7 +17,6 @@ import {
   Box,
 } from '@mui/material';
 import type { SingleTubeResult } from '@vapour/types';
-import { SINGLE_TUBE_MATERIAL_LABELS } from '@/lib/thermal';
 
 interface SingleTubeResultsProps {
   result: SingleTubeResult;
@@ -80,9 +79,7 @@ export function SingleTubeResults({ result }: SingleTubeResultsProps) {
           <TableBody>
             <TableRow>
               <TableCell>Material</TableCell>
-              <TableCell align="right">
-                {SINGLE_TUBE_MATERIAL_LABELS[result.inputs.tubeMaterial]}
-              </TableCell>
+              <TableCell align="right">{result.inputs.tubeMaterial}</TableCell>
             </TableRow>
             <TableRow>
               <TableCell>Dimensions</TableCell>

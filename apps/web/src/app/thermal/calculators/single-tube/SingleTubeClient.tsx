@@ -4,8 +4,8 @@ import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack, Button } from '@mui/material';
 import { RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
-import { calculateSingleTube, getDefaultWallThickness } from '@/lib/thermal';
-import type { TubeMaterialKey, SprayFluidType } from '@vapour/types';
+import { calculateSingleTube } from '@/lib/thermal';
+import type { SprayFluidType } from '@vapour/types';
 import { SingleTubeInputs, SingleTubeResults, SingleTubeDiagram } from './components';
 
 export default function SingleTubeClient() {
@@ -13,7 +13,8 @@ export default function SingleTubeClient() {
   const [tubeOD, setTubeOD] = useState<string>('25.4');
   const [wallThickness, setWallThickness] = useState<string>('1.0');
   const [tubeLength, setTubeLength] = useState<string>('');
-  const [tubeMaterial, setTubeMaterial] = useState<TubeMaterialKey>('al_5052');
+  const [tubeMaterialName, setTubeMaterialName] = useState<string>('Aluminium 5052');
+  const [wallConductivity, setWallConductivity] = useState<string>('138');
 
   // --- Inside (vapour) state ---
   const [vapourTemperature, setVapourTemperature] = useState<string>('');
@@ -29,10 +30,15 @@ export default function SingleTubeClient() {
   const [insideFouling, setInsideFouling] = useState<string>('0.00009');
   const [outsideFouling, setOutsideFouling] = useState<string>('0.00009');
 
-  // --- Material change handler (also updates default wall thickness) ---
-  const handleMaterialChange = (mat: TubeMaterialKey) => {
-    setTubeMaterial(mat);
-    setWallThickness(getDefaultWallThickness(mat).toString());
+  // --- Material selection handler (from quick-select or database) ---
+  const handleMaterialSelect = (name: string, conductivity: number, defaultWall?: number) => {
+    setTubeMaterialName(name);
+    if (conductivity > 0) {
+      setWallConductivity(conductivity.toString());
+    }
+    if (defaultWall !== undefined) {
+      setWallThickness(defaultWall.toString());
+    }
   };
 
   // --- Spray fluid change (reset salinity if pure water) ---
@@ -47,7 +53,8 @@ export default function SingleTubeClient() {
     setTubeOD('25.4');
     setWallThickness('1.0');
     setTubeLength('');
-    setTubeMaterial('al_5052');
+    setTubeMaterialName('Aluminium 5052');
+    setWallConductivity('138');
     setVapourTemperature('');
     setVapourFlowRate('');
     setSprayFluidType('SEAWATER');
@@ -64,6 +71,7 @@ export default function SingleTubeClient() {
       const od = parseFloat(tubeOD);
       const wall = parseFloat(wallThickness);
       const len = parseFloat(tubeLength);
+      const k = parseFloat(wallConductivity);
       const vT = parseFloat(vapourTemperature);
       const vF = parseFloat(vapourFlowRate);
       const sT = parseFloat(sprayTemperature);
@@ -72,22 +80,22 @@ export default function SingleTubeClient() {
       const fi = parseFloat(insideFouling);
       const fo = parseFloat(outsideFouling);
 
-      if ([od, wall, len, vT, vF, sT, sF].some((v) => isNaN(v) || v <= 0) || isNaN(sal) || sal < 0)
+      if (
+        [od, wall, len, k, vT, vF, sT, sF].some((v) => isNaN(v) || v <= 0) ||
+        isNaN(sal) ||
+        sal < 0
+      )
         return null;
-
-      // Derive vapour pressure from temperature (saturation)
-      // Use approximate Antoine equation: P_sat(mbar) from T(°C)
-      // Not needed for the calculator — vapourPressure is informational
-      const vapourPressure = 0; // placeholder, not used in calc
 
       return {
         result: calculateSingleTube({
           tubeOD: od,
           wallThickness: wall,
           tubeLength: len,
-          tubeMaterial,
+          tubeMaterial: tubeMaterialName,
+          wallConductivity: k,
           vapourTemperature: vT,
-          vapourPressure,
+          vapourPressure: 0, // informational, not used in calc
           vapourFlowRate: vF,
           sprayFluidType,
           sprayTemperature: sT,
@@ -105,7 +113,8 @@ export default function SingleTubeClient() {
     tubeOD,
     wallThickness,
     tubeLength,
-    tubeMaterial,
+    tubeMaterialName,
+    wallConductivity,
     vapourTemperature,
     vapourFlowRate,
     sprayFluidType,
@@ -151,7 +160,8 @@ export default function SingleTubeClient() {
               tubeOD={tubeOD}
               wallThickness={wallThickness}
               tubeLength={tubeLength}
-              tubeMaterial={tubeMaterial}
+              tubeMaterialName={tubeMaterialName}
+              wallConductivity={wallConductivity}
               vapourTemperature={vapourTemperature}
               vapourFlowRate={vapourFlowRate}
               sprayFluidType={sprayFluidType}
@@ -163,7 +173,8 @@ export default function SingleTubeClient() {
               onTubeODChange={setTubeOD}
               onWallThicknessChange={setWallThickness}
               onTubeLengthChange={setTubeLength}
-              onTubeMaterialChange={handleMaterialChange}
+              onMaterialSelect={handleMaterialSelect}
+              onWallConductivityChange={setWallConductivity}
               onVapourTemperatureChange={setVapourTemperature}
               onVapourFlowRateChange={setVapourFlowRate}
               onSprayFluidTypeChange={handleSprayFluidChange}

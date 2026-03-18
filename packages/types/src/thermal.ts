@@ -917,8 +917,10 @@ export interface SingleTubeInput {
   wallThickness: number;
   /** Tube length in m (user input) */
   tubeLength: number;
-  /** Tube material key */
-  tubeMaterial: TubeMaterialKey;
+  /** Material display name (for reports, e.g. "Aluminium 5052") */
+  tubeMaterial: string;
+  /** Wall thermal conductivity in W/(m·K) — sourced from material database or quick-select defaults */
+  wallConductivity: number;
 
   // --- Inside (vapour/condensation) ---
   /** Vapour saturation temperature in °C */

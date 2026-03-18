@@ -1,8 +1,19 @@
 'use client';
 
-import { TextField, InputAdornment, Stack, Typography, Divider, MenuItem } from '@mui/material';
-import type { TubeMaterialKey, SprayFluidType } from '@vapour/types';
-import { SINGLE_TUBE_MATERIAL_LABELS } from '@/lib/thermal';
+import { useState } from 'react';
+import {
+  TextField,
+  InputAdornment,
+  Stack,
+  Typography,
+  Divider,
+  MenuItem,
+  Chip,
+} from '@mui/material';
+import { Inventory as DbIcon } from '@mui/icons-material';
+import type { SprayFluidType, Material } from '@vapour/types';
+import { QUICK_SELECT_MATERIALS } from '@/lib/thermal';
+import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 
 const SPRAY_FLUID_LABELS: Record<SprayFluidType, string> = {
   SEAWATER: 'Seawater',
@@ -10,12 +21,16 @@ const SPRAY_FLUID_LABELS: Record<SprayFluidType, string> = {
   PURE_WATER: 'Pure Water',
 };
 
+/** Special value for the dropdown meaning "pick from material database" */
+const FROM_DATABASE = '__FROM_DATABASE__';
+
 interface SingleTubeInputsProps {
   // Tube geometry
   tubeOD: string;
   wallThickness: string;
   tubeLength: string;
-  tubeMaterial: TubeMaterialKey;
+  tubeMaterialName: string;
+  wallConductivity: string;
   // Inside (vapour)
   vapourTemperature: string;
   vapourFlowRate: string;
@@ -31,7 +46,8 @@ interface SingleTubeInputsProps {
   onTubeODChange: (v: string) => void;
   onWallThicknessChange: (v: string) => void;
   onTubeLengthChange: (v: string) => void;
-  onTubeMaterialChange: (v: TubeMaterialKey) => void;
+  onMaterialSelect: (name: string, conductivity: number, defaultWall?: number) => void;
+  onWallConductivityChange: (v: string) => void;
   onVapourTemperatureChange: (v: string) => void;
   onVapourFlowRateChange: (v: string) => void;
   onSprayFluidTypeChange: (v: SprayFluidType) => void;
@@ -44,6 +60,33 @@ interface SingleTubeInputsProps {
 
 export function SingleTubeInputs(props: SingleTubeInputsProps) {
   const showSalinity = props.sprayFluidType !== 'PURE_WATER';
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
+
+  // Determine which quick-select is active (or '' if from database / custom)
+  const quickSelectValue =
+    QUICK_SELECT_MATERIALS.find((m) => m.label === props.tubeMaterialName)?.label ?? '';
+
+  const handleQuickSelect = (value: string) => {
+    if (value === FROM_DATABASE) {
+      setMaterialPickerOpen(true);
+      return;
+    }
+    const mat = QUICK_SELECT_MATERIALS.find((m) => m.label === value);
+    if (mat) {
+      props.onMaterialSelect(mat.label, mat.conductivity, mat.defaultWallThickness);
+    }
+  };
+
+  const handleMaterialPicked = (material: Material) => {
+    const k = material.properties?.thermalConductivity;
+    if (k && k > 0) {
+      props.onMaterialSelect(material.name, k);
+    } else {
+      // Material exists but has no conductivity — set name, let user enter k manually
+      props.onMaterialSelect(material.name, 0);
+    }
+    setMaterialPickerOpen(false);
+  };
 
   return (
     <Stack spacing={2}>
@@ -55,16 +98,47 @@ export function SingleTubeInputs(props: SingleTubeInputsProps) {
       <TextField
         select
         label="Tube Material"
-        value={props.tubeMaterial}
-        onChange={(e) => props.onTubeMaterialChange(e.target.value as TubeMaterialKey)}
+        value={quickSelectValue || FROM_DATABASE}
+        onChange={(e) => handleQuickSelect(e.target.value)}
         fullWidth
       >
-        {(Object.keys(SINGLE_TUBE_MATERIAL_LABELS) as TubeMaterialKey[]).map((key) => (
-          <MenuItem key={key} value={key}>
-            {SINGLE_TUBE_MATERIAL_LABELS[key]}
+        {QUICK_SELECT_MATERIALS.map((mat) => (
+          <MenuItem key={mat.label} value={mat.label}>
+            {mat.label} ({mat.conductivity} W/m&middot;K)
           </MenuItem>
         ))}
+        <Divider />
+        <MenuItem value={FROM_DATABASE}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <DbIcon fontSize="small" />
+            <span>Select from Material Database...</span>
+          </Stack>
+        </MenuItem>
       </TextField>
+
+      {/* Show picked material name if from DB and not matching quick-select */}
+      {props.tubeMaterialName && !quickSelectValue && (
+        <Chip
+          label={`Material: ${props.tubeMaterialName}`}
+          size="small"
+          color="info"
+          variant="outlined"
+        />
+      )}
+
+      <Stack direction="row" spacing={2}>
+        <TextField
+          label="Wall Conductivity"
+          value={props.wallConductivity}
+          onChange={(e) => props.onWallConductivityChange(e.target.value)}
+          type="number"
+          fullWidth
+          InputProps={{
+            endAdornment: <InputAdornment position="end">W/(m&middot;K)</InputAdornment>,
+          }}
+          helperText="From material database or entered manually"
+        />
+      </Stack>
 
       <Stack direction="row" spacing={2}>
         <TextField
@@ -220,6 +294,14 @@ export function SingleTubeInputs(props: SingleTubeInputsProps) {
           }}
         />
       </Stack>
+
+      {/* Material Database Picker */}
+      <MaterialPickerDialog
+        open={materialPickerOpen}
+        onClose={() => setMaterialPickerOpen(false)}
+        onSelect={(material) => handleMaterialPicked(material)}
+        title="Select Tube Material"
+      />
     </Stack>
   );
 }
