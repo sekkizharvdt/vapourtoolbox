@@ -160,20 +160,26 @@ rows.push({
 });
 
 // ── FC LMTD ──────────────────────────────────────────────────────────────
-// Datasheet: LMTD = 9.01°C (with multi-pass F-factor)
+// Campiche FC: 1-shell, 4-tube-pass condenser. Datasheet LMTD = 9.01°C
+// For pure condensation (R=0), F-factor = 1.0 (correctly — no multi-pass
+// penalty for isothermal hot side). The datasheet's lower LMTD likely
+// accounts for subcooling zone, NCG accumulation, or uses a different
+// condensing temperature than the saturation value we've assumed (43.7°C).
 const lmtdCamp = calculateLMTD({
   hotInlet: 43.7,
   hotOutlet: 43.7,
   coldInlet: 21.0,
   coldOutlet: 36.0,
-  flowArrangement: 'COUNTER',
+  flowArrangement: 'SHELL_AND_TUBE',
+  shellPasses: 1,
+  tubePasses: 4,
 });
 rows.push({
   project: 'Campiche',
   calculator: 'LMTD',
-  parameter: 'FC LMTD (no F-factor)',
+  parameter: 'FC Corrected LMTD',
   projectValue: 9.01,
-  calculated: lmtdCamp.lmtd,
+  calculated: lmtdCamp.correctedLMTD,
   unit: '°C',
 });
 

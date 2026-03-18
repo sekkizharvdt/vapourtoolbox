@@ -75,6 +75,8 @@ export function QuickCalcPanel({ active }: QuickCalcPanelProps) {
   const [coldInlet, setColdInlet] = useState<string>('25');
   const [coldOutlet, setColdOutlet] = useState<string>('40');
   const [flowArrangement, setFlowArrangement] = useState<FlowArrangement>('COUNTER');
+  const [shellPasses, setShellPasses] = useState<string>('1');
+  const [tubePasses, setTubePasses] = useState<string>('2');
 
   // Heat exchanger sizing
   const [overallHTC, setOverallHTC] = useState<string>('1500');
@@ -141,13 +143,17 @@ export function QuickCalcPanel({ active }: QuickCalcPanelProps) {
           coldInlet: cIn,
           coldOutlet: cOut,
           flowArrangement,
+          ...(flowArrangement === 'SHELL_AND_TUBE' && {
+            shellPasses: parseInt(shellPasses, 10) || 1,
+            tubePasses: parseInt(tubePasses, 10) || 2,
+          }),
         }),
         error: null,
       };
     } catch (err) {
       return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
-  }, [mode, hotInlet, hotOutlet, coldInlet, coldOutlet, flowArrangement]);
+  }, [mode, hotInlet, hotOutlet, coldInlet, coldOutlet, flowArrangement, shellPasses, tubePasses]);
 
   const sensibleResult = sensibleComputed.result;
   const latentResult = latentComputed.result;
@@ -229,6 +235,8 @@ export function QuickCalcPanel({ active }: QuickCalcPanelProps) {
                 coldOutlet={coldOutlet}
                 overallHTC={overallHTC}
                 heatDutyForArea={heatDutyForArea}
+                shellPasses={shellPasses}
+                tubePasses={tubePasses}
                 onFlowArrangementChange={setFlowArrangement}
                 onHotInletChange={setHotInlet}
                 onHotOutletChange={setHotOutlet}
@@ -236,6 +244,8 @@ export function QuickCalcPanel({ active }: QuickCalcPanelProps) {
                 onColdOutletChange={setColdOutlet}
                 onOverallHTCChange={setOverallHTC}
                 onHeatDutyForAreaChange={setHeatDutyForArea}
+                onShellPassesChange={setShellPasses}
+                onTubePassesChange={setTubePasses}
               />
             )}
           </Paper>
@@ -400,7 +410,8 @@ export function QuickCalcPanel({ active }: QuickCalcPanelProps) {
           if (
             inputs.flowArrangement === 'COUNTER' ||
             inputs.flowArrangement === 'PARALLEL' ||
-            inputs.flowArrangement === 'CROSSFLOW'
+            inputs.flowArrangement === 'CROSSFLOW' ||
+            inputs.flowArrangement === 'SHELL_AND_TUBE'
           )
             setFlowArrangement(inputs.flowArrangement);
           if (typeof inputs.overallHTC === 'string') setOverallHTC(inputs.overallHTC);

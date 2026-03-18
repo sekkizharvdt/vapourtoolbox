@@ -21,6 +21,8 @@ interface LMTDInputsProps {
   coldOutlet: string;
   overallHTC: string;
   heatDutyForArea: string;
+  shellPasses: string;
+  tubePasses: string;
   onFlowArrangementChange: (value: FlowArrangement) => void;
   onHotInletChange: (value: string) => void;
   onHotOutletChange: (value: string) => void;
@@ -28,6 +30,8 @@ interface LMTDInputsProps {
   onColdOutletChange: (value: string) => void;
   onOverallHTCChange: (value: string) => void;
   onHeatDutyForAreaChange: (value: string) => void;
+  onShellPassesChange: (value: string) => void;
+  onTubePassesChange: (value: string) => void;
 }
 
 export function LMTDInputs({
@@ -38,6 +42,8 @@ export function LMTDInputs({
   coldOutlet,
   overallHTC,
   heatDutyForArea,
+  shellPasses,
+  tubePasses,
   onFlowArrangementChange,
   onHotInletChange,
   onHotOutletChange,
@@ -45,6 +51,8 @@ export function LMTDInputs({
   onColdOutletChange,
   onOverallHTCChange,
   onHeatDutyForAreaChange,
+  onShellPassesChange,
+  onTubePassesChange,
 }: LMTDInputsProps) {
   return (
     <Stack spacing={2}>
@@ -58,8 +66,38 @@ export function LMTDInputs({
           <MenuItem value="COUNTER">Counter-Current</MenuItem>
           <MenuItem value="PARALLEL">Parallel Flow</MenuItem>
           <MenuItem value="CROSSFLOW">Crossflow</MenuItem>
+          <MenuItem value="SHELL_AND_TUBE">Shell &amp; Tube (TEMA F-factor)</MenuItem>
         </Select>
       </FormControl>
+
+      {flowArrangement === 'SHELL_AND_TUBE' && (
+        <Stack direction="row" spacing={1}>
+          <TextField
+            select
+            label="Shell Passes"
+            value={shellPasses}
+            onChange={(e) => onShellPassesChange(e.target.value)}
+            fullWidth
+          >
+            <MenuItem value="1">1</MenuItem>
+            <MenuItem value="2">2</MenuItem>
+            <MenuItem value="3">3</MenuItem>
+            <MenuItem value="4">4</MenuItem>
+          </TextField>
+          <TextField
+            select
+            label="Tube Passes"
+            value={tubePasses}
+            onChange={(e) => onTubePassesChange(e.target.value)}
+            fullWidth
+          >
+            <MenuItem value="2">2</MenuItem>
+            <MenuItem value="4">4</MenuItem>
+            <MenuItem value="6">6</MenuItem>
+            <MenuItem value="8">8</MenuItem>
+          </TextField>
+        </Stack>
+      )}
 
       <Typography variant="subtitle2" color="text.secondary">
         Hot Side

@@ -32,7 +32,7 @@ export type HeatProcessType = 'SENSIBLE' | 'LATENT' | 'COMBINED';
 /**
  * Flow arrangement for LMTD calculation
  */
-export type FlowArrangement = 'COUNTER' | 'PARALLEL' | 'CROSSFLOW';
+export type FlowArrangement = 'COUNTER' | 'PARALLEL' | 'CROSSFLOW' | 'SHELL_AND_TUBE';
 
 /**
  * Input for sensible heat calculation
@@ -76,6 +76,10 @@ export interface LMTDInput {
   coldOutlet: number;
   /** Flow arrangement */
   flowArrangement: FlowArrangement;
+  /** Number of shell passes (for SHELL_AND_TUBE, default 1) */
+  shellPasses?: number;
+  /** Number of tube passes (for SHELL_AND_TUBE, default 2) */
+  tubePasses?: number;
 }
 
 /**
@@ -135,6 +139,104 @@ export interface CombinedHeatResult {
   sensible?: SensibleHeatResult;
   latent?: LatentHeatResult;
   totalHeatDuty: number;
+}
+
+// ============================================================================
+// TEMA F-Factor for Shell-and-Tube Heat Exchangers
+// ============================================================================
+
+/**
+ * Calculate TEMA F-factor for a shell-and-tube heat exchanger.
+ *
+ * Uses the Bowman-Mueller-Nagle (1940) analytical formula for
+ * E-shell (single shell pass) with even number of tube passes.
+ * For multiple shell passes, applies the Nagle correction.
+ *
+ * Reference: Bowman, Mueller, Nagle, "Mean Temperature Difference in Design",
+ * Trans. ASME 62, 1940, pp. 283-294.
+ * Also: Perry's Chemical Engineers' Handbook, 8th Ed., Section 11.
+ *
+ * @param P - Thermal effectiveness = (t2 - t1) / (T1 - t1)
+ *            where t = tube side (cold), T = shell side (hot)
+ * @param R - Capacity ratio = (T1 - T2) / (t2 - t1)
+ * @param shellPasses - Number of shell passes (1, 2, 3, etc.)
+ * @returns F correction factor (0 to 1), or 1.0 for special cases
+ */
+function calculateFFactorSingleShell(P: number, R: number): number {
+  // Special case: R = 0 (condensation — shell side isothermal)
+  // F = 1.0 for pure condensation regardless of tube passes
+  if (Math.abs(R) < 1e-6) return 1.0;
+
+  // Special case: P = 0 (no heat transfer)
+  if (Math.abs(P) < 1e-6) return 1.0;
+
+  // Special case: R = 1 (equal capacity rates)
+  // F = (P * √2) / ((1-P) * ln((2-P*(2-√2))/(2-P*(2+√2))))
+  if (Math.abs(R - 1.0) < 1e-6) {
+    const sqrt2 = Math.SQRT2;
+    const num = P * sqrt2;
+    const denomArg = (2 - P * (2 - sqrt2)) / (2 - P * (2 + sqrt2));
+    if (denomArg <= 0) return 0.5; // F is very low, approaching thermodynamic limit
+    const denom = (1 - P) * Math.log(denomArg);
+    if (Math.abs(denom) < 1e-10) return 1.0;
+    return Math.max(0, Math.min(1.0, num / denom));
+  }
+
+  // General case: R ≠ 1
+  // S = √(R² + 1) / (R - 1)
+  // F = S * ln((1 - P)/(1 - P*R)) / ln((2 - P*(R+1-S)) / (2 - P*(R+1+S)))
+  const S = Math.sqrt(R * R + 1) / (R - 1);
+  const numArg = (1 - P) / (1 - P * R);
+  if (numArg <= 0) return 0.5; // Temperature cross
+  const num = S * Math.log(numArg);
+
+  const denomArg = (2 - P * (R + 1 - S)) / (2 - P * (R + 1 + S));
+  if (denomArg <= 0) return 0.5;
+  const denom = Math.log(denomArg);
+
+  if (Math.abs(denom) < 1e-10) return 1.0;
+  const F = num / denom;
+
+  return Math.max(0, Math.min(1.0, F));
+}
+
+/**
+ * Calculate F-factor for multi-shell-pass configurations.
+ *
+ * For N shell passes in series, the equivalent single-shell P is:
+ *   P1 = ((1 - P*R)/(1 - P))^(1/N)
+ *   P_eq = (P1 - 1) / (P1 - R)
+ *
+ * Then F is calculated using P_eq with the single-shell formula.
+ *
+ * @param P - Overall thermal effectiveness
+ * @param R - Capacity ratio
+ * @param shellPasses - Number of shell passes
+ * @returns F correction factor
+ */
+function calculateFFactorMultiShell(P: number, R: number, shellPasses: number): number {
+  if (shellPasses <= 1) return calculateFFactorSingleShell(P, R);
+
+  // Special cases
+  if (Math.abs(R) < 1e-6 || Math.abs(P) < 1e-6) return 1.0;
+
+  // Convert overall P to per-shell P
+  const N = shellPasses;
+
+  if (Math.abs(R - 1.0) < 1e-6) {
+    // R = 1: P1 = P / (N - (N-1)*P)
+    const P1 = P / (N - (N - 1) * P);
+    return calculateFFactorSingleShell(P1, R);
+  }
+
+  // General: P1 from the series relation
+  const ratio = (1 - P * R) / (1 - P);
+  if (ratio <= 0) return 0.5;
+  const ratioNth = Math.pow(ratio, 1 / N);
+  const P1 = (ratioNth - 1) / (ratioNth - R);
+
+  if (P1 <= 0 || P1 >= 1) return 0.5;
+  return calculateFFactorSingleShell(P1, R);
 }
 
 // ============================================================================
@@ -262,30 +364,35 @@ export function calculateLMTD(input: LMTDInput): LMTDResult {
     lmtd = (deltaT1 - deltaT2) / Math.log(deltaT1 / deltaT2);
   }
 
-  // Apply correction factor for crossflow
+  // Apply correction factor
   let correctionFactor = 1.0;
-  if (flowArrangement === 'CROSSFLOW') {
-    // Simplified crossflow correction factor (single pass, both fluids unmixed)
-    // F typically ranges from 0.75 to 0.95
-    // Using approximate calculation based on P and R parameters
-    const R = (hotInlet - hotOutlet) / (coldOutlet - coldInlet);
-    const P = (coldOutlet - coldInlet) / (hotInlet - coldInlet);
+  const coldDeltaT = coldOutlet - coldInlet;
 
-    // Simplified crossflow correction (conservative estimate)
-    if (R > 0 && R !== 1) {
-      const S = Math.sqrt(R * R + 1) / (R - 1);
-      const term = (2 - P * (R + 1 - S)) / (2 - P * (R + 1 + S));
-      if (term > 0) {
-        correctionFactor = (S * Math.log((1 - P) / (1 - P * R))) / Math.log(term);
+  if (flowArrangement === 'CROSSFLOW' || flowArrangement === 'SHELL_AND_TUBE') {
+    // P = thermal effectiveness, R = capacity ratio
+    // P = (t2 - t1) / (T1 - t1) where t=cold (tube), T=hot (shell)
+    // R = (T1 - T2) / (t2 - t1)
+    const denom_P = hotInlet - coldInlet;
+    const P = Math.abs(denom_P) > 0.01 ? coldDeltaT / denom_P : 0;
+    const R = Math.abs(coldDeltaT) > 0.01 ? (hotInlet - hotOutlet) / coldDeltaT : 0;
+
+    if (flowArrangement === 'SHELL_AND_TUBE') {
+      // TEMA F-factor: Bowman-Mueller-Nagle formula
+      const shellPasses = input.shellPasses ?? 1;
+      correctionFactor = calculateFFactorMultiShell(P, R, shellPasses);
+
+      if (correctionFactor < 0.75) {
+        warnings.push(
+          `Low F-factor (${correctionFactor.toFixed(2)}). Consider more shell passes or a different configuration.`
+        );
       }
+    } else {
+      // Crossflow: same formula as before (1-shell, even tube passes)
+      correctionFactor = calculateFFactorSingleShell(P, R);
     }
 
-    // Clamp correction factor to reasonable range
-    correctionFactor = Math.max(0.7, Math.min(1.0, correctionFactor));
-
-    if (correctionFactor < 0.8) {
-      warnings.push('Low correction factor - consider counter-current arrangement');
-    }
+    // Clamp to physical range
+    correctionFactor = Math.max(0.5, Math.min(1.0, correctionFactor));
   }
 
   const correctedLMTD = lmtd * correctionFactor;

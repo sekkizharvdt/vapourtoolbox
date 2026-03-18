@@ -78,6 +78,8 @@ export default function HeatDutyClient() {
   const [coldInlet, setColdInlet] = useState<string>('25');
   const [coldOutlet, setColdOutlet] = useState<string>('40');
   const [flowArrangement, setFlowArrangement] = useState<FlowArrangement>('COUNTER');
+  const [shellPasses, setShellPasses] = useState<string>('1');
+  const [tubePasses, setTubePasses] = useState<string>('2');
 
   // Heat exchanger sizing
   const [overallHTC, setOverallHTC] = useState<string>('1500');
@@ -102,6 +104,8 @@ export default function HeatDutyClient() {
     setColdInlet('25');
     setColdOutlet('40');
     setFlowArrangement('COUNTER');
+    setShellPasses('1');
+    setTubePasses('2');
     setOverallHTC('1500');
     setHeatDutyForArea('');
   };
@@ -174,13 +178,17 @@ export default function HeatDutyClient() {
           coldInlet: cIn,
           coldOutlet: cOut,
           flowArrangement,
+          ...(flowArrangement === 'SHELL_AND_TUBE' && {
+            shellPasses: parseInt(shellPasses, 10) || 1,
+            tubePasses: parseInt(tubePasses, 10) || 2,
+          }),
         }),
         error: null,
       };
     } catch (err) {
       return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
-  }, [mode, hotInlet, hotOutlet, coldInlet, coldOutlet, flowArrangement]);
+  }, [mode, hotInlet, hotOutlet, coldInlet, coldOutlet, flowArrangement, shellPasses, tubePasses]);
 
   const sensibleResult = sensibleComputed?.result ?? null;
   const latentResult = latentComputed?.result ?? null;
@@ -296,6 +304,8 @@ export default function HeatDutyClient() {
                 coldOutlet={coldOutlet}
                 overallHTC={overallHTC}
                 heatDutyForArea={heatDutyForArea}
+                shellPasses={shellPasses}
+                tubePasses={tubePasses}
                 onFlowArrangementChange={setFlowArrangement}
                 onHotInletChange={setHotInlet}
                 onHotOutletChange={setHotOutlet}
@@ -303,6 +313,8 @@ export default function HeatDutyClient() {
                 onColdOutletChange={setColdOutlet}
                 onOverallHTCChange={setOverallHTC}
                 onHeatDutyForAreaChange={setHeatDutyForArea}
+                onShellPassesChange={setShellPasses}
+                onTubePassesChange={setTubePasses}
               />
             )}
           </Paper>
@@ -471,7 +483,8 @@ export default function HeatDutyClient() {
           if (
             inputs.flowArrangement === 'COUNTER' ||
             inputs.flowArrangement === 'PARALLEL' ||
-            inputs.flowArrangement === 'CROSSFLOW'
+            inputs.flowArrangement === 'CROSSFLOW' ||
+            inputs.flowArrangement === 'SHELL_AND_TUBE'
           )
             setFlowArrangement(inputs.flowArrangement);
           if (typeof inputs.overallHTC === 'string') setOverallHTC(inputs.overallHTC);
