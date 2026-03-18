@@ -529,7 +529,8 @@ export interface SavedCalculation {
     | 'VACUUM_BREAKER'
     | 'MED_PLANT'
     | 'STRAINER_SIZING'
-    | 'STRAINER_SIZING_BATCH';
+    | 'STRAINER_SIZING_BATCH'
+    | 'SINGLE_TUBE';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;
@@ -880,4 +881,168 @@ export interface MEDPlantResult {
   converged: boolean;
   /** Number of iterations used */
   iterations: number;
+}
+
+// ============================================================================
+// Single Tube Analysis Types
+// ============================================================================
+
+/**
+ * Tube material specification for single tube analysis.
+ * Default options:
+ *   - Aluminium 5052: 25.4 mm OD × 1.0 mm wall
+ *   - Titanium SB 338 Gr 2: 25.4 mm OD × 0.4 mm wall
+ */
+export type TubeMaterialKey =
+  | 'al_5052'
+  | 'ti_sb338_gr2'
+  | 'cu_ni_90_10'
+  | 'cu_ni_70_30'
+  | 'al_brass'
+  | 'ss_316l'
+  | 'duplex_2205';
+
+/** Spray fluid type */
+export type SprayFluidType = 'SEAWATER' | 'BRINE' | 'PURE_WATER';
+
+/**
+ * Input parameters for single horizontal tube analysis.
+ * Vapour condenses inside; spray water evaporates outside.
+ */
+export interface SingleTubeInput {
+  // --- Tube geometry ---
+  /** Tube outer diameter in mm (default 25.4) */
+  tubeOD: number;
+  /** Tube wall thickness in mm (default 1.0 for Al, 0.4 for Ti) */
+  wallThickness: number;
+  /** Tube length in m (user input) */
+  tubeLength: number;
+  /** Tube material key */
+  tubeMaterial: TubeMaterialKey;
+
+  // --- Inside (vapour/condensation) ---
+  /** Vapour saturation temperature in °C */
+  vapourTemperature: number;
+  /** Vapour saturation pressure in mbar abs (derived from T or entered) */
+  vapourPressure: number;
+  /** Vapour flow rate into the tube in kg/s */
+  vapourFlowRate: number;
+
+  // --- Outside (spray evaporation) ---
+  /** Spray fluid type */
+  sprayFluidType: SprayFluidType;
+  /** Spray water temperature in °C (feed temperature) */
+  sprayTemperature: number;
+  /** Spray water salinity in ppm (0 for pure water, typically 35000-70000 for seawater/brine) */
+  spraySalinity: number;
+  /** Spray water flow rate over this tube in kg/s */
+  sprayFlowRate: number;
+
+  // --- Optional parameters ---
+  /** Inside fouling resistance in m²·K/W (default 0.00009) */
+  insideFouling?: number;
+  /** Outside fouling resistance in m²·K/W (default 0.00009) */
+  outsideFouling?: number;
+  /** Design margin fraction 0-1 (default 0.15) */
+  designMargin?: number;
+}
+
+/**
+ * Film analysis result for either inside (condensate) or outside (falling film).
+ */
+export interface FilmAnalysis {
+  /** Film thickness in mm */
+  filmThickness: number;
+  /** Film Reynolds number */
+  reynoldsNumber: number;
+  /** Flow regime description */
+  flowRegime: string;
+  /** Heat transfer coefficient in W/(m²·K) */
+  htc: number;
+}
+
+/**
+ * Heat and mass balance for the single tube.
+ */
+export interface SingleTubeHeatMassBalance {
+  /** Heat duty transferred through the tube wall in kW */
+  heatDuty: number;
+  /** Vapour condensed inside the tube in kg/s */
+  vapourCondensed: number;
+  /** Water evaporated on the outside in kg/s */
+  waterEvaporated: number;
+  /** Condensate leaving the tube in kg/s */
+  condensateOut: number;
+  /** Brine/concentrate leaving the tube outside in kg/s */
+  brineOut: number;
+  /** Brine outlet salinity in ppm (if applicable) */
+  brineOutSalinity: number;
+  /** Latent heat of condensation (inside) in kJ/kg */
+  latentHeatCondensation: number;
+  /** Latent heat of evaporation (outside) in kJ/kg */
+  latentHeatEvaporation: number;
+}
+
+/**
+ * Complete result of single tube analysis.
+ */
+export interface SingleTubeResult {
+  /** Input echo */
+  inputs: SingleTubeInput;
+
+  // --- Tube geometry ---
+  /** Tube inner diameter in mm */
+  tubeID: number;
+  /** Outer surface area in m² */
+  outerSurfaceArea: number;
+  /** Inner surface area in m² */
+  innerSurfaceArea: number;
+  /** Wall thermal conductivity in W/(m·K) */
+  wallConductivity: number;
+
+  // --- Film analysis ---
+  /** Condensate film analysis (inside) */
+  insideFilm: FilmAnalysis;
+  /** Falling film / spray film analysis (outside) */
+  outsideFilm: FilmAnalysis;
+
+  // --- Overall heat transfer ---
+  /** Wall resistance in m²·K/W */
+  wallResistance: number;
+  /** Inside fouling resistance in m²·K/W */
+  insideFouling: number;
+  /** Outside fouling resistance in m²·K/W */
+  outsideFouling: number;
+  /** Overall HTC based on outer surface in W/(m²·K) */
+  overallHTC: number;
+
+  // --- Thermal performance ---
+  /** Effective temperature difference in °C */
+  effectiveDeltaT: number;
+  /** Boiling point elevation in °C (0 for pure water) */
+  boilingPointElevation: number;
+
+  // --- Heat & mass balance ---
+  heatMassBalance: SingleTubeHeatMassBalance;
+
+  // --- Wetting analysis (outside) ---
+  /** Wetting rate Gamma in kg/(m·s) */
+  wettingRate: number;
+  /** Minimum wetting rate in kg/(m·s) */
+  minimumWettingRate: number;
+  /** Wetting ratio (Gamma / Gamma_min) */
+  wettingRatio: number;
+  /** Wetting quality assessment */
+  wettingStatus: 'excellent' | 'good' | 'marginal' | 'poor';
+
+  // --- Design check ---
+  /** Required area for the heat duty in m² */
+  requiredArea: number;
+  /** Installed area with design margin in m² */
+  designArea: number;
+  /** Excess area percentage */
+  excessArea: number;
+
+  /** Warnings and notes */
+  warnings: string[];
 }

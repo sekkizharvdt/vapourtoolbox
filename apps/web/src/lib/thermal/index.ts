@@ -357,3 +357,11 @@ export {
   type HeatExchangerInput,
   type HeatExchangerResult,
 } from './heatExchangerSizing';
+
+// Single Tube Analysis
+export {
+  calculateSingleTube,
+  validateSingleTubeInput,
+  getDefaultWallThickness,
+  SINGLE_TUBE_MATERIAL_LABELS,
+} from './singleTubeCalculator';

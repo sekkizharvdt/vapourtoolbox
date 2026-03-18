@@ -52,6 +52,7 @@ import {
   FilterList as StrainerIcon,
   BarChart as GORIcon,
   Waves as FallingFilmIcon,
+  Straighten as SingleTubeIcon,
   Warning as ScalingIcon,
   AccountTree as MEDPlantIcon,
   ArrowForward as ArrowForwardIcon,
@@ -165,6 +166,25 @@ const ALL_CALCULATORS: Calculator[] = [
     status: 'available',
     reference: 'Chun-Seban 1971',
     keywords: ['wetting rate', 'tube bundle', 'MED', 'evaporator', 'horizontal tube'],
+  },
+  {
+    title: 'Single Tube Analysis',
+    description:
+      'Analyse a single horizontal tube — vapour condensing inside, spray water evaporating outside. Film thickness, HTCs, and heat & mass balance.',
+    icon: <SingleTubeIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/single-tube',
+    status: 'available',
+    reference: 'Nusselt / Chun-Seban',
+    keywords: [
+      'single tube',
+      'film thickness',
+      'condensation',
+      'evaporation',
+      'spray',
+      'falling film',
+      'MED',
+      'grommet',
+    ],
   },
   {
     title: 'Desuperheating',

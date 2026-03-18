@@ -143,6 +143,75 @@ export const TUBE_CONDUCTIVITY: Record<string, { value: number; description: str
     value: 10,
     description: 'Inconel 625',
   },
+  aluminium_5052: {
+    value: 138,
+    description: 'Aluminium 5052-O (UNS A95052)',
+  },
+  titanium_sb338_gr2: {
+    value: 22,
+    description: 'Titanium SB 338 Gr 2 (UNS R50400)',
+  },
+};
+
+// ============================================================================
+// MED Evaporator Default Tube Sizes
+// ============================================================================
+
+/**
+ * Default tube specifications for MED evaporator tube bundles.
+ * These are thin-walled tubes used with rubber grommets (28.4 mm tube hole).
+ */
+export interface MEDTubeSpec {
+  /** Material key matching TUBE_CONDUCTIVITY */
+  materialKey: string;
+  /** Display label */
+  label: string;
+  /** Tube outer diameter in mm */
+  od: number;
+  /** Wall thickness in mm */
+  wall: number;
+  /** Inner diameter in mm (od - 2 * wall) */
+  id: number;
+  /** Thermal conductivity in W/(m·K) */
+  conductivity: number;
+}
+
+export const MED_DEFAULT_TUBES: MEDTubeSpec[] = [
+  {
+    materialKey: 'aluminium_5052',
+    label: 'Al 5052 — 25.4 × 1.0 mm',
+    od: 25.4,
+    wall: 1.0,
+    id: 23.4,
+    conductivity: 138,
+  },
+  {
+    materialKey: 'titanium_sb338_gr2',
+    label: 'Ti SB 338 Gr 2 — 25.4 × 0.4 mm',
+    od: 25.4,
+    wall: 0.4,
+    id: 24.6,
+    conductivity: 22,
+  },
+];
+
+/**
+ * MED tube bundle geometry constants.
+ * Based on standard tube hole marking detail (scale 10:1).
+ */
+export const MED_TUBE_GEOMETRY = {
+  /** Tube hole diameter in mm (for rubber grommet) */
+  tubeHoleDiameter: 28.4,
+  /** Triangular pitch (centre-to-centre) in mm */
+  pitch: 33.4,
+  /** Row spacing for triangular pitch: pitch × sin(60°) in mm */
+  rowSpacing: 28.93, // 33.4 * sin(60°) ≈ 28.93
+  /** Double row spacing (as shown in drawing) in mm */
+  doubleRowSpacing: 57.9, // 2 × 28.93 ≈ 57.9
+  /** Edge clearance from CL of tube sheet to tube hole centre in mm */
+  edgeClearance: 4.6,
+  /** Ligament between tube hole and tube sheet edge in mm */
+  ligament: 1.7,
 };
 
 // ============================================================================
