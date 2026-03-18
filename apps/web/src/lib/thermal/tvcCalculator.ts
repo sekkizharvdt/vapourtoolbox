@@ -227,63 +227,72 @@ function calculateTheoreticalEntrainmentRatio(
 }
 
 /**
- * Calculate compression ratio correction factor
+ * Calculate pressure ratio correction factor for ejector efficiency.
  *
- * Based on 1-D ejector theory, the effective entrainment ratio decreases
- * as compression ratio increases due to:
- *   - Higher shock losses
- *   - More difficult pressure recovery
- *   - Potential flow instabilities near limiting CR
+ * Accounts for two effects:
+ *   1. Compression ratio (CR = Pd/Ps): higher CR → harder pressure recovery
+ *   2. Expansion ratio (ER = Pm/Ps): higher ER → more nozzle losses at extreme
+ *      pressure ratios (underexpansion, oblique shocks)
  *
- * The function approaches 0 as CR approaches the single-stage limit (~2.5)
+ * Calibrated against as-built MED-TVC projects:
+ *   - Campiche (CR=2.39, ER=62.5, actual Ra=1.032) → ±0.1%
+ *   - CADAFE I (CR=2.01, ER=70.9, actual Ra=1.307) → ±0.1%
  *
  * @param compressionRatio - Compression ratio (Pd / Ps)
- * @returns Correction factor (0 to 1)
+ * @param expansionRatio - Expansion ratio (Pm / Ps)
+ * @returns Correction factor (typically 0.15 to 1.0)
  */
-function calculateCRCorrectionFactor(compressionRatio: number): number {
-  // Based on empirical data from MED-TVC literature
-  // At CR = 1.0: factor = 1.0 (no compression needed)
-  // At CR = 1.5: factor ≈ 0.75
-  // At CR = 2.0: factor ≈ 0.50
-  // At CR = 2.2: factor ≈ 0.40
-  // At CR = 2.5: factor → 0.20 (approaching limit)
-
+function calculatePressureRatioCorrectionFactor(
+  compressionRatio: number,
+  expansionRatio: number,
+): number {
   if (compressionRatio <= 1.0) return 1.0;
-  if (compressionRatio >= MAX_CR_SINGLE_STAGE) return 0.2;
+  if (compressionRatio >= MAX_CR_SINGLE_STAGE) return 0.15;
 
-  // Exponential decay model calibrated to literature data
-  // f(CR) = exp(-k * (CR - 1))
-  // where k ≈ 1.0 gives good fit to MED-TVC performance data
-  const k = 1.0;
-  return Math.exp(-k * (compressionRatio - 1.0));
+  // CR correction: exponential decay, k=0.7
+  // Captures diffuser/mixing losses that increase with compression
+  const crFactor = Math.exp(-0.7 * (compressionRatio - 1.0));
+
+  // Expansion ratio correction: power law penalty for high Pm/Ps
+  // Reference ER = 62.6 (calibrated to Campiche/CADAFE)
+  // At ER < 62.6: factor > 1 (easier), capped at 1.5
+  // At ER > 62.6: factor < 1 (more nozzle losses)
+  const ER_REF = 62.6;
+  const ER_EXP = 2.26;
+  const erFactor = Math.min((ER_REF / expansionRatio) ** ER_EXP, 1.5);
+
+  return crFactor * erFactor;
 }
 
 /**
  * Calculate overall ejector efficiency
  *
  * Based on 1-D constant pressure mixing theory (Huang 1999):
- *   η_ejector = η_nozzle × η_mixing × η_diffuser × f(CR)
+ *   η_ejector = η_nozzle × η_mixing × η_diffuser × f(CR, ER)
  *
  * The efficiency accounts for:
  *   - Nozzle losses (non-isentropic expansion)
  *   - Mixing losses (momentum exchange, shock formation)
  *   - Diffuser losses (pressure recovery)
  *   - Compression ratio effects (higher CR = lower efficiency)
+ *   - Expansion ratio effects (extreme Pm/Ps = more nozzle losses)
  *
  * @param nozzleEff - Nozzle isentropic efficiency
  * @param mixingEff - Mixing section efficiency
  * @param diffuserEff - Diffuser efficiency
  * @param compressionRatio - Compression ratio (Pd / Ps)
+ * @param expansionRatio - Expansion ratio (Pm / Ps)
  * @returns Overall ejector efficiency (actual Ra / theoretical Ra)
  */
 function calculateEjectorEfficiency(
   nozzleEff: number,
   mixingEff: number,
   diffuserEff: number,
-  compressionRatio: number
+  compressionRatio: number,
+  expansionRatio: number,
 ): number {
-  const crFactor = calculateCRCorrectionFactor(compressionRatio);
-  return nozzleEff * mixingEff * diffuserEff * crFactor;
+  const prFactor = calculatePressureRatioCorrectionFactor(compressionRatio, expansionRatio);
+  return nozzleEff * mixingEff * diffuserEff * prFactor;
 }
 
 // ============================================================================
@@ -391,7 +400,8 @@ export function calculateTVC(input: TVCInput): TVCResult {
     nozzleEfficiency,
     mixingEfficiency,
     diffuserEfficiency,
-    compressionRatio
+    compressionRatio,
+    expansionRatio,
   );
 
   // Actual entrainment ratio with losses
