@@ -358,6 +358,20 @@ export {
   type HeatExchangerResult,
 } from './heatExchangerSizing';
 
+// Tube Bundle Geometry
+export {
+  calculateTubeBundleGeometry,
+  calculateBundleArea,
+  generateDefaultVapourLanes,
+  type TubePosition,
+  type RowInfo,
+  type VapourLane,
+  type ExclusionZone,
+  type BundleShape,
+  type TubeBundleGeometryInput,
+  type TubeBundleGeometryResult,
+} from './tubeBundleGeometry';
+
 // Single Tube Analysis
 export {
   calculateSingleTube,
