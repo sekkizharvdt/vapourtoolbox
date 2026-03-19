@@ -372,6 +372,17 @@ export {
   type TubeBundleGeometryResult,
 } from './tubeBundleGeometry';
 
+// MED Plant Designer
+export {
+  designMED,
+  type MEDDesignerInput,
+  type MEDDesignerResult,
+  type MEDEffectResult,
+  type MEDCondenserResult,
+  type MEDPreheaterResult,
+  type MEDScenarioRow,
+} from './medDesigner';
+
 // Single Tube Analysis
 export {
   calculateSingleTube,
