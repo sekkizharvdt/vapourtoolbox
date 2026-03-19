@@ -758,6 +758,160 @@ export default function MEDDesignerClient() {
               </TableBody>
             </Table>
           </Paper>
+
+          {/* ── Auxiliary Equipment ─────────────────────────────────────────── */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Line Sizing */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                  Line Sizing
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Service</TableCell>
+                      <TableCell align="right">Flow (T/h)</TableCell>
+                      <TableCell align="right">Pipe</TableCell>
+                      <TableCell align="right">Vel (m/s)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detail.auxiliaryEquipment.lineSizing.map((l, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{l.service}</TableCell>
+                        <TableCell align="right">{fmt(l.flowRate)}</TableCell>
+                        <TableCell align="right">{l.pipeSize}</TableCell>
+                        <TableCell align="right">{fmt(l.velocity, 2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Grid>
+
+            {/* Pumps */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                  Pump Sizing
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Service</TableCell>
+                      <TableCell align="right">Flow (m&sup3;/h)</TableCell>
+                      <TableCell align="right">Head (m)</TableCell>
+                      <TableCell align="right">Motor (kW)</TableCell>
+                      <TableCell align="right">Qty</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detail.auxiliaryEquipment.pumps.map((p, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{p.service}</TableCell>
+                        <TableCell align="right">{fmt(p.flowRateM3h)}</TableCell>
+                        <TableCell align="right">{fmt(p.totalHead)}</TableCell>
+                        <TableCell align="right">{p.motorPower}</TableCell>
+                        <TableCell align="right">{p.quantity}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Demisters */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                  Demister Sizing
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Effect</TableCell>
+                      <TableCell align="right">Area (m&sup2;)</TableCell>
+                      <TableCell align="right">Vel (m/s)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detail.auxiliaryEquipment.demisters.map((d) => (
+                      <TableRow key={d.effect}>
+                        <TableCell>E{d.effect}</TableCell>
+                        <TableCell align="right">{fmt(d.requiredArea, 2)}</TableCell>
+                        <TableCell align="right">{fmt(d.designVelocity, 2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Grid>
+
+            {/* Spray Nozzles */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                  Spray Nozzles
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Effect</TableCell>
+                      <TableCell align="right">Model</TableCell>
+                      <TableCell align="right">Qty</TableCell>
+                      <TableCell align="right">lpm/noz</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detail.auxiliaryEquipment.sprayNozzles.map((sn) => (
+                      <TableRow key={sn.effect}>
+                        <TableCell>E{sn.effect}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.7rem' }}>
+                          {sn.nozzleModel}
+                        </TableCell>
+                        <TableCell align="right">{sn.nozzleCount}</TableCell>
+                        <TableCell align="right">{fmt(sn.flowPerNozzle, 2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Grid>
+
+            {/* Siphons */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                  Siphon Sizing
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>From→To</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell align="right">Pipe</TableCell>
+                      <TableCell align="right">H (mm)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detail.auxiliaryEquipment.siphons.map((s, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          E{s.fromEffect}→E{s.toEffect}
+                        </TableCell>
+                        <TableCell>{s.fluidType}</TableCell>
+                        <TableCell align="right">{s.pipeSize}</TableCell>
+                        <TableCell align="right">{(s.minimumHeight * 1000).toFixed(0)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Grid>
+          </Grid>
         </>
       )}
 

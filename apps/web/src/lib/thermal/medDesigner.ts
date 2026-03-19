@@ -15,7 +15,15 @@ import {
   getSeawaterDensity,
   getSeawaterSpecificHeat,
   MED_TUBE_GEOMETRY,
+  getDensityVapor,
+  getDensityLiquid,
 } from '@vapour/constants';
+
+import { calculateDemisterSizing } from './demisterCalculator';
+import { selectSprayNozzles } from './sprayNozzleCalculator';
+import { selectPipeByVelocity } from './pipeService';
+import { calculateSiphonSizing } from './siphonSizingCalculator';
+import { calculateTDH } from './pumpSizing';
 
 // ============================================================================
 // Types
@@ -157,6 +165,65 @@ export interface MEDPreheaterResult {
   designArea: number; // m²
 }
 
+/** Per-effect demister sizing result */
+export interface MEDDemisterResult {
+  effect: number;
+  requiredArea: number; // m²
+  designVelocity: number; // m/s
+  loadingStatus: string;
+  pressureDrop: number; // Pa
+}
+
+/** Per-effect spray nozzle result */
+export interface MEDSprayNozzleResult {
+  effect: number;
+  nozzleModel: string;
+  nozzleCount: number;
+  flowPerNozzle: number; // lpm
+  sprayAngle: number; // degrees
+}
+
+/** Siphon between effects */
+export interface MEDSiphonResult {
+  fromEffect: number;
+  toEffect: number;
+  fluidType: string; // 'distillate' | 'brine'
+  flowRate: number; // T/h
+  pipeSize: string; // e.g. "DN25"
+  minimumHeight: number; // m
+  velocity: number; // m/s
+}
+
+/** Line sizing result for a header */
+export interface MEDLineSizing {
+  service: string; // e.g. 'Steam Header', 'Distillate Header'
+  flowRate: number; // T/h
+  pipeSize: string; // e.g. "4\" Sch 40"
+  dn: string; // e.g. "DN100"
+  velocity: number; // m/s
+  velocityStatus: string;
+}
+
+/** Pump sizing result */
+export interface MEDPumpResult {
+  service: string;
+  flowRate: number; // T/h (or m³/h)
+  flowRateM3h: number;
+  totalHead: number; // m
+  hydraulicPower: number; // kW
+  motorPower: number; // kW (standard size)
+  quantity: string; // e.g. "1+1" or "6"
+}
+
+/** All auxiliary equipment results */
+export interface MEDAuxiliaryEquipment {
+  demisters: MEDDemisterResult[];
+  sprayNozzles: MEDSprayNozzleResult[];
+  siphons: MEDSiphonResult[];
+  lineSizing: MEDLineSizing[];
+  pumps: MEDPumpResult[];
+}
+
 /** Weight breakdown for a single shell */
 export interface ShellWeight {
   shell: number; // kg — cylindrical shell
@@ -235,6 +302,9 @@ export interface MEDDesignerResult {
   makeUpFeed: number; // T/h
   brineBlowdown: number; // T/h
   numberOfShells: number;
+
+  /** Auxiliary equipment sizing */
+  auxiliaryEquipment: MEDAuxiliaryEquipment;
 
   /** Overall evaporator train dimensions (all shells in line) */
   overallDimensions: {
@@ -697,6 +767,19 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     makeUpFeed,
     brineBlowdown,
     numberOfShells: nEff,
+    auxiliaryEquipment: computeAuxiliaryEquipment(effects, condenser, {
+      swSalinity,
+      maxBrineSalinity,
+      shellID,
+      nEff,
+      totalDistillate,
+      makeUpFeed,
+      brineBlowdown: brineBlowdown,
+      totalRecirc,
+      steamFlow: input.steamFlow,
+      swTemp: input.seawaterTemperature,
+      condenserSWFlowM3h: condenser.seawaterFlowM3h,
+    }),
     overallDimensions: {
       totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 200, // 200mm gap between shells
       shellODmm: effects[0]?.shellODmm ?? Math.round(shellID + 2 * shellThkMM),
@@ -707,6 +790,340 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     },
     warnings,
   };
+}
+
+// ============================================================================
+// Auxiliary Equipment Sizing
+// ============================================================================
+
+interface AuxContext {
+  swSalinity: number;
+  maxBrineSalinity: number;
+  shellID: number;
+  nEff: number;
+  totalDistillate: number;
+  makeUpFeed: number;
+  brineBlowdown: number;
+  totalRecirc: number;
+  steamFlow: number;
+  swTemp: number;
+  condenserSWFlowM3h: number;
+}
+
+function computeAuxiliaryEquipment(
+  effects: MEDEffectResult[],
+  condenser: MEDCondenserResult,
+  ctx: AuxContext
+): MEDAuxiliaryEquipment {
+  const nEff = ctx.nEff;
+
+  // ── 1. Demisters per effect ─────────────────────────────────────────
+  const demisters: MEDDemisterResult[] = effects.map((e) => {
+    try {
+      const vapDensity = getDensityVapor(e.vapourOutTemp);
+      const liqDensity = getDensityLiquid(e.brineTemp);
+      const vapMassFlow = e.distillateFlow / 3.6; // T/h → kg/s
+
+      const dem = calculateDemisterSizing({
+        vaporMassFlow: vapMassFlow,
+        vaporDensity: vapDensity,
+        liquidDensity: liqDensity,
+        demisterType: 'wire_mesh',
+        orientation: 'horizontal',
+        designMargin: 0.8,
+        geometry: 'circular',
+      });
+
+      return {
+        effect: e.effect,
+        requiredArea: dem.requiredArea,
+        designVelocity: dem.designVelocity,
+        loadingStatus: dem.loadingStatus,
+        pressureDrop: dem.pressureDrop,
+      };
+    } catch {
+      return {
+        effect: e.effect,
+        requiredArea: 0,
+        designVelocity: 0,
+        loadingStatus: 'error',
+        pressureDrop: 0,
+      };
+    }
+  });
+
+  // ── 2. Spray nozzles per effect ─────────────────────────────────────
+  const sprayNozzles: MEDSprayNozzleResult[] = effects.map((e) => {
+    try {
+      // Total spray flow = feed + recirculation, in lpm
+      const sprayFlowTh = e.minSprayFlow; // T/h
+      const avgSalinity = (ctx.swSalinity + ctx.maxBrineSalinity) / 2;
+      const density = getSeawaterDensity(avgSalinity, e.brineTemp);
+      const sprayFlowLpm = (sprayFlowTh * 1000) / (density * 60); // T/h → lpm
+
+      const result = selectSprayNozzles({
+        category: 'full_cone_square',
+        requiredFlow: sprayFlowLpm,
+        operatingPressure: 1.5, // bar (typical spray pressure)
+        numberOfNozzles: Math.max(4, Math.ceil(sprayFlowLpm / 10)), // ~10 lpm per nozzle
+      });
+
+      const best = result.matches[0];
+      return {
+        effect: e.effect,
+        nozzleModel: best?.modelNumber ?? 'N/A',
+        nozzleCount: result.numberOfNozzles,
+        flowPerNozzle: result.flowPerNozzle,
+        sprayAngle: best?.sprayAngle ?? 0,
+      };
+    } catch {
+      return {
+        effect: e.effect,
+        nozzleModel: 'N/A',
+        nozzleCount: 0,
+        flowPerNozzle: 0,
+        sprayAngle: 0,
+      };
+    }
+  });
+
+  // ── 3. Siphons between effects ──────────────────────────────────────
+  const siphons: MEDSiphonResult[] = [];
+  for (let i = 0; i < nEff - 1; i++) {
+    const eFrom = effects[i]!;
+    const eTo = effects[i + 1]!;
+
+    // Distillate siphon
+    try {
+      const distFlowAccum = effects.slice(0, i + 1).reduce((s, e) => s + e.distillateFlow, 0);
+      const distSiphon = calculateSiphonSizing({
+        upstreamPressure: eFrom.pressure,
+        downstreamPressure: eTo.pressure,
+        pressureUnit: 'mbar_abs',
+        fluidType: 'distillate',
+        salinity: 5,
+        flowRate: distFlowAccum,
+        elbowConfig: '2_elbows',
+        horizontalDistance: 1.0,
+        offsetDistance: 0.5,
+        targetVelocity: 0.5,
+        safetyFactor: 20,
+      });
+      siphons.push({
+        fromEffect: eFrom.effect,
+        toEffect: eTo.effect,
+        fluidType: 'distillate',
+        flowRate: distFlowAccum,
+        pipeSize: distSiphon.pipe.displayName,
+        minimumHeight: distSiphon.minimumHeight,
+        velocity: distSiphon.velocity,
+      });
+    } catch {
+      siphons.push({
+        fromEffect: eFrom.effect,
+        toEffect: eTo.effect,
+        fluidType: 'distillate',
+        flowRate: 0,
+        pipeSize: 'N/A',
+        minimumHeight: 0,
+        velocity: 0,
+      });
+    }
+
+    // Brine siphon
+    try {
+      const brineFlow = ctx.brineBlowdown / nEff; // simplified equal split
+      const brineSiphon = calculateSiphonSizing({
+        upstreamPressure: eFrom.pressure,
+        downstreamPressure: eTo.pressure,
+        pressureUnit: 'mbar_abs',
+        fluidType: 'brine',
+        salinity: ctx.maxBrineSalinity,
+        flowRate: brineFlow,
+        elbowConfig: '2_elbows',
+        horizontalDistance: 1.0,
+        offsetDistance: 0.5,
+        targetVelocity: 0.5,
+        safetyFactor: 20,
+      });
+      siphons.push({
+        fromEffect: eFrom.effect,
+        toEffect: eTo.effect,
+        fluidType: 'brine',
+        flowRate: brineFlow,
+        pipeSize: brineSiphon.pipe.displayName,
+        minimumHeight: brineSiphon.minimumHeight,
+        velocity: brineSiphon.velocity,
+      });
+    } catch {
+      siphons.push({
+        fromEffect: eFrom.effect,
+        toEffect: eTo.effect,
+        fluidType: 'brine',
+        flowRate: 0,
+        pipeSize: 'N/A',
+        minimumHeight: 0,
+        velocity: 0,
+      });
+    }
+  }
+
+  // ── 4. Line sizing for main headers ─────────────────────────────────
+  const lineSizing: MEDLineSizing[] = [];
+  const swDensity = getSeawaterDensity(ctx.swSalinity, ctx.swTemp);
+
+  const lineSpecs: {
+    service: string;
+    flowTh: number;
+    density: number;
+    targetVel: number;
+    velLimits: { min: number; max: number };
+  }[] = [
+    {
+      service: 'Seawater to Condenser',
+      flowTh: (ctx.condenserSWFlowM3h * swDensity) / 1000,
+      density: swDensity,
+      targetVel: 2.0,
+      velLimits: { min: 1.0, max: 3.0 },
+    },
+    {
+      service: 'Feed Water Header',
+      flowTh: ctx.makeUpFeed,
+      density: swDensity,
+      targetVel: 1.5,
+      velLimits: { min: 0.5, max: 2.5 },
+    },
+    {
+      service: 'Distillate Header',
+      flowTh: ctx.totalDistillate,
+      density: 998,
+      targetVel: 1.0,
+      velLimits: { min: 0.5, max: 2.0 },
+    },
+    {
+      service: 'Brine Blowdown Header',
+      flowTh: ctx.brineBlowdown,
+      density: getSeawaterDensity(ctx.maxBrineSalinity, 40),
+      targetVel: 1.5,
+      velLimits: { min: 0.5, max: 2.5 },
+    },
+    {
+      service: 'Brine Recirc (per effect)',
+      flowTh: ctx.totalRecirc / nEff,
+      density: getSeawaterDensity((ctx.swSalinity + ctx.maxBrineSalinity) / 2, 45),
+      targetVel: 1.5,
+      velLimits: { min: 0.5, max: 2.5 },
+    },
+  ];
+
+  for (const spec of lineSpecs) {
+    try {
+      const volFlow = (spec.flowTh * 1000) / (spec.density * 3600); // T/h → m³/s
+      const pipe = selectPipeByVelocity(volFlow, spec.targetVel, spec.velLimits);
+      lineSizing.push({
+        service: spec.service,
+        flowRate: spec.flowTh,
+        pipeSize: pipe.displayName,
+        dn: pipe.dn,
+        velocity: pipe.actualVelocity,
+        velocityStatus: pipe.velocityStatus,
+      });
+    } catch {
+      lineSizing.push({
+        service: spec.service,
+        flowRate: spec.flowTh,
+        pipeSize: 'N/A',
+        dn: 'N/A',
+        velocity: 0,
+        velocityStatus: 'error',
+      });
+    }
+  }
+
+  // ── 5. Pump sizing ──────────────────────────────────────────────────
+  const pumps: MEDPumpResult[] = [];
+
+  const pumpSpecs: {
+    service: string;
+    flowTh: number;
+    density: number;
+    staticHead: number;
+    dischargePressure: number; // bar abs
+    suctionPressure: number; // bar abs
+    qty: string;
+  }[] = [
+    {
+      service: 'Seawater Pump',
+      flowTh: (ctx.condenserSWFlowM3h * swDensity) / 1000,
+      density: swDensity,
+      staticHead: 5,
+      dischargePressure: 2.0,
+      suctionPressure: 1.013,
+      qty: '1+1',
+    },
+    {
+      service: 'Distillate Pump',
+      flowTh: ctx.totalDistillate,
+      density: 998,
+      staticHead: 3,
+      dischargePressure: 2.0,
+      suctionPressure: condenser.vapourTemp > 40 ? 0.08 : 0.06, // vacuum
+      qty: '1+1',
+    },
+    {
+      service: 'Brine Blowdown Pump',
+      flowTh: ctx.brineBlowdown,
+      density: getSeawaterDensity(ctx.maxBrineSalinity, 40),
+      staticHead: 3,
+      dischargePressure: 2.0,
+      suctionPressure: effects[nEff - 1]?.pressure ? effects[nEff - 1]!.pressure / 1000 : 0.07,
+      qty: '1+1',
+    },
+    {
+      service: 'Brine Recirculation Pump (each)',
+      flowTh: ctx.totalRecirc / nEff,
+      density: getSeawaterDensity((ctx.swSalinity + ctx.maxBrineSalinity) / 2, 45),
+      staticHead: 3,
+      dischargePressure: 1.5,
+      suctionPressure: 0.1, // ~100 mbar vacuum
+      qty: String(nEff),
+    },
+  ];
+
+  for (const spec of pumpSpecs) {
+    try {
+      const result = calculateTDH({
+        flowRate: spec.flowTh,
+        fluidDensity: spec.density,
+        suctionPressureDrop: 0.3, // estimated 0.3 bar suction friction
+        dischargePressureDrop: 0.5, // estimated 0.5 bar discharge friction
+        staticHead: spec.staticHead,
+        dischargeVesselPressure: spec.dischargePressure,
+        suctionVesselPressure: spec.suctionPressure,
+      });
+      pumps.push({
+        service: spec.service,
+        flowRate: spec.flowTh,
+        flowRateM3h: result.volumetricFlowM3Hr,
+        totalHead: result.totalDifferentialHead,
+        hydraulicPower: result.hydraulicPower,
+        motorPower: result.recommendedMotorKW,
+        quantity: spec.qty,
+      });
+    } catch {
+      pumps.push({
+        service: spec.service,
+        flowRate: spec.flowTh,
+        flowRateM3h: 0,
+        totalHead: 0,
+        hydraulicPower: 0,
+        motorPower: 0,
+        quantity: spec.qty,
+      });
+    }
+  }
+
+  return { demisters, sprayNozzles, siphons, lineSizing, pumps };
 }
 
 // ============================================================================

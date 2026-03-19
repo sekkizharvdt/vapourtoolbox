@@ -385,6 +385,12 @@ export {
   type MEDDesignOption,
   type MEDWeightEstimate,
   type ShellWeight,
+  type MEDAuxiliaryEquipment,
+  type MEDDemisterResult,
+  type MEDSprayNozzleResult,
+  type MEDSiphonResult,
+  type MEDLineSizing,
+  type MEDPumpResult,
 } from './medDesigner';
 
 // Single Tube Analysis
