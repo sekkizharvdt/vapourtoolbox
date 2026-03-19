@@ -147,6 +147,46 @@ export interface MEDPreheaterResult {
   designArea: number; // m²
 }
 
+/** Weight breakdown for a single shell */
+export interface ShellWeight {
+  shell: number; // kg — cylindrical shell
+  dishedHeads: number; // kg — 2 × 2:1 SE heads
+  tubeSheets: number; // kg — 2 tube sheets
+  tubes: number; // kg — all tubes in this shell
+  waterBoxes: number; // kg — estimated
+  internals: number; // kg — demisters, spray pipes, baffles
+  total: number; // kg
+}
+
+/** Weight summary for the entire plant */
+export interface MEDWeightEstimate {
+  evaporatorShells: ShellWeight[];
+  condenserWeight: number; // kg
+  preheatersWeight: number; // kg
+  totalDryWeight: number; // kg
+  totalOperatingWeight: number; // kg (dry + water hold-up)
+}
+
+/** A single design option for comparison */
+export interface MEDDesignOption {
+  effects: number;
+  gor: number;
+  distillateM3Day: number;
+  totalEvaporatorArea: number; // m²
+  totalShells: number;
+  condenserArea: number; // m²
+  totalPreheaterArea: number; // m²
+  totalBrineRecirculation: number; // T/h
+  seawaterFlow: number; // m³/h
+  specificEnergy: number; // kWh_thermal / m³ distillate
+  specificArea: number; // m² / (m³/day)
+  weight: MEDWeightEstimate;
+  feasible: boolean;
+  label: string; // e.g. "Option A — High GOR"
+  /** Full detailed result (only for the recommended/selected option) */
+  detail?: MEDDesignerResult;
+}
+
 /** Scenario comparison row */
 export interface MEDScenarioRow {
   effects: number;
@@ -625,4 +665,214 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     numberOfShells: nEff,
     warnings,
   };
+}
+
+// ============================================================================
+// Weight Estimation
+// ============================================================================
+
+/** Material densities in kg/m³ */
+const DENSITY = {
+  duplex_ss: 7800, // UNS S32304
+  al_5052: 2680,
+  ti_gr2: 4510,
+  ss_316l: 8000,
+  water: 1000,
+};
+
+/**
+ * Weight of a 2:1 semi-ellipsoidal dished head (ASME standard)
+ *
+ * Approximate formula: W ≈ (π/4) × D² × t × ρ × K
+ * where K ≈ 1.084 for 2:1 SE (accounts for knuckle region)
+ *
+ * @param diameterMM Inside diameter in mm
+ * @param thicknessMM Thickness in mm
+ * @param density Material density in kg/m³
+ */
+function dishedHeadWeight(diameterMM: number, thicknessMM: number, density: number): number {
+  const D = diameterMM / 1000; // m
+  const t = thicknessMM / 1000; // m
+  const K = 1.084; // 2:1 SE factor
+  return (Math.PI / 4) * D * D * t * density * K;
+}
+
+/**
+ * Estimate weight for a single evaporator shell
+ */
+function estimateShellWeight(
+  shellIDmm: number,
+  shellLengthMM: number,
+  shellThkMM: number,
+  tubeSheetThkMM: number,
+  tubes: number,
+  tubeODmm: number,
+  tubeWallMM: number,
+  tubeLengthM: number,
+  tubeDensity: number
+): ShellWeight {
+  const D = shellIDmm / 1000;
+  const shellT = shellThkMM / 1000;
+  const shellL = shellLengthMM / 1000;
+  const tsT = tubeSheetThkMM / 1000;
+  const tubeOD = tubeODmm / 1000;
+  const tubeID = (tubeODmm - 2 * tubeWallMM) / 1000;
+  const shellDensity = DENSITY.duplex_ss;
+
+  // Cylindrical shell
+  const shellOD = D + 2 * shellT;
+  const shellWt = Math.PI * ((shellOD * shellOD - D * D) / 4) * shellL * shellDensity;
+
+  // 2 × 2:1 SE dished heads
+  const headWt = 2 * dishedHeadWeight(shellIDmm, shellThkMM, shellDensity);
+
+  // 2 × tube sheets (flat circular plates with holes — approximate as solid)
+  const tsWt = 2 * (Math.PI / 4) * D * D * tsT * shellDensity;
+
+  // Tubes
+  const tubeWt =
+    tubes * (Math.PI / 4) * (tubeOD * tubeOD - tubeID * tubeID) * tubeLengthM * tubeDensity;
+
+  // Water boxes (estimated as ~15% of shell weight)
+  const wbWt = shellWt * 0.15;
+
+  // Internals (demisters, spray pipes, baffles — ~10% of shell)
+  const intWt = shellWt * 0.1;
+
+  const total = shellWt + headWt + tsWt + tubeWt + wbWt + intWt;
+
+  return {
+    shell: Math.round(shellWt),
+    dishedHeads: Math.round(headWt),
+    tubeSheets: Math.round(tsWt),
+    tubes: Math.round(tubeWt),
+    waterBoxes: Math.round(wbWt),
+    internals: Math.round(intWt),
+    total: Math.round(total),
+  };
+}
+
+/**
+ * Estimate total plant weight
+ */
+function estimatePlantWeight(
+  result: MEDDesignerResult,
+  shellThkMM: number = 8,
+  tubeSheetThkMM: number = 8
+): MEDWeightEstimate {
+  const shellIDmm = result.inputs.shellID ?? 1800;
+  const tubeOD = result.inputs.tubeOD ?? 25.4;
+  const tubeWall = result.inputs.tubeWallThickness ?? 1.0;
+  const tubeMat = (result.inputs.tubeMaterialName ?? 'Al 5052').toLowerCase();
+  const tubeDensity = tubeMat.includes('ti') ? DENSITY.ti_gr2 : DENSITY.al_5052;
+
+  const evaporatorShells: ShellWeight[] = result.effects.map((e) => {
+    const shellLength = e.tubeLength * 1000 + 2 * tubeSheetThkMM + 200; // tube + sheets + clearance
+    return estimateShellWeight(
+      shellIDmm,
+      shellLength,
+      shellThkMM,
+      tubeSheetThkMM,
+      e.tubes,
+      tubeOD,
+      tubeWall,
+      e.tubeLength,
+      tubeDensity
+    );
+  });
+
+  // Condenser weight (rough estimate: area × 50 kg/m² for Ti S&T)
+  const condenserWeight = Math.round(result.condenser.designArea * 50);
+
+  // Preheaters weight (area × 60 kg/m² for small S&T)
+  const preheatersWeight = Math.round(
+    result.preheaters.reduce((sum, ph) => sum + ph.designArea, 0) * 60
+  );
+
+  const totalDry =
+    evaporatorShells.reduce((sum, s) => sum + s.total, 0) + condenserWeight + preheatersWeight;
+
+  // Operating weight: dry + water hold-up (~30% of shell volume)
+  const shellVolume = result.effects.reduce((sum, e) => {
+    const D = shellIDmm / 1000;
+    const L = e.tubeLength + 0.2;
+    return sum + (Math.PI / 4) * D * D * L * 0.3;
+  }, 0);
+  const waterHoldUp = shellVolume * DENSITY.water;
+  const totalOperating = totalDry + waterHoldUp;
+
+  return {
+    evaporatorShells,
+    condenserWeight,
+    preheatersWeight,
+    totalDryWeight: Math.round(totalDry),
+    totalOperatingWeight: Math.round(totalOperating),
+  };
+}
+
+// ============================================================================
+// Multi-Option Designer
+// ============================================================================
+
+/**
+ * Generate multiple design options for comparison.
+ *
+ * Produces a range of options from "low GOR / compact / light" to
+ * "high GOR / large area / heavy", allowing the designer to pick
+ * the optimal trade-off.
+ *
+ * @param input Same minimal inputs as designMED
+ * @returns Array of design options sorted by GOR (ascending)
+ */
+export function generateDesignOptions(input: MEDDesignerInput): MEDDesignOption[] {
+  const options: MEDDesignOption[] = [];
+
+  // Try 3 to 10 effects
+  for (let n = 3; n <= 10; n++) {
+    try {
+      const result = designMED({ ...input, numberOfEffects: n });
+
+      if (result.achievedGOR <= 0 || result.totalDistillate <= 0) continue;
+
+      const weight = estimatePlantWeight(result);
+
+      // Specific thermal energy: steam enthalpy / distillate volume
+      const steamEnthalpy = getLatentHeat(input.steamTemperature); // kJ/kg
+      const specificEnergy = (input.steamFlow * steamEnthalpy) / result.totalDistillate; // kJ/kg dist
+      const specificEnergy_kWhM3 = specificEnergy / 3.6; // kJ/kg → kWh/m³
+
+      // Label
+      let label: string;
+      if (result.achievedGOR >= input.targetGOR * 0.9) {
+        label = `Option ${String.fromCharCode(65 + options.length)} — High GOR (${n} effects)`;
+      } else if (result.achievedGOR >= input.targetGOR * 0.7) {
+        label = `Option ${String.fromCharCode(65 + options.length)} — Balanced (${n} effects)`;
+      } else {
+        label = `Option ${String.fromCharCode(65 + options.length)} — Compact (${n} effects)`;
+      }
+
+      options.push({
+        effects: n,
+        gor: result.achievedGOR,
+        distillateM3Day: result.totalDistillateM3Day,
+        totalEvaporatorArea: result.totalEvaporatorArea,
+        totalShells: n,
+        condenserArea: result.condenser.designArea,
+        totalPreheaterArea: result.preheaters.reduce((s, p) => s + p.designArea, 0),
+        totalBrineRecirculation: result.totalBrineRecirculation,
+        seawaterFlow: result.condenser.seawaterFlowM3h,
+        specificEnergy: specificEnergy_kWhM3,
+        specificArea: result.totalEvaporatorArea / result.totalDistillateM3Day,
+        weight,
+        feasible: result.warnings.length === 0,
+        label,
+        detail: result,
+      });
+    } catch {
+      // Skip infeasible configurations (e.g. ΔT exhausted)
+      continue;
+    }
+  }
+
+  return options;
 }

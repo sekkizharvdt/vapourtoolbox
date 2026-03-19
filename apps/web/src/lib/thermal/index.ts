@@ -375,12 +375,16 @@ export {
 // MED Plant Designer
 export {
   designMED,
+  generateDesignOptions,
   type MEDDesignerInput,
   type MEDDesignerResult,
   type MEDEffectResult,
   type MEDCondenserResult,
   type MEDPreheaterResult,
   type MEDScenarioRow,
+  type MEDDesignOption,
+  type MEDWeightEstimate,
+  type ShellWeight,
 } from './medDesigner';
 
 // Single Tube Analysis
