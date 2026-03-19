@@ -960,6 +960,165 @@ export default function MEDDesignerClient() {
               </Paper>
             </Grid>
           </Grid>
+
+          {/* ── Nozzle Schedule, Dosing, Vacuum ─────────────────────────────── */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Nozzle Schedule */}
+            {detail.auxiliaryEquipment.nozzleSchedule && (
+              <Grid size={{ xs: 12, md: 8 }}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                    Shell Nozzle Schedule
+                  </Typography>
+                  <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Effect</TableCell>
+                          <TableCell>Service</TableCell>
+                          <TableCell align="right">Flow (T/h)</TableCell>
+                          <TableCell align="right">Nozzle</TableCell>
+                          <TableCell align="right">Vel (m/s)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {detail.auxiliaryEquipment.nozzleSchedule.nozzles.map((n, i) => (
+                          <TableRow key={i}>
+                            <TableCell>E{n.effect}</TableCell>
+                            <TableCell sx={{ fontSize: '0.75rem' }}>
+                              {n.service.replace(/_/g, ' ')}
+                            </TableCell>
+                            <TableCell align="right">{fmt(n.flowRate, 2)}</TableCell>
+                            <TableCell align="right">{n.pipeSize}</TableCell>
+                            <TableCell align="right">{fmt(n.velocity, 1)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+              </Grid>
+            )}
+
+            {/* Dosing & Vacuum Summary */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Stack spacing={3}>
+                {/* Dosing */}
+                {detail.dosing && (
+                  <Paper sx={{ p: 3 }}>
+                    <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                      Anti-Scalant Dosing
+                    </Typography>
+                    <Table size="small">
+                      <TableBody>
+                        <TableRow>
+                          <TableCell>Feed flow</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.dosing.feedFlowM3h)} m&sup3;/h
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Dose rate</TableCell>
+                          <TableCell align="right">{detail.dosing.doseMgL} mg/L</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Chemical flow</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.dosing.chemicalFlowLh, 2)} L/h
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Daily consumption</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.dosing.dailyConsumptionKg, 2)} kg/day
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Storage tank (30 days)</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.dosing.storageTankM3, 2)} m&sup3;
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Dosing line</TableCell>
+                          <TableCell align="right">{detail.dosing.dosingLineOD}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Paper>
+                )}
+
+                {/* Vacuum System */}
+                {detail.vacuumSystem && (
+                  <Paper sx={{ p: 3 }}>
+                    <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                      Vacuum System
+                    </Typography>
+                    <Table size="small">
+                      <TableBody>
+                        <TableRow>
+                          <TableCell>Suction pressure</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.vacuumSystem.lastEffectPressureMbar, 0)} mbar
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>System volume</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.vacuumSystem.systemVolumeM3)} m&sup3;
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>NCG load (dry)</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.vacuumSystem.totalDryNcgKgH, 2)} kg/h
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Train config</TableCell>
+                          <TableCell align="right">
+                            {detail.vacuumSystem.trainConfig.replace(/_/g, ' ')}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Motive steam</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.vacuumSystem.totalMotiveSteamKgH, 0)} kg/h
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Power</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.vacuumSystem.totalPowerKW)} kW
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Evacuation time</TableCell>
+                          <TableCell align="right">
+                            {fmt(detail.vacuumSystem.evacuationTimeMinutes, 0)} min
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Paper>
+                )}
+              </Stack>
+            </Grid>
+          </Grid>
+
+          {/* Auxiliary Warnings */}
+          {detail.auxiliaryEquipment.auxWarnings.length > 0 && (
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Auxiliary Equipment Warnings
+              </Typography>
+              {detail.auxiliaryEquipment.auxWarnings.map((w, i) => (
+                <Typography key={i} variant="body2">
+                  {w}
+                </Typography>
+              ))}
+            </Alert>
+          )}
         </>
       )}
 
