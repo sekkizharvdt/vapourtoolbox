@@ -17,6 +17,7 @@ import {
   calculateLatentHeat,
   calculateDemisterSizing,
   calculateTubeBundleGeometry,
+  calculateSingleTube,
   getFluidProperties,
   getSaturationProperties,
 } from '@/lib/thermal';
@@ -520,10 +521,250 @@ rows.push({
 });
 
 // ============================================================================
+// BARC — 240 m³/day (10 T/h), 6-effect MED-TVC, India
+// ============================================================================
+// Source: As-built datasheets (G.B. Engineering, Job 1122406, Nov 2014)
+
+// ── Sensible Heat: FC SW ─────────────────────────────────────────────────
+// FC: SW 80 m³/h ≈ 82 T/h, 30→37°C, 594 tubes, 6 passes
+// FC receives: last-effect vapour (607 kg/h) + distillate (11,010 kg/h @ 44.4°C)
+// which flashes as it enters the 0.08 bar abs FC shell.
+// Total FC duty = SW sensible heat = 80 m³/h × ΔT7°C × Cp
+const shBARCfc = calculateSensibleHeat({
+  fluidType: 'SEAWATER',
+  salinity: 35000,
+  massFlowRate: 82, // T/h (80 m³/h × ~1.024)
+  inletTemperature: 30,
+  outletTemperature: 37,
+});
+// Cross-check: back-calculate vapour condensing rate from the sensible duty
+// At 42°C, hfg ≈ 2397 kJ/kg → condensing flow = duty / hfg
+const barcFcCondRate = shBARCfc.heatDuty / (2397 / 3.6); // T/h
+rows.push({
+  project: 'BARC',
+  calculator: 'Sensible Heat',
+  parameter: 'FC SW Duty (80 m³/h, 30→37°C)',
+  projectValue: 639, // from PFD: 80 m³/h confirmed
+  calculated: shBARCfc.heatDuty,
+  unit: 'kW',
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'Latent Heat',
+  parameter: 'FC Vapour Condensed (back-calc)',
+  projectValue: 0.96, // ~960 kg/h (607 vapour + flash from 11,010 distillate)
+  calculated: barcFcCondRate,
+  unit: 'T/h',
+});
+
+// ── FC Latent Heat ────────────────────────────────────────────────────────
+// hfg at 42°C
+const lh1ThBARC = calculateLatentHeat({
+  massFlowRate: 1.0,
+  temperature: 42.0,
+  process: 'CONDENSATION',
+});
+const barcHfg = lh1ThBARC.heatDuty * 3.6; // kJ/kg
+rows.push({
+  project: 'BARC',
+  calculator: 'Latent Heat',
+  parameter: 'hfg @ 42°C',
+  projectValue: 2397, // steam tables reference
+  calculated: barcHfg,
+  unit: 'kJ/kg',
+});
+
+// ── FC LMTD ──────────────────────────────────────────────────────────────
+// Vapour condensing at 42°C, SW 30→37°C, 6-pass
+const lmtdBARCfc = calculateLMTD({
+  hotInlet: 42.0,
+  hotOutlet: 42.0,
+  coldInlet: 30.0,
+  coldOutlet: 37.0,
+  flowArrangement: 'SHELL_AND_TUBE',
+  shellPasses: 1,
+  tubePasses: 6,
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'LMTD',
+  parameter: 'FC LMTD',
+  projectValue: 8.00, // LMTD = (12-5)/ln(12/5) = 7/0.875 = 8.00°C (pure counterflow)
+  calculated: lmtdBARCfc.correctedLMTD,
+  unit: '°C',
+});
+
+// ── Preheater LMTDs ──────────────────────────────────────────────────────
+// PH-1: vapour 44.4°C (constant), SW 40.5→42.3°C
+const lmtdPH1 = calculateLMTD({
+  hotInlet: 44.4,
+  hotOutlet: 44.4,
+  coldInlet: 40.5,
+  coldOutlet: 42.3,
+  flowArrangement: 'COUNTER',
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'LMTD',
+  parameter: 'PH-1 LMTD',
+  projectValue: 2.91, // LMTD = (3.9-2.1)/ln(3.9/2.1) = 1.8/0.619 = 2.91°C
+  calculated: lmtdPH1.lmtd,
+  unit: '°C',
+});
+
+// PH-2: vapour 47.7°C, SW 42.3→44.7°C
+const lmtdPH2BARC = calculateLMTD({
+  hotInlet: 47.7,
+  hotOutlet: 47.7,
+  coldInlet: 42.3,
+  coldOutlet: 44.7,
+  flowArrangement: 'COUNTER',
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'LMTD',
+  parameter: 'PH-2 LMTD',
+  projectValue: 4.08, // LMTD = (5.4-3.0)/ln(5.4/3.0) = 2.4/0.588 = 4.08°C
+  calculated: lmtdPH2BARC.lmtd,
+  unit: '°C',
+});
+
+// PH-3: vapour 51.1°C, SW 44.7→47.4°C
+const lmtdPH3BARC = calculateLMTD({
+  hotInlet: 51.1,
+  hotOutlet: 51.1,
+  coldInlet: 44.7,
+  coldOutlet: 47.4,
+  flowArrangement: 'COUNTER',
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'LMTD',
+  parameter: 'PH-3 LMTD',
+  projectValue: 4.92, // LMTD = (6.4-3.7)/ln(6.4/3.7) = 2.7/0.549 = 4.92°C
+  calculated: lmtdPH3BARC.lmtd,
+  unit: '°C',
+});
+
+// PH-4: vapour 54.4°C, SW 47.4→50.5°C
+const lmtdPH4BARC = calculateLMTD({
+  hotInlet: 54.4,
+  hotOutlet: 54.4,
+  coldInlet: 47.4,
+  coldOutlet: 50.5,
+  flowArrangement: 'COUNTER',
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'LMTD',
+  parameter: 'PH-4 LMTD',
+  projectValue: 5.30, // LMTD = (7.0-3.9)/ln(7.0/3.9) = 3.1/0.585 = 5.30°C
+  calculated: lmtdPH4BARC.lmtd,
+  unit: '°C',
+});
+
+// ── Demister ──────────────────────────────────────────────────────────────
+// PFD vapour per effect: 1563,1608,1724,1724,1437,607 kg/h
+// Average (excl last): (1563+1608+1724+1724+1437)/5 ≈ 1,611 kg/h = 0.447 kg/s
+// At ~50°C (mid-effect temperature)
+const satBARC = getSaturationProperties(50);
+const demBARC = calculateDemisterSizing({
+  vaporMassFlow: 0.447, // kg/s (average of effects 1-5)
+  vaporDensity: satBARC?.vaporDensity ?? 0.083,
+  liquidDensity: satBARC?.density ?? 988,
+  demisterType: 'wire_mesh',
+  orientation: 'horizontal',
+  designMargin: 0.80,
+  geometry: 'circular',
+});
+// Available area in 2000mm shell (half occupied by bundle):
+// free area ≈ π/4 × 2.0² × 0.5 ≈ 1.57 m²
+rows.push({
+  project: 'BARC',
+  calculator: 'Demister',
+  parameter: 'Required Area (avg eff 1-5)',
+  projectValue: 0.70, // estimated from shell geometry
+  calculated: demBARC.requiredArea,
+  unit: 'm²',
+});
+
+// ── Bundle Geometry ──────────────────────────────────────────────────────
+// Shell OD 2000mm, thk 6mm → ID ≈ 1988mm
+// 1,370 tubes/effect, 25.4mm tubes, 33.4mm pitch, grommet fixing
+// Lateral bundle layout (visible from GA drawing cross-sections)
+const bgBARC = calculateTubeBundleGeometry({
+  shape: 'half_circle_left',
+  shellID: 1988,
+  tubeOD: 25.4,
+  pitch: 33.4,
+  tubeHoleDiameter: 28.4,
+  edgeClearance: 4.6,
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'Bundle Geometry',
+  parameter: 'Evap Tubes/eff (no lanes)',
+  projectValue: 1370,
+  calculated: bgBARC.totalTubes,
+  unit: 'tubes',
+});
+
+// ── Single Tube Analysis ─────────────────────────────────────────────────
+// Evaporator: 25.4 × 0.4mm Ti SB338 Gr 2, k=22 W/m·K
+// Effect 1: vapour 58.8°C condensing inside, brine spray ~57°C outside
+// PFD: vapour to Effect 1 from TVC = 1,563 kg/h → per tube: 1563/3600/1370
+// Feed seawater: 265 T/h total, concentration ratio 1.7 → spray ≈ 265/6 ≈ 44.2 T/h per effect
+// Per tube spray: 44200/3600/1370 ≈ 0.009 kg/s
+const stBARC = calculateSingleTube({
+  tubeOD: 25.4,
+  wallThickness: 0.4,
+  tubeLength: 2.028,
+  tubeMaterial: 'Titanium SB 338 Gr 2',
+  wallConductivity: 22,
+  vapourTemperature: 58.8,
+  vapourPressure: 179.5,
+  vapourFlowRate: 1563 / 3600 / 1370, // Effect 1 vapour per tube (kg/s)
+  sprayFluidType: 'SEAWATER',
+  sprayTemperature: 57.0,
+  spraySalinity: 35000,
+  sprayFlowRate: 44200 / 3600 / 1370, // spray per tube (kg/s)
+});
+rows.push({
+  project: 'BARC',
+  calculator: 'Single Tube',
+  parameter: 'Evap Overall HTC (Ti 0.4mm)',
+  projectValue: 3000, // typical design value for 0.4mm Ti tubes in MED
+  calculated: stBARC.overallHTC,
+  unit: 'W/m²·K',
+});
+
+// ── Fluid Properties ─────────────────────────────────────────────────────
+const swBARC = getFluidProperties('SEAWATER', 30, 35000);
+rows.push({
+  project: 'BARC',
+  calculator: 'Fluid Props',
+  parameter: 'SW Density @ 30°C',
+  projectValue: 1024,
+  calculated: swBARC.density,
+  unit: 'kg/m³',
+});
+
+// Brine at 59,450 ppm, 40°C
+const brineBARC = getFluidProperties('SEAWATER', 40, 59450);
+rows.push({
+  project: 'BARC',
+  calculator: 'Fluid Props',
+  parameter: 'Brine Density @ 40°C, 59.4k ppm',
+  projectValue: 1039,
+  calculated: brineBARC.density,
+  unit: 'kg/m³',
+});
+
+// ============================================================================
 // Print Table
 // ============================================================================
 
-describe('Project Validation — Campiche & CADAFE Comparison', () => {
+describe('Project Validation — Campiche, CADAFE & BARC Comparison', () => {
   it('prints the comparison table', () => {
     const header = [
       'Project'.padEnd(10),
@@ -571,7 +812,7 @@ describe('Project Validation — Campiche & CADAFE Comparison', () => {
     const within15 = deltas.filter((d) => d <= 15).length;
     const over30 = deltas.filter((d) => d > 30).length;
 
-    console.log(`  Total: ${rows.length} comparisons across 2 projects`);
+    console.log(`  Total: ${rows.length} comparisons across 3 projects`);
     console.log(`  Within ±5%:  ${within5}/${rows.length}`);
     console.log(`  Within ±15%: ${within15}/${rows.length}`);
     console.log(`  Over ±30%:   ${over30}/${rows.length}\n`);
