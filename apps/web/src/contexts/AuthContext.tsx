@@ -13,8 +13,21 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
 } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import {
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  where,
+  getDocs,
+  getDoc,
+  setDoc,
+  updateDoc,
+  Timestamp,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomClaims } from '@vapour/types';
 import { isAuthorizedDomain, PERMISSION_PRESETS } from '@vapour/constants';
 import { createLogger } from '@vapour/utils';
@@ -323,6 +336,97 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user]);
 
+  /**
+   * Check if a pending (non-expired) invitation exists for an email.
+   * Used to allow invited external users to bypass domain restrictions.
+   */
+  const hasPendingInvitation = async (
+    email: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    db: any
+  ): Promise<boolean> => {
+    try {
+      const invitationsRef = collection(db, COLLECTIONS.INVITATIONS);
+      const invQuery = query(
+        invitationsRef,
+        where('email', '==', email.toLowerCase()),
+        where('status', '==', 'pending')
+      );
+      const invSnap = await getDocs(invQuery);
+
+      if (invSnap.empty || !invSnap.docs[0]) return false;
+
+      // Check expiry
+      const invData = invSnap.docs[0].data();
+      const expiresAt = invData.expiresAt?.toDate?.() || new Date(0);
+      return expiresAt >= new Date();
+    } catch (err) {
+      logger.error('Error checking for pending invitation', { email, error: err });
+      return false;
+    }
+  };
+
+  /**
+   * Check if a pending invitation exists for an email address.
+   * If found, returns the invitation data and marks it as accepted.
+   */
+  const checkAndAcceptInvitation = async (
+    email: string,
+    userId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    db: any
+  ): Promise<{
+    permissions: number;
+    permissions2: number;
+    department: string;
+    jobTitle: string;
+    displayName: string;
+  } | null> => {
+    try {
+      const invitationsRef = collection(db, COLLECTIONS.INVITATIONS);
+      const invQuery = query(
+        invitationsRef,
+        where('email', '==', email.toLowerCase()),
+        where('status', '==', 'pending')
+      );
+      const invSnap = await getDocs(invQuery);
+
+      if (invSnap.empty || !invSnap.docs[0]) return null;
+
+      // Use the first matching invitation
+      const invDoc = invSnap.docs[0];
+      const invData = invDoc.data();
+
+      // Check if invitation has expired
+      const expiresAt = invData.expiresAt?.toDate?.() || new Date(0);
+      if (expiresAt < new Date()) {
+        // Mark as expired
+        await updateDoc(invDoc.ref, { status: 'expired' });
+        return null;
+      }
+
+      // Mark invitation as accepted
+      await updateDoc(invDoc.ref, {
+        status: 'accepted',
+        acceptedAt: Timestamp.now(),
+        userId,
+      });
+
+      logger.info('Invitation accepted for user', { email, invitationId: invDoc.id });
+
+      return {
+        permissions: invData.permissions || 0,
+        permissions2: invData.permissions2 || 0,
+        department: invData.department || '',
+        jobTitle: invData.jobTitle || '',
+        displayName: invData.displayName || '',
+      };
+    } catch (err) {
+      logger.error('Error checking invitation', { email, error: err });
+      return null;
+    }
+  };
+
   const signInWithGoogle = async () => {
     const { auth, db } = getFirebase();
     const provider = new GoogleAuthProvider();
@@ -335,15 +439,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('No email found in Google account');
       }
 
-      // Validate domain is authorized
+      // Validate domain is authorized OR user has a pending invitation
       if (!isAuthorizedDomain(email)) {
-        // Sign out immediately
-        await firebaseSignOut(auth);
-        throw new Error('UNAUTHORIZED_DOMAIN');
+        const invited = await hasPendingInvitation(email, db);
+        if (!invited) {
+          await firebaseSignOut(auth);
+          throw new Error('UNAUTHORIZED_DOMAIN');
+        }
+        logger.info('External domain allowed via invitation', { email });
       }
 
       // Check if user document exists in Firestore
-      const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
       const userDocRef = doc(db, 'users', result.user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -353,30 +459,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const isInternalUser = email.endsWith('@vapourdesal.com');
         const domain = isInternalUser ? 'internal' : 'external';
 
-        // Auto-approve internal users with VIEWER permissions
-        // External users remain pending until admin approves
-        const userStatus = isInternalUser ? 'active' : 'pending';
-        const userIsActive = isInternalUser;
-        const userPermissions = isInternalUser ? PERMISSION_PRESETS.VIEWER : 0;
+        // Check for a pending invitation
+        const invitation = await checkAndAcceptInvitation(email, result.user.uid, db);
+
+        // Determine user status and permissions
+        let userStatus: string;
+        let userIsActive: boolean;
+        let userPermissions: number;
+        let userPermissions2 = 0;
+        let userDepartment = '';
+        let userJobTitle: string | null = null;
+        let userDisplayName = result.user.displayName || '';
+
+        if (invitation) {
+          // Invitation found — use pre-configured permissions
+          userStatus = 'active';
+          userIsActive = true;
+          userPermissions = invitation.permissions;
+          userPermissions2 = invitation.permissions2;
+          userDepartment = invitation.department;
+          userJobTitle = invitation.jobTitle || null;
+          if (invitation.displayName) {
+            userDisplayName = invitation.displayName;
+          }
+          logger.info('User auto-approved via invitation', { email });
+        } else if (isInternalUser) {
+          // Auto-approve internal users with VIEWER permissions
+          userStatus = 'active';
+          userIsActive = true;
+          userPermissions = PERMISSION_PRESETS.VIEWER;
+          logger.info('Auto-approved internal user with VIEWER permissions', { email });
+        } else {
+          // External users remain pending until admin approves
+          userStatus = 'pending';
+          userIsActive = false;
+          userPermissions = 0;
+        }
 
         await setDoc(userDocRef, {
           uid: result.user.uid,
           email: email,
-          displayName: result.user.displayName || '',
+          displayName: userDisplayName,
           photoURL: result.user.photoURL || '',
           status: userStatus,
           isActive: userIsActive,
           permissions: userPermissions,
+          ...(userPermissions2 > 0 && { permissions2: userPermissions2 }),
           domain: domain,
           assignedProjects: [],
-          department: '',
+          department: userDepartment,
+          ...(userJobTitle && { jobTitle: userJobTitle }),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-
-        if (isInternalUser) {
-          logger.info('Auto-approved internal user with VIEWER permissions', { email });
-        }
       }
 
       // Audit log: successful Google sign-in
@@ -433,11 +568,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Used for passwordless authentication (external users without Google)
    */
   const sendEmailLink = async (email: string) => {
-    const { auth } = getFirebase();
+    const { auth, db } = getFirebase();
 
-    // Validate domain is authorized
+    // Validate domain is authorized OR user has a pending invitation
     if (!isAuthorizedDomain(email)) {
-      throw new Error('UNAUTHORIZED_DOMAIN');
+      const invited = await hasPendingInvitation(email, db);
+      if (!invited) {
+        throw new Error('UNAUTHORIZED_DOMAIN');
+      }
     }
 
     // Action code settings for email link
@@ -460,23 +598,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const completeEmailLinkSignIn = async (email: string, link: string) => {
     const { auth, db } = getFirebase();
 
-    // Validate domain is authorized
+    // Validate domain is authorized OR user has a pending invitation
     if (!isAuthorizedDomain(email)) {
-      // Audit log: unauthorized domain attempt
-      await logAuditEvent(
-        db,
-        createAuditContext('unknown', email, email),
-        'LOGIN_FAILED',
-        'USER',
-        'unknown',
-        `Email link sign-in failed: unauthorized domain for ${email}`,
-        {
-          success: false,
-          errorMessage: 'UNAUTHORIZED_DOMAIN',
-          metadata: { authMethod: 'email_link' },
-        }
-      );
-      throw new Error('UNAUTHORIZED_DOMAIN');
+      const invited = await hasPendingInvitation(email, db);
+      if (!invited) {
+        // Audit log: unauthorized domain attempt
+        await logAuditEvent(
+          db,
+          createAuditContext('unknown', email, email),
+          'LOGIN_FAILED',
+          'USER',
+          'unknown',
+          `Email link sign-in failed: unauthorized domain for ${email}`,
+          {
+            success: false,
+            errorMessage: 'UNAUTHORIZED_DOMAIN',
+            metadata: { authMethod: 'email_link' },
+          }
+        );
+        throw new Error('UNAUTHORIZED_DOMAIN');
+      }
     }
 
     try {
@@ -486,7 +627,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.removeItem('emailForSignIn');
 
       // Check if user document exists in Firestore
-      const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
       const userDocRef = doc(db, 'users', result.user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -496,30 +636,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const isInternalUser = email.endsWith('@vapourdesal.com');
         const domain = isInternalUser ? 'internal' : 'external';
 
-        // Auto-approve internal users with VIEWER permissions
-        // External users remain pending until admin approves
-        const userStatus = isInternalUser ? 'active' : 'pending';
-        const userIsActive = isInternalUser;
-        const userPermissions = isInternalUser ? PERMISSION_PRESETS.VIEWER : 0;
+        // Check for a pending invitation
+        const invitation = await checkAndAcceptInvitation(email, result.user.uid, db);
+
+        // Determine user status and permissions
+        let userStatus: string;
+        let userIsActive: boolean;
+        let userPermissions: number;
+        let userPermissions2 = 0;
+        let userDepartment = '';
+        let userJobTitle: string | null = null;
+        let userDisplayName = result.user.displayName || email.split('@')[0] || '';
+
+        if (invitation) {
+          userStatus = 'active';
+          userIsActive = true;
+          userPermissions = invitation.permissions;
+          userPermissions2 = invitation.permissions2;
+          userDepartment = invitation.department;
+          userJobTitle = invitation.jobTitle || null;
+          if (invitation.displayName) {
+            userDisplayName = invitation.displayName;
+          }
+          logger.info('User auto-approved via invitation', { email });
+        } else if (isInternalUser) {
+          userStatus = 'active';
+          userIsActive = true;
+          userPermissions = PERMISSION_PRESETS.VIEWER;
+          logger.info('Auto-approved internal user with VIEWER permissions', { email });
+        } else {
+          userStatus = 'pending';
+          userIsActive = false;
+          userPermissions = 0;
+        }
 
         await setDoc(userDocRef, {
           uid: result.user.uid,
           email: email,
-          displayName: result.user.displayName || email.split('@')[0] || '',
+          displayName: userDisplayName,
           photoURL: result.user.photoURL || '',
           status: userStatus,
           isActive: userIsActive,
           permissions: userPermissions,
+          ...(userPermissions2 > 0 && { permissions2: userPermissions2 }),
           domain: domain,
           assignedProjects: [],
-          department: '',
+          department: userDepartment,
+          ...(userJobTitle && { jobTitle: userJobTitle }),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-
-        if (isInternalUser) {
-          logger.info('Auto-approved internal user with VIEWER permissions', { email });
-        }
       }
 
       // Audit log: successful email link sign-in
@@ -595,6 +761,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
   };
 
+  /* eslint-disable react-hooks/exhaustive-deps -- auth functions use getFirebase() internally and are stable */
   const value = useMemo(
     () => ({
       user,
@@ -608,6 +775,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [user, claims, loading]
   );
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

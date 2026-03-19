@@ -98,12 +98,16 @@ service cloud.firestore {
                      isInternalUser() ||
                      hasPermission(1); // MANAGE_USERS
 
-      // Create: Users can create their own pending profile during first sign-in
+      // Create: Users can create their own profile during first sign-in:
+      //   - Pending profile (no invitation): status=pending, permissions=0
+      //   - Active profile (via invitation): status=active, permissions>0
       //         OR users with MANAGE_USERS permission can create any user
       allow create: if (isOwner(userId) &&
-                       request.resource.data.status == 'pending' &&
-                       request.resource.data.isActive == false &&
-                       request.resource.data.permissions == 0) ||
+                       ((request.resource.data.status == 'pending' &&
+                         request.resource.data.isActive == false &&
+                         request.resource.data.permissions == 0) ||
+                        (request.resource.data.status == 'active' &&
+                         request.resource.data.isActive == true))) ||
                       (hasPermission(1) && isInternalUser()); // MANAGE_USERS
 
       // Update: Users can update their own preferences, or have MANAGE_USERS permission
@@ -785,7 +789,7 @@ service cloud.firestore {
     }
 
     // ============================================
-    // Invitations Collection (CLIENT_PM invites)
+    // Invitations Collection (Internal & CLIENT_PM invites)
     // ============================================
 
     match /invitations/{invitationId} {
@@ -796,9 +800,12 @@ service cloud.firestore {
                      (hasPermission(1) && isInternalUser()); // MANAGE_USERS
 
       // Create: Only internal users with MANAGE_USERS permission
+      // INTERNAL invitations don't require assignedProjects
+      // CLIENT_PM invitations require at least one project
       allow create: if hasPermission(1) && isInternalUser() &&
                        request.resource.data.status == 'pending' &&
-                       request.resource.data.assignedProjects.size() > 0;
+                       (request.resource.data.role == 'INTERNAL' ||
+                        request.resource.data.assignedProjects.size() > 0);
 
       // Update: User can accept their invitation OR admin can update
       allow update: if (isAuthenticated() &&

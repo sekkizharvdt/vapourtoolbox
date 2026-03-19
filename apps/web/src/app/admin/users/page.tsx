@@ -60,6 +60,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { User, UserStatus } from '@vapour/types';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { ApproveUserDialog } from '@/components/admin/ApproveUserDialog';
+import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import {
   PageHeader,
   FilterBar,
@@ -236,6 +237,9 @@ export default function UserManagementPage() {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [userToApprove, setUserToApprove] = useState<User | null>(null);
 
+  // Invite user dialog state
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
@@ -333,10 +337,7 @@ export default function UserManagementPage() {
             <Button
               variant="contained"
               startIcon={<PersonAddIcon />}
-              onClick={() => {
-                // Invite user dialog (future enhancement)
-                alert('Invite user dialog coming soon');
-              }}
+              onClick={() => setInviteDialogOpen(true)}
             >
               Invite User
             </Button>
@@ -601,6 +602,13 @@ export default function UserManagementPage() {
           setApproveDialogOpen(false);
           setUserToApprove(null);
         }}
+      />
+
+      {/* Invite User Dialog */}
+      <InviteUserDialog
+        open={inviteDialogOpen}
+        onClose={() => setInviteDialogOpen(false)}
+        onSuccess={() => setInviteDialogOpen(false)}
       />
     </Box>
   );
