@@ -44,7 +44,7 @@ export interface MEDDesignerInput {
   condenserApproach?: number;
   /** Condenser SW outlet temperature in °C (default seawater + 5) */
   condenserSWOutlet?: number;
-  /** Shell inner diameter in mm (default 1,800 for man-entry) */
+  /** Shell inner diameter in mm (auto-sized if not set; warns if < 1,800 for man-entry) */
   shellID?: number;
   /** Bundle type (default 'lateral') */
   bundleType?: 'lateral' | 'central';
@@ -373,6 +373,13 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   if (totalAvailDT <= 0) {
     throw new Error(
       `No temperature driving force: TBT (${TBT.toFixed(1)}°C) must be > last effect vapour (${lastEffectVapourT.toFixed(1)}°C)`
+    );
+  }
+
+  // Shell diameter warning
+  if (shellID < 1800) {
+    warnings.push(
+      `Shell ID (${shellID} mm) is below 1,800 mm — person cannot enter the evaporator for maintenance. Consider increasing shell diameter.`
     );
   }
 
