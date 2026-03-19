@@ -63,6 +63,10 @@ export default function MEDDesignerClient() {
   const [designMargin, setDesignMargin] = useState('15');
   const [bundleType, setBundleType] = useState<'lateral' | 'central'>('lateral');
 
+  // ── Per-effect overrides ─────────────────────────────────────────────
+  const [tubeLengthOverrides, setTubeLengthOverrides] = useState<Record<number, string>>({});
+  const [tubeCountOverrides, setTubeCountOverrides] = useState<Record<number, string>>({});
+
   // ── Selected option ──────────────────────────────────────────────────
   const [selectedEffects, setSelectedEffects] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -85,6 +89,8 @@ export default function MEDDesignerClient() {
     setDesignMargin('15');
     setBundleType('lateral');
     setSelectedEffects(null);
+    setTubeLengthOverrides({});
+    setTubeCountOverrides({});
   };
 
   // ── Build input ──────────────────────────────────────────────────────
@@ -113,6 +119,23 @@ export default function MEDDesignerClient() {
       designMargin: (parseFloat(designMargin) || 15) / 100,
       bundleType,
       ...(selectedEffects ? { numberOfEffects: selectedEffects } : {}),
+      // Per-effect overrides: convert Record<number, string> → (number | null)[]
+      ...(Object.keys(tubeLengthOverrides).length > 0
+        ? {
+            tubeLengthOverrides: Array.from({ length: 12 }, (_, i) => {
+              const v = parseFloat(tubeLengthOverrides[i] ?? '');
+              return isNaN(v) || v <= 0 ? null : v;
+            }),
+          }
+        : {}),
+      ...(Object.keys(tubeCountOverrides).length > 0
+        ? {
+            tubeCountOverrides: Array.from({ length: 12 }, (_, i) => {
+              const v = parseInt(tubeCountOverrides[i] ?? '', 10);
+              return isNaN(v) || v <= 0 ? null : v;
+            }),
+          }
+        : {}),
     };
   }, [
     steamFlow,
@@ -132,6 +155,8 @@ export default function MEDDesignerClient() {
     designMargin,
     bundleType,
     selectedEffects,
+    tubeLengthOverrides,
+    tubeCountOverrides,
   ]);
 
   // ── Generate options ─────────────────────────────────────────────────
@@ -568,8 +593,41 @@ export default function MEDDesignerClient() {
                       <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
                       <TableCell align="right">{fmt(e.overallU, 0)}</TableCell>
                       <TableCell align="right">{fmt(e.duty, 0)}</TableCell>
-                      <TableCell align="right">{e.tubes}</TableCell>
-                      <TableCell align="right">{fmt(e.tubeLength)}</TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          size="small"
+                          type="number"
+                          placeholder={String(e.tubes)}
+                          value={tubeCountOverrides[e.effect - 1] ?? ''}
+                          onChange={(ev) =>
+                            setTubeCountOverrides((prev) => ({
+                              ...prev,
+                              [e.effect - 1]: ev.target.value,
+                            }))
+                          }
+                          sx={{ width: 80 }}
+                          inputProps={{ style: { textAlign: 'right', fontSize: '0.8rem' } }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          size="small"
+                          type="number"
+                          placeholder={String(e.tubeLength)}
+                          value={tubeLengthOverrides[e.effect - 1] ?? ''}
+                          onChange={(ev) =>
+                            setTubeLengthOverrides((prev) => ({
+                              ...prev,
+                              [e.effect - 1]: ev.target.value,
+                            }))
+                          }
+                          sx={{ width: 70 }}
+                          inputProps={{
+                            step: 0.1,
+                            style: { textAlign: 'right', fontSize: '0.8rem' },
+                          }}
+                        />
+                      </TableCell>
                       <TableCell align="right">{fmt(e.installedArea, 0)}</TableCell>
                       <TableCell
                         align="right"

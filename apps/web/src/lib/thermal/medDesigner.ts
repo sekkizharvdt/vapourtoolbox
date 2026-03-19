@@ -90,6 +90,14 @@ export interface MEDDesignerInput {
   tubeSheetThickness?: number;
   /** Tube sheet access clearance inside shell in mm (default 750 — for tube removal/insertion) */
   tubeSheetAccess?: number;
+
+  // ── Per-effect overrides (user refinement after initial auto-design) ──
+  /** Override tube length per effect (array indexed by effect 0..n-1) */
+  tubeLengthOverrides?: (number | null)[];
+  /** Override tube count per effect (array indexed by effect 0..n-1) */
+  tubeCountOverrides?: (number | null)[];
+  /** Override shell ID per effect in mm (array indexed by effect 0..n-1) */
+  shellIDOverrides?: (number | null)[];
 }
 
 /** Per-effect result */
@@ -635,32 +643,57 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     // E1 gets vapour lanes, later effects do not
     const hasLanes = i === 0;
 
-    // Auto-calculate tube count and tube length:
-    // Try each available tube length (shortest first) and find the tube count
-    // that provides the design area. Pick the combination that minimises shell ID.
+    // Check for user overrides
+    const tubeLengthOverride = input.tubeLengthOverrides?.[i] ?? null;
+    const tubeCountOverride = input.tubeCountOverrides?.[i] ?? null;
+    const shellIDOverride = input.shellIDOverrides?.[i] ?? null;
+
     let bestTubes = 0;
     let selectedLength = maxTubeLength;
-    for (const L of availableLengths.sort((a, b) => a - b)) {
-      const tubesForLength = Math.ceil(desArea / (areaPerTubePerM * L));
-      if (tubesForLength > 0 && isFinite(tubesForLength)) {
-        // Check if we can fit these in a reasonable shell
-        const testShellID = findMinShellID(tubesForLength, tubeOD, pitch, hasLanes);
-        if (testShellID <= 6000) {
-          bestTubes = tubesForLength;
-          selectedLength = L;
-          break; // shortest tube length that works
+    let effShellID: number;
+
+    if (tubeLengthOverride !== null && tubeCountOverride !== null) {
+      // User specified both — use directly
+      selectedLength = tubeLengthOverride;
+      bestTubes = tubeCountOverride;
+      effShellID = shellIDOverride ?? findMinShellID(bestTubes, tubeOD, pitch, hasLanes);
+    } else if (tubeLengthOverride !== null) {
+      // User specified tube length — auto-calculate tube count for design area
+      selectedLength = tubeLengthOverride;
+      bestTubes = Math.ceil(desArea / (areaPerTubePerM * selectedLength));
+      if (bestTubes <= 0 || !isFinite(bestTubes)) bestTubes = 100;
+      effShellID = shellIDOverride ?? findMinShellID(bestTubes, tubeOD, pitch, hasLanes);
+    } else if (tubeCountOverride !== null) {
+      // User specified tube count — auto-select shortest tube length that fits
+      bestTubes = tubeCountOverride;
+      effShellID = shellIDOverride ?? findMinShellID(bestTubes, tubeOD, pitch, hasLanes);
+      const minLengthNeeded = desArea / (bestTubes * areaPerTubePerM);
+      selectedLength =
+        availableLengths.sort((a, b) => a - b).find((L) => L >= minLengthNeeded - 0.01) ??
+        maxTubeLength;
+    } else {
+      // Auto-calculate: try each available tube length (shortest first)
+      // and find the tube count that provides the design area
+      for (const L of availableLengths.sort((a, b) => a - b)) {
+        const tubesForLength = Math.ceil(desArea / (areaPerTubePerM * L));
+        if (tubesForLength > 0 && isFinite(tubesForLength)) {
+          const testShellID = findMinShellID(tubesForLength, tubeOD, pitch, hasLanes);
+          if (testShellID <= 6000) {
+            bestTubes = tubesForLength;
+            selectedLength = L;
+            break;
+          }
         }
       }
-    }
-    // Fallback: use max tube length
-    if (bestTubes === 0) {
-      bestTubes = Math.ceil(desArea / (areaPerTubePerM * maxTubeLength));
-      selectedLength = maxTubeLength;
+      if (bestTubes === 0) {
+        bestTubes = Math.ceil(desArea / (areaPerTubePerM * maxTubeLength));
+        selectedLength = maxTubeLength;
+      }
+      effShellID = shellIDOverride ?? findMinShellID(bestTubes, tubeOD, pitch, hasLanes);
     }
 
     // Get actual tube count from geometry (may be slightly more than bestTubes)
-    const effShellID = findMinShellID(bestTubes, tubeOD, pitch, hasLanes);
-    const tubes = countLateralTubes(effShellID, tubeOD, pitch, hasLanes);
+    const tubes = tubeCountOverride ?? countLateralTubes(effShellID, tubeOD, pitch, hasLanes);
     const effTubesPerRow = getMaxTubesPerRow(effShellID, pitch);
 
     const instArea = tubes * areaPerTubePerM * selectedLength;
