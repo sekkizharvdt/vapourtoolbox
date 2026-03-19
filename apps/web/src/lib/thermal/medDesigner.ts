@@ -940,9 +940,12 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       hasVapourLanes: hasLanes,
       minSprayFlow: minSpray,
       brineRecirculation: recirc,
-      shellLengthMM: Math.round(
-        selectedLength * 1000 + 2 * shellThkMM + 2 * tubeSheetThkMM + 2 * tubeSheetAccessMM
-      ),
+      // Shell length per effect: tube + 2×tubesheet + 1×access (not 2×)
+      // In lateral layout, tubes alternate L/R between effects.
+      // Adjacent effects share the tube sheet access space at their common boundary.
+      // Each effect only needs access on ONE side (the outer end).
+      // The shared side provides access for both the outgoing and incoming tube sheets.
+      shellLengthMM: Math.round(selectedLength * 1000 + 2 * tubeSheetThkMM + tubeSheetAccessMM),
       shellODmm: Math.round(effShellID + 2 * shellThkMM),
     });
 
@@ -1110,11 +1113,13 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       getSeawaterDensity(swSalinity, input.seawaterTemperature),
       input.antiscalantDoseMgL ?? 2
     ),
-    // Vacuum system
+    // Vacuum system — NCG comes from make-up feed (not condenser SW)
+    // All dissolved gases are released across all effects and accumulate
+    // to the last effect where the vacuum system extracts them
     vacuumSystem: computeVacuumSystem(
       effects[nEff - 1]!.pressure,
       effects[nEff - 1]!.vapourOutTemp,
-      condenser.seawaterFlowM3h,
+      makeUpFeed / (getSeawaterDensity(swSalinity, input.seawaterTemperature) / 1000), // make-up T/h → m³/h
       input.seawaterTemperature,
       swSalinity / 1000, // ppm → g/kg
       effects.reduce((sum, e) => {
@@ -1126,7 +1131,16 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       input.vacuumTrainConfig ?? 'hybrid'
     ),
     overallDimensions: {
-      totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 200,
+      // Overall train: sum of effect shell lengths + shared access spaces between effects
+      // Each effect has 1× access (750mm). Between adjacent effects, one shared access (750mm).
+      // Plus 200mm gap between shell flanges for piping/nozzles.
+      // Total = Σ(shellLength) + (nEff-1)×(shared_access + gap)
+      // But shellLength already includes 1× access, so shared access between effects
+      // adds only the gap between shells.
+      totalLengthMM:
+        effects.reduce((sum, e) => sum + e.shellLengthMM, 0) +
+        (nEff - 1) * 200 + // gaps between shells
+        tubeSheetAccessMM, // one extra access on the far end of last effect
       shellODmm: largestShellOD,
       shellLengthRange: {
         min: Math.min(...effects.map((e) => e.shellLengthMM)),
