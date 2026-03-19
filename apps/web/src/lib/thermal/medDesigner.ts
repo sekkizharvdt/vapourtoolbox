@@ -147,8 +147,16 @@ export interface MEDEffectResult {
   installedArea: number;
   /** Area margin % */
   areaMargin: number;
-  /** Distillate produced T/h */
+  /** Distillate produced in this effect T/h */
   distillateFlow: number;
+  /** Accumulated distillate flowing out via siphon T/h (sum of this + all previous) */
+  accumDistillateFlow: number;
+  /** Brine produced in this effect T/h (spray in - vapour out) */
+  brineOutFlow: number;
+  /** Accumulated brine flowing out via siphon T/h (sum of this + all previous) */
+  accumBrineFlow: number;
+  /** Flash vapour from distillate cascade T/h */
+  flashVapourFlow: number;
   /** Latent heat of vaporisation kJ/kg */
   hfg: number;
   /** Has vapour lanes */
@@ -872,15 +880,37 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     const instArea = tubes * areaPerTubePerM * selectedLength;
     const margin = desArea > 0 ? (instArea / desArea - 1) * 100 : 0;
 
-    // Distillate production
+    // Distillate production in this effect
     const distFlow = (duty * 3.6) / hfg; // T/h
+
+    // Accumulated distillate cascade (this effect + all previous)
+    const prevAccumDist = i > 0 ? effects[i - 1]!.accumDistillateFlow : 0;
+    const accumDistillateFlow = prevAccumDist + distFlow;
+
+    // Flash vapour from distillate cascade
+    let flashVapourFlow = 0;
+    if (i > 0) {
+      const prevBrineT2 = effects[i - 1]!.brineTemp;
+      const flashDT2 = prevBrineT2 - brineT;
+      const Cp2 = 4.18; // kJ/(kg·K)
+      flashVapourFlow = prevAccumDist > 0 ? (prevAccumDist * Cp2 * flashDT2) / hfg : 0;
+    }
+
+    // Brine: spray flow minus evaporated vapour = remaining brine
+    // In each effect: spray in → some evaporates → remaining is brine
+    // Brine from this effect = total spray - distillate produced
+    // Feed per effect (fresh SW portion)
+    const feedPerEffectCalc =
+      (((input.steamFlow * input.targetGOR) / nEff) * maxBrineSalinity) /
+      (maxBrineSalinity - swSalinity);
+    const brineOutThisEffect = feedPerEffectCalc - distFlow; // T/h (what doesn't evaporate)
+    // Accumulated brine cascade (this effect brine + all previous brine flowing through)
+    const prevAccumBrine = i > 0 ? effects[i - 1]!.accumBrineFlow : 0;
+    const accumBrineFlow = prevAccumBrine + brineOutThisEffect;
 
     // Wetting / brine recirculation
     const minSpray = minGamma * 2 * effTubesPerRow * selectedLength * 3.6; // T/h
-    const feedPerEffect =
-      (((input.steamFlow * input.targetGOR) / nEff) * maxBrineSalinity) /
-      (maxBrineSalinity - swSalinity);
-    const recirc = includeRecirc ? Math.max(0, minSpray - feedPerEffect) : 0;
+    const recirc = includeRecirc ? Math.max(0, minSpray - feedPerEffectCalc) : 0;
 
     effects.push({
       effect: i + 1,
@@ -902,6 +932,10 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       installedArea: instArea,
       areaMargin: margin,
       distillateFlow: distFlow,
+      accumDistillateFlow,
+      brineOutFlow: brineOutThisEffect,
+      accumBrineFlow,
+      flashVapourFlow,
       hfg,
       hasVapourLanes: hasLanes,
       minSprayFlow: minSpray,
@@ -1235,9 +1269,9 @@ function computeAuxiliaryEquipment(
     const eFrom = effects[i]!;
     const eTo = effects[i + 1]!;
 
-    // Distillate siphon
+    // Distillate siphon — accumulated distillate cascade
     try {
-      const distFlowAccum = effects.slice(0, i + 1).reduce((s, e) => s + e.distillateFlow, 0);
+      const distFlowAccum = eFrom.accumDistillateFlow;
       const distSiphon = calculateSiphonSizing({
         upstreamPressure: eFrom.pressure,
         downstreamPressure: eTo.pressure,
@@ -1275,9 +1309,9 @@ function computeAuxiliaryEquipment(
       });
     }
 
-    // Brine siphon
+    // Brine siphon — accumulated brine cascade (brine from all effects up to this one)
     try {
-      const brineFlow = ctx.brineBlowdown / nEff; // simplified equal split
+      const brineFlow = eFrom.accumBrineFlow;
       const brineSiphon = calculateSiphonSizing({
         upstreamPressure: eFrom.pressure,
         downstreamPressure: eTo.pressure,
