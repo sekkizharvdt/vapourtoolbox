@@ -23,7 +23,6 @@ import {
   TableRow,
   Card,
   CardContent,
-  MenuItem,
 } from '@mui/material';
 import {
   RestartAlt as ResetIcon,
@@ -61,7 +60,7 @@ export default function MEDDesignerClient() {
   const [condenserApproach, setCondenserApproach] = useState('4');
   const [swOutlet, setSwOutlet] = useState('35');
   const [designMargin, setDesignMargin] = useState('15');
-  const [bundleType, setBundleType] = useState<'lateral' | 'central'>('lateral');
+  // bundleType removed — only lateral bundles are implemented
 
   // ── Per-effect overrides ─────────────────────────────────────────────
   const [tubeLengthOverrides, setTubeLengthOverrides] = useState<Record<number, string>>({});
@@ -87,7 +86,6 @@ export default function MEDDesignerClient() {
     setCondenserApproach('4');
     setSwOutlet('35');
     setDesignMargin('15');
-    setBundleType('lateral');
     setSelectedEffects(null);
     setTubeLengthOverrides({});
     setTubeCountOverrides({});
@@ -117,7 +115,6 @@ export default function MEDDesignerClient() {
       condenserApproach: parseFloat(condenserApproach) || undefined,
       condenserSWOutlet: parseFloat(swOutlet) || undefined,
       designMargin: (parseFloat(designMargin) || 15) / 100,
-      bundleType,
       ...(selectedEffects ? { numberOfEffects: selectedEffects } : {}),
       // Per-effect overrides: convert Record<number, string> → (number | null)[]
       ...(Object.keys(tubeLengthOverrides).length > 0
@@ -153,7 +150,6 @@ export default function MEDDesignerClient() {
     condenserApproach,
     swOutlet,
     designMargin,
-    bundleType,
     selectedEffects,
     tubeLengthOverrides,
     tubeCountOverrides,
@@ -382,18 +378,7 @@ export default function MEDDesignerClient() {
                 InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
               />
             </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <TextField
-                select
-                label="Bundle Type"
-                value={bundleType}
-                onChange={(e) => setBundleType(e.target.value as 'lateral' | 'central')}
-                fullWidth
-              >
-                <MenuItem value="lateral">Lateral (half-shell)</MenuItem>
-                <MenuItem value="central">Central (rectangular)</MenuItem>
-              </TextField>
-            </Grid>
+            {/* Bundle type: only lateral (half-shell) is implemented */}
           </Grid>
         </AccordionDetails>
       </Accordion>

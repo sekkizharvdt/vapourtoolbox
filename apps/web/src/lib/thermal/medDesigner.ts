@@ -54,8 +54,6 @@ export interface MEDDesignerInput {
   condenserSWOutlet?: number;
   /** Shell inner diameter in mm (auto-sized if not set; warns if < 1,800 for man-entry) */
   shellID?: number;
-  /** Bundle type (default 'lateral') */
-  bundleType?: 'lateral' | 'central';
   /** Tube OD in mm (default 25.4) */
   tubeOD?: number;
   /** Tube wall thickness in mm (default 1.0 for Al, 0.4 for Ti) */
@@ -90,6 +88,16 @@ export interface MEDDesignerInput {
   tubeSheetThickness?: number;
   /** Tube sheet access clearance inside shell in mm (default 750 — for tube removal/insertion) */
   tubeSheetAccess?: number;
+  /** Override condenser U-value W/(m²·K) — default derived from tube material */
+  condenserU?: number;
+  /** Override preheater U-value W/(m²·K) — default derived from tube material */
+  preheaterU?: number;
+  /** Anti-scalant dose in mg/L (default 2) */
+  antiscalantDoseMgL?: number;
+  /** Vacuum system train configuration (default 'hybrid') */
+  vacuumTrainConfig?: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid';
+  /** Include turndown analysis at 30/50/70/100% load (default false — computationally expensive) */
+  includeTurndown?: boolean;
 
   // ── Per-effect overrides (user refinement after initial auto-design) ──
   /** Override tube length per effect (array indexed by effect 0..n-1) */
@@ -230,6 +238,97 @@ export interface MEDPumpResult {
   quantity: string; // e.g. "1+1" or "6"
 }
 
+/** Shell nozzle for a single service on one effect */
+export interface MEDShellNozzle {
+  effect: number;
+  service:
+    | 'vapour_inlet'
+    | 'vapour_outlet'
+    | 'brine_inlet'
+    | 'brine_outlet'
+    | 'distillate_outlet'
+    | 'vent';
+  flowRate: number; // T/h
+  pipeSize: string; // e.g. "DN200"
+  dn: string;
+  velocity: number; // m/s
+  velocityStatus: string;
+}
+
+/** Nozzle schedule for all effects */
+export interface MEDNozzleSchedule {
+  nozzles: MEDShellNozzle[];
+  warnings: string[];
+}
+
+/** Anti-scalant dosing result */
+export interface MEDDosingResult {
+  feedFlowM3h: number;
+  doseMgL: number;
+  chemicalFlowLh: number;
+  dailyConsumptionKg: number;
+  monthlyConsumptionKg: number;
+  storageTankM3: number;
+  dosingLineOD: string;
+}
+
+/** Vacuum system result (wraps VacuumSystemResult) */
+export interface MEDVacuumResult {
+  lastEffectPressureMbar: number;
+  systemVolumeM3: number;
+  totalDryNcgKgH: number;
+  totalMotiveSteamKgH: number;
+  totalPowerKW: number;
+  trainConfig: string;
+  evacuationTimeMinutes: number;
+}
+
+/** Cost estimation line item */
+export interface MEDCostItem {
+  item: string;
+  material: string;
+  weightKg: number;
+  ratePerKg: number;
+  cost: number;
+}
+
+/** Cost estimate summary */
+export interface MEDCostEstimate {
+  equipmentItems: MEDCostItem[];
+  totalEquipmentCost: number;
+  pipingCost: number;
+  instrumentationCost: number;
+  electricalCost: number;
+  civilCost: number;
+  installationCost: number;
+  subtotal: number;
+  contingency: number;
+  totalInstalledCost: number;
+  accuracy: string;
+  costPerM3Day: number;
+}
+
+/** Turndown point */
+export interface MEDTurndownPoint {
+  loadPercent: number;
+  steamFlow: number;
+  distillateFlow: number;
+  distillateM3Day: number;
+  gor: number;
+  wettingAdequacy: { effect: number; gamma: number; gammaMin: number; adequate: boolean }[];
+  siphonsSealOk: boolean;
+  condenserMarginPct: number;
+  feasible: boolean;
+  warnings: string[];
+}
+
+/** Turndown analysis */
+export interface MEDTurndownAnalysis {
+  points: MEDTurndownPoint[];
+  minimumLoadPercent: number;
+  warnings: string[];
+}
+
 /** All auxiliary equipment results */
 export interface MEDAuxiliaryEquipment {
   demisters: MEDDemisterResult[];
@@ -237,6 +336,9 @@ export interface MEDAuxiliaryEquipment {
   siphons: MEDSiphonResult[];
   lineSizing: MEDLineSizing[];
   pumps: MEDPumpResult[];
+  nozzleSchedule?: MEDNozzleSchedule;
+  /** Collected warnings/errors from auxiliary equipment sizing */
+  auxWarnings: string[];
 }
 
 /** Weight breakdown for a single shell */
@@ -343,6 +445,34 @@ export interface MEDDesignerResult {
 // ============================================================================
 
 const VENT_LOSS_FRACTION = 0.015; // 1.5% vapour loss per effect (vent/NCG)
+
+/** Default condenser U-value by tube material name */
+function getDefaultCondenserU(materialName: string): number {
+  const m = (materialName ?? '').toLowerCase();
+  if (m.includes('ti')) return 2200;
+  if (m.includes('al')) return 1800;
+  if (m.includes('cu') || m.includes('brass')) return 2400;
+  return 2000; // SS316L / default
+}
+
+/** Default preheater U-value by tube material name */
+function getDefaultPreheaterU(materialName: string): number {
+  const m = (materialName ?? '').toLowerCase();
+  if (m.includes('ti')) return 2100;
+  if (m.includes('al')) return 1700;
+  if (m.includes('cu') || m.includes('brass')) return 2300;
+  return 1900;
+}
+
+/** Material cost rates in USD/kg for budgetary estimation */
+/** Material cost rates in USD/kg — used by computeCostEstimate() */
+export const MATERIAL_COST_RATES: Record<string, number> = {
+  duplex_ss: 8,
+  al_5052: 6,
+  ti_gr2: 30,
+  ss_316l: 5,
+  carbon_steel: 3,
+};
 
 /** Approximate saturation pressure from temperature (Antoine-like) */
 function satPressureMbar(tempC: number): number {
@@ -775,7 +905,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const dT1 = fcVapT - condenserSWOutlet;
   const dT2 = fcVapT - input.seawaterTemperature;
   const fcLMTD = dT1 > 0 && dT2 > 0 ? (dT1 - dT2) / Math.log(dT1 / dT2) : 1;
-  const fcU = 2000;
+  const fcU = input.condenserU ?? getDefaultCondenserU(input.tubeMaterialName ?? 'Al 5052');
   const fcArea = ((fcDuty * 1000) / (fcU * fcLMTD)) * (1 + designMargin);
   const cpSW = getSeawaterSpecificHeat(
     swSalinity,
@@ -811,7 +941,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     // Preheat SW from condenserSWOutlet to ~TBT-5 (approaching E1 spray temp)
     const phTempRise = Math.min((TBT - condenserSWOutlet) * 0.7, numPH * 4); // limit rise
     const phDTPerPH = phTempRise / numPH;
-    const phU = 1900; // typical for PH with Ti tubes
+    const phU = input.preheaterU ?? getDefaultPreheaterU(input.tubeMaterialName ?? 'Al 5052');
 
     for (let i = 0; i < numPH; i++) {
       const phIdx = numPH - i; // PH numbering: PH1 is hottest
@@ -929,6 +1059,7 @@ function computeAuxiliaryEquipment(
   ctx: AuxContext
 ): MEDAuxiliaryEquipment {
   const nEff = ctx.nEff;
+  const auxWarnings: string[] = [];
 
   // ── 1. Demisters per effect ─────────────────────────────────────────
   const demisters: MEDDemisterResult[] = effects.map((e) => {
@@ -954,7 +1085,10 @@ function computeAuxiliaryEquipment(
         loadingStatus: dem.loadingStatus,
         pressureDrop: dem.pressureDrop,
       };
-    } catch {
+    } catch (err) {
+      auxWarnings.push(
+        `Demister E${e.effect}: ${err instanceof Error ? err.message : 'sizing failed'}`
+      );
       return {
         effect: e.effect,
         requiredArea: 0,
@@ -1002,7 +1136,10 @@ function computeAuxiliaryEquipment(
         nozzlesAlongLength: best?.nozzlesAlongLength ?? 0,
         rowsAcrossWidth: best?.rowsAcrossWidth ?? 0,
       };
-    } catch {
+    } catch (err) {
+      auxWarnings.push(
+        `Spray nozzle E${e.effect}: ${err instanceof Error ? err.message : 'selection failed'}`
+      );
       return {
         effect: e.effect,
         nozzleModel: 'N/A',
@@ -1047,7 +1184,10 @@ function computeAuxiliaryEquipment(
         minimumHeight: distSiphon.minimumHeight,
         velocity: distSiphon.velocity,
       });
-    } catch {
+    } catch (err) {
+      auxWarnings.push(
+        `Siphon E${eFrom.effect}→E${eTo.effect} distillate: ${err instanceof Error ? err.message : 'sizing failed'}`
+      );
       siphons.push({
         fromEffect: eFrom.effect,
         toEffect: eTo.effect,
@@ -1084,7 +1224,10 @@ function computeAuxiliaryEquipment(
         minimumHeight: brineSiphon.minimumHeight,
         velocity: brineSiphon.velocity,
       });
-    } catch {
+    } catch (err) {
+      auxWarnings.push(
+        `Siphon E${eFrom.effect}→E${eTo.effect} brine: ${err instanceof Error ? err.message : 'sizing failed'}`
+      );
       siphons.push({
         fromEffect: eFrom.effect,
         toEffect: eTo.effect,
@@ -1160,7 +1303,10 @@ function computeAuxiliaryEquipment(
         velocity: pipe.actualVelocity,
         velocityStatus: pipe.velocityStatus,
       });
-    } catch {
+    } catch (err) {
+      auxWarnings.push(
+        `Line sizing ${spec.service}: ${err instanceof Error ? err.message : 'failed'}`
+      );
       lineSizing.push({
         service: spec.service,
         flowRate: spec.flowTh,
@@ -1242,7 +1388,10 @@ function computeAuxiliaryEquipment(
         motorPower: result.recommendedMotorKW,
         quantity: spec.qty,
       });
-    } catch {
+    } catch (err) {
+      auxWarnings.push(
+        `Pump ${spec.service}: ${err instanceof Error ? err.message : 'sizing failed'}`
+      );
       pumps.push({
         service: spec.service,
         flowRate: spec.flowTh,
@@ -1255,7 +1404,7 @@ function computeAuxiliaryEquipment(
     }
   }
 
-  return { demisters, sprayNozzles, siphons, lineSizing, pumps };
+  return { demisters, sprayNozzles, siphons, lineSizing, pumps, auxWarnings };
 }
 
 // ============================================================================
