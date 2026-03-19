@@ -781,11 +781,33 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     // HTC
     const U = estimateU(brineT, tubeOD, tubeWall, kWall);
 
-    // Duty (decreasing due to vent losses)
-    const duty = Q1 * Math.pow(1 - VENT_LOSS_FRACTION, i);
-
-    // Latent heat
+    // Latent heat at vapour out conditions
     const hfg = getLatentHeat(vapourOutT);
+    const hfgIn = getLatentHeat(prevVapourT);
+
+    // Duty calculation with distillate flashing contribution
+    // Base duty: vapour from previous effect condenses inside tubes
+    let duty: number;
+    if (i === 0) {
+      // E1: steam condenses, no flash contribution
+      duty = Q1 * (1 - VENT_LOSS_FRACTION);
+    } else {
+      // E2+: vapour from previous effect condenses + distillate flash contributes
+      // Accumulated distillate from all previous effects enters this effect via siphon
+      // It flashes because pressure is lower (temperature drops by ~workDT + BPE + losses)
+      const prevDistAccum = effects.reduce((s, e) => s + e.distillateFlow, 0);
+      const prevBrineT = effects[i - 1]!.brineTemp;
+      const flashDT = prevBrineT - brineT; // temperature drop across siphon
+      const Cp = 4.18; // kJ/(kg·K) for distillate (pure water)
+      const flashVapour = prevDistAccum > 0 ? (prevDistAccum * Cp * flashDT) / hfg : 0; // T/h
+      const flashDuty = (flashVapour * hfg) / 3.6; // kW
+
+      // Vapour from previous effect (condensation duty)
+      const prevVapourFlow = effects[i - 1]!.distillateFlow; // T/h
+      const condensDuty = ((prevVapourFlow * hfgIn) / 3.6) * (1 - VENT_LOSS_FRACTION); // kW
+
+      duty = condensDuty + flashDuty;
+    }
 
     // Required area
     const reqArea = workDT > 0 ? (duty * 1000) / (U * workDT) : Infinity;
@@ -902,7 +924,12 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   }
 
   // ── Totals ───────────────────────────────────────────────────────────
-  const totalDistillate = effects.reduce((sum, e) => sum + e.distillateFlow, 0);
+  // Gross distillate = all vapour produced across all effects
+  const grossDistillate = effects.reduce((sum, e) => sum + e.distillateFlow, 0);
+  // E1 condensate is the original steam — returns to source (solar field), not product
+  const e1Condensate = input.steamFlow * (1 - VENT_LOSS_FRACTION);
+  // Net distillate = product water (E2+ condensate + flash contributions)
+  const totalDistillate = grossDistillate - e1Condensate;
   const achievedGOR = totalDistillate / input.steamFlow;
   const totalArea = effects.reduce((sum, e) => sum + e.installedArea, 0);
   const totalRecirc = effects.reduce((sum, e) => sum + e.brineRecirculation, 0);
