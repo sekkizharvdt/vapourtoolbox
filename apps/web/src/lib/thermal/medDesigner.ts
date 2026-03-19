@@ -72,7 +72,9 @@ export interface MEDDesignerInput {
   designMargin?: number;
   /** Non-equilibrium allowance per effect in °C (default 0.25) */
   NEA?: number;
-  /** Pressure drop temperature loss per effect in °C (default 0.30) */
+  /** Demister pressure drop temperature loss per effect in °C (default 0.15) */
+  demisterLoss?: number;
+  /** Vapour duct pressure drop temperature loss per effect in °C (default 0.30) */
   pressureDropLoss?: number;
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;
@@ -101,7 +103,9 @@ export interface MEDEffectResult {
   bpe: number;
   /** NEA °C */
   nea: number;
-  /** Pressure drop loss °C */
+  /** Demister loss °C */
+  demisterLoss: number;
+  /** Vapour duct pressure drop loss °C */
   pressureDropLoss: number;
   /** Outgoing vapour saturation temperature °C */
   vapourOutTemp: number;
@@ -460,6 +464,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const availableLengths = input.availableTubeLengths ?? [0.8, 1.0, 1.2, 1.5];
   const designMargin = input.designMargin ?? 0.15;
   const NEA = input.NEA ?? 0.25;
+  const demLoss = input.demisterLoss ?? 0.15;
   const pdLoss = input.pressureDropLoss ?? 0.3;
   const minGamma = input.minimumWettingRate ?? 0.035;
   const includeRecirc = input.includeBrineRecirculation ?? true;
@@ -480,6 +485,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     tubePitch: pitch,
     designMargin,
     NEA,
+    demisterLoss: demLoss,
     pressureDropLoss: pdLoss,
   };
 
@@ -506,7 +512,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const avgBrineS = (swSalinity + maxBrineSalinity) / 2;
   const avgTemp = (TBT + lastEffectVapourT) / 2;
   const avgBPE = getBoilingPointElevation(avgBrineS, avgTemp);
-  const avgLossPerEffect = avgBPE + NEA + pdLoss;
+  const avgLossPerEffect = avgBPE + NEA + demLoss + pdLoss;
 
   // ── Scenario comparison ──────────────────────────────────────────────
   const scenarios: MEDScenarioRow[] = [];
@@ -585,7 +591,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   // Distribute brine temperatures evenly from TBT to last-effect brine temp
   // Last effect brine temp ≈ lastEffectVapourT + BPE + NEA + pdLoss
   const lastBPE = getBoilingPointElevation(maxBrineSalinity, lastEffectVapourT + 2);
-  const lastEffectBrineT = lastEffectVapourT + lastBPE + NEA + pdLoss;
+  const lastEffectBrineT = lastEffectVapourT + lastBPE + NEA + demLoss + pdLoss;
 
   const effects: MEDEffectResult[] = [];
 
@@ -605,7 +611,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     const bpe = getBoilingPointElevation(maxBrineSalinity, brineT);
 
     // Vapour out temperature
-    const vapourOutT = brineT - bpe - NEA - pdLoss;
+    const vapourOutT = brineT - bpe - NEA - demLoss - pdLoss;
 
     // Working ΔT
     const workDT = prevVapourT - brineT;
@@ -676,6 +682,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       brineTemp: brineT,
       bpe,
       nea: NEA,
+      demisterLoss: demLoss,
       pressureDropLoss: pdLoss,
       vapourOutTemp: vapourOutT,
       workingDeltaT: workDT,
