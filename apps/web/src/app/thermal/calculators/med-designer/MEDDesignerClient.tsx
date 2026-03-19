@@ -33,6 +33,8 @@ import {
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { GenerateReportDialog } from './components/GenerateReportDialog';
+import { MEDProcessFlowDiagram } from './components/MEDProcessFlowDiagram';
+import { MEDGeneralArrangement } from './components/MEDGeneralArrangement';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { designMED, generateDesignOptions, type MEDDesignerInput } from '@/lib/thermal';
 
@@ -457,6 +459,12 @@ export default function MEDDesignerClient() {
               ))}
             </Alert>
           )}
+
+          {/* Process Flow Diagram */}
+          <MEDProcessFlowDiagram result={detail} />
+
+          {/* General Arrangement */}
+          <MEDGeneralArrangement result={detail} />
 
           {/* Summary Cards */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
