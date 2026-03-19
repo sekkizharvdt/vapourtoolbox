@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Project Comparison Table — Campiche & CADAFE As-Built Validation
  *
@@ -105,7 +106,7 @@ rows.push({
   project: 'Campiche',
   calculator: 'Desuperheating',
   parameter: 'Spray Water Flow',
-  projectValue: 0.680, // T/h (680 kg/h)
+  projectValue: 0.68, // T/h (680 kg/h)
   calculated: dshCamp.sprayWaterFlow,
   unit: 'T/h',
 });
@@ -305,7 +306,7 @@ const demCamp = calculateDemisterSizing({
   liquidDensity: satCamp1?.density ?? 987,
   demisterType: 'wire_mesh',
   orientation: 'horizontal',
-  designMargin: 0.80,
+  designMargin: 0.8,
   geometry: 'rectangular',
 });
 rows.push({
@@ -359,7 +360,7 @@ rows.push({
 const tvcCAD = calculateTVC({
   motivePressure: 9.5,
   suctionPressure: 0.134,
-  dischargePressure: 0.270,
+  dischargePressure: 0.27,
   motiveFlow: 9.47, // T/h
 });
 rows.push({
@@ -400,7 +401,7 @@ rows.push({
 // Desuperheated with 598 kg/h spray water
 // Outlet: 22,450 kg/h
 const dshCAD = calculateDesuperheating({
-  steamPressure: 0.270,
+  steamPressure: 0.27,
   steamTemperature: 91.0,
   targetTemperature: 68.0, // just above Tsat ≈ 67°C
   sprayWaterTemperature: 40.0,
@@ -595,7 +596,7 @@ rows.push({
   project: 'BARC',
   calculator: 'LMTD',
   parameter: 'FC LMTD',
-  projectValue: 8.00, // LMTD = (12-5)/ln(12/5) = 7/0.875 = 8.00°C (pure counterflow)
+  projectValue: 8.0, // LMTD = (12-5)/ln(12/5) = 7/0.875 = 8.00°C (pure counterflow)
   calculated: lmtdBARCfc.correctedLMTD,
   unit: '°C',
 });
@@ -664,7 +665,7 @@ rows.push({
   project: 'BARC',
   calculator: 'LMTD',
   parameter: 'PH-4 LMTD',
-  projectValue: 5.30, // LMTD = (7.0-3.9)/ln(7.0/3.9) = 3.1/0.585 = 5.30°C
+  projectValue: 5.3, // LMTD = (7.0-3.9)/ln(7.0/3.9) = 3.1/0.585 = 5.30°C
   calculated: lmtdPH4BARC.lmtd,
   unit: '°C',
 });
@@ -680,7 +681,7 @@ const demBARC = calculateDemisterSizing({
   liquidDensity: satBARC?.density ?? 988,
   demisterType: 'wire_mesh',
   orientation: 'horizontal',
-  designMargin: 0.80,
+  designMargin: 0.8,
   geometry: 'circular',
 });
 // Available area in 2000mm shell (half occupied by bundle):
@@ -689,7 +690,7 @@ rows.push({
   project: 'BARC',
   calculator: 'Demister',
   parameter: 'Required Area (avg eff 1-5)',
-  projectValue: 0.70, // estimated from shell geometry
+  projectValue: 0.7, // estimated from shell geometry
   calculated: demBARC.requiredArea,
   unit: 'm²',
 });
@@ -812,7 +813,7 @@ describe('Project Validation — Campiche, CADAFE & BARC Comparison', () => {
 
     // Summary statistics
     const deltas = rows.map((r) =>
-      r.projectValue !== 0 ? Math.abs((r.calculated - r.projectValue) / r.projectValue) * 100 : 0,
+      r.projectValue !== 0 ? Math.abs((r.calculated - r.projectValue) / r.projectValue) * 100 : 0
     );
     const within5 = deltas.filter((d) => d <= 5).length;
     const within15 = deltas.filter((d) => d <= 15).length;

@@ -170,9 +170,11 @@ function calculateFFactorSingleShell(P: number, R: number): number {
   // Special case: P = 0 (no heat transfer)
   if (Math.abs(P) < 1e-6) return 1.0;
 
-  // Special case: R = 1 (equal capacity rates)
+  // Special case: R ≈ 1 (equal or near-equal capacity rates)
+  // Use the R=1 closed-form which is numerically stable (the general formula
+  // has S = √(R²+1)/(R-1) which diverges as R→1)
   // F = (P * √2) / ((1-P) * ln((2-P*(2-√2))/(2-P*(2+√2))))
-  if (Math.abs(R - 1.0) < 1e-6) {
+  if (Math.abs(R - 1.0) < 0.3) {
     const sqrt2 = Math.SQRT2;
     const num = P * sqrt2;
     const denomArg = (2 - P * (2 - sqrt2)) / (2 - P * (2 + sqrt2));
