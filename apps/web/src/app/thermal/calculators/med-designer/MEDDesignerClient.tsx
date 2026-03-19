@@ -16,6 +16,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControlLabel,
+  Checkbox,
   Table,
   TableBody,
   TableCell,
@@ -34,6 +36,7 @@ import {
 import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { MEDProcessFlowDiagram } from './components/MEDProcessFlowDiagram';
 import { MEDGeneralArrangement } from './components/MEDGeneralArrangement';
+import { MEDPlotPlan } from './components/MEDPlotPlan';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { designMED, generateDesignOptions, type MEDDesignerInput } from '@/lib/thermal';
 
@@ -65,6 +68,9 @@ export default function MEDDesignerClient() {
   // ── Per-effect overrides ─────────────────────────────────────────────
   const [tubeLengthOverrides, setTubeLengthOverrides] = useState<Record<number, string>>({});
   const [tubeCountOverrides, setTubeCountOverrides] = useState<Record<number, string>>({});
+
+  // ── Turndown analysis ────────────────────────────────────────────────
+  const [includeTurndown, setIncludeTurndown] = useState(false);
 
   // ── Selected option ──────────────────────────────────────────────────
   const [selectedEffects, setSelectedEffects] = useState<number | null>(null);
@@ -116,6 +122,7 @@ export default function MEDDesignerClient() {
       condenserSWOutlet: parseFloat(swOutlet) || undefined,
       designMargin: (parseFloat(designMargin) || 15) / 100,
       ...(selectedEffects ? { numberOfEffects: selectedEffects } : {}),
+      ...(includeTurndown ? { includeTurndown: true } : {}),
       // Per-effect overrides: convert Record<number, string> → (number | null)[]
       ...(Object.keys(tubeLengthOverrides).length > 0
         ? {
@@ -151,6 +158,7 @@ export default function MEDDesignerClient() {
     swOutlet,
     designMargin,
     selectedEffects,
+    includeTurndown,
     tubeLengthOverrides,
     tubeCountOverrides,
   ]);
@@ -379,6 +387,17 @@ export default function MEDDesignerClient() {
               />
             </Grid>
             {/* Bundle type: only lateral (half-shell) is implemented */}
+            <Grid size={{ xs: 6, md: 3 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={includeTurndown}
+                    onChange={(e) => setIncludeTurndown(e.target.checked)}
+                  />
+                }
+                label="Include Turndown Analysis"
+              />
+            </Grid>
           </Grid>
         </AccordionDetails>
       </Accordion>
@@ -471,6 +490,7 @@ export default function MEDDesignerClient() {
 
           {/* General Arrangement */}
           <MEDGeneralArrangement result={detail} />
+          <MEDPlotPlan result={detail} />
 
           {/* Summary Cards */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -1105,6 +1125,77 @@ export default function MEDDesignerClient() {
               </Stack>
             </Grid>
           </Grid>
+
+          {/* Turndown Analysis */}
+          {detail.turndownAnalysis && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                Turndown Analysis
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Minimum feasible load:{' '}
+                <strong>{detail.turndownAnalysis.minimumLoadPercent}%</strong>
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Load (%)</TableCell>
+                    <TableCell align="right">Steam (T/h)</TableCell>
+                    <TableCell align="right">Distillate (m&sup3;/day)</TableCell>
+                    <TableCell align="right">GOR</TableCell>
+                    <TableCell align="center">Wetting</TableCell>
+                    <TableCell align="center">Siphons</TableCell>
+                    <TableCell align="right">FC Margin (%)</TableCell>
+                    <TableCell align="center">Feasible</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {detail.turndownAnalysis.points.map((pt) => (
+                    <TableRow
+                      key={pt.loadPercent}
+                      sx={{
+                        bgcolor: pt.feasible ? undefined : 'error.50',
+                      }}
+                    >
+                      <TableCell>
+                        <strong>{pt.loadPercent}%</strong>
+                      </TableCell>
+                      <TableCell align="right">{fmt(pt.steamFlow, 2)}</TableCell>
+                      <TableCell align="right">{fmt(pt.distillateM3Day, 0)}</TableCell>
+                      <TableCell align="right">{fmt(pt.gor, 1)}</TableCell>
+                      <TableCell align="center">
+                        {pt.wettingAdequacy.every((w) => w.adequate) ? (
+                          <Chip label="OK" size="small" color="success" variant="outlined" />
+                        ) : (
+                          <Chip
+                            label={`${pt.wettingAdequacy.filter((w) => !w.adequate).length} dry`}
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        {pt.siphonsSealOk ? (
+                          <Chip label="OK" size="small" color="success" variant="outlined" />
+                        ) : (
+                          <Chip label="Risk" size="small" color="warning" variant="outlined" />
+                        )}
+                      </TableCell>
+                      <TableCell align="right">+{fmt(pt.condenserMarginPct, 0)}</TableCell>
+                      <TableCell align="center">
+                        {pt.feasible ? (
+                          <Chip label="Yes" size="small" color="success" />
+                        ) : (
+                          <Chip label="No" size="small" color="error" />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          )}
 
           {/* Auxiliary Warnings */}
           {detail.auxiliaryEquipment.auxWarnings.length > 0 && (
