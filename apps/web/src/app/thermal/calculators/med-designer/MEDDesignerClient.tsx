@@ -30,7 +30,9 @@ import {
   ExpandMore as ExpandMoreIcon,
   CheckCircle as FeasibleIcon,
   Warning as WarningIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
+import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { designMED, generateDesignOptions, type MEDDesignerInput } from '@/lib/thermal';
 
@@ -61,6 +63,7 @@ export default function MEDDesignerClient() {
 
   // ── Selected option ──────────────────────────────────────────────────
   const [selectedEffects, setSelectedEffects] = useState<number | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const handleReset = () => {
     setSteamFlow('0.79');
@@ -165,7 +168,18 @@ export default function MEDDesignerClient() {
         </Typography>
       </Box>
 
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        {detail && (
+          <Button
+            variant="outlined"
+            startIcon={<PdfIcon />}
+            onClick={() => setReportOpen(true)}
+            size="small"
+            color="primary"
+          >
+            PDF Report
+          </Button>
+        )}
         <Button variant="outlined" startIcon={<ResetIcon />} onClick={handleReset} size="small">
           Reset
         </Button>
@@ -701,6 +715,15 @@ export default function MEDDesignerClient() {
             Enter vapour flow, temperature, seawater temperature, and target GOR to see the design.
           </Typography>
         </Paper>
+      )}
+      {/* PDF Report Dialog */}
+      {detail && (
+        <GenerateReportDialog
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          result={detail}
+          options={options}
+        />
       )}
     </Container>
   );
