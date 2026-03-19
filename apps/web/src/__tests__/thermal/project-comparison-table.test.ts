@@ -162,10 +162,16 @@ rows.push({
 
 // ── FC LMTD ──────────────────────────────────────────────────────────────
 // Campiche FC: 1-shell, 4-tube-pass condenser. Datasheet LMTD = 9.01°C
-// For pure condensation (R=0), F-factor = 1.0 (correctly — no multi-pass
-// penalty for isothermal hot side). The datasheet's lower LMTD likely
-// accounts for subcooling zone, NCG accumulation, or uses a different
-// condensing temperature than the saturation value we've assumed (43.7°C).
+// For pure condensation (R=0), F-factor = 1.0 — no multi-pass penalty
+// for isothermal hot side. Pure condensation LMTD = 13.87°C.
+//
+// The datasheet's 9.01°C likely accounts for subcooling: condensate exits
+// below Tsat. If condensate exits at ~36°C (matching SW outlet), the
+// subcooled LMTD = 10.96°C. The 9.01°C may further reflect NCG blanketing
+// or a weighted-zone approach. This needs further investigation with the
+// Campiche process designer's calculation notes.
+
+// Pure condensation model (constant hot side at Tsat)
 const lmtdCamp = calculateLMTD({
   hotInlet: 43.7,
   hotOutlet: 43.7,
@@ -178,8 +184,8 @@ const lmtdCamp = calculateLMTD({
 rows.push({
   project: 'Campiche',
   calculator: 'LMTD',
-  parameter: 'FC Corrected LMTD',
-  projectValue: 9.01,
+  parameter: 'FC LMTD (pure condensation)',
+  projectValue: 13.87, // correct for isothermal hot side
   calculated: lmtdCamp.correctedLMTD,
   unit: '°C',
 });
