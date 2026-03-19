@@ -855,17 +855,18 @@ function computeAuxiliaryEquipment(
   // ── 2. Spray nozzles per effect ─────────────────────────────────────
   const sprayNozzles: MEDSprayNozzleResult[] = effects.map((e) => {
     try {
-      // Total spray flow = feed + recirculation, in lpm
+      // Total spray flow = feed + recirculation, convert T/h → lpm
       const sprayFlowTh = e.minSprayFlow; // T/h
       const avgSalinity = (ctx.swSalinity + ctx.maxBrineSalinity) / 2;
       const density = getSeawaterDensity(avgSalinity, e.brineTemp);
-      const sprayFlowLpm = (sprayFlowTh * 1000) / (density * 60); // T/h → lpm
+      // T/h → lpm: (T/h × 1000 kg/T) / (density kg/m³) = m³/h, × 1000/60 = lpm
+      const sprayFlowLpm = ((sprayFlowTh * 1000) / density) * (1000 / 60); // lpm
 
       const result = selectSprayNozzles({
         category: 'full_cone_square',
         requiredFlow: sprayFlowLpm,
         operatingPressure: 1.5, // bar (typical spray pressure)
-        numberOfNozzles: Math.max(4, Math.ceil(sprayFlowLpm / 10)), // ~10 lpm per nozzle
+        numberOfNozzles: Math.max(4, Math.ceil(sprayFlowLpm / 15)), // ~15 lpm per nozzle
       });
 
       const best = result.matches[0];
@@ -906,7 +907,7 @@ function computeAuxiliaryEquipment(
         elbowConfig: '2_elbows',
         horizontalDistance: 1.0,
         offsetDistance: 0.5,
-        targetVelocity: 0.5,
+        targetVelocity: 0.3,
         safetyFactor: 20,
       });
       siphons.push({
@@ -943,7 +944,7 @@ function computeAuxiliaryEquipment(
         elbowConfig: '2_elbows',
         horizontalDistance: 1.0,
         offsetDistance: 0.5,
-        targetVelocity: 0.5,
+        targetVelocity: 0.3,
         safetyFactor: 20,
       });
       siphons.push({
