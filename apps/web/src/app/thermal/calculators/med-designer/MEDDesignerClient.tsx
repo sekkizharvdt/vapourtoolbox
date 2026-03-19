@@ -1,0 +1,707 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  Paper,
+  Grid,
+  Alert,
+  Chip,
+  Stack,
+  Button,
+  TextField,
+  InputAdornment,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Card,
+  CardContent,
+  MenuItem,
+} from '@mui/material';
+import {
+  RestartAlt as ResetIcon,
+  ExpandMore as ExpandMoreIcon,
+  CheckCircle as FeasibleIcon,
+  Warning as WarningIcon,
+} from '@mui/icons-material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
+import { designMED, generateDesignOptions, type MEDDesignerInput } from '@/lib/thermal';
+
+function fmt(n: number, d = 1): string {
+  return n.toFixed(d);
+}
+
+export default function MEDDesignerClient() {
+  // ── Required inputs ──────────────────────────────────────────────────
+  const [steamFlow, setSteamFlow] = useState('0.79');
+  const [steamTemp, setSteamTemp] = useState('57');
+  const [swTemp, setSwTemp] = useState('30');
+  const [targetGOR, setTargetGOR] = useState('6');
+
+  // ── Overrides (empty = use default) ──────────────────────────────────
+  const [shellID, setShellID] = useState('1800');
+  const [tubeOD, setTubeOD] = useState('25.4');
+  const [tubeWall, setTubeWall] = useState('1.0');
+  const [tubeConductivity, setTubeConductivity] = useState('138');
+  const [tubeMaterial, setTubeMaterial] = useState('Al 5052');
+  const [pitch, setPitch] = useState('33.4');
+  const [swSalinity, setSwSalinity] = useState('35000');
+  const [maxBrine, setMaxBrine] = useState('65000');
+  const [condenserApproach, setCondenserApproach] = useState('4');
+  const [swOutlet, setSwOutlet] = useState('35');
+  const [designMargin, setDesignMargin] = useState('15');
+  const [bundleType, setBundleType] = useState<'lateral' | 'central'>('lateral');
+
+  // ── Selected option ──────────────────────────────────────────────────
+  const [selectedEffects, setSelectedEffects] = useState<number | null>(null);
+
+  const handleReset = () => {
+    setSteamFlow('0.79');
+    setSteamTemp('57');
+    setSwTemp('30');
+    setTargetGOR('6');
+    setShellID('1800');
+    setTubeOD('25.4');
+    setTubeWall('1.0');
+    setTubeConductivity('138');
+    setTubeMaterial('Al 5052');
+    setPitch('33.4');
+    setSwSalinity('35000');
+    setMaxBrine('65000');
+    setCondenserApproach('4');
+    setSwOutlet('35');
+    setDesignMargin('15');
+    setBundleType('lateral');
+    setSelectedEffects(null);
+  };
+
+  // ── Build input ──────────────────────────────────────────────────────
+  const input: MEDDesignerInput | null = useMemo(() => {
+    const sf = parseFloat(steamFlow);
+    const st = parseFloat(steamTemp);
+    const sw = parseFloat(swTemp);
+    const gor = parseFloat(targetGOR);
+    if ([sf, st, sw, gor].some((v) => isNaN(v) || v <= 0)) return null;
+
+    return {
+      steamFlow: sf,
+      steamTemperature: st,
+      seawaterTemperature: sw,
+      targetGOR: gor,
+      shellID: parseFloat(shellID) || undefined,
+      tubeOD: parseFloat(tubeOD) || undefined,
+      tubeWallThickness: parseFloat(tubeWall) || undefined,
+      tubeConductivity: parseFloat(tubeConductivity) || undefined,
+      tubeMaterialName: tubeMaterial || undefined,
+      tubePitch: parseFloat(pitch) || undefined,
+      seawaterSalinity: parseFloat(swSalinity) || undefined,
+      maxBrineSalinity: parseFloat(maxBrine) || undefined,
+      condenserApproach: parseFloat(condenserApproach) || undefined,
+      condenserSWOutlet: parseFloat(swOutlet) || undefined,
+      designMargin: (parseFloat(designMargin) || 15) / 100,
+      bundleType,
+      ...(selectedEffects ? { numberOfEffects: selectedEffects } : {}),
+    };
+  }, [
+    steamFlow,
+    steamTemp,
+    swTemp,
+    targetGOR,
+    shellID,
+    tubeOD,
+    tubeWall,
+    tubeConductivity,
+    tubeMaterial,
+    pitch,
+    swSalinity,
+    maxBrine,
+    condenserApproach,
+    swOutlet,
+    designMargin,
+    bundleType,
+    selectedEffects,
+  ]);
+
+  // ── Generate options ─────────────────────────────────────────────────
+  const computed = useMemo(() => {
+    if (!input) return null;
+    try {
+      const options = generateDesignOptions(input);
+      const detail = selectedEffects
+        ? designMED({ ...input, numberOfEffects: selectedEffects })
+        : (options.find((o) => o.feasible)?.detail ?? options[0]?.detail ?? null);
+      return { options, detail, error: null };
+    } catch (err) {
+      return { options: [], detail: null, error: err instanceof Error ? err.message : 'Error' };
+    }
+  }, [input, selectedEffects]);
+
+  const options = computed?.options ?? [];
+  const detail = computed?.detail ?? null;
+  const error = computed?.error ?? null;
+
+  return (
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="MED Plant Designer" />
+
+      <Box sx={{ mb: 3 }}>
+        <Stack direction="row" alignItems="center" spacing={2} mb={1}>
+          <Typography variant="h4" component="h1">
+            MED Plant Designer
+          </Typography>
+          <Chip label="Multi-Effect Distillation" size="small" color="primary" variant="outlined" />
+        </Stack>
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 700 }}>
+          Design a complete MED plant from 4 inputs. The engine auto-selects the optimal number of
+          effects, sizes tube bundles, condenser, preheaters, and brine recirculation. Compare
+          options from compact/light to high-GOR/heavy.
+        </Typography>
+      </Box>
+
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button variant="outlined" startIcon={<ResetIcon />} onClick={handleReset} size="small">
+          Reset
+        </Button>
+      </Box>
+
+      {/* ── Required Inputs ─────────────────────────────────────────────── */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+          Design Inputs
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <TextField
+              label="Vapour Flow"
+              value={steamFlow}
+              onChange={(e) => setSteamFlow(e.target.value)}
+              type="number"
+              fullWidth
+              InputProps={{ endAdornment: <InputAdornment position="end">T/h</InputAdornment> }}
+            />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <TextField
+              label="Vapour Temperature"
+              value={steamTemp}
+              onChange={(e) => setSteamTemp(e.target.value)}
+              type="number"
+              fullWidth
+              InputProps={{ endAdornment: <InputAdornment position="end">&deg;C</InputAdornment> }}
+            />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <TextField
+              label="Seawater Temperature"
+              value={swTemp}
+              onChange={(e) => setSwTemp(e.target.value)}
+              type="number"
+              fullWidth
+              InputProps={{ endAdornment: <InputAdornment position="end">&deg;C</InputAdornment> }}
+            />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <TextField
+              label="Target GOR"
+              value={targetGOR}
+              onChange={(e) => setTargetGOR(e.target.value)}
+              type="number"
+              fullWidth
+            />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* ── Overrides ───────────────────────────────────────────────────── */}
+      <Accordion sx={{ mb: 3 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle2">Advanced Settings (Overrides)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Shell ID"
+                value={shellID}
+                onChange={(e) => setShellID(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{ endAdornment: <InputAdornment position="end">mm</InputAdornment> }}
+                helperText="Warn if < 1800mm"
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Tube OD"
+                value={tubeOD}
+                onChange={(e) => setTubeOD(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{ endAdornment: <InputAdornment position="end">mm</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Tube Wall"
+                value={tubeWall}
+                onChange={(e) => setTubeWall(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{ endAdornment: <InputAdornment position="end">mm</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Conductivity"
+                value={tubeConductivity}
+                onChange={(e) => setTubeConductivity(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">W/m&middot;K</InputAdornment>,
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Tube Material"
+                value={tubeMaterial}
+                onChange={(e) => setTubeMaterial(e.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Pitch"
+                value={pitch}
+                onChange={(e) => setPitch(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{ endAdornment: <InputAdornment position="end">mm</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="SW Salinity"
+                value={swSalinity}
+                onChange={(e) => setSwSalinity(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{ endAdornment: <InputAdornment position="end">ppm</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Max Brine"
+                value={maxBrine}
+                onChange={(e) => setMaxBrine(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{ endAdornment: <InputAdornment position="end">ppm</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Condenser Approach"
+                value={condenserApproach}
+                onChange={(e) => setCondenserApproach(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="SW Outlet (condenser)"
+                value={swOutlet}
+                onChange={(e) => setSwOutlet(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Design Margin"
+                value={designMargin}
+                onChange={(e) => setDesignMargin(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                select
+                label="Bundle Type"
+                value={bundleType}
+                onChange={(e) => setBundleType(e.target.value as 'lateral' | 'central')}
+                fullWidth
+              >
+                <MenuItem value="lateral">Lateral (half-shell)</MenuItem>
+                <MenuItem value="central">Central (rectangular)</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
+        </AccordionDetails>
+      </Accordion>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* ── Design Options Table ────────────────────────────────────────── */}
+      {options.length > 0 && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+            Design Options — Trade-off Comparison
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Click a row to select that configuration for detailed design.
+          </Typography>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell />
+                  <TableCell>Option</TableCell>
+                  <TableCell align="right">Effects</TableCell>
+                  <TableCell align="right">GOR</TableCell>
+                  <TableCell align="right">Output (m&sup3;/day)</TableCell>
+                  <TableCell align="right">Evap Area (m&sup2;)</TableCell>
+                  <TableCell align="right">SW Flow (m&sup3;/h)</TableCell>
+                  <TableCell align="right">Energy (kWh/m&sup3;)</TableCell>
+                  <TableCell align="right">Spec. Area</TableCell>
+                  <TableCell align="right">Dry Wt (kg)</TableCell>
+                  <TableCell align="right">Oper Wt (kg)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {options.map((o) => {
+                  const isSelected =
+                    selectedEffects === o.effects ||
+                    (!selectedEffects && o.feasible && o === options.find((x) => x.feasible));
+                  return (
+                    <TableRow
+                      key={o.effects}
+                      hover
+                      selected={isSelected}
+                      onClick={() => setSelectedEffects(o.effects)}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      <TableCell>
+                        {o.feasible ? (
+                          <FeasibleIcon color="success" fontSize="small" />
+                        ) : (
+                          <WarningIcon color="warning" fontSize="small" />
+                        )}
+                      </TableCell>
+                      <TableCell>{o.label}</TableCell>
+                      <TableCell align="right">{o.effects}</TableCell>
+                      <TableCell align="right">{fmt(o.gor)}</TableCell>
+                      <TableCell align="right">{fmt(o.distillateM3Day, 0)}</TableCell>
+                      <TableCell align="right">{fmt(o.totalEvaporatorArea, 0)}</TableCell>
+                      <TableCell align="right">{fmt(o.seawaterFlow, 0)}</TableCell>
+                      <TableCell align="right">{fmt(o.specificEnergy, 0)}</TableCell>
+                      <TableCell align="right">{fmt(o.specificArea)}</TableCell>
+                      <TableCell align="right">
+                        {o.weight.totalDryWeight.toLocaleString()}
+                      </TableCell>
+                      <TableCell align="right">
+                        {o.weight.totalOperatingWeight.toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
+      )}
+
+      {/* ── Detailed Results ─────────────────────────────────────────────── */}
+      {detail && (
+        <>
+          {/* Warnings */}
+          {detail.warnings.length > 0 && (
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              {detail.warnings.map((w, i) => (
+                <div key={i}>{w}</div>
+              ))}
+            </Alert>
+          )}
+
+          {/* Summary Cards */}
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Card variant="outlined">
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    GOR
+                  </Typography>
+                  <Typography variant="h4">{fmt(detail.achievedGOR)}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Card variant="outlined">
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Distillate
+                  </Typography>
+                  <Typography variant="h4">{fmt(detail.totalDistillateM3Day, 0)}</Typography>
+                  <Typography variant="caption">m&sup3;/day</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Card variant="outlined">
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Effects
+                  </Typography>
+                  <Typography variant="h4">{detail.effects.length}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Card variant="outlined">
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Evap Area
+                  </Typography>
+                  <Typography variant="h4">{fmt(detail.totalEvaporatorArea, 0)}</Typography>
+                  <Typography variant="caption">m&sup2;</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Card variant="outlined">
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Brine Recirc
+                  </Typography>
+                  <Typography variant="h4">{fmt(detail.totalBrineRecirculation, 0)}</Typography>
+                  <Typography variant="caption">T/h</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Card variant="outlined">
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    SW Flow
+                  </Typography>
+                  <Typography variant="h4">{fmt(detail.condenser.seawaterFlowM3h, 0)}</Typography>
+                  <Typography variant="caption">m&sup3;/h</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Effect-by-Effect Table */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+              Effect-by-Effect Design
+            </Typography>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Effect</TableCell>
+                    <TableCell align="right">Brine T (&deg;C)</TableCell>
+                    <TableCell align="right">Vap Out (&deg;C)</TableCell>
+                    <TableCell align="right">BPE (&deg;C)</TableCell>
+                    <TableCell align="right">Work &Delta;T (&deg;C)</TableCell>
+                    <TableCell align="right">U (W/m&sup2;&middot;K)</TableCell>
+                    <TableCell align="right">Duty (kW)</TableCell>
+                    <TableCell align="right">Tubes</TableCell>
+                    <TableCell align="right">Tube L (m)</TableCell>
+                    <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
+                    <TableCell align="right">Margin</TableCell>
+                    <TableCell align="right">Distillate (T/h)</TableCell>
+                    <TableCell align="right">Recirc (T/h)</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {detail.effects.map((e) => (
+                    <TableRow key={e.effect}>
+                      <TableCell>
+                        E{e.effect}
+                        {e.hasVapourLanes ? ' *' : ''}
+                      </TableCell>
+                      <TableCell align="right">{fmt(e.brineTemp)}</TableCell>
+                      <TableCell align="right">{fmt(e.vapourOutTemp)}</TableCell>
+                      <TableCell align="right">{fmt(e.bpe, 2)}</TableCell>
+                      <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
+                      <TableCell align="right">{fmt(e.overallU, 0)}</TableCell>
+                      <TableCell align="right">{fmt(e.duty, 0)}</TableCell>
+                      <TableCell align="right">{e.tubes}</TableCell>
+                      <TableCell align="right">{fmt(e.tubeLength)}</TableCell>
+                      <TableCell align="right">{fmt(e.installedArea, 0)}</TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ color: e.areaMargin < -10 ? 'error.main' : 'success.main' }}
+                      >
+                        {e.areaMargin >= 0 ? '+' : ''}
+                        {fmt(e.areaMargin, 0)}%
+                      </TableCell>
+                      <TableCell align="right">{fmt(e.distillateFlow, 2)}</TableCell>
+                      <TableCell align="right">{fmt(e.brineRecirculation)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              * = with vapour escape lanes
+            </Typography>
+          </Paper>
+
+          {/* Condenser & Preheaters */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                  Final Condenser
+                </Typography>
+                <Table size="small">
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>Vapour</TableCell>
+                      <TableCell align="right">
+                        {fmt(detail.condenser.vapourFlow, 3)} T/h @{' '}
+                        {fmt(detail.condenser.vapourTemp)}&deg;C
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Duty</TableCell>
+                      <TableCell align="right">{fmt(detail.condenser.duty, 0)} kW</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>LMTD</TableCell>
+                      <TableCell align="right">{fmt(detail.condenser.lmtd, 2)}&deg;C</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Design Area</TableCell>
+                      <TableCell align="right">
+                        {fmt(detail.condenser.designArea)} m&sup2;
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>SW Flow</TableCell>
+                      <TableCell align="right">
+                        {fmt(detail.condenser.seawaterFlowM3h, 0)} m&sup3;/h
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                  Preheaters
+                </Typography>
+                {detail.preheaters.length > 0 ? (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>PH</TableCell>
+                        <TableCell>Source</TableCell>
+                        <TableCell align="right">SW In&rarr;Out</TableCell>
+                        <TableCell align="right">Duty (kW)</TableCell>
+                        <TableCell align="right">Area (m&sup2;)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {detail.preheaters.map((ph) => (
+                        <TableRow key={ph.id}>
+                          <TableCell>PH{ph.id}</TableCell>
+                          <TableCell>{ph.vapourSource}</TableCell>
+                          <TableCell align="right">
+                            {fmt(ph.swInlet)}&rarr;{fmt(ph.swOutlet)}&deg;C
+                          </TableCell>
+                          <TableCell align="right">{fmt(ph.duty, 0)}</TableCell>
+                          <TableCell align="right">{fmt(ph.designArea)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No preheaters for this configuration.
+                  </Typography>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* Mass Balance */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+              Mass Balance
+            </Typography>
+            <Table size="small">
+              <TableBody>
+                <TableRow>
+                  <TableCell>Heating Steam (in)</TableCell>
+                  <TableCell align="right">
+                    {fmt(detail.inputs.steamFlow, 2)} T/h @ {fmt(detail.inputs.steamTemperature)}
+                    &deg;C
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Make-up Feed (in)</TableCell>
+                  <TableCell align="right">{fmt(detail.makeUpFeed)} T/h</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Distillate (out)</TableCell>
+                  <TableCell align="right">
+                    {fmt(detail.totalDistillate, 2)} T/h ({fmt(detail.totalDistillateM3Day, 0)}{' '}
+                    m&sup3;/day)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Brine Blowdown (out)</TableCell>
+                  <TableCell align="right">{fmt(detail.brineBlowdown)} T/h</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Brine Recirculation</TableCell>
+                  <TableCell align="right">{fmt(detail.totalBrineRecirculation)} T/h</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Condenser SW</TableCell>
+                  <TableCell align="right">
+                    {fmt(detail.condenser.seawaterFlowM3h, 0)} m&sup3;/h
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </Paper>
+        </>
+      )}
+
+      {!detail && !error && (
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            Enter vapour flow, temperature, seawater temperature, and target GOR to see the design.
+          </Typography>
+        </Paper>
+      )}
+    </Container>
+  );
+}

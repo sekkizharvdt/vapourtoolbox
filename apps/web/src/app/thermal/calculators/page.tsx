@@ -51,6 +51,7 @@ import {
   AirlineSeatFlat as VacuumBreakerIcon,
   FilterList as StrainerIcon,
   BarChart as GORIcon,
+  Architecture as MEDDesignerIcon,
   Waves as FallingFilmIcon,
   Straighten as SingleTubeIcon,
   ViewInAr as BundleIcon,
@@ -343,6 +344,26 @@ const ALL_CALCULATORS: Calculator[] = [
   },
 
   // --- Plant Design & Auxiliaries ---
+  {
+    title: 'MED Plant Designer',
+    description:
+      'Design a complete MED plant from 4 inputs. Auto-sizes effects, bundles, condenser, preheaters, brine recirculation. Compare options from compact to high-GOR with weight estimates.',
+    icon: <MEDDesignerIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/med-designer',
+    status: 'available',
+    reference: 'Integrated Design',
+    keywords: [
+      'MED',
+      'designer',
+      'multi-effect',
+      'distillation',
+      'plant design',
+      'GOR',
+      'trade-off',
+      'weight',
+      'solar',
+    ],
+  },
   {
     title: 'Performance Ratio / GOR',
     description:
