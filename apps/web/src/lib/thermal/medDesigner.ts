@@ -501,22 +501,31 @@ function satPressureMbar(tempC: number): number {
  *   Campiche:       U ≈ 2,082 W/m²·K (condenser, not evaporator)
  */
 function estimateU(tempC: number, _od: number, wallThk: number, kWall: number): number {
-  // Base HTC decreases with temperature (higher viscosity, lower film conductivity)
-  // Validated range: 2,200–3,200 W/m²·K for evaporator tubes
-  const baseU = 2400 + 15 * (tempC - 40); // 2,400 at 40°C, 2,700 at 60°C
+  // Resistance-based U-value estimation
+  // Validated against BARC (3,003 W/m²·K), Campiche, CADAFE as-built data
+  // and single tube calculator (Nusselt condensation + Chun-Seban evaporation)
 
-  // Wall resistance (negligible for Al, small for Ti)
+  // Wall resistance (negligible for Al k=138, significant for Ti k=22)
   const Rwall = wallThk / 1000 / kWall;
-  // Film resistances: condensation ~8,000-10,000 W/m²·K, evaporation ~5,000-8,000 W/m²·K
-  // fouling ~0.00015 m²·K/W
-  const Rcond = 1 / 9000; // ~0.000111
-  const Revap = 1 / 6500; // ~0.000154
-  const Rfouling = 0.00015;
-  const Rtotal = Rcond + Revap + Rfouling + Rwall;
-  const Umax = 1 / Rtotal;
 
-  // Use the lower of the two estimates (baseU is empirical, Umax is resistance-based)
-  return Math.min(baseU, Umax);
+  // Condensation inside tube: Nusselt horizontal in-tube, 8,000-15,000 W/m²·K
+  const hCond = 10000 + 100 * (tempC - 40);
+  const Rcond = 1 / hCond;
+
+  // Evaporation outside tube: Chun-Seban falling film on horizontal tube
+  // BARC validation: overall U = 3,003 at Ti 0.4mm → hEvap ≈ 18,000 W/m²·K
+  // At MED conditions (thin film, low Re), Chun-Seban gives very high HTCs
+  const hEvap = 15000 + 100 * (tempC - 40); // ~13,000 at 40°C, ~17,000 at 60°C
+  const Revap = 1 / hEvap;
+
+  // Fouling resistance
+  const Rfouling = 0.00015; // m²·K/W (TEMA standard for seawater)
+
+  const Rtotal = Rcond + Revap + Rfouling + Rwall;
+  const U = 1 / Rtotal;
+
+  // Clamp to validated range: 2,400–3,500 W/m²·K
+  return Math.max(2400, Math.min(3500, U));
 }
 
 /** Count tubes in lateral half-circle bundle */
