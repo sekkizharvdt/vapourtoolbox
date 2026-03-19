@@ -16,6 +16,7 @@ import {
   REPORT_THEME,
 } from '@/lib/pdf/reportComponents';
 import type { MEDDesignerResult, MEDDesignOption } from '@/lib/thermal';
+import { PdfProcessFlowDiagram, PdfGeneralArrangement } from './MEDPdfDiagrams';
 
 function fmt(n: number, d = 1): string {
   return n.toFixed(d);
@@ -223,7 +224,19 @@ export function MEDDesignerReportPDF({
         <ListFooter label="Vapour Toolbox — MED Plant Designer (Detailed Report)" />
       </ReportPage>
 
-      {/* ── Page 2: Effect-by-Effect Design ──────────────────────── */}
+      {/* ── Page 2: Process Flow Diagram & General Arrangement ────── */}
+      <ReportPage>
+        <ReportHeader title="MED Plant Design — Diagrams" logoDataUri={logoDataUri ?? undefined} />
+        <ReportSection title="Process Flow Diagram">
+          <PdfProcessFlowDiagram result={r} />
+        </ReportSection>
+        <ReportSection title="General Arrangement">
+          <PdfGeneralArrangement result={r} />
+        </ReportSection>
+        <ListFooter label="Vapour Toolbox — MED Plant Designer (Detailed Report)" />
+      </ReportPage>
+
+      {/* ── Page 3: Effect-by-Effect Design ──────────────────────── */}
       <ReportPage>
         <ReportHeader
           title="MED Plant Design — Effect Performance"
