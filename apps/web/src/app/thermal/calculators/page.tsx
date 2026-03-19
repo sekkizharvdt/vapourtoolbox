@@ -471,13 +471,17 @@ const CATEGORIES: CalculatorCategory[] = [
   },
   {
     title: 'Heat Exchange & Thermal',
-    description: 'Heat transfer surfaces, thermal performance, and fouling.',
+    description: 'Heat transfer surfaces, tube bundles, thermal performance, and fouling.',
     calculators: ALL_CALCULATORS.filter((c) =>
       [
         '/thermal/calculators/heat-exchanger',
         '/thermal/calculators/falling-film',
         '/thermal/calculators/desuperheating',
         '/thermal/calculators/fouling-scaling',
+        '/thermal/calculators/single-tube',
+        '/thermal/calculators/custom-bundle',
+        '/thermal/calculators/lateral-bundle',
+        '/thermal/calculators/central-bundle',
       ].includes(c.href)
     ),
   },
@@ -509,6 +513,7 @@ const CATEGORIES: CalculatorCategory[] = [
     calculators: ALL_CALCULATORS.filter((c) =>
       [
         '/thermal/calculators/gor',
+        '/thermal/calculators/med-designer',
         '/thermal/calculators/med-plant',
         '/thermal/calculators/vacuum-system',
         '/thermal/calculators/vacuum-breaker',

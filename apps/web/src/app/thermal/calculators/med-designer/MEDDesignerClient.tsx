@@ -548,6 +548,7 @@ export default function MEDDesignerClient() {
                     <TableCell align="right">Margin</TableCell>
                     <TableCell align="right">Distillate (T/h)</TableCell>
                     <TableCell align="right">Recirc (T/h)</TableCell>
+                    <TableCell align="right">Shell L (mm)</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -575,14 +576,57 @@ export default function MEDDesignerClient() {
                       </TableCell>
                       <TableCell align="right">{fmt(e.distillateFlow, 2)}</TableCell>
                       <TableCell align="right">{fmt(e.brineRecirculation)}</TableCell>
+                      <TableCell align="right">{e.shellLengthMM.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              * = with vapour escape lanes
+              * = with vapour escape lanes | Shell length includes 750 mm tube sheet access on each
+              side
             </Typography>
+          </Paper>
+
+          {/* Overall Dimensions */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+              Evaporator Dimensions
+            </Typography>
+            <Table size="small">
+              <TableBody>
+                <TableRow>
+                  <TableCell>Shell OD</TableCell>
+                  <TableCell align="right">
+                    {detail.overallDimensions.shellODmm.toLocaleString()} mm
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Shell Length (per effect)</TableCell>
+                  <TableCell align="right">
+                    {detail.overallDimensions.shellLengthRange.min ===
+                    detail.overallDimensions.shellLengthRange.max
+                      ? `${detail.overallDimensions.shellLengthRange.min.toLocaleString()} mm`
+                      : `${detail.overallDimensions.shellLengthRange.min.toLocaleString()} – ${detail.overallDimensions.shellLengthRange.max.toLocaleString()} mm`}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Total Train Length</TableCell>
+                  <TableCell align="right">
+                    {detail.overallDimensions.totalLengthMM.toLocaleString()} mm (
+                    {(detail.overallDimensions.totalLengthMM / 1000).toFixed(1)} m)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Tube Sheet Access (inside)</TableCell>
+                  <TableCell align="right">750 mm each side</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Number of Shells</TableCell>
+                  <TableCell align="right">{detail.numberOfShells}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </Paper>
 
           {/* Condenser & Preheaters */}

@@ -74,6 +74,12 @@ export interface MEDDesignerInput {
   includeBrineRecirculation?: boolean;
   /** Minimum wetting rate Γ in kg/(m·s) (default 0.035) */
   minimumWettingRate?: number;
+  /** Shell thickness in mm (default 8) */
+  shellThickness?: number;
+  /** Tube sheet thickness in mm (default 8) */
+  tubeSheetThickness?: number;
+  /** Tube sheet access clearance inside shell in mm (default 750 — for tube removal/insertion) */
+  tubeSheetAccess?: number;
 }
 
 /** Per-effect result */
@@ -121,6 +127,10 @@ export interface MEDEffectResult {
   minSprayFlow: number;
   /** Required brine recirculation T/h */
   brineRecirculation: number;
+  /** Shell length mm (tube + 2×tubesheet + 2×750mm access) */
+  shellLengthMM: number;
+  /** Shell OD mm (ID + 2×thickness) */
+  shellODmm: number;
 }
 
 /** Final condenser result */
@@ -225,6 +235,16 @@ export interface MEDDesignerResult {
   makeUpFeed: number; // T/h
   brineBlowdown: number; // T/h
   numberOfShells: number;
+
+  /** Overall evaporator train dimensions (all shells in line) */
+  overallDimensions: {
+    /** Total train length mm (sum of all shell lengths + gaps between shells) */
+    totalLengthMM: number;
+    /** Shell OD mm */
+    shellODmm: number;
+    /** Per-effect shell length range mm */
+    shellLengthRange: { min: number; max: number };
+  };
 
   warnings: string[];
 }
@@ -339,6 +359,9 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const pdLoss = input.pressureDropLoss ?? 0.3;
   const minGamma = input.minimumWettingRate ?? 0.035;
   const includeRecirc = input.includeBrineRecirculation ?? true;
+  const shellThkMM = input.shellThickness ?? 8;
+  const tubeSheetThkMM = input.tubeSheetThickness ?? 8;
+  const tubeSheetAccessMM = input.tubeSheetAccess ?? 750;
 
   const resolvedDefaults: Record<string, number | string | boolean> = {
     seawaterSalinity: swSalinity,
@@ -551,6 +574,10 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       hasVapourLanes: hasLanes,
       minSprayFlow: minSpray,
       brineRecirculation: recirc,
+      shellLengthMM: Math.round(
+        selectedLength * 1000 + 2 * shellThkMM + 2 * tubeSheetThkMM + 2 * tubeSheetAccessMM
+      ),
+      shellODmm: Math.round(shellID + 2 * shellThkMM),
     });
 
     prevVapourT = vapourOutT;
@@ -670,6 +697,14 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     makeUpFeed,
     brineBlowdown,
     numberOfShells: nEff,
+    overallDimensions: {
+      totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 200, // 200mm gap between shells
+      shellODmm: effects[0]?.shellODmm ?? Math.round(shellID + 2 * shellThkMM),
+      shellLengthRange: {
+        min: Math.min(...effects.map((e) => e.shellLengthMM)),
+        max: Math.max(...effects.map((e) => e.shellLengthMM)),
+      },
+    },
     warnings,
   };
 }
@@ -774,7 +809,7 @@ function estimatePlantWeight(
   const tubeDensity = tubeMat.includes('ti') ? DENSITY.ti_gr2 : DENSITY.al_5052;
 
   const evaporatorShells: ShellWeight[] = result.effects.map((e) => {
-    const shellLength = e.tubeLength * 1000 + 2 * tubeSheetThkMM + 200; // tube + sheets + clearance
+    const shellLength = e.shellLengthMM; // includes tube + sheets + 2×750mm access
     return estimateShellWeight(
       shellIDmm,
       shellLength,
