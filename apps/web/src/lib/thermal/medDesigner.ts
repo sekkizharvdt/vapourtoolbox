@@ -24,6 +24,8 @@ import { calculateNozzleLayout } from './sprayNozzleCalculator';
 import { selectPipeByVelocity } from './pipeService';
 import { calculateSiphonSizing } from './siphonSizingCalculator';
 import { calculateTDH } from './pumpSizing';
+import { calculateDosing } from './chemicalDosingCalculator';
+import { calculateVacuumSystem } from './vacuumSystemCalculator';
 
 // ============================================================================
 // Types
@@ -427,6 +429,15 @@ export interface MEDDesignerResult {
   /** Auxiliary equipment sizing */
   auxiliaryEquipment: MEDAuxiliaryEquipment;
 
+  /** Anti-scalant dosing results */
+  dosing?: MEDDosingResult;
+  /** Vacuum system sizing results */
+  vacuumSystem?: MEDVacuumResult;
+  /** Cost estimation */
+  costEstimate?: MEDCostEstimate;
+  /** Turndown analysis (opt-in) */
+  turndownAnalysis?: MEDTurndownAnalysis;
+
   /** Overall evaporator train dimensions (all shells in line) */
   overallDimensions: {
     /** Total train length mm (sum of all shell lengths + gaps between shells) */
@@ -466,7 +477,8 @@ function getDefaultPreheaterU(materialName: string): number {
 
 /** Material cost rates in USD/kg for budgetary estimation */
 /** Material cost rates in USD/kg — used by computeCostEstimate() */
-export const MATERIAL_COST_RATES: Record<string, number> = {
+/** Material cost rates in USD/kg — used by computeCostEstimate() */
+export const MATERIAL_COST_RATES: { [key: string]: number } = {
   duplex_ss: 8,
   al_5052: 6,
   ti_gr2: 30,
@@ -1022,8 +1034,29 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       swTemp: input.seawaterTemperature,
       condenserSWFlowM3h: condenser.seawaterFlowM3h,
     }),
+    // Dosing
+    dosing: computeDosing(
+      makeUpFeed,
+      getSeawaterDensity(swSalinity, input.seawaterTemperature),
+      input.antiscalantDoseMgL ?? 2
+    ),
+    // Vacuum system
+    vacuumSystem: computeVacuumSystem(
+      effects[nEff - 1]!.pressure,
+      effects[nEff - 1]!.vapourOutTemp,
+      condenser.seawaterFlowM3h,
+      input.seawaterTemperature,
+      swSalinity / 1000, // ppm → g/kg
+      effects.reduce((sum, e) => {
+        // Estimate shell volume: π/4 × D² × L (in m³)
+        const dM = (e.shellODmm ?? shellID + 16) / 1000;
+        const lM = e.shellLengthMM / 1000;
+        return sum + (Math.PI / 4) * dM * dM * lM;
+      }, 0),
+      input.vacuumTrainConfig ?? 'hybrid'
+    ),
     overallDimensions: {
-      totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 200, // 200mm gap between shells
+      totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 200,
       shellODmm: largestShellOD,
       shellLengthRange: {
         min: Math.min(...effects.map((e) => e.shellLengthMM)),
@@ -1404,8 +1437,206 @@ function computeAuxiliaryEquipment(
     }
   }
 
-  return { demisters, sprayNozzles, siphons, lineSizing, pumps, auxWarnings };
+  // ── 6. Nozzle schedule ───────────────────────────────────────────────
+  const nozzleSchedule = computeNozzleSchedule(effects, ctx);
+  auxWarnings.push(...nozzleSchedule.warnings);
+
+  return { demisters, sprayNozzles, siphons, lineSizing, pumps, nozzleSchedule, auxWarnings };
 }
+
+// ============================================================================
+// Anti-scalant Dosing
+// ============================================================================
+
+function computeDosing(
+  makeUpFeedTh: number,
+  swDensity: number,
+  doseMgL: number
+): MEDDosingResult | undefined {
+  try {
+    const feedFlowM3h = (makeUpFeedTh * 1000) / swDensity;
+    const result = calculateDosing({
+      feedFlowM3h,
+      doseMgL,
+      solutionDensityKgL: 1.05, // Belgard EV 2050 typical
+      storageDays: 30,
+    });
+    return {
+      feedFlowM3h,
+      doseMgL,
+      chemicalFlowLh: result.chemicalFlowLh,
+      dailyConsumptionKg: result.dailyConsumptionKg,
+      monthlyConsumptionKg: result.monthlyConsumptionKg,
+      storageTankM3: result.storageTankM3 ?? 0,
+      dosingLineOD: result.dosingLine ? `${result.dosingLine.tubingOD}mm OD` : 'N/A',
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+// ============================================================================
+// Vacuum System Sizing
+// ============================================================================
+
+function computeVacuumSystem(
+  lastEffectPressureMbar: number,
+  lastEffectTempC: number,
+  swFlowM3h: number,
+  swTempC: number,
+  salinityGkg: number,
+  systemVolumeM3: number,
+  trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
+): MEDVacuumResult | undefined {
+  try {
+    const result = calculateVacuumSystem({
+      suctionPressureMbar: lastEffectPressureMbar - 2, // 2 mbar vent line ΔP
+      suctionTemperatureC: lastEffectTempC,
+      dischargePressureMbar: 1013,
+      ncgMode: 'combined',
+      includeHeiLeakage: true,
+      includeSeawaterGas: true,
+      systemVolumeM3,
+      seawaterFlowM3h: swFlowM3h,
+      seawaterTemperatureC: swTempC,
+      salinityGkg,
+      motivePressureBar: 8, // 8 bar motive steam
+      coolingWaterTempC: swTempC,
+      sealWaterTempC: swTempC,
+      trainConfig,
+      evacuationVolumeM3: systemVolumeM3,
+    });
+    return {
+      lastEffectPressureMbar,
+      systemVolumeM3,
+      totalDryNcgKgH: result.totalDryNcgKgH,
+      totalMotiveSteamKgH: result.totalMotiveSteamKgH,
+      totalPowerKW: result.totalPowerKW,
+      trainConfig,
+      evacuationTimeMinutes: result.evacuationTimeMinutes ?? 0,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+// ============================================================================
+// Nozzle Sizing for Shell Connections
+// ============================================================================
+
+function computeNozzleSchedule(effects: MEDEffectResult[], ctx: AuxContext): MEDNozzleSchedule {
+  const nozzles: MEDShellNozzle[] = [];
+  const warnings: string[] = [];
+
+  for (let i = 0; i < effects.length; i++) {
+    const e = effects[i]!;
+
+    // Flow rates for this effect
+    const vapourFlowTh = e.distillateFlow; // vapour produced ≈ distillate
+    const brineFlowTh = e.minSprayFlow; // total spray flow
+    const distillateFlowTh = e.distillateFlow;
+    const ventFlowTh = vapourFlowTh * 0.02; // ~2% vent
+
+    // Vapour density at effect conditions
+    const vapDensity = getDensityVapor(e.vapourOutTemp);
+
+    const nozzleSpecs: {
+      service: MEDShellNozzle['service'];
+      flowTh: number;
+      density: number;
+      targetVel: number;
+      velLimits: { min: number; max: number };
+    }[] = [
+      {
+        service: 'vapour_inlet',
+        flowTh: i === 0 ? ctx.steamFlow : effects[i - 1]!.distillateFlow,
+        density: getDensityVapor(e.incomingVapourTemp),
+        targetVel: 30,
+        velLimits: { min: 15, max: 50 },
+      },
+      {
+        service: 'vapour_outlet',
+        flowTh: vapourFlowTh,
+        density: vapDensity,
+        targetVel: 30,
+        velLimits: { min: 15, max: 50 },
+      },
+      {
+        service: 'brine_inlet',
+        flowTh: brineFlowTh,
+        density: getSeawaterDensity(ctx.swSalinity, e.brineTemp),
+        targetVel: 1.0,
+        velLimits: { min: 0.5, max: 1.5 },
+      },
+      {
+        service: 'brine_outlet',
+        flowTh: ctx.brineBlowdown / ctx.nEff,
+        density: getSeawaterDensity(ctx.maxBrineSalinity, e.brineTemp),
+        targetVel: 1.0,
+        velLimits: { min: 0.5, max: 1.5 },
+      },
+      {
+        service: 'distillate_outlet',
+        flowTh: distillateFlowTh,
+        density: 998,
+        targetVel: 0.8,
+        velLimits: { min: 0.3, max: 1.5 },
+      },
+      {
+        service: 'vent',
+        flowTh: ventFlowTh,
+        density: vapDensity,
+        targetVel: 20,
+        velLimits: { min: 10, max: 30 },
+      },
+    ];
+
+    for (const spec of nozzleSpecs) {
+      try {
+        const volFlow = (spec.flowTh * 1000) / (spec.density * 3600); // m³/s
+        if (volFlow <= 0 || !isFinite(volFlow)) {
+          nozzles.push({
+            effect: e.effect,
+            service: spec.service,
+            flowRate: spec.flowTh,
+            pipeSize: 'N/A',
+            dn: 'N/A',
+            velocity: 0,
+            velocityStatus: 'N/A',
+          });
+          continue;
+        }
+        const pipe = selectPipeByVelocity(volFlow, spec.targetVel, spec.velLimits);
+        nozzles.push({
+          effect: e.effect,
+          service: spec.service,
+          flowRate: spec.flowTh,
+          pipeSize: pipe.displayName,
+          dn: pipe.dn,
+          velocity: pipe.actualVelocity,
+          velocityStatus: pipe.velocityStatus,
+        });
+      } catch (err) {
+        warnings.push(
+          `Nozzle E${e.effect} ${spec.service}: ${err instanceof Error ? err.message : 'failed'}`
+        );
+        nozzles.push({
+          effect: e.effect,
+          service: spec.service,
+          flowRate: spec.flowTh,
+          pipeSize: 'N/A',
+          dn: 'N/A',
+          velocity: 0,
+          velocityStatus: 'error',
+        });
+      }
+    }
+  }
+
+  return { nozzles, warnings };
+}
+
+// Cost estimation — on hold, will be implemented later
 
 // ============================================================================
 // Weight Estimation
