@@ -181,6 +181,18 @@ export interface MEDCondenserResult {
   designArea: number; // m²
   seawaterFlow: number; // T/h
   seawaterFlowM3h: number; // m³/h
+  /** Number of tubes */
+  tubes: number;
+  /** Number of passes */
+  passes: number;
+  /** Tube-side velocity m/s */
+  velocity: number;
+  /** Shell OD mm */
+  shellODmm: number;
+  /** Tube OD mm */
+  tubeOD: number;
+  /** Tube length mm */
+  tubeLengthMM: number;
 }
 
 /** Preheater result */
@@ -193,6 +205,20 @@ export interface MEDPreheaterResult {
   duty: number; // kW
   lmtd: number; // °C
   designArea: number; // m²
+  /** Flow through this PH (decreasing as spray peeled off) T/h */
+  flowTh: number;
+  /** Number of tubes */
+  tubes: number;
+  /** Number of passes */
+  passes: number;
+  /** Tube-side velocity m/s */
+  velocity: number;
+  /** Shell OD mm */
+  shellODmm: number;
+  /** Tube OD mm */
+  tubeOD: number;
+  /** Tube length mm */
+  tubeLengthMM: number;
 }
 
 /** Per-effect demister sizing result */
@@ -1000,15 +1026,36 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const swDensity = getSeawaterDensity(swSalinity, input.seawaterTemperature);
   const fcSWflowM3h = (fcSWflow * 1000) / swDensity;
 
+  // Condenser tube sizing: 17mm × 0.4mm Ti, 4 passes, target 1.5 m/s
+  const fcTubeOD = 17;
+  const fcTubeID = 16.2;
+  const fcTubeAreaPerTube = (Math.PI / 4) * (fcTubeID / 1000) ** 2;
+  const fcPasses = 4;
+  const fcTargetVel = 1.5;
+  const fcTubeLength = 2100; // mm
+  const fcFlowM3s = fcSWflowM3h / 3600;
+  const fcTubesPerPass = Math.ceil(fcFlowM3s / (fcTargetVel * fcTubeAreaPerTube));
+  const fcTubes = fcTubesPerPass * fcPasses;
+  const fcActualVel = fcFlowM3s / (fcTubesPerPass * fcTubeAreaPerTube);
+  const fcActualArea = fcTubes * Math.PI * (fcTubeOD / 1000) * (fcTubeLength / 1000);
+  const fcBundleDia = Math.sqrt((fcTubes * 21.3 * 21.3 * 4) / Math.PI);
+  const fcShellOD = Math.round(fcBundleDia + 80); // larger clearance for condenser
+
   const condenser: MEDCondenserResult = {
     vapourFlow: fcVapFlow,
     vapourTemp: fcVapT,
     duty: fcDuty,
     lmtd: fcLMTD,
     overallU: fcU,
-    designArea: fcArea,
+    designArea: Math.max(fcArea, fcActualArea),
     seawaterFlow: fcSWflow,
     seawaterFlowM3h: fcSWflowM3h,
+    tubes: fcTubes,
+    passes: fcPasses,
+    velocity: fcActualVel,
+    shellODmm: fcShellOD,
+    tubeOD: fcTubeOD,
+    tubeLengthMM: fcTubeLength,
   };
 
   if (fcLMTD < 2) {
@@ -1018,31 +1065,69 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   }
 
   // ── Preheaters ───────────────────────────────────────────────────────
-  // Auto-determine: use preheaters from effects 2..N-1 (skip E1 and last)
+  // BARC philosophy: full spray flow (make-up + recirc) goes through PH chain.
+  // Flow path: recirc pump → spray E_last → PH-1 → spray E_(last-1) → PH-2 → ... → PH-N → spray E2 → E1
+  // Flow DECREASES through each PH as spray is peeled off at each effect.
+  // Tubes: 17mm OD × 0.4mm Ti SB338 Gr2, 21.3mm triangular pitch, 4 passes, target 1.5 m/s.
   const numPH = input.numberOfPreheaters ?? Math.max(0, Math.min(nEff - 2, 4));
   const preheaters: MEDPreheaterResult[] = [];
 
-  if (numPH > 0 && makeUpFeed > 0) {
-    // Preheat SW from condenserSWOutlet to ~TBT-5 (approaching E1 spray temp)
-    const phTempRise = Math.min((TBT - condenserSWOutlet) * 0.7, numPH * 4); // limit rise
+  // Preheater tube specs (condenser/PH use Ti, not evaporator Al)
+  const phTubeOD = 17; // mm
+  const phTubeID = 16.2; // mm
+  const phTubeAreaPerTube = (Math.PI / 4) * (phTubeID / 1000) ** 2; // m² flow area
+  const phPasses = 4;
+  const phTargetVel = 1.5; // m/s
+  const phPitch = 21.3; // mm triangular
+  const phTubeLength = 2100; // mm (standard, per BARC)
+
+  if (numPH > 0 && totalRecirc + makeUpFeed > 0) {
+    // Total spray flow = total spray to all effects (make-up + recirc)
+    const totalSprayFlow = effects.reduce((s, e) => s + e.minSprayFlow, 0); // T/h
+
+    // Preheat from condenserSWOutlet to ~TBT-5
+    const phTempRise = Math.min((TBT - condenserSWOutlet) * 0.7, numPH * 4);
     const phDTPerPH = phTempRise / numPH;
     const phU = input.preheaterU ?? getDefaultPreheaterU(input.tubeMaterialName ?? 'Al 5052');
 
+    // Spray per effect (average)
+    const sprayPerEffect = totalSprayFlow / nEff;
+
+    // Flow through PH chain decreases as spray is peeled off
+    // E_last gets cold spray (before PH-1), so PH-1 gets: totalSpray - sprayPerEffect
+    let phFlowTh = totalSprayFlow - sprayPerEffect; // after E_last spray peeled off
+
     for (let i = 0; i < numPH; i++) {
-      const phIdx = numPH - i; // PH numbering: PH1 is hottest
+      const phIdx = numPH - i; // PH numbering: PH1 is hottest (last in chain)
       const swIn = condenserSWOutlet + i * phDTPerPH;
       const swOut = swIn + phDTPerPH;
-      // Vapour source: effect i+2 (skip E1)
-      const vapSourceIdx = i + 1; // effect index (0-based), so effect 2, 3, 4...
+      // Vapour source: effects from last-1 going backwards
+      const vapSourceIdx = nEff - 2 - i; // 0-based effect index
       const vapT =
-        vapSourceIdx < nEff ? effects[vapSourceIdx]!.vapourOutTemp : lastEffect.vapourOutTemp;
-      const vapSourceName = `Effect ${vapSourceIdx + 1}`;
+        vapSourceIdx >= 0 && vapSourceIdx < nEff
+          ? effects[vapSourceIdx]!.vapourOutTemp
+          : lastEffect.vapourOutTemp;
+      const vapSourceName = vapSourceIdx >= 0 ? `Effect ${vapSourceIdx + 1}` : 'Last Effect';
 
-      const phDuty = (makeUpFeed * 1000 * cpSW * phDTPerPH) / 3600;
+      // Duty based on the flow through THIS preheater (not make-up only)
+      const phDuty = (phFlowTh * 1000 * cpSW * phDTPerPH) / 3600; // kW
       const phDT1 = vapT - swOut;
       const phDT2 = vapT - swIn;
       const phLMTD = phDT1 > 0 && phDT2 > 0 ? (phDT1 - phDT2) / Math.log(phDT1 / phDT2) : 1;
       const phArea = phLMTD > 0 ? ((phDuty * 1000) / (phU * phLMTD)) * (1 + designMargin) : 0;
+
+      // Tube count for target velocity (1.5 m/s at 4 passes)
+      const phFlowM3s = (phFlowTh * 1000) / (getSeawaterDensity(swSalinity, swIn) * 3600);
+      const tubesPerPass = Math.ceil(phFlowM3s / (phTargetVel * phTubeAreaPerTube));
+      const phTubes = tubesPerPass * phPasses;
+      const actualVel = phFlowM3s / (tubesPerPass * phTubeAreaPerTube);
+
+      // Actual area from tubes
+      const actualArea = phTubes * Math.PI * (phTubeOD / 1000) * (phTubeLength / 1000);
+
+      // Shell OD estimate (triangular pitch bundle)
+      const bundleDia = Math.sqrt((phTubes * phPitch * phPitch * 4) / Math.PI);
+      const phShellOD = Math.round(bundleDia + 50); // + clearance
 
       preheaters.push({
         id: phIdx,
@@ -1052,8 +1137,18 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
         swOutlet: swOut,
         duty: phDuty,
         lmtd: phLMTD,
-        designArea: phArea,
+        designArea: Math.max(phArea, actualArea), // use larger of thermal or actual
+        flowTh: phFlowTh,
+        tubes: phTubes,
+        passes: phPasses,
+        velocity: actualVel,
+        shellODmm: phShellOD,
+        tubeOD: phTubeOD,
+        tubeLengthMM: phTubeLength,
       });
+
+      // Peel off spray for this effect
+      phFlowTh -= sprayPerEffect;
     }
   }
 
