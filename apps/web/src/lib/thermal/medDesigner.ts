@@ -257,9 +257,11 @@ export interface MEDDesignOption {
   condenserArea: number; // m²
   totalPreheaterArea: number; // m²
   totalBrineRecirculation: number; // T/h
-  seawaterFlow: number; // m³/h
   specificEnergy: number; // kWh_thermal / m³ distillate
-  specificArea: number; // m² / (m³/day)
+  /** Largest shell ID across all effects (mm) — auto-calculated */
+  largestShellID: number;
+  /** Overall train length (mm) — sum of all shell lengths + gaps */
+  trainLengthMM: number;
   weight: MEDWeightEstimate;
   feasible: boolean;
   label: string; // e.g. "Option A — High GOR"
@@ -364,6 +366,33 @@ function estimateU(tempC: number, _od: number, wallThk: number, kWall: number): 
 }
 
 /** Count tubes in lateral half-circle bundle */
+/**
+ * Find the minimum shell ID that fits at least `requiredTubes` in a lateral bundle.
+ * Searches from 800mm upward in 50mm increments, then refines to 10mm.
+ */
+function findMinShellID(
+  requiredTubes: number,
+  tubeOD: number,
+  pitch: number,
+  withVapourLanes: boolean
+): number {
+  // Coarse search
+  let shellID = 800;
+  while (shellID <= 6000) {
+    const count = countLateralTubes(shellID, tubeOD, pitch, withVapourLanes);
+    if (count >= requiredTubes) break;
+    shellID += 50;
+  }
+  // Refine downward
+  shellID -= 50;
+  while (shellID <= 6000) {
+    const count = countLateralTubes(shellID, tubeOD, pitch, withVapourLanes);
+    if (count >= requiredTubes) return shellID;
+    shellID += 10;
+  }
+  return shellID;
+}
+
 function countLateralTubes(
   shellID: number,
   _tubeOD: number,
@@ -443,7 +472,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     maxBrineSalinity,
     condenserApproach,
     condenserSWOutlet,
-    shellID,
+    shellID: shellID, // user input (may be overridden by auto-calc)
     tubeOD,
     tubeWallThickness: tubeWall,
     tubeConductivity: kWall,
@@ -461,12 +490,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const totalAvailDT = TBT - lastEffectVapourT;
   const areaPerTubePerM = Math.PI * (tubeOD / 1000);
 
-  // Tube counts
-  const tubesWithLanes = countLateralTubes(shellID, tubeOD, pitch, true);
-  const tubesNoLanes = countLateralTubes(shellID, tubeOD, pitch, false);
-  const tubesPerRow = getMaxTubesPerRow(shellID, pitch);
   const maxTubeLength = Math.max(...availableLengths);
-  const maxAreaPerEffect = tubesNoLanes * areaPerTubePerM * maxTubeLength;
 
   if (totalAvailDT <= 0) {
     throw new Error(
@@ -474,12 +498,8 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     );
   }
 
-  // Shell diameter warning
-  if (shellID < 1800) {
-    warnings.push(
-      `Shell ID (${shellID} mm) is below 1,800 mm — person cannot enter the evaporator for maintenance. Consider increasing shell diameter.`
-    );
-  }
+  // Shell ID will be auto-calculated from the largest effect's tube requirement.
+  // The user-provided shellID is treated as an override — if not provided, we compute it.
 
   // ── Average brine salinity for BPE estimation ────────────────────────
   // In parallel feed: spray = mix of make-up + recycled brine
@@ -500,7 +520,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
         totalWorkingDT: totalWorkDT,
         workingDTPerEffect: 0,
         requiredAreaPerEffect: Infinity,
-        availableArea: maxAreaPerEffect,
+        availableArea: 0,
         areaMargin: -100,
         achievableGOR: 0,
         distillate: 0,
@@ -513,9 +533,16 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     const avgU = estimateU(avgTemp, tubeOD, tubeWall, kWall);
     const reqAreaPerEff = ((Q1 * 1000) / (avgU * workDTPerEff)) * (1 + designMargin);
 
-    // Achievable GOR based on area coverage
-    const areaCoverage = Math.min(1, maxAreaPerEffect / reqAreaPerEff);
-    const gorRaw = n * areaCoverage * (1 - VENT_LOSS_FRACTION * n);
+    // Calculate tubes needed for the largest effect (uses max tube length)
+    const tubesNeeded = Math.ceil(reqAreaPerEff / (areaPerTubePerM * maxTubeLength));
+
+    // Calculate shell ID that fits those tubes
+    const requiredShellID = findMinShellID(tubesNeeded, tubeOD, pitch, false);
+    const availableArea =
+      countLateralTubes(requiredShellID, tubeOD, pitch, false) * areaPerTubePerM * maxTubeLength;
+
+    // GOR: all effects are adequately sized when shell fits the tubes
+    const gorRaw = n * (1 - VENT_LOSS_FRACTION * n);
     const achievableGOR = Math.max(0, gorRaw);
     const distillate = input.steamFlow * achievableGOR;
 
@@ -524,11 +551,11 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       totalWorkingDT: totalWorkDT,
       workingDTPerEffect: workDTPerEff,
       requiredAreaPerEffect: reqAreaPerEff,
-      availableArea: maxAreaPerEffect,
-      areaMargin: (maxAreaPerEffect / reqAreaPerEff - 1) * 100,
+      availableArea,
+      areaMargin: availableArea > 0 ? (availableArea / reqAreaPerEff - 1) * 100 : -100,
       achievableGOR,
       distillate,
-      feasible: totalWorkDT > 0 && areaCoverage > 0.7,
+      feasible: totalWorkDT > 0,
     });
   }
 
@@ -599,19 +626,36 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     const reqArea = workDT > 0 ? (duty * 1000) / (U * workDT) : Infinity;
     const desArea = reqArea * (1 + designMargin);
 
-    // E1 gets vapour lanes, later effects may not (to maximise area)
+    // E1 gets vapour lanes, later effects do not
     const hasLanes = i === 0;
-    const tubes = hasLanes ? tubesWithLanes : tubesNoLanes;
 
-    // Select tube length
+    // Auto-calculate tube count and tube length:
+    // Try each available tube length (shortest first) and find the tube count
+    // that provides the design area. Pick the combination that minimises shell ID.
+    let bestTubes = 0;
     let selectedLength = maxTubeLength;
-    const rawLength = desArea / (tubes * areaPerTubePerM);
     for (const L of availableLengths.sort((a, b) => a - b)) {
-      if (L >= rawLength - 0.01) {
-        selectedLength = L;
-        break;
+      const tubesForLength = Math.ceil(desArea / (areaPerTubePerM * L));
+      if (tubesForLength > 0 && isFinite(tubesForLength)) {
+        // Check if we can fit these in a reasonable shell
+        const testShellID = findMinShellID(tubesForLength, tubeOD, pitch, hasLanes);
+        if (testShellID <= 6000) {
+          bestTubes = tubesForLength;
+          selectedLength = L;
+          break; // shortest tube length that works
+        }
       }
     }
+    // Fallback: use max tube length
+    if (bestTubes === 0) {
+      bestTubes = Math.ceil(desArea / (areaPerTubePerM * maxTubeLength));
+      selectedLength = maxTubeLength;
+    }
+
+    // Get actual tube count from geometry (may be slightly more than bestTubes)
+    const effShellID = findMinShellID(bestTubes, tubeOD, pitch, hasLanes);
+    const tubes = countLateralTubes(effShellID, tubeOD, pitch, hasLanes);
+    const effTubesPerRow = getMaxTubesPerRow(effShellID, pitch);
 
     const instArea = tubes * areaPerTubePerM * selectedLength;
     const margin = desArea > 0 ? (instArea / desArea - 1) * 100 : 0;
@@ -620,7 +664,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     const distFlow = (duty * 3.6) / hfg; // T/h
 
     // Wetting / brine recirculation
-    const minSpray = minGamma * 2 * tubesPerRow * selectedLength * 3.6; // T/h
+    const minSpray = minGamma * 2 * effTubesPerRow * selectedLength * 3.6; // T/h
     const feedPerEffect =
       (((input.steamFlow * input.targetGOR) / nEff) * maxBrineSalinity) /
       (maxBrineSalinity - swSalinity);
@@ -652,7 +696,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       shellLengthMM: Math.round(
         selectedLength * 1000 + 2 * shellThkMM + 2 * tubeSheetThkMM + 2 * tubeSheetAccessMM
       ),
-      shellODmm: Math.round(shellID + 2 * shellThkMM),
+      shellODmm: Math.round(effShellID + 2 * shellThkMM),
     });
 
     prevVapourT = vapourOutT;
@@ -673,6 +717,15 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const totalRecirc = effects.reduce((sum, e) => sum + e.brineRecirculation, 0);
   const makeUpFeed = (totalDistillate * maxBrineSalinity) / (maxBrineSalinity - swSalinity);
   const brineBlowdown = makeUpFeed - totalDistillate;
+
+  // ── Shell ID warning ────────────────────────────────────────────────
+  const largestShellOD = Math.max(...effects.map((e) => e.shellODmm));
+  const largestShellID = largestShellOD - 2 * shellThkMM;
+  if (largestShellID < 1800) {
+    warnings.push(
+      `Largest shell ID is ${largestShellID} mm (< 1,800 mm). A person cannot enter for tube maintenance. The designer may increase the shell to 1,800 mm ID minimum for access.`
+    );
+  }
 
   // ── Final Condenser ──────────────────────────────────────────────────
   const lastEffect = effects[nEff - 1]!;
@@ -801,7 +854,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     }),
     overallDimensions: {
       totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 200, // 200mm gap between shells
-      shellODmm: effects[0]?.shellODmm ?? Math.round(shellID + 2 * shellThkMM),
+      shellODmm: largestShellOD,
       shellLengthRange: {
         min: Math.min(...effects.map((e) => e.shellLengthMM)),
         max: Math.max(...effects.map((e) => e.shellLengthMM)),
@@ -1358,9 +1411,9 @@ export function generateDesignOptions(input: MEDDesignerInput): MEDDesignOption[
         condenserArea: result.condenser.designArea,
         totalPreheaterArea: result.preheaters.reduce((s, p) => s + p.designArea, 0),
         totalBrineRecirculation: result.totalBrineRecirculation,
-        seawaterFlow: result.condenser.seawaterFlowM3h,
         specificEnergy: specificEnergy_kWhM3,
-        specificArea: result.totalEvaporatorArea / result.totalDistillateM3Day,
+        largestShellID: result.overallDimensions.shellODmm - 2 * (input.shellThickness ?? 8),
+        trainLengthMM: result.overallDimensions.totalLengthMM,
         weight,
         feasible: result.warnings.length === 0,
         label,

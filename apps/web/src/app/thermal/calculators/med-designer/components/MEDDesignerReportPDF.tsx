@@ -196,11 +196,10 @@ export function MEDDesignerReportPDF({
               { key: 'gor', header: 'GOR', width: '6%', align: 'right' },
               { key: 'distillate', header: 'm³/day', width: '8%', align: 'right' },
               { key: 'area', header: 'Evap m²', width: '8%', align: 'right' },
-              { key: 'sw', header: 'SW m³/h', width: '8%', align: 'right' },
+              { key: 'shellID', header: 'Shell ID', width: '8%', align: 'right' },
+              { key: 'trainL', header: 'Train m', width: '8%', align: 'right' },
               { key: 'energy', header: 'kWh/m³', width: '8%', align: 'right' },
-              { key: 'specA', header: 'm²/m³d', width: '8%', align: 'right' },
-              { key: 'dryWt', header: 'Dry kg', width: '9%', align: 'right' },
-              { key: 'operWt', header: 'Oper kg', width: '9%', align: 'right' },
+              { key: 'dryWt', header: 'Dry kg', width: '10%', align: 'right' },
               { key: 'ok', header: 'OK?', width: '5%', align: 'center' },
             ]}
             rows={options.map((o) => ({
@@ -209,11 +208,10 @@ export function MEDDesignerReportPDF({
               gor: fmt(o.gor),
               distillate: fmt(o.distillateM3Day, 0),
               area: fmt(o.totalEvaporatorArea, 0),
-              sw: fmt(o.seawaterFlow, 0),
+              shellID: o.largestShellID.toLocaleString(),
+              trainL: fmt(o.trainLengthMM / 1000, 1),
               energy: fmt(o.specificEnergy, 0),
-              specA: fmt(o.specificArea),
               dryWt: o.weight.totalDryWeight.toLocaleString(),
-              operWt: o.weight.totalOperatingWeight.toLocaleString(),
               ok: o.feasible ? 'YES' : 'NO',
             }))}
             striped

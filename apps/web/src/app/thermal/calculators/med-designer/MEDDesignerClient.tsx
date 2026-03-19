@@ -398,11 +398,10 @@ export default function MEDDesignerClient() {
                   <TableCell align="right">GOR</TableCell>
                   <TableCell align="right">Output (m&sup3;/day)</TableCell>
                   <TableCell align="right">Evap Area (m&sup2;)</TableCell>
-                  <TableCell align="right">SW Flow (m&sup3;/h)</TableCell>
+                  <TableCell align="right">Shell ID (mm)</TableCell>
+                  <TableCell align="right">Train L (m)</TableCell>
                   <TableCell align="right">Energy (kWh/m&sup3;)</TableCell>
-                  <TableCell align="right">Spec. Area</TableCell>
                   <TableCell align="right">Dry Wt (kg)</TableCell>
-                  <TableCell align="right">Oper Wt (kg)</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -430,14 +429,11 @@ export default function MEDDesignerClient() {
                       <TableCell align="right">{fmt(o.gor)}</TableCell>
                       <TableCell align="right">{fmt(o.distillateM3Day, 0)}</TableCell>
                       <TableCell align="right">{fmt(o.totalEvaporatorArea, 0)}</TableCell>
-                      <TableCell align="right">{fmt(o.seawaterFlow, 0)}</TableCell>
+                      <TableCell align="right">{o.largestShellID.toLocaleString()}</TableCell>
+                      <TableCell align="right">{fmt(o.trainLengthMM / 1000, 1)}</TableCell>
                       <TableCell align="right">{fmt(o.specificEnergy, 0)}</TableCell>
-                      <TableCell align="right">{fmt(o.specificArea)}</TableCell>
                       <TableCell align="right">
                         {o.weight.totalDryWeight.toLocaleString()}
-                      </TableCell>
-                      <TableCell align="right">
-                        {o.weight.totalOperatingWeight.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   );

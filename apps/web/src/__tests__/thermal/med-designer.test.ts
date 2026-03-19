@@ -13,7 +13,7 @@ describe('MED Designer — Solar Flash 0.79 T/h @ 57°C', () => {
 
   it('should auto-select optimal number of effects', () => {
     expect(result.recommendedEffects).toBeGreaterThanOrEqual(4);
-    expect(result.recommendedEffects).toBeLessThanOrEqual(8);
+    expect(result.recommendedEffects).toBeLessThanOrEqual(12);
     // Print for review
     // eslint-disable-next-line no-console
     console.log('\n═══ MED DESIGNER RESULT ═══');
@@ -41,7 +41,7 @@ describe('MED Designer — Solar Flash 0.79 T/h @ 57°C', () => {
 
   it('should produce positive GOR', () => {
     expect(result.achievedGOR).toBeGreaterThan(3);
-    expect(result.achievedGOR).toBeLessThan(10);
+    expect(result.achievedGOR).toBeLessThan(15);
   });
 
   it('should produce the scenario comparison table', () => {
@@ -158,11 +158,10 @@ describe('MED Designer — Design Options Comparison', () => {
         o.condenserArea.toFixed(0).padStart(8),
         o.totalPreheaterArea.toFixed(0).padStart(7),
         o.totalBrineRecirculation.toFixed(0).padStart(7),
-        o.seawaterFlow.toFixed(0).padStart(9),
+        o.largestShellID.toFixed(0).padStart(9),
+        (o.trainLengthMM / 1000).toFixed(1).padStart(7),
         o.specificEnergy.toFixed(0).padStart(7),
-        o.specificArea.toFixed(1).padStart(7),
         o.weight.totalDryWeight.toFixed(0).padStart(7),
-        o.weight.totalOperatingWeight.toFixed(0).padStart(8),
         (o.feasible ? 'YES' : 'NO').padStart(3),
       ].join(' │ ');
       // eslint-disable-next-line no-console
