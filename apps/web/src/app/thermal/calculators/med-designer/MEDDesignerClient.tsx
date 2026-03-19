@@ -750,6 +750,13 @@ export default function MEDDesignerClient() {
                   <TableCell align="right">{fmt(detail.totalBrineRecirculation)} T/h</TableCell>
                 </TableRow>
                 <TableRow>
+                  <TableCell>Total Spray (make-up + recirc)</TableCell>
+                  <TableCell align="right">
+                    {fmt(detail.makeUpFeed + detail.totalBrineRecirculation)} T/h @{' '}
+                    {detail.spraySalinity.toLocaleString()} ppm
+                  </TableCell>
+                </TableRow>
+                <TableRow>
                   <TableCell>Condenser SW</TableCell>
                   <TableCell align="right">
                     {fmt(detail.condenser.seawaterFlowM3h, 0)} m&sup3;/h
@@ -863,6 +870,7 @@ export default function MEDDesignerClient() {
                       <TableCell align="right">Model</TableCell>
                       <TableCell align="right">Qty</TableCell>
                       <TableCell align="right">lpm/noz</TableCell>
+                      <TableCell align="right">H (mm)</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -873,7 +881,8 @@ export default function MEDDesignerClient() {
                           {sn.nozzleModel}
                         </TableCell>
                         <TableCell align="right">{sn.nozzleCount}</TableCell>
-                        <TableCell align="right">{fmt(sn.flowPerNozzle, 2)}</TableCell>
+                        <TableCell align="right">{fmt(sn.flowPerNozzle, 1)}</TableCell>
+                        <TableCell align="right">{sn.sprayHeight.toFixed(0)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

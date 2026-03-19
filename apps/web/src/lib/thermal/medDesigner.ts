@@ -20,7 +20,7 @@ import {
 } from '@vapour/constants';
 
 import { calculateDemisterSizing } from './demisterCalculator';
-import { selectSprayNozzles } from './sprayNozzleCalculator';
+import { calculateNozzleLayout } from './sprayNozzleCalculator';
 import { selectPipeByVelocity } from './pipeService';
 import { calculateSiphonSizing } from './siphonSizingCalculator';
 import { calculateTDH } from './pumpSizing';
@@ -181,6 +181,9 @@ export interface MEDSprayNozzleResult {
   nozzleCount: number;
   flowPerNozzle: number; // lpm
   sprayAngle: number; // degrees
+  sprayHeight: number; // mm — vertical distance from nozzle to tube bundle top
+  nozzlesAlongLength: number;
+  rowsAcrossWidth: number;
 }
 
 /** Siphon between effects */
@@ -301,6 +304,8 @@ export interface MEDDesignerResult {
   totalBrineRecirculation: number; // T/h
   makeUpFeed: number; // T/h
   brineBlowdown: number; // T/h
+  /** Blended spray TDS (ppm) — mix of make-up seawater + recycled brine */
+  spraySalinity: number;
   numberOfShells: number;
 
   /** Auxiliary equipment sizing */
@@ -766,10 +771,24 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     totalBrineRecirculation: totalRecirc,
     makeUpFeed,
     brineBlowdown,
+    spraySalinity:
+      totalRecirc + makeUpFeed > 0
+        ? Math.round(
+            (makeUpFeed * swSalinity + totalRecirc * maxBrineSalinity) / (makeUpFeed + totalRecirc)
+          )
+        : swSalinity,
     numberOfShells: nEff,
     auxiliaryEquipment: computeAuxiliaryEquipment(effects, condenser, {
       swSalinity,
       maxBrineSalinity,
+      // Blended spray TDS: (make-up × SW_TDS + recirc × brine_TDS) / total
+      spraySalinity:
+        totalRecirc + makeUpFeed > 0
+          ? Math.round(
+              (makeUpFeed * swSalinity + totalRecirc * maxBrineSalinity) /
+                (makeUpFeed + totalRecirc)
+            )
+          : swSalinity,
       shellID,
       nEff,
       totalDistillate,
@@ -799,6 +818,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
 interface AuxContext {
   swSalinity: number;
   maxBrineSalinity: number;
+  spraySalinity: number; // blended TDS of make-up + recycled brine
   shellID: number;
   nEff: number;
   totalDistillate: number;
@@ -852,7 +872,7 @@ function computeAuxiliaryEquipment(
     }
   });
 
-  // ── 2. Spray nozzles per effect ─────────────────────────────────────
+  // ── 2. Spray nozzles per effect (using layout calculator for height) ──
   const sprayNozzles: MEDSprayNozzleResult[] = effects.map((e) => {
     try {
       // Total spray flow = feed + recirculation, convert T/h → lpm
@@ -860,22 +880,34 @@ function computeAuxiliaryEquipment(
       const avgSalinity = (ctx.swSalinity + ctx.maxBrineSalinity) / 2;
       const density = getSeawaterDensity(avgSalinity, e.brineTemp);
       // T/h → lpm: (T/h × 1000 kg/T) / (density kg/m³) = m³/h, × 1000/60 = lpm
-      const sprayFlowLpm = ((sprayFlowTh * 1000) / density) * (1000 / 60); // lpm
+      const sprayFlowLpm = ((sprayFlowTh * 1000) / density) * (1000 / 60);
 
-      const result = selectSprayNozzles({
+      // Use layout calculator — gives nozzle height, count, and positioning
+      const bundleLengthMM = e.tubeLength * 1000; // tube length in mm
+      // Bundle width ≈ half-shell width for lateral bundle
+      const bundleWidthMM = ctx.shellID * 0.85; // approx usable width
+
+      const layoutResult = calculateNozzleLayout({
         category: 'full_cone_square',
-        requiredFlow: sprayFlowLpm,
-        operatingPressure: 1.5, // bar (typical spray pressure)
-        numberOfNozzles: Math.max(4, Math.ceil(sprayFlowLpm / 15)), // ~15 lpm per nozzle
+        totalFlow: sprayFlowLpm,
+        operatingPressure: 1.5, // bar
+        bundleLength: bundleLengthMM,
+        bundleWidth: bundleWidthMM,
+        targetHeight: 400, // mm — typical for MED spray
+        minHeight: 250,
+        maxHeight: 600,
       });
 
-      const best = result.matches[0];
+      const best = layoutResult.matches[0];
       return {
         effect: e.effect,
         nozzleModel: best?.modelNumber ?? 'N/A',
-        nozzleCount: result.numberOfNozzles,
-        flowPerNozzle: result.flowPerNozzle,
+        nozzleCount: best?.totalNozzles ?? 0,
+        flowPerNozzle: best ? best.flowAtPressure : 0,
         sprayAngle: best?.sprayAngle ?? 0,
+        sprayHeight: best?.derivedHeight ?? 400,
+        nozzlesAlongLength: best?.nozzlesAlongLength ?? 0,
+        rowsAcrossWidth: best?.rowsAcrossWidth ?? 0,
       };
     } catch {
       return {
@@ -884,6 +916,9 @@ function computeAuxiliaryEquipment(
         nozzleCount: 0,
         flowPerNozzle: 0,
         sprayAngle: 0,
+        sprayHeight: 400, // default fallback
+        nozzlesAlongLength: 0,
+        rowsAcrossWidth: 0,
       };
     }
   });
@@ -1009,9 +1044,12 @@ function computeAuxiliaryEquipment(
       velLimits: { min: 0.5, max: 2.5 },
     },
     {
-      service: 'Brine Recirc (per effect)',
-      flowTh: ctx.totalRecirc / nEff,
-      density: getSeawaterDensity((ctx.swSalinity + ctx.maxBrineSalinity) / 2, 45),
+      service: 'Spray Header (total)',
+      flowTh: ctx.totalRecirc + ctx.makeUpFeed, // total spray = recirc + make-up
+      density: getSeawaterDensity(
+        ctx.spraySalinity ?? (ctx.swSalinity + ctx.maxBrineSalinity) / 2,
+        45
+      ),
       targetVel: 1.5,
       velLimits: { min: 0.5, max: 2.5 },
     },
@@ -1081,13 +1119,13 @@ function computeAuxiliaryEquipment(
       qty: '1+1',
     },
     {
-      service: 'Brine Recirculation Pump (each)',
-      flowTh: ctx.totalRecirc / nEff,
-      density: getSeawaterDensity((ctx.swSalinity + ctx.maxBrineSalinity) / 2, 45),
+      service: 'Brine Recirculation Pump',
+      flowTh: ctx.totalRecirc + ctx.makeUpFeed, // total spray: make-up + recycled brine
+      density: getSeawaterDensity(ctx.spraySalinity, 45),
       staticHead: 3,
       dischargePressure: 1.5,
       suctionPressure: 0.1, // ~100 mbar vacuum
-      qty: String(nEff),
+      qty: '1+1',
     },
   ];
 
