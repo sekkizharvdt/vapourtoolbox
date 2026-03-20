@@ -1966,6 +1966,13 @@ function computeVacuumSystem(
   trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
 ): MEDVacuumResult | undefined {
   try {
+    // HEI air leakage tables are for power plant condensers with many flanged
+    // connections. MED evaporators are welded with far fewer leak paths.
+    // BARC validation: 135.6 m³ system → 0.875 kg/h (HEI would give ~15 kg/h).
+    // Apply reduction factor of 0.15 to system volume for HEI lookup.
+    const heiReductionFactor = 0.15;
+    const effectiveVolumeForHEI = systemVolumeM3 * heiReductionFactor;
+
     const result = calculateVacuumSystem({
       suctionPressureMbar: lastEffectPressureMbar - 2, // 2 mbar vent line ΔP
       suctionTemperatureC: lastEffectTempC,
@@ -1973,7 +1980,7 @@ function computeVacuumSystem(
       ncgMode: 'combined',
       includeHeiLeakage: true,
       includeSeawaterGas: true,
-      systemVolumeM3,
+      systemVolumeM3: effectiveVolumeForHEI, // reduced for welded MED vessels
       seawaterFlowM3h: swFlowM3h,
       seawaterTemperatureC: swTempC,
       salinityGkg,
@@ -1981,7 +1988,7 @@ function computeVacuumSystem(
       coolingWaterTempC: swTempC,
       sealWaterTempC: swTempC,
       trainConfig,
-      evacuationVolumeM3: systemVolumeM3,
+      evacuationVolumeM3: systemVolumeM3, // full volume for evacuation time calc
     });
     return {
       lastEffectPressureMbar,
