@@ -565,6 +565,17 @@ export default function MEDDesignerClient() {
             <Typography variant="subtitle1" gutterBottom fontWeight={600}>
               Effect-by-Effect Design
             </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              Non-BPE losses per effect: NEA {detail.effects[0]?.nea ?? 0.25}&deg;C + Demister{' '}
+              {detail.effects[0]?.demisterLoss ?? 0.15}&deg;C + Vapour duct{' '}
+              {detail.effects[0]?.pressureDropLoss ?? 0.3}&deg;C ={' '}
+              {(
+                (detail.effects[0]?.nea ?? 0.25) +
+                (detail.effects[0]?.demisterLoss ?? 0.15) +
+                (detail.effects[0]?.pressureDropLoss ?? 0.3)
+              ).toFixed(2)}
+              &deg;C total
+            </Typography>
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
