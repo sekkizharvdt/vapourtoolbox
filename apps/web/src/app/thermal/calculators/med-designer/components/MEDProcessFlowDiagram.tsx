@@ -346,39 +346,44 @@ export function MEDProcessFlowDiagram({ result }: MEDProcessFlowDiagramProps) {
             m³/day)
           </text>
 
-          {/* ── Brine recirculation ──────────────────────────────────── */}
+          {/* ── Brine recirculation + make-up combined flow ──────────── */}
+          {/* Flow path: Last effect sump → mix with make-up SW → recirc pump →
+              PH chain → spray tap-off at each effect → E1 */}
           {result.totalBrineRecirculation > 0 && (
             <g>
               <text
                 x={(effPositions[0]!.x + lastEffPos.x + effW) / 2}
-                y={effY - 25}
+                y={effY - 30}
                 textAnchor="middle"
                 fontSize={7}
-                fill={brineCol}
+                fill={swCol}
               >
-                BRINE RECIRCULATION: {fmt(result.totalBrineRecirculation)} T/h
+                SPRAY FEED (make-up {fmt(result.makeUpFeed)} + recirc{' '}
+                {fmt(result.totalBrineRecirculation)} ={' '}
+                {fmt(result.makeUpFeed + result.totalBrineRecirculation)} T/h) → through preheaters
+                → to effects
               </text>
-              {/* Arrows looping over effects */}
+              {/* Single line showing spray distribution from PH chain to effects */}
               <line
                 x1={effPositions[0]!.x + 10}
-                y1={effY - 15}
+                y1={effY - 18}
                 x2={lastEffPos.x + effW - 10}
-                y2={effY - 15}
-                stroke={brineCol}
-                strokeWidth={1}
-                strokeDasharray="3,2"
+                y2={effY - 18}
+                stroke={swCol}
+                strokeWidth={1.2}
+                strokeDasharray="5,3"
               />
-              {/* Down arrows to each effect */}
+              {/* Spray tap-off arrows to each effect (from PH chain) */}
               {effPositions.map((pos, i) => (
                 <line
                   key={i}
-                  x1={pos.x + effW / 2 + 10}
-                  y1={effY - 15}
-                  x2={pos.x + effW / 2 + 10}
+                  x1={pos.x + effW / 2}
+                  y1={effY - 18}
+                  x2={pos.x + effW / 2}
                   y2={effY}
-                  stroke={brineCol}
+                  stroke={swCol}
                   strokeWidth={0.8}
-                  markerEnd="url(#arrowBrine)"
+                  markerEnd="url(#arrowSW)"
                 />
               ))}
             </g>
