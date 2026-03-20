@@ -835,21 +835,38 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   //   working ΔT + BPE + NEA + demister loss + duct pressure drop loss
   //
   // E1 brine = steamTemp - totalStepPerEffect
-  // E2 brine = E1_vapourOut - workDT_E2 = E1_brine - BPE - NEA - demLoss - pdLoss - workDT
+  // The working ΔT must be EQUAL for all effects (including E1).
+  // E1 is no different from E2 — steam condenses inside tubes just like
+  // the vapour from a previous effect. The temperature drop per effect:
+  //   total_step = working_ΔT + BPE + NEA + demister + duct losses
   //
-  // Since BPE varies with temperature, we iterate: distribute evenly first,
-  // then the working ΔT at each effect = totalStep - BPE - NEA - demLoss - pdLoss
-  const lastBPE = getBoilingPointElevation(maxBrineSalinity, lastEffectVapourT + 2);
-  const lastEffectBrineT = lastEffectVapourT + lastBPE + NEA + demLoss + pdLoss;
-  const totalBrineRange = input.steamTemperature - lastEffectBrineT;
-  const totalStepPerEffect = totalBrineRange / nEff;
+  // Total range = steam_T - last_effect_vapour_T
+  // N × (working_ΔT + avg_losses) = total_range
+  // working_ΔT = total_range/N - avg_losses
+  const totalRange = input.steamTemperature - lastEffectVapourT;
+  const avgLoss = avgLossPerEffect; // BPE + NEA + demLoss + pdLoss
+  const uniformWorkDT = totalRange / nEff - avgLoss;
+
+  if (uniformWorkDT <= 0) {
+    throw new Error(
+      `No working ΔT available: ${nEff} effects consume all ${totalRange.toFixed(1)}°C in losses (${avgLoss.toFixed(2)}°C/effect). Reduce effects or increase steam temperature.`
+    );
+  }
 
   const effects: MEDEffectResult[] = [];
 
-  // Compute brine temperatures: E1 brine = steam - step, E2 = steam - 2*step, etc.
+  // Build temperatures iteratively with equal working ΔT
+  // E1: brine = steam_T - workDT, vapour_out = brine - BPE - losses
+  // E2: brine = E1_vapour_out - workDT, vapour_out = brine - BPE - losses
+  // etc.
   const brineTemps: number[] = [];
+  let vapT = input.steamTemperature;
   for (let i = 0; i < nEff; i++) {
-    brineTemps.push(input.steamTemperature - (i + 1) * totalStepPerEffect);
+    const brineT = vapT - uniformWorkDT;
+    const bpe = getBoilingPointElevation(maxBrineSalinity, brineT);
+    const vapOutT = brineT - bpe - NEA - demLoss - pdLoss;
+    brineTemps.push(brineT);
+    vapT = vapOutT;
   }
 
   // Now build effects with proper incoming vapour tracking
