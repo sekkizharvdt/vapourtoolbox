@@ -70,6 +70,12 @@ export default function MEDDesignerClient() {
   const [tubeLengthOverrides, setTubeLengthOverrides] = useState<Record<number, string>>({});
   const [tubeCountOverrides, setTubeCountOverrides] = useState<Record<number, string>>({});
 
+  // ── Geometry comparison ──────────────────────────────────────────────
+  const [geoCompareMode, setGeoCompareMode] = useState<'fixed_length' | 'fixed_tubes'>(
+    'fixed_length'
+  );
+  const [geoCompareValue, setGeoCompareValue] = useState<string>('1.5');
+
   // ── Vacuum & Turndown ────────────────────────────────────────────────
   const [vacuumConfig, setVacuumConfig] = useState<string>('hybrid');
   const [includeTurndown, setIncludeTurndown] = useState(false);
@@ -728,35 +734,113 @@ export default function MEDDesignerClient() {
             </Table>
           </Paper>
 
-          {/* Geometry Comparison Options */}
-          {detail.geometryComparisons && detail.geometryComparisons.length > 0 && (
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-                Effect Geometry Options
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Compare fixed tube length vs fixed tube count vs auto-optimised. Shell ID &lt; 1,800
-                mm shown with warning (man-entry).
-              </Typography>
-              {detail.geometryComparisons.map((opt, oi) => (
-                <Box key={oi} sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    {opt.label}
-                    {opt.feasible ? (
-                      <Chip label="Feasible" size="small" color="success" sx={{ ml: 1 }} />
-                    ) : (
-                      <Chip label="Undersized" size="small" color="warning" sx={{ ml: 1 }} />
-                    )}
-                    <Typography
-                      component="span"
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ ml: 2 }}
-                    >
-                      Max Shell ID: {opt.maxShellID} mm | Train:{' '}
-                      {(opt.trainLength / 1000).toFixed(1)} m | Area: {opt.totalArea.toFixed(0)}{' '}
-                      m&sup2; | Recirc: {opt.totalRecirc.toFixed(1)} T/h
-                    </Typography>
+          {/* Geometry Comparison — Interactive */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+              Effect Geometry Comparison
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Choose a constraint and enter a value. The calculator will vary the other parameter
+              per effect to match the required area.
+            </Typography>
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center">
+              <TextField
+                select
+                label="Compare by"
+                value={geoCompareMode}
+                onChange={(e) =>
+                  setGeoCompareMode(e.target.value as 'fixed_length' | 'fixed_tubes')
+                }
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="fixed_length">Fixed Tube Length</MenuItem>
+                <MenuItem value="fixed_tubes">Fixed Tube Count</MenuItem>
+              </TextField>
+              <TextField
+                label={geoCompareMode === 'fixed_length' ? 'Tube Length (m)' : 'Tubes per Effect'}
+                value={geoCompareValue}
+                onChange={(e) => setGeoCompareValue(e.target.value)}
+                type="number"
+                sx={{ width: 160 }}
+              />
+            </Stack>
+            {(() => {
+              // Compute comparison on the fly from the detail result
+              const val = parseFloat(geoCompareValue);
+              if (!detail || isNaN(val) || val <= 0) return null;
+
+              const rows = detail.effects.map((e) => {
+                if (geoCompareMode === 'fixed_length') {
+                  // Fixed length: vary tube count per effect
+                  const tubeL = val;
+                  const areaPerTube = ((Math.PI * (detail.inputs.tubeOD ?? 25.4)) / 1000) * tubeL;
+                  const tubes = Math.ceil(e.designArea / areaPerTube);
+                  const instArea = tubes * areaPerTube;
+                  const margin = e.requiredArea > 0 ? (instArea / e.requiredArea - 1) * 100 : 0;
+                  // Estimate shell ID from tube count
+                  const pitch = detail.inputs.tubePitch ?? 33.4;
+                  const shellID = Math.round(
+                    Math.sqrt((tubes * pitch * pitch * 4) / Math.PI) * 1.15
+                  );
+                  const tpr = Math.round(shellID / 2 / pitch);
+                  const minSpray = 0.035 * 2 * tpr * tubeL * 3.6;
+                  const feed =
+                    (e.distillateFlow * (detail.inputs.maxBrineSalinity ?? 65000)) /
+                    ((detail.inputs.maxBrineSalinity ?? 65000) -
+                      (detail.inputs.seawaterSalinity ?? 35000));
+                  const recirc = Math.max(0, minSpray - feed);
+                  return {
+                    effect: e.effect,
+                    tubes,
+                    tubeLength: tubeL,
+                    shellID,
+                    instArea,
+                    margin,
+                    recirc,
+                  };
+                } else {
+                  // Fixed tubes: vary tube length per effect
+                  const tubes = Math.round(val);
+                  const areaPerTubePerM = (Math.PI * (detail.inputs.tubeOD ?? 25.4)) / 1000;
+                  const tubeL = Math.ceil((e.designArea / (tubes * areaPerTubePerM)) * 10) / 10; // round to 0.1m
+                  const instArea = tubes * areaPerTubePerM * tubeL;
+                  const margin = e.requiredArea > 0 ? (instArea / e.requiredArea - 1) * 100 : 0;
+                  const pitch = detail.inputs.tubePitch ?? 33.4;
+                  const shellID = Math.round(
+                    Math.sqrt((tubes * pitch * pitch * 4) / Math.PI) * 1.15
+                  );
+                  const tpr = Math.round(shellID / 2 / pitch);
+                  const minSpray = 0.035 * 2 * tpr * tubeL * 3.6;
+                  const feed =
+                    (e.distillateFlow * (detail.inputs.maxBrineSalinity ?? 65000)) /
+                    ((detail.inputs.maxBrineSalinity ?? 65000) -
+                      (detail.inputs.seawaterSalinity ?? 35000));
+                  const recirc = Math.max(0, minSpray - feed);
+                  return {
+                    effect: e.effect,
+                    tubes,
+                    tubeLength: tubeL,
+                    shellID,
+                    instArea,
+                    margin,
+                    recirc,
+                  };
+                }
+              });
+
+              const maxShellID = Math.max(...rows.map((r) => r.shellID));
+              const totalArea = rows.reduce((s, r) => s + r.instArea, 0);
+              const totalRecirc = rows.reduce((s, r) => s + r.recirc, 0);
+
+              return (
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {geoCompareMode === 'fixed_length'
+                      ? `All effects use ${val}m tubes. Tube count varies per effect.`
+                      : `All effects use ${Math.round(val)} tubes. Tube length varies per effect.`}{' '}
+                    Max Shell ID: {maxShellID} mm
+                    {maxShellID < 1800 ? ' ⚠ (below 1,800mm man-entry)' : ''} | Total Area:{' '}
+                    {totalArea.toFixed(0)} m² | Recirc: {totalRecirc.toFixed(1)} T/h
                   </Typography>
                   <Table size="small">
                     <TableHead>
@@ -765,54 +849,44 @@ export default function MEDDesignerClient() {
                         <TableCell align="right">Tubes</TableCell>
                         <TableCell align="right">Tube L (m)</TableCell>
                         <TableCell align="right">Shell ID (mm)</TableCell>
-                        <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
+                        <TableCell align="right">Inst. Area (m²)</TableCell>
                         <TableCell align="right">Margin</TableCell>
                         <TableCell align="right">Recirc (T/h)</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {opt.effects.map((ge) => (
+                      {rows.map((r) => (
                         <TableRow
-                          key={ge.effect}
-                          sx={{
-                            bgcolor: ge.shellID === opt.maxShellID ? 'action.selected' : undefined,
-                          }}
+                          key={r.effect}
+                          sx={{ bgcolor: r.shellID === maxShellID ? 'action.selected' : undefined }}
                         >
-                          <TableCell>
-                            E{ge.effect}
-                            {ge.hasVapourLanes ? ' *' : ''}
-                          </TableCell>
-                          <TableCell align="right">{ge.tubes}</TableCell>
-                          <TableCell align="right">{ge.tubeLength.toFixed(1)}</TableCell>
+                          <TableCell>E{r.effect}</TableCell>
+                          <TableCell align="right">{r.tubes}</TableCell>
+                          <TableCell align="right">{r.tubeLength.toFixed(1)}</TableCell>
                           <TableCell align="right">
-                            {ge.shellID}
-                            {ge.shellID < 1800 ? ' ⚠' : ''}
+                            {r.shellID}
+                            {r.shellID < 1800 ? ' ⚠' : ''}
                           </TableCell>
-                          <TableCell align="right">{ge.installedArea.toFixed(0)}</TableCell>
+                          <TableCell align="right">{r.instArea.toFixed(0)}</TableCell>
                           <TableCell
                             align="right"
                             sx={{
-                              color: ge.margin >= 0 ? 'success.main' : 'error.main',
+                              color: r.margin >= 0 ? 'success.main' : 'error.main',
                               fontWeight: 600,
                             }}
                           >
-                            {ge.margin >= 0 ? '+' : ''}
-                            {ge.margin.toFixed(0)}%
+                            {r.margin >= 0 ? '+' : ''}
+                            {r.margin.toFixed(0)}%
                           </TableCell>
-                          <TableCell align="right">{ge.brineRecirc.toFixed(1)}</TableCell>
+                          <TableCell align="right">{r.recirc.toFixed(1)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                  {opt.warnings.length > 0 && (
-                    <Alert severity="warning" sx={{ mt: 1 }}>
-                      {opt.warnings.join('; ')}
-                    </Alert>
-                  )}
                 </Box>
-              ))}
-            </Paper>
-          )}
+              );
+            })()}
+          </Paper>
 
           {/* Preheater Contribution to Distillate */}
           {detail.preheaterContributions && detail.preheaterContributions.length > 0 && (
