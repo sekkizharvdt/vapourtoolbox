@@ -725,10 +725,17 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   };
 
   // ── Derived values ───────────────────────────────────────────────────
-  const steamApproach = 2.0; // °C approach from steam to TBT
-  const TBT = input.steamTemperature - steamApproach;
+  // TBT is NOT a fixed approach from steam temperature.
+  // The total ΔT from steam to condenser is distributed across all effects.
+  // Each effect loses BPE + NEA + demister + duct losses from the vapour.
+  // TBT = steam_temp - (total_loss_per_effect) where the working ΔT for E1
+  // equals the working ΔT for all other effects (even distribution).
   const lastEffectVapourT = condenserSWOutlet + condenserApproach;
-  const totalAvailDT = TBT - lastEffectVapourT;
+  // Total range: steam temp → last effect vapour (before BPE/NEA distribution)
+  const totalRangeDT = input.steamTemperature - lastEffectVapourT;
+  // TBT will be computed after we know nEff and avg losses — use preliminary estimate
+  const TBT = input.steamTemperature; // will be refined per-effect below
+  const totalAvailDT = totalRangeDT; // full range from steam to last vapour
   const areaPerTubePerM = Math.PI * (tubeOD / 1000);
 
   const maxTubeLength = Math.max(...availableLengths);
@@ -823,17 +830,26 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const nEff = recommendedEffects;
 
   // ── Build effect-by-effect temperature profile ───────────────────────
-  // Distribute brine temperatures evenly from TBT to last-effect brine temp
-  // Last effect brine temp ≈ lastEffectVapourT + BPE + NEA + pdLoss
+  // The total temperature range from steam to last effect brine is distributed
+  // evenly across all effects. Each effect's "total step" includes:
+  //   working ΔT + BPE + NEA + demister loss + duct pressure drop loss
+  //
+  // E1 brine = steamTemp - totalStepPerEffect
+  // E2 brine = E1_vapourOut - workDT_E2 = E1_brine - BPE - NEA - demLoss - pdLoss - workDT
+  //
+  // Since BPE varies with temperature, we iterate: distribute evenly first,
+  // then the working ΔT at each effect = totalStep - BPE - NEA - demLoss - pdLoss
   const lastBPE = getBoilingPointElevation(maxBrineSalinity, lastEffectVapourT + 2);
   const lastEffectBrineT = lastEffectVapourT + lastBPE + NEA + demLoss + pdLoss;
+  const totalBrineRange = input.steamTemperature - lastEffectBrineT;
+  const totalStepPerEffect = totalBrineRange / nEff;
 
   const effects: MEDEffectResult[] = [];
 
-  // Compute all brine temperatures first, then derive vapour temps
+  // Compute brine temperatures: E1 brine = steam - step, E2 = steam - 2*step, etc.
   const brineTemps: number[] = [];
   for (let i = 0; i < nEff; i++) {
-    brineTemps.push(TBT - (i / Math.max(nEff - 1, 1)) * (TBT - lastEffectBrineT));
+    brineTemps.push(input.steamTemperature - (i + 1) * totalStepPerEffect);
   }
 
   // Now build effects with proper incoming vapour tracking
