@@ -707,6 +707,125 @@ export default function MEDDesignerClient() {
             </Table>
           </Paper>
 
+          {/* Geometry Comparison Options */}
+          {detail.geometryComparisons && detail.geometryComparisons.length > 0 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                Effect Geometry Options
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Compare fixed tube length vs fixed tube count vs auto-optimised. Shell ID &lt; 1,800
+                mm shown with warning (man-entry).
+              </Typography>
+              {detail.geometryComparisons.map((opt, oi) => (
+                <Box key={oi} sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    {opt.label}
+                    {opt.feasible ? (
+                      <Chip label="Feasible" size="small" color="success" sx={{ ml: 1 }} />
+                    ) : (
+                      <Chip label="Undersized" size="small" color="warning" sx={{ ml: 1 }} />
+                    )}
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ ml: 2 }}
+                    >
+                      Max Shell ID: {opt.maxShellID} mm | Train:{' '}
+                      {(opt.trainLength / 1000).toFixed(1)} m | Area: {opt.totalArea.toFixed(0)}{' '}
+                      m&sup2; | Recirc: {opt.totalRecirc.toFixed(1)} T/h
+                    </Typography>
+                  </Typography>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Effect</TableCell>
+                        <TableCell align="right">Tubes</TableCell>
+                        <TableCell align="right">Tube L (m)</TableCell>
+                        <TableCell align="right">Shell ID (mm)</TableCell>
+                        <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
+                        <TableCell align="right">Margin</TableCell>
+                        <TableCell align="right">Recirc (T/h)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {opt.effects.map((ge) => (
+                        <TableRow
+                          key={ge.effect}
+                          sx={{
+                            bgcolor: ge.shellID === opt.maxShellID ? 'action.selected' : undefined,
+                          }}
+                        >
+                          <TableCell>
+                            E{ge.effect}
+                            {ge.hasVapourLanes ? ' *' : ''}
+                          </TableCell>
+                          <TableCell align="right">{ge.tubes}</TableCell>
+                          <TableCell align="right">{ge.tubeLength.toFixed(1)}</TableCell>
+                          <TableCell align="right">
+                            {ge.shellID}
+                            {ge.shellID < 1800 ? ' ⚠' : ''}
+                          </TableCell>
+                          <TableCell align="right">{ge.installedArea.toFixed(0)}</TableCell>
+                          <TableCell
+                            align="right"
+                            sx={{
+                              color: ge.margin >= 0 ? 'success.main' : 'error.main',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {ge.margin >= 0 ? '+' : ''}
+                            {ge.margin.toFixed(0)}%
+                          </TableCell>
+                          <TableCell align="right">{ge.brineRecirc.toFixed(1)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {opt.warnings.length > 0 && (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      {opt.warnings.join('; ')}
+                    </Alert>
+                  )}
+                </Box>
+              ))}
+            </Paper>
+          )}
+
+          {/* Preheater Contribution to Distillate */}
+          {detail.preheaterContributions && detail.preheaterContributions.length > 0 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                Preheater Effect on Distillate Production
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Each preheater raises the spray temperature, reducing sensible heating inside the
+                effect and increasing latent heat available for evaporation.
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Preheater</TableCell>
+                    <TableCell align="right">Temp Rise (&deg;C)</TableCell>
+                    <TableCell align="right">Extra Distillate (%)</TableCell>
+                    <TableCell align="right">Cumulative (%)</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {detail.preheaterContributions.map((pc) => (
+                    <TableRow key={pc.phId}>
+                      <TableCell>PH-{pc.phId}</TableCell>
+                      <TableCell align="right">{pc.tempRise.toFixed(1)}</TableCell>
+                      <TableCell align="right">+{pc.extraDistillatePercent.toFixed(1)}%</TableCell>
+                      <TableCell align="right">+{pc.cumulativePercent.toFixed(1)}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          )}
+
           {/* Condenser & Preheaters */}
           <Grid container spacing={3} sx={{ mb: 3 }}>
             <Grid size={{ xs: 12, md: 6 }}>

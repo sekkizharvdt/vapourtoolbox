@@ -437,9 +437,47 @@ export function MEDProcessFlowDiagram({ result }: MEDProcessFlowDiagramProps) {
                   </g>
                 );
               })}
-              {/* Feed line through preheaters */}
+              {/* Feed water flow arrows through preheater chain */}
+              {result.preheaters.length > 1 &&
+                result.preheaters.slice(0, -1).map((_, i) => {
+                  const fromX = effStartX + i * 110 + 95;
+                  const toX = effStartX + (i + 1) * 110;
+                  return (
+                    <line
+                      key={`ph-flow-${i}`}
+                      x1={fromX}
+                      y1={phY + 20}
+                      x2={toX}
+                      y2={phY + 20}
+                      stroke={swCol}
+                      strokeWidth={1.5}
+                      markerEnd="url(#arrowSW)"
+                    />
+                  );
+                })}
+              {/* Arrow from condenser to PH chain */}
+              <path
+                d={`M${condX + condW / 2},${condY + condH} L${condX + condW / 2},${phY + 20} L${effStartX + (result.preheaters.length > 0 ? 0 : 0)},${phY + 20}`}
+                fill="none"
+                stroke={swCol}
+                strokeWidth={1.5}
+                strokeDasharray="4,2"
+                markerEnd="url(#arrowSW)"
+              />
+              <text x={condX + condW / 2 + 5} y={phY - 2} fontSize={6} fill={swCol}>
+                Make-up: {fmt(result.makeUpFeed)} T/h
+              </text>
+              {/* Condenser SW split annotation */}
+              {result.swReject !== undefined && result.swReject > 0 && (
+                <text x={condX + condW + 5} y={condY + condH + 15} fontSize={6} fill={swCol}>
+                  Reject: {fmt(result.swReject)} T/h
+                </text>
+              )}
+              {/* Feed line label */}
               <text x={effStartX} y={phY + 55} fontSize={7} fill={swCol}>
-                FEED: {fmt(result.makeUpFeed)} T/h → {nEff} effects
+                FEED: {fmt(result.makeUpFeed + result.totalBrineRecirculation)} T/h (make-up{' '}
+                {fmt(result.makeUpFeed)} + recirc {fmt(result.totalBrineRecirculation)}) → {nEff}{' '}
+                effects
               </text>
             </g>
           )}
