@@ -25,6 +25,7 @@ import {
   TableRow,
   Card,
   CardContent,
+  MenuItem,
 } from '@mui/material';
 import {
   RestartAlt as ResetIcon,
@@ -69,7 +70,8 @@ export default function MEDDesignerClient() {
   const [tubeLengthOverrides, setTubeLengthOverrides] = useState<Record<number, string>>({});
   const [tubeCountOverrides, setTubeCountOverrides] = useState<Record<number, string>>({});
 
-  // ── Turndown analysis ────────────────────────────────────────────────
+  // ── Vacuum & Turndown ────────────────────────────────────────────────
+  const [vacuumConfig, setVacuumConfig] = useState<string>('hybrid');
   const [includeTurndown, setIncludeTurndown] = useState(false);
 
   // ── Selected option ──────────────────────────────────────────────────
@@ -122,6 +124,11 @@ export default function MEDDesignerClient() {
       condenserSWOutlet: parseFloat(swOutlet) || undefined,
       designMargin: (parseFloat(designMargin) || 15) / 100,
       ...(selectedEffects ? { numberOfEffects: selectedEffects } : {}),
+      vacuumTrainConfig: vacuumConfig as
+        | 'single_ejector'
+        | 'two_stage_ejector'
+        | 'lrvp_only'
+        | 'hybrid',
       ...(includeTurndown ? { includeTurndown: true } : {}),
       // Per-effect overrides: convert Record<number, string> → (number | null)[]
       ...(Object.keys(tubeLengthOverrides).length > 0
@@ -159,6 +166,7 @@ export default function MEDDesignerClient() {
     designMargin,
     selectedEffects,
     includeTurndown,
+    vacuumConfig,
     tubeLengthOverrides,
     tubeCountOverrides,
   ]);
@@ -386,7 +394,20 @@ export default function MEDDesignerClient() {
                 InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
               />
             </Grid>
-            {/* Bundle type: only lateral (half-shell) is implemented */}
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                select
+                label="Vacuum System"
+                value={vacuumConfig}
+                onChange={(e) => setVacuumConfig(e.target.value)}
+                fullWidth
+              >
+                <MenuItem value="two_stage_ejector">2-Stage Steam Ejector</MenuItem>
+                <MenuItem value="single_ejector">Single Steam Ejector</MenuItem>
+                <MenuItem value="lrvp_only">Liquid Ring Vacuum Pump</MenuItem>
+                <MenuItem value="hybrid">Hybrid (Ejector + LRVP)</MenuItem>
+              </TextField>
+            </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <FormControlLabel
                 control={
