@@ -365,6 +365,42 @@ export interface MEDTurndownAnalysis {
   warnings: string[];
 }
 
+/** Per-effect row in geometry comparison */
+export interface GeometryComparisonEffect {
+  effect: number;
+  tubeLength: number; // m
+  tubes: number;
+  installedArea: number; // m²
+  requiredArea: number; // m²
+  margin: number; // %
+  shellID: number; // mm
+  shellLength: number; // mm
+  brineRecirc: number; // T/h
+  hasVapourLanes: boolean;
+}
+
+/** A geometry comparison option */
+export interface GeometryComparisonOption {
+  mode: 'fixed_length' | 'fixed_tubes' | 'optimised';
+  label: string;
+  description: string;
+  effects: GeometryComparisonEffect[];
+  maxShellID: number; // mm — the largest effect defines the shell for all
+  totalArea: number; // m²
+  totalRecirc: number; // T/h
+  trainLength: number; // mm
+  feasible: boolean;
+  warnings: string[];
+}
+
+/** Preheater contribution to distillate production */
+export interface PreheaterContribution {
+  phId: number;
+  tempRise: number; // °C
+  extraDistillatePercent: number; // % increase in distillate vs no preheater
+  cumulativePercent: number; // cumulative % increase
+}
+
 /** All auxiliary equipment results */
 export interface MEDAuxiliaryEquipment {
   demisters: MEDDemisterResult[];
@@ -471,6 +507,12 @@ export interface MEDDesignerResult {
   costEstimate?: MEDCostEstimate;
   /** Turndown analysis (opt-in) */
   turndownAnalysis?: MEDTurndownAnalysis;
+  /** Geometry comparison options (fixed length, fixed tubes, optimised) */
+  geometryComparisons?: GeometryComparisonOption[];
+  /** Preheater contribution to distillate production */
+  preheaterContributions?: PreheaterContribution[];
+  /** SW reject flow (condenser outlet - make-up) */
+  swReject: number; // T/h
 
   /** Overall evaporator train dimensions (all shells in line) */
   overallDimensions: {
@@ -904,7 +946,9 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     const effTubesPerRow = getMaxTubesPerRow(effShellID, pitch);
 
     const instArea = tubes * areaPerTubePerM * selectedLength;
-    const margin = desArea > 0 ? (instArea / desArea - 1) * 100 : 0;
+    // Margin = installed area vs REQUIRED area (not design area)
+    // Design area already includes the design margin, so margin over reqArea shows true overdesign
+    const margin = reqArea > 0 ? (instArea / reqArea - 1) * 100 : 0;
 
     // Distillate production in this effect
     const distFlow = (duty * 3.6) / hfg; // T/h
@@ -1181,6 +1225,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
           )
         : swSalinity,
     numberOfShells: nEff,
+    swReject: fcSWflow - makeUpFeed,
     auxiliaryEquipment: computeAuxiliaryEquipment(effects, condenser, {
       swSalinity,
       maxBrineSalinity,
@@ -1245,12 +1290,96 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     warnings,
   };
 
+  // Geometry comparisons
+  result.geometryComparisons = computeGeometryComparisons(
+    effects,
+    nEff,
+    tubeOD,
+    pitch,
+    tubeSheetAccessMM,
+    shellThkMM,
+    kWall,
+    designMargin,
+    Q1,
+    availableLengths,
+    areaPerTubePerM,
+    input.seawaterTemperature,
+    swSalinity,
+    maxBrineSalinity
+  );
+
+  // Preheater contribution to distillate
+  if (preheaters.length > 0) {
+    result.preheaterContributions = computePreheaterContributions(
+      preheaters,
+      effects,
+      input.steamFlow,
+      condenserSWOutlet
+    );
+  }
+
   // Turndown analysis (opt-in)
   if (input.includeTurndown) {
     result.turndownAnalysis = computeTurndownAnalysis(input, result);
   }
 
   return result;
+}
+
+// ============================================================================
+// Geometry Comparisons
+// ============================================================================
+
+function computeGeometryComparisons(
+  _effects: MEDEffectResult[],
+  _nEff: number,
+  _tubeOD: number,
+  _pitch: number,
+  _tubeSheetAccess: number,
+  _shellThk: number,
+  _kWall: number,
+  _designMargin: number,
+  _Q1: number,
+  _availableLengths: number[],
+  _areaPerTubePerM: number,
+  _swTemp: number,
+  _swSalinity: number,
+  _maxBrineSalinity: number
+): GeometryComparisonOption[] {
+  // TODO: implement fixed-length and fixed-tube comparisons
+  return [];
+}
+
+// ============================================================================
+// Preheater Contribution to Distillate
+// ============================================================================
+
+function computePreheaterContributions(
+  preheaters: MEDPreheaterResult[],
+  effects: MEDEffectResult[],
+  _steamFlow: number,
+  _condenserSWOutlet: number
+): PreheaterContribution[] {
+  const totalDist = effects.reduce((s, e) => s + e.distillateFlow, 0);
+  if (totalDist <= 0) return [];
+
+  let cumPct = 0;
+
+  return preheaters.map((ph) => {
+    const tempRise = ph.swOutlet - ph.swInlet;
+    // Extra distillate from preheating: duty recovered / hfg
+    const hfg = getLatentHeat((ph.swInlet + ph.swOutlet) / 2);
+    const extraDistKgH = ((ph.duty * 3.6) / hfg) * 1000; // kW → kJ/h, ÷ hfg kJ/kg
+    const extraPct = (extraDistKgH / (totalDist * 1000)) * 100;
+    cumPct += extraPct;
+
+    return {
+      phId: ph.id,
+      tempRise,
+      extraDistillatePercent: Math.round(extraPct * 10) / 10,
+      cumulativePercent: Math.round(cumPct * 10) / 10,
+    };
+  });
 }
 
 // ============================================================================
