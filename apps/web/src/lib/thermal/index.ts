@@ -391,6 +391,9 @@ export {
   type MEDSiphonResult,
   type MEDLineSizing,
   type MEDPumpResult,
+  type GeometryComparisonOption,
+  type GeometryComparisonEffect,
+  type PreheaterContribution,
 } from './medDesigner';
 
 // Single Tube Analysis
