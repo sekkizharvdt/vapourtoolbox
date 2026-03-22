@@ -90,6 +90,10 @@ export interface MEDDesignerInput {
   tubeSheetThickness?: number;
   /** Tube sheet access clearance inside shell in mm (default 750 — for tube removal/insertion) */
   tubeSheetAccess?: number;
+  /** Ti tube length for condenser and preheaters in m (default 2.1) — standardised for procurement */
+  tiTubeLength?: number;
+  /** Target tube-side velocity for Ti equipment in m/s (default 1.6, range 1.4-1.8) */
+  tiTargetVelocity?: number;
   /** Override condenser U-value W/(m²·K) — default derived from tube material */
   condenserU?: number;
   /** Override preheater U-value W/(m²·K) — default derived from tube material */
@@ -193,6 +197,19 @@ export interface MEDCondenserResult {
   tubeOD: number;
   /** Tube length mm */
   tubeLengthMM: number;
+  /** All even-pass options for user decision */
+  passOptions: PassOption[];
+}
+
+/** Pass option for condenser/preheater */
+export interface PassOption {
+  passes: number;
+  tubesPerPass: number;
+  totalTubes: number;
+  velocity: number; // m/s
+  inRange: boolean; // velocity 1.4-1.8 m/s
+  area: number; // m²
+  shellODmm: number;
 }
 
 /** Preheater result */
@@ -219,6 +236,8 @@ export interface MEDPreheaterResult {
   tubeOD: number;
   /** Tube length mm */
   tubeLengthMM: number;
+  /** All even-pass options for user decision */
+  passOptions: PassOption[];
 }
 
 /** Per-effect demister sizing result */
@@ -1103,20 +1122,58 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const swDensity = getSeawaterDensity(swSalinity, input.seawaterTemperature);
   const fcSWflowM3h = (fcSWflow * 1000) / swDensity;
 
-  // Condenser tube sizing: 17mm × 0.4mm Ti, 4 passes, target 1.5 m/s
-  const fcTubeOD = 17;
-  const fcTubeID = 16.2;
-  const fcTubeAreaPerTube = (Math.PI / 4) * (fcTubeID / 1000) ** 2;
-  const fcPasses = 4;
-  const fcTargetVel = 1.5;
-  const fcTubeLength = 2100; // mm
+  // Condenser/preheater tube sizing: standardised Ti SB338 Gr2, 17mm × 0.4mm
+  const tiTubeOD = 17;
+  const tiTubeID = 16.2;
+  const tiTubeFlowArea = (Math.PI / 4) * (tiTubeID / 1000) ** 2;
+  const tiTubeLengthM = input.tiTubeLength ?? 2.1;
+  const tiTubeLengthMM = tiTubeLengthM * 1000;
+  const tiTargetVel = input.tiTargetVelocity ?? 1.6;
+  const tiVelMin = 1.4;
+  const tiVelMax = 1.8;
+  const tiPitch = 21.3;
+  const tiAreaPerTube = Math.PI * (tiTubeOD / 1000) * tiTubeLengthM;
+
+  // Generate pass options for a given flow and thermal area requirement
+  function generatePassOpts(flowM3s: number, reqArea: number): PassOption[] {
+    const opts: PassOption[] = [];
+    for (const passes of [2, 4, 6, 8]) {
+      // Tubes/pass for target velocity
+      const tppForVel = Math.ceil(flowM3s / (tiTargetVel * tiTubeFlowArea));
+      const tubesFromArea = Math.ceil(reqArea / tiAreaPerTube);
+      const tubesForVel = tppForVel * passes;
+      // Use the larger of thermal or velocity requirement, round to multiple of passes
+      const totalTubes = Math.ceil(Math.max(tubesFromArea, tubesForVel) / passes) * passes;
+      const tpp = totalTubes / passes;
+      const vel = flowM3s / (tpp * tiTubeFlowArea);
+      const area = totalTubes * tiAreaPerTube;
+      const bundleDia = Math.sqrt((totalTubes * tiPitch * tiPitch * 4) / Math.PI);
+      opts.push({
+        passes,
+        tubesPerPass: tpp,
+        totalTubes,
+        velocity: vel,
+        inRange: vel >= tiVelMin && vel <= tiVelMax,
+        area,
+        shellODmm: Math.round(bundleDia + 80),
+      });
+    }
+    return opts;
+  }
+
+  // Select the best pass option (fewest passes within velocity range)
+  function selectBestPass(opts: PassOption[]): PassOption {
+    const inRange = opts.filter((o) => o.inRange);
+    if (inRange.length > 0) return inRange[0]!; // fewest passes that's in range
+    // If none in range, pick closest to target velocity
+    return opts.reduce((best, o) =>
+      Math.abs(o.velocity - tiTargetVel) < Math.abs(best.velocity - tiTargetVel) ? o : best
+    );
+  }
+
   const fcFlowM3s = fcSWflowM3h / 3600;
-  const fcTubesPerPass = Math.ceil(fcFlowM3s / (fcTargetVel * fcTubeAreaPerTube));
-  const fcTubes = fcTubesPerPass * fcPasses;
-  const fcActualVel = fcFlowM3s / (fcTubesPerPass * fcTubeAreaPerTube);
-  const fcActualArea = fcTubes * Math.PI * (fcTubeOD / 1000) * (fcTubeLength / 1000);
-  const fcBundleDia = Math.sqrt((fcTubes * 21.3 * 21.3 * 4) / Math.PI);
-  const fcShellOD = Math.round(fcBundleDia + 80); // larger clearance for condenser
+  const fcPassOpts = generatePassOpts(fcFlowM3s, fcArea);
+  const fcBest = selectBestPass(fcPassOpts);
 
   const condenser: MEDCondenserResult = {
     vapourFlow: fcVapFlow,
@@ -1124,15 +1181,16 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     duty: fcDuty,
     lmtd: fcLMTD,
     overallU: fcU,
-    designArea: Math.max(fcArea, fcActualArea),
+    designArea: Math.max(fcArea, fcBest.area),
     seawaterFlow: fcSWflow,
     seawaterFlowM3h: fcSWflowM3h,
-    tubes: fcTubes,
-    passes: fcPasses,
-    velocity: fcActualVel,
-    shellODmm: fcShellOD,
-    tubeOD: fcTubeOD,
-    tubeLengthMM: fcTubeLength,
+    tubes: fcBest.totalTubes,
+    passes: fcBest.passes,
+    velocity: fcBest.velocity,
+    shellODmm: fcBest.shellODmm,
+    tubeOD: tiTubeOD,
+    tubeLengthMM: tiTubeLengthMM,
+    passOptions: fcPassOpts,
   };
 
   if (fcLMTD < 2) {
@@ -1149,14 +1207,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const numPH = input.numberOfPreheaters ?? Math.max(0, Math.min(nEff - 2, 4));
   const preheaters: MEDPreheaterResult[] = [];
 
-  // Preheater tube specs (condenser/PH use Ti, not evaporator Al)
-  const phTubeOD = 17; // mm
-  const phTubeID = 16.2; // mm
-  const phTubeAreaPerTube = (Math.PI / 4) * (phTubeID / 1000) ** 2; // m² flow area
-  const phPasses = 4;
-  const phTargetVel = 1.5; // m/s
-  const phPitch = 21.3; // mm triangular
-  const phTubeLength = 2100; // mm (standard, per BARC)
+  // Preheater uses same standardised Ti tubes as condenser
 
   if (numPH > 0 && totalRecirc + makeUpFeed > 0) {
     // Total spray flow = total spray to all effects (make-up + recirc)
@@ -1193,18 +1244,10 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       const phLMTD = phDT1 > 0 && phDT2 > 0 ? (phDT1 - phDT2) / Math.log(phDT1 / phDT2) : 1;
       const phArea = phLMTD > 0 ? ((phDuty * 1000) / (phU * phLMTD)) * (1 + designMargin) : 0;
 
-      // Tube count for target velocity (1.5 m/s at 4 passes)
+      // Tube sizing using standardised Ti specs with pass selection
       const phFlowM3s = (phFlowTh * 1000) / (getSeawaterDensity(swSalinity, swIn) * 3600);
-      const tubesPerPass = Math.ceil(phFlowM3s / (phTargetVel * phTubeAreaPerTube));
-      const phTubes = tubesPerPass * phPasses;
-      const actualVel = phFlowM3s / (tubesPerPass * phTubeAreaPerTube);
-
-      // Actual area from tubes
-      const actualArea = phTubes * Math.PI * (phTubeOD / 1000) * (phTubeLength / 1000);
-
-      // Shell OD estimate (triangular pitch bundle)
-      const bundleDia = Math.sqrt((phTubes * phPitch * phPitch * 4) / Math.PI);
-      const phShellOD = Math.round(bundleDia + 50); // + clearance
+      const phPassOpts = generatePassOpts(phFlowM3s, phArea);
+      const phBest = selectBestPass(phPassOpts);
 
       preheaters.push({
         id: phIdx,
@@ -1214,14 +1257,15 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
         swOutlet: swOut,
         duty: phDuty,
         lmtd: phLMTD,
-        designArea: Math.max(phArea, actualArea), // use larger of thermal or actual
+        designArea: Math.max(phArea, phBest.area),
         flowTh: phFlowTh,
-        tubes: phTubes,
-        passes: phPasses,
-        velocity: actualVel,
-        shellODmm: phShellOD,
-        tubeOD: phTubeOD,
-        tubeLengthMM: phTubeLength,
+        tubes: phBest.totalTubes,
+        passes: phBest.passes,
+        velocity: phBest.velocity,
+        shellODmm: phBest.shellODmm,
+        tubeOD: tiTubeOD,
+        tubeLengthMM: tiTubeLengthMM,
+        passOptions: phPassOpts,
       });
 
       // Peel off spray for this effect
