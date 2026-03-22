@@ -14,6 +14,8 @@ import {
   getLatentHeat,
   getSeawaterDensity,
   getSeawaterSpecificHeat,
+  getSeawaterViscosity,
+  getSeawaterThermalConductivity,
   MED_TUBE_GEOMETRY,
   getDensityVapor,
   getDensityLiquid,
@@ -24,6 +26,7 @@ import { calculateNozzleLayout } from './sprayNozzleCalculator';
 import { selectPipeByVelocity } from './pipeService';
 import { calculateSiphonSizing } from './siphonSizingCalculator';
 import { calculateTDH } from './pumpSizing';
+import { calculateTubeSideHTC, calculateNusseltCondensation } from './heatTransfer';
 import { calculateDosing } from './chemicalDosingCalculator';
 import { calculateVacuumSystem } from './vacuumSystemCalculator';
 
@@ -210,6 +213,8 @@ export interface PassOption {
   inRange: boolean; // velocity 1.4-1.8 m/s
   area: number; // m²
   shellODmm: number;
+  /** Calculated overall U at this velocity, W/(m²·K) */
+  calculatedU?: number;
 }
 
 /** Preheater result */
@@ -1134,28 +1139,97 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   const tiPitch = 21.3;
   const tiAreaPerTube = Math.PI * (tiTubeOD / 1000) * tiTubeLengthM;
 
-  // Generate pass options for a given flow and thermal area requirement
-  function generatePassOpts(flowM3s: number, reqArea: number): PassOption[] {
+  // Calculate velocity-dependent U-value for Ti condenser/preheater
+  // Uses Dittus-Boelter (tube side) + Nusselt condensation (shell side)
+  function calculateTiU(velocity: number, swTemp: number, vapourTemp: number): number {
+    try {
+      const swDens = getSeawaterDensity(swSalinity, swTemp);
+      const swVisc = getSeawaterViscosity(swSalinity, swTemp);
+      const swCp = getSeawaterSpecificHeat(swSalinity, swTemp);
+      const swK = getSeawaterThermalConductivity(swSalinity, swTemp);
+
+      // Tube-side HTC (Dittus-Boelter: seawater flowing inside tubes)
+      const tubeSide = calculateTubeSideHTC({
+        density: swDens,
+        velocity,
+        diameter: tiTubeID / 1000, // m
+        viscosity: swVisc,
+        specificHeat: swCp,
+        conductivity: swK,
+        isHeating: true,
+      });
+
+      // Shell-side HTC (Nusselt condensation on horizontal tubes)
+      const deltaT = Math.max(vapourTemp - swTemp, 1); // °C driving force
+      const liqDens = getDensityLiquid(vapourTemp);
+      const vapDens = getDensityVapor(vapourTemp);
+      const hfgVal = getLatentHeat(vapourTemp);
+      // Approximate liquid properties at condensation temperature
+      const liqVisc = getSeawaterViscosity(0, vapourTemp); // pure water viscosity at vapour T
+      const liqK = getSeawaterThermalConductivity(0, vapourTemp); // pure water conductivity
+
+      const shellSide = calculateNusseltCondensation({
+        liquidDensity: liqDens,
+        vaporDensity: vapDens,
+        latentHeat: hfgVal,
+        liquidConductivity: liqK,
+        liquidViscosity: liqVisc,
+        dimension: tiTubeOD / 1000, // tube OD in m
+        deltaT,
+        orientation: 'horizontal',
+      });
+
+      // Overall U from both sides + wall + fouling
+      const Rwall = 0.0004 / 22; // Ti wall: 0.4mm / 22 W/(m·K)
+      const Rfouling = input.foulingResistance ?? 0.00015;
+      const Rtotal = 1 / tubeSide.htc + 1 / shellSide.htc + Rwall + Rfouling;
+      return 1 / Rtotal;
+    } catch {
+      // Fallback to default if correlation fails
+      return 2200;
+    }
+  }
+
+  // Generate pass options for a given flow, thermal duty, and temperatures
+  // Includes 1-8 passes (odd passes allowed per user requirement)
+  function generatePassOpts(
+    flowM3s: number,
+    dutyKW: number,
+    lmtd: number,
+    swTemp: number,
+    vapourTemp: number
+  ): PassOption[] {
     const opts: PassOption[] = [];
-    for (const passes of [2, 4, 6, 8]) {
+    for (let passes = 1; passes <= 8; passes++) {
       // Tubes/pass for target velocity
       const tppForVel = Math.ceil(flowM3s / (tiTargetVel * tiTubeFlowArea));
-      const tubesFromArea = Math.ceil(reqArea / tiAreaPerTube);
       const tubesForVel = tppForVel * passes;
-      // Use the larger of thermal or velocity requirement, round to multiple of passes
-      const totalTubes = Math.ceil(Math.max(tubesFromArea, tubesForVel) / passes) * passes;
-      const tpp = totalTubes / passes;
+
+      // Calculate U at target velocity
+      const U = calculateTiU(tiTargetVel, swTemp, vapourTemp);
+      const reqArea = dutyKW > 0 && lmtd > 0 ? ((dutyKW * 1000) / (U * lmtd)) * 1.15 : 0;
+      const tubesFromArea = Math.ceil(reqArea / tiAreaPerTube);
+
+      // Use the larger of thermal or velocity requirement
+      const totalTubes = Math.max(tubesFromArea, tubesForVel);
+      const tpp = Math.ceil(totalTubes / passes);
+      const finalTubes = tpp * passes;
       const vel = flowM3s / (tpp * tiTubeFlowArea);
-      const area = totalTubes * tiAreaPerTube;
-      const bundleDia = Math.sqrt((totalTubes * tiPitch * tiPitch * 4) / Math.PI);
+
+      // Recalculate U at actual velocity (not target)
+      const actualU = calculateTiU(vel, swTemp, vapourTemp);
+      const actualArea = finalTubes * tiAreaPerTube;
+      const bundleDia = Math.sqrt((finalTubes * tiPitch * tiPitch * 4) / Math.PI);
+
       opts.push({
         passes,
         tubesPerPass: tpp,
-        totalTubes,
+        totalTubes: finalTubes,
         velocity: vel,
         inRange: vel >= tiVelMin && vel <= tiVelMax,
-        area,
+        area: actualArea,
         shellODmm: Math.round(bundleDia + 80),
+        calculatedU: actualU,
       });
     }
     return opts;
@@ -1172,7 +1246,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   }
 
   const fcFlowM3s = fcSWflowM3h / 3600;
-  const fcPassOpts = generatePassOpts(fcFlowM3s, fcArea);
+  const fcPassOpts = generatePassOpts(fcFlowM3s, fcDuty, fcLMTD, input.seawaterTemperature, fcVapT);
   const fcBest = selectBestPass(fcPassOpts);
 
   const condenser: MEDCondenserResult = {
@@ -1180,7 +1254,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     vapourTemp: fcVapT,
     duty: fcDuty,
     lmtd: fcLMTD,
-    overallU: fcU,
+    overallU: fcBest.calculatedU ?? fcU,
     designArea: Math.max(fcArea, fcBest.area),
     seawaterFlow: fcSWflow,
     seawaterFlowM3h: fcSWflowM3h,
@@ -1246,7 +1320,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
 
       // Tube sizing using standardised Ti specs with pass selection
       const phFlowM3s = (phFlowTh * 1000) / (getSeawaterDensity(swSalinity, swIn) * 3600);
-      const phPassOpts = generatePassOpts(phFlowM3s, phArea);
+      const phPassOpts = generatePassOpts(phFlowM3s, phDuty, phLMTD, swIn, vapT);
       const phBest = selectBestPass(phPassOpts);
 
       preheaters.push({
