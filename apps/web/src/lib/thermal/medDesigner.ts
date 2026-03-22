@@ -1419,7 +1419,13 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
         const lM = e.shellLengthMM / 1000;
         return sum + (Math.PI / 4) * dM * dM * lM;
       }, 0),
-      input.vacuumTrainConfig ?? 'hybrid'
+      input.vacuumTrainConfig ??
+        // Auto-select based on suction pressure
+        (lastEffect.pressure > 100
+          ? 'lrvp_only'
+          : lastEffect.pressure > 50
+            ? 'hybrid'
+            : 'two_stage_ejector')
     ),
     overallDimensions: {
       // Overall train: sum of effect shell lengths + shared access spaces between effects

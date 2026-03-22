@@ -64,7 +64,8 @@ export default function MEDDesignerClient() {
   const [condenserApproach, setCondenserApproach] = useState('4');
   const [swOutlet, setSwOutlet] = useState('35');
   const [designMargin, setDesignMargin] = useState('15');
-  // bundleType removed — only lateral bundles are implemented
+  const [tiTubeLength, setTiTubeLength] = useState('2.1');
+  const [tiTargetVelocity, setTiTargetVelocity] = useState('1.6');
 
   // ── Per-effect overrides ─────────────────────────────────────────────
   const [tubeLengthOverrides, setTubeLengthOverrides] = useState<Record<number, string>>({});
@@ -129,6 +130,8 @@ export default function MEDDesignerClient() {
       condenserApproach: parseFloat(condenserApproach) || undefined,
       condenserSWOutlet: parseFloat(swOutlet) || undefined,
       designMargin: (parseFloat(designMargin) || 15) / 100,
+      tiTubeLength: parseFloat(tiTubeLength) || undefined,
+      tiTargetVelocity: parseFloat(tiTargetVelocity) || undefined,
       ...(selectedEffects ? { numberOfEffects: selectedEffects } : {}),
       vacuumTrainConfig: vacuumConfig as
         | 'single_ejector'
@@ -173,6 +176,8 @@ export default function MEDDesignerClient() {
     selectedEffects,
     includeTurndown,
     vacuumConfig,
+    tiTubeLength,
+    tiTargetVelocity,
     tubeLengthOverrides,
     tubeCountOverrides,
   ]);
@@ -398,6 +403,32 @@ export default function MEDDesignerClient() {
                 type="number"
                 fullWidth
                 InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Ti Tube Length (cond/PH)"
+                value={tiTubeLength}
+                onChange={(e) => setTiTubeLength(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                }}
+                helperText="Standardised for procurement"
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <TextField
+                label="Ti Target Velocity"
+                value={tiTargetVelocity}
+                onChange={(e) => setTiTargetVelocity(e.target.value)}
+                type="number"
+                fullWidth
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">m/s</InputAdornment>,
+                }}
+                helperText="Range: 1.4–1.8 m/s"
               />
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
@@ -952,13 +983,83 @@ export default function MEDDesignerClient() {
                       </TableCell>
                     </TableRow>
                     <TableRow>
+                      <TableCell>U-value</TableCell>
+                      <TableCell align="right">
+                        {fmt(detail.condenser.overallU, 0)} W/(m&sup2;&middot;K)
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Tubes / Passes</TableCell>
+                      <TableCell align="right">
+                        {detail.condenser.tubes} tubes, {detail.condenser.passes} passes
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Velocity</TableCell>
+                      <TableCell align="right">{fmt(detail.condenser.velocity, 2)} m/s</TableCell>
+                    </TableRow>
+                    <TableRow>
                       <TableCell>SW Flow</TableCell>
                       <TableCell align="right">
                         {fmt(detail.condenser.seawaterFlowM3h, 0)} m&sup3;/h
                       </TableCell>
                     </TableRow>
+                    <TableRow>
+                      <TableCell>Ti Tube</TableCell>
+                      <TableCell align="right">
+                        {detail.condenser.tubeOD} mm OD &times; {detail.condenser.tubeLengthMM} mm L
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
+
+                {/* Pass Options */}
+                {detail.condenser.passOptions && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Pass options (Ti {detail.condenser.tubeOD}mm &times;{' '}
+                      {detail.condenser.tubeLengthMM}mm):
+                    </Typography>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Passes</TableCell>
+                          <TableCell align="right">Tubes</TableCell>
+                          <TableCell align="right">Vel (m/s)</TableCell>
+                          <TableCell align="right">U (W/m&sup2;K)</TableCell>
+                          <TableCell align="right">Area (m&sup2;)</TableCell>
+                          <TableCell align="right">Shell (mm)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {detail.condenser.passOptions.map((po) => (
+                          <TableRow
+                            key={po.passes}
+                            sx={{
+                              bgcolor:
+                                po.passes === detail.condenser.passes
+                                  ? 'action.selected'
+                                  : undefined,
+                              fontWeight: po.inRange ? 600 : 400,
+                            }}
+                          >
+                            <TableCell>{po.passes}</TableCell>
+                            <TableCell align="right">{po.totalTubes}</TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{ color: po.inRange ? 'success.main' : 'text.secondary' }}
+                            >
+                              {po.velocity.toFixed(2)}
+                            </TableCell>
+                            <TableCell align="right">{po.calculatedU?.toFixed(0) ?? '—'}</TableCell>
+                            <TableCell align="right">{po.area.toFixed(1)}</TableCell>
+                            <TableCell align="right">{po.shellODmm}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
@@ -973,7 +1074,12 @@ export default function MEDDesignerClient() {
                         <TableCell>PH</TableCell>
                         <TableCell>Source</TableCell>
                         <TableCell align="right">SW In&rarr;Out</TableCell>
+                        <TableCell align="right">Flow (T/h)</TableCell>
                         <TableCell align="right">Duty (kW)</TableCell>
+                        <TableCell align="right">Tubes</TableCell>
+                        <TableCell align="right">Passes</TableCell>
+                        <TableCell align="right">Vel (m/s)</TableCell>
+                        <TableCell align="right">U (W/m&sup2;K)</TableCell>
                         <TableCell align="right">Area (m&sup2;)</TableCell>
                       </TableRow>
                     </TableHead>
@@ -985,7 +1091,16 @@ export default function MEDDesignerClient() {
                           <TableCell align="right">
                             {fmt(ph.swInlet)}&rarr;{fmt(ph.swOutlet)}&deg;C
                           </TableCell>
+                          <TableCell align="right">{fmt(ph.flowTh)}</TableCell>
                           <TableCell align="right">{fmt(ph.duty, 0)}</TableCell>
+                          <TableCell align="right">{ph.tubes}</TableCell>
+                          <TableCell align="right">{ph.passes}</TableCell>
+                          <TableCell align="right">{fmt(ph.velocity, 2)}</TableCell>
+                          <TableCell align="right">
+                            {ph.passOptions
+                              ?.find((p) => p.passes === ph.passes)
+                              ?.calculatedU?.toFixed(0) ?? '—'}
+                          </TableCell>
                           <TableCell align="right">{fmt(ph.designArea)}</TableCell>
                         </TableRow>
                       ))}
