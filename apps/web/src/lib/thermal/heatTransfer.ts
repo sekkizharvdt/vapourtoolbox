@@ -339,6 +339,34 @@ export function calculateNusseltCondensation(
 }
 
 /**
+ * Apply Kern bundle row correction and NCG degradation to a condensation HTC.
+ *
+ * In a tube bundle, lower tube rows receive condensate dripping from upper rows,
+ * reducing the effective condensation HTC. The Kern correction factor is N^(-1/6)
+ * where N is the number of vertical tube rows.
+ *
+ * NCG (non-condensable gas) creates a boundary layer around the tubes that
+ * adds mass transfer resistance, reducing the effective condensation HTC.
+ * Typical values: 10-15% for condensers with accumulated NCG, 5% for preheaters.
+ *
+ * Validated against BARC (1800-1900 W/m²·K), Campiche (2082), CADAFE projects.
+ *
+ * @param singleTubeHTC  Nusselt condensation HTC for a single tube (W/m²·K)
+ * @param numberOfRows   Number of vertical tube rows in the bundle
+ * @param ncgDegradation NCG degradation factor (0 = no NCG, 0.15 = 15% reduction)
+ * @returns Effective condensation HTC for the bundle (W/m²·K)
+ */
+export function applyBundleCorrection(
+  singleTubeHTC: number,
+  numberOfRows: number = 1,
+  ncgDegradation: number = 0
+): number {
+  const kernFactor = numberOfRows > 1 ? Math.pow(numberOfRows, -1 / 6) : 1;
+  const ncgFactor = 1 - ncgDegradation;
+  return singleTubeHTC * kernFactor * ncgFactor;
+}
+
+/**
  * Calculate shell-side equivalent diameter for Kern method
  *
  * Triangular pitch:

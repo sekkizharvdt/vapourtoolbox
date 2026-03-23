@@ -389,6 +389,25 @@ export function calculateTubeBundleGeometry(
     warnings.push('No tubes fit within the specified boundary. Check dimensions.');
   }
 
+  // Drainage clearance check for circular shells (lateral bundles)
+  // Minimum 250mm clearance below the lowest tube row for brine collection
+  if (
+    (input.shape === 'half_circle_left' ||
+      input.shape === 'half_circle_right' ||
+      input.shape === 'full_circle') &&
+    shellID > 0 &&
+    allTubes.length > 0
+  ) {
+    const shellRadius = shellID / 2;
+    const lowestTubeY = minY - tubeOD / 2; // bottom edge of lowest tube
+    const drainageClearance = shellRadius + lowestTubeY; // distance from shell bottom to lowest tube
+    if (drainageClearance < 250) {
+      warnings.push(
+        `Drainage clearance below bundle is ${Math.round(drainageClearance)}mm (minimum 250mm recommended for brine collection).`
+      );
+    }
+  }
+
   return {
     totalTubes: allTubes.length,
     rows: rowInfos,

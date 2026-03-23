@@ -106,8 +106,11 @@ export interface EffectDetail {
 /** Complete result of the GOR calculation */
 export interface GORResult {
   // Key performance metrics
-  /** Gain Output Ratio (dimensionless) */
+  /** Gain Output Ratio (dimensionless) — gross (includes E1 condensate as product) */
   gor: number;
+  /** Net GOR — excludes E1 condensate (returns to steam source, e.g. solar field).
+   *  For plants where E1 condensate IS product water, use gross GOR instead. */
+  netGOR: number;
   /** Specific thermal energy in kJ per kg of distillate */
   specificThermalEnergy: number;
   /** Specific thermal energy in kWh per m³ of distillate */
@@ -419,6 +422,13 @@ export function calculateGOR(input: GORInput): GORResult {
 
   const gor = round2(gorBase);
 
+  // Net GOR: excludes E1 condensate (which returns to steam source in solar/waste-heat plants)
+  // E1 condensate ≈ 1 unit of distillate per unit of steam (the steam that condenses in E1)
+  // Net distillate = gross distillate - 1 (the E1 condensate)
+  // Net GOR = GOR - 1 (simplified; exact value depends on vent losses)
+  const ventLossFraction = 0.015; // ~1.5% vent loss
+  const netGOR = round2(Math.max(0, gor - (1 - ventLossFraction)));
+
   // Warn if GOR is outside typical range
   if (configuration === 'MED_TVC') {
     if (gor < TYPICAL_RANGES.GOR_MED_TVC.min || gor > TYPICAL_RANGES.GOR_MED_TVC.max) {
@@ -498,6 +508,7 @@ export function calculateGOR(input: GORInput): GORResult {
   // ------------------------------------------------------------------
   return {
     gor,
+    netGOR,
     specificThermalEnergy: ste,
     specificThermalEnergy_kWh: ste_kWh_m3,
     thermalEfficiency,

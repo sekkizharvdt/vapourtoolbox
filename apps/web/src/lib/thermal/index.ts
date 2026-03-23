@@ -88,6 +88,7 @@ export {
   calculateKernShellSideHTC,
   calculateMostinskiBoiling,
   calculateOverallHTC,
+  applyBundleCorrection,
   type PrandtlResult,
   type DittusBoelterResult,
   type TubeSideHTCInput,
