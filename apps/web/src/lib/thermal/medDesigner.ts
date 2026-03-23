@@ -1331,10 +1331,22 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
         orientation: 'horizontal',
       });
 
-      // Overall U from both sides + wall + fouling
+      // Apply real-world corrections (validated against BARC/Campiche):
+      // 1. Kern bundle row correction (condensate dripping from upper rows)
+      const nTubeRows = 10; // typical condenser/PH bundle
+      const kernFactor = Math.pow(nTubeRows, -1 / 6); // ~0.68
+      // 2. NCG degradation (mass transfer resistance from NCG boundary layer)
+      const ncgDeg = 0.9; // 10% degradation for condenser (15% for FC with accumulated NCG)
+      const hCondEffective = shellSide.htc * kernFactor * ncgDeg;
+
+      // 3. Wall + fouling with OD/ID correction
       const Rwall = 0.0004 / 22; // Ti wall: 0.4mm / 22 W/(m·K)
-      const Rfouling = input.foulingResistance ?? 0.00015;
-      const Rtotal = 1 / tubeSide.htc + 1 / shellSide.htc + Rwall + Rfouling;
+      const odID = tiTubeOD / tiTubeID;
+      const foulingTube = 0.00018; // m²·K/W (TEMA seawater)
+      const foulingShell = 0.0001; // m²·K/W (condensate side)
+
+      const Rtotal =
+        1 / hCondEffective + foulingShell + Rwall + foulingTube * odID + (1 / tubeSide.htc) * odID;
       return 1 / Rtotal;
     } catch {
       // Fallback to default if correlation fails
@@ -1455,8 +1467,11 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       const phIdx = numPH - i; // PH numbering: PH1 is hottest (last in chain)
       const swIn = condenserSWOutlet + i * phDTPerPH;
       const swOut = swIn + phDTPerPH;
-      // Vapour source: effects from last-1 going backwards
-      const vapSourceIdx = nEff - 2 - i; // 0-based effect index
+      // Vapour source: start from Effect 2 going forward (not last effects)
+      // Earlier effects have higher vapour multiplication — their preheater
+      // condensate benefit cascades through more downstream effects.
+      // BARC design: PH on Effects 2, 3, 4, 5 (for 6-effect plant)
+      const vapSourceIdx = 1 + i; // 0-based: Effect 2, 3, 4, ... (skip E1 — it gets steam)
       const vapT =
         vapSourceIdx >= 0 && vapSourceIdx < nEff
           ? effects[vapSourceIdx]!.vapourOutTemp
