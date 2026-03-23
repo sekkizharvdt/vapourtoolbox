@@ -39,10 +39,180 @@ import { MEDProcessFlowDiagram } from './components/MEDProcessFlowDiagram';
 import { MEDGeneralArrangement } from './components/MEDGeneralArrangement';
 import { MEDPlotPlan } from './components/MEDPlotPlan';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
-import { designMED, generateDesignOptions, type MEDDesignerInput } from '@/lib/thermal';
+import {
+  designMED,
+  generateDesignOptions,
+  type MEDDesignerInput,
+  type MEDDesignerResult,
+} from '@/lib/thermal';
 
 function fmt(n: number, d = 1): string {
   return n.toFixed(d);
+}
+
+/** Export equipment list as CSV for procurement and weight estimation */
+function exportEquipmentCSV(detail: MEDDesignerResult) {
+  const rows: string[][] = [];
+  const h = (s: string) => `"${s}"`;
+
+  // Header
+  rows.push([
+    'Item',
+    'Description',
+    'Qty',
+    'Material',
+    'Specification',
+    'Calc Weight (kg)',
+    'Material Weight (kg)',
+    'Mfg Weight (kg)',
+    'Total Weight (kg)',
+    'Notes',
+  ]);
+
+  // Evaporator shells
+  detail.effects.forEach((e) => {
+    rows.push([
+      `Evap Shell E${e.effect}`,
+      `Evaporator Effect ${e.effect}`,
+      '1',
+      'Duplex SS S32304',
+      `${e.shellODmm}mm OD × ${e.shellLengthMM}mm L × 8mm thk`,
+      '',
+      '',
+      '',
+      '',
+      e.hasVapourLanes ? 'With vapour lanes' : '',
+    ]);
+  });
+
+  // Evaporator tubes
+  detail.effects.forEach((e) => {
+    rows.push([
+      `Evap Tubes E${e.effect}`,
+      `Al 5052 tubes for Effect ${e.effect}`,
+      String(e.tubes),
+      'Al 5052',
+      `25.4mm OD × 1.0mm wall × ${e.tubeLength * 1000}mm L`,
+      '',
+      '',
+      '',
+      '',
+      '',
+    ]);
+  });
+
+  // Tube sheets
+  detail.effects.forEach((e) => {
+    rows.push([
+      `Tube Sheet E${e.effect}`,
+      `Tube sheet for Effect ${e.effect}`,
+      '2',
+      'Duplex SS S32304',
+      `${e.shellODmm}mm dia × 8mm thk`,
+      '',
+      '',
+      '',
+      '',
+      '',
+    ]);
+  });
+
+  // Dished heads (2:1 SE)
+  detail.effects.forEach((e) => {
+    rows.push([
+      `Dished Head E${e.effect}`,
+      `2:1 SE dished head for Effect ${e.effect}`,
+      '2',
+      'Duplex SS S32304',
+      `${e.shellODmm}mm OD`,
+      '',
+      '',
+      '',
+      '',
+      '',
+    ]);
+  });
+
+  // Condenser
+  rows.push([
+    'Final Condenser',
+    'Shell & tube condenser',
+    '1',
+    'Ti Gr2 tubes / SS316L shell',
+    `${detail.condenser.tubes} tubes, ${detail.condenser.passes} passes, ${detail.condenser.tubeOD}mm × ${detail.condenser.tubeLengthMM}mm`,
+    '',
+    '',
+    '',
+    '',
+    `${fmt(detail.condenser.designArea)} m², U=${fmt(detail.condenser.overallU, 0)} W/m²K`,
+  ]);
+
+  // Preheaters
+  detail.preheaters.forEach((ph) => {
+    rows.push([
+      `Preheater PH${ph.id}`,
+      `Shell & tube preheater (${ph.vapourSource})`,
+      '1',
+      'Ti Gr2 tubes / SS316L shell',
+      `${ph.tubes} tubes, ${ph.passes} passes, ${ph.tubeOD}mm × ${ph.tubeLengthMM}mm`,
+      '',
+      '',
+      '',
+      '',
+      `${fmt(ph.duty, 0)} kW, LMTD ${fmt(ph.lmtd)}°C`,
+    ]);
+  });
+
+  // Pumps
+  detail.auxiliaryEquipment.pumps.forEach((p) => {
+    rows.push([
+      p.service,
+      `Pump ${p.quantity}`,
+      p.quantity,
+      'Duplex SS',
+      `${fmt(p.flowRateM3h)} m³/h, ${fmt(p.totalHead)} m TDH, ${p.motorPower} kW motor`,
+      '',
+      '',
+      '',
+      '',
+      '',
+    ]);
+  });
+
+  // Demisters
+  rows.push([
+    'Demisters',
+    'Wire mesh demister pads',
+    String(detail.effects.length),
+    'SS316',
+    `100mm thick, one per effect`,
+    '',
+    '',
+    '',
+    '',
+    '',
+  ]);
+
+  // Blank rows for user additions
+  rows.push([]);
+  rows.push(['', 'SUBTOTAL (Equipment)', '', '', '', '', '', '', '', '']);
+  rows.push(['', 'Piping (15%)', '', '', '', '', '', '', '', '']);
+  rows.push(['', 'Instrumentation (10%)', '', '', '', '', '', '', '', '']);
+  rows.push(['', 'Electrical (8%)', '', '', '', '', '', '', '', '']);
+  rows.push(['', 'Civil (12%)', '', '', '', '', '', '', '', '']);
+  rows.push(['', 'Installation (20%)', '', '', '', '', '', '', '', '']);
+  rows.push(['', 'Contingency (15%)', '', '', '', '', '', '', '', '']);
+  rows.push(['', 'TOTAL INSTALLED COST', '', '', '', '', '', '', '', '']);
+
+  // Convert to CSV
+  const csv = rows.map((r) => r.map((c) => h(c)).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `MED_Equipment_${detail.effects.length}eff_GOR${fmt(detail.achievedGOR)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function MEDDesignerClient() {
@@ -220,15 +390,20 @@ export default function MEDDesignerClient() {
 
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
         {detail && (
-          <Button
-            variant="outlined"
-            startIcon={<PdfIcon />}
-            onClick={() => setReportOpen(true)}
-            size="small"
-            color="primary"
-          >
-            PDF Report
-          </Button>
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<PdfIcon />}
+              onClick={() => setReportOpen(true)}
+              size="small"
+              color="primary"
+            >
+              PDF Report
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => exportEquipmentCSV(detail)}>
+              Export CSV
+            </Button>
+          </>
         )}
         <Button variant="outlined" startIcon={<ResetIcon />} onClick={handleReset} size="small">
           Reset
