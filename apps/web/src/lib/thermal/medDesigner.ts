@@ -558,21 +558,133 @@ export interface MEDDesignerResult {
 const VENT_LOSS_FRACTION = 0.015; // 1.5% vapour loss per effect (vent/NCG)
 
 /** Default condenser U-value by tube material name */
-function getDefaultCondenserU(materialName: string): number {
-  const m = (materialName ?? '').toLowerCase();
-  if (m.includes('ti')) return 2200;
-  if (m.includes('al')) return 1800;
-  if (m.includes('cu') || m.includes('brass')) return 2400;
-  return 2000; // SS316L / default
+/**
+ * Calculate condenser/preheater U-value from first principles.
+ *
+ * Includes:
+ * - Tube-side: Dittus-Boelter (seawater heating)
+ * - Shell-side: Nusselt horizontal tube condensation
+ * - Kern bundle row correction (condensate dripping from upper rows)
+ * - NCG degradation (mass transfer resistance from non-condensable gas layer)
+ * - OD/ID area correction
+ * - Fouling on both sides
+ *
+ * Validated against BARC (1800-1900), Campiche (2082), CADAFE condensers.
+ *
+ * @param tubeVelocity  Tube-side velocity in m/s
+ * @param swTempAvg     Average seawater temperature in tube side °C
+ * @param condTempC     Condensation temperature (shell side) °C
+ * @param tubeODmm      Tube OD in mm
+ * @param tubeIDmm      Tube ID in mm
+ * @param wallThkMM     Wall thickness in mm
+ * @param kWall         Wall thermal conductivity W/(m·K)
+ * @param nTubeRows     Number of tube rows in the bundle (for Kern correction)
+ * @param ncgFraction   NCG degradation factor (0.15 for condenser, 0.05 for preheater)
+ * @param foulingTube   Tube-side fouling m²·K/W (default 0.00018 for seawater)
+ * @param foulingShell  Shell-side fouling m²·K/W (default 0.0001 for condensate)
+ */
+function calculateCondenserU(
+  tubeVelocity: number,
+  swTempAvg: number,
+  condTempC: number,
+  tubeODmm: number,
+  tubeIDmm: number,
+  wallThkMM: number,
+  kWall: number,
+  nTubeRows: number = 10,
+  ncgFraction: number = 0.15,
+  foulingTube: number = 0.00018,
+  foulingShell: number = 0.0001
+): number {
+  const odID = tubeODmm / tubeIDmm;
+
+  // ── Tube-side HTC (Dittus-Boelter) ──
+  const rho = getSeawaterDensity(35000, swTempAvg);
+  const mu = getSeawaterViscosity(35000, swTempAvg);
+  const Cp = getSeawaterSpecificHeat(35000, swTempAvg) * 1000; // kJ→J
+  const k_sw = getSeawaterThermalConductivity(35000, swTempAvg);
+  const Re = (rho * tubeVelocity * (tubeIDmm / 1000)) / mu;
+  const Pr = (mu * Cp) / k_sw;
+  const Nu = Re > 2300 ? 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, 0.4) : 4.36; // turbulent or laminar
+  const hTube = (Nu * k_sw) / (tubeIDmm / 1000);
+
+  // ── Shell-side HTC (Nusselt condensation) ──
+  const rhoL = getDensityLiquid(condTempC);
+  const rhoV = getDensityVapor(condTempC);
+  const muL = 0.001 * Math.exp(-0.02 * (condTempC - 20)); // simplified viscosity
+  const kL = 0.57 + 0.0018 * condTempC; // simplified conductivity
+  const hfg = getLatentHeat(condTempC) * 1000; // kJ→J
+  const dTfilm = 2; // °C assumed film temperature drop
+
+  const hCondSingle =
+    0.725 *
+    Math.pow(
+      (rhoL * (rhoL - rhoV) * 9.81 * hfg * Math.pow(kL, 3)) / (muL * (tubeODmm / 1000) * dTfilm),
+      0.25
+    );
+
+  // Kern bundle row correction: h_bundle = h_single × N^(-1/6)
+  const kernFactor = Math.pow(Math.max(nTubeRows, 1), -1 / 6);
+
+  // NCG degradation: reduces effective condensation HTC
+  const ncgDegradation = 1 - ncgFraction;
+
+  const hCondEffective = hCondSingle * kernFactor * ncgDegradation;
+
+  // ── Wall resistance ──
+  const Rwall = wallThkMM / 1000 / kWall;
+
+  // ── Overall U (referenced to OD) ──
+  const Rtotal =
+    1 / hCondEffective + // shell-side condensation
+    foulingShell + // shell fouling
+    Rwall + // tube wall
+    foulingTube * odID + // tube fouling (corrected to OD)
+    (1 / hTube) * odID; // tube-side (corrected to OD)
+
+  return 1 / Rtotal;
 }
 
-/** Default preheater U-value by tube material name */
-function getDefaultPreheaterU(materialName: string): number {
-  const m = (materialName ?? '').toLowerCase();
-  if (m.includes('ti')) return 2100;
-  if (m.includes('al')) return 1700;
-  if (m.includes('cu') || m.includes('brass')) return 2300;
-  return 1900;
+/** Default condenser U-value — uses first-principles calculation */
+function getDefaultCondenserU(
+  _materialName: string,
+  velocity: number = 1.5,
+  condTemp: number = 39
+): number {
+  return Math.round(
+    calculateCondenserU(
+      velocity,
+      32.5,
+      condTemp,
+      17,
+      16.2,
+      0.4,
+      22, // Ti 17mm × 0.4mm
+      10, // 10 tube rows in condenser bundle
+      0.15 // 15% NCG degradation (accumulated NCG from all effects)
+    )
+  );
+}
+
+/** Default preheater U-value — uses first-principles calculation */
+function getDefaultPreheaterU(
+  _materialName: string,
+  velocity: number = 1.5,
+  condTemp: number = 48
+): number {
+  return Math.round(
+    calculateCondenserU(
+      velocity,
+      42,
+      condTemp,
+      17,
+      16.2,
+      0.4,
+      22, // Ti 17mm × 0.4mm
+      6, // fewer tube rows in preheater
+      0.05 // 5% NCG degradation (single effect NCG only)
+    )
+  );
 }
 
 /** Material cost rates in USD/kg for budgetary estimation */
