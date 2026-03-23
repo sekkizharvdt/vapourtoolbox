@@ -678,153 +678,8 @@ export default function MEDDesignerClient() {
             </Grid>
           </Grid>
 
-          {/* Effect-by-Effect Table */}
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-              Effect-by-Effect Design
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-              Non-BPE losses per effect: NEA {detail.effects[0]?.nea ?? 0.25}&deg;C + Demister{' '}
-              {detail.effects[0]?.demisterLoss ?? 0.15}&deg;C + Vapour duct{' '}
-              {detail.effects[0]?.pressureDropLoss ?? 0.3}&deg;C ={' '}
-              {(
-                (detail.effects[0]?.nea ?? 0.25) +
-                (detail.effects[0]?.demisterLoss ?? 0.15) +
-                (detail.effects[0]?.pressureDropLoss ?? 0.3)
-              ).toFixed(2)}
-              &deg;C total
-            </Typography>
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Effect</TableCell>
-                    <TableCell align="right">Brine T (&deg;C)</TableCell>
-                    <TableCell align="right">Vap Out (&deg;C)</TableCell>
-                    <TableCell align="right">BPE (&deg;C)</TableCell>
-                    <TableCell align="right">Work &Delta;T (&deg;C)</TableCell>
-                    <TableCell align="right">U (W/m&sup2;&middot;K)</TableCell>
-                    <TableCell align="right">Duty (kW)</TableCell>
-                    <TableCell align="right">Tubes</TableCell>
-                    <TableCell align="right">Tube L (m)</TableCell>
-                    <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
-                    <TableCell align="right">Margin</TableCell>
-                    <TableCell align="right">Distillate (T/h)</TableCell>
-                    <TableCell align="right">Recirc (T/h)</TableCell>
-                    <TableCell align="right">Shell L (mm)</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {detail.effects.map((e) => (
-                    <TableRow key={e.effect}>
-                      <TableCell>
-                        E{e.effect}
-                        {e.hasVapourLanes ? ' *' : ''}
-                      </TableCell>
-                      <TableCell align="right">{fmt(e.brineTemp)}</TableCell>
-                      <TableCell align="right">{fmt(e.vapourOutTemp)}</TableCell>
-                      <TableCell align="right">{fmt(e.bpe, 2)}</TableCell>
-                      <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
-                      <TableCell align="right">{fmt(e.overallU, 0)}</TableCell>
-                      <TableCell align="right">{fmt(e.duty, 0)}</TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          size="small"
-                          type="number"
-                          placeholder={String(e.tubes)}
-                          value={tubeCountOverrides[e.effect - 1] ?? ''}
-                          onChange={(ev) =>
-                            setTubeCountOverrides((prev) => ({
-                              ...prev,
-                              [e.effect - 1]: ev.target.value,
-                            }))
-                          }
-                          sx={{ width: 80 }}
-                          inputProps={{ style: { textAlign: 'right', fontSize: '0.8rem' } }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          size="small"
-                          type="number"
-                          placeholder={String(e.tubeLength)}
-                          value={tubeLengthOverrides[e.effect - 1] ?? ''}
-                          onChange={(ev) =>
-                            setTubeLengthOverrides((prev) => ({
-                              ...prev,
-                              [e.effect - 1]: ev.target.value,
-                            }))
-                          }
-                          sx={{ width: 70 }}
-                          inputProps={{
-                            step: 0.1,
-                            style: { textAlign: 'right', fontSize: '0.8rem' },
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">{fmt(e.installedArea, 0)}</TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{ color: e.areaMargin < -10 ? 'error.main' : 'success.main' }}
-                      >
-                        {e.areaMargin >= 0 ? '+' : ''}
-                        {fmt(e.areaMargin, 0)}%
-                      </TableCell>
-                      <TableCell align="right">{fmt(e.distillateFlow, 2)}</TableCell>
-                      <TableCell align="right">{fmt(e.brineRecirculation)}</TableCell>
-                      <TableCell align="right">{e.shellLengthMM.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              * = with vapour escape lanes | Shell length includes 750 mm tube sheet access on each
-              side
-            </Typography>
-          </Paper>
-
-          {/* Overall Dimensions */}
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-              Evaporator Dimensions
-            </Typography>
-            <Table size="small">
-              <TableBody>
-                <TableRow>
-                  <TableCell>Shell OD</TableCell>
-                  <TableCell align="right">
-                    {detail.overallDimensions.shellODmm.toLocaleString()} mm
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Shell Length (per effect)</TableCell>
-                  <TableCell align="right">
-                    {detail.overallDimensions.shellLengthRange.min ===
-                    detail.overallDimensions.shellLengthRange.max
-                      ? `${detail.overallDimensions.shellLengthRange.min.toLocaleString()} mm`
-                      : `${detail.overallDimensions.shellLengthRange.min.toLocaleString()} – ${detail.overallDimensions.shellLengthRange.max.toLocaleString()} mm`}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Total Train Length</TableCell>
-                  <TableCell align="right">
-                    {detail.overallDimensions.totalLengthMM.toLocaleString()} mm (
-                    {(detail.overallDimensions.totalLengthMM / 1000).toFixed(1)} m)
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Tube Sheet Access (inside)</TableCell>
-                  <TableCell align="right">750 mm each side</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Number of Shells</TableCell>
-                  <TableCell align="right">{detail.numberOfShells}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </Paper>
-
+          {/* STEP 2: Geometry — user picks tubes/length before seeing effect details */}
+          {/* (Geometry Comparison section is rendered here — moved up from below) */}
           {/* Geometry Comparison — Interactive */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight={600}>
@@ -977,6 +832,153 @@ export default function MEDDesignerClient() {
                 </Box>
               );
             })()}
+          </Paper>
+
+          {/* Effect-by-Effect Table */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+              Effect-by-Effect Design
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              Non-BPE losses per effect: NEA {detail.effects[0]?.nea ?? 0.25}&deg;C + Demister{' '}
+              {detail.effects[0]?.demisterLoss ?? 0.15}&deg;C + Vapour duct{' '}
+              {detail.effects[0]?.pressureDropLoss ?? 0.3}&deg;C ={' '}
+              {(
+                (detail.effects[0]?.nea ?? 0.25) +
+                (detail.effects[0]?.demisterLoss ?? 0.15) +
+                (detail.effects[0]?.pressureDropLoss ?? 0.3)
+              ).toFixed(2)}
+              &deg;C total
+            </Typography>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Effect</TableCell>
+                    <TableCell align="right">Brine T (&deg;C)</TableCell>
+                    <TableCell align="right">Vap Out (&deg;C)</TableCell>
+                    <TableCell align="right">BPE (&deg;C)</TableCell>
+                    <TableCell align="right">Work &Delta;T (&deg;C)</TableCell>
+                    <TableCell align="right">U (W/m&sup2;&middot;K)</TableCell>
+                    <TableCell align="right">Duty (kW)</TableCell>
+                    <TableCell align="right">Tubes</TableCell>
+                    <TableCell align="right">Tube L (m)</TableCell>
+                    <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
+                    <TableCell align="right">Margin</TableCell>
+                    <TableCell align="right">Distillate (T/h)</TableCell>
+                    <TableCell align="right">Recirc (T/h)</TableCell>
+                    <TableCell align="right">Shell L (mm)</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {detail.effects.map((e) => (
+                    <TableRow key={e.effect}>
+                      <TableCell>
+                        E{e.effect}
+                        {e.hasVapourLanes ? ' *' : ''}
+                      </TableCell>
+                      <TableCell align="right">{fmt(e.brineTemp)}</TableCell>
+                      <TableCell align="right">{fmt(e.vapourOutTemp)}</TableCell>
+                      <TableCell align="right">{fmt(e.bpe, 2)}</TableCell>
+                      <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
+                      <TableCell align="right">{fmt(e.overallU, 0)}</TableCell>
+                      <TableCell align="right">{fmt(e.duty, 0)}</TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          size="small"
+                          type="number"
+                          placeholder={String(e.tubes)}
+                          value={tubeCountOverrides[e.effect - 1] ?? ''}
+                          onChange={(ev) =>
+                            setTubeCountOverrides((prev) => ({
+                              ...prev,
+                              [e.effect - 1]: ev.target.value,
+                            }))
+                          }
+                          sx={{ width: 80 }}
+                          inputProps={{ style: { textAlign: 'right', fontSize: '0.8rem' } }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          size="small"
+                          type="number"
+                          placeholder={String(e.tubeLength)}
+                          value={tubeLengthOverrides[e.effect - 1] ?? ''}
+                          onChange={(ev) =>
+                            setTubeLengthOverrides((prev) => ({
+                              ...prev,
+                              [e.effect - 1]: ev.target.value,
+                            }))
+                          }
+                          sx={{ width: 70 }}
+                          inputProps={{
+                            step: 0.1,
+                            style: { textAlign: 'right', fontSize: '0.8rem' },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">{fmt(e.installedArea, 0)}</TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ color: e.areaMargin < -10 ? 'error.main' : 'success.main' }}
+                      >
+                        {e.areaMargin >= 0 ? '+' : ''}
+                        {fmt(e.areaMargin, 0)}%
+                      </TableCell>
+                      <TableCell align="right">{fmt(e.distillateFlow, 2)}</TableCell>
+                      <TableCell align="right">{fmt(e.brineRecirculation)}</TableCell>
+                      <TableCell align="right">{e.shellLengthMM.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              * = with vapour escape lanes | Shell length includes 750 mm tube sheet access on each
+              side
+            </Typography>
+          </Paper>
+
+          {/* Overall Dimensions */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+              Evaporator Dimensions
+            </Typography>
+            <Table size="small">
+              <TableBody>
+                <TableRow>
+                  <TableCell>Shell OD</TableCell>
+                  <TableCell align="right">
+                    {detail.overallDimensions.shellODmm.toLocaleString()} mm
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Shell Length (per effect)</TableCell>
+                  <TableCell align="right">
+                    {detail.overallDimensions.shellLengthRange.min ===
+                    detail.overallDimensions.shellLengthRange.max
+                      ? `${detail.overallDimensions.shellLengthRange.min.toLocaleString()} mm`
+                      : `${detail.overallDimensions.shellLengthRange.min.toLocaleString()} – ${detail.overallDimensions.shellLengthRange.max.toLocaleString()} mm`}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Total Train Length</TableCell>
+                  <TableCell align="right">
+                    {detail.overallDimensions.totalLengthMM.toLocaleString()} mm (
+                    {(detail.overallDimensions.totalLengthMM / 1000).toFixed(1)} m)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Tube Sheet Access (inside)</TableCell>
+                  <TableCell align="right">750 mm each side</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Number of Shells</TableCell>
+                  <TableCell align="right">{detail.numberOfShells}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </Paper>
 
           {/* Preheater Contribution to Distillate */}
