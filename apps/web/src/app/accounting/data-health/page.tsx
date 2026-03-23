@@ -249,8 +249,9 @@ export default function DataHealthPage() {
         const correctPaid = allocationMap.get(d.id) ?? 0;
         const currentPaid = data.amountPaid ?? 0;
         const currentStatus = data.paymentStatus ?? 'UNPAID';
+        const correctOutstanding = parseFloat(Math.max(0, totalINR - correctPaid).toFixed(2));
         let correctStatus: string;
-        if (correctPaid >= totalINR && totalINR > 0) correctStatus = 'PAID';
+        if (correctOutstanding === 0 && totalINR > 0) correctStatus = 'PAID';
         else if (correctPaid > 0) correctStatus = 'PARTIALLY_PAID';
         else correctStatus = 'UNPAID';
         const isStale =
@@ -490,7 +491,7 @@ export default function DataHealthPage() {
           subtitle: 'Groups with the same transaction number',
           icon: <DuplicateIcon sx={{ fontSize: 40 }} />,
           color: 'error.main' as const,
-          path: undefined as unknown as string,
+          path: '/accounting/data-health/duplicate-numbers',
           description: 'Multiple transactions sharing the same number',
         },
       ].filter((card) => card.count > 0)
@@ -681,7 +682,17 @@ export default function DataHealthPage() {
                 </Alert>
               )}
               {stats.duplicateNumbers.count > 0 && (
-                <Alert severity="error">
+                <Alert
+                  severity="error"
+                  action={
+                    <Button
+                      size="small"
+                      onClick={() => router.push('/accounting/data-health/duplicate-numbers')}
+                    >
+                      View
+                    </Button>
+                  }
+                >
                   <strong>Priority 1:</strong> {stats.duplicateNumbers.count} duplicate transaction
                   number group{stats.duplicateNumbers.count > 1 ? 's' : ''} found. Each transaction
                   should have a unique number to prevent confusion in reports and reconciliation.

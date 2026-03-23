@@ -228,12 +228,11 @@ export default function StalePaymentsPage() {
         const currentStatus = (data.paymentStatus as string) ?? 'UNPAID';
         const currentOutstanding = data.outstandingAmount as number | undefined;
 
+        const correctOutstanding = parseFloat(Math.max(0, totalINR - correctPaid).toFixed(2));
         let correctStatus: string;
-        if (correctPaid >= totalINR && totalINR > 0) correctStatus = 'PAID';
+        if (correctOutstanding === 0 && totalINR > 0) correctStatus = 'PAID';
         else if (correctPaid > 0) correctStatus = 'PARTIALLY_PAID';
         else correctStatus = 'UNPAID';
-
-        const correctOutstanding = Math.max(0, Math.round((totalINR - correctPaid) * 100) / 100);
 
         const isStale =
           Math.abs(currentPaid - correctPaid) > 0.01 ||

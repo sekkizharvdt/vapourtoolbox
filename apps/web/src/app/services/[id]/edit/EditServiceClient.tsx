@@ -65,6 +65,8 @@ export default function EditServiceClient() {
     message: '',
   });
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   // Load service and populate form
   useEffect(() => {
     async function load() {
@@ -93,6 +95,11 @@ export default function EditServiceClient() {
         }
       } catch (err) {
         console.error('Error loading service:', err);
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load service. You may not have permission to view this item.'
+        );
       } finally {
         setLoading(false);
       }
@@ -126,7 +133,7 @@ export default function EditServiceClient() {
         serviceId,
         {
           name: name.trim(),
-          description: description.trim() || undefined,
+          ...(description.trim() ? { description: description.trim() } : { description: '' }),
           category,
           calculationMethod,
           ...(defaultRateValue ? { defaultRateValue: parseFloat(defaultRateValue) } : {}),
@@ -163,7 +170,12 @@ export default function EditServiceClient() {
   if (!service) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography color="text.secondary">Service not found</Typography>
+        <Typography color="text.secondary">{loadError || 'Service not found'}</Typography>
+        {loadError && (
+          <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+            {loadError}
+          </Typography>
+        )}
         <Button onClick={() => router.push('/services')} sx={{ mt: 2 }}>
           Back to Services
         </Button>

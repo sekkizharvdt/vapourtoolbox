@@ -51,6 +51,7 @@ export default function ServiceDetailClient() {
   const [loading, setLoading] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
     open: false,
     message: '',
@@ -64,6 +65,11 @@ export default function ServiceDetailClient() {
         setService(result);
       } catch (error) {
         console.error('Error loading service:', error);
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load service. You may not have permission to view this item.'
+        );
       } finally {
         setLoading(false);
       }
@@ -97,7 +103,12 @@ export default function ServiceDetailClient() {
   if (!service) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography color="text.secondary">Service not found</Typography>
+        <Typography color="text.secondary">{loadError || 'Service not found'}</Typography>
+        {loadError && (
+          <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+            {loadError}
+          </Typography>
+        )}
         <Button onClick={() => router.push('/services')} sx={{ mt: 2 }}>
           Back to Services
         </Button>
