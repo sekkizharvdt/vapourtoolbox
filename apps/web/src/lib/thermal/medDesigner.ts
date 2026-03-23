@@ -172,10 +172,24 @@ export interface MEDEffectResult {
   minSprayFlow: number;
   /** Required brine recirculation T/h */
   brineRecirculation: number;
-  /** Shell length mm (tube + 2×tubesheet + 2×750mm access) */
+  /** Shell length mm (tube + 2×tubesheet + access) */
   shellLengthMM: number;
   /** Shell OD mm (ID + 2×thickness) */
   shellODmm: number;
+  /** Number of Ti top rows for erosion protection (typically 3) */
+  tiTopRows: number;
+  /** Number of Ti tubes in top rows */
+  tiTubeCount: number;
+  /** Spray nozzle installation space above bundle mm */
+  sprayNozzleSpaceMM: number;
+  /** Drainage clearance below bundle mm */
+  drainageClearanceMM: number;
+  /** Vapour flow area in open half of shell m² */
+  vapourFlowAreaM2: number;
+  /** Maximum vapour velocity through open area m/s */
+  vapourVelocity: number;
+  /** Vapour velocity status */
+  vapourVelocityStatus: 'ok' | 'high' | 'low';
 }
 
 /** Final condenser result */
@@ -1219,13 +1233,34 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       hasVapourLanes: hasLanes,
       minSprayFlow: minSpray,
       brineRecirculation: recirc,
-      // Shell length per effect: tube + 2×tubesheet + 1×access (not 2×)
-      // In lateral layout, tubes alternate L/R between effects.
-      // Adjacent effects share the tube sheet access space at their common boundary.
-      // Each effect only needs access on ONE side (the outer end).
-      // The shared side provides access for both the outgoing and incoming tube sheets.
       shellLengthMM: Math.round(selectedLength * 1000 + 2 * tubeSheetThkMM + tubeSheetAccessMM),
       shellODmm: Math.round(effShellID + 2 * shellThkMM),
+      // Ti top rows for erosion protection (top 3 rows of lateral bundle)
+      tiTopRows: 3,
+      tiTubeCount: Math.min(3 * effTubesPerRow, tubes),
+      // Spray nozzle installation space: depends on spray angle and bundle width
+      // Reference drawings show 275-945mm above bundle top
+      // Minimum = nozzle height (50mm) + spray cone development (spray angle × half-width)
+      sprayNozzleSpaceMM: Math.round(Math.max(275, effShellID * 0.15)),
+      // Drainage clearance below bundle (minimum 250mm for brine collection)
+      drainageClearanceMM: Math.max(250, Math.round(effShellID * 0.12)),
+      // Vapour flow area check: open half of shell minus bundle cross-section
+      // Shell cross-section area (full circle)
+      ...(() => {
+        const shellR = effShellID / 2;
+        const shellArea = (Math.PI * shellR * shellR) / 1e6; // m²
+        // Bundle occupies roughly half the shell (lateral bundle)
+        // Approximate bundle cross-section from tube count × pitch²
+        const bundleCrossSection = (tubes * pitch * pitch) / 1e6; // m² approximate
+        const vapourFlowAreaM2 = Math.max(0.1, shellArea - bundleCrossSection * 0.5);
+        // Vapour mass flow through this area
+        const vapDensity = getDensityVapor(vapourOutT);
+        const vapMassFlow = distFlow / 3.6; // kg/s
+        const vapVolumetricFlow = vapDensity > 0 ? vapMassFlow / vapDensity : 0; // m³/s
+        const vapVel = vapourFlowAreaM2 > 0 ? vapVolumetricFlow / vapourFlowAreaM2 : 0;
+        const velStatus: 'ok' | 'high' | 'low' = vapVel > 40 ? 'high' : vapVel < 5 ? 'low' : 'ok';
+        return { vapourFlowAreaM2, vapourVelocity: vapVel, vapourVelocityStatus: velStatus };
+      })(),
     });
 
     prevVapourT = vapourOutT;
