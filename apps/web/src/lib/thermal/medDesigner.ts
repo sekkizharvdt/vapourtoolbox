@@ -492,6 +492,28 @@ export interface MEDScenarioRow {
   feasible: boolean;
 }
 
+/** GOR configuration: effects × preheaters combination to achieve target GOR */
+export interface GORConfigRow {
+  effects: number;
+  preheaters: number;
+  /** Feed temperature after preheater chain °C */
+  feedTemp: number;
+  /** Working ΔT per effect °C */
+  workDTPerEffect: number;
+  /** Achievable GOR */
+  gor: number;
+  /** Net distillate T/h */
+  distillate: number;
+  /** Output m³/day */
+  outputM3Day: number;
+  /** How close to target GOR (absolute difference) */
+  gorDeviation: number;
+  /** Is this configuration feasible (workDT > 0.5°C) */
+  feasible: boolean;
+  /** Recommended: closest to target GOR and feasible */
+  recommended: boolean;
+}
+
 /** Complete MED design result */
 export interface MEDDesignerResult {
   // ── Input echo ───────────────────────────────────────────────────────
@@ -499,7 +521,10 @@ export interface MEDDesignerResult {
     resolvedDefaults: Record<string, number | string | boolean>;
   };
 
-  // ── Scenario comparison ──────────────────────────────────────────────
+  // ── GOR configurations (effects × preheaters to achieve target GOR) ──
+  gorConfigurations: GORConfigRow[];
+
+  // ── Scenario comparison (reference — all effect counts) ────────────
   scenarios: MEDScenarioRow[];
   recommendedEffects: number;
 
@@ -962,6 +987,21 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       recommendedEffects = best.effects;
     }
   }
+
+  // ── GOR configurations: effects × preheaters matrix ─────────────────
+  const gorConfigurations = computeGORConfigurations(
+    input.steamFlow,
+    input.steamTemperature,
+    lastEffectVapourT,
+    maxBrineSalinity,
+    swSalinity,
+    condenserSWOutlet,
+    input.targetGOR,
+    avgLossPerEffect,
+    NEA,
+    demLoss,
+    pdLoss
+  );
 
   const nEff = recommendedEffects;
 
@@ -1469,6 +1509,7 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
 
   const result: MEDDesignerResult = {
     inputs: { ...input, resolvedDefaults },
+    gorConfigurations,
     scenarios,
     recommendedEffects,
     effects,
@@ -1598,6 +1639,97 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
 // ============================================================================
 // Geometry Comparisons
 // ============================================================================
+
+/**
+ * Compute GOR configurations: effects × preheaters matrix.
+ * Shows all combinations of effect count and preheater count that
+ * achieve near the target GOR, so the user can choose their preferred
+ * trade-off between complexity and performance.
+ */
+function computeGORConfigurations(
+  steamFlow: number,
+  steamTemp: number,
+  lastVapT: number,
+  maxBrineSalinity: number,
+  swSalinity: number,
+  condenserSWOutlet: number,
+  targetGOR: number,
+  avgLossPerEffect: number,
+  _NEA: number,
+  _demLoss: number,
+  _pdLoss: number
+): GORConfigRow[] {
+  const configs: GORConfigRow[] = [];
+  const ventLoss = 0.015;
+  const Cp = 4.0; // kJ/(kg·K) seawater
+  const totalRange = steamTemp - lastVapT;
+
+  for (let nEff = 4; nEff <= 12; nEff++) {
+    const workDT = totalRange / nEff - avgLossPerEffect;
+    if (workDT <= 0) continue;
+
+    for (let nPH = 0; nPH <= Math.min(nEff - 2, 6); nPH++) {
+      // Base GOR without preheaters
+      let grossDist = 0;
+      let Q = (steamFlow * 1000 * getLatentHeat(steamTemp)) / 3600; // kW
+
+      let vapT = steamTemp;
+      for (let i = 0; i < nEff; i++) {
+        // Simplified: use uniform step
+        const effVapOutT = vapT - totalRange / nEff;
+        const hfgEff = getLatentHeat(Math.max(effVapOutT, 30));
+        const dist = ((Q * 3.6) / hfgEff) * (1 - ventLoss);
+        grossDist += dist;
+        Q = (dist * hfgEff) / 3.6;
+        vapT = effVapOutT;
+      }
+
+      const e1Condensate = steamFlow * (1 - ventLoss);
+      const netDistBase = grossDist - e1Condensate;
+
+      // Preheater contribution: each PH raises feed by ~4°C
+      // Extra distillate = makeUp × Cp × tempRise / hfg_avg
+      const feedTempRise = nPH * 4; // °C per PH
+      const feedTemp = condenserSWOutlet + feedTempRise;
+      const makeUpFlow =
+        netDistBase > 0 ? (netDistBase * maxBrineSalinity) / (maxBrineSalinity - swSalinity) : 0;
+      const hfgAvg = getLatentHeat((steamTemp + lastVapT) / 2);
+      const extraDist = makeUpFlow > 0 ? (makeUpFlow * Cp * feedTempRise) / hfgAvg : 0;
+
+      const netDist = netDistBase + extraDist;
+      const gor = steamFlow > 0 ? netDist / steamFlow : 0;
+      const deviation = Math.abs(gor - targetGOR);
+
+      if (gor > 0 && workDT > 0.3) {
+        configs.push({
+          effects: nEff,
+          preheaters: nPH,
+          feedTemp,
+          workDTPerEffect: workDT,
+          gor,
+          distillate: netDist,
+          outputM3Day: netDist * 24,
+          gorDeviation: deviation,
+          feasible: workDT > 0.5,
+          recommended: false,
+        });
+      }
+    }
+  }
+
+  // Mark configurations within ±1.0 of target GOR as candidates
+  // Find the best (closest to target, feasible, fewest effects for tie)
+  const candidates = configs.filter((c) => c.gorDeviation <= 1.5 && c.feasible);
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => a.gorDeviation - b.gorDeviation || a.effects - b.effects);
+    candidates[0]!.recommended = true;
+  }
+
+  // Return only configurations within ±2.0 of target GOR
+  return configs
+    .filter((c) => c.gorDeviation <= 2.0)
+    .sort((a, b) => a.effects - b.effects || a.preheaters - b.preheaters);
+}
 
 function computeGeometryComparisons(
   effects: MEDEffectResult[],

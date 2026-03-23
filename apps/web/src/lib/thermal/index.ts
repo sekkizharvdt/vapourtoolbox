@@ -391,6 +391,7 @@ export {
   type MEDSiphonResult,
   type MEDLineSizing,
   type MEDPumpResult,
+  type GORConfigRow,
   type GeometryComparisonOption,
   type GeometryComparisonEffect,
   type PreheaterContribution,

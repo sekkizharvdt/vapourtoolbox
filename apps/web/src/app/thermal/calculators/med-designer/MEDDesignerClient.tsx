@@ -466,14 +466,74 @@ export default function MEDDesignerClient() {
         </Alert>
       )}
 
-      {/* ── Design Options Table ────────────────────────────────────────── */}
+      {/* ── GOR Configurations: How to achieve target GOR ────────────────── */}
+      {detail?.gorConfigurations && detail.gorConfigurations.length > 0 && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+            Configurations to Achieve GOR {targetGOR}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Effects × preheaters combinations near target GOR. Click a row to design that
+            configuration.
+          </Typography>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell />
+                  <TableCell align="right">Effects</TableCell>
+                  <TableCell align="right">Preheaters</TableCell>
+                  <TableCell align="right">GOR</TableCell>
+                  <TableCell align="right">Output (m&sup3;/day)</TableCell>
+                  <TableCell align="right">Feed Temp (&deg;C)</TableCell>
+                  <TableCell align="right">Work &Delta;T/eff (&deg;C)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {detail.gorConfigurations.map((gc, i) => (
+                  <TableRow
+                    key={i}
+                    hover
+                    selected={gc.effects === selectedEffects}
+                    onClick={() => setSelectedEffects(gc.effects)}
+                    sx={{
+                      cursor: 'pointer',
+                      bgcolor: gc.recommended ? 'action.selected' : undefined,
+                    }}
+                  >
+                    <TableCell>
+                      {gc.recommended ? (
+                        <FeasibleIcon color="success" fontSize="small" />
+                      ) : gc.feasible ? (
+                        <FeasibleIcon color="info" fontSize="small" />
+                      ) : (
+                        <WarningIcon color="warning" fontSize="small" />
+                      )}
+                    </TableCell>
+                    <TableCell align="right">{gc.effects}</TableCell>
+                    <TableCell align="right">{gc.preheaters}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: gc.recommended ? 700 : 400 }}>
+                      {fmt(gc.gor)}
+                    </TableCell>
+                    <TableCell align="right">{fmt(gc.outputM3Day, 0)}</TableCell>
+                    <TableCell align="right">{fmt(gc.feedTemp)}&deg;C</TableCell>
+                    <TableCell align="right">{fmt(gc.workDTPerEffect, 2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
+      )}
+
+      {/* ── Design Options Table (reference — all effect counts) ──────── */}
       {options.length > 0 && (
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-            Design Options — Trade-off Comparison
+            Reference — All Configurations
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Click a row to select that configuration for detailed design.
+            Full range of effect counts for comparison. Click a row to design.
           </Typography>
           <Box sx={{ overflowX: 'auto' }}>
             <Table size="small">
