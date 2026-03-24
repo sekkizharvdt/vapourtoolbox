@@ -83,14 +83,28 @@ export default function MEDWizardClient() {
     }
   }, [steamFlow, steamTemp, swTemp, targetGOR]);
 
-  // ── Design result (computed when config is selected) ────────────────────
+  // ── Design result (recomputed with geometry overrides) ───────────────────
   const designResult = useMemo<MEDDesignerResult | null>(() => {
     if (selectedEffects === null) return null;
     const sf = parseFloat(steamFlow);
     const st = parseFloat(steamTemp);
     const sw = parseFloat(swTemp);
     const gor = parseFloat(targetGOR);
+    const gv = parseFloat(geoValue);
     if ([sf, st, sw, gor].some((v) => isNaN(v) || v <= 0)) return null;
+
+    // Build overrides from Step 2 geometry selection
+    const overrides: Record<string, unknown> = {};
+    if (!isNaN(gv) && gv > 0) {
+      const nEff = selectedEffects;
+      if (geoMode === 'fixed_tubes') {
+        // Fixed tube count → pass as tubeCountOverrides for all effects
+        overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
+      } else {
+        // Fixed tube length → pass as tubeLengthOverrides for all effects
+        overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
+      }
+    }
 
     try {
       return designMED({
@@ -100,11 +114,21 @@ export default function MEDWizardClient() {
         targetGOR: gor,
         numberOfEffects: selectedEffects,
         numberOfPreheaters: selectedPreheaters,
+        ...overrides,
       });
     } catch {
       return null;
     }
-  }, [steamFlow, steamTemp, swTemp, targetGOR, selectedEffects, selectedPreheaters]);
+  }, [
+    steamFlow,
+    steamTemp,
+    swTemp,
+    targetGOR,
+    selectedEffects,
+    selectedPreheaters,
+    geoMode,
+    geoValue,
+  ]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
   const handleSelectConfig = (effects: number, preheaters: number) => {

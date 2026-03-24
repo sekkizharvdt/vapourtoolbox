@@ -72,7 +72,17 @@ export function Step2Geometry({
           const swSal = detail.inputs.seawaterSalinity ?? 35000;
           const feed = (e.distillateFlow * maxBrine) / (maxBrine - swSal);
           const recirc = Math.max(0, minSpray - feed);
-          return { effect: e.effect, tubes, tubeLength: tubeL, shellID, instArea, margin, recirc };
+          return {
+            effect: e.effect,
+            tubes,
+            tubeLength: tubeL,
+            shellID,
+            instArea,
+            margin,
+            recirc,
+            totalSpray: minSpray,
+            feed,
+          };
         } else {
           const tubes = Math.round(val);
           const tubeL = Math.ceil((e.designArea / (tubes * areaPerTubePerM)) * 10) / 10;
@@ -85,14 +95,23 @@ export function Step2Geometry({
           const swSal = detail.inputs.seawaterSalinity ?? 35000;
           const feed = (e.distillateFlow * maxBrine) / (maxBrine - swSal);
           const recirc = Math.max(0, minSpray - feed);
-          return { effect: e.effect, tubes, tubeLength: tubeL, shellID, instArea, margin, recirc };
+          return {
+            effect: e.effect,
+            tubes,
+            tubeLength: tubeL,
+            shellID,
+            instArea,
+            margin,
+            recirc,
+            totalSpray: minSpray,
+            feed,
+          };
         }
       })
     : [];
 
   const maxShellID = geoRows.length > 0 ? Math.max(...geoRows.map((r) => r.shellID)) : 0;
   const totalArea = geoRows.reduce((s, r) => s + r.instArea, 0);
-  const totalRecirc = geoRows.reduce((s, r) => s + r.recirc, 0);
 
   return (
     <Stack spacing={3}>
@@ -185,7 +204,8 @@ export function Step2Geometry({
                 : `All effects use ${Math.round(val)} tubes. Tube length varies per effect.`}{' '}
               Max Shell ID: {maxShellID} mm
               {maxShellID < 1800 ? ' ⚠ (below 1,800mm man-entry)' : ''} | Total Area:{' '}
-              {Math.round(totalArea)} m&sup2; | Total Recirc: {fmt(totalRecirc)} T/h
+              {Math.round(totalArea)} m&sup2; | Total Spray:{' '}
+              {fmt(geoRows.reduce((s, r) => s + r.totalSpray, 0))} T/h (make-up + recirc)
             </Typography>
 
             {maxShellID < 1800 && (
@@ -204,7 +224,7 @@ export function Step2Geometry({
                   <TableCell align="right">Shell ID (mm)</TableCell>
                   <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
                   <TableCell align="right">Margin</TableCell>
-                  <TableCell align="right">Recirc (T/h)</TableCell>
+                  <TableCell align="right">Spray (T/h)</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -233,7 +253,7 @@ export function Step2Geometry({
                       {r.margin >= 0 ? '+' : ''}
                       {r.margin.toFixed(0)}%
                     </TableCell>
-                    <TableCell align="right">{r.recirc.toFixed(1)}</TableCell>
+                    <TableCell align="right">{r.totalSpray.toFixed(1)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
