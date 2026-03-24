@@ -54,6 +54,32 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
           width="100%"
           style={{ maxWidth: 960, minHeight: 360, background: bgCol }}
         >
+          {/* Dimension arrow markers */}
+          <defs>
+            <marker
+              id="dimArrowL"
+              viewBox="0 0 6 6"
+              refX="0"
+              refY="3"
+              markerWidth="4"
+              markerHeight="4"
+              orient="auto"
+            >
+              <path d="M6,0 L0,3 L6,6" fill="none" stroke="#1565c0" strokeWidth="1" />
+            </marker>
+            <marker
+              id="dimArrowR"
+              viewBox="0 0 6 6"
+              refX="6"
+              refY="3"
+              markerWidth="4"
+              markerHeight="4"
+              orient="auto"
+            >
+              <path d="M0,0 L6,3 L0,6" fill="none" stroke="#1565c0" strokeWidth="1" />
+            </marker>
+          </defs>
+
           {/* ── ELEVATION VIEW ─────────────────────────────────────── */}
           <text
             x={svgW / 2}
@@ -69,58 +95,139 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
             Total length: {(maxTrainLen / 1000).toFixed(1)} m | Shell OD: {dims.shellODmm} mm
           </text>
 
-          {/* Draw each shell */}
+          {/* Draw each shell with tube sheets and access space */}
           {(() => {
             let xCursor = 80;
+            const headR = 10; // dished head depth
+            const tsW = 3; // tube sheet width in SVG px
+            const accessW = 750 * scale; // 750mm access space scaled
+            const accessCol = '#e3f2fd'; // light blue for access space
+
             return result.effects.map((e, i) => {
               const shellLen = e.shellLengthMM * scale;
               const shellH = elevH;
               const x = xCursor;
-              xCursor += shellLen + 8; // 8px gap between shells
 
-              // Dished head arcs
-              const headR = 12;
+              // Layout within shell: [head][TS][access 750][tubes][access 750][TS][head]
+              // But adjacent effects share access space, so:
+              // First effect: [head][TS][access][tubes][TS]
+              // Middle effects: [access][TS][tubes][TS]  (access shared with previous)
+              // Last effect: [access][TS][tubes][TS][head]
+              const isFirst = i === 0;
+              const isLast = i === nEff - 1;
+
+              // Total for this shell segment
+              const segmentLen = shellLen + (isFirst ? 0 : accessW);
+              xCursor += segmentLen;
+
+              const bodyX = x + (isFirst ? headR : accessW);
+              const bodyW = shellLen - (isFirst ? headR : 0) - (isLast ? headR : 0);
+
+              // Tube region within the shell
+              const tubeX1 = bodyX + tsW + 2;
+              const tubeX2 = bodyX + bodyW - tsW - 2;
 
               return (
                 <g key={i}>
-                  {/* Shell body */}
+                  {/* Access space between effects (750mm) */}
+                  {!isFirst && (
+                    <g>
+                      <rect
+                        x={x}
+                        y={elevY + 2}
+                        width={accessW}
+                        height={shellH - 4}
+                        fill={accessCol}
+                        stroke="none"
+                        opacity={0.5}
+                      />
+                      <text
+                        x={x + accessW / 2}
+                        y={elevY + shellH + 30}
+                        textAnchor="middle"
+                        fontSize={5}
+                        fill="#1565c0"
+                      >
+                        750mm
+                      </text>
+                      {/* Dimension arrows */}
+                      <line
+                        x1={x + 1}
+                        y1={elevY + shellH + 25}
+                        x2={x + accessW - 1}
+                        y2={elevY + shellH + 25}
+                        stroke="#1565c0"
+                        strokeWidth={0.5}
+                        markerStart="url(#dimArrowL)"
+                        markerEnd="url(#dimArrowR)"
+                      />
+                    </g>
+                  )}
+
+                  {/* Shell body (cylindrical section) */}
                   <rect
-                    x={x + headR}
+                    x={bodyX}
                     y={elevY}
-                    width={Math.max(shellLen - 2 * headR, 10)}
+                    width={bodyW}
                     height={shellH}
                     fill="none"
                     stroke={shellCol}
                     strokeWidth={1.5}
                   />
-                  {/* Left dished head (2:1 SE approximation) */}
-                  <ellipse
-                    cx={x + headR}
-                    cy={elevY + shellH / 2}
-                    rx={headR}
-                    ry={shellH / 2}
-                    fill="none"
-                    stroke={shellCol}
-                    strokeWidth={1.5}
+
+                  {/* Left dished head (only for first effect) */}
+                  {isFirst && (
+                    <ellipse
+                      cx={bodyX}
+                      cy={elevY + shellH / 2}
+                      rx={headR}
+                      ry={shellH / 2}
+                      fill="none"
+                      stroke={shellCol}
+                      strokeWidth={1.5}
+                    />
+                  )}
+
+                  {/* Right dished head (only for last effect) */}
+                  {isLast && (
+                    <ellipse
+                      cx={bodyX + bodyW}
+                      cy={elevY + shellH / 2}
+                      rx={headR}
+                      ry={shellH / 2}
+                      fill="none"
+                      stroke={shellCol}
+                      strokeWidth={1.5}
+                    />
+                  )}
+
+                  {/* Left tube sheet */}
+                  <rect
+                    x={bodyX}
+                    y={elevY}
+                    width={tsW}
+                    height={shellH}
+                    fill={shellCol}
+                    stroke="none"
                   />
-                  {/* Right dished head */}
-                  <ellipse
-                    cx={x + shellLen - headR}
-                    cy={elevY + shellH / 2}
-                    rx={headR}
-                    ry={shellH / 2}
-                    fill="none"
-                    stroke={shellCol}
-                    strokeWidth={1.5}
+
+                  {/* Right tube sheet */}
+                  <rect
+                    x={bodyX + bodyW - tsW}
+                    y={elevY}
+                    width={tsW}
+                    height={shellH}
+                    fill={shellCol}
+                    stroke="none"
                   />
 
                   {/* Tube bundle lines (horizontal) */}
-                  {[0.3, 0.4, 0.5, 0.6, 0.7].map((frac, j) => (
+                  {[0.25, 0.35, 0.45, 0.55, 0.65, 0.75].map((frac, j) => (
                     <line
                       key={j}
-                      x1={x + headR + 5}
+                      x1={tubeX1}
                       y1={elevY + shellH * frac}
-                      x2={x + shellLen - headR - 5}
+                      x2={tubeX2}
                       y2={elevY + shellH * frac}
                       stroke={tubeCol}
                       strokeWidth={0.5}
@@ -129,7 +236,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
 
                   {/* Effect label */}
                   <text
-                    x={x + shellLen / 2}
+                    x={bodyX + bodyW / 2}
                     y={elevY - 5}
                     textAnchor="middle"
                     fontSize={8}
@@ -141,7 +248,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
 
                   {/* Dimension: shell length */}
                   <text
-                    x={x + shellLen / 2}
+                    x={bodyX + bodyW / 2}
                     y={elevY + shellH + 15}
                     textAnchor="middle"
                     fontSize={6}
@@ -152,7 +259,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
 
                   {/* Tube length annotation */}
                   <text
-                    x={x + shellLen / 2}
+                    x={bodyX + bodyW / 2}
                     y={elevY + shellH + 25}
                     textAnchor="middle"
                     fontSize={6}
@@ -161,21 +268,20 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     L={e.tubeLength}m | {e.tubes} tubes
                   </text>
 
-                  {/* Nozzles (simplified) */}
-                  {/* Top: vapour inlet/outlet */}
+                  {/* Top nozzle: vapour */}
                   <line
-                    x1={x + shellLen * 0.3}
+                    x1={bodyX + bodyW * 0.3}
                     y1={elevY}
-                    x2={x + shellLen * 0.3}
+                    x2={bodyX + bodyW * 0.3}
                     y2={elevY - 10}
                     stroke={shellCol}
                     strokeWidth={1}
                   />
-                  {/* Bottom: brine/distillate */}
+                  {/* Bottom nozzle: brine/distillate */}
                   <line
-                    x1={x + shellLen * 0.7}
+                    x1={bodyX + bodyW * 0.7}
                     y1={elevY + shellH}
-                    x2={x + shellLen * 0.7}
+                    x2={bodyX + bodyW * 0.7}
                     y2={elevY + shellH + 5}
                     stroke={shellCol}
                     strokeWidth={1}
