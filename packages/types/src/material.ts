@@ -221,6 +221,13 @@ export enum MaterialCategory {
   INSTRUMENT_CONTROL_VALVE = 'INSTRUMENT_CONTROL_VALVE', // Pneumatic, Electric actuators
   INSTRUMENT_OTHER = 'INSTRUMENT_OTHER', // Switches, Indicators, Analyzers
 
+  // Instrumentation Accessories
+  INSTRUMENT_ACCESSORY_THERMOWELL = 'INSTRUMENT_ACCESSORY_THERMOWELL', // SS316L, Ti, Duplex
+  INSTRUMENT_ACCESSORY_CABLE_GLAND = 'INSTRUMENT_ACCESSORY_CABLE_GLAND', // Brass, SS, IP68
+  INSTRUMENT_ACCESSORY_MANIFOLD = 'INSTRUMENT_ACCESSORY_MANIFOLD', // 3-valve, 5-valve
+  INSTRUMENT_ACCESSORY_FERRULE = 'INSTRUMENT_ACCESSORY_FERRULE', // Bootlace, ring, pin
+  INSTRUMENT_ACCESSORY_JUNCTION_BOX = 'INSTRUMENT_ACCESSORY_JUNCTION_BOX', // IP65/66, SS/GRP
+
   // Bought-Out Components - Other
   FLANGES = 'FLANGES', // ASME B16.5, B16.47 (Slip-on, Weld neck, Blind)
   FLANGES_WELD_NECK = 'FLANGES_WELD_NECK', // ASME B16.5 (Weld Neck Flanges)
@@ -290,6 +297,11 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER]: 'Instrument - Level Transmitter',
   [MaterialCategory.INSTRUMENT_CONTROL_VALVE]: 'Instrument - Control Valve',
   [MaterialCategory.INSTRUMENT_OTHER]: 'Instrument - Other',
+  [MaterialCategory.INSTRUMENT_ACCESSORY_THERMOWELL]: 'Thermowell',
+  [MaterialCategory.INSTRUMENT_ACCESSORY_CABLE_GLAND]: 'Cable Gland',
+  [MaterialCategory.INSTRUMENT_ACCESSORY_MANIFOLD]: 'Valve Manifold',
+  [MaterialCategory.INSTRUMENT_ACCESSORY_FERRULE]: 'Ferrule / Lug',
+  [MaterialCategory.INSTRUMENT_ACCESSORY_JUNCTION_BOX]: 'Junction Box',
   [MaterialCategory.FLANGES]: 'Flanges',
   [MaterialCategory.FLANGES_WELD_NECK]: 'Flanges - Weld Neck',
   [MaterialCategory.FLANGES_SLIP_ON]: 'Flanges - Slip-On',
@@ -509,6 +521,18 @@ export const PICKER_CATEGORY_GROUPS: Array<{
       MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER,
       MaterialCategory.INSTRUMENT_CONTROL_VALVE,
       MaterialCategory.INSTRUMENT_OTHER,
+    ],
+    pipingMode: false,
+  },
+  {
+    key: 'instrument-accessories',
+    label: 'Instrument Accessories',
+    categories: [
+      MaterialCategory.INSTRUMENT_ACCESSORY_THERMOWELL,
+      MaterialCategory.INSTRUMENT_ACCESSORY_CABLE_GLAND,
+      MaterialCategory.INSTRUMENT_ACCESSORY_MANIFOLD,
+      MaterialCategory.INSTRUMENT_ACCESSORY_FERRULE,
+      MaterialCategory.INSTRUMENT_ACCESSORY_JUNCTION_BOX,
     ],
     pipingMode: false,
   },

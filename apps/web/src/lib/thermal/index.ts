@@ -408,6 +408,17 @@ export {
   type MEDCompleteBOM,
 } from './medBOMGenerator';
 
+// Instrument Accessory Generator
+export {
+  generateInstrumentAccessories,
+  type InstrumentType,
+  type InstrumentPoint,
+  type InstrumentAccessoryItem,
+  type IOSummary,
+  type InstrumentAccessoryBOM,
+  type AccessoryGeneratorOptions,
+} from './instrumentAccessoryGenerator';
+
 // Single Tube Analysis
 export {
   calculateSingleTube,

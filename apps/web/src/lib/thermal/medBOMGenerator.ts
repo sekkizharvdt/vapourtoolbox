@@ -14,6 +14,12 @@
  * - Grommets: +5% installation allowance
  */
 
+import {
+  generateInstrumentAccessories,
+  type InstrumentPoint,
+  type InstrumentAccessoryBOM,
+} from './instrumentAccessoryGenerator';
+
 import type { MEDDesignerResult } from './medDesigner';
 
 // ============================================================================
@@ -94,6 +100,8 @@ export interface MEDCompleteBOM {
   equipment: MEDBOMItem[];
   instruments: MEDInstrumentItem[];
   valves: MEDValveItem[];
+  /** Instrument accessories BOM (thermowells, cable glands, cables, ferrules, JBs, I/O) */
+  instrumentAccessories?: InstrumentAccessoryBOM;
   summary: {
     totalEquipmentItems: number;
     totalInstruments: number;
@@ -787,10 +795,33 @@ export function generateMEDBOM(result: MEDDesignerResult): MEDCompleteBOM {
     categorySummary.set(item.category, cat);
   }
 
+  // ── INSTRUMENT ACCESSORIES ─────────────────────────────────────────────
+  // Convert the instrument schedule to InstrumentPoints and generate accessories
+  let instrumentAccessories: InstrumentAccessoryBOM | undefined;
+  try {
+    const instPoints: InstrumentPoint[] = instruments.map((inst) => ({
+      tagNumber: inst.tagNumber,
+      type: inst.type as InstrumentPoint['type'],
+      service: inst.service,
+      location: inst.location,
+      processFluid: inst.location.toLowerCase().includes('brine')
+        ? 'brine'
+        : inst.location.toLowerCase().includes('sw') || inst.location.toLowerCase().includes('sea')
+          ? 'seawater'
+          : inst.location.toLowerCase().includes('distill')
+            ? 'distillate'
+            : 'other',
+    }));
+    instrumentAccessories = generateInstrumentAccessories(instPoints);
+  } catch {
+    // Non-critical — accessory generation failure doesn't block the BOM
+  }
+
   return {
     equipment,
     instruments,
     valves,
+    instrumentAccessories,
     summary: {
       totalEquipmentItems: equipment.length,
       totalInstruments: instruments.length,
