@@ -235,8 +235,19 @@ export function Step2Geometry({
                 : `All effects use ${Math.round(val)} tubes. Tube length varies per effect.`}{' '}
               Max Shell ID: {maxShellID} mm
               {maxShellID < 1800 ? ' ⚠ (below 1,800mm man-entry)' : ''} | Total Area:{' '}
-              {Math.round(totalArea)} m&sup2; | Total Spray:{' '}
-              {fmt(geoRows.reduce((s, r) => s + r.totalSpray, 0))} T/h (make-up + recirc)
+              {Math.round(totalArea)} m&sup2;
+              {(() => {
+                const totalSpray = geoRows.reduce((s, r) => s + r.totalSpray, 0);
+                const totalFeed = geoRows.reduce((s, r) => s + r.feed, 0);
+                const totalRecirc = totalSpray - totalFeed;
+                const maxBrine = detail.inputs.maxBrineSalinity ?? 65000;
+                const swSal = detail.inputs.seawaterSalinity ?? 35000;
+                const blendedTDS =
+                  totalFeed + totalRecirc > 0
+                    ? Math.round((totalFeed * swSal + totalRecirc * maxBrine) / totalSpray)
+                    : swSal;
+                return ` | Pump flow: ${fmt(totalSpray)} T/h (make-up ${fmt(totalFeed)} + recirc ${fmt(totalRecirc)}) | Blended TDS: ${blendedTDS.toLocaleString()} ppm`;
+              })()}
             </Typography>
 
             {maxShellID < 1800 && (
@@ -255,8 +266,6 @@ export function Step2Geometry({
                   <TableCell align="right">Shell ID (mm)</TableCell>
                   <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
                   <TableCell align="right">Margin</TableCell>
-                  <TableCell align="right">Feed (T/h)</TableCell>
-                  <TableCell align="right">Recirc (T/h)</TableCell>
                   <TableCell align="right">Spray (T/h)</TableCell>
                 </TableRow>
               </TableHead>
@@ -286,8 +295,6 @@ export function Step2Geometry({
                       {r.margin >= 0 ? '+' : ''}
                       {r.margin.toFixed(0)}%
                     </TableCell>
-                    <TableCell align="right">{r.feed.toFixed(1)}</TableCell>
-                    <TableCell align="right">{r.recirc.toFixed(1)}</TableCell>
                     <TableCell align="right">{r.totalSpray.toFixed(1)}</TableCell>
                   </TableRow>
                 ))}
