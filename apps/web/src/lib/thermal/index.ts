@@ -398,6 +398,16 @@ export {
   type PreheaterContribution,
 } from './medDesigner';
 
+// MED BOM Generator
+export {
+  generateMEDBOM,
+  type MEDBOMItem,
+  type MEDBOMCategory,
+  type MEDInstrumentItem,
+  type MEDValveItem,
+  type MEDCompleteBOM,
+} from './medBOMGenerator';
+
 // Single Tube Analysis
 export {
   calculateSingleTube,
