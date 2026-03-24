@@ -17,13 +17,14 @@ export function MEDProcessFlowDiagram({ result }: MEDProcessFlowDiagramProps) {
   const theme = useTheme();
   const nEff = result.effects.length;
 
-  // Layout constants
-  const svgW = 960;
-  const svgH = 520;
+  // Layout constants — scale SVG width based on number of effects
   const effW = 60; // effect box width
   const effH = 80; // effect box height
-  const effGap = Math.min(30, (svgW - 200) / nEff - effW); // gap between effects
+  const effGap = 25; // gap between effects
   const effStartX = 100;
+  const fcWidth = 80; // final condenser width
+  const svgW = Math.max(960, effStartX + nEff * (effW + effGap) + fcWidth + 120);
+  const svgH = 520;
   const effY = 160;
 
   // Colours

@@ -1,10 +1,31 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Paper, Button, Stack, Chip, Alert } from '@mui/material';
-import { PictureAsPdf as PdfIcon, RestartAlt as ResetIcon } from '@mui/icons-material';
+import {
+  Container,
+  Typography,
+  Box,
+  Paper,
+  Button,
+  Stack,
+  Chip,
+  Alert,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Tabs,
+  Tab,
+} from '@mui/material';
+import {
+  PictureAsPdf as PdfIcon,
+  RestartAlt as ResetIcon,
+  Download as DownloadIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { designMED, type MEDDesignerResult, type GORConfigRow } from '@/lib/thermal';
+import { generateMEDBOM, type MEDCompleteBOM } from '@/lib/thermal';
 import { WizardStepper } from './components/WizardStepper';
 import { Step1Inputs } from './components/Step1Inputs';
 import { Step2Geometry } from './components/Step2Geometry';
@@ -129,6 +150,115 @@ export default function MEDWizardClient() {
     geoMode,
     geoValue,
   ]);
+
+  // ── BOM generation ──────────────────────────────────────────────────────
+  const bom = useMemo<MEDCompleteBOM | null>(() => {
+    if (!designResult) return null;
+    try {
+      return generateMEDBOM(designResult);
+    } catch {
+      return null;
+    }
+  }, [designResult]);
+
+  // ── BOM tab state ──────────────────────────────────────────────────────
+  const [bomTab, setBomTab] = useState(0);
+
+  // ── CSV export ─────────────────────────────────────────────────────────
+  const downloadCSV = (data: string[][], filename: string) => {
+    const csv = data.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportEquipmentBOM = () => {
+    if (!bom) return;
+    const header = [
+      'Item',
+      'Category',
+      'Description',
+      'Tag',
+      'Qty',
+      'Unit',
+      'Material',
+      'Specification',
+      'Size',
+      'Net Wt (kg)',
+      'Wastage %',
+      'Gross Wt (kg)',
+      'Total Wt (kg)',
+      'Notes',
+    ];
+    const rows = bom.equipment.map((e) => [
+      e.itemNumber,
+      e.category,
+      e.description,
+      e.tagNumber,
+      String(e.quantity),
+      e.unit,
+      e.material,
+      e.specification,
+      e.size,
+      String(e.netWeightKg),
+      String(e.wastagePercent),
+      String(e.grossWeightKg),
+      String(e.totalWeightKg),
+      e.notes ?? '',
+    ]);
+    downloadCSV([header, ...rows], 'MED_Equipment_BOM.csv');
+  };
+
+  const exportInstruments = () => {
+    if (!bom) return;
+    const header = [
+      'Tag',
+      'Type',
+      'Service',
+      'Location',
+      'Range',
+      'Connection',
+      'Material',
+      'Notes',
+    ];
+    const rows = bom.instruments.map((i) => [
+      i.tagNumber,
+      i.type,
+      i.service,
+      i.location,
+      i.range,
+      i.connection,
+      i.material,
+      i.notes ?? '',
+    ]);
+    downloadCSV([header, ...rows], 'MED_Instrument_Schedule.csv');
+  };
+
+  const exportValves = () => {
+    if (!bom) return;
+    const header = ['Tag', 'Type', 'Size', 'Rating', 'Material', 'Service', 'Location', 'Notes'];
+    const rows = bom.valves.map((v) => [
+      v.tagNumber,
+      v.type,
+      v.size,
+      v.rating,
+      v.material,
+      v.service,
+      v.location,
+      v.notes ?? '',
+    ]);
+    downloadCSV([header, ...rows], 'MED_Valve_Schedule.csv');
+  };
+
+  const exportAllBOM = () => {
+    exportEquipmentBOM();
+    setTimeout(() => exportInstruments(), 200);
+    setTimeout(() => exportValves(), 400);
+  };
 
   // ── Handlers ───────────────────────────────────────────────────────────
   const handleSelectConfig = (effects: number, preheaters: number) => {
@@ -271,52 +401,243 @@ export default function MEDWizardClient() {
         </Stack>
       )}
 
-      {/* ── Step 4: Review & Export ─────────────────────────────────────── */}
+      {/* ── Step 4: Review, BOM & Export ────────────────────────────────── */}
       {activeStep === 3 && designResult && (
         <Stack spacing={3}>
+          {/* Design Summary */}
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-              Step 4 — Review &amp; Export
+              Step 4 — Bill of Materials &amp; Export
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Review the design summary and export PDF reports.
-            </Typography>
+            <Stack direction="row" spacing={4} sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                <strong>{designResult.effects.length}</strong> effects |{' '}
+                <strong>GOR {fmt(designResult.achievedGOR)}</strong> |{' '}
+                <strong>{Math.round(designResult.totalDistillateM3Day)} m&sup3;/day</strong>
+              </Typography>
+            </Stack>
 
-            {/* Summary */}
-            <Stack spacing={1}>
-              <Typography>
-                <strong>Configuration:</strong> {designResult.effects.length} effects,{' '}
-                {designResult.preheaters.length} preheaters
-              </Typography>
-              <Typography>
-                <strong>GOR:</strong> {fmt(designResult.achievedGOR)} (gross), Net:{' '}
-                {fmt(designResult.achievedGOR - 0.985)}{' '}
-              </Typography>
-              <Typography>
-                <strong>Distillate:</strong> {fmt(designResult.totalDistillate, 2)} T/h (
-                {Math.round(designResult.totalDistillateM3Day)} m&sup3;/day)
-              </Typography>
-              <Typography>
-                <strong>Steam:</strong> {fmt(designResult.inputs.steamFlow, 2)} T/h @{' '}
-                {fmt(designResult.inputs.steamTemperature)}&deg;C
-              </Typography>
-              <Typography>
-                <strong>Brine Recirculation:</strong> {fmt(designResult.totalBrineRecirculation)}{' '}
-                T/h
-              </Typography>
-              <Typography>
-                <strong>SW to Condenser:</strong>{' '}
-                {Math.round(designResult.condenser.seawaterFlowM3h)} m&sup3;/h
-              </Typography>
-              {designResult.costEstimate && (
-                <Typography>
-                  <strong>Estimated Cost:</strong> $
-                  {designResult.costEstimate.totalInstalledCost.toLocaleString()} (
-                  {designResult.costEstimate.accuracy})
-                </Typography>
-              )}
+            {/* Export buttons */}
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={exportAllBOM}
+                disabled={!bom}
+              >
+                Export All BOM (CSV)
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={exportEquipmentBOM}
+                disabled={!bom}
+              >
+                Equipment BOM
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={exportInstruments}
+                disabled={!bom}
+              >
+                Instruments
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={exportValves}
+                disabled={!bom}
+              >
+                Valves
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<PdfIcon />}
+                onClick={() => setReportOpen(true)}
+              >
+                PDF Report
+              </Button>
             </Stack>
           </Paper>
+
+          {/* BOM Tabs */}
+          {bom && (
+            <Paper sx={{ p: 3 }}>
+              <Tabs value={bomTab} onChange={(_, v) => setBomTab(v)} sx={{ mb: 2 }}>
+                <Tab label={`Equipment (${bom.equipment.length})`} />
+                <Tab label={`Instruments (${bom.instruments.length})`} />
+                <Tab label={`Valves (${bom.valves.length})`} />
+                <Tab label="Summary" />
+              </Tabs>
+
+              {/* Equipment BOM */}
+              {bomTab === 0 && (
+                <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Item</TableCell>
+                        <TableCell>Description</TableCell>
+                        <TableCell>Tag</TableCell>
+                        <TableCell align="right">Qty</TableCell>
+                        <TableCell>Material</TableCell>
+                        <TableCell>Size</TableCell>
+                        <TableCell align="right">Net (kg)</TableCell>
+                        <TableCell align="right">Waste%</TableCell>
+                        <TableCell align="right">Total (kg)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {bom.equipment.map((e, i) => (
+                        <TableRow key={i} sx={{ bgcolor: i % 2 ? 'action.hover' : undefined }}>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{e.itemNumber}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{e.description}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{e.tagNumber}</TableCell>
+                          <TableCell align="right">{e.quantity}</TableCell>
+                          <TableCell sx={{ fontSize: '0.7rem' }}>{e.material}</TableCell>
+                          <TableCell sx={{ fontSize: '0.7rem' }}>{e.size}</TableCell>
+                          <TableCell align="right">
+                            {e.netWeightKg > 0 ? e.netWeightKg.toLocaleString() : '—'}
+                          </TableCell>
+                          <TableCell align="right">
+                            {e.wastagePercent > 0 ? e.wastagePercent + '%' : '—'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600 }}>
+                            {e.totalWeightKg > 0 ? e.totalWeightKg.toLocaleString() : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow sx={{ bgcolor: 'primary.main' }}>
+                        <TableCell
+                          colSpan={8}
+                          sx={{ color: 'primary.contrastText', fontWeight: 600 }}
+                        >
+                          Total Equipment Weight
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{ color: 'primary.contrastText', fontWeight: 600 }}
+                        >
+                          {bom.summary.totalWeight.toLocaleString()} kg
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              {/* Instrument Schedule */}
+              {bomTab === 1 && (
+                <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Tag</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Service</TableCell>
+                        <TableCell>Location</TableCell>
+                        <TableCell>Range</TableCell>
+                        <TableCell>Connection</TableCell>
+                        <TableCell>Material</TableCell>
+                        <TableCell>Notes</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {bom.instruments.map((inst, i) => (
+                        <TableRow key={i} sx={{ bgcolor: i % 2 ? 'action.hover' : undefined }}>
+                          <TableCell sx={{ fontWeight: 600 }}>{inst.tagNumber}</TableCell>
+                          <TableCell>
+                            <Chip label={inst.type} size="small" variant="outlined" />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{inst.service}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{inst.location}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{inst.range}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{inst.connection}</TableCell>
+                          <TableCell sx={{ fontSize: '0.7rem' }}>{inst.material}</TableCell>
+                          <TableCell sx={{ fontSize: '0.7rem' }}>{inst.notes ?? ''}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              {/* Valve Schedule */}
+              {bomTab === 2 && (
+                <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Tag</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Size</TableCell>
+                        <TableCell>Rating</TableCell>
+                        <TableCell>Material</TableCell>
+                        <TableCell>Service</TableCell>
+                        <TableCell>Location</TableCell>
+                        <TableCell>Notes</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {bom.valves.map((v, i) => (
+                        <TableRow key={i} sx={{ bgcolor: i % 2 ? 'action.hover' : undefined }}>
+                          <TableCell sx={{ fontWeight: 600 }}>{v.tagNumber}</TableCell>
+                          <TableCell>{v.type}</TableCell>
+                          <TableCell>{v.size}</TableCell>
+                          <TableCell>{v.rating}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{v.material}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{v.service}</TableCell>
+                          <TableCell sx={{ fontSize: '0.75rem' }}>{v.location}</TableCell>
+                          <TableCell sx={{ fontSize: '0.7rem' }}>{v.notes ?? ''}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              {/* Summary */}
+              {bomTab === 3 && (
+                <Stack spacing={2}>
+                  <Typography variant="body2">
+                    <strong>Total Equipment Items:</strong> {bom.summary.totalEquipmentItems} |{' '}
+                    <strong>Instruments:</strong> {bom.summary.totalInstruments} |{' '}
+                    <strong>Valves:</strong> {bom.summary.totalValves}
+                  </Typography>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Category</TableCell>
+                        <TableCell align="right">Items</TableCell>
+                        <TableCell align="right">Weight (kg)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {bom.summary.categories.map((cat) => (
+                        <TableRow key={cat.category}>
+                          <TableCell>{cat.category}</TableCell>
+                          <TableCell align="right">{cat.items}</TableCell>
+                          <TableCell align="right">{cat.weight.toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow sx={{ fontWeight: 600 }}>
+                        <TableCell>
+                          <strong>TOTAL</strong>
+                        </TableCell>
+                        <TableCell align="right">
+                          <strong>{bom.summary.categories.reduce((s, c) => s + c.items, 0)}</strong>
+                        </TableCell>
+                        <TableCell align="right">
+                          <strong>{bom.summary.totalWeight.toLocaleString()} kg</strong>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Stack>
+              )}
+            </Paper>
+          )}
 
           {/* Warnings */}
           {designResult.warnings.length > 0 && (
@@ -327,11 +648,8 @@ export default function MEDWizardClient() {
             </Alert>
           )}
 
-          {/* Export buttons */}
+          {/* Navigation */}
           <Stack direction="row" spacing={2}>
-            <Button variant="contained" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
-              Generate PDF Report
-            </Button>
             <Button onClick={() => setActiveStep(2)}>Back to Design</Button>
             <Button onClick={() => setActiveStep(0)}>Start Over</Button>
           </Stack>
