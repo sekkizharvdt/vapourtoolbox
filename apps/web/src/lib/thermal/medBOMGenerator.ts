@@ -569,23 +569,40 @@ export function generateMEDBOM(result: MEDDesignerResult): MEDCompleteBOM {
   }
 
   // ── HOLDUP TANKS ─────────────────────────────────────────────────────
-  // Brine holdup tank (at last effect)
+  // Brine holdup tank with partition plate (at last effect)
+  // Partition 1: receives brine cascade + SW make-up → recirc pump suction
+  // Partition 2: overflow from P1 = brine reject (blowdown)
   equipment.push({
     itemNumber: '5.1',
     category: 'TANK',
-    description: 'Brine Holdup Tank',
+    description: 'Brine Holdup Tank (with partition plate)',
     tagNumber: 'T-01',
     quantity: 1,
     unit: 'nos',
     material: 'Duplex SS UNS S32304',
-    specification: 'Cylindrical, vertical, atmospheric',
-    netWeightKg: 200, // estimate
+    specification: 'Cylindrical, vertical, atmospheric, internal partition plate',
+    netWeightKg: 250, // includes partition plate
     wastagePercent: WASTAGE.PLATE * 100,
-    grossWeightKg: 220,
-    totalWeightKg: 220,
-    size: '~1 m³ (2 min holdup)',
-    notes: 'Located below last effect, gravity feed to recirc pump',
+    grossWeightKg: 275,
+    totalWeightKg: 275,
+    size: '~1.5 m³ (2 min holdup, split P1/P2)',
+    notes:
+      'P1: brine cascade + SW make-up mixing, recirc pump suction. P2: overflow = brine blowdown. Located below last effect.',
   });
+
+  // Spray branch manual globe valves (one per effect for flow balancing)
+  for (let i = 0; i < nEff; i++) {
+    valves.push({
+      tagNumber: `GV-SP-E${i + 1}`,
+      type: 'GLOBE',
+      size: 'DN50', // typical spray branch size
+      rating: 'PN10',
+      material: 'Duplex SS',
+      service: `Effect ${i + 1} spray flow control`,
+      location: `Spray branch to E${i + 1}`,
+      notes: 'Manual globe valve, set at commissioning for required spray flow',
+    });
+  }
 
   // Brine tank instruments
   instruments.push({
