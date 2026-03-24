@@ -772,6 +772,19 @@ export default function DataHealthPage() {
                 severity="info"
                 icon={<RecalculateIcon />}
                 action={
+                  <Button size="small" onClick={handleReconcile} disabled={reconciling}>
+                    {reconciling ? 'Reconciling...' : 'Reconcile'}
+                  </Button>
+                }
+              >
+                <strong>Payment Statuses:</strong> Reconcile bill/invoice payment statuses from
+                payment allocations and journal entries. Use this if bills show as unpaid when the
+                entity ledger balance is zero.
+              </Alert>
+              <Alert
+                severity="info"
+                icon={<RecalculateIcon />}
+                action={
                   <Button size="small" onClick={handleRecalculateBalances} disabled={recalculating}>
                     {recalculating ? 'Recalculating...' : 'Recalculate'}
                   </Button>
