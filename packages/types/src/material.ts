@@ -228,6 +228,12 @@ export enum MaterialCategory {
   INSTRUMENT_ACCESSORY_FERRULE = 'INSTRUMENT_ACCESSORY_FERRULE', // Bootlace, ring, pin
   INSTRUMENT_ACCESSORY_JUNCTION_BOX = 'INSTRUMENT_ACCESSORY_JUNCTION_BOX', // IP65/66, SS/GRP
 
+  // Desalination-Specific Components
+  RUBBER_GROMMET = 'RUBBER_GROMMET', // EPDM/Neoprene, tube fixing for MED evaporators
+  DEMISTER_PAD = 'DEMISTER_PAD', // Wire mesh (SS316), vane type, structured packing
+  SPRAY_NOZZLE = 'SPRAY_NOZZLE', // Full cone, hollow cone, Ti Gr2 / SS316L
+  EXPANSION_BELLOWS = 'EXPANSION_BELLOWS', // Rubber/metallic, flanged, for thermal movement
+
   // Bought-Out Components - Other
   FLANGES = 'FLANGES', // ASME B16.5, B16.47 (Slip-on, Weld neck, Blind)
   FLANGES_WELD_NECK = 'FLANGES_WELD_NECK', // ASME B16.5 (Weld Neck Flanges)
@@ -302,6 +308,10 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.INSTRUMENT_ACCESSORY_MANIFOLD]: 'Valve Manifold',
   [MaterialCategory.INSTRUMENT_ACCESSORY_FERRULE]: 'Ferrule / Lug',
   [MaterialCategory.INSTRUMENT_ACCESSORY_JUNCTION_BOX]: 'Junction Box',
+  [MaterialCategory.RUBBER_GROMMET]: 'Rubber Grommet',
+  [MaterialCategory.DEMISTER_PAD]: 'Demister Pad',
+  [MaterialCategory.SPRAY_NOZZLE]: 'Spray Nozzle',
+  [MaterialCategory.EXPANSION_BELLOWS]: 'Expansion Bellows',
   [MaterialCategory.FLANGES]: 'Flanges',
   [MaterialCategory.FLANGES_WELD_NECK]: 'Flanges - Weld Neck',
   [MaterialCategory.FLANGES_SLIP_ON]: 'Flanges - Slip-On',
@@ -533,6 +543,17 @@ export const PICKER_CATEGORY_GROUPS: Array<{
       MaterialCategory.INSTRUMENT_ACCESSORY_MANIFOLD,
       MaterialCategory.INSTRUMENT_ACCESSORY_FERRULE,
       MaterialCategory.INSTRUMENT_ACCESSORY_JUNCTION_BOX,
+    ],
+    pipingMode: false,
+  },
+  {
+    key: 'desalination',
+    label: 'Desalination Components',
+    categories: [
+      MaterialCategory.RUBBER_GROMMET,
+      MaterialCategory.DEMISTER_PAD,
+      MaterialCategory.SPRAY_NOZZLE,
+      MaterialCategory.EXPANSION_BELLOWS,
     ],
     pipingMode: false,
   },
