@@ -427,26 +427,84 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                   Spray Zone {sprayZoneMM}mm
                 </text>
 
-                {/* Demister (top of vapour space, right side) */}
-                <rect
-                  x={csCX + 5}
-                  y={csCY - maxR + 2}
-                  width={maxR * 0.6}
-                  height={demisterPx}
-                  fill="#e8f5e9"
-                  stroke="#4caf50"
-                  strokeWidth={0.5}
-                  opacity={0.6}
-                />
-                <text
-                  x={csCX + 5 + maxR * 0.3}
-                  y={csCY - maxR + demisterPx / 2 + 4}
-                  textAnchor="middle"
-                  fontSize={4}
-                  fill="#2e7d32"
-                >
-                  Demister
-                </text>
+                {/* Demister — horizontal pad lying flat in the right half.
+                    Vapour rises from below, passes UP through the demister,
+                    then exits through the vapour cutout ABOVE the demister.
+                    Demister thickness: 50-100mm, width spans the right half.
+                    Demister length = tube length (into the page). */}
+                {(() => {
+                  // Position demister in the upper portion of right half
+                  // Leave space above for vapour cutout
+                  const demisterY = csCY - maxR * 0.35; // demister horizontal position
+                  const demisterThickPx = demisterPx; // 50-100mm scaled
+                  // Width: chord of the circle at this y position
+                  const demChord2 = maxR * maxR - maxR * 0.35 * (maxR * 0.35);
+                  const demHalfChord = demChord2 > 0 ? Math.sqrt(demChord2) : maxR * 0.5;
+
+                  return (
+                    <>
+                      {/* Demister pad (horizontal rectangle) */}
+                      <rect
+                        x={csCX + 3}
+                        y={demisterY}
+                        width={demHalfChord - 3}
+                        height={demisterThickPx}
+                        fill="#e8f5e9"
+                        stroke="#4caf50"
+                        strokeWidth={0.8}
+                        opacity={0.7}
+                      />
+                      <text
+                        x={csCX + 3 + (demHalfChord - 3) / 2}
+                        y={demisterY + demisterThickPx / 2 + 2}
+                        textAnchor="middle"
+                        fontSize={4}
+                        fill="#2e7d32"
+                      >
+                        Demister ({demisterMM}mm)
+                      </text>
+
+                      {/* Vapour cutout zone — ABOVE the demister
+                          This is the opening in the tube sheet for vapour
+                          to pass to the next effect. */}
+                      <path
+                        d={`M ${csCX + 2} ${demisterY - 1}
+                            L ${csCX + 2} ${csCY - maxR + 3}
+                            A ${maxR} ${maxR} 0 0 1 ${csCX + demHalfChord} ${csCY - maxR + 3}
+                            L ${csCX + demHalfChord} ${demisterY - 1} Z`}
+                        fill="#f3e5f5"
+                        stroke="#7b1fa2"
+                        strokeWidth={0.6}
+                        strokeDasharray="3,2"
+                        opacity={0.4}
+                      />
+                      <text
+                        x={csCX + demHalfChord / 2}
+                        y={demisterY - demisterThickPx}
+                        textAnchor="middle"
+                        fontSize={5}
+                        fill="#7b1fa2"
+                      >
+                        Vapour Cutout
+                      </text>
+
+                      {/* Vapour flow arrows (rising from tube bundle through demister) */}
+                      {[0.25, 0.45, 0.65].map((frac, i) => (
+                        <line
+                          key={i}
+                          x1={csCX + demHalfChord * frac}
+                          y1={demisterY + demisterThickPx + 8}
+                          x2={csCX + demHalfChord * frac}
+                          y2={demisterY + 2}
+                          stroke="#9e9e9e"
+                          strokeWidth={0.5}
+                          markerEnd="url(#dimArrowR)"
+                          opacity={0.5}
+                        />
+                      ))}
+                    </>
+                  );
+                })()}
 
                 {/* Tubes */}
                 {tubes.map((t, i) => (
