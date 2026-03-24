@@ -151,6 +151,7 @@ export function Step2Geometry({
               <TableCell align="right">Vap Out (&deg;C)</TableCell>
               <TableCell align="right">Work &Delta;T (&deg;C)</TableCell>
               <TableCell align="right">U (W/m&sup2;&middot;K)</TableCell>
+              <TableCell align="right">Spray T (&deg;C)</TableCell>
               <TableCell align="right">Duty (kW)</TableCell>
               <TableCell align="right">Req. Area (m&sup2;)</TableCell>
             </TableRow>
@@ -167,6 +168,28 @@ export function Step2Geometry({
                 <TableCell align="right">{fmt(e.bpe, 2)}</TableCell>
                 <TableCell align="right">{fmt(e.vapourOutTemp)}</TableCell>
                 <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
+                <TableCell align="right">
+                  {(() => {
+                    // Spray temperature depends on PH chain position
+                    // In BARC scheme: E_last gets cold feed, earlier effects get preheated
+                    // PHs peel off spray progressively, so later effects in the chain get cooler spray
+                    const nPH = detail.preheaters.length;
+                    const nEff = detail.effects.length;
+                    const condenserOutlet =
+                      detail.inputs.condenserSWOutlet ?? detail.inputs.seawaterTemperature + 5;
+                    if (nPH === 0) return fmt(condenserOutlet);
+                    // E_last gets cold feed (before PHs)
+                    if (e.effect === nEff) return fmt(condenserOutlet);
+                    // Find the PH that feeds this effect's position
+                    const phIdx = nEff - 1 - e.effect; // E1→last PH, E2→2nd last, etc.
+                    if (phIdx >= 0 && phIdx < nPH) {
+                      return fmt(detail.preheaters[phIdx]!.swOutlet);
+                    }
+                    // Effects beyond PH coverage get condenser outlet temp
+                    return fmt(condenserOutlet);
+                  })()}
+                  &deg;C
+                </TableCell>
                 <TableCell align="right">{Math.round(e.overallU)}</TableCell>
                 <TableCell align="right">{Math.round(e.duty)}</TableCell>
                 <TableCell align="right">{Math.round(e.requiredArea)}</TableCell>
