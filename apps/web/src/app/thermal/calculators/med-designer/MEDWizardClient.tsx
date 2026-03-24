@@ -351,40 +351,189 @@ export default function MEDWizardClient() {
           {/* PFD */}
           <MEDProcessFlowDiagram result={designResult} />
 
-          {/* Condenser */}
+          {/* Condenser & Preheaters — side by side */}
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+            {/* Condenser */}
+            <Paper sx={{ p: 3, flex: 1 }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                Final Condenser
+              </Typography>
+              <Table size="small">
+                <TableBody>
+                  <TableRow>
+                    <TableCell>Vapour</TableCell>
+                    <TableCell align="right">
+                      {fmt(designResult.condenser.vapourFlow, 3)} T/h @{' '}
+                      {fmt(designResult.condenser.vapourTemp)}&deg;C
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Duty</TableCell>
+                    <TableCell align="right">
+                      {Math.round(designResult.condenser.duty)} kW
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>LMTD</TableCell>
+                    <TableCell align="right">{fmt(designResult.condenser.lmtd, 2)}&deg;C</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>U-value</TableCell>
+                    <TableCell align="right">
+                      {Math.round(designResult.condenser.overallU)} W/(m&sup2;&middot;K)
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Tubes / Passes</TableCell>
+                    <TableCell align="right">
+                      {designResult.condenser.tubes} tubes, {designResult.condenser.passes} passes
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Velocity</TableCell>
+                    <TableCell align="right">
+                      {fmt(designResult.condenser.velocity, 2)} m/s
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Design Area</TableCell>
+                    <TableCell align="right">
+                      {fmt(designResult.condenser.designArea)} m&sup2;
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>SW Flow</TableCell>
+                    <TableCell align="right">
+                      {Math.round(designResult.condenser.seawaterFlowM3h)} m&sup3;/h
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Ti Tube</TableCell>
+                    <TableCell align="right">
+                      {designResult.condenser.tubeOD}mm OD &times;{' '}
+                      {designResult.condenser.tubeLengthMM}mm L
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Shell</TableCell>
+                    <TableCell align="right">OD {designResult.condenser.shellODmm} mm</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </Paper>
+
+            {/* Preheaters */}
+            <Paper sx={{ p: 3, flex: 1 }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                Preheaters ({designResult.preheaters.length})
+              </Typography>
+              {designResult.preheaters.length > 0 ? (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>PH</TableCell>
+                      <TableCell>Source</TableCell>
+                      <TableCell align="right">SW In&rarr;Out</TableCell>
+                      <TableCell align="right">Flow</TableCell>
+                      <TableCell align="right">Duty</TableCell>
+                      <TableCell align="right">Tubes</TableCell>
+                      <TableCell align="right">Passes</TableCell>
+                      <TableCell align="right">Vel</TableCell>
+                      <TableCell align="right">Area</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {designResult.preheaters.map((ph) => (
+                      <TableRow key={ph.id}>
+                        <TableCell>PH{ph.id}</TableCell>
+                        <TableCell sx={{ fontSize: '0.75rem' }}>{ph.vapourSource}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                          {fmt(ph.swInlet)}&rarr;{fmt(ph.swOutlet)}&deg;C
+                        </TableCell>
+                        <TableCell align="right">{fmt(ph.flowTh)}</TableCell>
+                        <TableCell align="right">{Math.round(ph.duty)}</TableCell>
+                        <TableCell align="right">{ph.tubes}</TableCell>
+                        <TableCell align="right">{ph.passes}</TableCell>
+                        <TableCell align="right">{fmt(ph.velocity, 2)}</TableCell>
+                        <TableCell align="right">{fmt(ph.designArea)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No preheaters for this configuration.
+                </Typography>
+              )}
+            </Paper>
+          </Stack>
+
+          {/* Mass Balance */}
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-              Final Condenser
+              Mass Balance
             </Typography>
-            <Typography variant="body2">
-              {fmt(designResult.condenser.vapourFlow, 3)} T/h @{' '}
-              {fmt(designResult.condenser.vapourTemp)}&deg;C | Duty:{' '}
-              {Math.round(designResult.condenser.duty)} kW | LMTD:{' '}
-              {fmt(designResult.condenser.lmtd, 2)}&deg;C | U:{' '}
-              {Math.round(designResult.condenser.overallU)} W/(m&sup2;&middot;K) |
-              {designResult.condenser.tubes} tubes, {designResult.condenser.passes} passes | Vel:{' '}
-              {fmt(designResult.condenser.velocity, 2)} m/s | Area:{' '}
-              {fmt(designResult.condenser.designArea)} m&sup2; | SW:{' '}
-              {Math.round(designResult.condenser.seawaterFlowM3h)} m&sup3;/h
-            </Typography>
+            <Table size="small">
+              <TableBody>
+                <TableRow>
+                  <TableCell>Heating Steam (in)</TableCell>
+                  <TableCell align="right">
+                    {fmt(designResult.inputs.steamFlow, 2)} T/h @{' '}
+                    {fmt(designResult.inputs.steamTemperature)}&deg;C
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Net Distillate (out)</TableCell>
+                  <TableCell align="right">
+                    {fmt(designResult.totalDistillate, 2)} T/h (
+                    {Math.round(designResult.totalDistillateM3Day)} m&sup3;/day)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Make-up Seawater (in)</TableCell>
+                  <TableCell align="right">
+                    {fmt(designResult.makeUpFeed)} T/h @{' '}
+                    {fmt(designResult.inputs.seawaterTemperature + 5)}&deg;C (after condenser)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Brine Blowdown (out)</TableCell>
+                  <TableCell align="right">
+                    {fmt(designResult.brineBlowdown)} T/h @{' '}
+                    {Number(
+                      designResult.inputs.resolvedDefaults?.maxBrineSalinity ?? 65000
+                    ).toLocaleString()}{' '}
+                    ppm
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>SW to Condenser (in)</TableCell>
+                  <TableCell align="right">
+                    {Math.round(designResult.condenser.seawaterFlowM3h)} m&sup3;/h (
+                    {fmt(designResult.inputs.seawaterTemperature)}&rarr;
+                    {fmt(designResult.inputs.seawaterTemperature + 5)}&deg;C)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>SW Reject (out)</TableCell>
+                  <TableCell align="right">
+                    {fmt(
+                      (designResult.condenser.seawaterFlowM3h * 1.024) / 1000 -
+                        designResult.makeUpFeed
+                    )}{' '}
+                    T/h
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Brine Recirculation</TableCell>
+                  <TableCell align="right">
+                    {fmt(designResult.totalBrineRecirculation)} T/h (blended TDS:{' '}
+                    {(designResult.spraySalinity ?? 0).toLocaleString()} ppm)
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </Paper>
-
-          {/* Preheaters */}
-          {designResult.preheaters.length > 0 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-                Preheaters
-              </Typography>
-              {designResult.preheaters.map((ph) => (
-                <Typography key={ph.id} variant="body2">
-                  PH{ph.id} ({ph.vapourSource}): {fmt(ph.swInlet)}&rarr;{fmt(ph.swOutlet)}&deg;C |
-                  Flow: {fmt(ph.flowTh)} T/h | Duty: {Math.round(ph.duty)} kW |{ph.tubes} tubes,{' '}
-                  {ph.passes} passes | Vel: {fmt(ph.velocity, 2)} m/s | Area: {fmt(ph.designArea)}{' '}
-                  m&sup2;
-                </Typography>
-              ))}
-            </Paper>
-          )}
 
           {/* GA Drawing */}
           <MEDGeneralArrangement result={designResult} />

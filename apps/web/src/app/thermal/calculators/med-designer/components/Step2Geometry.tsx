@@ -121,9 +121,17 @@ export function Step2Geometry({
           Step 2 — Temperature Profile &amp; Geometry
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {detail.effects.length} effects, GOR {fmt(detail.achievedGOR)}. Non-BPE losses: NEA{' '}
-          {detail.effects[0]?.nea}°C + Demister {detail.effects[0]?.demisterLoss}°C + Duct{' '}
-          {detail.effects[0]?.pressureDropLoss}°C ={' '}
+          {detail.effects.length} effects, {detail.preheaters.length} preheaters, GOR{' '}
+          {fmt(detail.achievedGOR)}.
+          {detail.preheaters.length > 0 && (
+            <>
+              {' '}
+              Spray temp: {fmt(detail.preheaters[detail.preheaters.length - 1]!.swOutlet)}&deg;C
+              (after {detail.preheaters.length} PHs).
+            </>
+          )}{' '}
+          Non-BPE losses: NEA {detail.effects[0]?.nea}°C + Demister{' '}
+          {detail.effects[0]?.demisterLoss}°C + Duct {detail.effects[0]?.pressureDropLoss}°C ={' '}
           {fmt(
             (detail.effects[0]?.nea ?? 0) +
               (detail.effects[0]?.demisterLoss ?? 0) +
@@ -224,6 +232,8 @@ export function Step2Geometry({
                   <TableCell align="right">Shell ID (mm)</TableCell>
                   <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
                   <TableCell align="right">Margin</TableCell>
+                  <TableCell align="right">Feed (T/h)</TableCell>
+                  <TableCell align="right">Recirc (T/h)</TableCell>
                   <TableCell align="right">Spray (T/h)</TableCell>
                 </TableRow>
               </TableHead>
@@ -253,6 +263,8 @@ export function Step2Geometry({
                       {r.margin >= 0 ? '+' : ''}
                       {r.margin.toFixed(0)}%
                     </TableCell>
+                    <TableCell align="right">{r.feed.toFixed(1)}</TableCell>
+                    <TableCell align="right">{r.recirc.toFixed(1)}</TableCell>
                     <TableCell align="right">{r.totalSpray.toFixed(1)}</TableCell>
                   </TableRow>
                 ))}
