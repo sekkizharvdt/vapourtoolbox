@@ -25,7 +25,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
 
   // SVG viewport
   const svgW = 960;
-  const svgH = 460;
+  const svgH = 600;
 
   // Elevation view (top half)
   const elevY = 60;
@@ -36,11 +36,11 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
   const scale = Math.min((svgW - 160) / maxTrainLen, 0.15);
 
   // Cross-section view (bottom half)
-  const csY = 280;
+  const csY = 330;
   const csCX = svgW / 2;
   const csCY = csY + 80;
   const shellID = Number(result.inputs.resolvedDefaults.shellID ?? 1800);
-  const shellR = Math.min(70, (svgH - csY - 40) / 2); // scaled radius for display
+  const shellR = Math.min(100, (svgH - csY - 40) / 2); // scaled radius for display
   const realToCS = shellR / (shellID / 2); // mm → SVG px
 
   return (
@@ -85,13 +85,13 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
             x={svgW / 2}
             y={25}
             textAnchor="middle"
-            fontSize={12}
+            fontSize={18}
             fontWeight="bold"
             fill={textCol}
           >
             Elevation View — {nEff} Effect MED Train
           </text>
-          <text x={svgW / 2} y={40} textAnchor="middle" fontSize={9} fill={shellCol}>
+          <text x={svgW / 2} y={40} textAnchor="middle" fontSize={16} fill={shellCol}>
             Total length: {(maxTrainLen / 1000).toFixed(1)} m | Shell OD: {dims.shellODmm} mm
           </text>
 
@@ -145,7 +145,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                         x={x + accessW / 2}
                         y={elevY + shellH + 30}
                         textAnchor="middle"
-                        fontSize={5}
+                        fontSize={10}
                         fill="#1565c0"
                       >
                         750mm
@@ -239,7 +239,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     x={bodyX + bodyW / 2}
                     y={elevY - 5}
                     textAnchor="middle"
-                    fontSize={8}
+                    fontSize={14}
                     fontWeight="bold"
                     fill={textCol}
                   >
@@ -251,7 +251,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     x={bodyX + bodyW / 2}
                     y={elevY + shellH + 15}
                     textAnchor="middle"
-                    fontSize={6}
+                    fontSize={11}
                     fill={shellCol}
                   >
                     {e.shellLengthMM} mm
@@ -262,7 +262,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     x={bodyX + bodyW / 2}
                     y={elevY + shellH + 25}
                     textAnchor="middle"
-                    fontSize={6}
+                    fontSize={11}
                     fill={textCol}
                   >
                     L={e.tubeLength}m | {e.tubes} tubes
@@ -304,7 +304,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
             x={80 + (maxTrainLen * scale + (nEff - 1) * 8) / 2}
             y={elevY + elevH + 50}
             textAnchor="middle"
-            fontSize={8}
+            fontSize={14}
             fill={textCol}
           >
             Overall: {(maxTrainLen / 1000).toFixed(1)} m ({maxTrainLen.toLocaleString()} mm)
@@ -315,13 +315,13 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
             x={svgW / 2}
             y={csY - 15}
             textAnchor="middle"
-            fontSize={12}
+            fontSize={18}
             fontWeight="bold"
             fill={textCol}
           >
             Cross-Section — Lateral Tube Bundle
           </text>
-          <text x={svgW / 2} y={csY} textAnchor="middle" fontSize={9} fill={shellCol}>
+          <text x={svgW / 2} y={csY} textAnchor="middle" fontSize={16} fill={shellCol}>
             Shell ID: {shellID} mm | Tube OD: {result.inputs.resolvedDefaults.tubeOD} mm | Pitch:{' '}
             {result.inputs.resolvedDefaults.tubePitch} mm
           </text>
@@ -402,7 +402,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                   x={csCX}
                   y={csCY + maxR - drainagePx / 2 + 3}
                   textAnchor="middle"
-                  fontSize={5}
+                  fontSize={10}
                   fill="#1565c0"
                 >
                   Drainage {drainageMM}mm
@@ -421,7 +421,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                   x={csCX}
                   y={csCY - maxR + sprayPx / 2 + 3}
                   textAnchor="middle"
-                  fontSize={5}
+                  fontSize={10}
                   fill="#e65100"
                 >
                   Spray Zone {sprayZoneMM}mm
@@ -458,7 +458,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                         x={csCX + 3 + (demHalfChord - 3) / 2}
                         y={demisterY + demisterThickPx / 2 + 2}
                         textAnchor="middle"
-                        fontSize={4}
+                        fontSize={14}
                         fill="#2e7d32"
                       >
                         Demister ({demisterMM}mm)
@@ -482,7 +482,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                         x={csCX + demHalfChord / 2}
                         y={demisterY - demisterThickPx}
                         textAnchor="middle"
-                        fontSize={5}
+                        fontSize={10}
                         fill="#7b1fa2"
                       >
                         Vapour Cutout
@@ -537,7 +537,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                 <text
                   x={csCX + shellR * 0.5}
                   y={csCY - 5}
-                  fontSize={6}
+                  fontSize={11}
                   fill={shellCol}
                   textAnchor="middle"
                 >
@@ -546,7 +546,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                 <text
                   x={csCX + shellR * 0.5}
                   y={csCY + 5}
-                  fontSize={6}
+                  fontSize={11}
                   fill={shellCol}
                   textAnchor="middle"
                 >
@@ -557,23 +557,23 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
           })()}
 
           {/* Labels */}
-          <text x={csCX - shellR - 15} y={csCY} fontSize={7} fill={textCol} textAnchor="end">
+          <text x={csCX - shellR - 15} y={csCY} fontSize={18} fill={textCol} textAnchor="end">
             Tube bundle
           </text>
-          <text x={csCX + shellR + 15} y={csCY - 10} fontSize={7} fill={textCol}>
+          <text x={csCX + shellR + 15} y={csCY - 10} fontSize={18} fill={textCol}>
             Spray nozzles
           </text>
-          <text x={csCX + shellR + 15} y={csCY + 2} fontSize={7} fill={textCol}>
+          <text x={csCX + shellR + 15} y={csCY + 2} fontSize={18} fill={textCol}>
             (open side)
           </text>
 
           {/* Shell OD dimension */}
-          <text x={csCX} y={csCY + shellR + 20} textAnchor="middle" fontSize={7} fill={textCol}>
+          <text x={csCX} y={csCY + shellR + 20} textAnchor="middle" fontSize={18} fill={textCol}>
             Shell OD: {dims.shellODmm} mm
           </text>
 
           {/* Access annotation */}
-          <text x={csCX} y={csCY + shellR + 32} textAnchor="middle" fontSize={6} fill={shellCol}>
+          <text x={csCX} y={csCY + shellR + 32} textAnchor="middle" fontSize={11} fill={shellCol}>
             750 mm tube sheet access each side
           </text>
         </svg>

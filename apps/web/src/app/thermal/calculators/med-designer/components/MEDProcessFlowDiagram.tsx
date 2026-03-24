@@ -64,7 +64,7 @@ export function MEDProcessFlowDiagram({ result }: MEDProcessFlowDiagramProps) {
         <svg
           viewBox={`0 0 ${svgW} ${svgH}`}
           width="100%"
-          style={{ maxWidth: 960, minHeight: 400, background: bgCol }}
+          style={{ maxWidth: svgW, minHeight: 400, background: bgCol }}
           xmlns="http://www.w3.org/2000/svg"
         >
           {/* Marker definitions */}
