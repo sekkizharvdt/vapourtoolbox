@@ -253,6 +253,7 @@ export default function MEDDesignerClient() {
 
   // ── Selected option ──────────────────────────────────────────────────
   const [selectedEffects, setSelectedEffects] = useState<number | null>(null);
+  const [selectedPreheaters, setSelectedPreheaters] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
 
   const handleReset = () => {
@@ -272,6 +273,7 @@ export default function MEDDesignerClient() {
     setSwOutlet('35');
     setDesignMargin('15');
     setSelectedEffects(null);
+    setSelectedPreheaters(null);
     setTubeLengthOverrides({});
     setTubeCountOverrides({});
   };
@@ -303,6 +305,7 @@ export default function MEDDesignerClient() {
       tiTubeLength: parseFloat(tiTubeLength) || undefined,
       tiTargetVelocity: parseFloat(tiTargetVelocity) || undefined,
       ...(selectedEffects ? { numberOfEffects: selectedEffects } : {}),
+      ...(selectedPreheaters !== null ? { numberOfPreheaters: selectedPreheaters } : {}),
       vacuumTrainConfig: vacuumConfig as
         | 'single_ejector'
         | 'two_stage_ejector'
@@ -344,6 +347,7 @@ export default function MEDDesignerClient() {
     swOutlet,
     designMargin,
     selectedEffects,
+    selectedPreheaters,
     includeTurndown,
     vacuumConfig,
     tiTubeLength,
@@ -358,13 +362,17 @@ export default function MEDDesignerClient() {
     try {
       const options = generateDesignOptions(input);
       const detail = selectedEffects
-        ? designMED({ ...input, numberOfEffects: selectedEffects })
+        ? designMED({
+            ...input,
+            numberOfEffects: selectedEffects,
+            ...(selectedPreheaters !== null ? { numberOfPreheaters: selectedPreheaters } : {}),
+          })
         : (options.find((o) => o.feasible)?.detail ?? options[0]?.detail ?? null);
       return { options, detail, error: null };
     } catch (err) {
       return { options: [], detail: null, error: err instanceof Error ? err.message : 'Error' };
     }
-  }, [input, selectedEffects]);
+  }, [input, selectedEffects, selectedPreheaters]);
 
   const options = computed?.options ?? [];
   const detail = computed?.detail ?? null;
@@ -669,8 +677,13 @@ export default function MEDDesignerClient() {
                   <TableRow
                     key={i}
                     hover
-                    selected={gc.effects === selectedEffects}
-                    onClick={() => setSelectedEffects(gc.effects)}
+                    selected={
+                      gc.effects === selectedEffects && gc.preheaters === selectedPreheaters
+                    }
+                    onClick={() => {
+                      setSelectedEffects(gc.effects);
+                      setSelectedPreheaters(gc.preheaters);
+                    }}
                     sx={{
                       cursor: 'pointer',
                       bgcolor: gc.recommended ? 'action.selected' : undefined,
@@ -695,71 +708,6 @@ export default function MEDDesignerClient() {
                     <TableCell align="right">{fmt(gc.workDTPerEffect, 2)}</TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-          </Box>
-        </Paper>
-      )}
-
-      {/* ── Design Options Table (reference — all effect counts) ──────── */}
-      {options.length > 0 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-            Reference — All Configurations
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Full range of effect counts for comparison. Click a row to design.
-          </Typography>
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell />
-                  <TableCell>Option</TableCell>
-                  <TableCell align="right">Effects</TableCell>
-                  <TableCell align="right">GOR</TableCell>
-                  <TableCell align="right">Output (m&sup3;/day)</TableCell>
-                  <TableCell align="right">Evap Area (m&sup2;)</TableCell>
-                  <TableCell align="right">Shell ID (mm)</TableCell>
-                  <TableCell align="right">Train L (m)</TableCell>
-                  <TableCell align="right">Energy (kWh/m&sup3;)</TableCell>
-                  <TableCell align="right">Dry Wt (kg)</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {options.map((o) => {
-                  const isSelected =
-                    selectedEffects === o.effects ||
-                    (!selectedEffects && o.feasible && o === options.find((x) => x.feasible));
-                  return (
-                    <TableRow
-                      key={o.effects}
-                      hover
-                      selected={isSelected}
-                      onClick={() => setSelectedEffects(o.effects)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>
-                        {o.feasible ? (
-                          <FeasibleIcon color="success" fontSize="small" />
-                        ) : (
-                          <WarningIcon color="warning" fontSize="small" />
-                        )}
-                      </TableCell>
-                      <TableCell>{o.label}</TableCell>
-                      <TableCell align="right">{o.effects}</TableCell>
-                      <TableCell align="right">{fmt(o.gor)}</TableCell>
-                      <TableCell align="right">{fmt(o.distillateM3Day, 0)}</TableCell>
-                      <TableCell align="right">{fmt(o.totalEvaporatorArea, 0)}</TableCell>
-                      <TableCell align="right">{o.largestShellID.toLocaleString()}</TableCell>
-                      <TableCell align="right">{fmt(o.trainLengthMM / 1000, 1)}</TableCell>
-                      <TableCell align="right">{fmt(o.specificEnergy, 0)}</TableCell>
-                      <TableCell align="right">
-                        {o.weight.totalDryWeight.toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
               </TableBody>
             </Table>
           </Box>
