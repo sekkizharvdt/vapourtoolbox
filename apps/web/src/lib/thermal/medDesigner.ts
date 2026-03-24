@@ -807,6 +807,18 @@ function findMinShellID(
   return shellID;
 }
 
+/**
+ * Count lateral tubes in a half-circle shell, accounting for internal clearances.
+ *
+ * Shell cross-section layout (vertical, left half = tubes, right half = vapour):
+ *
+ *   Top:    Spray nozzle zone (200mm min above top tube row)
+ *   Middle: Tube bundle (lateral half-circle)
+ *   Bottom: Drainage clearance (250mm min below bottom tube row)
+ *
+ * These clearances reduce the usable vertical extent of the semicircle.
+ * Without them, the shell ID would be undersized for a real installation.
+ */
 function countLateralTubes(
   shellID: number,
   _tubeOD: number,
@@ -817,12 +829,25 @@ function countLateralTubes(
   const edgeClearance = MED_TUBE_GEOMETRY.edgeClearance;
   const tubeHoleR = tubeHoleDia / 2;
   const rowSpacing = pitch * Math.sin((60 * Math.PI) / 180);
-  const maxR = shellID / 2 - edgeClearance - tubeHoleR;
+  const shellR = shellID / 2;
+  const maxR = shellR - edgeClearance - tubeHoleR;
+
+  // Vertical clearances inside the shell (relative to shell centre y=0)
+  // Bottom: drainage clearance for brine collection
+  const drainageClearanceMM = 250; // mm below lowest tube centre
+  // Top: spray nozzle installation space above highest tube
+  const sprayZoneMM = 200; // mm above highest tube centre
+
+  // Limit the tube bundle vertical extent
+  const yMax = maxR - sprayZoneMM; // highest tube centre
+  const yMin = -maxR + drainageClearanceMM; // lowest tube centre
+
+  if (yMax <= yMin) return 0; // shell too small for any tubes with clearances
 
   let total = 0;
   let rowIndex = 0;
 
-  for (let y = maxR; y >= -maxR; y -= rowSpacing) {
+  for (let y = yMax; y >= yMin; y -= rowSpacing) {
     const isStaggered = rowIndex % 2 === 1;
     const xOffset = isStaggered ? pitch / 2 : 0;
     const chord = maxR * maxR - y * y;

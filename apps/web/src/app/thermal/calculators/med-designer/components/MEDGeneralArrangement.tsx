@@ -349,64 +349,164 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
             strokeDasharray="4,3"
           />
 
-          {/* Lateral bundle (left half filled with tubes) */}
+          {/* Lateral bundle with clearance zones */}
           {(() => {
             const pitch = Number(result.inputs.resolvedDefaults.tubePitch ?? 33.4);
             const tubeOD = Number(result.inputs.resolvedDefaults.tubeOD ?? 25.4);
             const tubeR = (tubeOD / 2) * realToCS;
             const pitchPx = pitch * realToCS;
             const rowSpacing = pitchPx * Math.sin((60 * Math.PI) / 180);
-            const tubes: { cx: number; cy: number }[] = [];
+
+            // Clearance zones (in mm, converted to SVG px via realToCS)
+            const drainageMM = 250;
+            const sprayZoneMM = 200;
+            const demisterMM = 100;
+            const drainagePx = drainageMM * realToCS;
+            const sprayPx = sprayZoneMM * realToCS;
+            const demisterPx = demisterMM * realToCS;
 
             const maxR = shellR - 3;
-            for (
-              let row = -Math.ceil(maxR / rowSpacing);
-              row <= Math.ceil(maxR / rowSpacing);
-              row++
-            ) {
-              const y = row * rowSpacing;
-              if (Math.abs(y) > maxR) continue;
-              const chord = Math.sqrt(maxR * maxR - y * y);
-              const offset = Math.abs(row) % 2 === 1 ? pitchPx / 2 : 0;
 
-              // Left half only for lateral bundle
+            // Tube bundle vertical limits (accounting for clearances)
+            const bundleYMax = maxR - sprayPx; // top of bundle
+            const bundleYMin = -maxR + drainagePx; // bottom of bundle
+
+            const tubes: { cx: number; cy: number }[] = [];
+            for (let y = bundleYMax; y >= bundleYMin; y -= rowSpacing) {
+              const chord2 = maxR * maxR - y * y;
+              if (chord2 < 0) continue;
+              const chord = Math.sqrt(chord2);
+              const rowIdx = Math.round((bundleYMax - y) / rowSpacing);
+              const offset = rowIdx % 2 === 1 ? pitchPx / 2 : 0;
+
               for (let x = -chord + offset; x <= tubeR; x += pitchPx) {
                 const dist = Math.sqrt(x * x + y * y);
                 if (dist + tubeR <= maxR) {
-                  tubes.push({ cx: csCX + x, cy: csCY + y });
+                  tubes.push({ cx: csCX + x, cy: csCY - y }); // note: SVG y is inverted
                 }
               }
             }
 
-            return tubes.map((t, i) => (
-              <circle
-                key={i}
-                cx={t.cx}
-                cy={t.cy}
-                r={Math.max(tubeR, 1)}
-                fill={tubeCol}
-                stroke={textCol}
-                strokeWidth={0.2}
-              />
-            ));
+            return (
+              <>
+                {/* Drainage zone (bottom) — light blue */}
+                <path
+                  d={`M ${csCX - maxR} ${csCY + maxR - drainagePx}
+                      A ${maxR} ${maxR} 0 0 0 ${csCX + maxR} ${csCY + maxR - drainagePx}
+                      L ${csCX + maxR} ${csCY + maxR}
+                      A ${maxR} ${maxR} 0 0 1 ${csCX - maxR} ${csCY + maxR} Z`}
+                  fill="#e3f2fd"
+                  opacity={0.5}
+                />
+                <text
+                  x={csCX}
+                  y={csCY + maxR - drainagePx / 2 + 3}
+                  textAnchor="middle"
+                  fontSize={5}
+                  fill="#1565c0"
+                >
+                  Drainage {drainageMM}mm
+                </text>
+
+                {/* Spray zone (top) — light orange */}
+                <path
+                  d={`M ${csCX - maxR} ${csCY - maxR + sprayPx}
+                      A ${maxR} ${maxR} 0 0 1 ${csCX + maxR} ${csCY - maxR + sprayPx}
+                      L ${csCX + maxR} ${csCY - maxR}
+                      A ${maxR} ${maxR} 0 0 0 ${csCX - maxR} ${csCY - maxR} Z`}
+                  fill="#fff3e0"
+                  opacity={0.5}
+                />
+                <text
+                  x={csCX}
+                  y={csCY - maxR + sprayPx / 2 + 3}
+                  textAnchor="middle"
+                  fontSize={5}
+                  fill="#e65100"
+                >
+                  Spray Zone {sprayZoneMM}mm
+                </text>
+
+                {/* Demister (top of vapour space, right side) */}
+                <rect
+                  x={csCX + 5}
+                  y={csCY - maxR + 2}
+                  width={maxR * 0.6}
+                  height={demisterPx}
+                  fill="#e8f5e9"
+                  stroke="#4caf50"
+                  strokeWidth={0.5}
+                  opacity={0.6}
+                />
+                <text
+                  x={csCX + 5 + maxR * 0.3}
+                  y={csCY - maxR + demisterPx / 2 + 4}
+                  textAnchor="middle"
+                  fontSize={4}
+                  fill="#2e7d32"
+                >
+                  Demister
+                </text>
+
+                {/* Tubes */}
+                {tubes.map((t, i) => (
+                  <circle
+                    key={i}
+                    cx={t.cx}
+                    cy={t.cy}
+                    r={Math.max(tubeR, 1)}
+                    fill={tubeCol}
+                    stroke={textCol}
+                    strokeWidth={0.2}
+                  />
+                ))}
+
+                {/* Spray nozzle symbols (triangles on right side, above bundle) */}
+                {[0.2, 0.4, 0.6, 0.8].map((frac, i) => {
+                  const ny = csCY - bundleYMax + (bundleYMax - bundleYMin) * frac;
+                  return (
+                    <polygon
+                      key={i}
+                      points={`${csCX + 8},${ny - 3} ${csCX + 14},${ny} ${csCX + 8},${ny + 3}`}
+                      fill="#ff9800"
+                      stroke="#e65100"
+                      strokeWidth={0.5}
+                    />
+                  );
+                })}
+
+                {/* Vapour passage arrows (right half) */}
+                <text
+                  x={csCX + shellR * 0.5}
+                  y={csCY - 5}
+                  fontSize={6}
+                  fill={shellCol}
+                  textAnchor="middle"
+                >
+                  Vapour
+                </text>
+                <text
+                  x={csCX + shellR * 0.5}
+                  y={csCY + 5}
+                  fontSize={6}
+                  fill={shellCol}
+                  textAnchor="middle"
+                >
+                  Passage
+                </text>
+              </>
+            );
           })()}
 
-          {/* Labels: spray side */}
+          {/* Labels */}
+          <text x={csCX - shellR - 15} y={csCY} fontSize={7} fill={textCol} textAnchor="end">
+            Tube bundle
+          </text>
           <text x={csCX + shellR + 15} y={csCY - 10} fontSize={7} fill={textCol}>
             Spray nozzles
           </text>
           <text x={csCX + shellR + 15} y={csCY + 2} fontSize={7} fill={textCol}>
             (open side)
-          </text>
-
-          {/* Label: tube bundle side */}
-          <text x={csCX - shellR - 50} y={csCY} fontSize={7} fill={textCol} textAnchor="end">
-            Tube bundle
-          </text>
-
-          {/* Demister area label */}
-          <text x={csCX + shellR * 0.5} y={csCY - shellR + 15} fontSize={6} fill={shellCol}>
-            Demister
           </text>
 
           {/* Shell OD dimension */}
