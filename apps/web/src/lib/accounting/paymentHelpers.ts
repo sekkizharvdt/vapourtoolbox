@@ -6,6 +6,7 @@
 
 import {
   doc,
+  documentId,
   getDoc,
   Timestamp,
   query,
@@ -779,6 +780,152 @@ export async function reconcilePaymentStatuses(
 
   if (!dryRun && batchCount > 0) {
     await currentBatch.commit();
+  }
+
+  // ── Pass 2: Journal-entry settlement ──────────────────────────────
+  // Bills/invoices that are still UNPAID after allocation-based reconciliation
+  // may have been settled via journal entries. Compute entity-level net balance
+  // (same logic as Entity Ledger) and mark remaining UNPAID items as PAID when
+  // the entity's net position shows nothing is owed.
+  const entityTxnBalance = new Map<string, number>();
+  const addToEntityBalance = (entityId: string | undefined, delta: number) => {
+    if (!entityId) return;
+    entityTxnBalance.set(entityId, (entityTxnBalance.get(entityId) ?? 0) + delta);
+  };
+
+  // Include all transaction types in entity balance
+  const allTxnSnap = await getDocs(
+    query(
+      transactionsRef,
+      where('type', 'in', [
+        'CUSTOMER_INVOICE',
+        'CUSTOMER_PAYMENT',
+        'VENDOR_BILL',
+        'VENDOR_PAYMENT',
+        'JOURNAL_ENTRY',
+        'DIRECT_PAYMENT',
+        'DIRECT_RECEIPT',
+      ])
+    )
+  );
+
+  allTxnSnap.forEach((txnDoc) => {
+    const data = txnDoc.data();
+    if (data.isDeleted) return;
+    const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+    switch (data.type) {
+      case 'CUSTOMER_INVOICE':
+        addToEntityBalance(data.entityId, amount);
+        break;
+      case 'VENDOR_BILL':
+        addToEntityBalance(data.entityId, -amount);
+        break;
+      case 'CUSTOMER_PAYMENT':
+        addToEntityBalance(data.entityId, -amount);
+        break;
+      case 'VENDOR_PAYMENT':
+        addToEntityBalance(data.entityId, amount);
+        break;
+      case 'DIRECT_PAYMENT':
+        addToEntityBalance(data.entityId, amount);
+        break;
+      case 'DIRECT_RECEIPT':
+        addToEntityBalance(data.entityId, -amount);
+        break;
+      case 'JOURNAL_ENTRY': {
+        const entries = (data.entries || []) as Array<{
+          entityId?: string;
+          debit?: number;
+          credit?: number;
+        }>;
+        const perEntity = new Map<string, number>();
+        entries.forEach((entry) => {
+          if (!entry.entityId) return;
+          perEntity.set(
+            entry.entityId,
+            (perEntity.get(entry.entityId) ?? 0) + (entry.debit || 0) - (entry.credit || 0)
+          );
+        });
+        perEntity.forEach((delta, eid) => addToEntityBalance(eid, delta));
+        break;
+      }
+    }
+  });
+
+  // Add entity opening balances
+  const entityIds = [...entityTxnBalance.keys()];
+  const entityBalanceMap = new Map<string, number>();
+  entityTxnBalance.forEach((balance, eid) => entityBalanceMap.set(eid, balance));
+
+  if (entityIds.length > 0) {
+    const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
+    for (let i = 0; i < entityIds.length; i += 30) {
+      const batchIds = entityIds.slice(i, i + 30);
+      const entitySnap = await getDocs(query(entitiesRef, where(documentId(), 'in', batchIds)));
+      entitySnap.forEach((entityDoc) => {
+        const eData = entityDoc.data();
+        const openingBalance = eData.openingBalance || 0;
+        const signedOpening = eData.openingBalanceType === 'CR' ? -openingBalance : openingBalance;
+        entityBalanceMap.set(
+          entityDoc.id,
+          signedOpening + (entityTxnBalance.get(entityDoc.id) ?? 0)
+        );
+      });
+    }
+  }
+
+  // Mark UNPAID bills/invoices as PAID when entity balance shows nothing owed
+  let jeBatch = writeBatch(db);
+  let jeBatchCount = 0;
+
+  for (const docSnap of allDocs) {
+    const data = docSnap.data();
+    if (data.isDeleted) continue;
+    if ((data.paymentStatus ?? 'UNPAID') === 'PAID') continue;
+
+    const entityId = data.entityId as string | undefined;
+    if (!entityId) continue;
+
+    const entityBalance = entityBalanceMap.get(entityId) ?? 0;
+    const isSettled =
+      (data.type === 'VENDOR_BILL' && entityBalance >= -0.01) ||
+      (data.type === 'CUSTOMER_INVOICE' && entityBalance <= 0.01);
+
+    if (!isSettled) continue;
+
+    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+    if (totalAmountINR <= 0) continue;
+
+    if (!dryRun) {
+      const ref = doc(db, COLLECTIONS.TRANSACTIONS, docSnap.id);
+      jeBatch.update(ref, {
+        paymentStatus: 'PAID',
+        amountPaid: totalAmountINR,
+        outstandingAmount: 0,
+        settledViaJournal: true,
+        updatedAt: Timestamp.now(),
+      });
+      jeBatchCount++;
+
+      if (jeBatchCount >= 490) {
+        await jeBatch.commit();
+        jeBatch = writeBatch(db);
+        jeBatchCount = 0;
+      }
+    }
+
+    fixed++;
+    details.push({
+      id: docSnap.id,
+      number: data.transactionNumber || docSnap.id,
+      type: data.type,
+      was: `${data.paymentStatus ?? 'UNPAID'} (paid: ${(data.amountPaid ?? 0).toFixed(2)})`,
+      now: `PAID (settled via journal, entity balance: ${entityBalance.toFixed(2)})`,
+    });
+  }
+
+  if (!dryRun && jeBatchCount > 0) {
+    await jeBatch.commit();
   }
 
   logger.info('Payment status reconciliation complete', { checked, fixed, dryRun });
