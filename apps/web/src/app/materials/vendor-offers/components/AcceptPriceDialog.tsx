@@ -31,7 +31,19 @@ export function AcceptPriceDialog({
   if (!item || !offer) return null;
 
   const isLinked = item.materialId || item.serviceId || item.boughtOutItemId;
-  const isMaterial = item.itemType === 'MATERIAL' && item.materialId;
+
+  const getDescription = () => {
+    if (item.itemType === 'MATERIAL' && item.materialId) {
+      return 'This will record the price in the material price history.';
+    }
+    if (item.itemType === 'SERVICE' && item.serviceId) {
+      return 'This will add a new rate to the service rates history.';
+    }
+    if (item.itemType === 'BOUGHT_OUT' && item.boughtOutItemId) {
+      return 'This will update the list price on the bought-out item.';
+    }
+    return 'This will mark the price as accepted.';
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -45,9 +57,7 @@ export function AcceptPriceDialog({
         ) : (
           <>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              {isMaterial
-                ? 'This will record the price in the material price history.'
-                : 'This will mark the price as accepted on this offer item.'}
+              {getDescription()}
             </Typography>
             <Box
               sx={{

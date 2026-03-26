@@ -13,10 +13,6 @@ import {
   LinearProgress,
   Alert,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -27,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
+import { PdfViewer } from '@/components/common/PdfViewer';
 
 export interface FileAttachment {
   id: string;
@@ -325,42 +322,15 @@ export function FileUpload({
       )}
 
       {/* PDF Preview Dialog */}
-      <Dialog
-        open={!!previewFile}
-        onClose={handleClosePreview}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{
-          sx: { height: '90vh' },
-        }}
-      >
-        <DialogTitle>{previewFile?.name}</DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
-          {previewFile?.type === 'application/pdf' ? (
-            <iframe
-              src={previewFile.url}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none',
-              }}
-              title={previewFile.name}
-            />
-          ) : (
-            <Box sx={{ p: 3, textAlign: 'center' }}>
-              <Typography variant="body1" color="text.secondary">
-                Preview not available for this file type
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => previewFile && handleDownload(previewFile)}>Download</Button>
-          <Button onClick={handleClosePreview} variant="contained">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {previewFile?.type === 'application/pdf' && (
+        <PdfViewer
+          mode="dialog"
+          url={previewFile.url}
+          fileName={previewFile.name}
+          open={!!previewFile}
+          onClose={handleClosePreview}
+        />
+      )}
     </Box>
   );
 }

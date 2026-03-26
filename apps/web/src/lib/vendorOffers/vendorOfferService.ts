@@ -32,6 +32,7 @@ import type {
 } from '@vapour/types';
 import { requirePermission } from '@/lib/auth';
 import { addMaterialPrice } from '@/lib/materials/pricing';
+import { updateBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 
 const logger = createLogger({ context: 'vendorOfferService' });
 
@@ -417,9 +418,10 @@ export async function removeOfferItem(
 // ============================================================================
 
 /**
- * Accept a price from a vendor offer item and push it to the material price database.
- * Only works for items linked to a material. For services and bought-out items,
- * the price is recorded on the offer item only (priceAccepted flag).
+ * Accept a price from a vendor offer item and push it to the relevant database:
+ * - MATERIAL → writes to `materialPrices` collection via addMaterialPrice()
+ * - SERVICE → writes to `serviceRates` collection
+ * - BOUGHT_OUT → updates the bought-out item's inline `pricing` field
  */
 export async function acceptPrice(
   db: Firestore,
@@ -450,7 +452,7 @@ export async function acceptPrice(
   if (!offerSnap.exists()) throw new Error(`Vendor offer ${item.offerId} not found`);
   const offer: VendorOffer = { id: offerSnap.id, ...(offerSnap.data() as Omit<VendorOffer, 'id'>) };
 
-  // Push price to material database if linked to a material
+  // Push price to the appropriate database
   if (item.itemType === 'MATERIAL' && item.materialId) {
     await addMaterialPrice(
       db,
@@ -470,6 +472,42 @@ export async function acceptPrice(
       },
       userId
     );
+  } else if (item.itemType === 'SERVICE' && item.serviceId) {
+    // Write a new rate to the serviceRates collection
+    const now = Timestamp.now();
+    await addDoc(collection(db, COLLECTIONS.SERVICE_RATES), {
+      serviceId: item.serviceId,
+      rateValue: item.unitPrice,
+      currency: offer.currency,
+      effectiveDate: now,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: userId,
+      updatedBy: userId,
+    });
+    logger.info('Service rate recorded from vendor offer', {
+      serviceId: item.serviceId,
+      offerNumber: offer.offerNumber,
+    });
+  } else if (item.itemType === 'BOUGHT_OUT' && item.boughtOutItemId) {
+    // Update the bought-out item's inline pricing
+    await updateBoughtOutItem(
+      db,
+      item.boughtOutItemId,
+      {
+        pricing: {
+          listPrice: { amount: item.unitPrice, currency: offer.currency },
+          currency: offer.currency,
+          ...(offer.vendorId ? { vendorId: offer.vendorId } : {}),
+        },
+      },
+      userId
+    );
+    logger.info('Bought-out item price updated from vendor offer', {
+      boughtOutItemId: item.boughtOutItemId,
+      offerNumber: offer.offerNumber,
+    });
   }
 
   // Mark item as accepted
@@ -488,7 +526,6 @@ export async function acceptPrice(
     itemId,
     offerId: item.offerId,
     itemType: item.itemType,
-    materialId: item.materialId,
   });
 }
 

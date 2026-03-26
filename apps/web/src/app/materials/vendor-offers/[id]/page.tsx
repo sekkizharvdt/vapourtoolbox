@@ -35,11 +35,11 @@ import {
   LinkOff as LinkOffIcon,
   CheckCircle as AcceptedIcon,
   PriceCheck as AcceptPriceIcon,
-  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
+import { PdfViewer } from '@/components/common/PdfViewer';
 import type { VendorOffer, VendorOfferItem, VendorOfferStatus, OfferItemType } from '@vapour/types';
 import { canManageEstimation } from '@vapour/constants';
 import {
@@ -321,19 +321,6 @@ export default function VendorOfferDetailPage() {
                 <Typography variant="body2">{offer.remarks}</Typography>
               </Grid>
             )}
-            {offer.fileUrl && (
-              <Grid size={{ xs: 12 }}>
-                <Button
-                  size="small"
-                  startIcon={<DownloadIcon />}
-                  href={offer.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {offer.fileName ?? 'Download Offer Document'}
-                </Button>
-              </Grid>
-            )}
           </Grid>
 
           {canManage && (
@@ -365,6 +352,13 @@ export default function VendorOfferDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* PDF Viewer */}
+      {offer.fileUrl && (
+        <Box sx={{ mb: 3 }}>
+          <PdfViewer url={offer.fileUrl} fileName={offer.fileName} />
+        </Box>
+      )}
 
       {/* Line Items */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
