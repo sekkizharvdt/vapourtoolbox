@@ -156,6 +156,10 @@ export const COLLECTIONS = {
   // Thermal Calculators
   SAVED_CALCULATIONS: 'savedCalculations', // Personal saved calculator inputs
 
+  // Vendor Offers (Material Database pricing)
+  VENDOR_OFFERS: 'vendorOffers',
+  VENDOR_OFFER_ITEMS: 'vendorOfferItems',
+
   // System Admin
   SYSTEM_STATUS: 'systemStatus', // Package versions, security status (super-admin only)
   FEEDBACK: 'feedback', // User feedback, bug reports, feature requests

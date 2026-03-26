@@ -12,6 +12,7 @@ import {
   SettingsInputComponent as PumpsIcon,
   Speed as InstrumentsIcon,
   Science as ConsumablesIcon,
+  RequestQuote as VendorOffersIcon,
 } from '@mui/icons-material';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
@@ -33,6 +34,7 @@ interface MaterialCounts {
   fasteners: number;
   structural: number;
   consumables: number;
+  vendorOffers: number;
 }
 
 const VALVE_CATEGORIES = [
@@ -80,6 +82,7 @@ export default function MaterialsPage() {
     fasteners: 0,
     structural: 0,
     consumables: 0,
+    vendorOffers: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -131,6 +134,13 @@ export default function MaterialsPage() {
 
         const results = await Promise.all(Object.values(queries).map((q) => getCountFromServer(q)));
 
+        // Vendor offers count (separate collection)
+        const voQuery = query(
+          collection(db, COLLECTIONS.VENDOR_OFFERS),
+          where('isActive', '==', true)
+        );
+        const voCount = await getCountFromServer(voQuery);
+
         const keys = Object.keys(queries) as (keyof MaterialCounts)[];
         const newCounts: MaterialCounts = {
           plates: 0,
@@ -143,6 +153,7 @@ export default function MaterialsPage() {
           fasteners: 0,
           structural: 0,
           consumables: 0,
+          vendorOffers: voCount.data().count ?? 0,
         };
         keys.forEach((key, i) => {
           newCounts[key] = results[i]?.data().count ?? 0;
@@ -250,6 +261,17 @@ export default function MaterialsPage() {
       icon: <ConsumablesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/materials/consumables',
       count: counts.consumables,
+      countLoading: loading,
+    },
+    {
+      id: 'vendor-offers',
+      title: 'Vendor Offers',
+      description:
+        'Upload vendor quotations and map prices to materials, services, and bought-out items',
+      icon: <VendorOffersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/vendor-offers',
+      count: counts.vendorOffers,
+      countLabel: 'offers',
       countLoading: loading,
     },
   ];

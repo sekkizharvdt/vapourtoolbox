@@ -68,6 +68,10 @@
         "destination": "/flow/meetings/placeholder.html"
       },
       {
+        "source": "/materials/vendor-offers/*",
+        "destination": "/materials/vendor-offers/placeholder.html"
+      },
+      {
         "source": "/materials/*/edit",
         "destination": "/materials/placeholder/edit.html"
       },
