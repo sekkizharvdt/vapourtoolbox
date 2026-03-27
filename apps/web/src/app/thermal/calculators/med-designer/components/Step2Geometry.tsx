@@ -17,13 +17,18 @@ import {
 import { ArrowBack as BackIcon, ArrowForward as NextIcon } from '@mui/icons-material';
 import type { MEDDesignerResult } from '@/lib/thermal';
 
+type GeoMode = 'fixed_length' | 'fixed_tubes' | 'uniform';
+type UniformFix = 'tubes' | 'length';
+
 interface Step2GeometryProps {
   result: MEDDesignerResult;
   // Geometry mode
-  geoMode: 'fixed_length' | 'fixed_tubes';
+  geoMode: GeoMode;
   geoValue: string;
-  onGeoModeChange: (v: 'fixed_length' | 'fixed_tubes') => void;
+  geoUniformFix: UniformFix;
+  onGeoModeChange: (v: GeoMode) => void;
   onGeoValueChange: (v: string) => void;
+  onGeoUniformFixChange: (v: UniformFix) => void;
   // Navigation
   onBack: () => void;
   onNext: () => void;
@@ -44,14 +49,35 @@ export function Step2Geometry({
   result,
   geoMode,
   geoValue,
+  geoUniformFix,
   onGeoModeChange,
   onGeoValueChange,
+  onGeoUniformFixChange,
   onBack,
   onNext,
 }: Step2GeometryProps) {
   const detail = result;
   const val = parseFloat(geoValue);
   const hasGeo = !isNaN(val) && val > 0;
+
+  // For uniform mode: compute tubes and length from average design area
+  const tubeODVal = detail.inputs.tubeOD ?? 25.4;
+  const areaPerTubePerMVal = (Math.PI * tubeODVal) / 1000;
+  const avgDesignArea =
+    detail.effects.length > 0
+      ? detail.effects.reduce((s, e) => s + e.designArea, 0) / detail.effects.length
+      : 0;
+  let uniformTubes = 0;
+  let uniformLength = 0;
+  if (geoMode === 'uniform' && hasGeo) {
+    if (geoUniformFix === 'tubes') {
+      uniformTubes = Math.round(val);
+      uniformLength = Math.ceil((avgDesignArea / (uniformTubes * areaPerTubePerMVal)) * 10) / 10;
+    } else {
+      uniformLength = val;
+      uniformTubes = Math.ceil(avgDesignArea / (areaPerTubePerMVal * uniformLength));
+    }
+  }
 
   // Compute geometry comparison on the fly
   const geoRows = hasGeo
@@ -60,52 +86,39 @@ export function Step2Geometry({
         const pitch = detail.inputs.tubePitch ?? 33.4;
         const areaPerTubePerM = (Math.PI * tubeOD) / 1000;
 
+        // Common helper to build a geo row
+        const buildRow = (tubes: number, tubeL: number) => {
+          const instArea = tubes * areaPerTubePerM * tubeL;
+          const margin = e.requiredArea > 0 ? (instArea / e.requiredArea - 1) * 100 : 0;
+          const shellID = Math.round(Math.sqrt((tubes * pitch * pitch * 4) / Math.PI) * 1.15);
+          const tpr = Math.round(shellID / 2 / pitch);
+          const minSpray = 0.035 * 2 * tpr * tubeL * 3.6;
+          const maxBrine = detail.inputs.maxBrineSalinity ?? 65000;
+          const swSal = detail.inputs.seawaterSalinity ?? 35000;
+          const feed = (e.distillateFlow * maxBrine) / (maxBrine - swSal);
+          const recirc = Math.max(0, minSpray - feed);
+          return {
+            effect: e.effect,
+            tubes,
+            tubeLength: tubeL,
+            shellID,
+            instArea,
+            margin,
+            recirc,
+            totalSpray: minSpray,
+            feed,
+          };
+        };
+
         if (geoMode === 'fixed_length') {
-          const tubeL = val;
-          const tubes = Math.ceil(e.designArea / (areaPerTubePerM * tubeL));
-          const instArea = tubes * areaPerTubePerM * tubeL;
-          const margin = e.requiredArea > 0 ? (instArea / e.requiredArea - 1) * 100 : 0;
-          const shellID = Math.round(Math.sqrt((tubes * pitch * pitch * 4) / Math.PI) * 1.15);
-          const tpr = Math.round(shellID / 2 / pitch);
-          const minSpray = 0.035 * 2 * tpr * tubeL * 3.6;
-          const maxBrine = detail.inputs.maxBrineSalinity ?? 65000;
-          const swSal = detail.inputs.seawaterSalinity ?? 35000;
-          const feed = (e.distillateFlow * maxBrine) / (maxBrine - swSal);
-          const recirc = Math.max(0, minSpray - feed);
-          return {
-            effect: e.effect,
-            tubes,
-            tubeLength: tubeL,
-            shellID,
-            instArea,
-            margin,
-            recirc,
-            totalSpray: minSpray,
-            feed,
-          };
+          return buildRow(Math.ceil(e.designArea / (areaPerTubePerM * val)), val);
+        } else if (geoMode === 'fixed_tubes') {
+          const tubeL = Math.ceil((e.designArea / (Math.round(val) * areaPerTubePerM)) * 10) / 10;
+          return buildRow(Math.round(val), tubeL);
         } else {
-          const tubes = Math.round(val);
-          const tubeL = Math.ceil((e.designArea / (tubes * areaPerTubePerM)) * 10) / 10;
-          const instArea = tubes * areaPerTubePerM * tubeL;
-          const margin = e.requiredArea > 0 ? (instArea / e.requiredArea - 1) * 100 : 0;
-          const shellID = Math.round(Math.sqrt((tubes * pitch * pitch * 4) / Math.PI) * 1.15);
-          const tpr = Math.round(shellID / 2 / pitch);
-          const minSpray = 0.035 * 2 * tpr * tubeL * 3.6;
-          const maxBrine = detail.inputs.maxBrineSalinity ?? 65000;
-          const swSal = detail.inputs.seawaterSalinity ?? 35000;
-          const feed = (e.distillateFlow * maxBrine) / (maxBrine - swSal);
-          const recirc = Math.max(0, minSpray - feed);
-          return {
-            effect: e.effect,
-            tubes,
-            tubeLength: tubeL,
-            shellID,
-            instArea,
-            margin,
-            recirc,
-            totalSpray: minSpray,
-            feed,
-          };
+          // Uniform geometry: both tubes and length are the same for all effects
+          // Based on average design area — val is tubes or length (user inputs one)
+          return buildRow(uniformTubes, uniformLength);
         }
       })
     : [];
@@ -168,28 +181,7 @@ export function Step2Geometry({
                 <TableCell align="right">{fmt(e.bpe, 2)}</TableCell>
                 <TableCell align="right">{fmt(e.vapourOutTemp)}</TableCell>
                 <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
-                <TableCell align="right">
-                  {(() => {
-                    // Spray temperature depends on PH chain position
-                    // In BARC scheme: E_last gets cold feed, earlier effects get preheated
-                    // PHs peel off spray progressively, so later effects in the chain get cooler spray
-                    const nPH = detail.preheaters.length;
-                    const nEff = detail.effects.length;
-                    const condenserOutlet =
-                      detail.inputs.condenserSWOutlet ?? detail.inputs.seawaterTemperature + 5;
-                    if (nPH === 0) return fmt(condenserOutlet);
-                    // E_last gets cold feed (before PHs)
-                    if (e.effect === nEff) return fmt(condenserOutlet);
-                    // Find the PH that feeds this effect's position
-                    const phIdx = nEff - 1 - e.effect; // E1→last PH, E2→2nd last, etc.
-                    if (phIdx >= 0 && phIdx < nPH) {
-                      return fmt(detail.preheaters[phIdx]!.swOutlet);
-                    }
-                    // Effects beyond PH coverage get condenser outlet temp
-                    return fmt(condenserOutlet);
-                  })()}
-                  &deg;C
-                </TableCell>
+                <TableCell align="right">{fmt(e.sprayTemp)}&deg;C</TableCell>
                 <TableCell align="right">{Math.round(e.overallU)}</TableCell>
                 <TableCell align="right">{Math.round(e.duty)}</TableCell>
                 <TableCell align="right">{Math.round(e.requiredArea)}</TableCell>
@@ -205,21 +197,44 @@ export function Step2Geometry({
           Choose Tube Geometry
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Fix one parameter — the other varies per effect to match the required area.
+          {geoMode === 'uniform'
+            ? 'All effects use the same tubes and length. Margin varies per effect.'
+            : 'Fix one parameter \u2014 the other varies per effect to match the required area.'}
         </Typography>
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <TextField
             select
-            label="Fix"
+            label="Mode"
             value={geoMode}
-            onChange={(e) => onGeoModeChange(e.target.value as 'fixed_length' | 'fixed_tubes')}
+            onChange={(e) => onGeoModeChange(e.target.value as GeoMode)}
             sx={{ minWidth: 200 }}
           >
             <MenuItem value="fixed_length">Fixed Tube Length</MenuItem>
             <MenuItem value="fixed_tubes">Fixed Tube Count</MenuItem>
+            <MenuItem value="uniform">Uniform Geometry</MenuItem>
           </TextField>
+          {geoMode === 'uniform' && (
+            <TextField
+              select
+              label="Input"
+              value={geoUniformFix}
+              onChange={(e) => onGeoUniformFixChange(e.target.value as UniformFix)}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="tubes">Tubes</MenuItem>
+              <MenuItem value="length">Length</MenuItem>
+            </TextField>
+          )}
           <TextField
-            label={geoMode === 'fixed_length' ? 'Tube Length (m)' : 'Tubes per Effect'}
+            label={
+              geoMode === 'fixed_length'
+                ? 'Tube Length (m)'
+                : geoMode === 'fixed_tubes'
+                  ? 'Tubes per Effect'
+                  : geoUniformFix === 'tubes'
+                    ? 'Tubes per Effect'
+                    : 'Tube Length (m)'
+            }
             value={geoValue}
             onChange={(e) => onGeoValueChange(e.target.value)}
             type="number"
@@ -232,7 +247,9 @@ export function Step2Geometry({
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {geoMode === 'fixed_length'
                 ? `All effects use ${val}m tubes. Tube count varies per effect.`
-                : `All effects use ${Math.round(val)} tubes. Tube length varies per effect.`}{' '}
+                : geoMode === 'fixed_tubes'
+                  ? `All effects use ${Math.round(val)} tubes. Tube length varies per effect.`
+                  : `All effects use ${uniformTubes} tubes \u00d7 ${uniformLength.toFixed(1)}m. Margin varies per effect.`}{' '}
               Max Shell ID: {maxShellID} mm
               {maxShellID < 1800 ? ' ⚠ (below 1,800mm man-entry)' : ''} | Total Area:{' '}
               {Math.round(totalArea)} m&sup2;

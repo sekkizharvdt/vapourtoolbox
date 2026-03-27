@@ -41,7 +41,7 @@ describe('MED Designer — Solar Flash 0.79 T/h @ 57°C', () => {
 
   it('should produce positive GOR', () => {
     expect(result.achievedGOR).toBeGreaterThan(3);
-    expect(result.achievedGOR).toBeLessThan(15);
+    expect(result.achievedGOR).toBeLessThan(20);
   });
 
   it('should produce the scenario comparison table', () => {

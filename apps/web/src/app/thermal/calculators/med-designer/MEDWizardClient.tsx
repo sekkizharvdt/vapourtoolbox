@@ -50,8 +50,9 @@ export default function MEDWizardClient() {
   const [selectedPreheaters, setSelectedPreheaters] = useState<number>(0);
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
-  const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes'>('fixed_tubes');
+  const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>('fixed_tubes');
   const [geoValue, setGeoValue] = useState('2000');
+  const [geoUniformFix, setGeoUniformFix] = useState<'tubes' | 'length'>('tubes');
 
   // ── PDF dialog ─────────────────────────────────────────────────────────
   const [reportOpen, setReportOpen] = useState(false);
@@ -119,12 +120,12 @@ export default function MEDWizardClient() {
     if (!isNaN(gv) && gv > 0) {
       const nEff = selectedEffects;
       if (geoMode === 'fixed_tubes') {
-        // Fixed tube count → pass as tubeCountOverrides for all effects
         overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
-      } else {
-        // Fixed tube length → pass as tubeLengthOverrides for all effects
+      } else if (geoMode === 'fixed_length') {
         overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
       }
+      // 'uniform' mode: geometry is display-only in Step 2 — no overrides needed
+      // (the detailed design uses auto-calc; uniform is for quick comparison)
     }
 
     try {
@@ -327,8 +328,10 @@ export default function MEDWizardClient() {
           result={designResult}
           geoMode={geoMode}
           geoValue={geoValue}
+          geoUniformFix={geoUniformFix}
           onGeoModeChange={setGeoMode}
           onGeoValueChange={setGeoValue}
+          onGeoUniformFixChange={setGeoUniformFix}
           onBack={() => setActiveStep(0)}
           onNext={() => setActiveStep(2)}
         />

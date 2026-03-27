@@ -190,6 +190,8 @@ export interface MEDEffectResult {
   vapourVelocity: number;
   /** Vapour velocity status */
   vapourVelocityStatus: 'ok' | 'high' | 'low';
+  /** Spray temperature entering this effect °C */
+  sprayTemp: number;
 }
 
 /** Final condenser result */
@@ -1084,6 +1086,49 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     vapT = vapOutT;
   }
 
+  // ── Pre-calculate spray temperatures per effect ─────────────────────
+  // Preheaters heat the feed progressively. In BARC scheme:
+  //   E_last gets cold feed (condenser outlet)
+  //   E_(last-1) through E_(last-numPH) get progressively warmer feed
+  //   E1 through E_(last-numPH-1) get the hottest preheated feed
+  const numPH = input.numberOfPreheaters ?? Math.max(0, Math.min(nEff - 2, 4));
+  const phTempRise = numPH > 0 ? Math.min((TBT - condenserSWOutlet) * 0.7, numPH * 4) : 0;
+  const phDTPerPH = numPH > 0 ? phTempRise / numPH : 0;
+
+  const sprayTemps: number[] = [];
+  for (let i = 0; i < nEff; i++) {
+    const effectNum = i + 1; // 1-based
+    if (effectNum === nEff) {
+      // Last effect always gets cold feed
+      sprayTemps.push(condenserSWOutlet);
+    } else {
+      // How many PHs are between this effect and the last?
+      // E_(last-1) → PH-1 outlet (coldest PH)
+      // E_(last-2) → PH-2 outlet
+      // ...
+      // E_(last-numPH) → PH-numPH outlet (hottest)
+      // Effects earlier than E_(last-numPH) also get hottest PH outlet
+      const stepsFromLast = nEff - effectNum; // E1→nEff-1, E_(last-1)→1
+      if (stepsFromLast <= numPH) {
+        // This effect is covered by a preheater
+        // stepsFromLast=1 → PH-1 (coldest), stepsFromLast=numPH → PH-numPH (hottest)
+        sprayTemps.push(condenserSWOutlet + stepsFromLast * phDTPerPH);
+      } else {
+        // Beyond PH coverage → gets hottest preheated feed
+        sprayTemps.push(condenserSWOutlet + phTempRise);
+      }
+    }
+  }
+
+  // Feed per effect (fresh seawater make-up) — constant across effects
+  const feedPerEffect =
+    (((input.steamFlow * input.targetGOR) / nEff) * maxBrineSalinity) /
+    (maxBrineSalinity - swSalinity);
+  const cpSWFeed = getSeawaterSpecificHeat(
+    swSalinity,
+    (condenserSWOutlet + input.steamTemperature) / 2
+  );
+
   // Now build effects with proper incoming vapour tracking
   let prevVapourT = input.steamTemperature;
 
@@ -1199,7 +1244,11 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     const margin = reqArea > 0 ? (instArea / reqArea - 1) * 100 : 0;
 
     // Distillate production in this effect
-    const distFlow = (duty * 3.6) / hfg; // T/h
+    // Duty is split between sensible heating of feed and evaporation
+    const sprayT = sprayTemps[i]!;
+    const sensibleDuty = (feedPerEffect * 1000 * cpSWFeed * Math.max(0, brineT - sprayT)) / 3600; // kW
+    const evapDuty = Math.max(0, duty - sensibleDuty);
+    const distFlow = (evapDuty * 3.6) / hfg; // T/h
 
     // Accumulated distillate cascade (this effect + all previous)
     const prevAccumDist = i > 0 ? effects[i - 1]!.accumDistillateFlow : 0;
@@ -1217,18 +1266,14 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
     // Brine: spray flow minus evaporated vapour = remaining brine
     // In each effect: spray in → some evaporates → remaining is brine
     // Brine from this effect = total spray - distillate produced
-    // Feed per effect (fresh SW portion)
-    const feedPerEffectCalc =
-      (((input.steamFlow * input.targetGOR) / nEff) * maxBrineSalinity) /
-      (maxBrineSalinity - swSalinity);
-    const brineOutThisEffect = feedPerEffectCalc - distFlow; // T/h (what doesn't evaporate)
+    const brineOutThisEffect = feedPerEffect - distFlow; // T/h (what doesn't evaporate)
     // Accumulated brine cascade (this effect brine + all previous brine flowing through)
     const prevAccumBrine = i > 0 ? effects[i - 1]!.accumBrineFlow : 0;
     const accumBrineFlow = prevAccumBrine + brineOutThisEffect;
 
     // Wetting / brine recirculation
     const minSpray = minGamma * 2 * effTubesPerRow * selectedLength * 3.6; // T/h
-    const recirc = includeRecirc ? Math.max(0, minSpray - feedPerEffectCalc) : 0;
+    const recirc = includeRecirc ? Math.max(0, minSpray - feedPerEffect) : 0;
 
     effects.push({
       effect: i + 1,
@@ -1269,6 +1314,8 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       sprayNozzleSpaceMM: Math.round(Math.max(275, effShellID * 0.15)),
       // Drainage clearance below bundle (minimum 250mm for brine collection)
       drainageClearanceMM: Math.max(250, Math.round(effShellID * 0.12)),
+      // Spray temperature for this effect
+      sprayTemp: sprayT,
       // Vapour flow area check: open half of shell minus bundle cross-section
       // Shell cross-section area (full circle)
       ...(() => {
@@ -1305,8 +1352,9 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   // E1 condensate is the original steam — returns to source (solar field), not product
   const e1Condensate = input.steamFlow * (1 - VENT_LOSS_FRACTION);
   // Net distillate = product water (E2+ condensate + flash contributions)
-  const totalDistillate = grossDistillate - e1Condensate;
-  const achievedGOR = totalDistillate / input.steamFlow;
+  // Preheater condensate will be added after preheater sizing below
+  let totalDistillate = grossDistillate - e1Condensate;
+  let achievedGOR = totalDistillate / input.steamFlow;
   const totalArea = effects.reduce((sum, e) => sum + e.installedArea, 0);
   const totalRecirc = effects.reduce((sum, e) => sum + e.brineRecirculation, 0);
   const makeUpFeed = (totalDistillate * maxBrineSalinity) / (maxBrineSalinity - swSalinity);
@@ -1502,18 +1550,13 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
   // Flow path: recirc pump → spray E_last → PH-1 → spray E_(last-1) → PH-2 → ... → PH-N → spray E2 → E1
   // Flow DECREASES through each PH as spray is peeled off at each effect.
   // Tubes: 17mm OD × 0.4mm Ti SB338 Gr2, 21.3mm triangular pitch, 4 passes, target 1.5 m/s.
-  const numPH = input.numberOfPreheaters ?? Math.max(0, Math.min(nEff - 2, 4));
+  // numPH, phTempRise, phDTPerPH already calculated above (before effect loop)
   const preheaters: MEDPreheaterResult[] = [];
-
-  // Preheater uses same standardised Ti tubes as condenser
 
   if (numPH > 0 && totalRecirc + makeUpFeed > 0) {
     // Total spray flow = total spray to all effects (make-up + recirc)
     const totalSprayFlow = effects.reduce((s, e) => s + e.minSprayFlow, 0); // T/h
 
-    // Preheat from condenserSWOutlet to ~TBT-5
-    const phTempRise = Math.min((TBT - condenserSWOutlet) * 0.7, numPH * 4);
-    const phDTPerPH = phTempRise / numPH;
     const phU = input.preheaterU ?? getDefaultPreheaterU(input.tubeMaterialName ?? 'Al 5052');
 
     // Spray per effect (average)
@@ -1572,6 +1615,17 @@ export function designMED(input: MEDDesignerInput): MEDDesignerResult {
       // Peel off spray for this effect
       phFlowTh -= sprayPerEffect;
     }
+  }
+
+  // ── Add preheater condensate to product ────────────────────────────
+  // Vapour condensed in preheaters is additional product water
+  if (preheaters.length > 0) {
+    const phCondensateTotal = preheaters.reduce((s, ph) => {
+      const hfgPH = getLatentHeat(ph.vapourTemp);
+      return s + (ph.duty * 3.6) / hfgPH; // T/h
+    }, 0);
+    totalDistillate += phCondensateTotal;
+    achievedGOR = totalDistillate / input.steamFlow;
   }
 
   // ── GOR check ────────────────────────────────────────────────────────
@@ -1744,16 +1798,47 @@ function computeGORConfigurations(
     if (workDT <= 0) continue;
 
     for (let nPH = 0; nPH <= Math.min(nEff - 2, 6); nPH++) {
-      // Base GOR without preheaters
+      // Preheater temperature rise
+      const phRise = nPH > 0 ? Math.min((steamTemp - condenserSWOutlet) * 0.7, nPH * 4) : 0;
+      const phDTpp = nPH > 0 ? phRise / nPH : 0;
+
+      // Calculate spray temperature for each effect (same logic as detailed model)
+      const effSprayTemps: number[] = [];
+      for (let ei = 0; ei < nEff; ei++) {
+        const effNum = ei + 1;
+        if (effNum === nEff) {
+          effSprayTemps.push(condenserSWOutlet); // last effect gets cold feed
+        } else {
+          const stepsFromLast = nEff - effNum;
+          if (stepsFromLast <= nPH) {
+            effSprayTemps.push(condenserSWOutlet + stepsFromLast * phDTpp);
+          } else {
+            effSprayTemps.push(condenserSWOutlet + phRise); // hottest PH outlet
+          }
+        }
+      }
+      const feedTemp = nPH > 0 ? condenserSWOutlet + phRise : condenserSWOutlet;
+
+      // Estimate feed per effect for sensible heating calculation
+      const estFeedPerEff =
+        (((steamFlow * targetGOR) / nEff) * maxBrineSalinity) / (maxBrineSalinity - swSalinity);
+
+      // Effect cascade with sensible heating subtracted
       let grossDist = 0;
       let Q = (steamFlow * 1000 * getLatentHeat(steamTemp)) / 3600; // kW
 
       let vapT = steamTemp;
+      const effBrineTemps: number[] = [];
       for (let i = 0; i < nEff; i++) {
-        // Simplified: use uniform step
         const effVapOutT = vapT - totalRange / nEff;
+        const brineT = vapT - workDT; // brine = incoming vapour - working ΔT
+        effBrineTemps.push(brineT);
         const hfgEff = getLatentHeat(Math.max(effVapOutT, 30));
-        const dist = ((Q * 3.6) / hfgEff) * (1 - ventLoss);
+        // Subtract sensible heating of feed from available duty
+        const sensHeat =
+          (estFeedPerEff * 1000 * Cp * Math.max(0, brineT - effSprayTemps[i]!)) / 3600;
+        const evapQ = Math.max(0, Q - sensHeat);
+        const dist = ((evapQ * 3.6) / hfgEff) * (1 - ventLoss);
         grossDist += dist;
         Q = (dist * hfgEff) / 3.6;
         vapT = effVapOutT;
@@ -1762,16 +1847,27 @@ function computeGORConfigurations(
       const e1Condensate = steamFlow * (1 - ventLoss);
       const netDistBase = grossDist - e1Condensate;
 
-      // Preheater contribution: each PH raises feed by ~4°C
-      // Extra distillate = makeUp × Cp × tempRise / hfg_avg
-      const feedTempRise = nPH * 4; // °C per PH
-      const feedTemp = condenserSWOutlet + feedTempRise;
-      const makeUpFlow =
-        netDistBase > 0 ? (netDistBase * maxBrineSalinity) / (maxBrineSalinity - swSalinity) : 0;
-      const hfgAvg = getLatentHeat((steamTemp + lastVapT) / 2);
-      const extraDist = makeUpFlow > 0 ? (makeUpFlow * Cp * feedTempRise) / hfgAvg : 0;
+      // Preheater condensate: vapour condensed in PHs is additional product
+      let phCondensate = 0;
+      if (nPH > 0 && netDistBase > 0) {
+        // Estimate total spray flow for PH duty calculation
+        const totalSprayEst = estFeedPerEff * nEff * 1.3; // feed + ~30% recirc estimate
+        const sprayPerEff = totalSprayEst / nEff;
+        let phFlow = totalSprayEst - sprayPerEff; // after E_last peeled off
+        for (let pi = 0; pi < nPH; pi++) {
+          const phDuty = (phFlow * 1000 * Cp * phDTpp) / 3600; // kW
+          const vapSourceIdx = 1 + pi;
+          const vapSourceT =
+            vapSourceIdx < effBrineTemps.length
+              ? effBrineTemps[vapSourceIdx]! - 2 // approximate vapour temp (below brine by ~BPE)
+              : lastVapT;
+          const hfgPH = getLatentHeat(Math.max(vapSourceT, 30));
+          phCondensate += (phDuty * 3.6) / hfgPH;
+          phFlow -= sprayPerEff;
+        }
+      }
 
-      const netDist = netDistBase + extraDist;
+      const netDist = netDistBase + phCondensate;
       const gor = steamFlow > 0 ? netDist / steamFlow : 0;
       const deviation = Math.abs(gor - targetGOR);
 
