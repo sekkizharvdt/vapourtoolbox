@@ -10,8 +10,10 @@ import {
   Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import type { CostCentre } from '@vapour/types';
 import { logger } from '@vapour/logger';
+import { requirePermission } from '@/lib/auth/authorizationService';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 
 /**
@@ -24,9 +26,17 @@ export async function createProjectCostCentre(
   projectName: string,
   budgetAmount: number | null,
   userId: string,
-  userName: string
+  userName: string,
+  userPermissions: number
 ): Promise<string> {
   try {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROJECTS,
+      userId,
+      'create project cost centre'
+    );
+
     // AC-14: Use deterministic ID to prevent race condition from concurrent creation
     const costCentreId = `CC-${projectId}`;
     const existingRef = doc(db, COLLECTIONS.COST_CENTRES, costCentreId);

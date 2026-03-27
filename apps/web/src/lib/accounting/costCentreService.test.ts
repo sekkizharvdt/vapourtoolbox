@@ -40,6 +40,12 @@ jest.mock('@vapour/logger', () => ({
   },
 }));
 
+// Mock authorization service
+const mockRequirePermission = jest.fn();
+jest.mock('@/lib/auth/authorizationService', () => ({
+  requirePermission: (...args: unknown[]) => mockRequirePermission(...args),
+}));
+
 // Mock type helpers
 jest.mock('@/lib/firebase/typeHelpers', () => ({
   docToTyped: <T>(id: string, data: Record<string, unknown>): T => {
@@ -49,10 +55,12 @@ jest.mock('@/lib/firebase/typeHelpers', () => ({
 }));
 
 import { createProjectCostCentre, getProjectCostCentre } from './costCentreService';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import type { Firestore } from 'firebase/firestore';
 
 describe('costCentreService', () => {
   const mockDb = {} as unknown as Firestore;
+  const validPermissions = PERMISSION_FLAGS.MANAGE_PROJECTS;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -72,7 +80,8 @@ describe('costCentreService', () => {
         'Test Project',
         100000,
         'user-123',
-        'Test User'
+        'Test User',
+        validPermissions
       );
 
       // AC-14: Deterministic ID based on projectId
@@ -107,7 +116,8 @@ describe('costCentreService', () => {
         'Test Project',
         100000,
         'user-123',
-        'Test User'
+        'Test User',
+        validPermissions
       );
 
       expect(result).toBe('CC-project-123');
@@ -126,7 +136,8 @@ describe('costCentreService', () => {
         'Test Project',
         null,
         'user-123',
-        'Test User'
+        'Test User',
+        validPermissions
       );
 
       const setDocCall = mockSetDoc.mock.calls[0][1];
@@ -146,7 +157,8 @@ describe('costCentreService', () => {
         'Desolenator Project',
         500000,
         'user-123',
-        'Test User'
+        'Test User',
+        validPermissions
       );
 
       const setDocCall = mockSetDoc.mock.calls[0][1];
@@ -165,9 +177,37 @@ describe('costCentreService', () => {
           'Test Project',
           100000,
           'user-123',
-          'Test User'
+          'Test User',
+          validPermissions
         )
       ).rejects.toThrow('Firestore error');
+    });
+
+    it('throws when user lacks MANAGE_PROJECTS permission', async () => {
+      mockRequirePermission.mockImplementation(() => {
+        throw new Error('Permission denied: create project cost centre requires MANAGE_PROJECTS');
+      });
+
+      await expect(
+        createProjectCostCentre(
+          mockDb,
+          'project-123',
+          'PRJ-001',
+          'Test Project',
+          100000,
+          'user-123',
+          'Test User',
+          0
+        )
+      ).rejects.toThrow('Permission denied');
+
+      expect(mockRequirePermission).toHaveBeenCalledWith(
+        0,
+        PERMISSION_FLAGS.MANAGE_PROJECTS,
+        'user-123',
+        'create project cost centre'
+      );
+      expect(mockSetDoc).not.toHaveBeenCalled();
     });
   });
 

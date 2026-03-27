@@ -167,7 +167,8 @@ export function CharterTab({ project }: CharterTabProps) {
         project.name,
         budgetAmount,
         userId,
-        userName
+        userName,
+        claims?.permissions ?? 0
       );
 
       // Update project with cost centre ID
