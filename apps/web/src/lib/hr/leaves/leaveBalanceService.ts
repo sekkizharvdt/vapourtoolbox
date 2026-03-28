@@ -354,20 +354,20 @@ export async function removePendingLeave(
 
 /**
  * Get all leave balances for a fiscal year (admin view)
+ *
+ * Note: entityId parameter kept for API compatibility but not used in queries.
+ * HR leave balances are global (single-tenant). When multi-tenancy is added,
+ * re-enable the entityId filter with a dedicated tenantId field and composite index.
  */
 export async function getAllLeaveBalances(
-  entityId: string,
+  _entityId?: string,
   fiscalYear?: number
 ): Promise<LeaveBalance[]> {
   const { db } = getFirebase();
   const year = fiscalYear ?? getCurrentFiscalYear();
 
   try {
-    const q = query(
-      collection(db, COLLECTIONS.HR_LEAVE_BALANCES),
-      where('entityId', '==', entityId),
-      where('fiscalYear', '==', year)
-    );
+    const q = query(collection(db, COLLECTIONS.HR_LEAVE_BALANCES), where('fiscalYear', '==', year));
 
     const snapshot = await getDocs(q);
 

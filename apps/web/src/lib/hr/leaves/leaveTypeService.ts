@@ -62,9 +62,13 @@ export interface UpdateLeaveTypeInput {
 
 /**
  * Get all leave types
+ *
+ * Note: entityId parameter kept for API compatibility but not used in queries.
+ * HR leave types are global (single-tenant). When multi-tenancy is added,
+ * re-enable the entityId filter with a dedicated tenantId field and composite index.
  */
 export async function getLeaveTypes(
-  entityId: string,
+  _entityId?: string,
   includeInactive = false
 ): Promise<LeaveType[]> {
   const { db } = getFirebase();
@@ -74,16 +78,11 @@ export async function getLeaveTypes(
     if (!includeInactive) {
       q = query(
         collection(db, COLLECTIONS.HR_LEAVE_TYPES),
-        where('entityId', '==', entityId),
         where('isActive', '==', true),
         orderBy('code', 'asc')
       );
     } else {
-      q = query(
-        collection(db, COLLECTIONS.HR_LEAVE_TYPES),
-        where('entityId', '==', entityId),
-        orderBy('code', 'asc')
-      );
+      q = query(collection(db, COLLECTIONS.HR_LEAVE_TYPES), orderBy('code', 'asc'));
     }
     const snapshot = await getDocs(q);
 

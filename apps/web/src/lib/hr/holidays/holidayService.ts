@@ -254,9 +254,13 @@ export async function getHolidaysForYear(year: number): Promise<Holiday[]> {
 
 /**
  * Get all company holidays (for admin view)
+ *
+ * Note: entityId parameter kept for API compatibility but not used in queries.
+ * HR holidays are global (single-tenant). When multi-tenancy is added,
+ * re-enable the entityId filter with a dedicated tenantId field and composite index.
  */
 export async function getAllHolidays(
-  entityId: string,
+  _entityId?: string,
   includeInactive = false
 ): Promise<Holiday[]> {
   const { db } = getFirebase();
@@ -264,15 +268,10 @@ export async function getAllHolidays(
   try {
     let q;
     if (includeInactive) {
-      q = query(
-        collection(db, COLLECTIONS.HR_HOLIDAYS),
-        where('entityId', '==', entityId),
-        orderBy('date', 'desc')
-      );
+      q = query(collection(db, COLLECTIONS.HR_HOLIDAYS), orderBy('date', 'desc'));
     } else {
       q = query(
         collection(db, COLLECTIONS.HR_HOLIDAYS),
-        where('entityId', '==', entityId),
         where('isActive', '==', true),
         orderBy('date', 'desc')
       );
