@@ -20,5 +20,7 @@ export * from './StatCard';
 export * from './FilterBar';
 
 // Table Components
+export { DataTable } from './DataTable';
+export type { DataTableColumn, DataTableProps, SortDirection } from './DataTable';
 export { TableActionCell } from './TableActionCell';
 export type { TableActionCellProps, TableAction } from './TableActionCell';
