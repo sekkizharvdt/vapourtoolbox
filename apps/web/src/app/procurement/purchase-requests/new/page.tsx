@@ -72,7 +72,7 @@ interface FormData {
 
 export default function NewPurchaseRequestPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [excelDialogOpen, setExcelDialogOpen] = useState(false);
@@ -292,7 +292,8 @@ export default function NewPurchaseRequestPage() {
       await submitPurchaseRequestForApproval(
         result.prId,
         user.uid,
-        user.displayName || user.email || 'Unknown'
+        user.displayName || user.email || 'Unknown',
+        claims?.permissions ?? 0
       );
 
       router.push('/procurement/purchase-requests/' + result.prId);

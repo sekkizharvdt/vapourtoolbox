@@ -88,7 +88,7 @@ interface LineItemFormData {
 export default function EditPRPage() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -445,7 +445,8 @@ export default function EditPRPage() {
         await submitPurchaseRequestForApproval(
           pr.id,
           user.uid,
-          user.displayName || user.email || 'Unknown'
+          user.displayName || user.email || 'Unknown',
+          claims?.permissions ?? 0
         );
         setSuccess('Purchase Request updated and submitted for approval');
         setTimeout(() => {
