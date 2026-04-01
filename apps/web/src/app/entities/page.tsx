@@ -35,7 +35,7 @@ import {
   AccountBalanceWallet as LedgerIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import {
   PageHeader,
@@ -109,14 +109,9 @@ export default function EntitiesPage() {
         ? query(
             collection(db, COLLECTIONS.ENTITIES),
             where('roles', 'array-contains', roleFilter.toUpperCase()),
-            orderBy('createdAt', 'desc'),
-            firestoreLimit(100)
+            orderBy('createdAt', 'desc')
           )
-        : query(
-            collection(db, COLLECTIONS.ENTITIES),
-            orderBy('createdAt', 'desc'),
-            firestoreLimit(100)
-          ),
+        : query(collection(db, COLLECTIONS.ENTITIES), orderBy('createdAt', 'desc')),
     [db, roleFilter]
   );
 

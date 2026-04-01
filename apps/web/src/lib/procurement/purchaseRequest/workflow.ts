@@ -33,9 +33,11 @@ export async function submitPurchaseRequestForApproval(
 ): Promise<void> {
   const { db } = getFirebase();
 
+  // Submitting own PR only requires VIEW_PROCUREMENT (create/edit access).
+  // MANAGE_PROCUREMENT is reserved for approve/reject actions.
   requirePermission(
     userPermissions,
-    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    PERMISSION_FLAGS.VIEW_PROCUREMENT,
     userId,
     'submit purchase request for approval'
   );

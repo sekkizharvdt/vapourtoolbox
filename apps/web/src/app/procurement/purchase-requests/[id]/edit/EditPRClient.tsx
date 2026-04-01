@@ -43,11 +43,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
+import ServicePickerDialog from '@/components/services/ServicePickerDialog';
 import type {
   PurchaseRequest,
   PurchaseRequestAttachment,
   Material,
   MaterialVariant,
+  Service,
 } from '@vapour/types';
 import {
   getPurchaseRequestById,
@@ -71,6 +73,14 @@ interface LineItemFormData {
   materialId?: string;
   materialCode?: string;
   materialName?: string;
+  itemType?: string;
+  serviceId?: string;
+  serviceCode?: string;
+  serviceName?: string;
+  serviceCategory?: string;
+  turnaroundDays?: number;
+  testMethodStandard?: string;
+  sampleRequirements?: string;
   isNew?: boolean;
   isDeleted?: boolean;
 }
@@ -105,6 +115,8 @@ export default function EditPRPage() {
   const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
   const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
   const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [servicePickerIndex, setServicePickerIndex] = useState<number>(0);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -266,6 +278,33 @@ export default function EditPRPage() {
     });
     setMaterialPickerOpen(false);
   };
+
+  const handleServiceSelect = (service: Service) => {
+    setLineItems((prev) => {
+      const updated = [...prev];
+      const item = updated[servicePickerIndex];
+      if (item) {
+        updated[servicePickerIndex] = {
+          ...item,
+          itemType: 'SERVICE',
+          description: service.name,
+          specification: service.description || '',
+          unit: (service.unit || 'NOS').toUpperCase(),
+          serviceId: service.id,
+          serviceCode: service.serviceCode,
+          serviceName: service.name,
+          serviceCategory: service.category,
+          turnaroundDays: service.estimatedTurnaroundDays,
+          testMethodStandard: service.testMethodStandard,
+          sampleRequirements: service.sampleRequirements,
+        };
+      }
+      return updated;
+    });
+    setServicePickerOpen(false);
+  };
+
+  const isServiceCategory = formData.category === 'SERVICE';
 
   const handleSave = async (submitForApproval: boolean = false) => {
     if (!user || !pr) return;
@@ -678,12 +717,23 @@ export default function EditPRPage() {
                               }
                               placeholder="Item description"
                             />
-                            <Tooltip title="Pick from Materials DB">
+                            <Tooltip
+                              title={
+                                isServiceCategory
+                                  ? 'Pick from Services Catalog'
+                                  : 'Pick from Materials DB'
+                              }
+                            >
                               <IconButton
                                 size="small"
                                 onClick={() => {
-                                  setMaterialPickerIndex(index);
-                                  setMaterialPickerOpen(true);
+                                  if (isServiceCategory) {
+                                    setServicePickerIndex(index);
+                                    setServicePickerOpen(true);
+                                  } else {
+                                    setMaterialPickerIndex(index);
+                                    setMaterialPickerOpen(true);
+                                  }
                                 }}
                                 sx={{ mt: 0.25 }}
                               >
@@ -818,6 +868,13 @@ export default function EditPRPage() {
         onSelect={handleMaterialSelect}
         title="Select Material for Line Item"
         requireVariantSelection={false}
+      />
+
+      {/* Service Picker Dialog */}
+      <ServicePickerDialog
+        open={servicePickerOpen}
+        onClose={() => setServicePickerOpen(false)}
+        onSelect={handleServiceSelect}
       />
     </Box>
   );

@@ -97,14 +97,15 @@ export default function ProcurementTrashPage() {
       const results: DeletedProcurementDoc[] = [];
 
       // Query all procurement collections in parallel for soft-deleted documents
-      await Promise.all(
+      // Use Promise.allSettled so one collection failure doesn't block the rest
+      const settled = await Promise.allSettled(
         PROCUREMENT_COLLECTIONS.map(async ({ type, collection: collName }) => {
           const q = query(collection(db, collName), where('isDeleted', '==', true));
           const snapshot = await getDocs(q);
-          snapshot.forEach((doc) => {
-            const data = doc.data();
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
             results.push({
-              id: doc.id,
+              id: docSnap.id,
               docType: type,
               collectionName: collName,
               number: data.number || data.purchaseOrderNumber || data.transactionNumber,
@@ -117,6 +118,16 @@ export default function ProcurementTrashPage() {
           });
         })
       );
+
+      // Log any collection failures without blocking results from other collections
+      settled.forEach((result, idx) => {
+        if (result.status === 'rejected') {
+          console.warn(
+            `[ProcurementTrash] Failed to query ${PROCUREMENT_COLLECTIONS[idx]?.type}:`,
+            result.reason
+          );
+        }
+      });
 
       // Sort by deletedAt descending
       results.sort((a, b) => {

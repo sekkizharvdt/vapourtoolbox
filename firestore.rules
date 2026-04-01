@@ -642,6 +642,17 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /purchaseOrderAmendments/{amendId} {
+      // PO Amendments - linked to Purchase Orders
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
     match /workCompletionCertificates/{wccId} {
       // Work Completion Certificates - linked to service POs
       allow read: if (isInternalUser()) ||

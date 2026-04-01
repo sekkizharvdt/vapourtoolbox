@@ -130,6 +130,17 @@ service firebase.storage {
       allow delete: if isAuthenticated();
     }
 
+    // Vendor Offers - quotation documents uploaded via materials module
+    // Path: vendor-offers/{timestamp}_{filename}
+    match /vendor-offers/{allPaths=**} {
+      allow read: if isAuthenticated();
+
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 25 * 1024 * 1024;
+
+      allow delete: if isAuthenticated();
+    }
+
     // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;
