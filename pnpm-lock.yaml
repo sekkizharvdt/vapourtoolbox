@@ -29,7 +29,8 @@ overrides:
   yaml@>=2.0.0-5 <2.8.3: '>=2.8.3'
   cookie@<0.7.0: '>=0.7.0'
   cross-spawn@<7.0.6: '>=7.0.6'
-  path-to-regexp@<0.1.12: '>=0.1.12'
+  path-to-regexp@<0.1.13: '>=0.1.13'
+  path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
   flatted@<=3.4.1: '>=3.4.2'
   '@tootallnate/once@<3.0.1': '>=3.0.1'
   semver@>=7.0.0 <7.7.2: '>=7.7.2'
@@ -282,8 +283,8 @@ importers:
         specifier: ^6.6.0
         version: 6.6.0(firebase-admin@13.6.0(encoding@0.1.13))
       handlebars:
-        specifier: ^4.7.8
-        version: 4.7.8
+        specifier: ^4.7.9
+        version: 4.7.9
       nodemailer:
         specifier: ^7.0.11
         version: 7.0.13
@@ -384,8 +385,8 @@ importers:
         specifier: ^6.1.1
         version: 6.6.0(firebase-admin@13.5.0(encoding@0.1.13))
       handlebars:
-        specifier: ^4.7.8
-        version: 4.7.8
+        specifier: ^4.7.9
+        version: 4.7.9
       mathjs:
         specifier: ^15.1.0
         version: 15.1.0
@@ -9160,6 +9161,14 @@ packages:
     engines: { node: '>=0.4.7' }
     hasBin: true
 
+  handlebars@4.7.9:
+    resolution:
+      {
+        integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==,
+      }
+    engines: { node: '>=0.4.7' }
+    hasBin: true
+
   harmony-reflect@1.6.2:
     resolution:
       {
@@ -12061,22 +12070,16 @@ packages:
       }
     engines: { node: 18 || 20 || >=22 }
 
-  path-to-regexp@0.1.12:
-    resolution:
-      {
-        integrity: sha512-RA1GjUVMnvYFxuqovrEqZoxxW5NUZqbwKtYz/Tt7nXerk0LbLblQmrsgdeOxV5SFHf0UDggjS/bSeOZwt1pmEQ==,
-      }
-
   path-to-regexp@1.9.0:
     resolution:
       {
         integrity: sha512-xIp7/apCFJuUHdDLWe8O1HIkb0kQrOMb/0u6FXQjemHn/ii5LrIzU6bdECnsiTF/GjZkMEKg1xdiZwNqDYlZ6g==,
       }
 
-  path-to-regexp@8.3.0:
+  path-to-regexp@8.4.1:
     resolution:
       {
-        integrity: sha512-7jdwVIRtsP8MYpdXSwOS0YdD0Du+qOoF/AEPIt88PcCFrZCzx41oxku1jD88hZBwbNUIEfpqvuhjFaMAqMTWnA==,
+        integrity: sha512-fvU78fIjZ+SBM9YwCknCvKOUKkLVqtWDVctl0s7xIqfmfb38t2TT4ZU2gHm+Z8xGwgW+QWEU3oQSAzIbo89Ggw==,
       }
 
   path-type@4.0.0:
@@ -20930,7 +20933,7 @@ snapshots:
       methods: 1.1.2
       on-finished: 2.4.1
       parseurl: 1.3.3
-      path-to-regexp: 0.1.12
+      path-to-regexp: 8.4.1
       proxy-addr: 2.0.7
       qs: 6.15.0
       range-parser: 1.2.1
@@ -21724,6 +21727,15 @@ snapshots:
       - supports-color
 
   handlebars@4.7.8:
+    dependencies:
+      minimist: 1.2.8
+      neo-async: 2.6.2
+      source-map: 0.6.1
+      wordwrap: 1.0.0
+    optionalDependencies:
+      uglify-js: 3.19.3
+
+  handlebars@4.7.9:
     dependencies:
       minimist: 1.2.8
       neo-async: 2.6.2
@@ -23938,13 +23950,11 @@ snapshots:
       lru-cache: 11.2.2
       minipass: 7.1.3
 
-  path-to-regexp@0.1.12: {}
-
   path-to-regexp@1.9.0:
     dependencies:
       isarray: 0.0.1
 
-  path-to-regexp@8.3.0: {}
+  path-to-regexp@8.4.1: {}
 
   path-type@4.0.0: {}
 
@@ -24556,7 +24566,7 @@ snapshots:
       depd: 2.0.0
       is-promise: 4.0.0
       parseurl: 1.3.3
-      path-to-regexp: 8.3.0
+      path-to-regexp: 8.4.1
     transitivePeerDependencies:
       - supports-color
 
@@ -25324,7 +25334,7 @@ snapshots:
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0
-      handlebars: 4.7.8
+      handlebars: 4.7.9
       jest: 30.2.0(@types/node@22.18.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@22.18.12)(typescript@5.9.3))
       json5: 2.2.3
       lodash.memoize: 4.1.2
