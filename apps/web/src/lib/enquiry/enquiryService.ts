@@ -408,10 +408,10 @@ export async function deleteEnquiry(
  */
 export async function getEnquiriesCountByStatus(
   db: Firestore,
-  entityId: string
+  tenantId: string
 ): Promise<Record<EnquiryStatus, number>> {
   try {
-    const q = query(collection(db, COLLECTIONS.ENQUIRIES), where('tenantId', '==', entityId));
+    const q = query(collection(db, COLLECTIONS.ENQUIRIES), where('tenantId', '==', tenantId));
     const snapshot = await getDocs(q);
 
     const counts: Record<string, number> = {};

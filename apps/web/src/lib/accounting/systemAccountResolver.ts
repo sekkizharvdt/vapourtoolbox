@@ -52,13 +52,13 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function getSystemAccountIds(
   db: Firestore,
-  entityId: string,
+  tenantId: string,
   forceRefresh = false
 ): Promise<SystemAccountIds> {
   // Return cached result if valid
   const now = Date.now();
-  const cachedAccounts = cachedAccountsByEntity.get(entityId);
-  const cacheTimestamp = cacheTimestampByEntity.get(entityId) ?? 0;
+  const cachedAccounts = cachedAccountsByEntity.get(tenantId);
+  const cacheTimestamp = cacheTimestampByEntity.get(tenantId) ?? 0;
   if (!forceRefresh && cachedAccounts && now - cacheTimestamp < CACHE_TTL) {
     return cachedAccounts;
   }
@@ -90,7 +90,7 @@ export async function getSystemAccountIds(
 
     const q = query(
       accountsRef,
-      where('tenantId', '==', entityId),
+      where('tenantId', '==', tenantId),
       where('code', 'in', systemCodes)
     );
     const snapshot = await getDocs(q);
@@ -165,8 +165,8 @@ export async function getSystemAccountIds(
     if (depExpense && depExpense.data.isSystemAccount) accounts.depreciationExpense = depExpense.id;
 
     // Cache the results
-    cachedAccountsByEntity.set(entityId, accounts);
-    cacheTimestampByEntity.set(entityId, now);
+    cachedAccountsByEntity.set(tenantId, accounts);
+    cacheTimestampByEntity.set(tenantId, now);
 
     return accounts;
   } catch (error) {
@@ -228,7 +228,7 @@ export function clearSystemAccountsCache(): void {
  */
 export async function getEntityControlAccount(
   db: Firestore,
-  entityId: string,
+  tenantId: string,
   entityRoles: string[],
   isDebit: boolean
 ): Promise<{
@@ -236,7 +236,7 @@ export async function getEntityControlAccount(
   accountCode: string;
   accountName: string;
 } | null> {
-  const accounts = await getSystemAccountIds(db, entityId);
+  const accounts = await getSystemAccountIds(db, tenantId);
 
   // Determine which control account to use based on entity role and transaction type
   const isCustomer = entityRoles.includes('CUSTOMER');

@@ -50,7 +50,7 @@ export async function generateCashFlowStatement(
   db: Firestore,
   startDate: Date,
   endDate: Date,
-  entityId: string
+  tenantId: string
 ): Promise<CashFlowStatement> {
   const start = Timestamp.fromDate(startDate);
   const end = Timestamp.fromDate(endDate);
@@ -80,7 +80,7 @@ export async function generateCashFlowStatement(
 
   // Get bank/cash accounts
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
+  const accountsQuery = query(accountsRef, where('tenantId', '==', tenantId));
   const accountsSnapshot = await getDocs(accountsQuery);
   const cashAccounts = new Set<string>();
   const assetAccounts = new Set<string>();
@@ -105,7 +105,7 @@ export async function generateCashFlowStatement(
   });
 
   // Calculate opening cash balance (sum of cash accounts at start date)
-  const openingCash = await getCashBalance(db, startDate, entityId);
+  const openingCash = await getCashBalance(db, startDate, tenantId);
 
   // Categorize transactions
   const operating: CashFlowLine[] = [];
@@ -284,9 +284,9 @@ export async function generateCashFlowStatement(
 /**
  * Get cash balance at a specific date
  */
-async function getCashBalance(db: Firestore, _date: Date, entityId: string): Promise<number> {
+async function getCashBalance(db: Firestore, _date: Date, tenantId: string): Promise<number> {
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
+  const accountsQuery = query(accountsRef, where('tenantId', '==', tenantId));
   const snapshot = await getDocs(accountsQuery);
 
   let totalCash = 0;

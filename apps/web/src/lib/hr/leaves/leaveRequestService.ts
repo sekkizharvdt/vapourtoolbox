@@ -608,7 +608,7 @@ export async function deleteLeaveRequest(requestId: string, userId: string): Pro
 export async function getTeamCalendar(
   startDate: Date,
   endDate: Date,
-  entityId?: string
+  tenantId?: string
 ): Promise<LeaveRequest[]> {
   const { db } = getFirebase();
 
@@ -620,8 +620,8 @@ export async function getTeamCalendar(
       orderBy('startDate', 'asc'),
     ];
 
-    if (entityId) {
-      constraints.push(where('tenantId', '==', entityId));
+    if (tenantId) {
+      constraints.push(where('tenantId', '==', tenantId));
     }
 
     const q = query(collection(db, COLLECTIONS.HR_LEAVE_REQUESTS), ...constraints);

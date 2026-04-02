@@ -104,17 +104,18 @@ function isCurrentLiability(account: AccountBalance): boolean {
  *
  * @param db Firestore instance
  * @param asOfDate Date for the balance sheet (typically end of period)
+ * @param tenantId Tenant ID for multi-tenancy scoping
  * @returns Balance sheet data
  */
 export async function generateBalanceSheet(
   db: Firestore,
   asOfDate: Date,
-  entityId: string
+  tenantId: string
 ): Promise<BalanceSheetReport> {
   try {
     // Fetch all accounts
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-    const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
+    const accountsQuery = query(accountsRef, where('tenantId', '==', tenantId));
     const accountsSnapshot = await getDocs(accountsQuery);
 
     const accounts: (AccountBalance & { openingBalance: number })[] = [];

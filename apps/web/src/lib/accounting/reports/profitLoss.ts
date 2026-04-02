@@ -88,13 +88,14 @@ export interface AccountBalance {
  * @param db Firestore instance
  * @param startDate Start date of period
  * @param endDate End date of period
+ * @param tenantId Tenant ID for multi-tenancy scoping
  * @returns P&L report data
  */
 export async function generateProfitLossReport(
   db: Firestore,
   startDate: Date,
   endDate: Date,
-  entityId: string
+  tenantId: string
 ): Promise<ProfitLossReport> {
   try {
     // Convert dates to Firestore Timestamps
@@ -103,7 +104,7 @@ export async function generateProfitLossReport(
 
     // Fetch all accounts for reference
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-    const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
+    const accountsQuery = query(accountsRef, where('tenantId', '==', tenantId));
     const accountsSnapshot = await getDocs(accountsQuery);
 
     // Build account lookup map
@@ -337,13 +338,14 @@ export async function generateProfitLossReport(
  * @param db Firestore instance
  * @param currentStartDate Start date of current period
  * @param currentEndDate End date of current period
+ * @param tenantId Tenant ID for multi-tenancy scoping
  * @returns Current and previous period P&L data
  */
 export async function generateComparativeProfitLossReport(
   db: Firestore,
   currentStartDate: Date,
   currentEndDate: Date,
-  entityId: string
+  tenantId: string
 ): Promise<{
   current: ProfitLossReport;
   previous: ProfitLossReport;
@@ -362,8 +364,8 @@ export async function generateComparativeProfitLossReport(
 
   // Generate both reports
   const [currentReport, previousReport] = await Promise.all([
-    generateProfitLossReport(db, currentStartDate, currentEndDate, entityId),
-    generateProfitLossReport(db, previousStartDate, previousEndDate, entityId),
+    generateProfitLossReport(db, currentStartDate, currentEndDate, tenantId),
+    generateProfitLossReport(db, previousStartDate, previousEndDate, tenantId),
   ]);
 
   // Calculate changes

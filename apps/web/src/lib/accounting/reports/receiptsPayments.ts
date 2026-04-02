@@ -284,7 +284,7 @@ export async function generateReceiptsPaymentsReport(
   db: Firestore,
   month: number, // 1-12
   year: number,
-  entityId: string
+  tenantId: string
 ): Promise<MonthlyReceiptsPaymentsReport> {
   // Calculate date range
   const startDate = new Date(year, month - 1, 1);
@@ -294,7 +294,7 @@ export async function generateReceiptsPaymentsReport(
 
   // Fetch all accounts
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
+  const accountsQuery = query(accountsRef, where('tenantId', '==', tenantId));
   const accountsSnapshot = await getDocs(accountsQuery);
   const accounts = new Map<string, AccountInfo>();
   const cashBankAccountIds = new Set<string>();

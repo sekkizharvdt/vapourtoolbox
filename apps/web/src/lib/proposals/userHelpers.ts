@@ -17,19 +17,19 @@ const logger = createLogger({ context: 'proposalUserHelpers' });
  * Get users with a specific permission within an entity
  *
  * @param db Firestore instance
- * @param entityId The entity ID to filter users by
+ * @param tenantId Tenant ID to filter users by
  * @param permission The permission flag to check for
  * @returns Array of user IDs that have the specified permission
  */
 export async function getUsersWithPermission(
   db: Firestore,
-  entityId: string,
+  tenantId: string,
   permission: number
 ): Promise<string[]> {
   try {
-    // Query active users in the entity
+    // Query active users in the tenant
     const usersRef = collection(db, COLLECTIONS.USERS);
-    const q = query(usersRef, where('entityId', '==', entityId), where('isActive', '==', true));
+    const q = query(usersRef, where('tenantId', '==', tenantId), where('isActive', '==', true));
 
     const snapshot = await getDocs(q);
     const userIds: string[] = [];
@@ -43,14 +43,14 @@ export async function getUsersWithPermission(
     });
 
     logger.debug('Found users with permission', {
-      entityId,
+      tenantId,
       permission,
       count: userIds.length,
     });
 
     return userIds;
   } catch (error) {
-    logger.error('Error getting users with permission', { entityId, permission, error });
+    logger.error('Error getting users with permission', { tenantId, permission, error });
     return [];
   }
 }
@@ -62,24 +62,24 @@ export async function getUsersWithPermission(
  * (Proposals are related to estimates/costing)
  *
  * @param db Firestore instance
- * @param entityId The entity ID
+ * @param tenantId Tenant ID
  * @returns Array of user IDs who can approve proposals
  */
-export async function getProposalApprovers(db: Firestore, entityId: string): Promise<string[]> {
-  return getUsersWithPermission(db, entityId, PERMISSION_FLAGS.MANAGE_ESTIMATION);
+export async function getProposalApprovers(db: Firestore, tenantId: string): Promise<string[]> {
+  return getUsersWithPermission(db, tenantId, PERMISSION_FLAGS.MANAGE_ESTIMATION);
 }
 
 /**
  * Get the first available proposal approver
  *
  * @param db Firestore instance
- * @param entityId The entity ID
+ * @param tenantId Tenant ID
  * @returns User ID of first approver, or null if none found
  */
 export async function getFirstProposalApprover(
   db: Firestore,
-  entityId: string
+  tenantId: string
 ): Promise<string | null> {
-  const approvers = await getProposalApprovers(db, entityId);
+  const approvers = await getProposalApprovers(db, tenantId);
   return approvers[0] ?? null;
 }

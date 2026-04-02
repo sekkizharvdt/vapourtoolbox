@@ -639,12 +639,12 @@ export async function getProposalRevisions(
  */
 export async function getProposalsCountByStatus(
   db: Firestore,
-  entityId: string
+  tenantId: string
 ): Promise<Record<ProposalStatus, number>> {
   try {
     const q = query(
       collection(db, COLLECTIONS.PROPOSALS),
-      where('tenantId', '==', entityId),
+      where('tenantId', '==', tenantId),
       where('isLatestRevision', '==', true)
     );
     const snapshot = await getDocs(q);

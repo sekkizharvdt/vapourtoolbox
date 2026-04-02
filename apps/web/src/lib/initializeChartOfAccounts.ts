@@ -28,24 +28,24 @@ export interface InitializationResult {
 /**
  * Check if Chart of Accounts is empty and initialize with template
  * @param userId - ID of the user triggering initialization (for audit trail)
- * @param entityId - Entity ID for multi-tenancy scoping
+ * @param tenantId - Tenant ID for multi-tenancy scoping
  * @returns Promise with initialization result
  */
 export async function initializeChartOfAccounts(
   userId: string,
-  entityId: string,
+  tenantId: string,
   forceReinit = false
 ): Promise<InitializationResult> {
-  if (!entityId) {
-    return { success: false, accountsCreated: 0, error: 'entityId is required' };
+  if (!tenantId) {
+    return { success: false, accountsCreated: 0, error: 'tenantId is required' };
   }
 
   try {
     const { db } = getFirebase();
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
 
-    // Check if accounts already exist for this entity
-    const entityQuery = query(accountsRef, where('tenantId', '==', entityId));
+    // Check if accounts already exist for this tenant
+    const entityQuery = query(accountsRef, where('tenantId', '==', tenantId));
     const snapshot = await getDocs(entityQuery);
     if (!snapshot.empty && !forceReinit) {
       return {
@@ -111,7 +111,7 @@ export async function initializeChartOfAccounts(
         ifscCode: null,
         branch: null,
         parentAccountId,
-        tenantId: entityId,
+        tenantId: tenantId,
         createdAt: serverTimestamp(),
         createdBy: userId,
         updatedAt: serverTimestamp(),

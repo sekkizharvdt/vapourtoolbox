@@ -71,7 +71,7 @@ export async function getTemplateById(templateId: string): Promise<DocumentTempl
  * Get all templates with filters
  */
 export async function getTemplates(
-  entityId: string,
+  tenantId: string,
   filters?: {
     category?: TemplateCategory;
     applicability?: TemplateApplicability;
@@ -81,7 +81,7 @@ export async function getTemplates(
     onlyLatest?: boolean;
   }
 ): Promise<DocumentTemplate[]> {
-  const constraints: QueryConstraint[] = [where('tenantId', '==', entityId)];
+  const constraints: QueryConstraint[] = [where('tenantId', '==', tenantId)];
 
   if (filters?.category) {
     constraints.push(where('category', '==', filters.category));
@@ -129,16 +129,16 @@ export async function getTemplates(
  * Get templates for a project
  */
 export async function getTemplatesForProject(
-  entityId: string,
+  tenantId: string,
   projectId: string
 ): Promise<DocumentTemplate[]> {
   // Get company-wide and project-specific templates
-  const companyWide = await getTemplates(entityId, {
+  const companyWide = await getTemplates(tenantId, {
     applicability: 'COMPANY_WIDE',
     onlyLatest: true,
   });
 
-  const projectSpecific = await getTemplates(entityId, {
+  const projectSpecific = await getTemplates(tenantId, {
     applicability: 'PROJECT_SPECIFIC',
     projectId,
     onlyLatest: true,
@@ -151,13 +151,13 @@ export async function getTemplatesForProject(
  * Get templates for a discipline
  */
 export async function getTemplatesForDiscipline(
-  entityId: string,
+  tenantId: string,
   disciplineCode: string,
   projectId?: string
 ): Promise<DocumentTemplate[]> {
   const allTemplates = projectId
-    ? await getTemplatesForProject(entityId, projectId)
-    : await getTemplates(entityId, { onlyLatest: true });
+    ? await getTemplatesForProject(tenantId, projectId)
+    : await getTemplates(tenantId, { onlyLatest: true });
 
   return allTemplates.filter(
     (t) =>
@@ -287,14 +287,14 @@ export async function createTemplateVersion(
 /**
  * Get template statistics
  */
-export async function getTemplateStatistics(entityId: string): Promise<{
+export async function getTemplateStatistics(tenantId: string): Promise<{
   total: number;
   byCategory: Record<TemplateCategory, number>;
   byApplicability: Record<TemplateApplicability, number>;
   totalDownloads: number;
   mostDownloaded: DocumentTemplate[];
 }> {
-  const templates = await getTemplates(entityId, { onlyLatest: true });
+  const templates = await getTemplates(tenantId, { onlyLatest: true });
 
   const byCategory: Record<string, number> = {};
   const byApplicability: Record<string, number> = {};
