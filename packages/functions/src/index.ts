@@ -100,10 +100,8 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     const customClaims: Record<string, unknown> = {
       permissions,
       domain,
-      // Include tenantId for cross-tenant isolation in callable functions
-      ...(userData.tenantId && { tenantId: userData.tenantId }),
-      // Backwards compatibility: fall back to entityId if tenantId not yet migrated
-      ...(!userData.tenantId && userData.entityId && { tenantId: userData.entityId }),
+      // Always include tenantId — Firestore rules check request.auth.token.tenantId
+      tenantId: userData.tenantId || userData.entityId || 'default-entity',
     };
     // Only include permissions2 if non-zero (saves space in claims)
     if (perms2 > 0) {
@@ -232,9 +230,8 @@ export const syncUserClaims = onCall(async (request) => {
       const customClaims: Record<string, unknown> = {
         permissions,
         domain,
-        ...(userData.tenantId && { tenantId: userData.tenantId }),
-        // Backwards compatibility: fall back to entityId if tenantId not yet migrated
-        ...(!userData.tenantId && userData.entityId && { tenantId: userData.entityId }),
+        // Always include tenantId — Firestore rules check request.auth.token.tenantId
+        tenantId: userData.tenantId || userData.entityId || 'default-entity',
       };
       if (perms2 > 0) {
         customClaims.permissions2 = perms2;
