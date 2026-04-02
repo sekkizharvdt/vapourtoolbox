@@ -206,10 +206,8 @@ export const syncUserClaims = onCall(async (request) => {
     }
 
     // SP-20: Validate caller's tenant matches target user's tenant
-    const callerTenantId = (request.auth.token.tenantId ?? request.auth.token.entityId) as
-      | string
-      | undefined;
-    const targetTenantId = (userData.tenantId ?? userData.entityId) as string | undefined;
+    const callerTenantId = request.auth.token.tenantId as string | undefined;
+    const targetTenantId = userData.tenantId as string | undefined;
     if (callerTenantId && targetTenantId && callerTenantId !== targetTenantId) {
       throw new HttpsError(
         'permission-denied',

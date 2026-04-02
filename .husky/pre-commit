@@ -40,8 +40,11 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# EntityId multi-tenancy check (warning only, non-blocking)
-echo "🔍 Checking entityId filtering in queries..."
-bash scripts/check-entityid-queries.sh
+# Tenant ID safety check (blocking — prevents entityId/tenantId regressions)
+node scripts/check-tenant-id-safety.js
+if [ $? -ne 0 ]; then
+  echo "❌ Tenant ID safety check failed! See output above."
+  exit 1
+fi
 
 echo "✅ Pre-commit checks passed!"
