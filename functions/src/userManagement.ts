@@ -264,7 +264,7 @@ export const onUserUpdate = onDocumentWritten(
         : [];
 
       // Tenant ID for multi-tenancy (default-entity when not explicitly set)
-      const tenantId = userData.tenantId || userData.entityId || 'default-entity';
+      const tenantId = userData.tenantId || 'default-entity';
 
       // Set custom claims (permissions-based, no roles)
       const customClaims = {

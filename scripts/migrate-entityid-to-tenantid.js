@@ -86,9 +86,21 @@ async function migrateCollection(collectionName) {
       continue;
     }
 
-    // Skip if no entityId to migrate
+    // If no entityId either, add tenantId with default value
     if (data.entityId === undefined) {
-      skipped++;
+      if (!DRY_RUN) {
+        currentBatch.update(doc.ref, {
+          tenantId: 'default-entity',
+        });
+
+        batchCount++;
+        if (batchCount >= 500) {
+          batches.push(currentBatch);
+          currentBatch = db.batch();
+          batchCount = 0;
+        }
+      }
+      migrated++;
       continue;
     }
 

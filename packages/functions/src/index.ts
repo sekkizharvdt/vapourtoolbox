@@ -101,7 +101,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
       permissions,
       domain,
       // Always include tenantId — Firestore rules check request.auth.token.tenantId
-      tenantId: userData.tenantId || userData.entityId || 'default-entity',
+      tenantId: userData.tenantId || 'default-entity',
     };
     // Only include permissions2 if non-zero (saves space in claims)
     if (perms2 > 0) {
@@ -115,7 +115,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
       // Check if claims actually changed (avoid unnecessary updates)
       const currentClaims = user.customClaims || {};
       const currentPerms2 = (currentClaims.permissions2 as number) || 0;
-      const newTenantId = userData.tenantId || userData.entityId || undefined;
+      const newTenantId = userData.tenantId || undefined;
       const claimsChanged =
         currentClaims.permissions !== permissions ||
         currentClaims.domain !== domain ||
@@ -231,7 +231,7 @@ export const syncUserClaims = onCall(async (request) => {
         permissions,
         domain,
         // Always include tenantId — Firestore rules check request.auth.token.tenantId
-        tenantId: userData.tenantId || userData.entityId || 'default-entity',
+        tenantId: userData.tenantId || 'default-entity',
       };
       if (perms2 > 0) {
         customClaims.permissions2 = perms2;

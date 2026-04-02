@@ -157,9 +157,10 @@ service cloud.firestore {
                      )) ||
                      (isExternalUser() && isAssignedToProject(projectId));
 
-      // Create: Only internal users with MANAGE_PROJECTS permission
+      // Create: Only internal users with MANAGE_PROJECTS permission + tenantId enforcement
       allow create: if hasPermission(8) && // MANAGE_PROJECTS
-                       isInternalUser();
+                       isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId;
 
       // Update: Only internal users with MANAGE_PROJECTS permission
       allow update: if hasPermission(8) && // MANAGE_PROJECTS
@@ -380,7 +381,8 @@ service cloud.firestore {
     match /accounts/{accountId} {
       // Chart of Accounts - Only internal users with accounting permissions
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
-      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
       allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
       allow delete: if isSuperAdmin();
     }
@@ -423,7 +425,9 @@ service cloud.firestore {
     match /fixedAssets/{assetId} {
       // Fixed Asset Register - Capital asset tracking and depreciation
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
-      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
       allow delete: if isSuperAdmin();
     }
 
@@ -436,8 +440,11 @@ service cloud.firestore {
       // Read: Users with VIEW_ACCOUNTING permission
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
 
-      // Create/Update: Users with MANAGE_ACCOUNTING permission
-      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      // Create: Users with MANAGE_ACCOUNTING permission + tenantId enforcement
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      // Update: Users with MANAGE_ACCOUNTING permission
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
 
       // Delete: Super admins only (prefer soft delete via status = 'CANCELLED')
       allow delete: if isSuperAdmin();
@@ -476,8 +483,11 @@ service cloud.firestore {
       // Read: Users with VIEW_ACCOUNTING permission
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
 
-      // Create/Update: Users with MANAGE_ACCOUNTING permission
-      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      // Create: Users with MANAGE_ACCOUNTING permission + tenantId enforcement
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      // Update: Users with MANAGE_ACCOUNTING permission
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
 
       // Delete: Super admins only (prefer soft delete via status = 'CANCELLED')
       allow delete: if isSuperAdmin();
@@ -494,7 +504,8 @@ service cloud.firestore {
                       hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
                       isAssignedToProject(resource.data.projectId));
 
-      allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
       allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow delete: if isSuperAdmin();
     }
@@ -533,7 +544,8 @@ service cloud.firestore {
                       hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
                       resource.data.projectIds.hasAny(request.auth.token.assignedProjects));
 
-      allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
       allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow delete: if isSuperAdmin();
     }
@@ -555,7 +567,8 @@ service cloud.firestore {
                       hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
                       isAssignedToProject(resource.data.projectId));
 
-      allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
       allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow delete: if isSuperAdmin();
     }
@@ -589,7 +602,9 @@ service cloud.firestore {
                       hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
                       isAssignedToProject(resource.data.projectId));
 
-      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
+      allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow delete: if isSuperAdmin();
     }
 
@@ -611,7 +626,9 @@ service cloud.firestore {
                       hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
                       isAssignedToProject(resource.data.projectId));
 
-      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
+      allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow delete: if isSuperAdmin();
     }
 
@@ -1102,8 +1119,9 @@ service cloud.firestore {
       // Read: Users with VIEW_PROPOSALS permission
       allow read: if isInternalUser() && hasPermission(1048576); // VIEW_PROPOSALS (bit 20)
 
-      // Create: Users with MANAGE_PROPOSALS permission
+      // Create: Users with MANAGE_PROPOSALS permission + tenantId enforcement
       allow create: if hasPermission(2097152) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId &&
                        request.resource.data.createdBy == request.auth.uid; // MANAGE_PROPOSALS (bit 21)
 
       // Update: Users with MANAGE_PROPOSALS permission
@@ -1121,9 +1139,9 @@ service cloud.firestore {
       // Read: Users with VIEW_PROPOSALS permission
       allow read: if isInternalUser() && hasPermission(1048576); // VIEW_PROPOSALS (bit 20)
 
-      // Create: Users with MANAGE_PROPOSALS permission
-      // Note: entityId check removed — entityId is not in custom claims (enforced at query level)
+      // Create: Users with MANAGE_PROPOSALS permission + tenantId enforcement
       allow create: if hasPermission(2097152) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId &&
                        request.resource.data.createdBy == request.auth.uid &&
                        request.resource.data.status == 'DRAFT' &&
                        request.resource.data.revision >= 1; // MANAGE_PROPOSALS (bit 21)
@@ -1144,9 +1162,10 @@ service cloud.firestore {
       // Read: Internal users with VIEW_ESTIMATION permission
       allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION = 524288
 
-      // Create: Internal users with VIEW_ESTIMATION permission
+      // Create: Internal users with VIEW_ESTIMATION permission + tenantId enforcement
       allow create: if isInternalUser() &&
         hasPermission(524288) && // VIEW_ESTIMATION
+        request.resource.data.tenantId == request.auth.token.tenantId &&
         request.resource.data.createdBy == request.auth.uid;
 
       // Update: Owner or users with MANAGE_ESTIMATION permission
