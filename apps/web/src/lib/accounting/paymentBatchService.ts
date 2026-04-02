@@ -189,7 +189,7 @@ export async function createPaymentBatch(
     createdBy: userId,
     createdAt: now,
     // Only include optional fields if they have values (Firestore doesn't accept undefined)
-    ...(input.entityId ? { entityId: input.entityId } : {}),
+    ...(input.tenantId ? { tenantId: input.tenantId } : {}),
     ...(input.notes ? { notes: input.notes } : {}),
     updatedAt: now,
   };

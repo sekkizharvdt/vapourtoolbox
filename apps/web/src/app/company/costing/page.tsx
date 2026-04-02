@@ -45,8 +45,8 @@ export default function CostingSettingsPage() {
     ? hasPermission(claims.permissions, PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS)
     : false;
 
-  // Single-tenant: Use 'company' as entityId
-  const entityId = 'company';
+  // Single-tenant: default-entity (must match tenantId claim for Firestore rules)
+  const tenantId = claims?.tenantId || 'default-entity';
 
   useEffect(() => {
     loadActiveConfig();
@@ -56,7 +56,7 @@ export default function CostingSettingsPage() {
   const loadActiveConfig = async () => {
     try {
       setLoading(true);
-      const config = await getActiveCostConfiguration(db, entityId);
+      const config = await getActiveCostConfiguration(db, tenantId);
       setActiveConfig(config);
     } catch (error) {
       console.error('Error loading cost configuration:', error);
@@ -99,7 +99,7 @@ export default function CostingSettingsPage() {
         await createCostConfiguration(
           db,
           {
-            entityId,
+            tenantId,
             overhead: data.overhead,
             contingency: data.contingency,
             profit: data.profit,

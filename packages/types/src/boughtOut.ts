@@ -450,7 +450,7 @@ export type SpecsForCategory<C extends BoughtOutCategory> = C extends 'PUMP'
  */
 export interface BoughtOutItem extends TimestampFields {
   id: string;
-  entityId: string;
+  tenantId: string;
 
   // Basic Info
   itemCode: string; // Auto-generated: BO-YYYY-NNNN
@@ -499,7 +499,7 @@ export interface BoughtOutItem extends TimestampFields {
  * Input for creating a new Bought-Out Item
  */
 export interface CreateBoughtOutItemInput {
-  entityId: string;
+  tenantId: string;
   name: string;
   description?: string;
   category: BoughtOutCategory;
@@ -528,7 +528,7 @@ export interface UpdateBoughtOutItemInput {
  * Options for listing Bought-Out Items
  */
 export interface ListBoughtOutItemsOptions {
-  entityId: string;
+  tenantId: string;
   category?: BoughtOutCategory;
   isActive?: boolean;
   limit?: number;

@@ -112,18 +112,12 @@ export default function ProposalListPage() {
       return;
     }
 
-    // entityId is required for multi-tenancy filtering
-    if (!claims?.entityId) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
       const data = await listProposals(db, {
-        entityId: claims.entityId,
+        tenantId: claims?.tenantId || 'default-entity',
         status: statusFilter.length > 0 ? (statusFilter as ProposalStatus[]) : undefined,
         searchTerm: searchTerm || undefined,
         dateFrom: dateRange.start ? Timestamp.fromDate(dateRange.start) : undefined,

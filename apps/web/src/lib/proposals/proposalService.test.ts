@@ -140,7 +140,7 @@ describe('proposalService', () => {
     revision: 1,
     enquiryId: 'enquiry-123',
     enquiryNumber: 'ENQ-26-01',
-    entityId: 'entity-123',
+    tenantId: 'entity-123',
     clientId: 'client-123',
     clientName: 'Test Client Corp',
     title: 'Test Proposal',
@@ -178,7 +178,7 @@ describe('proposalService', () => {
 
       const input = {
         enquiryId: 'enquiry-123',
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         clientId: 'client-123',
         title: 'Test Proposal',
         validityDate: createMockTimestamp(),
@@ -214,7 +214,7 @@ describe('proposalService', () => {
 
       const input = {
         enquiryId: 'non-existent',
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         clientId: 'client-123',
         title: 'Test Proposal',
         validityDate: createMockTimestamp(),
@@ -244,7 +244,7 @@ describe('proposalService', () => {
 
       const input = {
         enquiryId: 'enquiry-123',
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         clientId: 'non-existent',
         title: 'Test Proposal',
         validityDate: createMockTimestamp(),
@@ -283,7 +283,7 @@ describe('proposalService', () => {
       mockUpdateDoc.mockResolvedValueOnce(undefined);
 
       const input = {
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         enquiryId: 'enquiry-123',
         title: 'Minimal Proposal',
         clientId: 'client-123',
@@ -307,7 +307,7 @@ describe('proposalService', () => {
       });
 
       const input = {
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         enquiryId: 'enquiry-123',
         title: 'Test',
         clientId: 'client-123',
@@ -339,7 +339,7 @@ describe('proposalService', () => {
       });
 
       const input = {
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         enquiryId: 'enquiry-123',
         title: 'Test',
         clientId: 'client-123',
@@ -436,7 +436,7 @@ describe('proposalService', () => {
       });
 
       const result = await listProposals(mockDb, {
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         status: 'DRAFT',
       });
 
@@ -473,7 +473,7 @@ describe('proposalService', () => {
       });
 
       const result = await listProposals(mockDb, {
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         searchTerm: 'Thermal',
       });
 
@@ -485,7 +485,7 @@ describe('proposalService', () => {
       mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
       const result = await listProposals(mockDb, {
-        entityId: 'entity-123',
+        tenantId: 'entity-123',
         status: 'APPROVED',
       });
 

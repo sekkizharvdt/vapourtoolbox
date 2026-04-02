@@ -48,7 +48,7 @@ export default function EstimationPage() {
   const { db } = getFirebase();
   const { confirm } = useConfirmDialog();
 
-  const entityId = claims?.entityId;
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const [boms, setBOMs] = useState<BOM[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,18 +62,12 @@ export default function EstimationPage() {
   const loadBOMs = async () => {
     if (!user || !db) return;
 
-    if (!entityId) {
-      setLoading(false);
-      setError('No entity assigned to your account. Please contact your administrator.');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
       const bomList = await listBOMs(db, {
-        entityId,
+        tenantId,
         limit: 100,
       });
 

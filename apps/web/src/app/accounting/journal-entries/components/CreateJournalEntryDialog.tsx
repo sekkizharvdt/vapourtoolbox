@@ -57,7 +57,7 @@ interface CreateJournalEntryDialogProps {
   open: boolean;
   onClose: () => void;
   editingEntry?: JournalEntry | null;
-  entityId: string;
+  tenantId: string;
 }
 
 // Helper to convert Firestore Timestamp/Date to YYYY-MM-DD string
@@ -87,7 +87,7 @@ export function CreateJournalEntryDialog({
   open,
   onClose,
   editingEntry,
-  entityId,
+  tenantId,
 }: CreateJournalEntryDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -316,7 +316,7 @@ export function CreateJournalEntryDialog({
             const isDebit = entry.debit > 0;
             const controlAccount = await getEntityControlAccount(
               db,
-              entityId,
+              tenantId,
               entry.entityRoles,
               isDebit
             );
@@ -380,7 +380,7 @@ export function CreateJournalEntryDialog({
         // Create new entry - include all fields
         const journalEntry = removeUndefinedValues({
           type: 'JOURNAL_ENTRY' as const,
-          entityId,
+          tenantId,
           date: journalDate,
           journalDate: journalDate,
           description: description || '',

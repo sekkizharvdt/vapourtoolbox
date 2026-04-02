@@ -199,9 +199,9 @@ export interface PaymentBatch {
   /** Bank account name for display */
   bankAccountName: string;
 
-  // Entity (for multi-tenancy)
-  /** Entity ID for tenant isolation */
-  entityId?: string;
+  // Tenant (for multi-tenancy)
+  /** Tenant ID for tenant isolation */
+  tenantId?: string;
 
   // Status and workflow
   /** Current batch status */
@@ -272,8 +272,8 @@ export interface CreatePaymentBatchInput {
   bankAccountId: string;
   /** Bank account name for display */
   bankAccountName: string;
-  /** Entity ID for tenant isolation */
-  entityId?: string;
+  /** Tenant ID for tenant isolation */
+  tenantId?: string;
   /** Initial notes */
   notes?: string;
 }

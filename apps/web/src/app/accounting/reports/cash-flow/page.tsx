@@ -68,16 +68,12 @@ export default function CashFlowStatementPage() {
 
     try {
       const { db } = getFirebase();
-      const entityId = claims?.entityId;
-      if (!entityId) {
-        setError('No entity selected');
-        return;
-      }
+      const tenantId = claims?.tenantId || 'default-entity';
       const result = await generateCashFlowStatement(
         db,
         new Date(startDate),
         new Date(endDate),
-        entityId
+        tenantId
       );
       setStatement(result);
     } catch (err) {

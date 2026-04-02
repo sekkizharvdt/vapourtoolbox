@@ -56,10 +56,10 @@ export default function ProposalTemplatesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<ProposalTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const entityId = claims?.entityId;
+  const tenantId = claims?.tenantId || 'default-entity';
 
   useEffect(() => {
-    if (!db || !entityId) return;
+    if (!db) return;
 
     const loadTemplates = async () => {
       try {
@@ -67,7 +67,7 @@ export default function ProposalTemplatesPage() {
         setError(null);
 
         const data = await listProposalTemplates(db, {
-          entityId,
+          tenantId,
           isActive: true,
         });
 
@@ -81,7 +81,7 @@ export default function ProposalTemplatesPage() {
     };
 
     loadTemplates();
-  }, [db, entityId]);
+  }, [db, tenantId]);
 
   const handleDelete = async (template: ProposalTemplate) => {
     if (!db) return;

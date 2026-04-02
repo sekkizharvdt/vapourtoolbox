@@ -63,8 +63,8 @@ export async function submitProposalForApproval(
     });
 
     // Create actionable task for approvers (users with APPROVE_ESTIMATES permission)
-    if (proposal.entityId) {
-      const approverIds = await getProposalApprovers(db, proposal.entityId);
+    if (proposal.tenantId) {
+      const approverIds = await getProposalApprovers(db, proposal.tenantId);
 
       for (const approverId of approverIds) {
         await createTaskNotification({

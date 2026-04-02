@@ -31,7 +31,7 @@ export async function getProjects(entityId: string): Promise<Project[]> {
   try {
     const q = query(
       collection(db, COLLECTIONS.PROJECTS),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       orderBy('createdAt', 'desc')
     );
 
@@ -61,7 +61,7 @@ export async function getProjectsByStatus(entityId: string, status: string): Pro
   try {
     const q = query(
       collection(db, COLLECTIONS.PROJECTS),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', '==', status),
       orderBy('createdAt', 'desc')
     );
@@ -92,7 +92,7 @@ export async function getActiveProjects(entityId: string): Promise<Project[]> {
   try {
     const q = query(
       collection(db, COLLECTIONS.PROJECTS),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', 'in', ['PLANNING', 'IN_PROGRESS', 'ON_HOLD']),
       orderBy('createdAt', 'desc')
     );
@@ -156,7 +156,7 @@ export async function getProjectsForUser(
     for (const chunk of chunks) {
       const q = query(
         collection(db, COLLECTIONS.PROJECTS),
-        where('entityId', '==', entityId),
+        where('tenantId', '==', entityId),
         where(documentId(), 'in', chunk),
         orderBy('createdAt', 'desc')
       );

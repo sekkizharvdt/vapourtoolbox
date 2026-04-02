@@ -28,7 +28,7 @@ export default function NewRecurringTransactionPage() {
         db,
         data,
         user.uid,
-        claims?.entityId || '',
+        claims?.tenantId || 'default-entity',
         user.displayName || undefined
       );
       router.push(`/accounting/recurring/${id}`);

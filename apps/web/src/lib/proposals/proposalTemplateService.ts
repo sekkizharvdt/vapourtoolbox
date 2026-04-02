@@ -47,7 +47,7 @@ export async function createProposalTemplate(
       name: input.name,
       description: input.description,
       category: input.category,
-      entityId: proposal.entityId,
+      tenantId: proposal.tenantId,
 
       // Copy unified scope matrix if requested
       unifiedScopeMatrix:
@@ -120,7 +120,7 @@ export async function listProposalTemplates(
   try {
     let q = query(
       collection(db, COLLECTION),
-      where('entityId', '==', options.entityId),
+      where('tenantId', '==', options.tenantId),
       orderBy('createdAt', 'desc')
     );
 

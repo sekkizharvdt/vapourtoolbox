@@ -117,7 +117,7 @@ export interface Service extends TimestampFields {
   tags?: string[]; // Searchable tags
 
   // Organization
-  entityId: string; // Multi-tenant support
+  tenantId: string; // Multi-tenant support
   isActive: boolean;
   isStandard: boolean; // Standard services vs. custom
 

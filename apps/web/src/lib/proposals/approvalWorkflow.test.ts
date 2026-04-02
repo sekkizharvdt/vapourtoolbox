@@ -106,7 +106,7 @@ describe('approvalWorkflow', () => {
   const mockProposal: Partial<Proposal> = {
     id: 'proposal-123',
     proposalNumber: 'PROP-26-01',
-    entityId: 'entity-123',
+    tenantId: 'entity-123',
     title: 'Test Proposal',
     status: 'DRAFT' as ProposalStatus,
     submittedByUserId: 'submitter-123',

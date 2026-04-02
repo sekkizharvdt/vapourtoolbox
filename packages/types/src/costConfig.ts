@@ -85,7 +85,7 @@ export interface FabricationRates {
  */
 export interface CostConfiguration extends TimestampFields {
   id: string;
-  entityId: string; // Multi-tenant: Each company has its own config
+  tenantId: string; // Multi-tenant: Each company has its own config
 
   // Indirect Cost Components
   overhead: OverheadConfig;
@@ -113,7 +113,7 @@ export interface CostConfiguration extends TimestampFields {
  * Create Cost Configuration Input
  */
 export interface CreateCostConfigurationInput {
-  entityId: string;
+  tenantId: string;
   overhead: OverheadConfig;
   contingency: ContingencyConfig;
   profit: ProfitConfig;

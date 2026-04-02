@@ -51,7 +51,7 @@ export interface CreateLeaveRequestInput {
  * Filters for listing leave requests
  */
 export interface ListLeaveRequestsFilters {
-  entityId?: string;
+  tenantId?: string;
   userId?: string;
   status?: LeaveRequestStatus | LeaveRequestStatus[];
   leaveTypeCode?: LeaveTypeCode;
@@ -422,8 +422,8 @@ export async function listLeaveRequests(
   try {
     const constraints: QueryConstraint[] = [];
 
-    if (filters.entityId) {
-      constraints.push(where('entityId', '==', filters.entityId));
+    if (filters.tenantId) {
+      constraints.push(where('tenantId', '==', filters.tenantId));
     }
 
     if (filters.userId) {
@@ -621,7 +621,7 @@ export async function getTeamCalendar(
     ];
 
     if (entityId) {
-      constraints.push(where('entityId', '==', entityId));
+      constraints.push(where('tenantId', '==', entityId));
     }
 
     const q = query(collection(db, COLLECTIONS.HR_LEAVE_REQUESTS), ...constraints);

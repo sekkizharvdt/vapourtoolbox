@@ -10,7 +10,7 @@ import type { HRProfile } from './hr/employee';
  * Optimized for 1000-byte limit using bitwise permissions
  */
 export interface CustomClaims {
-  entityId?: string; // Business entity ID for multi-entity support
+  tenantId?: string; // Business tenant ID for multi-entity support
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
   permissions2?: number; // Extended permissions (see PERMISSION_FLAGS_2 in permissions.ts)

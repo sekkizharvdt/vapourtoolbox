@@ -120,7 +120,7 @@ export interface BOM extends TimestampFields {
   category: BOMCategory;
 
   // Organization linkage
-  entityId: string; // Company/entity this BOM belongs to
+  tenantId: string; // Company/tenant this BOM belongs to
 
   // Project linkage (optional)
   projectId?: string;
@@ -216,7 +216,7 @@ export interface BOMItem {
  * BOM List Filter Options
  */
 export interface BOMListFilters {
-  entityId?: string;
+  tenantId?: string;
   projectId?: string;
   proposalId?: string;
   enquiryId?: string;
@@ -257,7 +257,7 @@ export interface CreateBOMInput {
   proposalNumber?: string;
   enquiryId?: string;
   enquiryNumber?: string;
-  entityId: string;
+  tenantId: string;
 }
 
 /**

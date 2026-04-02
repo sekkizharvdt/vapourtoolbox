@@ -182,7 +182,7 @@ export async function createRFQ(
   // Create RFQ document using sanitized input
   const rfqData: Omit<RFQ, 'id'> = {
     number: rfqNumber,
-    ...(input.entityId && { entityId: input.entityId }),
+    ...(input.tenantId && { tenantId: input.tenantId }),
     purchaseRequestIds: input.purchaseRequestIds,
     projectIds,
     projectNames,
@@ -397,8 +397,8 @@ export async function createRFQFromPRs(
     otherTerms: terms.otherTerms,
     dueDate: terms.dueDate,
     validityPeriod: terms.validityPeriod,
-    // Inherit entityId from first PR (all PRs in same RFQ should share tenant)
-    entityId: prs[0]?.entityId,
+    // Inherit tenantId from first PR (all PRs in same RFQ should share tenant)
+    tenantId: prs[0]?.tenantId,
   };
 
   const rfqId = await createRFQ(rfqInput, allItems, userId, userName);

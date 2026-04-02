@@ -42,8 +42,8 @@ export interface OnDutyRequest extends TimestampFields {
   userEmail: string;
   department?: string;
 
-  // Entity (for multi-tenancy)
-  entityId?: string;
+  // Tenant (for multi-tenancy)
+  tenantId?: string;
 
   // Holiday Details
   holidayDate: Timestamp;
@@ -103,7 +103,7 @@ export interface UpdateOnDutyRequestInput {
  * Filters for querying on-duty requests
  */
 export interface OnDutyRequestFilters {
-  entityId?: string;
+  tenantId?: string;
   userId?: string;
   status?: OnDutyRequestStatus | OnDutyRequestStatus[];
   fiscalYear?: number;

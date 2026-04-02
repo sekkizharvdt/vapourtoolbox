@@ -134,8 +134,8 @@ export interface LeaveRequest extends TimestampFields {
   userEmail: string;
   department?: string;
 
-  // Entity (for multi-tenancy)
-  entityId?: string;
+  // Tenant (for multi-tenancy)
+  tenantId?: string;
 
   // Leave Details
   leaveTypeId: string;
@@ -197,7 +197,7 @@ export interface CreateLeaveRequestInput {
  * Filters for listing leave requests
  */
 export interface LeaveRequestFilters {
-  entityId?: string;
+  tenantId?: string;
   userId?: string;
   status?: LeaveRequestStatus | LeaveRequestStatus[];
   leaveTypeCode?: LeaveTypeCode;

@@ -221,7 +221,7 @@ export default function InterprojectLoansPage() {
       notes: newLoan.notes,
       userId: user.uid,
       userName: user.displayName || user.email || 'Unknown',
-      entityId: claims?.entityId || '',
+      tenantId: claims?.tenantId || 'default-entity',
     });
   };
 
@@ -236,7 +236,7 @@ export default function InterprojectLoansPage() {
       notes: repayment.notes,
       userId: user.uid,
       userName: user.displayName || user.email || 'Unknown',
-      entityId: claims?.entityId || '',
+      tenantId: claims?.tenantId || 'default-entity',
     });
   };
 

@@ -504,7 +504,7 @@ export default function BOMEditorClient() {
             open={addDialogOpen}
             onClose={() => setAddDialogOpen(false)}
             onAdd={handleAddItem}
-            entityId={bom.entityId}
+            entityId={bom.tenantId}
           />
           <GeneratePDFDialog
             open={pdfDialogOpen}

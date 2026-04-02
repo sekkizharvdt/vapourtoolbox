@@ -25,7 +25,7 @@ export interface PurchaseRequest {
   number: string; // PR/YYYY/XXXX
 
   // Multi-tenancy
-  entityId?: string;
+  tenantId?: string;
 
   // Classification
   type: PurchaseRequestType;

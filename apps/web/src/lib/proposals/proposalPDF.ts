@@ -97,7 +97,7 @@ export async function saveProposalPDF(
 
   // Generate filename and storage path
   const fileName = `${proposal.proposalNumber}_Rev${proposal.revision}.pdf`;
-  const storagePath = `entities/${proposal.entityId}/proposals/${proposal.id}/generated/${fileName}`;
+  const storagePath = `entities/${proposal.tenantId}/proposals/${proposal.id}/generated/${fileName}`;
 
   // Upload to Firebase Storage
   const storage = getStorage();

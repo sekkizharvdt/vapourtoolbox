@@ -76,7 +76,7 @@ export default function LeaveBalancesTab() {
 
     try {
       const [balanceData, usersData] = await Promise.all([
-        getAllLeaveBalances(claims?.entityId || '', selectedYear),
+        getAllLeaveBalances(claims?.tenantId || 'default-entity', selectedYear),
         loadActiveUsers(),
       ]);
 
@@ -88,7 +88,7 @@ export default function LeaveBalancesTab() {
     } finally {
       setLoading(false);
     }
-  }, [selectedYear, claims?.entityId]);
+  }, [selectedYear, claims?.tenantId]);
 
   const loadActiveUsers = async (): Promise<UserInfo[]> => {
     const { db } = getFirebase();

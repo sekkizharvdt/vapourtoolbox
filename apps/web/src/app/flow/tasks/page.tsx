@@ -48,7 +48,7 @@ function TaskListInner() {
   const [tab, setTab] = useState<TabValue>('all');
   const [createOpen, setCreateOpen] = useState(false);
 
-  const entityId = claims?.entityId || 'default-entity';
+  const tenantId = claims?.tenantId || 'default-entity';
 
   // Open dialog if ?new=true
   useEffect(() => {
@@ -67,7 +67,7 @@ function TaskListInner() {
 
     const unsubscribe = subscribeToMyTasks(
       db,
-      entityId,
+      tenantId,
       user.uid,
       (updatedTasks) => {
         setTasks(updatedTasks);
@@ -79,7 +79,7 @@ function TaskListInner() {
     );
 
     return () => unsubscribe();
-  }, [db, user, entityId]);
+  }, [db, user, tenantId]);
 
   // Filter tasks by tab
   const filteredTasks = tasks.filter((t) => {

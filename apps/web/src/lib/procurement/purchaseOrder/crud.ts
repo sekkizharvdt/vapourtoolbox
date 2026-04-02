@@ -269,8 +269,8 @@ export async function createPOFromOffer(
         poData.paymentTerms = `Net ${vendorCreditDays} days`;
       }
 
-      // Multi-tenancy: inherit entityId from offer
-      if (offer.entityId) poData.entityId = offer.entityId;
+      // Multi-tenancy: inherit tenantId from offer
+      if (offer.tenantId) poData.tenantId = offer.tenantId;
 
       // Add structured commercial terms if provided
       if (terms.commercialTermsTemplateId) {

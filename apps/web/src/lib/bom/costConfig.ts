@@ -40,7 +40,7 @@ export async function createCostConfiguration(
   const now = Timestamp.now();
 
   const configData = {
-    entityId: data.entityId,
+    tenantId: data.tenantId,
     overhead: data.overhead || DEFAULT_OVERHEAD_CONFIG,
     contingency: data.contingency || DEFAULT_CONTINGENCY_CONFIG,
     profit: data.profit || DEFAULT_PROFIT_CONFIG,
@@ -73,13 +73,13 @@ export async function createCostConfiguration(
  */
 export async function getActiveCostConfiguration(
   db: Firestore,
-  entityId: string
+  tenantId: string
 ): Promise<CostConfiguration | null> {
   const now = Timestamp.now();
 
   const q = query(
     collection(db, COLLECTIONS.COST_CONFIGURATIONS),
-    where('entityId', '==', entityId),
+    where('tenantId', '==', tenantId),
     where('isActive', '==', true),
     where('effectiveFrom', '<=', now),
     orderBy('effectiveFrom', 'desc'),
@@ -160,11 +160,11 @@ export async function updateCostConfiguration(
  */
 export async function listCostConfigurations(
   db: Firestore,
-  entityId: string
+  tenantId: string
 ): Promise<CostConfiguration[]> {
   const q = query(
     collection(db, COLLECTIONS.COST_CONFIGURATIONS),
-    where('entityId', '==', entityId),
+    where('tenantId', '==', tenantId),
     orderBy('effectiveFrom', 'desc')
   );
 
@@ -196,10 +196,10 @@ export async function deactivateCostConfiguration(
  * Used when creating new configurations or when no active config exists
  */
 export function getDefaultCostConfiguration(
-  entityId: string
+  tenantId: string
 ): Omit<CostConfiguration, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'> {
   return {
-    entityId,
+    tenantId,
     overhead: DEFAULT_OVERHEAD_CONFIG,
     contingency: DEFAULT_CONTINGENCY_CONFIG,
     profit: DEFAULT_PROFIT_CONFIG,

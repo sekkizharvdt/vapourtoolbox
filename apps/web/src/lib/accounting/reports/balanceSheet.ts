@@ -114,7 +114,7 @@ export async function generateBalanceSheet(
   try {
     // Fetch all accounts
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-    const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+    const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
     const accountsSnapshot = await getDocs(accountsQuery);
 
     const accounts: (AccountBalance & { openingBalance: number })[] = [];

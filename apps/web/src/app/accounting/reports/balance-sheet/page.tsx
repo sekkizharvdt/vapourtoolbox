@@ -216,13 +216,9 @@ export default function BalanceSheetPage() {
 
     try {
       const { db } = getFirebase();
-      const entityId = claims?.entityId;
-      if (!entityId) {
-        setError('No entity selected');
-        return;
-      }
+      const tenantId = claims?.tenantId || 'default-entity';
       const date = new Date(asOfDate);
-      const reportData = await generateBalanceSheet(db, date, entityId);
+      const reportData = await generateBalanceSheet(db, date, tenantId);
       setReport(reportData);
     } catch (err) {
       console.error('[BalanceSheetPage] Error:', err);

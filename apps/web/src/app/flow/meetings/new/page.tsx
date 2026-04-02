@@ -91,7 +91,7 @@ export default function NewMeetingPage() {
   const { user, claims } = useAuth();
   const { toast } = useToast();
 
-  const entityId = claims?.entityId || 'default-entity';
+  const tenantId = claims?.tenantId || 'default-entity';
 
   // Step
   const [activeStep, setActiveStep] = useState(0);
@@ -184,7 +184,7 @@ export default function NewMeetingPage() {
         },
         user.uid,
         user.displayName || user.email || 'Unknown',
-        entityId
+        tenantId
       );
 
       // Save action items that have content
@@ -232,7 +232,7 @@ export default function NewMeetingPage() {
         },
         user.uid,
         user.displayName || user.email || 'Unknown',
-        entityId
+        tenantId
       );
 
       // Save all action items
@@ -254,7 +254,7 @@ export default function NewMeetingPage() {
         meeting.id,
         user.uid,
         user.displayName || user.email || 'Unknown',
-        entityId
+        tenantId
       );
 
       toast.success(`Meeting finalized — ${taskCount} task${taskCount !== 1 ? 's' : ''} created`);

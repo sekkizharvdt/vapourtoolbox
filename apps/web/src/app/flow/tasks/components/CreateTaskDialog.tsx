@@ -64,7 +64,7 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
   // Users for assignee picker
   const [users, setUsers] = useState<UserOption[]>([]);
 
-  const entityId = claims?.entityId || 'default-entity';
+  const tenantId = claims?.tenantId || 'default-entity';
 
   // Load active users
   useEffect(() => {
@@ -143,7 +143,7 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
         },
         user.uid,
         user.displayName || user.email || 'Unknown',
-        entityId
+        tenantId
       );
 
       toast.success('Task created');

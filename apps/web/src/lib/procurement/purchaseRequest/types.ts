@@ -12,7 +12,7 @@ import type {
 
 export interface CreatePurchaseRequestInput {
   // Multi-tenancy
-  entityId?: string;
+  tenantId?: string;
 
   // Classification
   type: PurchaseRequestType;
@@ -92,7 +92,7 @@ export interface UpdatePurchaseRequestInput {
 }
 
 export interface ListPurchaseRequestsFilters {
-  entityId?: string;
+  tenantId?: string;
   projectId?: string;
   type?: PurchaseRequestType;
   category?: PurchaseRequestCategory;

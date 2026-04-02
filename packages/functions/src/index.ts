@@ -51,7 +51,7 @@ export { onFeedbackResolved } from './feedback';
  *   permissions: number,       // Bitwise permission flags (bits 0-30)
  *   permissions2: number,      // Extended permission flags (Material, Shape, Thermal, HR, etc.)
  *   domain: 'internal' | 'external',  // User domain
- *   entityId: string           // Tenant entity ID for cross-tenant isolation
+ *   tenantId: string           // Tenant entity ID for cross-tenant isolation
  * }
  *
  * @see firestore.rules — `match /users/{userId}` for read/write security rules
@@ -100,8 +100,10 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     const customClaims: Record<string, unknown> = {
       permissions,
       domain,
-      // Include entityId for cross-tenant isolation in callable functions
-      ...(userData.entityId && { entityId: userData.entityId }),
+      // Include tenantId for cross-tenant isolation in callable functions
+      ...(userData.tenantId && { tenantId: userData.tenantId }),
+      // Backwards compatibility: fall back to entityId if tenantId not yet migrated
+      ...(!userData.tenantId && userData.entityId && { tenantId: userData.entityId }),
     };
     // Only include permissions2 if non-zero (saves space in claims)
     if (perms2 > 0) {
@@ -115,10 +117,12 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
       // Check if claims actually changed (avoid unnecessary updates)
       const currentClaims = user.customClaims || {};
       const currentPerms2 = (currentClaims.permissions2 as number) || 0;
+      const newTenantId = userData.tenantId || userData.entityId || undefined;
       const claimsChanged =
         currentClaims.permissions !== permissions ||
         currentClaims.domain !== domain ||
-        currentPerms2 !== perms2;
+        currentPerms2 !== perms2 ||
+        currentClaims.tenantId !== newTenantId;
 
       if (claimsChanged) {
         await admin.auth().setCustomUserClaims(userId, customClaims);
@@ -166,7 +170,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
  *   await syncClaims({ userId: 'abc123' });
  *
  * @security Requires MANAGE_USERS permission (checked via custom claims)
- * @security Cross-entity access prevented by entityId validation
+ * @security Cross-tenant access prevented by tenantId validation
  * @see firestore.rules — `match /users/{userId}` for read/write security rules
  */
 export const syncUserClaims = onCall(async (request) => {
@@ -203,13 +207,15 @@ export const syncUserClaims = onCall(async (request) => {
       throw new HttpsError('internal', 'User document has no data');
     }
 
-    // SP-20: Validate caller's entity matches target user's entity
-    const callerEntityId = request.auth.token.entityId as string | undefined;
-    const targetEntityId = userData.entityId as string | undefined;
-    if (callerEntityId && targetEntityId && callerEntityId !== targetEntityId) {
+    // SP-20: Validate caller's tenant matches target user's tenant
+    const callerTenantId = (request.auth.token.tenantId ?? request.auth.token.entityId) as
+      | string
+      | undefined;
+    const targetTenantId = (userData.tenantId ?? userData.entityId) as string | undefined;
+    if (callerTenantId && targetTenantId && callerTenantId !== targetTenantId) {
       throw new HttpsError(
         'permission-denied',
-        'Cannot sync claims for users in a different entity'
+        'Cannot sync claims for users in a different tenant'
       );
     }
 
@@ -226,7 +232,9 @@ export const syncUserClaims = onCall(async (request) => {
       const customClaims: Record<string, unknown> = {
         permissions,
         domain,
-        ...(userData.entityId && { entityId: userData.entityId }),
+        ...(userData.tenantId && { tenantId: userData.tenantId }),
+        // Backwards compatibility: fall back to entityId if tenantId not yet migrated
+        ...(!userData.tenantId && userData.entityId && { tenantId: userData.entityId }),
       };
       if (perms2 > 0) {
         customClaims.permissions2 = perms2;

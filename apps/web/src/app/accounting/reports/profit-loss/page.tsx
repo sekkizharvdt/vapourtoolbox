@@ -368,11 +368,8 @@ export default function ProfitLossPage() {
         throw new Error('Start date must be before end date');
       }
 
-      const entityId = claims?.entityId;
-      if (!entityId) {
-        throw new Error('No entity selected');
-      }
-      const reportData = await generateProfitLossReport(db, start, end, entityId);
+      const tenantId = claims?.tenantId || 'default-entity';
+      const reportData = await generateProfitLossReport(db, start, end, tenantId);
       setReport(reportData);
     } catch (err) {
       console.error('[ProfitLossPage] Error:', err);

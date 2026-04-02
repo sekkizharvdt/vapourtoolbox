@@ -12,7 +12,7 @@ export type { Offer, OfferItem, OfferStatus, OfferComparisonData } from '@vapour
  */
 export interface CreateOfferInput {
   // Multi-tenancy
-  entityId?: string;
+  tenantId?: string;
 
   // RFQ reference
   rfqId: string;

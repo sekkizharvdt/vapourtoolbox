@@ -33,7 +33,7 @@ export type AssetStatus = 'ACTIVE' | 'DISPOSED' | 'WRITTEN_OFF';
 export interface FixedAsset {
   id: string;
   assetNumber: string; // FA-2026-0001
-  entityId: string; // Multi-tenancy
+  tenantId: string; // Multi-tenancy
 
   // Basic info
   name: string;

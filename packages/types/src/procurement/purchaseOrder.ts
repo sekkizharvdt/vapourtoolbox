@@ -28,7 +28,7 @@ export interface PurchaseOrder {
   number: string; // PO/YYYY/MM/XXXX
 
   // Multi-tenancy
-  entityId?: string;
+  tenantId?: string;
 
   // Source
   rfqId: string;

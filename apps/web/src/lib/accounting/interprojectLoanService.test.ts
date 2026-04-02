@@ -229,7 +229,7 @@ describe('interprojectLoanService', () => {
         repaymentFrequency: 'MONTHLY',
         userId: 'user-1',
         userName: 'Test User',
-        entityId: 'test-entity',
+        tenantId: 'test-entity',
       });
 
       expect(result.success).toBe(false);
@@ -262,7 +262,7 @@ describe('interprojectLoanService', () => {
         repaymentFrequency: 'MONTHLY',
         userId: 'user-1',
         userName: 'Test User',
-        entityId: 'test-entity',
+        tenantId: 'test-entity',
       });
 
       expect(result.success).toBe(false);
@@ -304,7 +304,7 @@ describe('interprojectLoanService', () => {
         repaymentFrequency: 'MONTHLY',
         userId: 'user-1',
         userName: 'Test User',
-        entityId: 'test-entity',
+        tenantId: 'test-entity',
       });
 
       expect(result.success).toBe(true);
@@ -350,7 +350,7 @@ describe('interprojectLoanService', () => {
         interestAmount: 500,
         userId: 'user-1',
         userName: 'Test User',
-        entityId: 'test-entity',
+        tenantId: 'test-entity',
       });
 
       expect(result.success).toBe(false);
@@ -373,7 +373,7 @@ describe('interprojectLoanService', () => {
         interestAmount: 500,
         userId: 'user-1',
         userName: 'Test User',
-        entityId: 'test-entity',
+        tenantId: 'test-entity',
       });
 
       expect(result.success).toBe(false);
@@ -414,7 +414,7 @@ describe('interprojectLoanService', () => {
         interestAmount: 833,
         userId: 'user-1',
         userName: 'Test User',
-        entityId: 'test-entity',
+        tenantId: 'test-entity',
       });
 
       expect(result.success).toBe(true);
@@ -462,7 +462,7 @@ describe('interprojectLoanService', () => {
         interestAmount: 100,
         userId: 'user-1',
         userName: 'Test User',
-        entityId: 'test-entity',
+        tenantId: 'test-entity',
       });
 
       expect(updatedStatus).toBe('FULLY_REPAID');

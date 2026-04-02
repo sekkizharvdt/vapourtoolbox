@@ -69,7 +69,7 @@ export default function LeaveSummaryPage() {
     setError(null);
 
     try {
-      const data = await getAllLeaveBalances(claims?.entityId || '', selectedYear);
+      const data = await getAllLeaveBalances(claims?.tenantId || 'default-entity', selectedYear);
       setBalances(data);
     } catch (err) {
       console.error('Failed to load leave balances:', err);

@@ -98,7 +98,8 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
   });
 
   const handleSubmit = async () => {
-    if (!user || !claims?.entityId || !claims?.permissions) return;
+    if (!user || !claims?.permissions) return;
+    const tenantId = claims?.tenantId || 'default-entity';
 
     // Validation
     if (!name.trim()) {
@@ -136,7 +137,7 @@ export function CreateAssetDialog({ open, onClose, onCreated, prefill }: CreateA
         },
         user.uid,
         claims.permissions,
-        claims.entityId
+        tenantId
       );
 
       toast.success(`Asset ${result.assetNumber} registered successfully`);

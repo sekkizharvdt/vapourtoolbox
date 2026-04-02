@@ -25,7 +25,7 @@ export interface Offer {
   number: string; // OFFER/YYYY/MM/XXXX
 
   // Multi-tenancy
-  entityId?: string;
+  tenantId?: string;
 
   // RFQ reference
   rfqId: string;

@@ -6,8 +6,8 @@
  * link to projects, proposals, or meetings.
  *
  * **Required Firestore Composite Indexes:**
- * - manualTasks: (entityId, assigneeId, status, createdAt DESC)
- * - manualTasks: (entityId, status, createdAt DESC)
+ * - manualTasks: (tenantId, assigneeId, status, createdAt DESC)
+ * - manualTasks: (tenantId, status, createdAt DESC)
  */
 
 import {
@@ -64,7 +64,7 @@ function docToManualTask(id: string, data: DocumentData): ManualTask {
     proposalId: data.proposalId,
     meetingId: data.meetingId,
     tags: data.tags,
-    entityId: data.entityId,
+    tenantId: data.tenantId,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
@@ -82,7 +82,7 @@ export async function createManualTask(
   input: CreateManualTaskInput,
   userId: string,
   userName: string,
-  entityId: string
+  tenantId: string
 ): Promise<ManualTask> {
   // FL-19: Validate assignee exists and is active
   if (input.assigneeId) {
@@ -114,7 +114,7 @@ export async function createManualTask(
     ...(input.proposalId && { proposalId: input.proposalId }),
     ...(input.meetingId && { meetingId: input.meetingId }),
     ...(input.tags && input.tags.length > 0 && { tags: input.tags }),
-    entityId,
+    tenantId,
     createdAt: now,
   };
 
@@ -136,7 +136,7 @@ export async function createManualTask(
     proposalId: input.proposalId,
     meetingId: input.meetingId,
     tags: input.tags,
-    entityId,
+    tenantId,
     createdAt: now,
   };
 }
@@ -161,9 +161,9 @@ export async function getManualTaskById(db: Firestore, taskId: string): Promise<
  */
 export async function getMyTasks(
   db: Firestore,
-  filters: ManualTaskFilters & { entityId: string }
+  filters: ManualTaskFilters & { tenantId: string }
 ): Promise<ManualTask[]> {
-  const constraints: QueryConstraint[] = [where('entityId', '==', filters.entityId)];
+  const constraints: QueryConstraint[] = [where('tenantId', '==', filters.tenantId)];
 
   if (filters.assigneeId) {
     constraints.push(where('assigneeId', '==', filters.assigneeId));
@@ -198,10 +198,10 @@ export async function getMyTasks(
  */
 export async function getTeamTasks(
   db: Firestore,
-  entityId: string,
+  tenantId: string,
   statusFilter?: ManualTaskStatus
 ): Promise<ManualTask[]> {
-  const constraints: QueryConstraint[] = [where('entityId', '==', entityId)];
+  const constraints: QueryConstraint[] = [where('tenantId', '==', tenantId)];
 
   if (statusFilter) {
     constraints.push(where('status', '==', statusFilter));
@@ -224,14 +224,14 @@ export async function getTeamTasks(
  */
 export function subscribeToMyTasks(
   db: Firestore,
-  entityId: string,
+  tenantId: string,
   assigneeId: string,
   callback: (tasks: ManualTask[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
   const q = query(
     collection(db, COLLECTIONS.MANUAL_TASKS),
-    where('entityId', '==', entityId),
+    where('tenantId', '==', tenantId),
     where('assigneeId', '==', assigneeId),
     orderBy('createdAt', 'desc')
   );
@@ -254,13 +254,13 @@ export function subscribeToMyTasks(
  */
 export function subscribeToTeamTasks(
   db: Firestore,
-  entityId: string,
+  tenantId: string,
   callback: (tasks: ManualTask[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
   const q = query(
     collection(db, COLLECTIONS.MANUAL_TASKS),
-    where('entityId', '==', entityId),
+    where('tenantId', '==', tenantId),
     where('status', 'in', ['todo', 'in_progress']),
     orderBy('createdAt', 'desc')
   );

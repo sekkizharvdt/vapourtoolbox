@@ -104,7 +104,7 @@ export async function createEnquiry(
     const now = Timestamp.now();
     const enquiry: Omit<Enquiry, 'id'> = {
       enquiryNumber,
-      entityId: input.entityId,
+      tenantId: input.tenantId,
       clientId: input.clientId,
       clientName: client.name || '',
       clientContactPerson: input.clientContactPerson,
@@ -205,7 +205,7 @@ export async function listEnquiries(
   options: ListEnquiriesOptions
 ): Promise<Enquiry[]> {
   try {
-    let q = query(collection(db, COLLECTIONS.ENQUIRIES), where('entityId', '==', options.entityId));
+    let q = query(collection(db, COLLECTIONS.ENQUIRIES), where('tenantId', '==', options.tenantId));
 
     // Status filter
     if (options.status) {
@@ -411,7 +411,7 @@ export async function getEnquiriesCountByStatus(
   entityId: string
 ): Promise<Record<EnquiryStatus, number>> {
   try {
-    const q = query(collection(db, COLLECTIONS.ENQUIRIES), where('entityId', '==', entityId));
+    const q = query(collection(db, COLLECTIONS.ENQUIRIES), where('tenantId', '==', entityId));
     const snapshot = await getDocs(q);
 
     const counts: Record<string, number> = {};

@@ -4,12 +4,13 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
 ## Firestore Queries
 
-1. **`entityId` on transactions is the COUNTERPARTY (vendor/customer), NOT a tenant ID** — the `entities` collection stores vendors and customers. `transaction.entityId` references which vendor/customer the transaction is with. Do NOT use `claims?.entityId` to filter transactions.
+1. **`entityId` on transactions is the COUNTERPARTY (vendor/customer), NOT a tenant ID** — the `entities` collection stores vendors and customers. `transaction.entityId` references which vendor/customer the transaction is with.
 
-   **Multi-tenancy is NOT yet implemented.** When it is, a dedicated `tenantId` field will be added. Until then:
-   - The `accounts` collection uses `entityId: 'default-entity'` as a tenant marker — keep this pattern for account queries
+   **Tenant scoping uses `tenantId`** everywhere — in Firebase custom claims (`claims?.tenantId`), Firestore document fields, queries (`where('tenantId', '==', tenantId)`), and types. Always use `claims?.tenantId || 'default-entity'` for tenant scoping.
+   - Run `scripts/migrate-entityid-to-tenantid.js` after deploying to rename the field in existing Firestore documents
    - Transaction queries should NOT filter by tenant (single-tenant system)
    - The `entities` collection stores counterparties (vendors/customers), not business tenants
+   - Do NOT use `entityId` for tenant scoping — use `tenantId`
 
    **Collections that use `entityId` for counterparty (vendor/customer) reference:**
    - `transactions` — `entityId` = which vendor/customer the transaction is with

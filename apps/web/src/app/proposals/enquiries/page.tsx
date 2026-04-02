@@ -56,8 +56,8 @@ import {
 } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
 
-// Fallback entity ID for users without multi-entity claims
-const FALLBACK_ENTITY_ID = 'default-entity';
+// Fallback tenant ID for users without multi-tenant claims
+const FALLBACK_TENANT_ID = 'default-entity';
 
 // Dynamically import to avoid SSR issues with date pickers
 const CreateEnquiryDialog = dynamic(
@@ -111,7 +111,7 @@ export default function EnquiriesPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
+    const tenantId = claims?.tenantId || FALLBACK_TENANT_ID;
     if (!db) return;
 
     const fetchEnquiries = async () => {
@@ -121,7 +121,7 @@ export default function EnquiriesPage() {
 
         // Load enquiries with filters
         const enquiriesList = await listEnquiries(db, {
-          entityId,
+          tenantId,
           status:
             statusFilter === 'ACTIVE'
               ? ENQUIRY_PRE_PROPOSAL_STATUSES
@@ -136,7 +136,7 @@ export default function EnquiriesPage() {
         setEnquiries(enquiriesList);
 
         // Load status counts for stat cards
-        const counts = await getEnquiriesCountByStatus(db, entityId);
+        const counts = await getEnquiriesCountByStatus(db, tenantId);
         setStatusCounts(counts);
       } catch (err) {
         console.error('Error loading enquiries:', err);
@@ -147,7 +147,7 @@ export default function EnquiriesPage() {
     };
 
     fetchEnquiries();
-  }, [db, claims?.entityId, statusFilter, urgencyFilter, searchTerm, refreshKey]);
+  }, [db, claims?.tenantId, statusFilter, urgencyFilter, searchTerm, refreshKey]);
 
   const handleCreateEnquiry = () => {
     setCreateDialogOpen(true);

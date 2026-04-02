@@ -64,7 +64,7 @@ export default function TeamBoardPage() {
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const entityId = claims?.entityId || 'default-entity';
+  const tenantId = claims?.tenantId || 'default-entity';
 
   // FL-15: Load active users filtered by entity
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function TeamBoardPage() {
     const q = query(
       collection(db, COLLECTIONS.USERS),
       where('isActive', '==', true),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', tenantId),
       orderBy('displayName', 'asc')
     );
 
@@ -99,7 +99,7 @@ export default function TeamBoardPage() {
     );
 
     return () => unsubscribe();
-  }, [db, entityId]);
+  }, [db, tenantId]);
 
   // Subscribe to all active team tasks
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function TeamBoardPage() {
 
     const unsubscribe = subscribeToTeamTasks(
       db,
-      entityId,
+      tenantId,
       (updatedTasks) => {
         setTasks(updatedTasks);
         setLoadingTasks(false);
@@ -120,7 +120,7 @@ export default function TeamBoardPage() {
     );
 
     return () => unsubscribe();
-  }, [db, entityId]);
+  }, [db, tenantId]);
 
   // Group tasks by assignee
   const tasksByAssignee = useMemo(() => {

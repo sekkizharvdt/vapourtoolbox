@@ -39,7 +39,7 @@ export async function convertProposalToProject(
     }
 
     // Generate project number
-    const projectNumber = await generateProjectNumber(db, proposal.entityId);
+    const projectNumber = await generateProjectNumber(db, proposal.tenantId);
 
     // Calculate dates
     const startDate = Timestamp.now();

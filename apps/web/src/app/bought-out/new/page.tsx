@@ -35,7 +35,7 @@ import SpecificationForm from '../components/SpecificationForm';
 
 export default function NewBoughtOutItemPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { db } = getFirebase();
 
   const [saving, setSaving] = useState(false);
@@ -55,8 +55,8 @@ export default function NewBoughtOutItemPage() {
   const [leadTime, setLeadTime] = useState('');
   const [moq, setMoq] = useState('');
 
-  // Single-tenant: Use 'company' as entityId
-  const entityId = 'company';
+  // Single-tenant: default-entity (must match tenantId claim for Firestore rules)
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +67,7 @@ export default function NewBoughtOutItemPage() {
       setError(null);
 
       const input: CreateBoughtOutItemInput = {
-        entityId,
+        tenantId,
         name,
         description,
         category,

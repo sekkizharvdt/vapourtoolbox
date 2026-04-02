@@ -34,8 +34,9 @@ export default function NewServicePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get('category') as ServiceCategory | null;
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { db } = getFirebase();
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -99,7 +100,7 @@ export default function NewServicePage() {
           ...(sampleRequirements.trim() && { sampleRequirements: sampleRequirements.trim() }),
           ...(accreditationsList.length > 0 && { requiredAccreditations: accreditationsList }),
           ...(deliverablesList.length > 0 && { deliverables: deliverablesList }),
-          entityId: 'default-entity',
+          tenantId,
           isActive: true,
           isStandard,
         },

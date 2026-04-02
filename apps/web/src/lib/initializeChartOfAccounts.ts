@@ -45,7 +45,7 @@ export async function initializeChartOfAccounts(
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
 
     // Check if accounts already exist for this entity
-    const entityQuery = query(accountsRef, where('entityId', '==', entityId));
+    const entityQuery = query(accountsRef, where('tenantId', '==', entityId));
     const snapshot = await getDocs(entityQuery);
     if (!snapshot.empty && !forceReinit) {
       return {
@@ -111,7 +111,7 @@ export async function initializeChartOfAccounts(
         ifscCode: null,
         branch: null,
         parentAccountId,
-        entityId,
+        tenantId: entityId,
         createdAt: serverTimestamp(),
         createdBy: userId,
         updatedAt: serverTimestamp(),

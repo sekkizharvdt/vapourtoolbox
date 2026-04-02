@@ -31,7 +31,7 @@ async function getTasksStats(entityId: string): Promise<ModuleStats> {
     // Count pending tasks
     const pendingTasksQuery = query(
       collection(db, 'tasks'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', '==', 'PENDING')
     );
     const pendingSnapshot = await getCountFromServer(pendingTasksQuery);
@@ -41,7 +41,7 @@ async function getTasksStats(entityId: string): Promise<ModuleStats> {
     today.setHours(0, 0, 0, 0);
     const onDutyQuery = query(
       collection(db, 'onDutyRecords'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('date', '>=', Timestamp.fromDate(today)),
       where('status', '==', 'APPROVED')
     );
@@ -72,7 +72,7 @@ async function getDocumentStats(entityId: string): Promise<ModuleStats> {
 
     const recentDocsQuery = query(
       collection(db, 'documents'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('createdAt', '>=', Timestamp.fromDate(sevenDaysAgo))
     );
     const recentSnapshot = await getCountFromServer(recentDocsQuery);
@@ -98,7 +98,7 @@ async function getProcurementStats(entityId: string): Promise<ModuleStats> {
     // Count pending purchase requests
     const pendingPRsQuery = query(
       collection(db, 'purchaseRequests'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', '==', 'PENDING_APPROVAL')
     );
     const pendingPRsSnapshot = await getCountFromServer(pendingPRsQuery);
@@ -106,7 +106,7 @@ async function getProcurementStats(entityId: string): Promise<ModuleStats> {
     // Count pending RFQs
     const pendingRFQsQuery = query(
       collection(db, 'rfqs'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', 'in', ['DRAFT', 'SENT', 'PENDING_REVIEW'])
     );
     const pendingRFQsSnapshot = await getCountFromServer(pendingRFQsQuery);
@@ -114,7 +114,7 @@ async function getProcurementStats(entityId: string): Promise<ModuleStats> {
     // Count pending POs
     const pendingPOsQuery = query(
       collection(db, 'purchaseOrders'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
     );
     const pendingPOsSnapshot = await getCountFromServer(pendingPOsQuery);
@@ -182,7 +182,7 @@ async function getProjectStats(entityId: string): Promise<ModuleStats> {
     // Count active projects
     const activeProjectsQuery = query(
       collection(db, 'projects'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', 'in', ['ACTIVE', 'IN_PROGRESS'])
     );
     const activeSnapshot = await getCountFromServer(activeProjectsQuery);
@@ -208,7 +208,7 @@ async function getEstimationStats(entityId: string): Promise<ModuleStats> {
     // Count draft estimates
     const draftEstimatesQuery = query(
       collection(db, 'estimates'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', '==', 'DRAFT')
     );
     const draftSnapshot = await getCountFromServer(draftEstimatesQuery);
@@ -278,7 +278,7 @@ async function getHRStats(entityId: string): Promise<ModuleStats> {
     // Count pending leave requests
     const pendingLeavesQuery = query(
       collection(db, 'leaveRequests'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', '==', 'PENDING')
     );
     const pendingSnapshot = await getCountFromServer(pendingLeavesQuery);
@@ -304,7 +304,7 @@ async function getProposalStats(entityId: string): Promise<ModuleStats> {
     // Count proposals in draft or internal review
     const pendingProposalsQuery = query(
       collection(db, 'proposals'),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('status', 'in', ['DRAFT', 'INTERNAL_REVIEW'])
     );
     const pendingSnapshot = await getCountFromServer(pendingProposalsQuery);

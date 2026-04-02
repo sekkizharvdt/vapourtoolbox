@@ -638,7 +638,7 @@ export interface ManualTask {
   proposalId?: string;
   meetingId?: string;
   tags?: string[];
-  entityId: string;
+  tenantId: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -701,7 +701,7 @@ export interface Meeting {
   finalizedAt?: Timestamp;
   projectId?: string;
   projectName?: string;
-  entityId: string;
+  tenantId: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }

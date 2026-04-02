@@ -1029,7 +1029,7 @@ service cloud.firestore {
 
       // Create: Users with MANAGE_ESTIMATION permission
       allow create: if hasPermission(262144) && isInternalUser() &&
-                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.tenantId == request.auth.token.tenantId &&
                        request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
 
       // Update: Users with MANAGE_ESTIMATION permission
@@ -1049,7 +1049,7 @@ service cloud.firestore {
 
       // Create: Users with MANAGE_ESTIMATION permission
       allow create: if hasPermission(262144) && isInternalUser() &&
-                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.tenantId == request.auth.token.tenantId &&
                        request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
 
       // Update: Users with MANAGE_ESTIMATION permission
@@ -1084,7 +1084,7 @@ service cloud.firestore {
 
       // Create: Users with MANAGE_ESTIMATION permission
       allow create: if hasPermission(262144) && isInternalUser() &&
-                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.tenantId == request.auth.token.tenantId &&
                        request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
 
       // Update: Users with MANAGE_ESTIMATION permission

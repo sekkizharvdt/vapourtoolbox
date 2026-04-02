@@ -155,7 +155,7 @@ describe('BOM Service', () => {
       name: 'Test BOM',
       description: 'Test description',
       category: 'FABRICATION' as BOMCategory,
-      entityId: 'entity-123',
+      tenantId: 'entity-123',
       projectId: 'project-456',
       projectName: 'Test Project',
     };
@@ -206,7 +206,7 @@ describe('BOM Service', () => {
 
       const result = await createBOM(mockDb, createBOMInput, userId);
 
-      expect(result.entityId).toBe('entity-123');
+      expect(result.tenantId).toBe('entity-123');
       expect(result.projectId).toBe('project-456');
       expect(result.projectName).toBe('Test Project');
       expect(result.category).toBe('FABRICATION');
@@ -341,7 +341,7 @@ describe('BOM Service', () => {
   });
 
   describe('listBOMs', () => {
-    it('should list BOMs with entityId filter', async () => {
+    it('should list BOMs with tenantId filter', async () => {
       const mockBOMs = [
         { id: 'bom-1', name: 'BOM 1' },
         { id: 'bom-2', name: 'BOM 2' },
@@ -354,16 +354,16 @@ describe('BOM Service', () => {
         })),
       });
 
-      const result = await listBOMs(mockDb, { entityId: 'entity-123' });
+      const result = await listBOMs(mockDb, { tenantId: 'entity-123' });
 
       expect(result).toHaveLength(2);
-      expect(mockWhere).toHaveBeenCalledWith('entityId', '==', 'entity-123');
+      expect(mockWhere).toHaveBeenCalledWith('tenantId', '==', 'entity-123');
     });
 
     it('should filter by projectId when provided', async () => {
       mockGetDocs.mockResolvedValue({ docs: [] });
 
-      await listBOMs(mockDb, { entityId: 'entity-123', projectId: 'project-456' });
+      await listBOMs(mockDb, { tenantId: 'entity-123', projectId: 'project-456' });
 
       expect(mockWhere).toHaveBeenCalledWith('projectId', '==', 'project-456');
     });
@@ -371,7 +371,7 @@ describe('BOM Service', () => {
     it('should filter by category when provided', async () => {
       mockGetDocs.mockResolvedValue({ docs: [] });
 
-      await listBOMs(mockDb, { entityId: 'entity-123', category: 'FABRICATION' as BOMCategory });
+      await listBOMs(mockDb, { tenantId: 'entity-123', category: 'FABRICATION' as BOMCategory });
 
       expect(mockWhere).toHaveBeenCalledWith('category', '==', 'FABRICATION');
     });
@@ -379,7 +379,7 @@ describe('BOM Service', () => {
     it('should filter by status when provided', async () => {
       mockGetDocs.mockResolvedValue({ docs: [] });
 
-      await listBOMs(mockDb, { entityId: 'entity-123', status: 'DRAFT' as BOMStatus });
+      await listBOMs(mockDb, { tenantId: 'entity-123', status: 'DRAFT' as BOMStatus });
 
       expect(mockWhere).toHaveBeenCalledWith('status', '==', 'DRAFT');
     });
@@ -387,7 +387,7 @@ describe('BOM Service', () => {
     it('should apply limit when provided', async () => {
       mockGetDocs.mockResolvedValue({ docs: [] });
 
-      await listBOMs(mockDb, { entityId: 'entity-123', limit: 10 });
+      await listBOMs(mockDb, { tenantId: 'entity-123', limit: 10 });
 
       expect(mockLimit).toHaveBeenCalledWith(10);
     });
@@ -395,7 +395,7 @@ describe('BOM Service', () => {
     it('should order by createdAt descending', async () => {
       mockGetDocs.mockResolvedValue({ docs: [] });
 
-      await listBOMs(mockDb, { entityId: 'entity-123' });
+      await listBOMs(mockDb, { tenantId: 'entity-123' });
 
       expect(mockOrderBy).toHaveBeenCalledWith('createdAt', 'desc');
     });
@@ -422,7 +422,7 @@ describe('BOM Service', () => {
             id: 'bom-123',
             data: () => ({
               bomCode: 'EST-2024-0001',
-              entityId: 'entity-123',
+              tenantId: 'entity-123',
               summary: {},
             }),
           });
@@ -525,7 +525,7 @@ describe('BOM Service', () => {
         id: 'bom-123',
         data: () => ({
           bomCode: 'EST-2024-0001',
-          entityId: 'entity-123',
+          tenantId: 'entity-123',
           component: { type: 'SHAPE' },
         }),
       });
@@ -576,7 +576,7 @@ describe('BOM Service', () => {
       mockGetDoc.mockResolvedValue({
         exists: () => true,
         id: 'bom-123',
-        data: () => ({ entityId: 'entity-123' }),
+        data: () => ({ tenantId: 'entity-123' }),
       });
       mockUpdateDoc.mockResolvedValue(undefined);
     });
@@ -608,7 +608,7 @@ describe('BOM Service', () => {
         id: 'bom-123',
         data: () => ({
           bomCode: 'EST-2024-0001',
-          entityId: 'entity-123',
+          tenantId: 'entity-123',
         }),
       });
       mockUpdateDoc.mockResolvedValue(undefined);

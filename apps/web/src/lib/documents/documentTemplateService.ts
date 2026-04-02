@@ -81,7 +81,7 @@ export async function getTemplates(
     onlyLatest?: boolean;
   }
 ): Promise<DocumentTemplate[]> {
-  const constraints: QueryConstraint[] = [where('entityId', '==', entityId)];
+  const constraints: QueryConstraint[] = [where('tenantId', '==', entityId)];
 
   if (filters?.category) {
     constraints.push(where('category', '==', filters.category));

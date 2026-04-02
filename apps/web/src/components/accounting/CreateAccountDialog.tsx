@@ -49,7 +49,8 @@ export function CreateAccountDialog({
   accounts,
   editingAccount,
 }: CreateAccountDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -258,7 +259,7 @@ export function CreateAccountDialog({
           accountCategory,
           accountGroup: null,
           parentAccountId: null,
-          entityId: 'default-entity',
+          entityId: tenantId,
           level: 4, // Default to leaf level
           isGroup,
           isActive: true,

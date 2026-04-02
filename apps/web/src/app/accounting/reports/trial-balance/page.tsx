@@ -65,19 +65,16 @@ export default function TrialBalancePage() {
   const [drilldownLoading, setDrilldownLoading] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (claims?.entityId) {
-      loadTrialBalance();
-    }
+    loadTrialBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claims?.entityId]);
+  }, [claims?.tenantId]);
 
   const loadTrialBalance = async () => {
-    const entityId = claims?.entityId;
-    if (!entityId) return;
+    const tenantId = claims?.tenantId || 'default-entity';
     try {
       const { db } = getFirebase();
       const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-      const q = query(accountsRef, where('entityId', '==', entityId), orderBy('code', 'asc'));
+      const q = query(accountsRef, where('tenantId', '==', tenantId), orderBy('code', 'asc'));
       const snapshot = await getDocs(q);
 
       const accountData: AccountBalance[] = [];

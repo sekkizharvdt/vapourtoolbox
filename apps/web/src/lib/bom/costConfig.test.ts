@@ -96,7 +96,7 @@ describe('Cost Configuration Service', () => {
 
   describe('createCostConfiguration', () => {
     const createInput: CreateCostConfigurationInput = {
-      entityId: 'entity-456',
+      tenantId: 'entity-456',
       name: 'Standard Config',
       description: 'Default cost configuration',
       overhead: {
@@ -120,7 +120,7 @@ describe('Cost Configuration Service', () => {
       const result = await createCostConfiguration(mockDb, createInput, userId);
 
       expect(result.id).toBe('config-new');
-      expect(result.entityId).toBe('entity-456');
+      expect(result.tenantId).toBe('entity-456');
       expect(result.name).toBe('Standard Config');
       expect(result.isActive).toBe(true);
       expect(result.createdBy).toBe(userId);
@@ -240,7 +240,7 @@ describe('Cost Configuration Service', () => {
 
     it('should return active configuration when exists', async () => {
       const mockConfig = {
-        entityId: 'entity-456',
+        tenantId: 'entity-456',
         isActive: true,
         overhead: { enabled: true, ratePercent: 15 },
       };
@@ -259,15 +259,15 @@ describe('Cost Configuration Service', () => {
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe('config-123');
-      expect(result?.entityId).toBe('entity-456');
+      expect(result?.tenantId).toBe('entity-456');
     });
 
-    it('should filter by entityId, isActive, and effectiveFrom', async () => {
+    it('should filter by tenantId, isActive, and effectiveFrom', async () => {
       mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
 
       await getActiveCostConfiguration(mockDb, entityId);
 
-      expect(mockWhere).toHaveBeenCalledWith('entityId', '==', entityId);
+      expect(mockWhere).toHaveBeenCalledWith('tenantId', '==', entityId);
       expect(mockWhere).toHaveBeenCalledWith('isActive', '==', true);
       expect(mockWhere).toHaveBeenCalledWith('effectiveFrom', '<=', mockTimestamp);
     });
@@ -285,7 +285,7 @@ describe('Cost Configuration Service', () => {
   describe('getCostConfiguration', () => {
     it('should return configuration when exists', async () => {
       const mockConfig = {
-        entityId: 'entity-456',
+        tenantId: 'entity-456',
         name: 'Test Config',
       };
 
@@ -423,12 +423,12 @@ describe('Cost Configuration Service', () => {
       expect(result[1]?.id).toBe('config-2');
     });
 
-    it('should filter by entityId', async () => {
+    it('should filter by tenantId', async () => {
       mockGetDocs.mockResolvedValue({ docs: [] });
 
       await listCostConfigurations(mockDb, entityId);
 
-      expect(mockWhere).toHaveBeenCalledWith('entityId', '==', entityId);
+      expect(mockWhere).toHaveBeenCalledWith('tenantId', '==', entityId);
     });
 
     it('should order by effectiveFrom descending', async () => {
@@ -468,7 +468,7 @@ describe('Cost Configuration Service', () => {
     it('should return default configuration structure', () => {
       const result = getDefaultCostConfiguration(entityId);
 
-      expect(result.entityId).toBe(entityId);
+      expect(result.tenantId).toBe(entityId);
       expect(result.isActive).toBe(false);
       expect(result.overhead).toEqual({
         enabled: true,

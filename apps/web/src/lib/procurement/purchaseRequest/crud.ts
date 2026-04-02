@@ -66,7 +66,7 @@ export async function createPurchaseRequest(
       number: prNumber,
 
       // Multi-tenancy
-      ...(input.entityId && { entityId: input.entityId }),
+      ...(input.tenantId && { tenantId: input.tenantId }),
 
       // Classification
       type: input.type,

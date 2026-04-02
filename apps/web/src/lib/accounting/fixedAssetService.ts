@@ -92,12 +92,12 @@ async function generateAssetNumber(): Promise<string> {
  */
 async function resolveAccountByCode(
   code: string,
-  entityId: string
+  tenantId: string
 ): Promise<{ id: string; code: string; name: string } | null> {
   const { db } = getFirebase();
   const q = query(
     collection(db, COLLECTIONS.ACCOUNTS),
-    where('entityId', '==', entityId),
+    where('tenantId', '==', tenantId),
     where('code', '==', code),
     limit(1)
   );
@@ -125,7 +125,7 @@ export async function createFixedAsset(
   input: CreateFixedAssetInput,
   userId: string,
   userPermissions: number,
-  entityId: string
+  tenantId: string
 ): Promise<{ id: string; assetNumber: string }> {
   requirePermission(
     userPermissions,
@@ -141,9 +141,9 @@ export async function createFixedAsset(
 
   // Resolve GL accounts by category
   const categoryAccounts = ASSET_CATEGORY_ACCOUNTS[input.category];
-  const assetAccount = await resolveAccountByCode(categoryAccounts.asset, entityId);
-  const accumDepAccount = await resolveAccountByCode(categoryAccounts.accumDep, entityId);
-  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE, entityId);
+  const assetAccount = await resolveAccountByCode(categoryAccounts.asset, tenantId);
+  const accumDepAccount = await resolveAccountByCode(categoryAccounts.accumDep, tenantId);
+  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE, tenantId);
 
   if (!assetAccount) {
     throw new Error(
@@ -162,7 +162,7 @@ export async function createFixedAsset(
 
   const assetData: Omit<FixedAsset, 'id'> = {
     assetNumber,
-    entityId,
+    tenantId,
     name: input.name,
     ...(input.description && { description: input.description }),
     category: input.category,
@@ -399,7 +399,7 @@ export interface AssetSummary {
 /**
  * Get summary statistics for all active assets
  */
-export async function getAssetSummary(_entityId: string): Promise<AssetSummary> {
+export async function getAssetSummary(_tenantId: string): Promise<AssetSummary> {
   const assets = await listFixedAssets({ status: 'ACTIVE' });
 
   const summary: AssetSummary = {
@@ -540,7 +540,7 @@ export interface DepreciationPreviewItem {
  * Returns per-asset amounts without posting anything.
  */
 export async function previewDepreciation(
-  _entityId: string
+  _tenantId: string
 ): Promise<{ items: DepreciationPreviewItem[]; totalDepreciation: number }> {
   const assets = await listFixedAssets({ status: 'ACTIVE' });
   const items: DepreciationPreviewItem[] = [];
@@ -575,7 +575,7 @@ export async function previewDepreciation(
  * and updates each asset's totalDepreciation and writtenDownValue.
  */
 export async function runDepreciation(
-  entityId: string,
+  tenantId: string,
   month: number,
   year: number,
   userId: string,
@@ -614,7 +614,7 @@ export async function runDepreciation(
   });
 
   // Resolve depreciation expense account
-  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE, entityId);
+  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE, tenantId);
   if (!depExpenseAccount) {
     throw new Error(
       'Depreciation expense account (5208) not found. Please add it to your Chart of Accounts.'
@@ -670,7 +670,7 @@ export async function runDepreciation(
     baseAmount: totalDepreciation,
     currency: 'INR',
     status: 'POSTED',
-    entityId,
+    entityId: tenantId,
     entries,
     journalType: 'ADJUSTING',
     journalDate: depDate,

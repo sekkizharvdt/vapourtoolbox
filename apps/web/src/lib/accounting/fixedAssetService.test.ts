@@ -25,7 +25,7 @@ function makeAsset(overrides: Partial<FixedAsset> = {}): FixedAsset {
   return {
     id: 'test-asset-1',
     assetNumber: 'FA-2026-0001',
-    entityId: 'entity-1',
+    tenantId: 'entity-1',
     name: 'Test Asset',
     category: 'COMPUTERS_AND_IT',
     status: 'ACTIVE',

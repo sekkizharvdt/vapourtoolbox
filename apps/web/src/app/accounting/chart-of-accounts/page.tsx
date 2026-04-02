@@ -85,8 +85,8 @@ export default function ChartOfAccountsPage() {
     };
   }, [accounts]);
 
-  // Entity ID for multi-tenancy (fallback matches Cloud Function default)
-  const entityId = claims?.entityId || 'default-entity';
+  // Tenant ID for multi-tenancy (fallback matches Cloud Function default)
+  const tenantId = claims?.tenantId || 'default-entity';
 
   // Auto-initialize Chart of Accounts if empty (runs once per mount)
   const hasAttemptedInit = useRef(false);
@@ -100,7 +100,7 @@ export default function ChartOfAccountsPage() {
       logger.info('Accounts collection is empty, initializing');
       setInitializing(true);
 
-      const result = await initializeChartOfAccounts(user.uid, entityId);
+      const result = await initializeChartOfAccounts(user.uid, tenantId);
 
       if (!result.success) {
         setError(`Failed to initialize Chart of Accounts: ${result.error}`);
@@ -112,7 +112,7 @@ export default function ChartOfAccountsPage() {
     };
 
     initializeIfEmpty();
-  }, [accounts.length, hasViewAccess, canManage, user, entityId, loading, initializing]);
+  }, [accounts.length, hasViewAccess, canManage, user, tenantId, loading, initializing]);
 
   // Load accounts from Firestore
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function ChartOfAccountsPage() {
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
 
     // Query accounts ordered by code, filtered by entityId for multi-tenancy
-    const q = query(accountsRef, where('entityId', '==', entityId), orderBy('code', 'asc'));
+    const q = query(accountsRef, where('tenantId', '==', tenantId), orderBy('code', 'asc'));
 
     // Subscribe to real-time updates
     const unsubscribe = onSnapshot(
@@ -178,7 +178,7 @@ export default function ChartOfAccountsPage() {
     );
 
     return () => unsubscribe();
-  }, [hasViewAccess, entityId]);
+  }, [hasViewAccess, tenantId]);
 
   // Tree-aware filtering to maintain hierarchy
   const filteredAccounts = useMemo(() => {
@@ -392,7 +392,7 @@ export default function ChartOfAccountsPage() {
                     onClick={async () => {
                       if (!user) return;
                       setInitializing(true);
-                      const result = await initializeChartOfAccounts(user.uid, entityId);
+                      const result = await initializeChartOfAccounts(user.uid, tenantId);
                       if (!result.success) {
                         setError(`Failed to initialize: ${result.error}`);
                       }

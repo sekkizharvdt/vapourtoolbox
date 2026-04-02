@@ -141,14 +141,14 @@ export default function LeaveTypesTab() {
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
-  const entityId = claims?.entityId || '';
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const data = await getLeaveTypes(entityId, true); // Include inactive
+      const data = await getLeaveTypes(tenantId, true); // Include inactive
       setLeaveTypes(data);
     } catch (err) {
       console.error('Failed to load leave types:', err);
@@ -156,7 +156,7 @@ export default function LeaveTypesTab() {
     } finally {
       setLoading(false);
     }
-  }, [entityId]);
+  }, [tenantId]);
 
   useEffect(() => {
     loadData();

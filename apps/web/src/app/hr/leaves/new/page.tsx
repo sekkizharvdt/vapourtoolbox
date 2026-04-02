@@ -77,7 +77,7 @@ export default function NewLeaveRequestPage() {
       const nextYear = new Date(today.getFullYear() + 1, 11, 31);
 
       const [typesData, balancesData, holidaysData] = await Promise.all([
-        getLeaveTypes(claims?.entityId || ''),
+        getLeaveTypes(claims?.tenantId || 'default-entity'),
         getUserLeaveBalances(user.uid, fiscalYear),
         getAllHolidaysInRange(today, nextYear),
       ]);

@@ -184,7 +184,7 @@ export async function createGoodsReceipt(
             packingListNumber: undefined,
             projectId: input.projectId,
             projectName: input.projectName,
-            entityId: poDoc.data()?.entityId || '',
+            tenantId: poDoc.data()?.tenantId || '',
             inspectionType: input.inspectionType,
             inspectionLocation: input.inspectionLocation,
             inspectionDate: Timestamp.fromDate(input.inspectionDate),
@@ -698,7 +698,7 @@ export async function approveGRForPayment(
 // ============================================================================
 
 export interface ListGoodsReceiptsFilters {
-  entityId?: string;
+  tenantId?: string;
   status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'ISSUES_FOUND';
   purchaseOrderId?: string;
   projectId?: string;
@@ -712,8 +712,8 @@ export async function listGoodsReceipts(
 
   const constraints: ReturnType<typeof where>[] = [];
 
-  if (filters.entityId) {
-    constraints.push(where('entityId', '==', filters.entityId));
+  if (filters.tenantId) {
+    constraints.push(where('tenantId', '==', filters.tenantId));
   }
   if (filters.status) {
     constraints.push(where('status', '==', filters.status));

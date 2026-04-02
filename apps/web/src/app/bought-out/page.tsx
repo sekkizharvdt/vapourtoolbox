@@ -56,14 +56,14 @@ export default function BoughtOutPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<BoughtOutCategory | 'ALL'>('ALL');
 
-  // Single-tenant: Use 'company' as entityId
-  const entityId = 'company';
+  // Single-tenant: default-entity (must match tenantId claim for Firestore rules)
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const loadItems = useCallback(async () => {
     try {
       setLoading(true);
       const options: ListBoughtOutItemsOptions = {
-        entityId,
+        tenantId,
         isActive: true,
       };
 
@@ -78,7 +78,7 @@ export default function BoughtOutPage() {
     } finally {
       setLoading(false);
     }
-  }, [db, categoryFilter]);
+  }, [db, categoryFilter, tenantId]);
 
   useEffect(() => {
     loadItems();

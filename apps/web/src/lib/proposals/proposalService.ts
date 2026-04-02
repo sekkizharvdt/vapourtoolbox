@@ -133,7 +133,7 @@ export async function createProposal(
       revision: 1,
       enquiryId: input.enquiryId,
       enquiryNumber: enquiry.enquiryNumber,
-      entityId: input.entityId,
+      tenantId: input.tenantId,
       clientId: input.clientId,
       clientName: client.name || '',
       clientContactPerson: enquiry.clientContactPerson,
@@ -189,7 +189,7 @@ export async function createProposal(
  * Minimal proposal creation input (simplified for Phase 2 workflow)
  */
 export interface CreateMinimalProposalInput {
-  entityId: string;
+  tenantId: string;
   enquiryId: string;
   title: string;
   clientId: string;
@@ -238,7 +238,7 @@ export async function createMinimalProposal(
       revision: 1,
       enquiryId: input.enquiryId,
       enquiryNumber: enquiry.enquiryNumber,
-      entityId: input.entityId,
+      tenantId: input.tenantId,
       clientId: input.clientId,
       clientName: client.name || '',
       clientContactPerson: enquiry.clientContactPerson,
@@ -395,7 +395,7 @@ export async function listProposals(
   options: ListProposalsOptions
 ): Promise<Proposal[]> {
   try {
-    let q = query(collection(db, COLLECTIONS.PROPOSALS), where('entityId', '==', options.entityId));
+    let q = query(collection(db, COLLECTIONS.PROPOSALS), where('tenantId', '==', options.tenantId));
 
     // Only latest revisions by default
     if (options.isLatestRevision !== false) {
@@ -644,7 +644,7 @@ export async function getProposalsCountByStatus(
   try {
     const q = query(
       collection(db, COLLECTIONS.PROPOSALS),
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('isLatestRevision', '==', true)
     );
     const snapshot = await getDocs(q);
@@ -742,7 +742,7 @@ export async function cloneProposal(
       revision: 1,
       enquiryId,
       enquiryNumber,
-      entityId: sourceProposal.entityId,
+      tenantId: sourceProposal.tenantId,
       clientId,
       clientName,
       clientContactPerson,

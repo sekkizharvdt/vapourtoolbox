@@ -75,15 +75,15 @@ export default function DepreciationRunPage() {
   } | null>(null);
 
   const canManage = claims?.permissions ? canManageAccounting(claims.permissions) : false;
-  const entityId = claims?.entityId;
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const handlePreview = useCallback(async () => {
-    if (!entityId) return;
+    if (!tenantId) return;
     try {
       setPreviewing(true);
       setError(null);
       setResult(null);
-      const data = await previewDepreciation(entityId);
+      const data = await previewDepreciation(tenantId);
       setPreview(data);
       if (data.items.length === 0) {
         setError('No active assets to depreciate.');
@@ -94,16 +94,16 @@ export default function DepreciationRunPage() {
     } finally {
       setPreviewing(false);
     }
-  }, [entityId]);
+  }, [tenantId]);
 
   const handlePost = useCallback(async () => {
-    if (!user || !claims?.permissions || !entityId) return;
+    if (!user || !claims?.permissions || !tenantId) return;
 
     try {
       setPosting(true);
       setError(null);
 
-      const res = await runDepreciation(entityId, month, year, user.uid, claims.permissions);
+      const res = await runDepreciation(tenantId, month, year, user.uid, claims.permissions);
 
       setResult(res);
       setPreview(null);
@@ -117,7 +117,7 @@ export default function DepreciationRunPage() {
     } finally {
       setPosting(false);
     }
-  }, [user, claims, entityId, month, year, toast]);
+  }, [user, claims, tenantId, month, year, toast]);
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
 

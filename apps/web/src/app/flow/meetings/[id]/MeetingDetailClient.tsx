@@ -68,7 +68,7 @@ export default function MeetingDetailClient() {
   const { toast } = useToast();
 
   const meetingId = params.id as string;
-  const entityId = claims?.entityId || 'default-entity';
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [actionItems, setActionItems] = useState<MeetingActionItem[]>([]);
@@ -118,7 +118,7 @@ export default function MeetingDetailClient() {
         meetingId,
         user.uid,
         user.displayName || user.email || 'Unknown',
-        entityId
+        tenantId
       );
 
       // Reload meeting to get updated status
@@ -131,7 +131,7 @@ export default function MeetingDetailClient() {
     } finally {
       setFinalizing(false);
     }
-  }, [db, user, meeting, meetingId, entityId, toast]);
+  }, [db, user, meeting, meetingId, tenantId, toast]);
 
   // FL-23: Delete draft meeting with confirmation
   const handleDelete = useCallback(async () => {

@@ -244,8 +244,8 @@ export async function listTravelExpenseReports(
   try {
     const constraints: QueryConstraint[] = [];
 
-    if (filters.entityId) {
-      constraints.push(where('entityId', '==', filters.entityId));
+    if (filters.tenantId) {
+      constraints.push(where('tenantId', '==', filters.tenantId));
     }
 
     if (filters.employeeId) {

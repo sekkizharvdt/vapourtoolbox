@@ -152,21 +152,21 @@ export default function TaxCompliancePage() {
         address: companyAddress,
       };
 
-      const entityId = claims?.entityId || '';
+      const tenantId = claims?.tenantId || 'default-entity';
 
       // Generate Form 26Q (Quarterly Return)
-      const form26q = await generateForm26Q(db, entityId, quarter, financialYear, deductorDetails);
+      const form26q = await generateForm26Q(db, tenantId, quarter, financialYear, deductorDetails);
       setForm26qData(form26q);
 
       // Get list of deductees for Form 16A selection
-      const deducteesList = await getDeducteesWithTDS(db, entityId, quarter, financialYear);
+      const deducteesList = await getDeducteesWithTDS(db, tenantId, quarter, financialYear);
       setDeductees(deducteesList);
 
       // If there's a selected deductee, generate Form 16A
       if (selectedDeducteeId) {
         const form16a = await generateForm16A(
           db,
-          entityId,
+          tenantId,
           selectedDeducteeId,
           quarter,
           financialYear,
@@ -199,8 +199,8 @@ export default function TaxCompliancePage() {
 
     try {
       const { db } = getFirebase();
-      const entityId = claims?.entityId || '';
-      const form16a = await generateForm16A(db, entityId, deducteeId, quarter, financialYear, {
+      const tenantId = claims?.tenantId || 'default-entity';
+      const form16a = await generateForm16A(db, tenantId, deducteeId, quarter, financialYear, {
         name: companyName,
         tan: companyTAN,
         pan: companyPAN,

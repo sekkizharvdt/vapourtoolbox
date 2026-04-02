@@ -5,7 +5,7 @@
  * Finalization creates ManualTasks from action items via batch write.
  *
  * **Required Firestore Composite Indexes:**
- * - meetings: (entityId, status, date DESC)
+ * - meetings: (tenantId, status, date DESC)
  * - meetingActionItems: (meetingId, createdAt ASC)
  */
 
@@ -59,7 +59,7 @@ function docToMeeting(id: string, data: DocumentData): Meeting {
     finalizedAt: data.finalizedAt,
     projectId: data.projectId,
     projectName: data.projectName,
-    entityId: data.entityId,
+    tenantId: data.tenantId,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
@@ -92,7 +92,7 @@ export async function createMeeting(
   input: CreateMeetingInput,
   userId: string,
   userName: string,
-  entityId: string
+  tenantId: string
 ): Promise<Meeting> {
   const now = Timestamp.now();
 
@@ -110,7 +110,7 @@ export async function createMeeting(
     status: 'draft',
     ...(input.projectId && { projectId: input.projectId }),
     ...(input.projectName && { projectName: input.projectName }),
-    entityId,
+    tenantId,
     createdAt: now,
   };
 
@@ -131,7 +131,7 @@ export async function createMeeting(
     status: 'draft',
     projectId: input.projectId,
     projectName: input.projectName,
-    entityId,
+    tenantId,
     createdAt: now,
   };
 }
@@ -232,13 +232,13 @@ export async function deleteMeeting(
  */
 export function subscribeToMeetings(
   db: Firestore,
-  entityId: string,
+  tenantId: string,
   callback: (meetings: Meeting[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
   const q = query(
     collection(db, COLLECTIONS.MEETINGS),
-    where('entityId', '==', entityId),
+    where('tenantId', '==', tenantId),
     orderBy('date', 'desc')
   );
 
@@ -362,7 +362,7 @@ export async function finalizeMeeting(
   meetingId: string,
   userId: string,
   userName: string,
-  entityId: string
+  tenantId: string
 ): Promise<number> {
   // Verify meeting exists and is in draft status (FL-11)
   const meeting = await getMeetingById(db, meetingId);
@@ -434,7 +434,7 @@ export async function finalizeMeeting(
         priority: item.priority || ('MEDIUM' as ManualTaskPriority),
         ...(item.dueDate && { dueDate: item.dueDate }),
         meetingId,
-        entityId,
+        tenantId,
         createdAt: now,
       };
 

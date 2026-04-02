@@ -160,7 +160,7 @@ export async function createBOM(
       name: input.name,
       description: input.description,
       category: input.category,
-      entityId: input.entityId,
+      tenantId: input.tenantId,
       projectId: input.projectId,
       projectName: input.projectName,
       // Proposal/Enquiry linkage for traceability
@@ -290,22 +290,22 @@ export async function deleteBOM(db: Firestore, bomId: string): Promise<void> {
 export async function listBOMs(
   db: Firestore,
   options: {
-    entityId: string;
+    tenantId: string;
     projectId?: string;
     category?: BOMCategory;
     status?: BOMStatus;
     limit?: number;
   }
 ): Promise<BOM[]> {
-  if (!options.entityId) {
-    throw new Error('entityId is required to list BOMs');
+  if (!options.tenantId) {
+    throw new Error('tenantId is required to list BOMs');
   }
 
   try {
     logger.info('Listing BOMs', options);
 
     const bomsRef = collection(db, COLLECTIONS.BOMS);
-    let q = query(bomsRef, where('entityId', '==', options.entityId));
+    let q = query(bomsRef, where('tenantId', '==', options.tenantId));
 
     if (options.projectId) {
       q = query(q, where('projectId', '==', options.projectId));
@@ -536,7 +536,7 @@ export async function recalculateBOMSummary(
   try {
     logger.info('Recalculating BOM summary', { bomId });
 
-    // Get BOM to retrieve entityId for cost configuration
+    // Get BOM to retrieve tenantId for cost configuration
     const bom = await getBOMById(db, bomId);
     if (!bom) {
       throw new Error(`BOM not found: ${bomId}`);
@@ -589,7 +589,7 @@ export async function recalculateBOMSummary(
       summary.totalServiceCost.amount;
 
     // Phase 4: Fetch active cost configuration and apply indirect costs
-    const costConfig = await getActiveCostConfiguration(db, bom.entityId);
+    const costConfig = await getActiveCostConfiguration(db, bom.tenantId);
 
     if (costConfig) {
       // Store cost config reference for audit trail
@@ -669,7 +669,7 @@ export async function recalculateBOMSummary(
       // No cost configuration - total cost is just direct costs
       summary.totalCost.amount = summary.totalDirectCost.amount;
       logger.warn('No active cost configuration found for entity', {
-        entityId: bom.entityId,
+        tenantId: bom.tenantId,
         bomId,
       });
     }

@@ -259,7 +259,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -291,7 +291,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -993,7 +993,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -1875,7 +1875,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -1893,7 +1893,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -1907,7 +1907,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -1979,7 +1979,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -1997,7 +1997,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2011,7 +2011,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2025,7 +2025,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2043,7 +2043,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2061,7 +2061,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2079,7 +2079,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2111,7 +2111,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2147,7 +2147,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2197,7 +2197,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -2215,7 +2215,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -3985,7 +3985,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4007,7 +4007,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4025,7 +4025,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4039,7 +4039,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4107,7 +4107,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4121,7 +4121,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4139,7 +4139,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4153,7 +4153,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4171,7 +4171,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4185,7 +4185,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4203,7 +4203,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4217,7 +4217,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4231,7 +4231,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4277,7 +4277,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4295,7 +4295,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4313,7 +4313,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {
@@ -4349,7 +4349,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
+          "fieldPath": "tenantId",
           "order": "ASCENDING"
         },
         {

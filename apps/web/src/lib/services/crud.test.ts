@@ -82,7 +82,7 @@ describe('Service Catalog CRUD Operations', () => {
     serviceCode: '',
     category: 'TESTING' as ServiceCategory,
     calculationMethod: 'PERCENTAGE_OF_MATERIAL' as Service['calculationMethod'],
-    entityId: 'default-entity',
+    tenantId: 'default-entity',
     description: 'Moisture, volatile matter, ash, fixed carbon analysis',
     isActive: true,
     isStandard: false,

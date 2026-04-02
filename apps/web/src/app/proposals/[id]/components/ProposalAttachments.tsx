@@ -153,7 +153,7 @@ export default function ProposalAttachments({
 
         await uploadProposalAttachment(db, {
           proposalId: proposal.id,
-          entityId: proposal.entityId,
+          entityId: proposal.tenantId,
           file,
           fileType,
           description: description || undefined,

@@ -274,7 +274,7 @@ export interface Enquiry extends TimestampFields {
   enquiryNumber: string; // ENQ-2025-0001
 
   // Organization
-  entityId: string; // Company/entity this enquiry belongs to
+  tenantId: string; // Company/entity this enquiry belongs to
 
   // Client Information
   clientId: string; // Link to BusinessEntity
@@ -326,7 +326,7 @@ export interface Enquiry extends TimestampFields {
  * Create Enquiry Input
  */
 export interface CreateEnquiryInput {
-  entityId: string;
+  tenantId: string;
   clientId: string;
   clientContactPerson: string;
   clientEmail: string;
@@ -375,7 +375,7 @@ export interface UpdateEnquiryInput {
  * List Enquiries Options
  */
 export interface ListEnquiriesOptions {
-  entityId: string;
+  tenantId: string;
   status?: EnquiryStatus | EnquiryStatus[];
   assignedToUserId?: string;
   clientId?: string;

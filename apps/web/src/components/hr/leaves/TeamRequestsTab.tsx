@@ -57,7 +57,7 @@ export default function TeamRequestsTab() {
               : undefined;
 
       const data = await listLeaveRequests({
-        entityId: claims?.entityId,
+        tenantId: claims?.tenantId,
         status: statusFilter,
         limit: 50,
       });

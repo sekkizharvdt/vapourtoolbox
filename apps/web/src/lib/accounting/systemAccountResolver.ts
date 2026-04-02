@@ -90,7 +90,7 @@ export async function getSystemAccountIds(
 
     const q = query(
       accountsRef,
-      where('entityId', '==', entityId),
+      where('tenantId', '==', entityId),
       where('code', 'in', systemCodes)
     );
     const snapshot = await getDocs(q);

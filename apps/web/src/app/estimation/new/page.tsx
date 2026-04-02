@@ -33,8 +33,8 @@ import type { BOMCategory, CreateBOMInput } from '@vapour/types';
 
 const logger = createLogger({ context: 'NewBOMPage' });
 
-// Fallback entity ID for users without entity assignment
-const FALLBACK_ENTITY_ID = 'default-entity';
+// Fallback tenant ID for users without tenant assignment
+const FALLBACK_TENANT_ID = 'default-entity';
 
 // Category options
 const categories: { value: BOMCategory; label: string }[] = [
@@ -57,8 +57,8 @@ function NewBOMPageContent() {
   const { user, claims } = useAuth();
   const { db } = getFirebase();
 
-  // Get entity ID from claims or use fallback
-  const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
+  // Get tenant ID from claims or use fallback
+  const tenantId = claims?.tenantId || FALLBACK_TENANT_ID;
 
   // Extract proposal context from query params (for linking to proposals)
   const proposalId = searchParams.get('proposalId');
@@ -70,7 +70,7 @@ function NewBOMPageContent() {
 
   const hasProposalContext = !!(proposalId && proposalNumber);
 
-  const [formData, setFormData] = useState<Omit<CreateBOMInput, 'entityId'>>({
+  const [formData, setFormData] = useState<Omit<CreateBOMInput, 'tenantId'>>({
     name: '',
     description: '',
     category: 'HEAT_EXCHANGER' as BOMCategory,
@@ -122,7 +122,7 @@ function NewBOMPageContent() {
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        entityId,
+        tenantId,
         ...(formData.projectId && { projectId: formData.projectId }),
         ...(formData.projectName && { projectName: formData.projectName }),
         ...(formData.proposalId && { proposalId: formData.proposalId }),
@@ -132,7 +132,11 @@ function NewBOMPageContent() {
       };
 
       const bom = await createBOM(db, input, user.uid);
-      logger.info('BOM created', { bomId: bom.id, bomCode: bom.bomCode, proposalId: input.proposalId });
+      logger.info('BOM created', {
+        bomId: bom.id,
+        bomCode: bom.bomCode,
+        proposalId: input.proposalId,
+      });
 
       // Navigate to BOM editor
       router.push(`/estimation/${bom.id}`);

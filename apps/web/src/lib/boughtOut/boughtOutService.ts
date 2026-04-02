@@ -45,7 +45,7 @@ export async function createBoughtOutItem(
     itemCode,
     name: input.name,
     category: input.category,
-    entityId: input.entityId,
+    tenantId: input.tenantId,
     specifications: input.specifications,
     isActive: true,
     createdAt: now,
@@ -100,7 +100,7 @@ export async function listBoughtOutItems(
 ): Promise<BoughtOutItem[]> {
   let q = query(
     collection(db, COLLECTIONS.BOUGHT_OUT_ITEMS),
-    where('entityId', '==', options.entityId)
+    where('tenantId', '==', options.tenantId)
   );
 
   if (options.category) {

@@ -80,7 +80,7 @@ export async function generateCashFlowStatement(
 
   // Get bank/cash accounts
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+  const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
   const accountsSnapshot = await getDocs(accountsQuery);
   const cashAccounts = new Set<string>();
   const assetAccounts = new Set<string>();
@@ -286,7 +286,7 @@ export async function generateCashFlowStatement(
  */
 async function getCashBalance(db: Firestore, _date: Date, entityId: string): Promise<number> {
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+  const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
   const snapshot = await getDocs(accountsQuery);
 
   let totalCash = 0;

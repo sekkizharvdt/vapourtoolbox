@@ -74,7 +74,7 @@ describe('projectService', () => {
       expect(result[0]!.id).toBe('proj-1');
 
       // Check query construction
-      expect(where).toHaveBeenCalledWith('entityId', '==', 'entity-1');
+      expect(where).toHaveBeenCalledWith('tenantId', '==', 'entity-1');
       expect(orderBy).toHaveBeenCalledWith('createdAt', 'desc');
     });
 
@@ -93,7 +93,7 @@ describe('projectService', () => {
 
       await getProjectsByStatus('entity-1', 'IN_PROGRESS');
 
-      expect(where).toHaveBeenCalledWith('entityId', '==', 'entity-1');
+      expect(where).toHaveBeenCalledWith('tenantId', '==', 'entity-1');
       expect(where).toHaveBeenCalledWith('status', '==', 'IN_PROGRESS');
     });
 
@@ -112,7 +112,7 @@ describe('projectService', () => {
 
       await getActiveProjects('entity-1');
 
-      expect(where).toHaveBeenCalledWith('entityId', '==', 'entity-1');
+      expect(where).toHaveBeenCalledWith('tenantId', '==', 'entity-1');
       expect(where).toHaveBeenCalledWith('status', 'in', ['PLANNING', 'IN_PROGRESS', 'ON_HOLD']);
     });
 
@@ -189,7 +189,7 @@ describe('projectService', () => {
       const result = await getProjectsForUser('entity-1', 'user-1', 0);
 
       expect(result).toHaveLength(2);
-      expect(where).toHaveBeenCalledWith('entityId', '==', 'entity-1');
+      expect(where).toHaveBeenCalledWith('tenantId', '==', 'entity-1');
       expect(documentId).toHaveBeenCalled();
       expect(orderBy).toHaveBeenCalledWith('createdAt', 'desc');
     });

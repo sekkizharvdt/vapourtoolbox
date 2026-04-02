@@ -43,7 +43,7 @@ export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const entityId = claims?.entityId || 'default-entity';
+  const tenantId = claims?.tenantId || 'default-entity';
 
   useEffect(() => {
     if (!db) return;
@@ -52,7 +52,7 @@ export default function MeetingsPage() {
 
     const unsubscribe = subscribeToMeetings(
       db,
-      entityId,
+      tenantId,
       (updated) => {
         setMeetings(updated);
         setLoading(false);
@@ -63,7 +63,7 @@ export default function MeetingsPage() {
     );
 
     return () => unsubscribe();
-  }, [db, entityId]);
+  }, [db, tenantId]);
 
   if (loading) {
     return (

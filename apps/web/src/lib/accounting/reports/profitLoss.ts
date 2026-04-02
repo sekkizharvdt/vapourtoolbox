@@ -103,7 +103,7 @@ export async function generateProfitLossReport(
 
     // Fetch all accounts for reference
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-    const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+    const accountsQuery = query(accountsRef, where('tenantId', '==', entityId));
     const accountsSnapshot = await getDocs(accountsQuery);
 
     // Build account lookup map

@@ -111,7 +111,7 @@ export async function createOffer(
   if (input.packingForwarding) offerData.packingForwarding = input.packingForwarding;
   if (input.insurance) offerData.insurance = input.insurance;
   if (input.erectionAfterPurchase) offerData.erectionAfterPurchase = input.erectionAfterPurchase;
-  if (input.entityId) offerData.entityId = input.entityId;
+  if (input.tenantId) offerData.tenantId = input.tenantId;
 
   const offerRef = await addDoc(collection(db, COLLECTIONS.OFFERS), offerData);
 

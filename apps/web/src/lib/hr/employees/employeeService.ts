@@ -37,7 +37,7 @@ export async function getAllEmployees(entityId?: string): Promise<EmployeeListIt
   try {
     const constraints = [
       where('isActive', '==', true),
-      ...(entityId ? [where('entityId', '==', entityId)] : []),
+      ...(entityId ? [where('tenantId', '==', entityId)] : []),
       orderBy('displayName', 'asc'),
     ];
 

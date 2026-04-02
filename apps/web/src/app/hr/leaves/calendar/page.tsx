@@ -74,7 +74,7 @@ export default function LeaveCalendarPage() {
       const end = new Date(year, month + 1, 0);
 
       const [leaveData, holidayData] = await Promise.all([
-        getTeamCalendar(start, end, claims?.entityId),
+        getTeamCalendar(start, end, claims?.tenantId),
         getAllHolidaysInRange(start, end),
       ]);
 

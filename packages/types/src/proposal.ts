@@ -711,7 +711,7 @@ export interface Proposal extends TimestampFields {
   enquiryNumber: string; // Denormalized
 
   // Organization
-  entityId: string;
+  tenantId: string;
 
   // Client Information (copied from enquiry)
   clientId: string;
@@ -806,7 +806,7 @@ export interface Proposal extends TimestampFields {
  * Create Proposal Input
  */
 export interface CreateProposalInput {
-  entityId: string;
+  tenantId: string;
   enquiryId: string;
   title: string;
   clientId: string;
@@ -844,7 +844,7 @@ export interface UpdateProposalInput {
  * List Proposals Options
  */
 export interface ListProposalsOptions {
-  entityId: string;
+  tenantId: string;
   enquiryId?: string;
   status?: ProposalStatus | ProposalStatus[];
   clientId?: string;
@@ -872,7 +872,7 @@ export interface ProposalTemplate {
   category?: string; // e.g., "Heat Exchanger", "Condenser", "General"
 
   // Organization
-  entityId: string;
+  tenantId: string;
 
   // Template content
   unifiedScopeMatrix?: UnifiedScopeMatrix;
@@ -921,7 +921,7 @@ export interface CreateProposalTemplateInput {
  * List Proposal Templates Options
  */
 export interface ListProposalTemplatesOptions {
-  entityId: string;
+  tenantId: string;
   category?: string;
   isActive?: boolean;
   searchTerm?: string;

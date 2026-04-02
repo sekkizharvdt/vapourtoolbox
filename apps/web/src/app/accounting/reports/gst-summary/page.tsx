@@ -80,9 +80,9 @@ export default function GSTSummaryPage() {
     setLoading(true);
     setData(null);
     try {
-      const entityId = claims?.entityId || 'default-entity';
+      const tenantId = claims?.tenantId || 'default-entity';
       const { db } = getFirebase();
-      const accounts = await getSystemAccountIds(db, entityId);
+      const accounts = await getSystemAccountIds(db, tenantId);
 
       // Validate that GST accounts exist
       const missingAccounts: string[] = [];
@@ -160,7 +160,7 @@ export default function GSTSummaryPage() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, claims?.entityId]);
+  }, [startDate, endDate, claims?.tenantId]);
 
   const handleToggleExpand = (gstType: string, side: 'input' | 'output') => {
     if (expandedRow === gstType && expandedSide === side) {

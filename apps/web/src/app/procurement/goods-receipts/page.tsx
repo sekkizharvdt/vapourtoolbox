@@ -99,7 +99,7 @@ export default function GoodsReceiptsPage() {
     setError('');
     try {
       const filters = {
-        ...(claims?.entityId ? { entityId: claims.entityId } : {}),
+        ...(claims?.tenantId ? { tenantId: claims.tenantId } : {}),
         ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
       };
       const data = await listGoodsReceipts(filters);

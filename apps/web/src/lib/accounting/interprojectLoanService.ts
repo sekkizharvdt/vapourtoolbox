@@ -67,7 +67,7 @@ export interface CreateInterprojectLoanInput {
   notes?: string;
   userId: string;
   userName: string;
-  entityId: string;
+  tenantId: string;
 }
 
 /**
@@ -81,7 +81,7 @@ export interface RecordRepaymentInput {
   notes?: string;
   userId: string;
   userName: string;
-  entityId: string;
+  tenantId: string;
 }
 
 /**

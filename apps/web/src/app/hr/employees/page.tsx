@@ -67,7 +67,7 @@ export default function EmployeeDirectoryPage() {
 
     try {
       const [employeesData, departmentsData] = await Promise.all([
-        getAllEmployees(claims?.entityId),
+        getAllEmployees(claims?.tenantId),
         getDepartments(),
       ]);
       setEmployees(employeesData);

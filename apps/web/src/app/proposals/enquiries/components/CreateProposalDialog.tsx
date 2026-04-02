@@ -69,11 +69,11 @@ export function CreateProposalDialog({
       setSubmitting(true);
       setError('');
 
-      // Use entityId from the enquiry (all enquiries have entityId)
+      // Use tenantId from the enquiry (all enquiries have tenantId)
       const proposal = await createMinimalProposal(
         db,
         {
-          entityId: enquiry.entityId,
+          tenantId: enquiry.tenantId,
           enquiryId: enquiry.id,
           title: title.trim(),
           clientId: enquiry.clientId,
@@ -114,9 +114,7 @@ export function CreateProposalDialog({
       </DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {error && (
-            <Alert severity="error">{error}</Alert>
-          )}
+          {error && <Alert severity="error">{error}</Alert>}
 
           <Alert severity="info">
             This will create a new proposal linked to this enquiry. You can then define the scope,
@@ -173,11 +171,7 @@ export function CreateProposalDialog({
         <Button onClick={handleClose} disabled={submitting}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
+        <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
           {submitting ? 'Creating...' : 'Create Proposal'}
         </Button>
       </DialogActions>
