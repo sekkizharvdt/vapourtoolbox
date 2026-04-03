@@ -693,13 +693,121 @@ export interface MEDPlantInputs {
   tvcEntrainedEffect?: number;
 }
 
+// ---- Detailed per-zone balances for each MED effect ----
+
 /**
- * Result for a single evaporator effect
+ * Tube side balance for a single MED effect.
+ *
+ * Tube side receives vapor from the previous effect's demister (or motive steam
+ * for effect 1). The vapor condenses inside the tubes, releasing latent heat to
+ * the shell side. Distillate from the previous effect's tube side enters via
+ * siphon and may flash at the lower pressure. NCGs are vented with carrier steam
+ * to the shell side of the same effect.
+ */
+export interface MEDTubeSideBalance {
+  /** Vapor entering tube side (from previous effect demister or motive steam) */
+  vaporIn: MEDStream;
+  /** Distillate from previous effect tube side (via siphon) — null for effect 1 */
+  distillateIn: MEDStream | null;
+  /** NCG mass entering with vapor in kg/hr */
+  ncgIn: number;
+
+  /** Distillate flash vapor produced when siphoned distillate enters lower pressure in kg/hr */
+  distillateFlashVapor: number;
+  /** Combined condensate + distillate leaving to next effect tube side via siphon */
+  condensateOut: MEDStream;
+  /** NCG vented to shell side in kg/hr */
+  ncgVent: number;
+  /** Carrier steam accompanying NCG vent in kg/hr */
+  carrierSteam: number;
+
+  /** Net heat released to shell side in kW */
+  heatReleased: number;
+
+  /** Total mass in (kg/hr) */
+  massIn: number;
+  /** Total mass out (kg/hr) */
+  massOut: number;
+  /** Total energy in (kW) */
+  energyIn: number;
+  /** Total energy out (kW) */
+  energyOut: number;
+}
+
+/**
+ * Shell side spray zone balance.
+ *
+ * Fresh seawater + recirculated brine from the last effect is sprayed over the
+ * tube bundle as a falling film. The liquid heats up to saturation (sensible
+ * heating) and then evaporates (latent heat absorption). Dissolved gases from
+ * the seawater are released into the vapor space.
+ */
+export interface MEDShellSprayZone {
+  /** Fresh seawater spray */
+  seawaterIn: MEDStream;
+  /** Recirculated brine from last effect for wetting rate */
+  recircBrineIn: MEDStream;
+  /** Heat absorbed from tube side in kW */
+  heatAbsorbed: number;
+
+  /** Vapor produced by evaporation */
+  vaporProduced: MEDStream;
+  /** Brine remaining after evaporation (to bottom pool) */
+  brineOut: MEDStream;
+  /** Dissolved gases released from seawater in kg/hr */
+  ncgReleased: number;
+
+  /** Sensible heat used to raise spray to saturation in kW */
+  sensibleHeat: number;
+  /** Latent heat used for evaporation in kW */
+  latentHeat: number;
+
+  /** Total mass in (kg/hr) */
+  massIn: number;
+  /** Total mass out (kg/hr) */
+  massOut: number;
+  /** Total energy in (kW) */
+  energyIn: number;
+  /** Total energy out (kW) */
+  energyOut: number;
+}
+
+/**
+ * Shell side flash zone balance.
+ *
+ * Cascaded brine from previous effect(s) enters the bottom of the shell at
+ * a higher temperature/pressure. At the current effect's lower pressure, a
+ * small fraction flashes to vapor. The remaining brine joins the bottom pool.
+ * Effect 1 has no flash zone (no incoming brine).
+ */
+export interface MEDShellFlashZone {
+  /** Cascaded brine from previous effects — null for effect 1 */
+  brineIn: MEDStream | null;
+  /** Flash vapor produced — null for effect 1 */
+  flashVapor: MEDStream | null;
+  /** Flashed brine joining bottom pool — null for effect 1 */
+  brineOut: MEDStream | null;
+  /** Flash fraction (mass fraction of brine that vaporises) */
+  flashFraction: number;
+
+  /** Total mass in (kg/hr) */
+  massIn: number;
+  /** Total mass out (kg/hr) */
+  massOut: number;
+  /** Total energy in (kW) */
+  energyIn: number;
+  /** Total energy out (kW) */
+  energyOut: number;
+}
+
+/**
+ * Result for a single evaporator effect — with detailed tube-side / shell-side
+ * balances.
  */
 export interface MEDEffectResult {
   /** Effect number (1 = hottest) */
   effectNumber: number;
-  /** Effect operating temperature in °C (brine boiling temperature) */
+  /** Effect operating temperature in °C (pure-water saturation temperature) */
   temperature: number;
   /** Saturation pressure at this temperature in bar abs */
   pressure: number;
@@ -712,31 +820,49 @@ export interface MEDEffectResult {
   /** Net working ΔT for heat transfer in °C */
   effectiveDeltaT: number;
 
-  // --- Streams ---
-  /** Vapor entering tube side (from previous effect or steam) */
+  // --- Detailed zone balances ---
+  /** Tube side heat & mass balance */
+  tubeSide: MEDTubeSideBalance;
+  /** Shell side spray zone (falling film evaporation) */
+  shellSprayZone: MEDShellSprayZone;
+  /** Shell side flash zone (cascaded brine flash) */
+  shellFlashZone: MEDShellFlashZone;
+
+  // --- Combined outputs (leaving the effect) ---
+  /** Total vapor leaving through demister → next effect tube side
+   *  (spray vapor + flash vapor + distillate flash vapor + NCG from tube vent + NCG from seawater) */
+  totalVaporOut: MEDStream;
+  /** Total brine leaving bottom pool → next effect shell side
+   *  (spray zone brine + flash zone brine) */
+  totalBrineOut: MEDStream;
+  /** Distillate/condensate leaving tube side → next effect tube side via siphon */
+  distillateOut: MEDStream;
+
+  // --- Backward-compatible flat fields (used by equipmentSizing, UI summary) ---
+  /** Vapor entering tube side (alias for tubeSide.vaporIn) */
   vaporIn: MEDStream;
-  /** Feed water sprayed on shell side */
+  /** Feed water sprayed on shell side (alias for shellSprayZone.seawaterIn) */
   sprayWater: MEDStream;
-  /** Brine entering (reserved, always null — parallel feed only) */
+  /** Brine entering from previous effects (alias for shellFlashZone.brineIn) */
   brineIn: MEDStream | null;
-  /** Distillate cascading in from previous effects */
+  /** Distillate cascading in on tube side (alias for tubeSide.distillateIn) */
   distillateIn: MEDStream | null;
-  /** Condensate cascading in from previous effects */
+  /** Condensate cascading in (kept for compat — same as distillateIn) */
   condensateIn: MEDStream | null;
-  /** Vapor produced → next effect */
+  /** Vapor produced → next effect (alias for totalVaporOut) */
   vaporOut: MEDStream;
   /** Vapor diverted to preheater (if preheater on this effect) */
   vaporToPreheater: MEDStream | null;
-  /** Brine leaving */
+  /** Brine leaving (alias for totalBrineOut) */
   brineOut: MEDStream;
-  /** Accumulated distillate leaving */
-  distillateOut: MEDStream;
 
   // --- Performance ---
-  /** Heat transferred in this effect in kW */
+  /** Heat transferred in this effect in kW (tube side → shell side) */
   heatTransferred: number;
   /** Mass balance error in kg/hr (should be ≈ 0) */
   massBalance: number;
+  /** Energy balance error in % */
+  energyBalanceError: number;
 }
 
 /**

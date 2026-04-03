@@ -52,6 +52,7 @@ import { SaveCalculationDialog } from '../components/SaveCalculationDialog';
 import { LoadCalculationDialog } from '../components/LoadCalculationDialog';
 import { solveMEDPlant } from '@/lib/thermal/med/medSolver';
 import { sizeEquipment, type EquipmentSizingResult } from '@/lib/thermal/med/equipmentSizing';
+import MEDEffectBalanceTable from './MEDEffectBalanceTable';
 
 // ============================================================================
 // Constants
@@ -1231,6 +1232,9 @@ export default function MEDPlantClient() {
                   </Table>
                 </TableContainer>
               </Paper>
+
+              {/* Detailed Per-Effect H&M Balance (Tube/Shell Side) */}
+              <MEDEffectBalanceTable effects={result.effects} />
 
               {/* Equipment Sizing */}
               {equipmentSizing && (

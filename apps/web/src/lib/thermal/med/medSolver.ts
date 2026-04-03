@@ -5,14 +5,25 @@
  * preheater integration, and final condenser to produce a complete
  * plant heat and mass balance.
  *
+ * Physical model:
+ *   - Parallel seawater feed: each effect receives fresh seawater spray
+ *   - Forward brine cascade: brine accumulates from effect 1 → N
+ *   - Last-effect brine recirculation: pumped back to each effect's spray
+ *     nozzles to maintain adequate tube wetting rate
+ *   - Tube side / shell side separation per effect
+ *   - NCG tracking through the plant
+ *
  * Algorithm:
  * 1. Establish temperature profile across effects
  * 2. Initial guess for steam flow from GOR target
- * 3. Solve all effects sequentially (forward pass)
- * 4. Solve final condenser → determine seawater intake
- * 5. Solve preheater chain → adjust seawater feed temperatures
- * 6. Check convergence (net production vs target capacity)
- * 7. Adjust steam flow using secant method and repeat
+ * 3. Two-level iteration:
+ *    a. Outer loop: adjust steam flow to match target capacity (secant method)
+ *    b. Inner loop: converge last-effect brine recirculation (need last-effect
+ *       brine conditions before we can set recirculation for all effects)
+ * 4. Solve all effects sequentially (forward pass)
+ * 5. Solve final condenser → determine seawater intake
+ * 6. Solve preheater chain → adjust seawater feed temperatures
+ * 7. Build overall balance and performance summary
  *
  * References:
  * - El-Dessouky & Ettouney (2002) "Fundamentals of Salt Water Desalination"
@@ -24,7 +35,10 @@ import {
   getEnthalpyVapor,
   getEnthalpyLiquid,
   getSeawaterEnthalpy,
+  getSeawaterDensity,
   MED_SOLVER_CONFIG,
+  TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
+  ROGNONI_REFERENCE,
 } from '@vapour/constants';
 import type {
   MEDPlantInputs,
@@ -37,10 +51,7 @@ import type {
 import { calculateEffect, makeStream, type EffectInput } from './effectModel';
 import { calculatePreheaterChain } from './preheaterModel';
 import { calculateFinalCondenser } from './finalCondenserModel';
-import {
-  solveTVCIntegration,
-  type TVCIntegrationResult,
-} from './tvcIntegration';
+import { solveTVCIntegration, type TVCIntegrationResult } from './tvcIntegration';
 
 // ============================================================================
 // Validation
@@ -87,8 +98,7 @@ export function validateMEDInputs(inputs: MEDPlantInputs): string[] {
  * The last effect temperature is determined from the condenser approach:
  *   T_last = T_sw_discharge + condenserApproachTemp
  *
- * Temperature spacing is approximately equal, with small adjustments
- * for BPE variation.
+ * Temperature spacing is approximately equal.
  */
 function calculateTemperatureProfile(inputs: MEDPlantInputs): {
   effectTemps: number[];
@@ -99,8 +109,7 @@ function calculateTemperatureProfile(inputs: MEDPlantInputs): {
   const steamTemp = getSaturationTemperature(inputs.steamPressure);
 
   // Last effect temperature — set by condenser approach + discharge temp
-  const lastEffectTemp =
-    inputs.seawaterDischargeTemp + inputs.condenserApproachTemp;
+  const lastEffectTemp = inputs.seawaterDischargeTemp + inputs.condenserApproachTemp;
 
   // Equal ΔT spacing between effects
   const totalDeltaT = inputs.topBrineTemp - lastEffectTemp;
@@ -115,32 +124,98 @@ function calculateTemperatureProfile(inputs: MEDPlantInputs): {
 }
 
 // ============================================================================
+// Wetting Rate — Recirculation Flow Calculation
+// ============================================================================
+
+/**
+ * Calculate the recirculation brine flow needed per effect to satisfy
+ * the minimum wetting rate on the tube bundle.
+ *
+ * Wetting rate Γ = total spray flow / (2 × N_tubes × L_tube)
+ * Target: 1.5 × minimum wetting rate (0.045 kg/(m·s) by default)
+ *
+ * Returns the recirculation flow per effect in kg/hr.
+ * If the seawater feed alone satisfies the wetting rate, returns 0.
+ */
+function calculateRecircFlowPerEffect(
+  seawaterFlowPerEffect: number,
+  inputs: MEDPlantInputs
+): number {
+  // Only calculate recirculation if explicitly enabled
+  if (!inputs.brineRecirculation) return 0;
+
+  const tubeSpec = inputs.evaporatorTubes;
+
+  // Estimate tube count from typical area requirements
+  // For a rough estimate, use Rognoni reference values
+  const avgHeatDutyPerEffect =
+    (inputs.capacity * 1000 * 2400) / (inputs.gorTarget * inputs.numberOfEffects); // kW approx
+  const avgDeltaT =
+    (inputs.topBrineTemp - (inputs.seawaterDischargeTemp + inputs.condenserApproachTemp)) /
+    inputs.numberOfEffects;
+  const avgU = ROGNONI_REFERENCE.evaporatorOverallHTC.midRange;
+  const estArea = avgDeltaT > 0 ? avgHeatDutyPerEffect / ((avgU * avgDeltaT) / 1000) : 50;
+  const tubeOuterArea = Math.PI * (tubeSpec.od / 1000) * tubeSpec.length;
+  const estTubeCount = Math.max(100, Math.ceil(estArea / tubeOuterArea));
+
+  const totalTubeLength = estTubeCount * tubeSpec.length;
+  const minWettingRate = ROGNONI_REFERENCE.minimumWettingRate; // 0.03 kg/(m·s)
+  const targetWettingRate = minWettingRate * 1.5; // 0.045 kg/(m·s)
+
+  // Current wetting rate from seawater alone
+  const seawaterFlowKgS = seawaterFlowPerEffect / 3600;
+  const currentWettingRate = seawaterFlowKgS / (2 * totalTubeLength);
+
+  if (currentWettingRate >= targetWettingRate) return 0;
+
+  // Additional flow needed
+  const requiredTotalFlow = targetWettingRate * 2 * totalTubeLength * 3600; // kg/hr
+  return Math.max(0, requiredTotalFlow - seawaterFlowPerEffect);
+}
+
+// ============================================================================
 // Single Forward Pass
 // ============================================================================
 
 /**
  * Perform one complete forward pass through all effects + condenser.
+ *
+ * Key differences from old solver:
+ * - Each effect gets its own seawater spray (parallel feed)
+ * - Brine cascades forward and accumulates (forward brine flow)
+ * - Last-effect brine is recirculated to all effects for wetting rate
+ * - NCG is tracked through the plant
  */
 function solveForwardPass(
   inputs: MEDPlantInputs,
   steamFlow: number,
   effectTemps: number[],
   steamTemp: number,
-  feedWaterTemp: number
+  feedWaterTemp: number,
+  recircBrineGuess: {
+    flow: number;
+    temp: number;
+    salinity: number;
+  }
 ): {
   effects: MEDEffectResult[];
   finalCondenser: MEDFinalCondenserResult;
   preheaters: MEDPreheaterResult[];
   tvcResult: TVCIntegrationResult | null;
   netProduction: number;
+  lastEffectBrine: { flow: number; temp: number; salinity: number };
 } {
   const N = inputs.numberOfEffects;
   const effects: MEDEffectResult[] = [];
 
-  // Spray water split equally among all effects (parallel feed)
+  // ---- Feed distribution: parallel seawater to each effect ----
+  // Total feed = capacity / (1 - 1/CF) — recovery fraction
   const feedFraction = 1 - 1 / inputs.brineConcentrationFactor;
-  const totalFeedFlow = (inputs.capacity * 1000) / feedFraction; // kg/hr (approx)
-  const sprayPerEffect = totalFeedFlow / N;
+  const totalFeedFlow = (inputs.capacity * 1000) / feedFraction; // kg/hr
+  const seawaterPerEffect = totalFeedFlow / N;
+
+  // Recirculation flow per effect (for wetting rate)
+  const recircPerEffect = calculateRecircFlowPerEffect(seawaterPerEffect, inputs);
 
   // Build preheater lookup: effectNumber → config
   const preheaterMap = new Map<number, { effectNumber: number; vaporFlow: number }>();
@@ -153,16 +228,9 @@ function solveForwardPass(
   let vaporToEffect1 = steamFlow;
   let effect1SteamTemp = steamTemp;
 
-  if (
-    inputs.plantType === 'MED_TVC' &&
-    inputs.tvcMotivePressure &&
-    inputs.tvcMotivePressure > 0
-  ) {
-    // TVC entrains vapor from a selected effect (default: last effect)
+  if (inputs.plantType === 'MED_TVC' && inputs.tvcMotivePressure && inputs.tvcMotivePressure > 0) {
     const entrainedEffectIdx = (inputs.tvcEntrainedEffect ?? N) - 1;
     const entrainedVaporTemp = effectTemps[entrainedEffectIdx] ?? effectTemps[N - 1]!;
-
-    // Discharge pressure = saturation pressure at first effect steam temp
     const dischargePressure = getSaturationPressure(steamTemp);
 
     tvcResult = solveTVCIntegration({
@@ -174,18 +242,25 @@ function solveForwardPass(
       sprayWaterTemp: feedWaterTemp,
     });
 
-    // The TVC discharge (possibly desuperheated) feeds effect 1
     vaporToEffect1 = tvcResult.dischargeFlow;
     effect1SteamTemp = tvcResult.vaporToEffect1Temp;
   }
 
-  // Track cascading streams
+  // ---- NCG in motive steam to effect 1 ----
+  // Assumed equal to dissolved gases from the seawater sprayed into effect 1
+  const swDensity = getSeawaterDensity(inputs.seawaterSalinity, feedWaterTemp);
+  const swVolumeLitres = seawaterPerEffect / swDensity;
+  const ncgFromSeawater = (swVolumeLitres * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6; // kg/hr
+  let ncgAccum = ncgFromSeawater; // NCG entering effect 1 tube side
+
+  // ---- Cascading state variables ----
   let prevVaporOut = vaporToEffect1;
   let prevSteamTemp = effect1SteamTemp;
-  let distillateAccum = 0;
+  let distillateAccum = 0; // distillate accumulating on tube side
   let distillateTemp = effect1SteamTemp;
-  let condensateAccum = 0;
-  let condensateTemp = effect1SteamTemp;
+  let cascadedBrineFlow = 0; // brine accumulating on shell side bottom
+  let cascadedBrineTemp = 0;
+  let cascadedBrineSalinity = 0;
 
   for (let i = 0; i < N; i++) {
     const effectInput: EffectInput = {
@@ -194,50 +269,66 @@ function solveForwardPass(
       effectTemp: effectTemps[i]!,
       steamTemp: i === 0 ? effect1SteamTemp : prevSteamTemp,
 
+      // Tube side
       vaporInFlow: prevVaporOut,
-      sprayWaterFlow: sprayPerEffect,
-      sprayWaterTemp: feedWaterTemp,
-      sprayWaterSalinity: inputs.seawaterSalinity,
-
       distillateInFlow: distillateAccum,
       distillateInTemp: distillateTemp,
-      condensateInFlow: condensateAccum,
-      condensateInTemp: condensateTemp,
+      ncgInFlow: ncgAccum,
+
+      // Shell side spray
+      seawaterSprayFlow: seawaterPerEffect,
+      seawaterSprayTemp: feedWaterTemp,
+      seawaterSalinity: inputs.seawaterSalinity,
+      recircBrineFlow: recircPerEffect,
+      recircBrineTemp: recircBrineGuess.temp,
+      recircBrineSalinity: recircBrineGuess.salinity,
+
+      // Shell side flash (cascaded brine from previous effects)
+      cascadedBrineFlow: cascadedBrineFlow,
+      cascadedBrineTemp: cascadedBrineTemp,
+      cascadedBrineSalinity: cascadedBrineSalinity,
 
       preheater: preheaterMap.get(i + 1) ?? null,
       brineConcentrationFactor: inputs.brineConcentrationFactor,
-      seawaterSalinity: inputs.seawaterSalinity,
     };
 
     const result = calculateEffect(effectInput);
     effects.push(result);
 
     // Update cascading values for next effect
-    prevVaporOut = result.vaporOut.flow;
-    prevSteamTemp = result.vaporOut.temperature;
 
-    // Distillate accumulates: condensate from tube side + previous
-    distillateAccum = result.distillateOut.flow;
+    // Tube side → next effect tube side
+    prevVaporOut = result.totalVaporOut.flow; // vapor through demister → next tube side
+    prevSteamTemp = result.totalVaporOut.temperature;
+    distillateAccum = result.distillateOut.flow; // condensate via siphon → next tube side
     distillateTemp = result.distillateOut.temperature;
 
-    // In this model, condensate merges with distillate cascade
-    condensateAccum = 0;
-    condensateTemp = result.temperature;
+    // NCG accumulates: previous NCG + NCG released from this effect's seawater
+    // All NCGs exit through the demister with the vapor → next effect tube side
+    ncgAccum = result.tubeSide.ncgVent + result.shellSprayZone.ncgReleased;
+
+    // Shell side → next effect shell side (brine accumulates)
+    cascadedBrineFlow = result.totalBrineOut.flow;
+    cascadedBrineTemp = result.totalBrineOut.temperature;
+    cascadedBrineSalinity = result.totalBrineOut.salinity;
   }
 
   // For MED-TVC: subtract entrained vapor from the selected effect's output
   if (tvcResult && inputs.tvcEntrainedEffect) {
-    const entrainedIdx = (inputs.tvcEntrainedEffect) - 1;
+    const entrainedIdx = inputs.tvcEntrainedEffect - 1;
     const entrainedEffect = effects[entrainedIdx];
     if (entrainedEffect) {
-      // Reduce the vapor out from the entrained effect
       const reducedVapor = Math.max(
         0,
-        entrainedEffect.vaporOut.flow - tvcResult.entrainedFlow
+        entrainedEffect.totalVaporOut.flow - tvcResult.entrainedFlow
       );
-      // Update the effect's vapor out flow (immutable update)
       effects[entrainedIdx] = {
         ...entrainedEffect,
+        totalVaporOut: {
+          ...entrainedEffect.totalVaporOut,
+          flow: reducedVapor,
+          energy: (reducedVapor * entrainedEffect.totalVaporOut.enthalpy) / 3600,
+        },
         vaporOut: {
           ...entrainedEffect.vaporOut,
           flow: reducedVapor,
@@ -247,14 +338,13 @@ function solveForwardPass(
     }
   }
 
-  // Final condenser
+  // ---- Final condenser ----
   const lastEffect = effects[N - 1]!;
-  const condensateFromFirstEffect =
-    inputs.condensateExtraction === 'FIRST_EFFECT' ? steamFlow : 0;
+  const condensateFromFirstEffect = inputs.condensateExtraction === 'FIRST_EFFECT' ? steamFlow : 0;
 
   const finalCondenser = calculateFinalCondenser({
-    vaporInFlow: lastEffect.vaporOut.flow,
-    vaporInTemp: lastEffect.vaporOut.temperature,
+    vaporInFlow: lastEffect.totalVaporOut.flow,
+    vaporInTemp: lastEffect.totalVaporOut.temperature,
     distillateInFlow: distillateAccum,
     distillateInTemp: distillateTemp,
     condensateInFlow: condensateFromFirstEffect,
@@ -265,24 +355,31 @@ function solveForwardPass(
     distillateOutTemp: inputs.distillateTemp,
   });
 
-  // Preheaters
+  // ---- Preheaters ----
   const vaporTempMap = new Map<number, number>();
   for (const eff of effects) {
-    vaporTempMap.set(eff.effectNumber, eff.vaporOut.temperature);
+    vaporTempMap.set(eff.effectNumber, eff.totalVaporOut.temperature);
   }
 
   const preheaters = calculatePreheaterChain(
     inputs.preheaters,
     vaporTempMap,
     finalCondenser.seawaterIn.flow,
-    inputs.seawaterDischargeTemp, // seawater enters preheaters after being heated in condenser
+    inputs.seawaterDischargeTemp,
     inputs.seawaterSalinity
   );
 
   // Net production = total distillate out from final condenser
   const netProduction = finalCondenser.distillateOut.flow / 1000; // T/h
 
-  return { effects, finalCondenser, preheaters, tvcResult, netProduction };
+  // Last effect brine (for recirculation convergence)
+  const lastEffectBrine = {
+    flow: lastEffect.totalBrineOut.flow,
+    temp: lastEffect.totalBrineOut.temperature,
+    salinity: lastEffect.totalBrineOut.salinity,
+  };
+
+  return { effects, finalCondenser, preheaters, tvcResult, netProduction, lastEffectBrine };
 }
 
 // ============================================================================
@@ -309,8 +406,7 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
 
   // Check working ΔT
   const avgDeltaT =
-    (inputs.topBrineTemp -
-      (inputs.seawaterDischargeTemp + inputs.condenserApproachTemp)) /
+    (inputs.topBrineTemp - (inputs.seawaterDischargeTemp + inputs.condenserApproachTemp)) /
     inputs.numberOfEffects;
   if (avgDeltaT > 5.5) {
     warnings.push(
@@ -328,8 +424,15 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
   let steamFlow = (targetCapacity * 1000) / inputs.gorTarget; // kg/hr
 
   // Feed water temperature: initially assume seawater discharge temp
-  // (preheaters will increase this, but we need a starting point)
   let feedWaterTemp = inputs.seawaterDischargeTemp;
+
+  // Initial guess for recirculated brine (from last effect)
+  // Start with seawater conditions as placeholder — will converge
+  let recircBrineGuess = {
+    flow: 0,
+    temp: inputs.seawaterDischargeTemp + inputs.condenserApproachTemp,
+    salinity: inputs.seawaterSalinity * inputs.brineConcentrationFactor,
+  };
 
   // Secant method variables
   let steamFlow_prev = steamFlow * 0.9;
@@ -346,8 +449,7 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
     netProduction: number;
   } | null = null;
 
-  const { maxIterations, capacityTolerance, relaxationFactor } =
-    MED_SOLVER_CONFIG;
+  const { maxIterations, capacityTolerance, relaxationFactor } = MED_SOLVER_CONFIG;
 
   for (let iter = 0; iter < maxIterations; iter++) {
     iterations = iter + 1;
@@ -358,14 +460,21 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
       steamFlow,
       effectTemps,
       steamTemp,
-      feedWaterTemp
+      feedWaterTemp,
+      recircBrineGuess
     );
 
     bestResult = result;
 
+    // Update recirculation guess from actual last-effect brine
+    recircBrineGuess = {
+      flow: result.lastEffectBrine.flow,
+      temp: result.lastEffectBrine.temp,
+      salinity: result.lastEffectBrine.salinity,
+    };
+
     // Update feed water temp from preheaters (if any)
     if (result.preheaters.length > 0) {
-      // The last preheater in the chain (hottest) sets the spray water temp
       const hottestPH = result.preheaters.reduce((a, b) =>
         a.seawaterOutletTemp > b.seawaterOutletTemp ? a : b
       );
@@ -375,8 +484,7 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
     }
 
     // Check convergence
-    const productionError =
-      Math.abs(result.netProduction - targetCapacity) / targetCapacity;
+    const productionError = Math.abs(result.netProduction - targetCapacity) / targetCapacity;
 
     if (productionError < capacityTolerance) {
       converged = true;
@@ -385,10 +493,8 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
 
     // Secant method update for steam flow
     if (iter === 0) {
-      // First iteration — make a small perturbation for the second point
       production_prev = result.netProduction;
       steamFlow_prev = steamFlow;
-      // Simple proportional adjustment
       steamFlow = steamFlow * (targetCapacity / result.netProduction);
     } else {
       const dP = result.netProduction - production_prev;
@@ -401,10 +507,8 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
         steamFlow_prev = steamFlow;
         production_prev = result.netProduction;
 
-        // Apply with relaxation to prevent oscillation
         steamFlow = steamFlow + correction * relaxationFactor;
       } else {
-        // Fallback: proportional
         steamFlow_prev = steamFlow;
         production_prev = result.netProduction;
         steamFlow = steamFlow * (targetCapacity / result.netProduction);
@@ -412,8 +516,8 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
     }
 
     // Clamp steam flow to reasonable range
-    steamFlow = Math.max(steamFlow, 10); // minimum 10 kg/hr
-    steamFlow = Math.min(steamFlow, targetCapacity * 1000 * 2); // max 2× capacity
+    steamFlow = Math.max(steamFlow, 10);
+    steamFlow = Math.min(steamFlow, targetCapacity * 1000 * 2);
   }
 
   if (!converged) {
@@ -427,39 +531,36 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
   }
 
   // ---- Build final result ----
-  const { effects, finalCondenser, preheaters, tvcResult, netProduction } =
-    bestResult;
+  const { effects, finalCondenser, preheaters, tvcResult, netProduction } = bestResult;
 
-  // Calculate brine from all effects (parallel feed — each effect produces brine)
-  let totalBrineFlow = 0;
-  const brineSalinity = inputs.seawaterSalinity * inputs.brineConcentrationFactor;
-  for (const eff of effects) {
-    totalBrineFlow += eff.brineOut.flow;
-  }
-  const brineTemp = effects[effects.length - 1]!.brineOut.temperature;
+  // Total brine from last effect (the accumulated brine from all effects)
+  const lastEffect = effects[effects.length - 1]!;
+  const totalBrineFlow = lastEffect.totalBrineOut.flow;
+  const brineSalinity = lastEffect.totalBrineOut.salinity;
+  const brineTemp = lastEffect.totalBrineOut.temperature;
 
   // GOR — for MED-TVC, GOR is based on motive steam consumption
   const actualSteamFlow = tvcResult ? tvcResult.netSteamConsumed : steamFlow;
   const gor = (netProduction * 1000) / actualSteamFlow;
 
   // Specific thermal energy
-  const latentHeatSteam =
-    getEnthalpyVapor(steamTemp) - getEnthalpyLiquid(steamTemp);
+  const latentHeatSteam = getEnthalpyVapor(steamTemp) - getEnthalpyLiquid(steamTemp);
   const ste = latentHeatSteam / gor; // kJ/kg distillate
-  const ste_kWh = (ste * 1000) / 3600; // kWh/m³ (assuming distillate density ≈ 1000 kg/m³)
+  const ste_kWh = (ste * 1000) / 3600; // kWh/m³
 
-  // Gross production (effects only, before condenser)
-  const grossProduction = effects.reduce(
-    (sum, eff) => sum + eff.vaporOut.flow + (eff.vaporToPreheater?.flow ?? 0),
-    0
-  ) / 1000; // T/h — sum of all vapor produced
+  // Gross production (effects only)
+  const grossProduction =
+    effects.reduce(
+      (sum, eff) => sum + eff.totalVaporOut.flow + (eff.vaporToPreheater?.flow ?? 0),
+      0
+    ) / 1000; // T/h
 
   // Seawater intake
   const seawaterIntake = finalCondenser.seawaterIn.flow / 1000; // T/h
 
-  // Cooling water = seawater intake - makeup feed
+  // Cooling water = seawater intake - total feed
   const totalFeedFlow =
-    effects.reduce((sum, eff) => sum + eff.sprayWater.flow, 0) / 1000; // T/h
+    effects.reduce((sum, eff) => sum + eff.shellSprayZone.seawaterIn.flow, 0) / 1000;
   const coolingWater = seawaterIntake - totalFeedFlow;
 
   // Overdesign
@@ -486,9 +587,7 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
     grossProduction: Math.round(grossProduction * 1000) / 1000,
     netProduction: Math.round(netProduction * 1000) / 1000,
     steamFlow: Math.round(actualSteamFlow * 10) / 10,
-    motiveFlow: tvcResult
-      ? Math.round(tvcResult.motiveFlow * 10) / 10
-      : 0,
+    motiveFlow: tvcResult ? Math.round(tvcResult.motiveFlow * 10) / 10 : 0,
     seawaterIntake: Math.round(seawaterIntake * 100) / 100,
     coolingWater: Math.round(coolingWater * 100) / 100,
     makeupWater: Math.round(totalFeedFlow * 100) / 100,
@@ -539,23 +638,10 @@ function buildOverallBalance(
   coolingWaterFlow: number
 ): MEDOverallBalance {
   const h_steamIn = getEnthalpyVapor(steamTemp);
-  const h_swIn = getSeawaterEnthalpy(
-    inputs.seawaterSalinity,
-    inputs.seawaterInletTemp
-  );
-  const h_swOut = getSeawaterEnthalpy(
-    inputs.seawaterSalinity,
-    inputs.seawaterDischargeTemp
-  );
+  const h_swIn = getSeawaterEnthalpy(inputs.seawaterSalinity, inputs.seawaterInletTemp);
+  const h_swOut = getSeawaterEnthalpy(inputs.seawaterSalinity, inputs.seawaterDischargeTemp);
 
-  const steamIn = makeStream(
-    'Steam In',
-    'STEAM',
-    steamFlow,
-    steamTemp,
-    h_steamIn,
-    0
-  );
+  const steamIn = makeStream('Steam In', 'STEAM', steamFlow, steamTemp, h_steamIn, 0);
   const seawaterIn = makeStream(
     'Sea Water In',
     'SEAWATER',
@@ -606,7 +692,7 @@ function buildOverallBalance(
     ventOut.energy;
   const energyBalanceError =
     totalEnergyIn !== 0
-      ? Math.abs(totalEnergyIn - totalEnergyOut) / Math.abs(totalEnergyIn) * 100
+      ? (Math.abs(totalEnergyIn - totalEnergyOut) / Math.abs(totalEnergyIn)) * 100
       : 0;
 
   return {

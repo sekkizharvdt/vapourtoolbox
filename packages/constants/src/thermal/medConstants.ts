@@ -74,6 +74,29 @@ export const DELTA_T_PRESSURE_DROP = 0.15; // °C per effect
  */
 export const VENT_FRACTION = 0.03;
 
+/**
+ * Carrier steam fraction — fraction of tube-side vapor flow used as carrier
+ * steam to sweep NCGs from the tube side vent.
+ *
+ * Typical range: 0.5–1.5% (El-Dessouky & Ettouney, 2002).
+ * Design value: 1% of vapor flow entering the tube side.
+ */
+export const CARRIER_STEAM_FRACTION = 0.01;
+
+/**
+ * Total dissolved gas content in seawater including bicarbonate decomposition.
+ *
+ * Physically dissolved gases (O₂ + N₂) at 25°C, 35 g/kg ≈ 18–20 mg/L.
+ * Bicarbonate decomposition (2 HCO₃⁻ → CO₂ + CO₃²⁻ + H₂O) at MED
+ * temperatures (>60°C) releases an additional 25–40 mg/L of CO₂.
+ *
+ * Conservative total: ~50 mg/L of seawater feed.
+ *
+ * Reference: CADAFE design — O₂ 1.8 + N₂ 4.2 + CO₂ 20 + leakage 6 = 32 kg/h
+ * for ~104 T/h plant → ~40–50 mg per litre of feed.
+ */
+export const TOTAL_DISSOLVED_GAS_MG_PER_LITRE = 50;
+
 // ============================================================================
 // Design Limits
 // ============================================================================
