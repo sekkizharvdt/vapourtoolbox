@@ -16,7 +16,6 @@ import {
   getSeawaterSpecificHeat,
   getSeawaterViscosity,
   getSeawaterThermalConductivity,
-  MED_TUBE_GEOMETRY,
   getDensityVapor,
   getDensityLiquid,
 } from '@vapour/constants';
@@ -29,6 +28,13 @@ import { calculateTDH } from './pumpSizing';
 import { calculateTubeSideHTC, calculateNusseltCondensation } from './heatTransfer';
 import { calculateDosing } from './chemicalDosingCalculator';
 import { calculateVacuumSystem } from './vacuumSystemCalculator';
+import {
+  satPressureMbar,
+  estimateU,
+  findMinShellID,
+  countLateralTubes,
+  getMaxTubesPerRow,
+} from './med/shellGeometry';
 
 // ============================================================================
 // Types — re-exported from dedicated types file
@@ -245,146 +251,8 @@ export const MATERIAL_COST_RATES: { [key: string]: number } = {
   carbon_steel: 3,
 };
 
-/** Approximate saturation pressure from temperature (Antoine-like) */
-function satPressureMbar(tempC: number): number {
-  // Simplified: P_sat(mbar) from T(°C) using Buck equation
-  const P_kPa = 0.61121 * Math.exp((18.678 - tempC / 234.5) * (tempC / (257.14 + tempC)));
-  return P_kPa * 10; // kPa to mbar
-}
-
-/** Estimate overall HTC for falling film evaporator (W/m²·K)
- *
- * Calibrated against as-built projects:
- *   BARC Ti 0.4mm:  U ≈ 3,000 W/m²·K @ 58°C (validated within 0.1%)
- *   Case 6 Al 1mm:  U ≈ 2,800–3,550 W/m²·K
- *   Campiche:       U ≈ 2,082 W/m²·K (condenser, not evaporator)
- */
-function estimateU(tempC: number, _od: number, wallThk: number, kWall: number): number {
-  // Resistance-based U-value estimation
-  // Validated against BARC (3,003 W/m²·K), Campiche, CADAFE as-built data
-  // and single tube calculator (Nusselt condensation + Chun-Seban evaporation)
-
-  // Wall resistance (negligible for Al k=138, significant for Ti k=22)
-  const Rwall = wallThk / 1000 / kWall;
-
-  // Condensation inside tube: Nusselt horizontal in-tube, 8,000-15,000 W/m²·K
-  const hCond = 10000 + 100 * (tempC - 40);
-  const Rcond = 1 / hCond;
-
-  // Evaporation outside tube: Chun-Seban falling film on horizontal tube
-  // BARC validation: overall U = 3,003 at Ti 0.4mm → hEvap ≈ 18,000 W/m²·K
-  // At MED conditions (thin film, low Re), Chun-Seban gives very high HTCs
-  const hEvap = 15000 + 100 * (tempC - 40); // ~13,000 at 40°C, ~17,000 at 60°C
-  const Revap = 1 / hEvap;
-
-  // Fouling resistance
-  const Rfouling = 0.00015; // m²·K/W (TEMA standard for seawater)
-
-  const Rtotal = Rcond + Revap + Rfouling + Rwall;
-  const U = 1 / Rtotal;
-
-  // Clamp to validated range: 2,400–3,500 W/m²·K
-  return Math.max(2400, Math.min(3500, U));
-}
-
-/** Count tubes in lateral half-circle bundle */
-/**
- * Find the minimum shell ID that fits at least `requiredTubes` in a lateral bundle.
- * Searches from 800mm upward in 50mm increments, then refines to 10mm.
- */
-function findMinShellID(
-  requiredTubes: number,
-  tubeOD: number,
-  pitch: number,
-  withVapourLanes: boolean
-): number {
-  // Coarse search
-  let shellID = 800;
-  while (shellID <= 6000) {
-    const count = countLateralTubes(shellID, tubeOD, pitch, withVapourLanes);
-    if (count >= requiredTubes) break;
-    shellID += 50;
-  }
-  // Refine downward
-  shellID -= 50;
-  while (shellID <= 6000) {
-    const count = countLateralTubes(shellID, tubeOD, pitch, withVapourLanes);
-    if (count >= requiredTubes) return shellID;
-    shellID += 10;
-  }
-  return shellID;
-}
-
-/**
- * Count lateral tubes in a half-circle shell, accounting for internal clearances.
- *
- * Shell cross-section layout (vertical, left half = tubes, right half = vapour):
- *
- *   Top:    Spray nozzle zone (200mm min above top tube row)
- *   Middle: Tube bundle (lateral half-circle)
- *   Bottom: Drainage clearance (250mm min below bottom tube row)
- *
- * These clearances reduce the usable vertical extent of the semicircle.
- * Without them, the shell ID would be undersized for a real installation.
- */
-function countLateralTubes(
-  shellID: number,
-  _tubeOD: number,
-  pitch: number,
-  withVapourLanes: boolean
-): number {
-  const tubeHoleDia = MED_TUBE_GEOMETRY.tubeHoleDiameter;
-  const edgeClearance = MED_TUBE_GEOMETRY.edgeClearance;
-  const tubeHoleR = tubeHoleDia / 2;
-  const rowSpacing = pitch * Math.sin((60 * Math.PI) / 180);
-  const shellR = shellID / 2;
-  const maxR = shellR - edgeClearance - tubeHoleR;
-
-  // Vertical clearances inside the shell (relative to shell centre y=0)
-  // Bottom: drainage clearance for brine collection
-  const drainageClearanceMM = 250; // mm below lowest tube centre
-  // Top: spray nozzle installation space above highest tube
-  const sprayZoneMM = 200; // mm above highest tube centre
-
-  // Limit the tube bundle vertical extent
-  const yMax = maxR - sprayZoneMM; // highest tube centre
-  const yMin = -maxR + drainageClearanceMM; // lowest tube centre
-
-  if (yMax <= yMin) return 0; // shell too small for any tubes with clearances
-
-  let total = 0;
-  let rowIndex = 0;
-
-  for (let y = yMax; y >= yMin; y -= rowSpacing) {
-    const isStaggered = rowIndex % 2 === 1;
-    const xOffset = isStaggered ? pitch / 2 : 0;
-    const chord = maxR * maxR - y * y;
-    if (chord < 0) {
-      rowIndex++;
-      continue;
-    }
-    const halfChord = Math.sqrt(chord);
-    const xMin = -halfChord;
-    const xMax = tubeHoleR;
-    const startX = Math.ceil((xMin - xOffset) / pitch) * pitch + xOffset;
-
-    for (let x = startX; x <= xMax; x += pitch) {
-      if (x * x + y * y <= maxR * maxR) total++;
-    }
-    rowIndex++;
-  }
-
-  // Apply vapour lane reduction
-  return withVapourLanes ? Math.round(total * 0.85) : total;
-}
-
-/** Get max tubes per row for wetting calculation */
-function getMaxTubesPerRow(shellID: number, pitch: number): number {
-  const tubeHoleDia = MED_TUBE_GEOMETRY.tubeHoleDiameter;
-  const edgeClearance = MED_TUBE_GEOMETRY.edgeClearance;
-  const maxR = shellID / 2 - edgeClearance - tubeHoleDia / 2;
-  return Math.floor(maxR / pitch) + 1;
-}
+// Shell geometry functions (satPressureMbar, estimateU, findMinShellID,
+// countLateralTubes, getMaxTubesPerRow) extracted to ./med/shellGeometry.ts
 
 // ============================================================================
 // Main Designer
