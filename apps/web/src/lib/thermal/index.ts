@@ -374,29 +374,32 @@ export {
 } from './tubeBundleGeometry';
 
 // MED Plant Designer
-export {
-  designMED,
-  generateDesignOptions,
-  type MEDDesignerInput,
-  type MEDDesignerResult,
-  type MEDEffectResult,
-  type MEDCondenserResult,
-  type MEDPreheaterResult,
-  type MEDScenarioRow,
-  type MEDDesignOption,
-  type MEDWeightEstimate,
-  type ShellWeight,
-  type MEDAuxiliaryEquipment,
-  type MEDDemisterResult,
-  type MEDSprayNozzleResult,
-  type MEDSiphonResult,
-  type MEDLineSizing,
-  type MEDPumpResult,
-  type GORConfigRow,
-  type GeometryComparisonOption,
-  type GeometryComparisonEffect,
-  type PreheaterContribution,
-} from './medDesigner';
+export { designMED, generateDesignOptions } from './medDesigner';
+export type {
+  MEDDesignerInput,
+  MEDDesignerResult,
+  MEDDesignerEffect,
+  MEDDesignerCondenser,
+  MEDDesignerPreheater,
+  MEDScenarioRow,
+  MEDDesignOption,
+  MEDWeightEstimate,
+  ShellWeight,
+  MEDAuxiliaryEquipment,
+  MEDDemisterResult,
+  MEDSprayNozzleResult,
+  MEDSiphonResult,
+  MEDLineSizing,
+  MEDPumpResult,
+  GORConfigRow,
+  GeometryComparisonOption,
+  GeometryComparisonEffect,
+  PreheaterContribution,
+  // Backward-compatible aliases for the old names
+  MEDEffectResult,
+  MEDCondenserResult,
+  MEDPreheaterResult,
+} from './med/designerTypes';
 
 // MED BOM Generator
 export {
