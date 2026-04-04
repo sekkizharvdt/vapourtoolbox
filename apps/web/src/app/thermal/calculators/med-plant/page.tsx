@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import MEDPlantClient from './MEDPlantClient';
 
 export const metadata: Metadata = {
-  title: 'MED Plant Design | Thermal Calculators',
+  title: 'MED Process Calculator | Thermal Calculators',
   description:
-    'Multi-Effect Distillation plant heat and mass balance calculator with effect-by-effect analysis, preheater integration, and final condenser sizing.',
+    'MED process heat and mass balance — steam flow in, GOR and distillate out. Per-effect tube/shell side balance with preheater integration.',
 };
 
 export default function MEDPlantPage() {

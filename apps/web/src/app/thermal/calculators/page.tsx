@@ -50,7 +50,6 @@ import {
   BlurOn as VacuumIcon,
   AirlineSeatFlat as VacuumBreakerIcon,
   FilterList as StrainerIcon,
-  BarChart as GORIcon,
   Architecture as MEDDesignerIcon,
   Waves as FallingFilmIcon,
   Straighten as SingleTubeIcon,
@@ -365,26 +364,9 @@ const ALL_CALCULATORS: Calculator[] = [
     ],
   },
   {
-    title: 'Performance Ratio / GOR',
+    title: 'MED Process Calculator',
     description:
-      'Estimate Gain Output Ratio, specific thermal energy, and effect-by-effect temperature profile for MED desalination plants.',
-    icon: <GORIcon sx={{ fontSize: 40 }} />,
-    href: '/thermal/calculators/gor',
-    status: 'available',
-    reference: 'El-Dessouky 2002',
-    keywords: [
-      'GOR',
-      'gain output ratio',
-      'MED',
-      'effects',
-      'temperature profile',
-      'specific energy',
-    ],
-  },
-  {
-    title: 'MED Plant Heat & Mass Balance',
-    description:
-      'Full effect-by-effect heat and mass balance for Multi-Effect Distillation plants with preheater integration, final condenser sizing, and iterative GOR convergence.',
+      'Process thermodynamics for MED plants — steam flow in, GOR and distillate out. Per-effect tube/shell side heat and mass balance with individually-sized preheaters. Does not include equipment sizing.',
     icon: <MEDPlantIcon sx={{ fontSize: 40 }} />,
     href: '/thermal/calculators/med-plant',
     status: 'available',
@@ -399,6 +381,8 @@ const ALL_CALCULATORS: Calculator[] = [
       'condenser',
       'desalination plant',
       'parallel feed',
+      'process',
+      'thermodynamics',
     ],
   },
   {
@@ -512,7 +496,6 @@ const CATEGORIES: CalculatorCategory[] = [
     description: 'Plant-level performance, vacuum systems, chemistry, and spray nozzles.',
     calculators: ALL_CALCULATORS.filter((c) =>
       [
-        '/thermal/calculators/gor',
         '/thermal/calculators/med-designer',
         '/thermal/calculators/med-plant',
         '/thermal/calculators/vacuum-system',
