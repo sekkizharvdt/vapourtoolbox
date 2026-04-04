@@ -520,12 +520,27 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     ncgReleased; // NCG mass leaves with vapor
   const massBalance = totalMassIn - totalMassOut;
 
-  // Overall energy balance check
-  const totalEnergyIn = tubeEnergyIn + sprayEnergyIn + flashEnergyIn;
-  const totalEnergyOut = tubeEnergyOut + sprayEnergyOut + flashEnergyOut;
+  // Overall energy balance — computed from boundary streams only
+  // (inter-zone heat transfer is internal and must not be double-counted)
+  const boundaryEnergyIn =
+    (vaporInFlow * h_vaporIn) / 3600 + // tube side: vapor in
+    (distillateInFlow * h_distIn) / 3600 + // tube side: distillate siphon in
+    (seawaterSprayFlow * getSeawaterEnthalpy(seawaterSalinity, seawaterSprayTemp)) / 3600 + // shell: seawater
+    (recircBrineFlow *
+      getSeawaterEnthalpy(Math.min(recircBrineSalinity, 120000), recircBrineTemp)) /
+      3600 + // shell: recirc brine
+    flashEnergyIn; // shell: cascaded brine
+
+  const boundaryEnergyOut =
+    (condensateOutFlow * h_condensateOutFinal) / 3600 + // tube side: distillate out
+    (netVaporOut * h_vaporOut) / 3600 + // shell: vapor through demister
+    (vaporToPreheaterFlow * h_vaporOut) / 3600 + // shell: vapor to preheater
+    (totalBrineOutFlow * h_totalBrineOut) / 3600 + // shell: brine out
+    (carrierSteam * h_vaporIn) / 3600; // tube→shell: carrier steam (leaves the effect with shell vapor)
+
   const energyBalanceError =
-    totalEnergyIn !== 0
-      ? (Math.abs(totalEnergyIn - totalEnergyOut) / Math.abs(totalEnergyIn)) * 100
+    boundaryEnergyIn !== 0
+      ? (Math.abs(boundaryEnergyIn - boundaryEnergyOut) / Math.abs(boundaryEnergyIn)) * 100
       : 0;
 
   // ======================================================================
