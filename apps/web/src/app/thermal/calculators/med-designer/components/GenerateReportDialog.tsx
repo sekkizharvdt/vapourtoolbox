@@ -2,13 +2,18 @@
 
 import { useState } from 'react';
 import { Box, Typography, ToggleButton, ToggleButtonGroup, Stack } from '@mui/material';
-import { Description as BriefIcon, Engineering as DetailedIcon } from '@mui/icons-material';
+import {
+  Description as BriefIcon,
+  Engineering as DetailedIcon,
+  FactCheck as VerificationIcon,
+} from '@mui/icons-material';
 import { PDFReportDialog } from '../../components/PDFReportDialog';
 import { MEDDesignerReportPDF } from './MEDDesignerReportPDF';
 import { MEDBriefReportPDF } from './MEDBriefReportPDF';
+import { MEDVerificationReportPDF } from './MEDVerificationReportPDF';
 import type { MEDDesignerResult, MEDDesignOption } from '@/lib/thermal';
 
-type ReportType = 'brief' | 'detailed';
+type ReportType = 'brief' | 'detailed' | 'verification';
 
 interface GenerateReportDialogProps {
   open: boolean;
@@ -34,6 +39,16 @@ export function GenerateReportDialog({
       buildDocument={({ documentNumber, revision, projectName, notes, logoDataUri }) =>
         reportType === 'brief' ? (
           <MEDBriefReportPDF
+            result={result}
+            options={options}
+            documentNumber={documentNumber}
+            revision={revision}
+            projectName={projectName}
+            notes={notes}
+            logoDataUri={logoDataUri ?? null}
+          />
+        ) : reportType === 'verification' ? (
+          <MEDVerificationReportPDF
             result={result}
             options={options}
             documentNumber={documentNumber}
@@ -83,11 +98,17 @@ export function GenerateReportDialog({
                 <DetailedIcon sx={{ mr: 1, fontSize: 18 }} />
                 Detailed (Engineering)
               </ToggleButton>
+              <ToggleButton value="verification">
+                <VerificationIcon sx={{ mr: 1, fontSize: 18 }} />
+                Verification
+              </ToggleButton>
             </ToggleButtonGroup>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
               {reportType === 'brief'
                 ? 'Shows key performance and dimensions only — does not reveal tube counts, HTCs, or detailed engineering data.'
-                : 'Full engineering report with effect-by-effect design, U-values, weight breakdown, and equipment list.'}
+                : reportType === 'verification'
+                  ? 'Complete process calculation report for third-party verification — property data, temperature cascade, H&M balance, HTC breakdown, correlations, and references.'
+                  : 'Full engineering report with effect-by-effect design, U-values, weight breakdown, and equipment list.'}
             </Typography>
           </Box>
         </Stack>
