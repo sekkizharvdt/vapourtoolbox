@@ -931,3 +931,141 @@ export async function reconcilePaymentStatuses(
   logger.info('Payment status reconciliation complete', { checked, fixed, dryRun });
   return { checked, fixed, details };
 }
+
+/**
+ * Settle a linked bill/invoice when a Journal Entry is posted.
+ *
+ * Computes the entity-specific settlement amount from the JE's ledger entries
+ * (debit for vendor bills, credit for customer invoices). Falls back to the
+ * JE's base amount if no entity-specific entries are found.
+ *
+ * Uses Firestore transaction for atomic read-modify-write (rule 19).
+ */
+export async function settleLinkedTransactionViaJournal(
+  db: Firestore,
+  linkedTransactionId: string,
+  journalEntries: Array<{ entityId?: string; debit?: number; credit?: number }>,
+  journalBaseAmount: number,
+  journalEntryId: string
+): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const ref = doc(db, COLLECTIONS.TRANSACTIONS, linkedTransactionId);
+    const snap = await transaction.get(ref);
+
+    if (!snap.exists()) {
+      logger.warn('Linked transaction not found for JE settlement', {
+        linkedTransactionId,
+        journalEntryId,
+      });
+      return;
+    }
+
+    const data = snap.data();
+    const entityId = data.entityId;
+    const txType = data.type as string;
+
+    // Compute entity-specific settlement amount from JE entries
+    // Vendor bill: debit to AP (reduces payable) settles the bill
+    // Customer invoice: credit to AR (reduces receivable) settles the invoice
+    let settlementAmount = 0;
+    for (const entry of journalEntries) {
+      if (entry.entityId !== entityId) continue;
+      if (txType === 'VENDOR_BILL') {
+        settlementAmount += entry.debit || 0;
+      } else if (txType === 'CUSTOMER_INVOICE') {
+        settlementAmount += entry.credit || 0;
+      }
+    }
+
+    // Fallback: if no entity-specific entries found, use JE base amount
+    // (handles cases where JE entries don't have explicit entityId)
+    if (settlementAmount <= 0) {
+      settlementAmount = journalBaseAmount;
+    }
+
+    if (settlementAmount <= 0) return;
+
+    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+    const previouslyPaid = data.amountPaid || 0;
+    const newTotalPaid = previouslyPaid + settlementAmount;
+    const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
+
+    let newPaymentStatus: PaymentStatus;
+    if (roundedOutstanding === 0 && totalAmountINR > 0) {
+      newPaymentStatus = 'PAID';
+    } else if (newTotalPaid > 0) {
+      newPaymentStatus = 'PARTIALLY_PAID';
+    } else {
+      newPaymentStatus = 'UNPAID';
+    }
+
+    transaction.update(ref, {
+      paymentStatus: newPaymentStatus,
+      amountPaid: newTotalPaid,
+      outstandingAmount: roundedOutstanding,
+      settledViaJournal: true,
+      updatedAt: Timestamp.now(),
+    });
+
+    logger.info('Settled linked transaction via journal entry', {
+      linkedTransactionId,
+      journalEntryId,
+      settlementAmount,
+      newPaymentStatus,
+    });
+  });
+}
+
+/**
+ * Reverse a previous journal entry settlement on a bill/invoice.
+ *
+ * Called when a JE is voided, the linked bill/invoice is removed during edit,
+ * or the link changes to a different bill/invoice.
+ *
+ * Uses Firestore transaction for atomic read-modify-write (rule 19).
+ */
+export async function reverseJournalSettlement(
+  db: Firestore,
+  linkedTransactionId: string,
+  reversalAmount: number
+): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const ref = doc(db, COLLECTIONS.TRANSACTIONS, linkedTransactionId);
+    const snap = await transaction.get(ref);
+
+    if (!snap.exists()) {
+      logger.warn('Linked transaction not found for JE settlement reversal', {
+        linkedTransactionId,
+      });
+      return;
+    }
+
+    const data = snap.data();
+    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+    const previouslyPaid = data.amountPaid || 0;
+    const newTotalPaid = Math.max(0, previouslyPaid - reversalAmount);
+    const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
+
+    let newPaymentStatus: PaymentStatus;
+    if (roundedOutstanding === 0 && totalAmountINR > 0) {
+      newPaymentStatus = 'PAID';
+    } else if (newTotalPaid > 0) {
+      newPaymentStatus = 'PARTIALLY_PAID';
+    } else {
+      newPaymentStatus = 'UNPAID';
+    }
+
+    transaction.update(ref, {
+      paymentStatus: newPaymentStatus,
+      amountPaid: newTotalPaid,
+      outstandingAmount: roundedOutstanding,
+      updatedAt: Timestamp.now(),
+    });
+
+    logger.info('Reversed journal settlement', {
+      linkedTransactionId,
+      reversalAmount,
+      newPaymentStatus,
+    });
+  });
+}

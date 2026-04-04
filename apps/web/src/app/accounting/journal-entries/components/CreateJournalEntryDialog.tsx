@@ -45,6 +45,10 @@ import { validateLedgerEntries, calculateBalance } from '@/lib/accounting/ledger
 import { getEntityControlAccount } from '@/lib/accounting/systemAccountResolver';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import {
+  settleLinkedTransactionViaJournal,
+  reverseJournalSettlement,
+} from '@/lib/accounting/paymentHelpers';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
 interface TransactionOption {
@@ -376,6 +380,66 @@ export function CreateJournalEntryDialog({
         });
 
         await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingEntry.id), updateData);
+
+        // Settle/reverse linked bills/invoices when JE is posted
+        const newIsActive = status === 'POSTED' || status === 'APPROVED';
+        const oldIsActive = editingEntry.status === 'POSTED' || editingEntry.status === 'APPROVED';
+        const oldLinkedBill = editingEntry.linkedVendorBillId || '';
+        const oldLinkedInvoice = editingEntry.linkedCustomerInvoiceId || '';
+        const oldBaseAmount = editingEntry.baseAmount || editingEntry.amount || 0;
+
+        try {
+          // Reverse old bill settlement if link changed or status deactivated
+          if (
+            oldLinkedBill &&
+            oldIsActive &&
+            (oldLinkedBill !== linkedVendorBillId || !newIsActive)
+          ) {
+            await reverseJournalSettlement(db, oldLinkedBill, oldBaseAmount);
+          }
+          // Reverse old invoice settlement if link changed or status deactivated
+          if (
+            oldLinkedInvoice &&
+            oldIsActive &&
+            (oldLinkedInvoice !== linkedCustomerInvoiceId || !newIsActive)
+          ) {
+            await reverseJournalSettlement(db, oldLinkedInvoice, oldBaseAmount);
+          }
+          // Apply new bill settlement
+          if (
+            linkedVendorBillId &&
+            newIsActive &&
+            (linkedVendorBillId !== oldLinkedBill || !oldIsActive)
+          ) {
+            await settleLinkedTransactionViaJournal(
+              db,
+              linkedVendorBillId,
+              resolvedEntries,
+              balance.totalDebits,
+              editingEntry.id
+            );
+          }
+          // Apply new invoice settlement
+          if (
+            linkedCustomerInvoiceId &&
+            newIsActive &&
+            (linkedCustomerInvoiceId !== oldLinkedInvoice || !oldIsActive)
+          ) {
+            await settleLinkedTransactionViaJournal(
+              db,
+              linkedCustomerInvoiceId,
+              resolvedEntries,
+              balance.totalDebits,
+              editingEntry.id
+            );
+          }
+        } catch (settlementErr) {
+          // Settlement failure is non-fatal — reconciliation will fix it
+          console.error(
+            '[JE Settlement] Failed to update linked transaction status:',
+            settlementErr
+          );
+        }
       } else {
         // Create new entry - include all fields
         const journalEntry = removeUndefinedValues({
@@ -402,7 +466,38 @@ export function CreateJournalEntryDialog({
           linkedVendorBillId: linkedVendorBillId || undefined,
         });
 
-        await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), journalEntry);
+        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), journalEntry);
+
+        // Settle linked bills/invoices when JE is created in POSTED/APPROVED status
+        const isActive = status === 'POSTED' || status === 'APPROVED';
+        if (isActive) {
+          try {
+            if (linkedVendorBillId) {
+              await settleLinkedTransactionViaJournal(
+                db,
+                linkedVendorBillId,
+                resolvedEntries,
+                balance.totalDebits,
+                docRef.id
+              );
+            }
+            if (linkedCustomerInvoiceId) {
+              await settleLinkedTransactionViaJournal(
+                db,
+                linkedCustomerInvoiceId,
+                resolvedEntries,
+                balance.totalDebits,
+                docRef.id
+              );
+            }
+          } catch (settlementErr) {
+            // Settlement failure is non-fatal — reconciliation will fix it
+            console.error(
+              '[JE Settlement] Failed to update linked transaction status:',
+              settlementErr
+            );
+          }
+        }
       }
 
       onClose();
