@@ -93,6 +93,10 @@ export interface MEDDesignerInput {
   vacuumTrainConfig?: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid';
   /** Include turndown analysis at 30/50/70/100% load (default false — computationally expensive) */
   includeTurndown?: boolean;
+  /** Route recirculated brine through preheater chain before spraying (default false) */
+  brineRecircThroughPreheaters?: boolean;
+  /** Number of evaporator effects per physical shell (default 1; BARC uses 2) */
+  effectsPerShell?: number;
 
   // ── Per-effect overrides (user refinement after initial auto-design) ──
   /** Override tube length per effect (array indexed by effect 0..n-1) */
@@ -184,6 +188,10 @@ export interface MEDDesignerEffect {
   vapourVelocityStatus: 'ok' | 'high' | 'low';
   /** Spray temperature entering this effect °C */
   sprayTemp: number;
+  /** Which physical shell this effect belongs to (1-based, when effectsPerShell > 1) */
+  shellGroup?: number;
+  /** How many effects share this physical shell */
+  effectsInShell?: number;
 }
 
 // ============================================================================

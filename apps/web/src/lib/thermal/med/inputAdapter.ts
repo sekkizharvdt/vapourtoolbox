@@ -254,5 +254,7 @@ export function toMEDPlantInputs(resolved: ResolvedDesignerInputs): MEDPlantInpu
     // using the designer's minGamma approach, not by the core solver.
     // Setting false here prevents the solver's rough tube-count-based estimate.
     brineRecirculation: false,
+    brineRecircThroughPreheaters: input.brineRecircThroughPreheaters ?? false,
+    effectsPerShell: input.effectsPerShell ?? 1,
   };
 }

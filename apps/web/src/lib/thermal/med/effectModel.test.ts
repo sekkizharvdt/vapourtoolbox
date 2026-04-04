@@ -23,6 +23,8 @@ function makeEffect1Input(overrides?: Partial<EffectInput>): EffectInput {
     distillateInFlow: 0,
     distillateInTemp: 0,
     ncgInFlow: 0.05, // kg/hr NCG in motive steam
+    preheaterCondensateInFlow: 0,
+    preheaterCondensateInTemp: 0,
 
     // Shell side spray
     seawaterSprayFlow: 1875, // kg/hr
@@ -59,6 +61,8 @@ function makeEffect3Input(overrides?: Partial<EffectInput>): EffectInput {
     distillateInFlow: 1300, // kg/hr (accumulated distillate)
     distillateInTemp: 51.0,
     ncgInFlow: 0.15, // kg/hr accumulated NCG
+    preheaterCondensateInFlow: 0,
+    preheaterCondensateInTemp: 0,
 
     // Shell side spray
     seawaterSprayFlow: 1875,
@@ -411,5 +415,47 @@ describe('calculateEffect — with preheater', () => {
   it('total vapor out is reduced by preheater diversion', () => {
     const resultNoPH = calculateEffect(makeEffect1Input());
     expect(result.totalVaporOut.flow).toBeCloseTo(resultNoPH.totalVaporOut.flow - 50, 0);
+  });
+});
+
+// ============================================================================
+// With Preheater Condensate (Feature 1: condensate routing)
+// ============================================================================
+
+describe('calculateEffect — with preheater condensate', () => {
+  const result = calculateEffect(
+    makeEffect3Input({
+      preheaterCondensateInFlow: 200, // 200 kg/hr from upstream preheater
+      preheaterCondensateInTemp: 52, // at upstream effect's vapor temp
+    })
+  );
+  const resultNoCond = calculateEffect(makeEffect3Input());
+
+  it('preheater condensate increases tube side mass in', () => {
+    expect(result.tubeSide.massIn).toBeGreaterThan(resultNoCond.tubeSide.massIn);
+    expect(result.tubeSide.massIn - resultNoCond.tubeSide.massIn).toBeCloseTo(200, 0);
+  });
+
+  it('condensate out includes preheater condensate', () => {
+    expect(result.tubeSide.condensateOut.flow).toBeGreaterThan(
+      resultNoCond.tubeSide.condensateOut.flow
+    );
+  });
+
+  it('preheater condensate flashes at lower pressure (small amount)', () => {
+    // PH condensate at 52°C entering effect at 49°C → some flash
+    // The flash vapor is added to distillateFlashVapor
+    expect(result.tubeSide.distillateFlashVapor).toBeGreaterThan(
+      resultNoCond.tubeSide.distillateFlashVapor
+    );
+  });
+
+  it('energy balance still closes (< 5%)', () => {
+    expect(result.energyBalanceError).toBeLessThan(5);
+  });
+
+  it('mass balance error is small', () => {
+    const totalIn = 620 + 1300 + 200 + 1875 + 3500; // vapor + dist + PH cond + SW + cascade
+    expect(Math.abs(result.massBalance)).toBeLessThan(totalIn * 0.01);
   });
 });

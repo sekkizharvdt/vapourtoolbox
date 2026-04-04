@@ -106,6 +106,10 @@ export interface EffectInput {
   distillateInTemp: number;
   /** NCG mass entering tube side in kg/hr (from previous effect's demister vapor) */
   ncgInFlow: number;
+  /** Preheater condensate entering tube side in kg/hr (routed from upstream preheater) */
+  preheaterCondensateInFlow: number;
+  /** Preheater condensate temperature in °C */
+  preheaterCondensateInTemp: number;
 
   // ---- Shell side spray inlets ----
   /** Fresh seawater spray flow in kg/hr */
@@ -150,6 +154,8 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     distillateInFlow,
     distillateInTemp,
     ncgInFlow,
+    preheaterCondensateInFlow,
+    preheaterCondensateInTemp,
     seawaterSprayFlow,
     seawaterSprayTemp,
     seawaterSalinity,
@@ -219,26 +225,49 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     Q_distillateFlash = (distillateFlashVapor * latentHeatEffect) / 3600; // kW
   }
 
-  // Condensate/distillate out = condensed vapor + remaining distillate from siphon
-  const condensateOutFlow = condensingVapor + distillateRemaining;
+  // Preheater condensate flash (same logic as distillate — enters tube side, flashes)
+  let phCondensateFlashVapor = 0;
+  let Q_phCondensateFlash = 0;
+  let phCondensateRemaining = preheaterCondensateInFlow;
+
+  if (preheaterCondensateInFlow > 0 && preheaterCondensateInTemp > effectTemp) {
+    const h_phCondIn = getEnthalpyLiquid(preheaterCondensateInTemp);
+    const h_phCondAtEffect = getEnthalpyLiquid(effectTemp);
+    const latentHeatEff = getLatentHeat(effectTemp);
+
+    const flashFractionPH = Math.min(0.05, (h_phCondIn - h_phCondAtEffect) / latentHeatEff);
+    phCondensateFlashVapor = preheaterCondensateInFlow * Math.max(0, flashFractionPH);
+    phCondensateRemaining = preheaterCondensateInFlow - phCondensateFlashVapor;
+    Q_phCondensateFlash = (phCondensateFlashVapor * latentHeatEff) / 3600;
+  }
+
+  // Condensate/distillate out = condensed vapor + remaining distillate + remaining PH condensate
+  const condensateOutFlow = condensingVapor + distillateRemaining + phCondensateRemaining;
   const condensateOutTemp = effectTemp;
   const h_condensateOutFinal = getEnthalpyLiquid(condensateOutTemp);
+
+  // Total flash vapor from tube side (distillate + PH condensate)
+  distillateFlashVapor = distillateFlashVapor + phCondensateFlashVapor;
+  Q_distillateFlash = Q_distillateFlash + Q_phCondensateFlash;
 
   // NCG: all tube-side NCG is vented to the shell side
   const ncgVent = ncgInFlow;
 
   // Net heat released from tube side to shell side
-  // = condensation heat - distillate flash (flash vapor goes to shell vapor space)
-  // Carrier steam also enters the shell side as vapor (accounted in shell balance)
   const tubeSideHeatReleased = Q_condensing - Q_distillateFlash;
 
   // Tube side energy balance
   const h_distIn = distillateInFlow > 0 ? getEnthalpyLiquid(distillateInTemp) : 0;
-  const tubeEnergyIn = (vaporInFlow * h_vaporIn) / 3600 + (distillateInFlow * h_distIn) / 3600;
+  const h_phCondIn =
+    preheaterCondensateInFlow > 0 ? getEnthalpyLiquid(preheaterCondensateInTemp) : 0;
+  const tubeEnergyIn =
+    (vaporInFlow * h_vaporIn) / 3600 +
+    (distillateInFlow * h_distIn) / 3600 +
+    (preheaterCondensateInFlow * h_phCondIn) / 3600;
   const tubeEnergyOut =
     (condensateOutFlow * h_condensateOutFinal) / 3600 +
     (distillateFlashVapor * getEnthalpyVapor(effectTemp)) / 3600 +
-    (carrierSteam * h_vaporIn) / 3600; // carrier steam leaves tube side as vapor
+    (carrierSteam * h_vaporIn) / 3600;
 
   const tubeSide: MEDTubeSideBalance = {
     vaporIn: makeStream(
@@ -273,7 +302,7 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     ncgVent,
     carrierSteam,
     heatReleased: tubeSideHeatReleased,
-    massIn: vaporInFlow + distillateInFlow,
+    massIn: vaporInFlow + distillateInFlow + preheaterCondensateInFlow,
     massOut: condensateOutFlow + distillateFlashVapor + carrierSteam,
     energyIn: tubeEnergyIn,
     energyOut: tubeEnergyOut,
@@ -510,7 +539,12 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
 
   // Overall mass balance check
   const totalMassIn =
-    vaporInFlow + distillateInFlow + seawaterSprayFlow + recircBrineFlow + cascadedBrineFlow;
+    vaporInFlow +
+    distillateInFlow +
+    preheaterCondensateInFlow +
+    seawaterSprayFlow +
+    recircBrineFlow +
+    cascadedBrineFlow;
   const totalMassOut =
     netVaporOut +
     vaporToPreheaterFlow +
@@ -525,6 +559,7 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const boundaryEnergyIn =
     (vaporInFlow * h_vaporIn) / 3600 + // tube side: vapor in
     (distillateInFlow * h_distIn) / 3600 + // tube side: distillate siphon in
+    (preheaterCondensateInFlow * h_phCondIn) / 3600 + // tube side: preheater condensate
     (seawaterSprayFlow * getSeawaterEnthalpy(seawaterSalinity, seawaterSprayTemp)) / 3600 + // shell: seawater
     (recircBrineFlow *
       getSeawaterEnthalpy(Math.min(recircBrineSalinity, 120000), recircBrineTemp)) /

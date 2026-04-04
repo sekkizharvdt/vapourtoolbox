@@ -613,6 +613,10 @@ export interface PreheaterConfig {
   effectNumber: number;
   /** Vapor flow diverted to preheater in kg/hr */
   vaporFlow: number;
+  /** Which effect receives the preheater condensate (1-based).
+   *  Default: effectNumber + 2 (standard MED practice — e.g., PH on effect 3 → condensate to effect 5).
+   *  Clamped to numberOfEffects if it would exceed the last effect. */
+  condensateToEffect?: number;
 }
 
 /**
@@ -686,6 +690,15 @@ export interface MEDPlantInputs {
   brineRecirculation?: boolean;
   /** Recirculation ratio override — if omitted, uses auto-recommended value per effect */
   brineRecirculationRatio?: number;
+  /** Route recirculated brine through the preheater chain before spraying.
+   *  When true, recirc brine is blended with seawater and heated through
+   *  preheaters — reduces sensible heat duty in effects. Default false. */
+  brineRecircThroughPreheaters?: boolean;
+
+  // --- Shell configuration ---
+  /** Number of evaporator effects per physical shell (default 1).
+   *  BARC uses 2 effects per shell (3 shells × 2 effects = 6 effects). */
+  effectsPerShell?: number;
 
   // --- TVC parameters (only when plantType = 'MED_TVC') ---
   /** Motive steam pressure for TVC in bar abs */

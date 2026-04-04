@@ -202,7 +202,8 @@ function solveForwardPass(
     flow: number;
     temp: number;
     salinity: number;
-  }
+  },
+  prevPreheaterResults: MEDPreheaterResult[] = []
 ): {
   effects: MEDEffectResult[];
   finalCondenser: MEDFinalCondenserResult;
@@ -259,6 +260,22 @@ function solveForwardPass(
   const ncgFromSeawater = (swVolumeLitres * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6; // kg/hr
   let ncgAccum = ncgFromSeawater; // NCG entering effect 1 tube side
 
+  // ---- Build preheater condensate routing map from previous iteration ----
+  const phCondensateMap = new Map<number, { flow: number; temp: number }>();
+  for (const ph of prevPreheaterResults) {
+    // Determine which effect receives this preheater's condensate
+    const phConfig = inputs.preheaters.find((p) => p.effectNumber === ph.effectNumber);
+    const targetEffect = phConfig?.condensateToEffect ?? Math.min(ph.effectNumber + 2, N); // default: 2 effects downstream
+    const existing = phCondensateMap.get(targetEffect) ?? { flow: 0, temp: 0 };
+    // Weighted average temperature when multiple preheaters target the same effect
+    const totalFlow = existing.flow + ph.condensateFlow;
+    const blendedTemp =
+      totalFlow > 0
+        ? (existing.flow * existing.temp + ph.condensateFlow * ph.condensateTemperature) / totalFlow
+        : ph.condensateTemperature;
+    phCondensateMap.set(targetEffect, { flow: totalFlow, temp: blendedTemp });
+  }
+
   // ---- Cascading state variables ----
   let prevVaporOut = vaporToEffect1;
   let prevSteamTemp = effect1SteamTemp;
@@ -269,6 +286,9 @@ function solveForwardPass(
   let cascadedBrineSalinity = 0;
 
   for (let i = 0; i < N; i++) {
+    // Preheater condensate for this effect (from routing map)
+    const phCond = phCondensateMap.get(i + 1) ?? { flow: 0, temp: 0 };
+
     const effectInput: EffectInput = {
       index: i,
       totalEffects: N,
@@ -280,6 +300,8 @@ function solveForwardPass(
       distillateInFlow: distillateAccum,
       distillateInTemp: distillateTemp,
       ncgInFlow: ncgAccum,
+      preheaterCondensateInFlow: phCond.flow,
+      preheaterCondensateInTemp: phCond.temp,
 
       // Shell side spray
       seawaterSprayFlow: seawaterPerEffect,
@@ -367,11 +389,27 @@ function solveForwardPass(
     vaporTempMap.set(eff.effectNumber, eff.totalVaporOut.temperature);
   }
 
+  // ---- Preheater chain ----
+  // When brineRecircThroughPreheaters is enabled, the recirculated brine is
+  // blended with seawater and flows through the preheater chain together.
+  let preheaterFlow = finalCondenser.seawaterIn.flow;
+  let preheaterInletTemp = inputs.seawaterDischargeTemp;
+
+  if (inputs.brineRecircThroughPreheaters && recircPerEffect > 0) {
+    const totalRecircFlow = recircPerEffect * N;
+    const swFlow = finalCondenser.seawaterIn.flow;
+    const swTemp = inputs.seawaterDischargeTemp;
+    const recircTemp = recircBrineGuess.temp;
+    preheaterFlow = swFlow + totalRecircFlow;
+    preheaterInletTemp =
+      preheaterFlow > 0 ? (swFlow * swTemp + totalRecircFlow * recircTemp) / preheaterFlow : swTemp;
+  }
+
   const preheaters = calculatePreheaterChain(
     inputs.preheaters,
     vaporTempMap,
-    finalCondenser.seawaterIn.flow,
-    inputs.seawaterDischargeTemp,
+    preheaterFlow,
+    preheaterInletTemp,
     inputs.seawaterSalinity
   );
 
@@ -457,20 +495,25 @@ export function solveMEDPlant(inputs: MEDPlantInputs): MEDPlantResult {
 
   const { maxIterations, capacityTolerance, relaxationFactor } = MED_SOLVER_CONFIG;
 
+  // Track preheater results across iterations for condensate routing
+  let prevPreheaterResults: MEDPreheaterResult[] = [];
+
   for (let iter = 0; iter < maxIterations; iter++) {
     iterations = iter + 1;
 
-    // Solve forward pass
+    // Solve forward pass (with preheater condensate from previous iteration)
     const result = solveForwardPass(
       inputs,
       steamFlow,
       effectTemps,
       steamTemp,
       feedWaterTemp,
-      recircBrineGuess
+      recircBrineGuess,
+      prevPreheaterResults
     );
 
     bestResult = result;
+    prevPreheaterResults = result.preheaters;
 
     // Update recirculation guess from actual last-effect brine
     recircBrineGuess = {

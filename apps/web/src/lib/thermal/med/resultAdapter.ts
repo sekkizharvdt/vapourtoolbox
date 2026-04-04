@@ -173,6 +173,38 @@ export function composeDesignerEffects(
     });
   }
 
+  // ---- Multi-shell grouping (when effectsPerShell > 1) ----
+  const effectsPerShell = resolved.input.effectsPerShell ?? 1;
+  if (effectsPerShell > 1) {
+    for (let i = 0; i < effects.length; i++) {
+      const shellGroup = Math.floor(i / effectsPerShell) + 1;
+      const groupStart = (shellGroup - 1) * effectsPerShell;
+      const groupEnd = Math.min(groupStart + effectsPerShell, effects.length);
+      const effectsInShell = groupEnd - groupStart;
+
+      effects[i]!.shellGroup = shellGroup;
+      effects[i]!.effectsInShell = effectsInShell;
+
+      // Shell ID = MAX of all effects in this group
+      let maxShellID = 0;
+      let totalShellLength = 0;
+      for (let j = groupStart; j < groupEnd; j++) {
+        const eff = effects[j]!;
+        const effID = eff.shellODmm - 2 * shellThkMM;
+        if (effID > maxShellID) maxShellID = effID;
+        totalShellLength += eff.tubeLength * 1000; // per-bundle tube length
+      }
+      // Shell length = sum of tube lengths + tubesheet + access per bundle
+      const groupedShellLength = Math.round(
+        totalShellLength + effectsInShell * (2 * tubeSheetThkMM + tubeSheetAccessMM)
+      );
+      const groupedShellOD = Math.round(maxShellID + 2 * shellThkMM);
+
+      effects[i]!.shellODmm = groupedShellOD;
+      effects[i]!.shellLengthMM = groupedShellLength;
+    }
+  }
+
   return effects;
 }
 
