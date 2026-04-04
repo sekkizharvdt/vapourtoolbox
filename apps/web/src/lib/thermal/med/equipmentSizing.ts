@@ -558,14 +558,20 @@ function sizeFinalCondenser(
 // ============================================================================
 
 /**
- * Size a preheater (shell & tube, vapor on shell side, seawater on tube side).
+ * Size a preheater (shell & tube, vapor condensing on shell side,
+ * seawater flowing inside tubes).
+ *
+ * Same methodology as condenser sizing:
+ *   - Tube-side HTC: Dittus-Boelter for seawater forced convection
+ *   - Shell-side HTC: Nusselt horizontal tube condensation
+ *   - Overall U from composite thermal resistance (wall + fouling)
+ *   - Tube count from required area, with velocity check
  */
 function sizePreheater(
   preheater: MEDPreheaterResult,
   inputs: MEDPlantInputs
 ): PreheaterSizingResult {
   const warnings: string[] = [];
-  // Preheaters use condenser tube spec (smaller tubes)
   const tubeSpec = inputs.condenserTubes;
 
   const heatDuty = preheater.heatExchanged; // kW
@@ -576,21 +582,84 @@ function sizePreheater(
     return emptyPreheaterResult(preheater.effectNumber, warnings);
   }
 
-  // Typical preheater overall HTC: 2000–3000 W/(m²·K)
-  // (condensing vapor shell side + forced convection tube side)
-  const overallHTC = 2500; // W/(m²·K) — conservative estimate
+  // Minimum approach temperature check (hot end)
+  const hotEndApproach = preheater.vaporTemperature - preheater.seawaterOutletTemp;
+  if (hotEndApproach < 2.0) {
+    warnings.push(
+      `Preheater ${preheater.effectNumber}: Hot-end approach (${hotEndApproach.toFixed(1)}°C) < 2°C minimum.`
+    );
+  }
 
+  // ---- Tube-side HTC (seawater forced convection — Dittus-Boelter) ----
+  const avgSwTemp = (preheater.seawaterInletTemp + preheater.seawaterOutletTemp) / 2;
+  const swDensity = getSeawaterDensity(inputs.seawaterSalinity, avgSwTemp);
+  const swViscosity = getSeawaterViscosity(inputs.seawaterSalinity, avgSwTemp);
+  const swConductivity = getSeawaterThermalConductivity(inputs.seawaterSalinity, avgSwTemp);
+  const swCp = getSeawaterSpecificHeat(inputs.seawaterSalinity, avgSwTemp); // kJ/(kg·K)
+
+  const tubeID = (tubeSpec.od - 2 * tubeSpec.thickness) / 1000; // m
+  const designVelocity = 1.6; // m/s target for Ti preheater tubes
+  const Re = (swDensity * designVelocity * tubeID) / swViscosity;
+  const Pr = (swCp * 1000 * swViscosity) / swConductivity;
+  const Nu = Re > 2300 ? 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, 0.4) : 4.36;
+  const tubeSideHTC = (Nu * swConductivity) / tubeID;
+
+  // ---- Shell-side HTC (vapor condensation on tubes — Nusselt) ----
+  const vaporTemp = preheater.vaporTemperature;
+  const condensationResult = calculateNusseltCondensation({
+    liquidDensity: getDensityLiquid(vaporTemp),
+    vaporDensity: Math.max(getDensityVapor(vaporTemp), 0.02),
+    latentHeat: getLatentHeat(vaporTemp) * 1000, // kJ → J
+    liquidConductivity: getThermalConductivityLiquid(vaporTemp),
+    liquidViscosity: getViscosityLiquid(vaporTemp),
+    dimension: tubeSpec.od / 1000,
+    deltaT: Math.max(vaporTemp - avgSwTemp, 1),
+    orientation: 'horizontal',
+  });
+  const shellSideHTC = condensationResult.htc;
+
+  // ---- Overall HTC ----
+  const tubeWallConductivity = MED_TUBE_CONDUCTIVITY[tubeSpec.material] ?? 15;
+  const overallResult = calculateOverallHTC({
+    tubeSideHTC,
+    shellSideHTC,
+    tubeOD: tubeSpec.od / 1000,
+    tubeID,
+    tubeWallConductivity,
+    tubeSideFouling: DEFAULT_FOULING_SEAWATER,
+    shellSideFouling: DEFAULT_FOULING_DISTILLATE,
+  });
+  const overallHTC = overallResult.overallHTC;
+
+  // ---- Area & tube count ----
   const requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, lmtd);
   const designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
 
   const tubeOuterArea = Math.PI * (tubeSpec.od / 1000) * tubeSpec.length;
-  const tubeCount = Math.ceil(designArea / tubeOuterArea);
+  const rawTubeCount = Math.ceil(designArea / tubeOuterArea);
+  const tubeCount = Math.ceil(rawTubeCount / CONDENSER_TUBE_PASSES) * CONDENSER_TUBE_PASSES;
+
+  // ---- Tube velocity check ----
+  const flowAreaPerPass = (tubeCount / CONDENSER_TUBE_PASSES) * (Math.PI / 4) * tubeID * tubeID;
+  const swMassFlow = preheater.seawaterFlow / 3600; // kg/s
+  const tubeVelocity = flowAreaPerPass > 0 ? swMassFlow / (swDensity * flowAreaPerPass) : 0;
+
+  if (tubeVelocity > 2.5) {
+    warnings.push(
+      `Preheater ${preheater.effectNumber}: Tube velocity (${tubeVelocity.toFixed(2)} m/s) > 2.5 m/s.`
+    );
+  }
+  if (tubeVelocity < 1.0 && tubeVelocity > 0) {
+    warnings.push(
+      `Preheater ${preheater.effectNumber}: Tube velocity (${tubeVelocity.toFixed(2)} m/s) < 1.0 m/s. Risk of fouling.`
+    );
+  }
 
   return {
     effectNumber: preheater.effectNumber,
     heatDuty: Math.round(heatDuty * 10) / 10,
     lmtd: Math.round(lmtd * 100) / 100,
-    overallHTC,
+    overallHTC: Math.round(overallHTC * 10) / 10,
     requiredArea: Math.round(requiredArea * 100) / 100,
     designArea: Math.round(designArea * 100) / 100,
     tubeCount,

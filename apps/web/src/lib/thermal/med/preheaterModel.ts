@@ -8,11 +8,7 @@
  * Reference: El-Dessouky & Ettouney (2002), Chapter 6
  */
 
-import {
-  getEnthalpyVapor,
-  getEnthalpyLiquid,
-  getSeawaterSpecificHeat,
-} from '@vapour/constants';
+import { getEnthalpyVapor, getEnthalpyLiquid, getSeawaterSpecificHeat } from '@vapour/constants';
 import type { MEDPreheaterResult, PreheaterConfig } from '@vapour/types';
 
 /**
@@ -40,13 +36,7 @@ export interface PreheaterInput {
  * We solve for seawater outlet temperature given the vapor flow.
  */
 export function calculatePreheater(input: PreheaterInput): MEDPreheaterResult {
-  const {
-    config,
-    vaporTemperature,
-    seawaterFlow,
-    seawaterInletTemp,
-    seawaterSalinity,
-  } = input;
+  const { config, vaporTemperature, seawaterFlow, seawaterInletTemp, seawaterSalinity } = input;
 
   const vaporFlow = config.vaporFlow; // kg/hr
 
@@ -59,14 +49,13 @@ export function calculatePreheater(input: PreheaterInput): MEDPreheaterResult {
   const cp_sw = getSeawaterSpecificHeat(seawaterSalinity, seawaterInletTemp); // kJ/(kg·K)
 
   // Seawater outlet temperature: Q = m × Cp × ΔT → ΔT = Q / (m × Cp)
-  const deltaT_sw =
-    seawaterFlow > 0 ? (Q_condensing * 3600) / (seawaterFlow * cp_sw) : 0;
+  const deltaT_sw = seawaterFlow > 0 ? (Q_condensing * 3600) / (seawaterFlow * cp_sw) : 0;
   const seawaterOutletTemp = seawaterInletTemp + deltaT_sw;
 
   // Limit: seawater cannot be heated above the condensing vapor temperature
-  const actualOutletTemp = Math.min(seawaterOutletTemp, vaporTemperature - 1.0);
-  const actualQ =
-    (seawaterFlow * cp_sw * (actualOutletTemp - seawaterInletTemp)) / 3600; // kW
+  // Minimum approach = 2°C (practical limit for shell & tube heat exchanger)
+  const actualOutletTemp = Math.min(seawaterOutletTemp, vaporTemperature - 2.0);
+  const actualQ = (seawaterFlow * cp_sw * (actualOutletTemp - seawaterInletTemp)) / 3600; // kW
 
   // LMTD for the preheater (counter-current assumption)
   const dt1 = vaporTemperature - actualOutletTemp; // hot end
@@ -122,9 +111,7 @@ export function calculatePreheaterChain(
   if (preheaterConfigs.length === 0) return [];
 
   // Sort preheaters: seawater flows from coldest PH (highest effect #) to hottest (lowest effect #)
-  const sorted = [...preheaterConfigs].sort(
-    (a, b) => b.effectNumber - a.effectNumber
-  );
+  const sorted = [...preheaterConfigs].sort((a, b) => b.effectNumber - a.effectNumber);
 
   const results: MEDPreheaterResult[] = [];
   let currentTemp = seawaterInletTemp;

@@ -9,7 +9,7 @@
  * without changing any of its rendering code.
  */
 
-import { getLatentHeat, getDensityVapor } from '@vapour/constants';
+import { getLatentHeat, getDensityVapor, getSeawaterDensity } from '@vapour/constants';
 import type { MEDPlantResult } from '@vapour/types';
 import type { EquipmentSizingResult } from './equipmentSizing';
 import type {
@@ -206,7 +206,10 @@ export function composeDesignerCondenser(
     const tiTubeID = 16.2;
     const flowArea = tubesPerPass * (Math.PI / 4) * (tiTubeID / 1000) ** 2;
     const swFlow = fc.seawaterIn.flow / 3600; // kg/s
-    const swDensity = 1025; // approx
+    const swDensity = getSeawaterDensity(
+      resolved.input.seawaterSalinity ?? 35000,
+      resolved.input.seawaterTemperature
+    );
     const vel = flowArea > 0 ? swFlow / (swDensity * flowArea) : 0;
     const area = totalTubes * Math.PI * (tiTubeOD / 1000) * (tiTubeLengthMM / 1000);
     const shellODmm = Math.round(
@@ -237,7 +240,12 @@ export function composeDesignerCondenser(
     overallU: cs.overallHTC,
     designArea: cs.designArea,
     seawaterFlow: fc.seawaterIn.flow / 1000, // T/h
-    seawaterFlowM3h: fc.seawaterIn.flow / 1025, // approximate
+    seawaterFlowM3h:
+      fc.seawaterIn.flow /
+      getSeawaterDensity(
+        resolved.input.seawaterSalinity ?? 35000,
+        resolved.input.seawaterTemperature
+      ),
     tubes: bestPass.totalTubes,
     passes: bestPass.passes,
     velocity: bestPass.velocity,

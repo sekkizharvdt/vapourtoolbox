@@ -259,7 +259,7 @@ export function computeAuxiliaryEquipment(
     {
       service: 'Distillate Header',
       flowTh: ctx.totalDistillate,
-      density: 998,
+      density: getDensityLiquid(ctx.swTemp + 5),
       targetVel: 1.0,
       velLimits: { min: 0.5, max: 2.0 },
     },
@@ -333,7 +333,7 @@ export function computeAuxiliaryEquipment(
     {
       service: 'Distillate Pump',
       flowTh: ctx.totalDistillate,
-      density: 998,
+      density: getDensityLiquid(ctx.swTemp + 5),
       staticHead: 3,
       dischargePressure: 2.0,
       suctionPressure: condenser.vapourTemp > 40 ? 0.08 : 0.06, // vacuum
@@ -546,7 +546,7 @@ export function computeNozzleSchedule(
       {
         service: 'distillate_outlet',
         flowTh: distillateFlowTh,
-        density: 998,
+        density: getDensityLiquid(ctx.swTemp + 5),
         targetVel: 0.8,
         velLimits: { min: 0.3, max: 1.5 },
       },

@@ -6,7 +6,7 @@
  */
 
 import type { GORConfigRow } from './designerTypes';
-import { getLatentHeat } from '@vapour/constants';
+import { getLatentHeat, getSeawaterSpecificHeat } from '@vapour/constants';
 
 export function computeGORConfigurations(
   steamFlow: number,
@@ -23,7 +23,8 @@ export function computeGORConfigurations(
 ): GORConfigRow[] {
   const configs: GORConfigRow[] = [];
   const ventLoss = 0.015;
-  const Cp = 4.0; // kJ/(kg·K) seawater
+  const avgTemp = (steamTemp + lastVapT) / 2;
+  const Cp = getSeawaterSpecificHeat(swSalinity, avgTemp); // kJ/(kg·K)
   const totalRange = steamTemp - lastVapT;
 
   for (let nEff = 4; nEff <= 12; nEff++) {
