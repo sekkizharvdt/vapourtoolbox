@@ -23,6 +23,10 @@ import {
   getSeawaterDensity,
   getSeawaterViscosity,
   getSeawaterThermalConductivity,
+  getDensityLiquid,
+  getDensityVapor,
+  getViscosityLiquid,
+  getThermalConductivityLiquid,
   MED_TUBE_CONDUCTIVITY,
   ROGNONI_REFERENCE,
 } from '@vapour/constants';
@@ -251,11 +255,11 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   // Nusselt film condensation at steam conditions
   const deltaT_cond = Math.max(steamTemp - effectTemp, 0.5);
   const condensationResult = calculateNusseltCondensation({
-    liquidDensity: 970, // kg/m³ (water at ~60°C)
-    vaporDensity: (getSaturationPressure(steamTemp) * 100) / (0.4615 * (steamTemp + 273.15)), // approx ρ_vapor
+    liquidDensity: getDensityLiquid(steamTemp),
+    vaporDensity: getDensityVapor(steamTemp),
     latentHeat: getLatentHeat(steamTemp) * 1000, // kJ/kg → J/kg
-    liquidConductivity: 0.65, // W/(m·K) (water at ~60°C)
-    liquidViscosity: 0.0005, // Pa·s (water at ~60°C)
+    liquidConductivity: getThermalConductivityLiquid(steamTemp),
+    liquidViscosity: getViscosityLiquid(steamTemp),
     dimension: (tubeSpec.od - 2 * tubeSpec.thickness) / 1000, // tube ID in m
     deltaT: deltaT_cond,
     orientation: 'horizontal',
@@ -463,14 +467,11 @@ function sizeFinalCondenser(
 
   // ---- Shell-side HTC (vapor condensation on tube bundle) ----
   const condensationResult = calculateNusseltCondensation({
-    liquidDensity: 995, // kg/m³ (distillate near condenser temp)
-    vaporDensity: Math.max(
-      (getSaturationPressure(vaporTemp) * 100) / (0.4615 * (vaporTemp + 273.15)),
-      0.02
-    ),
+    liquidDensity: getDensityLiquid(vaporTemp),
+    vaporDensity: Math.max(getDensityVapor(vaporTemp), 0.02),
     latentHeat: getLatentHeat(vaporTemp) * 1000,
-    liquidConductivity: 0.62,
-    liquidViscosity: 0.0008,
+    liquidConductivity: getThermalConductivityLiquid(vaporTemp),
+    liquidViscosity: getViscosityLiquid(vaporTemp),
     dimension: tubeSpec.od / 1000,
     deltaT: Math.max(vaporTemp - avgSwTemp, 1),
     orientation: 'horizontal',
