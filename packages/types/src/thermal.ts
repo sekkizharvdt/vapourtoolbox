@@ -530,7 +530,8 @@ export interface SavedCalculation {
     | 'MED_PLANT'
     | 'STRAINER_SIZING'
     | 'STRAINER_SIZING_BATCH'
-    | 'SINGLE_TUBE';
+    | 'SINGLE_TUBE'
+    | 'MED_DESIGNER';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;

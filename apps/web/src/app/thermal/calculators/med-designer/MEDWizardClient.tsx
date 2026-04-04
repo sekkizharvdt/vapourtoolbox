@@ -22,6 +22,8 @@ import {
   PictureAsPdf as PdfIcon,
   RestartAlt as ResetIcon,
   Download as DownloadIcon,
+  Save as SaveIcon,
+  FolderOpen as FolderOpenIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { designMED, type MEDDesignerResult, type GORConfigRow } from '@/lib/thermal';
@@ -32,6 +34,8 @@ import { Step2Geometry } from './components/Step2Geometry';
 import { MEDProcessFlowDiagram } from './components/MEDProcessFlowDiagram';
 import { MEDGeneralArrangement } from './components/MEDGeneralArrangement';
 import { GenerateReportDialog } from './components/GenerateReportDialog';
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 const STEPS = ['Inputs & GOR', 'Geometry', 'Detailed Design', 'Review & Export'];
 
@@ -56,6 +60,10 @@ export default function MEDWizardClient() {
 
   // ── PDF dialog ─────────────────────────────────────────────────────────
   const [reportOpen, setReportOpen] = useState(false);
+
+  // ── Save/Load ─────────────────────────────────────────────────────────
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // ── GOR configuration matrix ───────────────────────────────────────────
   const gorConfigs = useMemo<GORConfigRow[]>(() => {
@@ -298,7 +306,23 @@ export default function MEDWizardClient() {
         </Typography>
       </Box>
 
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Button
+          variant="outlined"
+          startIcon={<FolderOpenIcon />}
+          onClick={() => setLoadOpen(true)}
+          size="small"
+        >
+          Load
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          onClick={() => setSaveOpen(true)}
+          size="small"
+        >
+          Save
+        </Button>
         <Button variant="outlined" startIcon={<ResetIcon />} onClick={handleReset} size="small">
           Start Over
         </Button>
@@ -815,6 +839,50 @@ export default function MEDWizardClient() {
           />
         </Stack>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="MED_DESIGNER"
+        inputs={{
+          steamFlow,
+          steamTemp,
+          swTemp,
+          targetGOR,
+          selectedEffects,
+          selectedPreheaters,
+          geoMode,
+          geoValue,
+          geoUniformFix,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="MED_DESIGNER"
+        onLoad={(inputs) => {
+          if (typeof inputs.steamFlow === 'string') setSteamFlow(inputs.steamFlow);
+          if (typeof inputs.steamTemp === 'string') setSteamTemp(inputs.steamTemp);
+          if (typeof inputs.swTemp === 'string') setSwTemp(inputs.swTemp);
+          if (typeof inputs.targetGOR === 'string') setTargetGOR(inputs.targetGOR);
+          if (typeof inputs.selectedEffects === 'number')
+            setSelectedEffects(inputs.selectedEffects);
+          if (typeof inputs.selectedPreheaters === 'number')
+            setSelectedPreheaters(inputs.selectedPreheaters);
+          if (
+            inputs.geoMode === 'fixed_length' ||
+            inputs.geoMode === 'fixed_tubes' ||
+            inputs.geoMode === 'uniform'
+          )
+            setGeoMode(inputs.geoMode);
+          if (typeof inputs.geoValue === 'string') setGeoValue(inputs.geoValue);
+          if (inputs.geoUniformFix === 'tubes' || inputs.geoUniformFix === 'length')
+            setGeoUniformFix(inputs.geoUniformFix);
+          // Return to step 1 after loading
+          setActiveStep(0);
+        }}
+      />
     </Container>
   );
 }

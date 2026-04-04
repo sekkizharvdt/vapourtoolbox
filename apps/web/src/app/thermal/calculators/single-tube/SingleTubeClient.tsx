@@ -2,11 +2,17 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack, Button } from '@mui/material';
-import { RestartAlt as ResetIcon } from '@mui/icons-material';
+import {
+  RestartAlt as ResetIcon,
+  Save as SaveIcon,
+  FolderOpen as FolderOpenIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateSingleTube } from '@/lib/thermal';
 import type { SprayFluidType } from '@vapour/types';
 import { SingleTubeInputs, SingleTubeResults, SingleTubeDiagram } from './components';
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 export default function SingleTubeClient() {
   // --- Tube geometry state ---
@@ -29,6 +35,10 @@ export default function SingleTubeClient() {
   // --- Fouling ---
   const [insideFouling, setInsideFouling] = useState<string>('0.00009');
   const [outsideFouling, setOutsideFouling] = useState<string>('0.00009');
+
+  // --- Save/Load ---
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // --- Material selection handler (from quick-select or database) ---
   const handleMaterialSelect = (name: string, conductivity: number, defaultWall?: number) => {
@@ -146,7 +156,24 @@ export default function SingleTubeClient() {
         </Typography>
       </Box>
 
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Button
+          variant="outlined"
+          startIcon={<FolderOpenIcon />}
+          onClick={() => setLoadOpen(true)}
+          size="small"
+        >
+          Load
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          onClick={() => setSaveOpen(true)}
+          size="small"
+          disabled={!result}
+        >
+          Save
+        </Button>
         <Button variant="outlined" startIcon={<ResetIcon />} onClick={handleReset} size="small">
           Reset
         </Button>
@@ -212,6 +239,57 @@ export default function SingleTubeClient() {
           </Box>
         </Grid>
       </Grid>
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="SINGLE_TUBE"
+        inputs={{
+          tubeOD,
+          wallThickness,
+          tubeLength,
+          tubeMaterialName,
+          wallConductivity,
+          vapourTemperature,
+          vapourFlowRate,
+          sprayFluidType,
+          sprayTemperature,
+          spraySalinity,
+          sprayFlowRate,
+          insideFouling,
+          outsideFouling,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="SINGLE_TUBE"
+        onLoad={(inputs) => {
+          if (typeof inputs.tubeOD === 'string') setTubeOD(inputs.tubeOD);
+          if (typeof inputs.wallThickness === 'string') setWallThickness(inputs.wallThickness);
+          if (typeof inputs.tubeLength === 'string') setTubeLength(inputs.tubeLength);
+          if (typeof inputs.tubeMaterialName === 'string')
+            setTubeMaterialName(inputs.tubeMaterialName);
+          if (typeof inputs.wallConductivity === 'string')
+            setWallConductivity(inputs.wallConductivity);
+          if (typeof inputs.vapourTemperature === 'string')
+            setVapourTemperature(inputs.vapourTemperature);
+          if (typeof inputs.vapourFlowRate === 'string') setVapourFlowRate(inputs.vapourFlowRate);
+          if (
+            inputs.sprayFluidType === 'SEAWATER' ||
+            inputs.sprayFluidType === 'BRINE' ||
+            inputs.sprayFluidType === 'PURE_WATER'
+          )
+            setSprayFluidType(inputs.sprayFluidType);
+          if (typeof inputs.sprayTemperature === 'string')
+            setSprayTemperature(inputs.sprayTemperature);
+          if (typeof inputs.spraySalinity === 'string') setSpraySalinity(inputs.spraySalinity);
+          if (typeof inputs.sprayFlowRate === 'string') setSprayFlowRate(inputs.sprayFlowRate);
+          if (typeof inputs.insideFouling === 'string') setInsideFouling(inputs.insideFouling);
+          if (typeof inputs.outsideFouling === 'string') setOutsideFouling(inputs.outsideFouling);
+        }}
+      />
     </Container>
   );
 }
