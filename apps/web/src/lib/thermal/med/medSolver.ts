@@ -144,17 +144,23 @@ function calculateRecircFlowPerEffect(
   // Only calculate recirculation if explicitly enabled
   if (!inputs.brineRecirculation) return 0;
 
+  // If user provided a ratio, use it directly (ratio × seawater = total spray)
+  if (inputs.brineRecirculationRatio && inputs.brineRecirculationRatio > 1.0) {
+    return seawaterFlowPerEffect * (inputs.brineRecirculationRatio - 1.0);
+  }
+
   const tubeSpec = inputs.evaporatorTubes;
 
   // Estimate tube count from typical area requirements
-  // For a rough estimate, use Rognoni reference values
-  const avgHeatDutyPerEffect =
-    (inputs.capacity * 1000 * 2400) / (inputs.gorTarget * inputs.numberOfEffects); // kW approx
+  // Q_kW = (capacity_kg/hr × latent_kJ/kg) / (GOR × N_effects × 3600)
+  // Area_m² = Q_W / (U_W/m²K × ΔT_K) = Q_kW × 1000 / (U × ΔT)
+  const avgHeatDutyKW =
+    (inputs.capacity * 1000 * 2400) / (inputs.gorTarget * inputs.numberOfEffects * 3.6);
   const avgDeltaT =
     (inputs.topBrineTemp - (inputs.seawaterDischargeTemp + inputs.condenserApproachTemp)) /
     inputs.numberOfEffects;
-  const avgU = ROGNONI_REFERENCE.evaporatorOverallHTC.midRange;
-  const estArea = avgDeltaT > 0 ? avgHeatDutyPerEffect / ((avgU * avgDeltaT) / 1000) : 50;
+  const avgU = ROGNONI_REFERENCE.evaporatorOverallHTC.midRange; // W/(m²·K)
+  const estArea = avgDeltaT > 0.5 ? (avgHeatDutyKW * 1000) / (avgU * avgDeltaT) : 50;
   const tubeOuterArea = Math.PI * (tubeSpec.od / 1000) * tubeSpec.length;
   const estTubeCount = Math.max(100, Math.ceil(estArea / tubeOuterArea));
 
