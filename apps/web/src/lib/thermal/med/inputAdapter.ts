@@ -207,6 +207,14 @@ export function toMEDPlantInputs(resolved: ResolvedDesignerInputs): MEDPlantInpu
   // Map tube material
   const tubeMaterial = mapTubeMaterial(resolved.tubeMaterialName);
 
+  // Preheaters: raise the effective seawater discharge temperature
+  // Each preheater uses vapor from an intermediate effect to heat the feed,
+  // reducing sensible heat duty in the effects → more energy for evaporation → higher GOR.
+  // The feed temperature rise is approximately 3-5°C per preheater.
+  const numPH = input.numberOfPreheaters ?? 0;
+  const phTempRise = numPH > 0 ? Math.min((topBrineTemp - condenserSWOutlet) * 0.7, numPH * 4) : 0;
+  const effectiveSWDischargeTemp = condenserSWOutlet + phTempRise;
+
   return {
     plantType: 'MED',
     numberOfEffects: resolved.nEff,
@@ -219,7 +227,7 @@ export function toMEDPlantInputs(resolved: ResolvedDesignerInputs): MEDPlantInpu
     steamTemperature: input.steamTemperature,
 
     seawaterInletTemp: input.seawaterTemperature,
-    seawaterDischargeTemp: condenserSWOutlet,
+    seawaterDischargeTemp: effectiveSWDischargeTemp,
     seawaterSalinity: swSalinity,
 
     topBrineTemp,
