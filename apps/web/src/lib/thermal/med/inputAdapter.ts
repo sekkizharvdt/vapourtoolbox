@@ -242,6 +242,9 @@ export function toMEDPlantInputs(resolved: ResolvedDesignerInputs): MEDPlantInpu
       material: 'titanium',
     },
 
-    brineRecirculation: resolved.includeRecirc,
+    // Recirculation is handled by the result adapter (composeDesignerEffects)
+    // using the designer's minGamma approach, not by the core solver.
+    // Setting false here prevents the solver's rough tube-count-based estimate.
+    brineRecirculation: false,
   };
 }
