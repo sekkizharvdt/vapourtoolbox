@@ -217,8 +217,8 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   const estimatedDistillate = input.steamFlow * N * 0.8;
   let feedPerEffect = (estimatedDistillate * concentrationFactor) / ((concentrationFactor - 1) * N);
 
-  // Preheater configuration
-  const phEffects = input.preheaterEffects ?? [];
+  // Preheater configuration — filter to valid effect range (2..N-1)
+  const phEffects = (input.preheaterEffects ?? []).filter((e) => e >= 2 && e <= N - 1);
 
   // Initial feed temperature = condenser outlet (no preheaters on first pass)
   let feedWaterTemp = condenserOutlet;
@@ -283,11 +283,15 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     for (let i = 0; i < N; i++) {
       const effectNumber = i + 1;
       const phCond = phCondensateMap.get(effectNumber) ?? { flow: 0, temp: 0 };
+      const effTemp = effectTemps[i];
+      if (effTemp === undefined) {
+        throw new Error(`Effect ${effectNumber}: temperature not defined in profile`);
+      }
 
       const effectInput: EffectInput = {
         index: i,
         totalEffects: N,
-        effectTemp: effectTemps[i]!,
+        effectTemp: effTemp,
         steamTemp: i === 0 ? steamTemp : prevVaporTemp,
 
         // Tube side
@@ -330,6 +334,11 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     }
 
     // ---- Final condenser ----
+    if (effects.length < N) {
+      throw new Error(
+        `Only ${effects.length} of ${N} effects could be calculated. Check temperature range.`
+      );
+    }
     const lastEffect = effects[N - 1]!;
     finalCondenser = calculateFinalCondenser({
       vaporInFlow: lastEffect.totalVaporOut.flow,

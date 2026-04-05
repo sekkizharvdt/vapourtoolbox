@@ -178,3 +178,55 @@ describe('MED Engine — Temperature profile', () => {
     }
   });
 });
+
+describe('MED Engine — Edge cases and robustness', () => {
+  it('handles preheater effects out of range gracefully', () => {
+    // Preheater on Effect 8 but only 6 effects — should be filtered out
+    const result = calculateMED({
+      ...BARC_INPUT,
+      preheaterEffects: [2, 4, 8, 10],
+    });
+    expect(result.converged).toBe(true);
+    // Only E2 and E4 should remain (8 and 10 filtered out)
+    expect(result.preheaters.length).toBeLessThanOrEqual(2);
+  });
+
+  it('handles preheater on Effect 1 gracefully (filtered out)', () => {
+    const result = calculateMED({
+      ...BARC_INPUT,
+      preheaterEffects: [1],
+    });
+    expect(result.converged).toBe(true);
+    expect(result.preheaters).toHaveLength(0);
+  });
+
+  it('handles preheater on last effect gracefully (filtered out)', () => {
+    const result = calculateMED({
+      ...BARC_INPUT,
+      preheaterEffects: [6],
+    });
+    expect(result.converged).toBe(true);
+    expect(result.preheaters).toHaveLength(0);
+  });
+
+  it('handles narrow temperature range (many effects)', () => {
+    // 10 effects with only 18°C range = 1.8°C/effect — should still work
+    expect(() => calculateMED({ ...BARC_INPUT, numberOfEffects: 10 })).not.toThrow();
+  });
+
+  it('throws on impossible temperature range', () => {
+    expect(() =>
+      calculateMED({
+        ...BARC_INPUT,
+        steamTemperature: 35, // below condenser outlet
+      })
+    ).toThrow();
+  });
+
+  it('handles 2 effects (minimum)', () => {
+    const result = calculateMED({ ...BARC_INPUT, numberOfEffects: 2 });
+    expect(result.converged).toBe(true);
+    expect(result.effects).toHaveLength(2);
+    expect(result.performance.gor).toBeGreaterThan(0);
+  });
+});
