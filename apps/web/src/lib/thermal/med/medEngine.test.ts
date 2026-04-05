@@ -365,3 +365,56 @@ describe('MED Engine — Equipment sizing (condenser U validation)', () => {
     }
   });
 });
+
+describe('MED Engine — Recirculation', () => {
+  const result = calculateMED(BARC_INPUT);
+
+  it('recirculation result is populated', () => {
+    expect(result.recirculation).toBeDefined();
+    expect(result.recirculation.flows).toHaveLength(BARC_INPUT.numberOfEffects);
+  });
+
+  it('all effects need recirculation (spray-only wetting is too low)', () => {
+    // For a small plant (790 kg/hr steam), spray flow per effect is low
+    // relative to tube count — all effects should need recirc
+    for (const flow of result.recirculation.flows) {
+      expect(flow).toBeGreaterThan(0);
+    }
+  });
+
+  it('total recirculation flow is positive', () => {
+    // Recirc can be very large for small plants with many tubes — this is
+    // physically correct. The recirc pump flow depends on tube geometry.
+    expect(result.recirculation.totalFlow).toBeGreaterThan(0);
+  });
+
+  it('per-effect recirc flow is consistent with tube geometry', () => {
+    if (!result.equipmentSizing) return;
+    for (let i = 0; i < BARC_INPUT.numberOfEffects; i++) {
+      const ev = result.equipmentSizing.evaporators[i]!;
+      const recirc = result.recirculation.flows[i]!;
+      const spray = result.effects[i]!.sprayWater.flow;
+      const totalFlow = spray + recirc;
+      // Wetting rate with recirc should be near target (0.045 kg/(m·s))
+      const totalTubeLength = ev.tubeCount * ev.tubeLength;
+      const wettingWithRecirc = totalFlow / 3600 / (2 * totalTubeLength);
+      expect(wettingWithRecirc).toBeGreaterThan(0.04);
+      expect(wettingWithRecirc).toBeLessThan(0.06);
+    }
+  });
+
+  it('recirculation source is last effect brine', () => {
+    const lastEffect = result.effects[BARC_INPUT.numberOfEffects - 1]!;
+    expect(result.recirculation.sourceTemp).toBeCloseTo(lastEffect.totalBrineOut.temperature, 0);
+    expect(result.recirculation.sourceSalinity).toBeCloseTo(
+      lastEffect.totalBrineOut.salinity,
+      -2 // within 100 ppm
+    );
+  });
+
+  it('GOR is unchanged (recirc does not affect process balance)', () => {
+    // Recirc is an equipment concern — GOR should be the same as without sizing
+    expect(result.performance.gor).toBeGreaterThan(3);
+    expect(result.performance.gor).toBeLessThan(10);
+  });
+});

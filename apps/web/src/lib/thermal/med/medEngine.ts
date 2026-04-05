@@ -109,6 +109,8 @@ export interface MEDEngineInput {
   // ---- TVC (Thermo Vapor Compressor) ----
   /** Motive steam pressure for TVC in bar abs (omit for plain MED) */
   tvcMotivePressure?: number;
+  /** Motive steam temperature in °C (optional — defaults to saturated at tvcMotivePressure) */
+  tvcMotiveTemperature?: number;
   /** Effect from which vapor is entrained by the TVC (1-based, default: last effect) */
   tvcEntrainedEffect?: number;
 }
@@ -178,6 +180,17 @@ export interface MEDEngineResult {
     /** Is the TVC discharge superheated? */
     isSuperheated: boolean;
   } | null;
+  /** Recirculation flows per effect in kg/hr (from last-effect brine) */
+  recirculation: {
+    /** Per-effect recirculation flow in kg/hr */
+    flows: number[];
+    /** Total recirculation flow in kg/hr */
+    totalFlow: number;
+    /** Source: last effect brine temperature in °C */
+    sourceTemp: number;
+    /** Source: last effect brine salinity in ppm */
+    sourceSalinity: number;
+  };
   /** Convergence info */
   iterations: number;
   converged: boolean;
@@ -262,6 +275,9 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   // Temperature profile
   const { effectTemps, steamTemp } = buildTemperatureProfile(input);
 
+  // Recirculation flows per effect — initially zero, populated after first sizing pass
+  const recircFlows: number[] = new Array(N).fill(0);
+
   // Feed per effect: parallel feed, each effect gets equal seawater
   // Total feed = distillate × CF / (CF - 1) — but we don't know distillate yet.
   // Initial estimate: assume GOR ≈ N × 0.8 (rough), refine through iteration.
@@ -285,6 +301,10 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   let effects: MEDEffectResult[] = [];
   let preheaterDetails: PreheaterDetail[] = [];
   let finalCondenser: MEDFinalCondenserResult | null = null;
+
+  // Last effect brine properties for recirculation (updated after each convergence)
+  let lastEffectBrineTemp = 0;
+  let lastEffectBrineSalinity = maxBrineSalinity;
 
   // ======================================================================
   // ITERATION LOOP
@@ -330,6 +350,9 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
       try {
         tvcResult = solveTVCIntegration({
           motivePressure: input.tvcMotivePressure,
+          ...(input.tvcMotiveTemperature !== undefined && {
+            motiveTemperature: input.tvcMotiveTemperature,
+          }),
           entrainedEffectNumber: input.tvcEntrainedEffect ?? N,
           entrainedVaporTemp,
           dischargePressure,
@@ -395,7 +418,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         seawaterSprayFlow: feedPerEffect,
         seawaterSprayTemp: feedWaterTemp,
         seawaterSalinity: swSalinity,
-        recircBrineFlow: 0, // Recirculation added in later iteration when tube count is known
+        recircBrineFlow: 0, // Recirc computed post-sizing (equipment concern, not process balance)
         recircBrineTemp: 0,
         recircBrineSalinity: 0,
 
@@ -640,6 +663,40 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   }
 
   // ======================================================================
+  // RECIRCULATION COMPUTATION
+  // After sizing, compute the recirculation flow needed per effect to
+  // achieve adequate wetting. Recirculation is pumped from the last effect
+  // brine pool — it's an equipment concern, not a process balance change
+  // (the recirc brine is at near-equilibrium temperature, so it doesn't
+  // significantly affect evaporation rates or GOR).
+  // ======================================================================
+
+  const TARGET_WETTING_RATE = 0.045; // 1.5× minimum of 0.03 kg/(m·s)
+
+  if (equipmentSizing) {
+    const lastEff = effects[N - 1];
+    if (lastEff) {
+      lastEffectBrineTemp = lastEff.totalBrineOut.temperature;
+      lastEffectBrineSalinity = lastEff.totalBrineOut.salinity;
+    }
+
+    for (let i = 0; i < N; i++) {
+      const ev = equipmentSizing.evaporators[i];
+      if (!ev || ev.tubeCount === 0) continue;
+
+      const sprayFlow = effects[i]!.sprayWater.flow / 3600; // kg/s
+      const totalTubeLength = ev.tubeCount * ev.tubeLength; // m
+      const currentWetting = totalTubeLength > 0 ? sprayFlow / (2 * totalTubeLength) : 0;
+
+      if (currentWetting < TARGET_WETTING_RATE) {
+        // Required total flow for target wetting: Γ_target × 2 × N_tubes × L
+        const requiredTotalFlow = TARGET_WETTING_RATE * 2 * totalTubeLength * 3600; // kg/hr
+        recircFlows[i] = Math.max(0, requiredTotalFlow - effects[i]!.sprayWater.flow);
+      }
+    }
+  }
+
+  // ======================================================================
   // BUILD RESULT
   // ======================================================================
 
@@ -659,6 +716,9 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     try {
       const tvr = solveTVCIntegration({
         motivePressure: input.tvcMotivePressure,
+        ...(input.tvcMotiveTemperature !== undefined && {
+          motiveTemperature: input.tvcMotiveTemperature,
+        }),
         entrainedEffectNumber: input.tvcEntrainedEffect ?? N,
         entrainedVaporTemp: entrainedEffect.totalVaporOut.temperature,
         dischargePressure: getSaturationPressure(steamTemp),
@@ -721,6 +781,12 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     },
     temperatureProfile,
     tvc: lastTvcResult,
+    recirculation: {
+      flows: recircFlows.map((f) => Math.round(f)),
+      totalFlow: Math.round(recircFlows.reduce((s, f) => s + f, 0)),
+      sourceTemp: Math.round(lastEffectBrineTemp * 10) / 10,
+      sourceSalinity: Math.round(lastEffectBrineSalinity),
+    },
     iterations,
     converged,
     warnings,

@@ -35,6 +35,7 @@ import {
   type MEDEngineInput,
   type MEDEngineResult,
 } from '@/lib/thermal/med/medEngine';
+import { getSaturationTemperature } from '@vapour/constants';
 import MEDEffectBalanceTable from './MEDEffectBalanceTable';
 
 // ============================================================================
@@ -60,6 +61,7 @@ export default function MEDPlantClient() {
   // ---- TVC ----
   const [tvcEnabled, setTvcEnabled] = useState(false);
   const [tvcMotivePressure, setTvcMotivePressure] = useState('10'); // bar abs
+  const [tvcSuperheat, setTvcSuperheat] = useState('0'); // °C above saturation
   const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState(''); // blank = last effect
 
   // ---- Save/Load ----
@@ -68,6 +70,15 @@ export default function MEDPlantClient() {
 
   // ---- Number of effects as integer ----
   const nEff = parseInt(numberOfEffects) || 6;
+
+  // ---- Motive steam saturation temperature (for TVC display) ----
+  const motivePressureParsed = parseFloat(tvcMotivePressure);
+  const motiveSatTemp =
+    !isNaN(motivePressureParsed) && motivePressureParsed > 0
+      ? getSaturationTemperature(motivePressureParsed)
+      : null;
+  const motiveSuperheat = parseFloat(tvcSuperheat) || 0;
+  const motiveTemp = motiveSatTemp !== null ? motiveSatTemp + motiveSuperheat : null;
 
   // ---- Toggle preheater for an effect ----
   const togglePreheater = (effNum: number) => {
@@ -91,6 +102,7 @@ export default function MEDPlantClient() {
     setPreheaterEffects([]);
     setTvcEnabled(false);
     setTvcMotivePressure('10');
+    setTvcSuperheat('0');
     setTvcEntrainedEffect('');
   };
 
@@ -121,6 +133,7 @@ export default function MEDPlantClient() {
         ...(preheaterEffects.length > 0 && { preheaterEffects }),
         ...(tvcEnabled && {
           tvcMotivePressure: parseFloat(tvcMotivePressure) || 10,
+          ...(motiveTemp !== null && motiveSuperheat > 0 && { tvcMotiveTemperature: motiveTemp }),
           ...(tvcEntrainedEffect && { tvcEntrainedEffect: parseInt(tvcEntrainedEffect) }),
         }),
       };
@@ -141,6 +154,8 @@ export default function MEDPlantClient() {
     preheaterEffects,
     tvcEnabled,
     tvcMotivePressure,
+    motiveTemp,
+    motiveSuperheat,
     tvcEntrainedEffect,
   ]);
 
@@ -201,26 +216,93 @@ export default function MEDPlantClient() {
             <Typography variant="h6" gutterBottom>
               Steam Supply
             </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={tvcEnabled}
+                  onChange={(e) => setTvcEnabled(e.target.checked)}
+                />
+              }
+              label="With Thermo Vapor Compressor (TVC)"
+              sx={{ mb: 1 }}
+            />
             <Stack spacing={2}>
               <TextField
                 label={tvcEnabled ? 'Motive Steam Flow' : 'Steam Flow'}
                 value={steamFlow}
                 onChange={(e) => setSteamFlow(e.target.value)}
                 size="small"
-                helperText={tvcEnabled ? 'High-pressure motive steam to TVC' : undefined}
                 slotProps={{
                   input: { endAdornment: <Typography variant="caption">kg/hr</Typography> },
                 }}
               />
-              <TextField
-                label="Steam Temperature"
-                value={steamTemp}
-                onChange={(e) => setSteamTemp(e.target.value)}
-                size="small"
-                slotProps={{
-                  input: { endAdornment: <Typography variant="caption">&deg;C</Typography> },
-                }}
-              />
+              {tvcEnabled ? (
+                <>
+                  <TextField
+                    label="Motive Steam Pressure"
+                    value={tvcMotivePressure}
+                    onChange={(e) => setTvcMotivePressure(e.target.value)}
+                    size="small"
+                    helperText={
+                      motiveSatTemp !== null
+                        ? `T\u209B\u2090\u209C = ${motiveSatTemp.toFixed(1)}\u00B0C${motiveSuperheat > 0 ? ` \u2192 ${motiveTemp!.toFixed(1)}\u00B0C with superheat` : ''}`
+                        : undefined
+                    }
+                    slotProps={{
+                      input: {
+                        endAdornment: <Typography variant="caption">bar abs</Typography>,
+                      },
+                    }}
+                  />
+                  <TextField
+                    label="Superheat"
+                    value={tvcSuperheat}
+                    onChange={(e) => setTvcSuperheat(e.target.value)}
+                    size="small"
+                    helperText="Above saturation (0 for wet/saturated steam)"
+                    slotProps={{
+                      input: {
+                        endAdornment: <Typography variant="caption">&deg;C</Typography>,
+                      },
+                    }}
+                  />
+                  <TextField
+                    label="Top Brine Temperature"
+                    value={steamTemp}
+                    onChange={(e) => setSteamTemp(e.target.value)}
+                    size="small"
+                    helperText="Effect 1 operating temperature"
+                    slotProps={{
+                      input: {
+                        endAdornment: <Typography variant="caption">&deg;C</Typography>,
+                      },
+                    }}
+                  />
+                  <TextField
+                    label="Entrained Effect"
+                    value={tvcEntrainedEffect}
+                    onChange={(e) => setTvcEntrainedEffect(e.target.value)}
+                    size="small"
+                    placeholder={`Last (E${nEff})`}
+                    helperText="Which effect supplies vapor to the TVC"
+                    type="number"
+                    slotProps={{ htmlInput: { min: 1, max: nEff } }}
+                  />
+                </>
+              ) : (
+                <TextField
+                  label="Steam Temperature"
+                  value={steamTemp}
+                  onChange={(e) => setSteamTemp(e.target.value)}
+                  size="small"
+                  slotProps={{
+                    input: {
+                      endAdornment: <Typography variant="caption">&deg;C</Typography>,
+                    },
+                  }}
+                />
+              )}
             </Stack>
 
             <Divider sx={{ my: 2 }} />
@@ -320,46 +402,6 @@ export default function MEDPlantClient() {
               <Typography variant="caption" color="text.secondary">
                 Need at least 3 effects for preheaters.
               </Typography>
-            )}
-
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Thermo Vapor Compressor (TVC)
-            </Typography>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={tvcEnabled}
-                  onChange={(e) => setTvcEnabled(e.target.checked)}
-                />
-              }
-              label="Enable TVC"
-            />
-            {tvcEnabled && (
-              <Stack spacing={2} sx={{ mt: 1 }}>
-                <TextField
-                  label="Motive Steam Pressure"
-                  value={tvcMotivePressure}
-                  onChange={(e) => setTvcMotivePressure(e.target.value)}
-                  size="small"
-                  slotProps={{
-                    input: {
-                      endAdornment: <Typography variant="caption">bar abs</Typography>,
-                    },
-                  }}
-                />
-                <TextField
-                  label="Entrained Effect"
-                  value={tvcEntrainedEffect}
-                  onChange={(e) => setTvcEntrainedEffect(e.target.value)}
-                  size="small"
-                  placeholder={`Last (E${nEff})`}
-                  helperText="Which effect supplies vapor to the TVC"
-                  type="number"
-                  slotProps={{ htmlInput: { min: 1, max: nEff } }}
-                />
-              </Stack>
             )}
           </Paper>
         </Grid>
@@ -689,6 +731,14 @@ export default function MEDPlantClient() {
                               ev.wettingStatus,
                           },
                           {
+                            label: 'Recirc Flow',
+                            unit: 'kg/hr',
+                            get: (ev: (typeof result.equipmentSizing.evaporators)[0]) => {
+                              const idx = ev.effectNumber - 1;
+                              return (result.recirculation.flows[idx] ?? 0).toFixed(0);
+                            },
+                          },
+                          {
                             label: 'Demister Area',
                             unit: 'm\u00B2',
                             get: (ev: (typeof result.equipmentSizing.evaporators)[0]) =>
@@ -741,6 +791,40 @@ export default function MEDPlantClient() {
                       </Grid>
                     ))}
                   </Grid>
+
+                  {/* Recirculation Summary */}
+                  {result.recirculation.totalFlow > 0 && (
+                    <>
+                      <Typography variant="subtitle2" gutterBottom sx={{ mt: 3 }}>
+                        Brine Recirculation (from last effect)
+                      </Typography>
+                      <Grid container spacing={2}>
+                        {[
+                          {
+                            label: 'Total Recirc Flow',
+                            value: `${result.recirculation.totalFlow.toLocaleString()} kg/hr`,
+                          },
+                          {
+                            label: 'Source Temperature',
+                            value: `${result.recirculation.sourceTemp.toFixed(1)} \u00B0C`,
+                          },
+                          {
+                            label: 'Source Salinity',
+                            value: `${result.recirculation.sourceSalinity.toLocaleString()} ppm`,
+                          },
+                        ].map(({ label, value }) => (
+                          <Grid size={{ xs: 6, sm: 4 }} key={label}>
+                            <Typography variant="caption" color="text.secondary">
+                              {label}
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              {value}
+                            </Typography>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </>
+                  )}
 
                   {/* Condenser Sizing */}
                   <Typography variant="subtitle2" gutterBottom sx={{ mt: 3 }}>

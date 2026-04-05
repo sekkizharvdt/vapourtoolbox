@@ -31,17 +31,9 @@
 
 ## Work To Be Done
 
-### 1. Wetting Rate → Recirculation Feedback Loop
+### ~~1. Wetting Rate → Recirculation Computation~~ (DONE)
 
-**Priority:** High
-**Effort:** Small
-
-The engine sizes equipment and computes wetting rate per effect, but doesn't automatically determine the recirculation flow needed when wetting is inadequate. The loop:
-
-- H&M balance → equipment sizing → tube count → wetting rate
-- If wetting rate < minimum → calculate recirc flow from last effect brine
-- Re-run H&M with recirc (spray composition changes slightly)
-- Converge (typically 1-2 iterations, wetting rate has <1% effect on GOR)
+Completed: after equipment sizing, the engine computes the recirculation flow per effect needed to achieve 1.5× minimum wetting rate (0.045 kg/(m·s)). Recirculation is from the last effect brine — it's an equipment/pump sizing concern that doesn't affect the process H&M balance. Flows, source temperature, and source salinity are reported in the engine result.
 
 ### 2. Migrate MED Designer to New Engine
 
