@@ -309,31 +309,43 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   };
 
   // ======================================================================
-  // SHELL SIDE — SPRAY ZONE (falling film)
+  // SHELL SIDE — COMBINED ZONE (spray + cascaded brine)
   // ======================================================================
+  // All shell-side liquid inputs are blended into one pool:
+  //   - Fresh seawater spray (parallel feed)
+  //   - Recirculated brine (if any)
+  //   - Cascaded brine from previous effect (hot, high salinity)
+  // The combined pool is heated to boiling by tube-side heat, then evaporates.
+  // No separate "flash zone" — flashing is a side effect of the energy balance,
+  // consistent with industry practice and WET Excel design programs.
 
-  // Blended spray: seawater + recirculated brine
-  const totalSprayFlow = seawaterSprayFlow + recircBrineFlow;
+  const totalSprayFlow = seawaterSprayFlow + recircBrineFlow + cascadedBrineFlow;
   const blendedSalinity =
     totalSprayFlow > 0
-      ? (seawaterSprayFlow * seawaterSalinity + recircBrineFlow * recircBrineSalinity) /
+      ? (seawaterSprayFlow * seawaterSalinity +
+          recircBrineFlow * recircBrineSalinity +
+          cascadedBrineFlow * cascadedBrineSalinity) /
         totalSprayFlow
       : seawaterSalinity;
   const blendedTemp =
     totalSprayFlow > 0
-      ? (seawaterSprayFlow * seawaterSprayTemp + recircBrineFlow * recircBrineTemp) / totalSprayFlow
+      ? (seawaterSprayFlow * seawaterSprayTemp +
+          recircBrineFlow * recircBrineTemp +
+          cascadedBrineFlow * cascadedBrineTemp) /
+        totalSprayFlow
       : seawaterSprayTemp;
 
   // Heat absorbed from tube side (= tube side heat released)
-  // Plus carrier steam energy and distillate flash vapor energy entering shell side
   const Q_fromTube = tubeSideHeatReleased;
 
-  // Sensible heat to raise spray to brine boiling temperature
+  // Sensible heat to raise the combined pool to brine boiling temperature
+  // Note: cascaded brine is hotter than seawater, so it REDUCES Q_sensible
   const cp_spray = getSeawaterSpecificHeat(
     Math.min(blendedSalinity, 120000),
     (blendedTemp + brineBoilingTemp) / 2
   );
-  const Q_sensible = (totalSprayFlow * cp_spray * (brineBoilingTemp - blendedTemp)) / 3600; // kW
+  const Q_sensible =
+    (totalSprayFlow * cp_spray * Math.max(0, brineBoilingTemp - blendedTemp)) / 3600; // kW
 
   // Available heat for evaporation = tube side heat + carrier steam condensation
   // + distillate flash vapor condensation — sensible heating
@@ -341,15 +353,13 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const Q_distFlashToShell = (distillateFlashVapor * getLatentHeat(effectTemp)) / 3600;
   const Q_available = Q_fromTube + Q_carrierToShell + Q_distFlashToShell - Q_sensible;
 
-  // Vapor produced from spray zone
+  // Vapor produced from the combined pool
   const latentHeatEffect = getLatentHeat(effectTemp);
   const sprayVaporProduced = Math.max(0, (Q_available * 3600) / latentHeatEffect);
 
-  // Brine remaining from spray
-  // Includes re-condensed distillate flash vapor (pure water that entered shell
-  // from tube-side vents and condensed on the spray film)
+  // Brine remaining = total pool + distillate flash condensate - evaporated vapor
   const sprayBrineFlow = Math.max(0, totalSprayFlow + distillateFlashVapor - sprayVaporProduced);
-  // Brine salinity (conservation of salt — flash vapor is pure water, dilutes brine)
+  // Brine salinity (conservation of salt — all salt stays in the brine)
   const sprayBrineSalinity =
     sprayBrineFlow > 0
       ? (totalSprayFlow * blendedSalinity) / sprayBrineFlow
@@ -423,47 +433,27 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   };
 
   // ======================================================================
-  // SHELL SIDE — FLASH ZONE (cascaded brine)
+  // SHELL SIDE — FLASH ZONE (legacy — now merged into spray zone above)
+  // Cascaded brine is blended with the spray pool. No separate flash vapor.
+  // These variables are kept at zero for backward compatibility with the
+  // result structure (MEDShellFlashZone).
   // ======================================================================
 
-  let flashVaporFlow = 0;
-  let flashBrineFlow = 0;
-  let flashBrineSalinity = cascadedBrineSalinity;
-  let flashFraction = 0;
+  const flashVaporFlow = 0;
+  const flashBrineFlow = 0;
+  const flashBrineSalinity = cascadedBrineSalinity;
+  const flashFraction = 0;
   let flashEnergyIn = 0;
   let flashEnergyOut = 0;
 
-  if (cascadedBrineFlow > 0 && cascadedBrineTemp > effectTemp) {
+  if (cascadedBrineFlow > 0) {
     const h_brineIn = getSeawaterEnthalpy(
       Math.min(cascadedBrineSalinity, 120000),
       cascadedBrineTemp
     );
-    const h_brineAtEffect = getSeawaterEnthalpy(
-      Math.min(cascadedBrineSalinity, 120000),
-      brineBoilingTemp
-    );
-
-    // Flash fraction = (h_in - h_out) / L
-    flashFraction = Math.max(0, Math.min(0.05, (h_brineIn - h_brineAtEffect) / latentHeatEffect));
-    flashVaporFlow = cascadedBrineFlow * flashFraction;
-    flashBrineFlow = cascadedBrineFlow - flashVaporFlow;
-    flashBrineSalinity =
-      flashBrineFlow > 0
-        ? (cascadedBrineFlow * cascadedBrineSalinity) / flashBrineFlow
-        : cascadedBrineSalinity;
-
+    // Energy tracked for reporting but brine is handled in spray zone
     flashEnergyIn = (cascadedBrineFlow * h_brineIn) / 3600;
-    flashEnergyOut =
-      (flashVaporFlow * h_vaporOut) / 3600 + (flashBrineFlow * h_brineAtEffect) / 3600;
-  } else if (cascadedBrineFlow > 0) {
-    // Brine at same or lower temp — no flash, just passes through
-    const h_brineIn = getSeawaterEnthalpy(
-      Math.min(cascadedBrineSalinity, 120000),
-      cascadedBrineTemp
-    );
-    flashBrineFlow = cascadedBrineFlow;
-    flashEnergyIn = (cascadedBrineFlow * h_brineIn) / 3600;
-    flashEnergyOut = flashEnergyIn;
+    flashEnergyOut = flashEnergyIn; // passes through to spray pool
   }
 
   const h_flashBrineOut = getSeawaterEnthalpy(
@@ -530,13 +520,9 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const netVaporOut = Math.max(0, totalVaporOutFlow - vaporToPreheaterFlow);
 
   // Total brine leaving bottom pool → next effect shell side
-  const totalBrineOutFlow = sprayBrineFlow + flashBrineFlow;
-  // Weighted average salinity of combined brine pool
-  const totalBrineOutSalinity =
-    totalBrineOutFlow > 0
-      ? (sprayBrineFlow * sprayBrineSalinity + flashBrineFlow * flashBrineSalinity) /
-        totalBrineOutFlow
-      : sprayBrineSalinity;
+  // (cascaded brine is already blended into the spray pool)
+  const totalBrineOutFlow = sprayBrineFlow;
+  const totalBrineOutSalinity = sprayBrineSalinity;
   const h_totalBrineOut = getSeawaterEnthalpy(
     Math.min(totalBrineOutSalinity, 120000),
     brineBoilingTemp
@@ -569,7 +555,11 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     (recircBrineFlow *
       getSeawaterEnthalpy(Math.min(recircBrineSalinity, 120000), recircBrineTemp)) /
       3600 + // shell: recirc brine
-    flashEnergyIn; // shell: cascaded brine
+    (cascadedBrineFlow > 0
+      ? (cascadedBrineFlow *
+          getSeawaterEnthalpy(Math.min(cascadedBrineSalinity, 120000), cascadedBrineTemp)) /
+        3600
+      : 0); // shell: cascaded brine
 
   const boundaryEnergyOut =
     (condensateOutFlow * h_condensateOutFinal) / 3600 + // tube side: distillate out

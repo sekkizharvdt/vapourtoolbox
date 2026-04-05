@@ -255,21 +255,10 @@ describe('calculateEffect — Effect 3 (with cascade)', () => {
     expect(result.shellFlashZone.brineIn!.flow).toBe(3500);
   });
 
-  it('brine flash fraction is small but positive', () => {
-    expect(result.shellFlashZone.flashFraction).toBeGreaterThan(0);
-    expect(result.shellFlashZone.flashFraction).toBeLessThan(0.05); // < 5%
-  });
-
-  it('flash vapor is produced', () => {
-    expect(result.shellFlashZone.flashVapor).not.toBeNull();
-    expect(result.shellFlashZone.flashVapor!.flow).toBeGreaterThan(0);
-  });
-
-  it('flashed brine flow = cascaded - flash vapor', () => {
-    const brineIn = result.shellFlashZone.brineIn!.flow;
-    const flashVapor = result.shellFlashZone.flashVapor!.flow;
-    const brineOut = result.shellFlashZone.brineOut!.flow;
-    expect(brineOut).toBeCloseTo(brineIn - flashVapor, 0);
+  it('flash zone is zero (brine merged into spray zone)', () => {
+    // Cascaded brine is blended with spray in the combined shell model.
+    // No separate flash vapor — energy is handled in the overall heat balance.
+    expect(result.shellFlashZone.flashFraction).toBe(0);
   });
 });
 
