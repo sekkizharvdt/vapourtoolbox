@@ -425,11 +425,11 @@ describe('MED Engine — Equipment sizing (condenser U validation)', () => {
     expect(condenserU).toBeLessThan(2200);
   });
 
-  it('evaporator overall U is in realistic range (1200-3500 W/(m²·K))', () => {
-    // Cold-end effects (low temperature) have lower U values
+  it('evaporator overall U is in realistic range (2500-4000 W/(m²·K))', () => {
+    // Chun-Seban falling film correlation gives U ≈ 3000-3500 for MED conditions
     for (const ev of result.equipmentSizing!.evaporators) {
-      expect(ev.overallHTC).toBeGreaterThan(1200);
-      expect(ev.overallHTC).toBeLessThan(3500);
+      expect(ev.overallHTC).toBeGreaterThan(2500);
+      expect(ev.overallHTC).toBeLessThan(4000);
     }
   });
 

@@ -195,9 +195,8 @@ const AREA_DESIGN_MARGIN = 0.15;
 /** Minimum wetting rate for falling film (kg/(m·s)) — El-Dessouky correlation threshold */
 const MIN_WETTING_RATE = 0.03;
 
-/** Typical falling film evaporation HTC range (W/(m²·K)) */
-const FALLING_FILM_HTC_MIN = 2000;
-const FALLING_FILM_HTC_MAX = 4000;
+/** Chun-Seban correlation coefficient for turbulent falling film */
+// h = 0.18 × Re^0.24 × Pr^0.66 × (μ²/(k³ρ²g))^(-1/3)
 
 /** Standard condenser tube passes */
 const CONDENSER_TUBE_PASSES = 4;
@@ -267,13 +266,27 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   const tubeSideHTC = condensationResult.htc;
 
   // ---- Shell-side HTC (falling film evaporation) ----
-  // Use empirical correlation for horizontal-tube falling film
-  // El-Dessouky: h_ff ≈ 2000–4000 W/(m²·K) depending on wetting rate and temperature
-  // Simplified: h_ff = 2500 × (T_effect / 60)^0.3 for typical MED conditions
-  const shellSideHTC = Math.min(
-    FALLING_FILM_HTC_MAX,
-    Math.max(FALLING_FILM_HTC_MIN, 2500 * Math.pow(effectTemp / 60, 0.3))
+  // Chun-Seban falling film correlation (used by WET Excel programs):
+  //   h = 0.18 × Re_film^0.24 × Pr^0.66 × (μ²/(k³×ρ²×g))^(-1/3)
+  // Requires film Reynolds number which depends on wetting rate (tube count unknown
+  // at this stage). Use design wetting rate Γ ≈ 0.045 kg/(m·s) for HTC estimation.
+  const designWettingRate = 0.045; // kg/(m·s) — target with recirculation
+  const brineSalForProps = Math.min(
+    inputs.seawaterSalinity * inputs.brineConcentrationFactor,
+    120000
   );
+  const mu_ff = getSeawaterViscosity(brineSalForProps, effectTemp);
+  const k_ff = getSeawaterThermalConductivity(brineSalForProps, effectTemp);
+  const rho_ff = getSeawaterDensity(brineSalForProps, effectTemp);
+  const cp_ff = getSeawaterSpecificHeat(brineSalForProps, effectTemp) * 1000; // kJ→J
+  const Re_film = (4 * designWettingRate) / mu_ff;
+  const Pr_ff = (cp_ff * mu_ff) / k_ff;
+  const GRAVITY = 9.80665;
+  const filmFactor = Math.pow(
+    (mu_ff * mu_ff) / (k_ff * k_ff * k_ff * rho_ff * rho_ff * GRAVITY),
+    -1 / 3
+  );
+  const shellSideHTC = 0.18 * Math.pow(Re_film, 0.24) * Math.pow(Pr_ff, 0.66) * filmFactor;
 
   // ---- Overall HTC ----
   const tubeID = tubeSpec.od - 2 * tubeSpec.thickness; // mm

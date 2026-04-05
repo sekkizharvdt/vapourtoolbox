@@ -39,10 +39,11 @@ describe('Equipment Sizing — Evaporators', () => {
     }
   });
 
-  it('overall HTC is in reasonable range (500–3000 W/(m²·K))', () => {
+  it('overall HTC is in reasonable range (2500–4000 W/(m²·K))', () => {
+    // Chun-Seban falling film correlation: U ≈ 3000-3500 for MED conditions
     for (const ev of sizing.evaporators) {
-      expect(ev.overallHTC).toBeGreaterThan(500);
-      expect(ev.overallHTC).toBeLessThan(3000);
+      expect(ev.overallHTC).toBeGreaterThan(2500);
+      expect(ev.overallHTC).toBeLessThan(4000);
     }
   });
 
