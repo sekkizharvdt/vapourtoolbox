@@ -367,6 +367,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
+   * Check if a user document already exists by UID.
+   * Handles returning external users (e.g., previously invited users whose
+   * invitation was already accepted). Uses direct document read which passes
+   * the isOwner(userId) Firestore rule.
+   */
+  const hasExistingUserByUid = async (
+    uid: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    db: any
+  ): Promise<boolean> => {
+    try {
+      const userDocRef = doc(db, COLLECTIONS.USERS, uid);
+      const userDocSnap = await getDoc(userDocRef);
+      return userDocSnap.exists();
+    } catch (err) {
+      logger.error('Error checking for existing user by UID', { uid, error: err });
+      return false;
+    }
+  };
+
+  /**
    * Check if a pending invitation exists for an email address.
    * If found, returns the invitation data and marks it as accepted.
    */
@@ -439,14 +460,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('No email found in Google account');
       }
 
-      // Validate domain is authorized OR user has a pending invitation
+      // Validate domain is authorized, OR user has a pending invitation,
+      // OR user already exists in the system (previously invited/approved)
       if (!isAuthorizedDomain(email)) {
         const invited = await hasPendingInvitation(email, db);
         if (!invited) {
-          await firebaseSignOut(auth);
-          throw new Error('UNAUTHORIZED_DOMAIN');
+          // Check if user already has an account (returning external user)
+          // Uses direct UID lookup which passes isOwner() Firestore rule
+          const existingUser = await hasExistingUserByUid(result.user.uid, db);
+          if (!existingUser) {
+            await firebaseSignOut(auth);
+            throw new Error('UNAUTHORIZED_DOMAIN');
+          }
+          logger.info('External domain allowed via existing user record', { email });
+        } else {
+          logger.info('External domain allowed via invitation', { email });
         }
-        logger.info('External domain allowed via invitation', { email });
       }
 
       // Check if user document exists in Firestore
@@ -569,15 +598,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Used for passwordless authentication (external users without Google)
    */
   const sendEmailLink = async (email: string) => {
-    const { auth, db } = getFirebase();
+    const { auth } = getFirebase();
 
-    // Validate domain is authorized OR user has a pending invitation
-    if (!isAuthorizedDomain(email)) {
-      const invited = await hasPendingInvitation(email, db);
-      if (!invited) {
-        throw new Error('UNAUTHORIZED_DOMAIN');
-      }
-    }
+    // Domain/invitation validation is deferred to completeEmailLinkSignIn
+    // (after authentication) where we have auth context to read Firestore.
+    // Sending an email link to an unauthorized address is harmless —
+    // they'll be blocked when they click the link.
 
     // Action code settings for email link
     const actionCodeSettings = {
@@ -599,33 +625,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const completeEmailLinkSignIn = async (email: string, link: string) => {
     const { auth, db } = getFirebase();
 
-    // Validate domain is authorized OR user has a pending invitation
-    if (!isAuthorizedDomain(email)) {
-      const invited = await hasPendingInvitation(email, db);
-      if (!invited) {
-        // Audit log: unauthorized domain attempt
-        await logAuditEvent(
-          db,
-          createAuditContext('unknown', email, email),
-          'LOGIN_FAILED',
-          'USER',
-          'unknown',
-          `Email link sign-in failed: unauthorized domain for ${email}`,
-          {
-            success: false,
-            errorMessage: 'UNAUTHORIZED_DOMAIN',
-            metadata: { authMethod: 'email_link' },
-          }
-        );
-        throw new Error('UNAUTHORIZED_DOMAIN');
-      }
-    }
-
     try {
+      // Authenticate first — we need auth context for Firestore rule checks
       const result = await signInWithEmailLink(auth, email, link);
 
       // Clear stored email
       window.localStorage.removeItem('emailForSignIn');
+
+      // Validate domain AFTER authentication (so Firestore rules allow reads)
+      if (!isAuthorizedDomain(email)) {
+        const invited = await hasPendingInvitation(email, db);
+        if (!invited) {
+          const existingUser = await hasExistingUserByUid(result.user.uid, db);
+          if (!existingUser) {
+            // Audit log: unauthorized domain attempt
+            await logAuditEvent(
+              db,
+              createAuditContext(result.user.uid, email, email),
+              'LOGIN_FAILED',
+              'USER',
+              result.user.uid,
+              `Email link sign-in failed: unauthorized domain for ${email}`,
+              {
+                success: false,
+                errorMessage: 'UNAUTHORIZED_DOMAIN',
+                metadata: { authMethod: 'email_link' },
+              }
+            );
+            await firebaseSignOut(auth);
+            throw new Error('UNAUTHORIZED_DOMAIN');
+          }
+          logger.info('External domain allowed via existing user record', { email });
+        } else {
+          logger.info('External domain allowed via invitation', { email });
+        }
+      }
 
       // Check if user document exists in Firestore
       const userDocRef = doc(db, 'users', result.user.uid);

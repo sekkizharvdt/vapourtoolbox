@@ -485,6 +485,11 @@ describe('AuthContext', () => {
 
       (isAuthorizedDomain as jest.Mock).mockReturnValue(false);
 
+      // No pending invitation AND no existing user document
+      (getDoc as jest.Mock).mockResolvedValue({
+        exists: () => false,
+      });
+
       await act(async () => {
         await expect(result.current.signInWithGoogle()).rejects.toThrow('UNAUTHORIZED_DOMAIN');
       });
