@@ -65,8 +65,9 @@ function validateClaims(claims: unknown): ClaimsValidationResult {
     return { status: 'pending' };
   }
 
-  // If permissions is 0, user has no permissions (pending approval)
-  if (claimsObj.permissions === 0) {
+  // If both permissions fields are 0, user has no permissions (pending approval)
+  const perms2 = typeof claimsObj.permissions2 === 'number' ? claimsObj.permissions2 : 0;
+  if (claimsObj.permissions === 0 && perms2 === 0) {
     return { status: 'pending' };
   }
 
