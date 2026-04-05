@@ -22,7 +22,6 @@ import {
   Tabs,
   Tab,
   Chip,
-  Stack,
 } from '@mui/material';
 import type { MEDEffectResult } from '@vapour/types';
 
@@ -468,27 +467,48 @@ function EffectTable({ effect }: { effect: MEDEffectResult }) {
 // ============================================================================
 
 function EffectConditions({ effect }: { effect: MEDEffectResult }) {
+  const pressureMbar = effect.pressure * 1000;
   return (
-    <Stack direction="row" spacing={2} sx={{ mb: 1, flexWrap: 'wrap' }}>
+    <Box
+      sx={{
+        mb: 2,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 1.5,
+        p: 1.5,
+        borderRadius: 1,
+        backgroundColor: 'grey.50',
+        border: '1px solid',
+        borderColor: 'divider',
+      }}
+    >
       {[
-        { label: 'Temperature', value: `${effect.temperature.toFixed(2)} °C` },
-        { label: 'Pressure', value: `${effect.pressure.toFixed(4)} bar` },
-        { label: 'BPE', value: `${effect.bpe.toFixed(3)} °C` },
-        { label: 'NEA', value: `${effect.nea.toFixed(3)} °C` },
-        { label: 'Effective ΔT', value: `${effect.effectiveDeltaT.toFixed(3)} °C` },
-        { label: 'Heat Transferred', value: `${effect.heatTransferred.toFixed(1)} kW` },
-        { label: 'Mass Balance Error', value: `${effect.massBalance.toFixed(2)} kg/hr` },
-        { label: 'Energy Balance Error', value: `${effect.energyBalanceError.toFixed(2)} %` },
-      ].map(({ label, value }) => (
-        <Chip
-          key={label}
-          label={`${label}: ${value}`}
-          size="small"
-          variant="outlined"
-          sx={{ fontSize: '0.75rem' }}
-        />
+        { label: 'Temperature', value: effect.temperature.toFixed(2), unit: '°C' },
+        { label: 'Pressure', value: pressureMbar.toFixed(1), unit: 'mbar abs' },
+        { label: 'BPE', value: effect.bpe.toFixed(3), unit: '°C' },
+        { label: 'NEA', value: effect.nea.toFixed(3), unit: '°C' },
+        { label: 'Effective ΔT', value: effect.effectiveDeltaT.toFixed(3), unit: '°C' },
+        { label: 'Heat Transferred', value: effect.heatTransferred.toFixed(1), unit: 'kW' },
+        { label: 'Mass Balance Error', value: effect.massBalance.toFixed(2), unit: 'kg/hr' },
+        { label: 'Energy Balance Error', value: effect.energyBalanceError.toFixed(2), unit: '%' },
+      ].map(({ label, value, unit }) => (
+        <Box key={label}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', lineHeight: 1.2 }}
+          >
+            {label}
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+            {value}{' '}
+            <Typography component="span" variant="caption" color="text.secondary">
+              {unit}
+            </Typography>
+          </Typography>
+        </Box>
       ))}
-    </Stack>
+    </Box>
   );
 }
 
