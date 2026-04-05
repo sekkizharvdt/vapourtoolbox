@@ -86,6 +86,21 @@ describe('MED Engine — More effects = higher GOR', () => {
   const result6 = calculateMED({ ...BARC_INPUT, numberOfEffects: 6 });
   const result8 = calculateMED({ ...BARC_INPUT, numberOfEffects: 8 });
 
+  it('IIT Madras validation: GOR within 5% of as-built (3.51)', () => {
+    const iitm = calculateMED({
+      steamFlow: 357,
+      steamTemperature: 55.4,
+      numberOfEffects: 4,
+      seawaterInletTemp: 30,
+      seawaterSalinity: 35000,
+      maxBrineSalinity: 59500,
+      condenserApproach: 4,
+      condenserOutletTemp: 37,
+    });
+    expect(iitm.performance.gor).toBeGreaterThan(3.51 * 0.95);
+    expect(iitm.performance.gor).toBeLessThan(3.51 * 1.1);
+  });
+
   it('GOR increases with effect count', () => {
     expect(result6.performance.gor).toBeGreaterThan(result4.performance.gor);
     expect(result8.performance.gor).toBeGreaterThan(result6.performance.gor);

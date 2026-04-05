@@ -281,11 +281,12 @@ describe('calculateEffect — combined outputs', () => {
   const result1 = calculateEffect(makeEffect1Input());
   const result3 = calculateEffect(makeEffect3Input());
 
-  it('total vapor out combines spray + flash + distillate flash vapor', () => {
+  it('total vapor out combines spray + flash (distillate flash re-condenses in shell)', () => {
     const sprayVapor = result3.shellSprayZone.vaporProduced.flow;
     const flashVapor = result3.shellFlashZone.flashVapor?.flow ?? 0;
-    const distFlash = result3.tubeSide.distillateFlashVapor;
-    expect(result3.totalVaporOut.flow).toBeCloseTo(sprayVapor + flashVapor + distFlash, 0);
+    // distillateFlashVapor is NOT included — it re-condenses on the spray film
+    // and its latent heat is already counted in Q_distFlashToShell → sprayVaporProduced
+    expect(result3.totalVaporOut.flow).toBeCloseTo(sprayVapor + flashVapor, 0);
   });
 
   it('total brine out combines spray brine + flash brine', () => {

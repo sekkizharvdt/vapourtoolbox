@@ -346,8 +346,10 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const sprayVaporProduced = Math.max(0, (Q_available * 3600) / latentHeatEffect);
 
   // Brine remaining from spray
-  const sprayBrineFlow = Math.max(0, totalSprayFlow - sprayVaporProduced);
-  // Brine salinity (conservation of salt)
+  // Includes re-condensed distillate flash vapor (pure water that entered shell
+  // from tube-side vents and condensed on the spray film)
+  const sprayBrineFlow = Math.max(0, totalSprayFlow + distillateFlashVapor - sprayVaporProduced);
+  // Brine salinity (conservation of salt — flash vapor is pure water, dilutes brine)
   const sprayBrineSalinity =
     sprayBrineFlow > 0
       ? (totalSprayFlow * blendedSalinity) / sprayBrineFlow
@@ -515,7 +517,10 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   // ======================================================================
 
   // Total vapor leaving through demister → next effect tube side
-  const totalVaporOutFlow = sprayVaporProduced + flashVaporFlow + distillateFlashVapor;
+  // distillateFlashVapor is NOT included: it re-condenses on the spray film
+  // in the shell and its latent heat is already counted in Q_distFlashToShell
+  // which contributes to sprayVaporProduced.
+  const totalVaporOutFlow = sprayVaporProduced + flashVaporFlow;
 
   // Preheater: divert some vapor before it reaches next effect
   let vaporToPreheaterFlow = 0;
