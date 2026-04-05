@@ -15,19 +15,9 @@
  * - Huang et al. (1999), 1-D ejector model
  */
 
-import {
-  getSaturationPressure,
-  getSaturationTemperature,
-} from '@vapour/constants';
-import {
-  calculateTVC,
-  type TVCInput,
-  type TVCResult,
-} from '../tvcCalculator';
-import {
-  calculateDesuperheating,
-  type DesuperheatingResult,
-} from '../desuperheatingCalculator';
+import { getSaturationPressure, getSaturationTemperature } from '@vapour/constants';
+import { calculateTVC, type TVCInput, type TVCResult } from '../tvcCalculator';
+import { calculateDesuperheating, type DesuperheatingResult } from '../desuperheatingCalculator';
 
 // ============================================================================
 // Types
@@ -47,8 +37,8 @@ export interface TVCIntegrationInput {
   /** Desired discharge pressure in bar abs (usually set by effect 1 conditions) */
   dischargePressure: number;
 
-  /** Required total vapor flow to effect 1 in kg/hr */
-  requiredVaporToEffect1: number;
+  /** Motive steam flow in kg/hr — the actual high-pressure steam consumption */
+  motiveFlow: number;
 
   /** Spray water temperature for desuperheating in °C */
   sprayWaterTemp: number;
@@ -93,9 +83,7 @@ export interface TVCIntegrationResult {
  * 2. If discharge is superheated, calculates desuperheating requirements
  * 3. Returns the net steam consumption and adjusted vapor conditions
  */
-export function solveTVCIntegration(
-  input: TVCIntegrationInput
-): TVCIntegrationResult {
+export function solveTVCIntegration(input: TVCIntegrationInput): TVCIntegrationResult {
   const warnings: string[] = [];
 
   const {
@@ -103,7 +91,7 @@ export function solveTVCIntegration(
     motiveTemperature,
     entrainedVaporTemp,
     dischargePressure,
-    requiredVaporToEffect1,
+    motiveFlow: inputMotiveFlow,
     sprayWaterTemp,
   } = input;
 
@@ -123,8 +111,7 @@ export function solveTVCIntegration(
   }
 
   // Step 1: Calculate TVC performance
-  // We specify entrained flow = requiredVaporToEffect1 initially as a seed,
-  // then scale based on entrainment ratio
+  // Use unit entrained flow to get entrainment ratio, then scale with motive flow
   const tvcInput: TVCInput = {
     motivePressure,
     suctionPressure,
@@ -143,9 +130,10 @@ export function solveTVCIntegration(
     throw new Error('TVC entrainment ratio is zero or negative — check pressure conditions');
   }
 
-  // Required discharge flow = required vapor to effect 1
-  // discharge = motive + entrained = motive × (1 + Ra)
-  const motiveFlow = (requiredVaporToEffect1 / (1 + Ra)); // kg/hr
+  // Motive steam flow is the INPUT — it determines plant capacity.
+  // The TVC entrains last-effect vapor proportional to entrainment ratio.
+  // Discharge = motive + entrained → feeds Effect 1.
+  const motiveFlow = inputMotiveFlow; // kg/hr (given)
   const entrainedFlow = motiveFlow * Ra; // kg/hr
   const dischargeFlow = motiveFlow + entrainedFlow; // kg/hr
 

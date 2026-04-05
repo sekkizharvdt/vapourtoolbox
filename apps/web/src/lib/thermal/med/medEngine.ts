@@ -310,6 +310,9 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     }
 
     // ---- TVC integration (if configured) ----
+    // When TVC is enabled, steamFlow is the MOTIVE steam at high pressure.
+    // The TVC entrains a portion of last-effect vapor. Discharge → Effect 1.
+    // Remaining last-effect vapor → condenser.
     let tvcResult: TVCIntegrationResult | null = null;
     let vaporToEffect1 = input.steamFlow;
     let effect1SteamTemp = steamTemp;
@@ -330,10 +333,11 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
           entrainedEffectNumber: input.tvcEntrainedEffect ?? N,
           entrainedVaporTemp,
           dischargePressure,
-          requiredVaporToEffect1: input.steamFlow, // motive steam is the input
+          motiveFlow: input.steamFlow, // motive steam IS the input
           sprayWaterTemp: feedWaterTemp,
         });
 
+        // E1 receives TVC discharge (motive + entrained)
         vaporToEffect1 = tvcResult.dischargeFlow;
         effect1SteamTemp = tvcResult.vaporToEffect1Temp;
       } catch (err) {
@@ -419,25 +423,31 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     }
 
     // ---- TVC: subtract entrained vapor from selected effect ----
+    // The TVC entrains a portion of the last effect's vapor. The remainder
+    // goes to the final condenser. If entrained > available, warn.
     if (tvcResult) {
       const entrainedIdx = (input.tvcEntrainedEffect ?? N) - 1;
       const entrainedEffect = effects[entrainedIdx];
       if (entrainedEffect) {
-        const reducedVapor = Math.max(
-          0,
-          entrainedEffect.totalVaporOut.flow - tvcResult.entrainedFlow
-        );
+        const availableVapor = entrainedEffect.totalVaporOut.flow;
+        if (tvcResult.entrainedFlow > availableVapor * 1.05) {
+          warnings.push(
+            `TVC wants to entrain ${Math.round(tvcResult.entrainedFlow)} kg/hr but Effect ${entrainedIdx + 1} only produces ${Math.round(availableVapor)} kg/hr. Reduce motive steam or motive pressure.`
+          );
+        }
+        const actualEntrained = Math.min(tvcResult.entrainedFlow, availableVapor);
+        const remainingVapor = availableVapor - actualEntrained;
         effects[entrainedIdx] = {
           ...entrainedEffect,
           totalVaporOut: {
             ...entrainedEffect.totalVaporOut,
-            flow: reducedVapor,
-            energy: (reducedVapor * entrainedEffect.totalVaporOut.enthalpy) / 3600,
+            flow: remainingVapor,
+            energy: (remainingVapor * entrainedEffect.totalVaporOut.enthalpy) / 3600,
           },
           vaporOut: {
             ...entrainedEffect.vaporOut,
-            flow: reducedVapor,
-            energy: (reducedVapor * entrainedEffect.vaporOut.enthalpy) / 3600,
+            flow: remainingVapor,
+            energy: (remainingVapor * entrainedEffect.vaporOut.enthalpy) / 3600,
           },
         };
       }
@@ -652,7 +662,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         entrainedEffectNumber: input.tvcEntrainedEffect ?? N,
         entrainedVaporTemp: entrainedEffect.totalVaporOut.temperature,
         dischargePressure: getSaturationPressure(steamTemp),
-        requiredVaporToEffect1: input.steamFlow,
+        motiveFlow: input.steamFlow,
         sprayWaterTemp: feedWaterTemp,
       });
       return {
@@ -664,7 +674,8 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         vaporToEffect1Temp: tvr.vaporToEffect1Temp,
         isSuperheated: tvr.isSuperheated,
       };
-    } catch {
+    } catch (err) {
+      warnings.push(`TVC output rebuild: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   })();

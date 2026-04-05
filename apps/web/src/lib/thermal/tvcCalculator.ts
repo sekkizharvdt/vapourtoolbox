@@ -244,7 +244,7 @@ function calculateTheoreticalEntrainmentRatio(
  */
 function calculatePressureRatioCorrectionFactor(
   compressionRatio: number,
-  expansionRatio: number,
+  expansionRatio: number
 ): number {
   if (compressionRatio <= 1.0) return 1.0;
   if (compressionRatio >= MAX_CR_SINGLE_STAGE) return 0.15;
@@ -289,7 +289,7 @@ function calculateEjectorEfficiency(
   mixingEff: number,
   diffuserEff: number,
   compressionRatio: number,
-  expansionRatio: number,
+  expansionRatio: number
 ): number {
   const prFactor = calculatePressureRatioCorrectionFactor(compressionRatio, expansionRatio);
   return nozzleEff * mixingEff * diffuserEff * prFactor;
@@ -356,14 +356,12 @@ export function calculateTVC(input: TVCInput): TVCResult {
   const compressionRatio = dischargePressure / suctionPressure;
   const expansionRatio = motivePressure / suctionPressure;
 
-  // Check compression ratio limits
+  // Check compression ratio limits — warn but don't throw
   if (compressionRatio > MAX_CR_SINGLE_STAGE) {
-    throw new Error(
-      `Compression ratio (${compressionRatio.toFixed(2)}) exceeds single-stage limit (${MAX_CR_SINGLE_STAGE}). Multi-stage ejector required.`
+    warnings.push(
+      `Compression ratio (${compressionRatio.toFixed(2)}) exceeds single-stage limit (${MAX_CR_SINGLE_STAGE}). Consider multi-stage ejector or reducing the temperature spread.`
     );
-  }
-
-  if (compressionRatio > TYPICAL_CR_LIMIT) {
+  } else if (compressionRatio > TYPICAL_CR_LIMIT) {
     warnings.push(
       `Compression ratio (${compressionRatio.toFixed(2)}) is above typical limit (${TYPICAL_CR_LIMIT}). Performance may be reduced.`
     );
@@ -401,7 +399,7 @@ export function calculateTVC(input: TVCInput): TVCResult {
     mixingEfficiency,
     diffuserEfficiency,
     compressionRatio,
-    expansionRatio,
+    expansionRatio
   );
 
   // Actual entrainment ratio with losses

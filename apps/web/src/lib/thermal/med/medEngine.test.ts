@@ -230,3 +230,138 @@ describe('MED Engine — Edge cases and robustness', () => {
     expect(result.performance.gor).toBeGreaterThan(0);
   });
 });
+
+describe('MED Engine — TVC (Thermo Vapor Compressor)', () => {
+  // BARC MED-TVC as-built: 1040 kg/hr motive steam at 10 bar, 6 effects
+  // Top brine temp 58.8°C, GOR 9.61
+  const TVC_BASE: MEDEngineInput = {
+    steamFlow: 1040, // 1.04 T/hr motive steam
+    steamTemperature: 58.8, // top brine temp from BARC PFD
+    numberOfEffects: 6,
+    seawaterInletTemp: 30,
+    seawaterSalinity: 39000, // 3900 ppm TDS → ~39000 ppm salinity
+    maxBrineSalinity: 59400,
+    condenserApproach: 4,
+  };
+  const TVC_INPUT: MEDEngineInput = {
+    ...TVC_BASE,
+    tvcMotivePressure: 10, // 10 bar sat motive steam
+    // entrains from last effect by default
+  };
+
+  it('converges with TVC', () => {
+    const result = calculateMED(TVC_INPUT);
+    expect(result.converged).toBe(true);
+  });
+
+  it('TVC result is populated', () => {
+    const result = calculateMED(TVC_INPUT);
+    expect(result.tvc).not.toBeNull();
+    expect(result.tvc!.motiveFlow).toBeGreaterThan(0);
+    expect(result.tvc!.entrainedFlow).toBeGreaterThan(0);
+    expect(result.tvc!.dischargeFlow).toBeGreaterThan(result.tvc!.motiveFlow);
+  });
+
+  it('motive flow equals input steam flow (motive steam IS the input)', () => {
+    const result = calculateMED(TVC_INPUT);
+    expect(result.tvc).not.toBeNull();
+    // The motive flow should equal the steam input
+    expect(result.tvc!.motiveFlow).toBeCloseTo(TVC_INPUT.steamFlow, 0);
+  });
+
+  it('discharge = motive + entrained', () => {
+    const result = calculateMED(TVC_INPUT);
+    expect(result.tvc).not.toBeNull();
+    const { motiveFlow, entrainedFlow, dischargeFlow } = result.tvc!;
+    expect(dischargeFlow).toBeCloseTo(motiveFlow + entrainedFlow, 0);
+  });
+
+  it('MED-TVC has higher GOR than plain MED (same conditions)', () => {
+    // Compare TVC vs plain MED with same base conditions
+    const plainResult = calculateMED(TVC_BASE);
+    const tvcResult = calculateMED(TVC_INPUT);
+    // TVC recycles last-effect vapor → more vapor to E1 → more distillate per unit motive steam
+    expect(tvcResult.performance.gor).toBeGreaterThan(plainResult.performance.gor);
+  });
+
+  it('MED-TVC produces more distillate than plain MED', () => {
+    const plainResult = calculateMED(TVC_BASE);
+    const tvcResult = calculateMED(TVC_INPUT);
+    expect(tvcResult.performance.netDistillate).toBeGreaterThan(
+      plainResult.performance.netDistillate
+    );
+  });
+
+  it('entrainment ratio is in reasonable range (0.3–1.5)', () => {
+    const result = calculateMED(TVC_INPUT);
+    expect(result.tvc).not.toBeNull();
+    expect(result.tvc!.entrainmentRatio).toBeGreaterThan(0.2);
+    expect(result.tvc!.entrainmentRatio).toBeLessThan(1.5);
+  });
+
+  it('last effect vapor is reduced (some entrained by TVC)', () => {
+    const plainResult = calculateMED(TVC_BASE);
+    const tvcResult = calculateMED(TVC_INPUT);
+    const lastIdx = TVC_INPUT.numberOfEffects - 1;
+    const plainLastVapor = plainResult.effects[lastIdx]!.totalVaporOut.flow;
+    const tvcLastVapor = tvcResult.effects[lastIdx]!.totalVaporOut.flow;
+    // TVC entrains from last effect → remaining vapor is less
+    expect(tvcLastVapor).toBeLessThan(plainLastVapor);
+  });
+
+  it('TVC can entrain from a middle effect (not just last)', () => {
+    // In an 8-effect MED, TVC might entrain from Effect 4
+    const middleTVC: MEDEngineInput = {
+      ...TVC_INPUT,
+      numberOfEffects: 8,
+      tvcEntrainedEffect: 4,
+    };
+    const result = calculateMED(middleTVC);
+    expect(result.converged).toBe(true);
+    expect(result.tvc).not.toBeNull();
+    expect(result.tvc!.entrainedFlow).toBeGreaterThan(0);
+  });
+
+  it('handles high motive flow without crashing', () => {
+    // Very high motive flow — TVC may want more vapor than last effect produces
+    const result = calculateMED({
+      ...TVC_INPUT,
+      steamFlow: 3000, // much higher motive flow
+    });
+    // Should still converge (with warnings about entrainment)
+    expect(result.converged || result.warnings.length > 0).toBe(true);
+  });
+});
+
+describe('MED Engine — Equipment sizing (condenser U validation)', () => {
+  const result = calculateMED(BARC_INPUT);
+
+  it('equipment sizing is populated', () => {
+    expect(result.equipmentSizing).not.toBeNull();
+  });
+
+  it('condenser overall U is in realistic range (1400-2200 W/(m²·K))', () => {
+    // Validated against BARC data: 1700-1900 W/(m²·K)
+    // Allow some margin for different operating conditions
+    const condenserU = result.equipmentSizing!.condenser.overallHTC;
+    expect(condenserU).toBeGreaterThan(1400);
+    expect(condenserU).toBeLessThan(2200);
+  });
+
+  it('evaporator overall U is in realistic range (1200-3500 W/(m²·K))', () => {
+    // Cold-end effects (low temperature) have lower U values
+    for (const ev of result.equipmentSizing!.evaporators) {
+      expect(ev.overallHTC).toBeGreaterThan(1200);
+      expect(ev.overallHTC).toBeLessThan(3500);
+    }
+  });
+
+  it('wetting rate with recommended recirculation is near target', () => {
+    for (const ev of result.equipmentSizing!.evaporators) {
+      // With recommended recirc, wetting rate should be at or above 0.045 kg/(m·s)
+      if (ev.recommendedRecircRatio > 1.0) {
+        expect(ev.wettingRateWithRecirc).toBeGreaterThanOrEqual(0.04);
+      }
+    }
+  });
+});

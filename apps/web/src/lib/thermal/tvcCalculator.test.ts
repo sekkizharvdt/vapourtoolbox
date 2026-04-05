@@ -81,15 +81,16 @@ describe('TVC Calculator - 1-D Model (Huang 1999)', () => {
       );
     });
 
-    it('should throw when compression ratio exceeds single-stage limit (2.5)', () => {
-      expect(() =>
-        calculateTVC(
-          createInput({
-            suctionPressure: 0.1,
-            dischargePressure: 0.3, // CR = 3.0
-          })
-        )
-      ).toThrow(/exceeds single-stage limit/);
+    it('should warn when compression ratio exceeds single-stage limit (2.5)', () => {
+      const result = calculateTVC(
+        createInput({
+          suctionPressure: 0.1,
+          dischargePressure: 0.3, // CR = 3.0
+        })
+      );
+      expect(result.warnings).toEqual(
+        expect.arrayContaining([expect.stringMatching(/exceeds single-stage limit/)])
+      );
     });
 
     it('should throw for invalid efficiency values', () => {

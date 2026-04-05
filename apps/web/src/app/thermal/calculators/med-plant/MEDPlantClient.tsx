@@ -164,10 +164,10 @@ export default function MEDPlantClient() {
           production, and per-effect balance. Add preheaters to see the effect on performance.
         </Typography>
         <Alert severity="info" sx={{ mt: 1 }}>
-          This calculator computes the <strong>process thermodynamics only</strong> — the heat and
-          mass balance across effects, condenser, and preheaters. It does not size equipment (tubes,
-          shells, pumps). For complete plant design with equipment sizing, use the MED Plant
-          Designer.
+          This calculator computes the <strong>heat and mass balance</strong> across effects,
+          condenser, and preheaters, plus <strong>equipment sizing</strong> (tubes, areas, wetting
+          rates). For complete plant design with geometry selection, BOM, and auxiliary equipment,
+          use the MED Plant Designer.
         </Alert>
       </Box>
 
@@ -203,10 +203,11 @@ export default function MEDPlantClient() {
             </Typography>
             <Stack spacing={2}>
               <TextField
-                label="Steam Flow"
+                label={tvcEnabled ? 'Motive Steam Flow' : 'Steam Flow'}
                 value={steamFlow}
                 onChange={(e) => setSteamFlow(e.target.value)}
                 size="small"
+                helperText={tvcEnabled ? 'High-pressure motive steam to TVC' : undefined}
                 slotProps={{
                   input: { endAdornment: <Typography variant="caption">kg/hr</Typography> },
                 }}
@@ -664,10 +665,28 @@ export default function MEDPlantClient() {
                               ev.bundleDiameter.toString(),
                           },
                           {
-                            label: 'Wetting Rate',
+                            label: 'Wetting Rate (spray only)',
                             unit: 'kg/(m\u00B7s)',
                             get: (ev: (typeof result.equipmentSizing.evaporators)[0]) =>
                               ev.wettingRate.toFixed(4),
+                          },
+                          {
+                            label: 'Recirc Ratio Needed',
+                            unit: '\u00D7',
+                            get: (ev: (typeof result.equipmentSizing.evaporators)[0]) =>
+                              ev.recommendedRecircRatio.toFixed(1),
+                          },
+                          {
+                            label: 'Wetting Rate (with recirc)',
+                            unit: 'kg/(m\u00B7s)',
+                            get: (ev: (typeof result.equipmentSizing.evaporators)[0]) =>
+                              ev.wettingRateWithRecirc.toFixed(4),
+                          },
+                          {
+                            label: 'Wetting Status',
+                            unit: '-',
+                            get: (ev: (typeof result.equipmentSizing.evaporators)[0]) =>
+                              ev.wettingStatus,
                           },
                           {
                             label: 'Demister Area',

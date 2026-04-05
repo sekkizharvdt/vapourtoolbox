@@ -257,7 +257,7 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   const condensationResult = calculateNusseltCondensation({
     liquidDensity: getDensityLiquid(steamTemp),
     vaporDensity: getDensityVapor(steamTemp),
-    latentHeat: getLatentHeat(steamTemp) * 1000, // kJ/kg → J/kg
+    latentHeat: getLatentHeat(steamTemp), // kJ/kg — function converts to J/kg internally
     liquidConductivity: getThermalConductivityLiquid(steamTemp),
     liquidViscosity: getViscosityLiquid(steamTemp),
     dimension: (tubeSpec.od - 2 * tubeSpec.thickness) / 1000, // tube ID in m
@@ -311,13 +311,13 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   // Recommended recirculation ratio to achieve 1.5× minimum wetting rate (target = 0.045 kg/(m·s))
   const targetWettingRate = minimumWettingRate * 1.5;
   const recommendedRecircRatio =
-    wettingRate >= targetWettingRate ? 1.0 : Math.ceil((targetWettingRate / wettingRate) * 10) / 10;
+    wettingRate > 0 && wettingRate < targetWettingRate
+      ? Math.ceil((targetWettingRate / wettingRate) * 10) / 10
+      : 1.0;
 
-  // Apply recirculation if enabled via inputs
-  const recircRatio = inputs.brineRecirculation
-    ? (inputs.brineRecirculationRatio ?? recommendedRecircRatio)
-    : 1.0;
-  const wettingRateWithRecirc = wettingRate * recircRatio;
+  // Always show wetting rate WITH recommended recirculation applied
+  // (actual recirculation is an equipment concern, not a process balance change)
+  const wettingRateWithRecirc = wettingRate * recommendedRecircRatio;
   const effectiveWettingRate = wettingRateWithRecirc;
   const wettingRatio = effectiveWettingRate / minimumWettingRate;
 
@@ -328,7 +328,7 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   else {
     wettingStatus = 'poor';
     warnings.push(
-      `Effect ${effect.effectNumber}: Wetting rate (${effectiveWettingRate.toFixed(4)} kg/(m·s)) below minimum (${minimumWettingRate}). ${inputs.brineRecirculation ? 'Increase recirculation ratio.' : 'Enable brine recirculation.'}`
+      `Effect ${effect.effectNumber}: Wetting rate with recommended recirc (${effectiveWettingRate.toFixed(4)} kg/(m·s)) still below minimum (${minimumWettingRate}). Check tube geometry.`
     );
   }
 
@@ -502,7 +502,7 @@ function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
   const condensationResult = calculateNusseltCondensation({
     liquidDensity: getDensityLiquid(input.vaporTemp),
     vaporDensity: Math.max(getDensityVapor(input.vaporTemp), 0.02),
-    latentHeat: getLatentHeat(input.vaporTemp) * 1000,
+    latentHeat: getLatentHeat(input.vaporTemp), // kJ/kg — function converts to J/kg internally
     liquidConductivity: getThermalConductivityLiquid(input.vaporTemp),
     liquidViscosity: getViscosityLiquid(input.vaporTemp),
     dimension: tubeSpec.od / 1000,

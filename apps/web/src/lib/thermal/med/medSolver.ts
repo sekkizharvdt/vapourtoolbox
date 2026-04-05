@@ -245,7 +245,7 @@ function solveForwardPass(
       entrainedEffectNumber: inputs.tvcEntrainedEffect ?? N,
       entrainedVaporTemp,
       dischargePressure,
-      requiredVaporToEffect1: steamFlow,
+      motiveFlow: steamFlow, // legacy: steamFlow here is the iterated value, not true motive
       sprayWaterTemp: feedWaterTemp,
     });
 
