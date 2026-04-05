@@ -456,6 +456,10 @@ interface CondensingHXInput {
   designVelocity: number;
   /** Number of tube passes */
   tubePasses: number;
+  /** Estimated number of tube rows in the bundle (for Kern correction, default 10) */
+  estimatedTubeRows?: number;
+  /** NCG degradation factor (fraction of HTC lost to NCG blanketing, default 0) */
+  ncgDegradation?: number;
 }
 
 interface CondensingHXResult {
@@ -474,21 +478,27 @@ interface CondensingHXResult {
 function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
   const warnings: string[] = [];
   const { tubeSpec, swSalinity, designVelocity, tubePasses } = input;
+  const nTubeRows = input.estimatedTubeRows ?? 10;
+  const ncgDeg = input.ncgDegradation ?? 0;
 
-  // ---- Tube-side HTC (Dittus-Boelter for seawater) ----
+  // ---- Seawater properties at average tube-side temperature ----
   const avgSwTemp = (input.swInletTemp + input.swOutletTemp) / 2;
   const swDensity = getSeawaterDensity(swSalinity, avgSwTemp);
   const swViscosity = getSeawaterViscosity(swSalinity, avgSwTemp);
   const swConductivity = getSeawaterThermalConductivity(swSalinity, avgSwTemp);
   const swCp = getSeawaterSpecificHeat(swSalinity, avgSwTemp);
-
   const tubeID = (tubeSpec.od - 2 * tubeSpec.thickness) / 1000;
-  const Re = (swDensity * designVelocity * tubeID) / swViscosity;
-  const Pr = (swCp * 1000 * swViscosity) / swConductivity;
-  const Nu = Re > 2300 ? 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, 0.4) : 4.36;
-  const tubeSideHTC = (Nu * swConductivity) / tubeID;
 
-  // ---- Shell-side HTC (Nusselt condensation) ----
+  // ---- Step 1: Initial tube-side HTC at design velocity ----
+  // Used for first-pass area estimation (will be refined at actual velocity)
+  const computeTubeSideHTC = (velocity: number) => {
+    const Re = (swDensity * velocity * tubeID) / swViscosity;
+    const Pr = (swCp * 1000 * swViscosity) / swConductivity;
+    const Nu = Re > 2300 ? 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, 0.4) : 4.36;
+    return (Nu * swConductivity) / tubeID;
+  };
+
+  // ---- Step 2: Shell-side HTC (Nusselt single-tube condensation) ----
   const condensationResult = calculateNusseltCondensation({
     liquidDensity: getDensityLiquid(input.vaporTemp),
     vaporDensity: Math.max(getDensityVapor(input.vaporTemp), 0.02),
@@ -499,22 +509,38 @@ function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
     deltaT: Math.max(input.vaporTemp - avgSwTemp, 1),
     orientation: 'horizontal',
   });
-  const shellSideHTC = condensationResult.htc;
 
-  // ---- Overall HTC ----
+  // Kern bundle row correction: condensate dripping from upper tubes degrades
+  // the film coefficient on lower tubes. h_bundle = h_single × N^(-1/6)
+  const kernFactor = Math.pow(Math.max(nTubeRows, 1), -1 / 6);
+
+  // NCG degradation: non-condensable gases form a boundary layer that resists
+  // mass transfer. More significant for the final condenser (accumulated NCG
+  // from all effects) than for preheaters (single effect NCG only).
+  const ncgFactor = 1 - ncgDeg;
+
+  const shellSideHTC = condensationResult.htc * kernFactor * ncgFactor;
+
+  // ---- Step 3: Overall HTC and initial sizing ----
   const tubeWallConductivity = MED_TUBE_CONDUCTIVITY[tubeSpec.material] ?? 15;
-  const overallResult = calculateOverallHTC({
-    tubeSideHTC,
-    shellSideHTC,
-    tubeOD: tubeSpec.od / 1000,
-    tubeID,
-    tubeWallConductivity,
-    tubeSideFouling: DEFAULT_FOULING_SEAWATER,
-    shellSideFouling: DEFAULT_FOULING_DISTILLATE,
-  });
-  const overallHTC = overallResult.overallHTC;
 
-  // ---- Area & tube count ----
+  const computeOverallU = (hTube: number) => {
+    const result = calculateOverallHTC({
+      tubeSideHTC: hTube,
+      shellSideHTC,
+      tubeOD: tubeSpec.od / 1000,
+      tubeID,
+      tubeWallConductivity,
+      tubeSideFouling: DEFAULT_FOULING_SEAWATER,
+      shellSideFouling: DEFAULT_FOULING_DISTILLATE,
+    });
+    return result.overallHTC;
+  };
+
+  // First pass: size at design velocity
+  let tubeSideHTC = computeTubeSideHTC(designVelocity);
+  let overallHTC = computeOverallU(tubeSideHTC);
+
   const requiredArea = calculateHeatExchangerArea(input.heatDuty, overallHTC, input.lmtd);
   const designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
 
@@ -522,15 +548,22 @@ function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
   const rawTubeCount = Math.ceil(designArea / tubeOuterArea);
   const tubeCount = Math.ceil(rawTubeCount / tubePasses) * tubePasses;
 
-  // ---- Bundle & shell ----
-  const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR);
-  const shellID = bundleDiameter + 20;
-
-  // ---- Velocity check ----
+  // ---- Step 4: Recalculate HTC at actual velocity ----
   const flowAreaPerPass = (tubeCount / tubePasses) * (Math.PI / 4) * tubeID * tubeID;
   const swMassFlowKgS = input.swMassFlow / 3600;
   const tubeVelocity = flowAreaPerPass > 0 ? swMassFlowKgS / (swDensity * flowAreaPerPass) : 0;
 
+  // Refine tube-side HTC at actual velocity (not design velocity)
+  if (tubeVelocity > 0 && Math.abs(tubeVelocity - designVelocity) > 0.1) {
+    tubeSideHTC = computeTubeSideHTC(tubeVelocity);
+    overallHTC = computeOverallU(tubeSideHTC);
+  }
+
+  // ---- Bundle & shell ----
+  const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR);
+  const shellID = bundleDiameter + 20;
+
+  // ---- Velocity warnings ----
   if (tubeVelocity > 2.5) {
     warnings.push(`${input.label}: Tube velocity (${tubeVelocity.toFixed(2)} m/s) > 2.5 m/s.`);
   }
@@ -597,6 +630,8 @@ function sizeFinalCondenser(
     tubeSpec,
     designVelocity: 1.8,
     tubePasses: CONDENSER_TUBE_PASSES,
+    estimatedTubeRows: 10,
+    ncgDegradation: 0.15, // 15% — accumulated NCG from all effects
   });
   warnings.push(...hx.warnings);
 
@@ -674,6 +709,8 @@ function sizePreheater(
     tubeSpec,
     designVelocity: 1.6,
     tubePasses: CONDENSER_TUBE_PASSES,
+    estimatedTubeRows: 6, // smaller bundle than condenser
+    ncgDegradation: 0.05, // 5% — single effect NCG only
   });
   warnings.push(...hx.warnings);
 
