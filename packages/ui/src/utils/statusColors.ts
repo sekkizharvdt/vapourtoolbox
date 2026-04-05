@@ -122,10 +122,10 @@ const contextOverrides: Record<string, Partial<Record<string, ChipProps['color']
   bill: {},
   // Transaction context (journal entries, etc.) uses base colors
   transaction: {},
-  // Project context - ACTIVE is final positive state
+  // Project context - ACTIVE is ongoing (green), COMPLETED is finished (blue)
   project: {
     ACTIVE: 'success',
-    COMPLETED: 'success',
+    COMPLETED: 'info',
     ON_HOLD: 'warning',
     CANCELLED: 'error',
     PROPOSAL: 'primary',
