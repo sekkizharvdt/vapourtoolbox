@@ -417,203 +417,86 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
 // Final Condenser Sizing
 // ============================================================================
 
-/**
- * Size the final condenser (shell & tube, seawater on tube side).
- */
-function sizeFinalCondenser(
-  condenser: MEDFinalCondenserResult,
-  inputs: MEDPlantInputs
-): CondenserSizingResult {
-  const warnings: string[] = [];
-  const tubeSpec = inputs.condenserTubes;
-
-  const heatDuty = condenser.heatTransferred; // kW
-
-  // LMTD — counter-current: vapor condensing (isothermal) vs seawater heating
-  const vaporTemp = condenser.vaporIn.temperature;
-  const swInTemp = inputs.seawaterInletTemp;
-  const swOutTemp = inputs.seawaterDischargeTemp;
-
-  const lmtdResult = calculateLMTD({
-    hotInlet: vaporTemp,
-    hotOutlet: vaporTemp, // isothermal condensation
-    coldInlet: swInTemp,
-    coldOutlet: swOutTemp,
-    flowArrangement: 'COUNTER',
-  });
-  const lmtd = lmtdResult.correctedLMTD;
-  warnings.push(...lmtdResult.warnings);
-
-  if (lmtd <= 0) {
-    warnings.push('Final condenser: LMTD ≤ 0, cannot size.');
-    return emptyCondenserResult(tubeSpec.material, warnings);
-  }
-
-  // ---- Tube-side HTC (seawater forced convection) ----
-  // Simplified Dittus-Boelter for seawater in tubes
-  const avgSwTemp = (swInTemp + swOutTemp) / 2;
-  const swDensity = getSeawaterDensity(inputs.seawaterSalinity, avgSwTemp);
-  const swViscosity = getSeawaterViscosity(inputs.seawaterSalinity, avgSwTemp);
-  const swConductivity = getSeawaterThermalConductivity(inputs.seawaterSalinity, avgSwTemp);
-  const swCp = getSeawaterSpecificHeat(inputs.seawaterSalinity, avgSwTemp); // kJ/(kg·K)
-
-  const tubeID = (tubeSpec.od - 2 * tubeSpec.thickness) / 1000; // m
-  // Assume design velocity ~1.8 m/s for seawater in condenser tubes
-  const designVelocity = 1.8;
-  const Re = (swDensity * designVelocity * tubeID) / swViscosity;
-  const Pr = (swCp * 1000 * swViscosity) / swConductivity;
-  const Nu = 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, 0.4); // Dittus-Boelter (heating)
-  const tubeSideHTC = (Nu * swConductivity) / tubeID;
-
-  // ---- Shell-side HTC (vapor condensation on tube bundle) ----
-  const condensationResult = calculateNusseltCondensation({
-    liquidDensity: getDensityLiquid(vaporTemp),
-    vaporDensity: Math.max(getDensityVapor(vaporTemp), 0.02),
-    latentHeat: getLatentHeat(vaporTemp) * 1000,
-    liquidConductivity: getThermalConductivityLiquid(vaporTemp),
-    liquidViscosity: getViscosityLiquid(vaporTemp),
-    dimension: tubeSpec.od / 1000,
-    deltaT: Math.max(vaporTemp - avgSwTemp, 1),
-    orientation: 'horizontal',
-  });
-  const shellSideHTC = condensationResult.htc;
-
-  // ---- Overall HTC ----
-  const tubeWallConductivity = MED_TUBE_CONDUCTIVITY[tubeSpec.material] ?? 15;
-  const overallResult = calculateOverallHTC({
-    tubeSideHTC,
-    shellSideHTC,
-    tubeOD: tubeSpec.od / 1000,
-    tubeID,
-    tubeWallConductivity,
-    tubeSideFouling: DEFAULT_FOULING_SEAWATER,
-    shellSideFouling: DEFAULT_FOULING_DISTILLATE,
-  });
-  const overallHTC = overallResult.overallHTC;
-
-  // ---- Area ----
-  const requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, lmtd);
-  const designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
-
-  // ---- Tube count ----
-  const tubeOuterArea = Math.PI * (tubeSpec.od / 1000) * tubeSpec.length;
-  const rawTubeCount = Math.ceil(designArea / tubeOuterArea);
-  // Round up to nearest multiple of tube passes
-  const tubeCount = Math.ceil(rawTubeCount / CONDENSER_TUBE_PASSES) * CONDENSER_TUBE_PASSES;
-
-  // ---- Bundle & shell diameter ----
-  const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR);
-  const shellID = bundleDiameter + 20; // mm (clearance)
-
-  // ---- Tube velocity check ----
-  const flowAreaPerPass = (tubeCount / CONDENSER_TUBE_PASSES) * (Math.PI / 4) * tubeID * tubeID; // m²
-  const swMassFlow = condenser.seawaterIn.flow / 3600; // kg/s
-  const tubeVelocity = swMassFlow / (swDensity * flowAreaPerPass);
-
-  if (tubeVelocity > 2.5) {
-    warnings.push(
-      `Condenser: Tube velocity (${tubeVelocity.toFixed(2)} m/s) exceeds 2.5 m/s. Consider more tubes or larger OD.`
-    );
-  }
-  if (tubeVelocity < 1.0) {
-    warnings.push(
-      `Condenser: Tube velocity (${tubeVelocity.toFixed(2)} m/s) below 1.0 m/s. Risk of fouling.`
-    );
-  }
-
-  // ---- Rognoni reference comparisons ----
-  const rognoniCondU = ROGNONI_REFERENCE.condenserOverallHTC;
-  const rognoniCondArea = calculateHeatExchangerArea(heatDuty, rognoniCondU, lmtd);
-  const rognoniCondDesignArea = rognoniCondArea * (1 + ROGNONI_REFERENCE.designMargin);
-
-  const rognoniComparisons: RognoniComparison[] = [
-    rognoniCompare('Overall U', overallHTC, rognoniCondU, 'W/(m²·K)'),
-    rognoniCompare('Required Area', requiredArea, rognoniCondArea, 'm²'),
-    rognoniCompare('Design Area', designArea, rognoniCondDesignArea, 'm²'),
-    rognoniCompare('Tube Velocity', tubeVelocity, ROGNONI_REFERENCE.condenserTubeVelocity, 'm/s'),
-  ];
-
-  return {
-    heatDuty: Math.round(heatDuty * 10) / 10,
-    lmtd: Math.round(lmtd * 100) / 100,
-    tubeSideHTC: Math.round(tubeSideHTC),
-    shellSideHTC: Math.round(shellSideHTC),
-    overallHTC: Math.round(overallHTC * 10) / 10,
-    requiredArea: Math.round(requiredArea * 100) / 100,
-    designArea: Math.round(designArea * 100) / 100,
-    tubeCount,
-    tubeOD: tubeSpec.od,
-    tubeLength: tubeSpec.length,
-    tubeMaterial: tubeSpec.material,
-    bundleDiameter: Math.round(bundleDiameter),
-    shellID: Math.round(shellID),
-    tubeVelocity: Math.round(tubeVelocity * 100) / 100,
-    rognoniComparisons,
-    warnings,
-  };
-}
-
 // ============================================================================
-// Preheater Sizing
+// Shared: Condensing Shell & Tube Heat Exchanger Sizing
 // ============================================================================
 
 /**
- * Size a preheater (shell & tube, vapor condensing on shell side,
- * seawater flowing inside tubes).
+ * Size a shell & tube heat exchanger with vapor condensing on the shell
+ * side and seawater flowing inside the tubes.
  *
- * Same methodology as condenser sizing:
- *   - Tube-side HTC: Dittus-Boelter for seawater forced convection
+ * Used for both the final condenser and preheaters — same physics,
+ * different operating conditions.
+ *
+ *   - Tube-side HTC: Dittus-Boelter (seawater forced convection)
  *   - Shell-side HTC: Nusselt horizontal tube condensation
  *   - Overall U from composite thermal resistance (wall + fouling)
- *   - Tube count from required area, with velocity check
+ *   - Tube count from area, with velocity check
  */
-function sizePreheater(
-  preheater: MEDPreheaterResult,
-  inputs: MEDPlantInputs
-): PreheaterSizingResult {
+interface CondensingHXInput {
+  /** Label for warnings (e.g., "Condenser", "Preheater 2") */
+  label: string;
+  /** Heat duty in kW */
+  heatDuty: number;
+  /** LMTD in °C */
+  lmtd: number;
+  /** Vapor (shell side) condensation temperature in °C */
+  vaporTemp: number;
+  /** Seawater inlet temperature in °C */
+  swInletTemp: number;
+  /** Seawater outlet temperature in °C */
+  swOutletTemp: number;
+  /** Seawater salinity in ppm */
+  swSalinity: number;
+  /** Seawater mass flow in kg/hr */
+  swMassFlow: number;
+  /** Tube specification */
+  tubeSpec: { od: number; thickness: number; length: number; material: TubeMaterial };
+  /** Design velocity target in m/s (condenser ~1.8, preheater ~1.6) */
+  designVelocity: number;
+  /** Number of tube passes */
+  tubePasses: number;
+}
+
+interface CondensingHXResult {
+  tubeSideHTC: number;
+  shellSideHTC: number;
+  overallHTC: number;
+  requiredArea: number;
+  designArea: number;
+  tubeCount: number;
+  bundleDiameter: number;
+  shellID: number;
+  tubeVelocity: number;
+  warnings: string[];
+}
+
+function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
   const warnings: string[] = [];
-  const tubeSpec = inputs.condenserTubes;
+  const { tubeSpec, swSalinity, designVelocity, tubePasses } = input;
 
-  const heatDuty = preheater.heatExchanged; // kW
-  const lmtd = preheater.lmtd;
+  // ---- Tube-side HTC (Dittus-Boelter for seawater) ----
+  const avgSwTemp = (input.swInletTemp + input.swOutletTemp) / 2;
+  const swDensity = getSeawaterDensity(swSalinity, avgSwTemp);
+  const swViscosity = getSeawaterViscosity(swSalinity, avgSwTemp);
+  const swConductivity = getSeawaterThermalConductivity(swSalinity, avgSwTemp);
+  const swCp = getSeawaterSpecificHeat(swSalinity, avgSwTemp);
 
-  if (lmtd <= 0) {
-    warnings.push(`Preheater on effect ${preheater.effectNumber}: LMTD ≤ 0.`);
-    return emptyPreheaterResult(preheater.effectNumber, warnings);
-  }
-
-  // Minimum approach temperature check (hot end)
-  const hotEndApproach = preheater.vaporTemperature - preheater.seawaterOutletTemp;
-  if (hotEndApproach < 2.0) {
-    warnings.push(
-      `Preheater ${preheater.effectNumber}: Hot-end approach (${hotEndApproach.toFixed(1)}°C) < 2°C minimum.`
-    );
-  }
-
-  // ---- Tube-side HTC (seawater forced convection — Dittus-Boelter) ----
-  const avgSwTemp = (preheater.seawaterInletTemp + preheater.seawaterOutletTemp) / 2;
-  const swDensity = getSeawaterDensity(inputs.seawaterSalinity, avgSwTemp);
-  const swViscosity = getSeawaterViscosity(inputs.seawaterSalinity, avgSwTemp);
-  const swConductivity = getSeawaterThermalConductivity(inputs.seawaterSalinity, avgSwTemp);
-  const swCp = getSeawaterSpecificHeat(inputs.seawaterSalinity, avgSwTemp); // kJ/(kg·K)
-
-  const tubeID = (tubeSpec.od - 2 * tubeSpec.thickness) / 1000; // m
-  const designVelocity = 1.6; // m/s target for Ti preheater tubes
+  const tubeID = (tubeSpec.od - 2 * tubeSpec.thickness) / 1000;
   const Re = (swDensity * designVelocity * tubeID) / swViscosity;
   const Pr = (swCp * 1000 * swViscosity) / swConductivity;
   const Nu = Re > 2300 ? 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, 0.4) : 4.36;
   const tubeSideHTC = (Nu * swConductivity) / tubeID;
 
-  // ---- Shell-side HTC (vapor condensation on tubes — Nusselt) ----
-  const vaporTemp = preheater.vaporTemperature;
+  // ---- Shell-side HTC (Nusselt condensation) ----
   const condensationResult = calculateNusseltCondensation({
-    liquidDensity: getDensityLiquid(vaporTemp),
-    vaporDensity: Math.max(getDensityVapor(vaporTemp), 0.02),
-    latentHeat: getLatentHeat(vaporTemp) * 1000, // kJ → J
-    liquidConductivity: getThermalConductivityLiquid(vaporTemp),
-    liquidViscosity: getViscosityLiquid(vaporTemp),
+    liquidDensity: getDensityLiquid(input.vaporTemp),
+    vaporDensity: Math.max(getDensityVapor(input.vaporTemp), 0.02),
+    latentHeat: getLatentHeat(input.vaporTemp) * 1000,
+    liquidConductivity: getThermalConductivityLiquid(input.vaporTemp),
+    liquidViscosity: getViscosityLiquid(input.vaporTemp),
     dimension: tubeSpec.od / 1000,
-    deltaT: Math.max(vaporTemp - avgSwTemp, 1),
+    deltaT: Math.max(input.vaporTemp - avgSwTemp, 1),
     orientation: 'horizontal',
   });
   const shellSideHTC = condensationResult.htc;
@@ -632,37 +515,176 @@ function sizePreheater(
   const overallHTC = overallResult.overallHTC;
 
   // ---- Area & tube count ----
-  const requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, lmtd);
+  const requiredArea = calculateHeatExchangerArea(input.heatDuty, overallHTC, input.lmtd);
   const designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
 
   const tubeOuterArea = Math.PI * (tubeSpec.od / 1000) * tubeSpec.length;
   const rawTubeCount = Math.ceil(designArea / tubeOuterArea);
-  const tubeCount = Math.ceil(rawTubeCount / CONDENSER_TUBE_PASSES) * CONDENSER_TUBE_PASSES;
+  const tubeCount = Math.ceil(rawTubeCount / tubePasses) * tubePasses;
 
-  // ---- Tube velocity check ----
-  const flowAreaPerPass = (tubeCount / CONDENSER_TUBE_PASSES) * (Math.PI / 4) * tubeID * tubeID;
-  const swMassFlow = preheater.seawaterFlow / 3600; // kg/s
-  const tubeVelocity = flowAreaPerPass > 0 ? swMassFlow / (swDensity * flowAreaPerPass) : 0;
+  // ---- Bundle & shell ----
+  const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR);
+  const shellID = bundleDiameter + 20;
+
+  // ---- Velocity check ----
+  const flowAreaPerPass = (tubeCount / tubePasses) * (Math.PI / 4) * tubeID * tubeID;
+  const swMassFlowKgS = input.swMassFlow / 3600;
+  const tubeVelocity = flowAreaPerPass > 0 ? swMassFlowKgS / (swDensity * flowAreaPerPass) : 0;
 
   if (tubeVelocity > 2.5) {
-    warnings.push(
-      `Preheater ${preheater.effectNumber}: Tube velocity (${tubeVelocity.toFixed(2)} m/s) > 2.5 m/s.`
-    );
+    warnings.push(`${input.label}: Tube velocity (${tubeVelocity.toFixed(2)} m/s) > 2.5 m/s.`);
   }
   if (tubeVelocity < 1.0 && tubeVelocity > 0) {
     warnings.push(
-      `Preheater ${preheater.effectNumber}: Tube velocity (${tubeVelocity.toFixed(2)} m/s) < 1.0 m/s. Risk of fouling.`
+      `${input.label}: Tube velocity (${tubeVelocity.toFixed(2)} m/s) < 1.0 m/s. Risk of fouling.`
     );
   }
+
+  return {
+    tubeSideHTC: Math.round(tubeSideHTC),
+    shellSideHTC: Math.round(shellSideHTC),
+    overallHTC: Math.round(overallHTC * 10) / 10,
+    requiredArea: Math.round(requiredArea * 100) / 100,
+    designArea: Math.round(designArea * 100) / 100,
+    tubeCount,
+    bundleDiameter: Math.round(bundleDiameter),
+    shellID: Math.round(shellID),
+    tubeVelocity: Math.round(tubeVelocity * 100) / 100,
+    warnings,
+  };
+}
+
+// ============================================================================
+// Final Condenser (uses shared sizeCondensingHX)
+// ============================================================================
+
+function sizeFinalCondenser(
+  condenser: MEDFinalCondenserResult,
+  inputs: MEDPlantInputs
+): CondenserSizingResult {
+  const warnings: string[] = [];
+  const tubeSpec = inputs.condenserTubes;
+
+  const heatDuty = condenser.heatTransferred;
+  const vaporTemp = condenser.vaporIn.temperature;
+  const swInTemp = inputs.seawaterInletTemp;
+  const swOutTemp = inputs.seawaterDischargeTemp;
+
+  const lmtdResult = calculateLMTD({
+    hotInlet: vaporTemp,
+    hotOutlet: vaporTemp,
+    coldInlet: swInTemp,
+    coldOutlet: swOutTemp,
+    flowArrangement: 'COUNTER',
+  });
+  const lmtd = lmtdResult.correctedLMTD;
+  warnings.push(...lmtdResult.warnings);
+
+  if (lmtd <= 0) {
+    warnings.push('Final condenser: LMTD ≤ 0, cannot size.');
+    return emptyCondenserResult(tubeSpec.material, warnings);
+  }
+
+  const hx = sizeCondensingHX({
+    label: 'Condenser',
+    heatDuty,
+    lmtd,
+    vaporTemp,
+    swInletTemp: swInTemp,
+    swOutletTemp: swOutTemp,
+    swSalinity: inputs.seawaterSalinity,
+    swMassFlow: condenser.seawaterIn.flow,
+    tubeSpec,
+    designVelocity: 1.8,
+    tubePasses: CONDENSER_TUBE_PASSES,
+  });
+  warnings.push(...hx.warnings);
+
+  const rognoniCondU = ROGNONI_REFERENCE.condenserOverallHTC;
+  const rognoniCondArea = calculateHeatExchangerArea(heatDuty, rognoniCondU, lmtd);
+  const rognoniCondDesignArea = rognoniCondArea * (1 + ROGNONI_REFERENCE.designMargin);
+
+  const rognoniComparisons: RognoniComparison[] = [
+    rognoniCompare('Overall U', hx.overallHTC, rognoniCondU, 'W/(m²·K)'),
+    rognoniCompare('Required Area', hx.requiredArea, rognoniCondArea, 'm²'),
+    rognoniCompare('Design Area', hx.designArea, rognoniCondDesignArea, 'm²'),
+    rognoniCompare(
+      'Tube Velocity',
+      hx.tubeVelocity,
+      ROGNONI_REFERENCE.condenserTubeVelocity,
+      'm/s'
+    ),
+  ];
+
+  return {
+    heatDuty: Math.round(heatDuty * 10) / 10,
+    lmtd: Math.round(lmtd * 100) / 100,
+    tubeSideHTC: hx.tubeSideHTC,
+    shellSideHTC: hx.shellSideHTC,
+    overallHTC: hx.overallHTC,
+    requiredArea: hx.requiredArea,
+    designArea: hx.designArea,
+    tubeCount: hx.tubeCount,
+    tubeOD: tubeSpec.od,
+    tubeLength: tubeSpec.length,
+    tubeMaterial: tubeSpec.material,
+    bundleDiameter: hx.bundleDiameter,
+    shellID: hx.shellID,
+    tubeVelocity: hx.tubeVelocity,
+    rognoniComparisons,
+    warnings,
+  };
+}
+
+// ============================================================================
+// Preheater (uses shared sizeCondensingHX)
+// ============================================================================
+
+function sizePreheater(
+  preheater: MEDPreheaterResult,
+  inputs: MEDPlantInputs
+): PreheaterSizingResult {
+  const warnings: string[] = [];
+  const tubeSpec = inputs.condenserTubes;
+
+  const heatDuty = preheater.heatExchanged;
+  const lmtd = preheater.lmtd;
+
+  if (lmtd <= 0) {
+    warnings.push(`Preheater on effect ${preheater.effectNumber}: LMTD ≤ 0.`);
+    return emptyPreheaterResult(preheater.effectNumber, warnings);
+  }
+
+  const hotEndApproach = preheater.vaporTemperature - preheater.seawaterOutletTemp;
+  if (hotEndApproach < 2.0) {
+    warnings.push(
+      `Preheater ${preheater.effectNumber}: Hot-end approach (${hotEndApproach.toFixed(1)}°C) < 2°C minimum.`
+    );
+  }
+
+  const hx = sizeCondensingHX({
+    label: `Preheater ${preheater.effectNumber}`,
+    heatDuty,
+    lmtd,
+    vaporTemp: preheater.vaporTemperature,
+    swInletTemp: preheater.seawaterInletTemp,
+    swOutletTemp: preheater.seawaterOutletTemp,
+    swSalinity: inputs.seawaterSalinity,
+    swMassFlow: preheater.seawaterFlow,
+    tubeSpec,
+    designVelocity: 1.6,
+    tubePasses: CONDENSER_TUBE_PASSES,
+  });
+  warnings.push(...hx.warnings);
 
   return {
     effectNumber: preheater.effectNumber,
     heatDuty: Math.round(heatDuty * 10) / 10,
     lmtd: Math.round(lmtd * 100) / 100,
-    overallHTC: Math.round(overallHTC * 10) / 10,
-    requiredArea: Math.round(requiredArea * 100) / 100,
-    designArea: Math.round(designArea * 100) / 100,
-    tubeCount,
+    overallHTC: hx.overallHTC,
+    requiredArea: hx.requiredArea,
+    designArea: hx.designArea,
+    tubeCount: hx.tubeCount,
     tubeOD: tubeSpec.od,
     tubeLength: tubeSpec.length,
     warnings,
