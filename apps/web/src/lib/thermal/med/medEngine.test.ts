@@ -239,7 +239,7 @@ describe('MED Engine — TVC (Thermo Vapor Compressor)', () => {
     steamTemperature: 58.8, // top brine temp from BARC PFD
     numberOfEffects: 6,
     seawaterInletTemp: 30,
-    seawaterSalinity: 39000, // 3900 ppm TDS → ~39000 ppm salinity
+    seawaterSalinity: 35000, // seawater
     maxBrineSalinity: 59400,
     condenserApproach: 4,
   };
