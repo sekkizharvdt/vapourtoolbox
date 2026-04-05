@@ -41,6 +41,8 @@ import { calculateEffect, type EffectInput } from './effectModel';
 import { calculatePreheater } from './preheaterModel';
 import { calculateFinalCondenser } from './finalCondenserModel';
 import { solveTVCIntegration, type TVCIntegrationResult } from './tvcIntegration';
+import { sizeEquipment, type EquipmentSizingResult } from './equipmentSizing';
+import type { MEDPlantInputs, MEDPreheaterResult, TubeMaterial } from '@vapour/types';
 
 // ============================================================================
 // Engine Input — what the user provides
@@ -81,6 +83,29 @@ export interface MEDEngineInput {
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;
 
+  // ---- Tube specifications (for equipment sizing) ----
+  /** Evaporator tube OD in mm (default 25.4) */
+  evapTubeOD?: number;
+  /** Evaporator tube wall thickness in mm (default 1.0) */
+  evapTubeWall?: number;
+  /** Evaporator tube length in m (default 1.2) */
+  evapTubeLength?: number;
+  /** Evaporator tube material (default 'titanium') */
+  evapTubeMaterial?:
+    | 'titanium'
+    | 'al_brass'
+    | 'cu_ni_90_10'
+    | 'cu_ni_70_30'
+    | 'al_alloy'
+    | 'ss_316l'
+    | 'duplex_2205';
+  /** Condenser tube OD in mm (default 17) */
+  condTubeOD?: number;
+  /** Condenser tube wall thickness in mm (default 0.4) */
+  condTubeWall?: number;
+  /** Condenser tube length in m (default 2.1) */
+  condTubeLength?: number;
+
   // ---- TVC (Thermo Vapor Compressor) ----
   /** Motive steam pressure for TVC in bar abs (omit for plain MED) */
   tvcMotivePressure?: number;
@@ -99,6 +124,8 @@ export interface MEDEngineResult {
   finalCondenser: MEDFinalCondenserResult;
   /** Per-preheater results (each individually sized) */
   preheaters: PreheaterDetail[];
+  /** Equipment sizing (null if tube specs not provided) */
+  equipmentSizing: EquipmentSizingResult | null;
   /** Overall performance */
   performance: {
     /** Gain Output Ratio — distillate / steam */
@@ -539,6 +566,70 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   }
 
   // ======================================================================
+  // EQUIPMENT SIZING (optional — when tube specs are provided)
+  // ======================================================================
+
+  let equipmentSizing: EquipmentSizingResult | null = null;
+
+  try {
+    const evapMaterial: TubeMaterial = input.evapTubeMaterial ?? 'titanium';
+    const condenserOutletForSizing = condenserOutlet;
+
+    // Build MEDPlantInputs for the sizing function
+    const sizingInputs: MEDPlantInputs = {
+      plantType: input.tvcMotivePressure ? 'MED_TVC' : 'MED',
+      numberOfEffects: N,
+      preheaters: preheaterDetails.map((ph) => ({
+        effectNumber: ph.effectNumber,
+        vaporFlow: ph.vaporFlow,
+      })),
+      capacity: prevTotalDistillate / 1000, // kg/hr → T/h
+      gorTarget: prevTotalDistillate / input.steamFlow,
+      steamPressure: getSaturationPressure(steamTemp),
+      steamTemperature: steamTemp,
+      seawaterInletTemp: input.seawaterInletTemp,
+      seawaterDischargeTemp: condenserOutletForSizing,
+      seawaterSalinity: swSalinity,
+      topBrineTemp: effectTemps[0] ?? steamTemp - 3,
+      brineConcentrationFactor: concentrationFactor,
+      condenserApproachTemp: input.condenserApproach ?? 4,
+      distillateTemp: condenserOutletForSizing - 2,
+      condensateExtraction: 'FINAL_CONDENSER',
+      foulingFactor: input.foulingResistance ?? 0.00015,
+      evaporatorTubes: {
+        od: input.evapTubeOD ?? 25.4,
+        thickness: input.evapTubeWall ?? 1.0,
+        length: input.evapTubeLength ?? 1.2,
+        material: evapMaterial,
+      },
+      condenserTubes: {
+        od: input.condTubeOD ?? 17,
+        thickness: input.condTubeWall ?? 0.4,
+        length: input.condTubeLength ?? 2.1,
+        material: 'titanium',
+      },
+    };
+
+    // Convert engine preheater details to MEDPreheaterResult for sizing
+    const phResultsForSizing: MEDPreheaterResult[] = preheaterDetails.map((ph) => ({
+      effectNumber: ph.effectNumber,
+      vaporFlow: ph.vaporFlow,
+      vaporTemperature: ph.vaporTemp,
+      seawaterFlow: feedPerEffect * N, // total flow through PH chain
+      seawaterInletTemp: ph.swInletTemp,
+      seawaterOutletTemp: ph.swOutletTemp,
+      heatExchanged: ph.duty,
+      lmtd: ph.lmtd,
+      condensateFlow: ph.condensateFlow,
+      condensateTemperature: ph.condensateTemp,
+    }));
+
+    equipmentSizing = sizeEquipment(effects, finalCondenser!, phResultsForSizing, sizingInputs);
+  } catch (err) {
+    warnings.push(`Equipment sizing: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // ======================================================================
   // BUILD RESULT
   // ======================================================================
 
@@ -604,6 +695,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     effects,
     finalCondenser: finalCondenser!,
     preheaters: preheaterDetails,
+    equipmentSizing,
     performance: {
       gor: Math.round(gor * 100) / 100,
       netDistillate: Math.round(netDistillate),
