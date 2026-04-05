@@ -29,7 +29,6 @@ import {
   getEnthalpyVapor,
   getEnthalpyLiquid,
   getSeawaterEnthalpy,
-  getSeawaterSpecificHeat,
   getSeawaterDensity,
   getSaturationPressure,
   NEA_HOT_END,
@@ -327,35 +326,60 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
           cascadedBrineFlow * cascadedBrineSalinity) /
         totalSprayFlow
       : seawaterSalinity;
-  const blendedTemp =
-    totalSprayFlow > 0
-      ? (seawaterSprayFlow * seawaterSprayTemp +
-          recircBrineFlow * recircBrineTemp +
-          cascadedBrineFlow * cascadedBrineTemp) /
-        totalSprayFlow
-      : seawaterSprayTemp;
 
   // Heat absorbed from tube side (= tube side heat released)
   const Q_fromTube = tubeSideHeatReleased;
 
-  // Sensible heat to raise the combined pool to brine boiling temperature
-  // Note: cascaded brine is hotter than seawater, so it REDUCES Q_sensible
-  const cp_spray = getSeawaterSpecificHeat(
-    Math.min(blendedSalinity, 120000),
-    (blendedTemp + brineBoilingTemp) / 2
-  );
-  const Q_sensible =
-    (totalSprayFlow * cp_spray * Math.max(0, brineBoilingTemp - blendedTemp)) / 3600; // kW
-
-  // Available heat for evaporation = tube side heat + carrier steam condensation
-  // + distillate flash vapor condensation — sensible heating
+  // Carrier steam enters shell directly (bypasses tube wall via NCG vents)
   const Q_carrierToShell = (carrierSteam * (h_vaporIn - getEnthalpyLiquid(effectTemp))) / 3600;
+  // Distillate flash vapor condenses on spray film
   const Q_distFlashToShell = (distillateFlashVapor * getLatentHeat(effectTemp)) / 3600;
-  const Q_available = Q_fromTube + Q_carrierToShell + Q_distFlashToShell - Q_sensible;
 
-  // Vapor produced from the combined pool
+  // ---- Vapor production via enthalpy balance (matches WET Excel methodology) ----
+  // Energy in = Q_tube (through wall) + Q_carrier + Q_distFlash + shell inlet enthalpies
+  // Energy out = m_vapor × h_vapor + m_brine × h_brine
+  // Since m_brine = m_shell_in + distFlash_condensate - m_vapor:
+  //   m_vapor = (Q_in_total + Σ(m_i × h_i)_in - m_shell_in × h_brine) / (h_vapor - h_brine)
   const latentHeatEffect = getLatentHeat(effectTemp);
-  const sprayVaporProduced = Math.max(0, (Q_available * 3600) / latentHeatEffect);
+
+  // Shell inlet enthalpy sum (all streams entering the shell)
+  const h_swIn_shell = getSeawaterEnthalpy(seawaterSalinity, seawaterSprayTemp);
+  const h_recircIn_shell = getSeawaterEnthalpy(
+    Math.min(recircBrineSalinity, 120000),
+    recircBrineTemp
+  );
+  const h_cascBrineIn =
+    cascadedBrineFlow > 0
+      ? getSeawaterEnthalpy(Math.min(cascadedBrineSalinity, 120000), cascadedBrineTemp)
+      : 0;
+
+  const shellInletEnthalpy =
+    (seawaterSprayFlow * h_swIn_shell) / 3600 +
+    (recircBrineFlow * h_recircIn_shell) / 3600 +
+    (cascadedBrineFlow * h_cascBrineIn) / 3600;
+
+  // Total energy into the shell
+  const Q_shell_total = Q_fromTube + Q_carrierToShell + Q_distFlashToShell + shellInletEnthalpy;
+
+  // Outlet enthalpies
+  const h_vaporOut_shell = getEnthalpyVapor(Math.max(vaporOutTemp, 5));
+  // Brine outlet enthalpy: the outlet salinity depends on vapor production (circular).
+  // Use the average of inlet and max brine salinity as approximation.
+  const avgBrineSalinity = Math.min(
+    (blendedSalinity + blendedSalinity * brineConcentrationFactor) / 2,
+    120000
+  );
+  const h_brineOut_shell = getSeawaterEnthalpy(avgBrineSalinity, brineBoilingTemp);
+
+  // Total shell inlet mass (including distillate flash condensate that re-enters the pool)
+  const shellInletMass = totalSprayFlow + distillateFlashVapor;
+
+  // Enthalpy balance: m_vapor = (Q_total - m_in × h_brine) / (h_vapor - h_brine)
+  const denominator = h_vaporOut_shell - h_brineOut_shell;
+  const sprayVaporProduced =
+    denominator > 0
+      ? Math.max(0, (Q_shell_total * 3600 - shellInletMass * h_brineOut_shell) / denominator)
+      : 0;
 
   // Brine remaining = total pool + distillate flash condensate - evaporated vapor
   const sprayBrineFlow = Math.max(0, totalSprayFlow + distillateFlashVapor - sprayVaporProduced);
@@ -371,21 +395,14 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const seawaterVolumeLitres = seawaterSprayFlow / seawaterDensity; // litres/hr (density ≈ kg/L)
   const ncgReleased = (seawaterVolumeLitres * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6; // kg/hr
 
-  // Enthalpies for spray zone streams
-  const h_swIn = getSeawaterEnthalpy(seawaterSalinity, seawaterSprayTemp);
-  const h_recircIn = getSeawaterEnthalpy(Math.min(recircBrineSalinity, 120000), recircBrineTemp);
+  // Enthalpies for spray zone streams (reuse shell inlet values)
   const h_vaporOut = getEnthalpyVapor(Math.max(vaporOutTemp, 5));
   const h_sprayBrineOut = getSeawaterEnthalpy(
     Math.min(sprayBrineSalinity, 120000),
     brineBoilingTemp
   );
 
-  const sprayEnergyIn =
-    (seawaterSprayFlow * h_swIn) / 3600 +
-    (recircBrineFlow * h_recircIn) / 3600 +
-    Q_fromTube +
-    Q_carrierToShell +
-    Q_distFlashToShell;
+  const sprayEnergyIn = shellInletEnthalpy + Q_fromTube + Q_carrierToShell + Q_distFlashToShell;
   const sprayEnergyOut =
     (sprayVaporProduced * h_vaporOut) / 3600 + (sprayBrineFlow * h_sprayBrineOut) / 3600;
 
@@ -395,7 +412,7 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
       'SEAWATER',
       seawaterSprayFlow,
       seawaterSprayTemp,
-      h_swIn,
+      h_swIn_shell,
       seawaterSalinity
     ),
     recircBrineIn: makeStream(
@@ -403,7 +420,7 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
       'BRINE',
       recircBrineFlow,
       recircBrineTemp,
-      h_recircIn,
+      h_recircIn_shell,
       recircBrineSalinity
     ),
     heatAbsorbed: Q_fromTube + Q_carrierToShell + Q_distFlashToShell,
@@ -424,8 +441,12 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
       sprayBrineSalinity
     ),
     ncgReleased,
-    sensibleHeat: Q_sensible,
-    latentHeat: Q_available,
+    sensibleHeat:
+      Q_fromTube +
+      Q_carrierToShell +
+      Q_distFlashToShell -
+      (sprayVaporProduced * latentHeatEffect) / 3600,
+    latentHeat: (sprayVaporProduced * latentHeatEffect) / 3600,
     massIn: totalSprayFlow,
     massOut: sprayVaporProduced + sprayBrineFlow,
     energyIn: sprayEnergyIn,
