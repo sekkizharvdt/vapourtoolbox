@@ -57,6 +57,11 @@ export default function MEDPlantClient() {
   // ---- Preheaters (checkboxes for which effects have preheaters) ----
   const [preheaterEffects, setPreheaterEffects] = useState<number[]>([]);
 
+  // ---- TVC ----
+  const [tvcEnabled, setTvcEnabled] = useState(false);
+  const [tvcMotivePressure, setTvcMotivePressure] = useState('10'); // bar abs
+  const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState(''); // blank = last effect
+
   // ---- Save/Load ----
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
@@ -84,6 +89,9 @@ export default function MEDPlantClient() {
     setCondenserApproach('4');
     setCondenserOutletTemp('');
     setPreheaterEffects([]);
+    setTvcEnabled(false);
+    setTvcMotivePressure('10');
+    setTvcEntrainedEffect('');
   };
 
   // ---- Live calculation ----
@@ -111,6 +119,10 @@ export default function MEDPlantClient() {
         condenserApproach: isNaN(ca) ? 4 : ca,
         ...(condenserOutletTemp && { condenserOutletTemp: parseFloat(condenserOutletTemp) }),
         ...(preheaterEffects.length > 0 && { preheaterEffects }),
+        ...(tvcEnabled && {
+          tvcMotivePressure: parseFloat(tvcMotivePressure) || 10,
+          ...(tvcEntrainedEffect && { tvcEntrainedEffect: parseInt(tvcEntrainedEffect) }),
+        }),
       };
 
       return { result: calculateMED(input), error: null };
@@ -127,6 +139,9 @@ export default function MEDPlantClient() {
     condenserApproach,
     condenserOutletTemp,
     preheaterEffects,
+    tvcEnabled,
+    tvcMotivePressure,
+    tvcEntrainedEffect,
   ]);
 
   const result = computed.result;
@@ -305,6 +320,46 @@ export default function MEDPlantClient() {
                 Need at least 3 effects for preheaters.
               </Typography>
             )}
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              Thermo Vapor Compressor (TVC)
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={tvcEnabled}
+                  onChange={(e) => setTvcEnabled(e.target.checked)}
+                />
+              }
+              label="Enable TVC"
+            />
+            {tvcEnabled && (
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                <TextField
+                  label="Motive Steam Pressure"
+                  value={tvcMotivePressure}
+                  onChange={(e) => setTvcMotivePressure(e.target.value)}
+                  size="small"
+                  slotProps={{
+                    input: {
+                      endAdornment: <Typography variant="caption">bar abs</Typography>,
+                    },
+                  }}
+                />
+                <TextField
+                  label="Entrained Effect"
+                  value={tvcEntrainedEffect}
+                  onChange={(e) => setTvcEntrainedEffect(e.target.value)}
+                  size="small"
+                  placeholder={`Last (E${nEff})`}
+                  helperText="Which effect supplies vapor to the TVC"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 1, max: nEff } }}
+                />
+              </Stack>
+            )}
           </Paper>
         </Grid>
 
@@ -387,6 +442,43 @@ export default function MEDPlantClient() {
                   ))}
                 </Grid>
               </Paper>
+
+              {/* TVC Result */}
+              {result.tvc && (
+                <Paper sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Thermo Vapor Compressor
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {[
+                      { label: 'Motive Steam', value: `${result.tvc.motiveFlow.toFixed(0)} kg/hr` },
+                      {
+                        label: 'Entrained Vapor',
+                        value: `${result.tvc.entrainedFlow.toFixed(0)} kg/hr`,
+                      },
+                      {
+                        label: 'Discharge to E1',
+                        value: `${result.tvc.dischargeFlow.toFixed(0)} kg/hr`,
+                      },
+                      { label: 'Entrainment Ratio', value: result.tvc.entrainmentRatio.toFixed(3) },
+                      { label: 'Compression Ratio', value: result.tvc.compressionRatio.toFixed(3) },
+                      {
+                        label: 'Vapor to E1 Temp',
+                        value: `${result.tvc.vaporToEffect1Temp.toFixed(1)} \u00B0C`,
+                      },
+                    ].map(({ label, value }) => (
+                      <Grid size={{ xs: 6, sm: 4 }} key={label}>
+                        <Typography variant="caption" color="text.secondary">
+                          {label}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                          {value}
+                        </Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+              )}
 
               {/* Temperature Profile */}
               <Paper sx={{ p: 2, mb: 2 }}>
