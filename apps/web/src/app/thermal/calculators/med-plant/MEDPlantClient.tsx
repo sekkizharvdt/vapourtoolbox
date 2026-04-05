@@ -21,7 +21,6 @@ import {
   Checkbox,
   FormControlLabel,
   Divider,
-  Tooltip,
 } from '@mui/material';
 import {
   RestartAlt as ResetIcon,
@@ -282,41 +281,24 @@ export default function MEDPlantClient() {
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
               Select which effects supply vapor to preheaters. Each preheater is sized individually
-              with its own LMTD.
+              with its own LMTD. E1 vapor cannot be used (it is the motive steam condensation
+              stage). E{nEff} vapor goes to the final condenser.
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.5}>
-              {Array.from({ length: nEff }, (_, i) => i + 1).map((effNum) => {
-                const isE1 = effNum === 1;
-                const isLast = effNum === nEff;
-                const disabled = isE1 || isLast;
-                return (
-                  <Tooltip
-                    key={effNum}
-                    title={
-                      isE1
-                        ? 'E1 receives motive steam directly — diverting its vapor to a preheater would reduce heat available to all downstream effects'
-                        : isLast
-                          ? `E${nEff} vapor goes to the final condenser — it cannot be diverted to a preheater`
-                          : ''
-                    }
-                    arrow
-                    disableHoverListener={!disabled}
-                  >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          size="small"
-                          checked={preheaterEffects.includes(effNum)}
-                          onChange={() => togglePreheater(effNum)}
-                          disabled={disabled}
-                        />
-                      }
-                      label={`E${effNum}`}
-                      sx={{ mr: 0, ...(disabled && { opacity: 0.5 }) }}
+              {Array.from({ length: Math.max(0, nEff - 2) }, (_, i) => i + 2).map((effNum) => (
+                <FormControlLabel
+                  key={effNum}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={preheaterEffects.includes(effNum)}
+                      onChange={() => togglePreheater(effNum)}
                     />
-                  </Tooltip>
-                );
-              })}
+                  }
+                  label={`E${effNum}`}
+                  sx={{ mr: 0 }}
+                />
+              ))}
             </Stack>
             {nEff <= 2 && (
               <Typography variant="caption" color="text.secondary">
