@@ -30,7 +30,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, where, doc, getDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, LedgerEntry } from '@vapour/types';
 import { TRANSACTION_TYPE_SHORT_LABELS } from '@vapour/constants';
@@ -49,10 +49,11 @@ import {
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
 
-// Helper to get fiscal year start (April 1st)
-function getFiscalYearStart(date: Date = new Date()): Date {
-  const year = date.getMonth() < 3 ? date.getFullYear() - 1 : date.getFullYear();
-  return new Date(year, 3, 1); // April 1st
+// Helper to get fiscal year start based on configured start month
+function getFiscalYearStart(startMonth: number = 4, date: Date = new Date()): Date {
+  const monthIndex = startMonth - 1; // 0-based
+  const year = date.getMonth() < monthIndex ? date.getFullYear() - 1 : date.getFullYear();
+  return new Date(year, monthIndex, 1);
 }
 
 // Helper to convert Firestore Timestamp or Date to Date
@@ -88,6 +89,27 @@ function EntityLedgerInner() {
   // Date range filter - default to current fiscal year
   const [startDate, setStartDate] = useState<Date | null>(getFiscalYearStart());
   const [endDate, setEndDate] = useState<Date | null>(new Date());
+  const [fyStartMonth, setFyStartMonth] = useState(4);
+
+  // Load fiscal year start month from company settings
+  useEffect(() => {
+    const loadFYStart = async () => {
+      try {
+        const { db } = getFirebase();
+        const settingsDoc = await getDoc(doc(db, 'company', 'settings'));
+        if (settingsDoc.exists()) {
+          const month = settingsDoc.data().fiscalYearStartMonth;
+          if (month && month !== 4) {
+            setFyStartMonth(month);
+            setStartDate(getFiscalYearStart(month));
+          }
+        }
+      } catch {
+        // Fall back to April (default Indian FY)
+      }
+    };
+    loadFYStart();
+  }, []);
 
   // Load all entities on mount
   useEffect(() => {
@@ -704,7 +726,7 @@ function EntityLedgerInner() {
               variant="outlined"
               size="small"
               onClick={() => {
-                setStartDate(getFiscalYearStart());
+                setStartDate(getFiscalYearStart(fyStartMonth));
                 setEndDate(new Date());
                 setPage(0);
               }}

@@ -26,7 +26,7 @@ import {
   FolderOpen as FolderOpenIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
-import { designMED, type MEDDesignerResult, type GORConfigRow } from '@/lib/thermal';
+import { designMED, type MEDDesignerResult } from '@/lib/thermal';
 import { generateMEDBOM, type MEDCompleteBOM } from '@/lib/thermal';
 import { WizardStepper } from './components/WizardStepper';
 import { Step1Inputs } from './components/Step1Inputs';
@@ -37,7 +37,7 @@ import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
-const STEPS = ['Inputs & GOR', 'Geometry', 'Detailed Design', 'Review & Export'];
+const STEPS = ['Design Inputs', 'Equipment & Geometry', 'Detailed Design', 'Review & Export'];
 
 export default function MEDWizardClient() {
   // ── Step control ───────────────────────────────────────────────────────
@@ -47,11 +47,8 @@ export default function MEDWizardClient() {
   const [steamFlow, setSteamFlow] = useState('0.79');
   const [steamTemp, setSteamTemp] = useState('57');
   const [swTemp, setSwTemp] = useState('30');
-  const [targetGOR, setTargetGOR] = useState('6');
-
-  // ── Step 1 → 2: Selected configuration ─────────────────────────────────
-  const [selectedEffects, setSelectedEffects] = useState<number | null>(null);
-  const [selectedPreheaters, setSelectedPreheaters] = useState<number>(0);
+  const [numberOfEffects, setNumberOfEffects] = useState('6');
+  const [numberOfPreheaters, setNumberOfPreheaters] = useState('0');
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
   const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>('fixed_tubes');
@@ -65,75 +62,25 @@ export default function MEDWizardClient() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
-  // ── GOR configuration matrix ───────────────────────────────────────────
-  const gorConfigs = useMemo<GORConfigRow[]>(() => {
-    const sf = parseFloat(steamFlow);
-    const st = parseFloat(steamTemp);
-    const sw = parseFloat(swTemp);
-    const gor = parseFloat(targetGOR);
-    if ([sf, st, sw, gor].some((v) => isNaN(v) || v <= 0)) return [];
-
-    try {
-      // Generate configs for effects 5-10 × preheaters 0-5
-      const configs: GORConfigRow[] = [];
-      for (let nEff = 5; nEff <= 10; nEff++) {
-        for (let nPH = 0; nPH <= Math.min(nEff - 2, 5); nPH++) {
-          try {
-            const r = designMED({
-              steamFlow: sf,
-              steamTemperature: st,
-              seawaterTemperature: sw,
-              targetGOR: gor,
-              numberOfEffects: nEff,
-              numberOfPreheaters: nPH,
-            });
-            configs.push({
-              effects: nEff,
-              preheaters: nPH,
-              gor: r.achievedGOR,
-              distillate: r.totalDistillate,
-              outputM3Day: r.totalDistillateM3Day,
-              gorDeviation: Math.abs(r.achievedGOR - gor),
-              recommended: false,
-              feedTemp:
-                r.preheaters.length > 0
-                  ? r.preheaters[r.preheaters.length - 1]!.swOutlet
-                  : parseFloat(swTemp) + 5, // condenser outlet
-              workDTPerEffect: r.effects[0]?.workingDeltaT ?? 0,
-              feasible: r.effects.every((e) => e.areaMargin >= -15),
-            });
-          } catch {
-            // Skip infeasible configs
-          }
-        }
-      }
-      return configs;
-    } catch {
-      return [];
-    }
-  }, [steamFlow, steamTemp, swTemp, targetGOR]);
-
-  // ── Design result (recomputed with geometry overrides) ───────────────────
+  // ── Design result (recomputed when inputs or geometry change) ────────────
   const designResult = useMemo<MEDDesignerResult | null>(() => {
-    if (selectedEffects === null) return null;
     const sf = parseFloat(steamFlow);
     const st = parseFloat(steamTemp);
     const sw = parseFloat(swTemp);
-    const gor = parseFloat(targetGOR);
+    const nEff = parseInt(numberOfEffects, 10);
+    const nPH = parseInt(numberOfPreheaters, 10);
     const gv = parseFloat(geoValue);
-    if ([sf, st, sw, gor].some((v) => isNaN(v) || v <= 0)) return null;
+    if ([sf, st, sw].some((v) => isNaN(v) || v <= 0)) return null;
+    if (isNaN(nEff) || nEff < 2) return null;
 
     // Build overrides from Step 2 geometry selection
     const overrides: Record<string, unknown> = {};
     if (!isNaN(gv) && gv > 0) {
-      const nEff = selectedEffects;
       if (geoMode === 'fixed_tubes') {
         overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
       } else if (geoMode === 'fixed_length') {
         overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
       }
-      // 'uniform' mode: geometry is display-only in Step 2 — no overrides needed
-      // (the detailed design uses auto-calc; uniform is for quick comparison)
     }
 
     try {
@@ -141,24 +88,15 @@ export default function MEDWizardClient() {
         steamFlow: sf,
         steamTemperature: st,
         seawaterTemperature: sw,
-        targetGOR: gor,
-        numberOfEffects: selectedEffects,
-        numberOfPreheaters: selectedPreheaters,
+        targetGOR: 10, // not used by engine (steam-in paradigm), but required by type
+        numberOfEffects: nEff,
+        numberOfPreheaters: isNaN(nPH) ? 0 : nPH,
         ...overrides,
       });
     } catch {
       return null;
     }
-  }, [
-    steamFlow,
-    steamTemp,
-    swTemp,
-    targetGOR,
-    selectedEffects,
-    selectedPreheaters,
-    geoMode,
-    geoValue,
-  ]);
+  }, [steamFlow, steamTemp, swTemp, numberOfEffects, numberOfPreheaters, geoMode, geoValue]);
 
   // ── BOM generation ──────────────────────────────────────────────────────
   const bom = useMemo<MEDCompleteBOM | null>(() => {
@@ -270,20 +208,13 @@ export default function MEDWizardClient() {
   };
 
   // ── Handlers ───────────────────────────────────────────────────────────
-  const handleSelectConfig = (effects: number, preheaters: number) => {
-    setSelectedEffects(effects);
-    setSelectedPreheaters(preheaters);
-    setActiveStep(1); // Move to geometry step
-  };
-
   const handleReset = () => {
     setActiveStep(0);
-    setSelectedEffects(null);
-    setSelectedPreheaters(0);
     setSteamFlow('0.79');
     setSteamTemp('57');
     setSwTemp('30');
-    setTargetGOR('6');
+    setNumberOfEffects('6');
+    setNumberOfPreheaters('0');
     setGeoValue('2000');
   };
 
@@ -301,8 +232,8 @@ export default function MEDWizardClient() {
           <Chip label="Multi-Effect Distillation" size="small" color="primary" variant="outlined" />
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 700 }}>
-          Design a complete MED plant in 4 steps. Start with your steam supply and target GOR, then
-          select the number of effects and tube geometry.
+          Design a complete MED plant in 4 steps. Start with your steam supply and configuration,
+          then refine the tube geometry and equipment sizing.
         </Typography>
       </Box>
 
@@ -330,19 +261,21 @@ export default function MEDWizardClient() {
 
       <WizardStepper activeStep={activeStep} steps={STEPS} />
 
-      {/* ── Step 1: Inputs & GOR Config ────────────────────────────────── */}
+      {/* ── Step 1: Design Inputs ────────────────────────────────────── */}
       {activeStep === 0 && (
         <Step1Inputs
           steamFlow={steamFlow}
           steamTemp={steamTemp}
           swTemp={swTemp}
-          targetGOR={targetGOR}
+          numberOfEffects={numberOfEffects}
+          numberOfPreheaters={numberOfPreheaters}
           onSteamFlowChange={setSteamFlow}
           onSteamTempChange={setSteamTemp}
           onSwTempChange={setSwTemp}
-          onTargetGORChange={setTargetGOR}
-          gorConfigs={gorConfigs}
-          onSelectConfig={handleSelectConfig}
+          onNumberOfEffectsChange={setNumberOfEffects}
+          onNumberOfPreheatersChange={setNumberOfPreheaters}
+          designResult={designResult}
+          onProceed={() => setActiveStep(1)}
         />
       )}
 
@@ -849,9 +782,8 @@ export default function MEDWizardClient() {
           steamFlow,
           steamTemp,
           swTemp,
-          targetGOR,
-          selectedEffects,
-          selectedPreheaters,
+          numberOfEffects,
+          numberOfPreheaters,
           geoMode,
           geoValue,
           geoUniformFix,
@@ -865,11 +797,10 @@ export default function MEDWizardClient() {
           if (typeof inputs.steamFlow === 'string') setSteamFlow(inputs.steamFlow);
           if (typeof inputs.steamTemp === 'string') setSteamTemp(inputs.steamTemp);
           if (typeof inputs.swTemp === 'string') setSwTemp(inputs.swTemp);
-          if (typeof inputs.targetGOR === 'string') setTargetGOR(inputs.targetGOR);
-          if (typeof inputs.selectedEffects === 'number')
-            setSelectedEffects(inputs.selectedEffects);
-          if (typeof inputs.selectedPreheaters === 'number')
-            setSelectedPreheaters(inputs.selectedPreheaters);
+          if (typeof inputs.numberOfEffects === 'string')
+            setNumberOfEffects(inputs.numberOfEffects);
+          if (typeof inputs.numberOfPreheaters === 'string')
+            setNumberOfPreheaters(inputs.numberOfPreheaters);
           if (
             inputs.geoMode === 'fixed_length' ||
             inputs.geoMode === 'fixed_tubes' ||

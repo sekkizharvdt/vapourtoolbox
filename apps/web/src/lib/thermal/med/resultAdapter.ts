@@ -293,34 +293,99 @@ export function composeDesignerCondenser(
 // ============================================================================
 
 /**
- * Compose MEDDesignerPreheater[] from core solver's preheater results.
- * Note: the designer currently handles preheaters via spray temperature
- * calculation rather than the core solver's preheater chain. This function
- * provides a bridge for when preheaters are fully integrated.
+ * Compose MEDDesignerPreheater[] from core solver's preheater results
+ * and equipment sizing. Uses the same sizeCondensingHX() data as the condenser.
  */
 export function composeDesignerPreheaters(
   hmResult: MEDPlantResult,
-  _sizing: EquipmentSizingResult,
+  sizing: EquipmentSizingResult,
   resolved: ResolvedDesignerInputs
 ): MEDDesignerPreheater[] {
-  // For now, return empty — preheaters are handled by the designer's
-  // spray temperature logic. Full integration is a future step.
-  return hmResult.preheaters.map((ph, idx) => ({
-    id: idx + 1,
-    vapourSource: `Effect ${ph.effectNumber}`,
-    vapourTemp: ph.vaporTemperature,
-    swInlet: ph.seawaterInletTemp,
-    swOutlet: ph.seawaterOutletTemp,
-    duty: ph.heatExchanged,
-    lmtd: ph.lmtd,
-    designArea: 0, // Will be computed when preheater sizing is integrated
-    flowTh: ph.seawaterFlow / 1000,
-    tubes: 0,
-    passes: 4,
-    velocity: 0,
-    shellODmm: 0,
-    tubeOD: 17,
-    tubeLengthMM: (resolved.input.tiTubeLength ?? 2.1) * 1000,
-    passOptions: [],
-  }));
+  const tiTubeOD = 17;
+  const tiTubeLengthMM = (resolved.input.tiTubeLength ?? 2.1) * 1000;
+  const tiPitch = 21.3;
+  const tiTargetVel = resolved.input.tiTargetVelocity ?? 1.6;
+  const swSalinity = resolved.input.seawaterSalinity ?? 35000;
+
+  return hmResult.preheaters.map((ph, idx) => {
+    const ps = sizing.preheaters[idx];
+
+    // If sizing data not available for this preheater, return H&M only
+    if (!ps || ps.designArea <= 0) {
+      return {
+        id: idx + 1,
+        vapourSource: `Effect ${ph.effectNumber}`,
+        vapourTemp: ph.vaporTemperature,
+        swInlet: ph.seawaterInletTemp,
+        swOutlet: ph.seawaterOutletTemp,
+        duty: ph.heatExchanged,
+        lmtd: ph.lmtd,
+        designArea: 0,
+        flowTh: ph.seawaterFlow / 1000,
+        tubes: 0,
+        passes: 4,
+        velocity: 0,
+        shellODmm: 0,
+        tubeOD: tiTubeOD,
+        tubeLengthMM: tiTubeLengthMM,
+        passOptions: [],
+      };
+    }
+
+    const tubes = ps.tubeCount;
+
+    // Build pass options (same pattern as condenser)
+    const passOptions: PassOption[] = [];
+    for (let p = 2; p <= 8; p += 2) {
+      const tubesPerPass = Math.ceil(tubes / p);
+      const totalTubes = tubesPerPass * p;
+      const tiTubeID = 16.2; // mm (17mm OD - 2×0.4mm wall for Ti)
+      const flowArea = tubesPerPass * (Math.PI / 4) * (tiTubeID / 1000) ** 2;
+      const avgSwTemp = (ph.seawaterInletTemp + ph.seawaterOutletTemp) / 2;
+      const swDensity = getSeawaterDensity(swSalinity, avgSwTemp);
+      const swFlow = ph.seawaterFlow / 3600; // kg/s
+      const vel = flowArea > 0 ? swFlow / (swDensity * flowArea) : 0;
+      const area = totalTubes * Math.PI * (tiTubeOD / 1000) * (tiTubeLengthMM / 1000);
+      const shellODmm = Math.round(
+        findMinShellID(totalTubes, tiTubeOD, tiPitch, false) + 2 * resolved.shellThkMM
+      );
+
+      passOptions.push({
+        passes: p,
+        tubesPerPass,
+        totalTubes,
+        velocity: Math.round(vel * 100) / 100,
+        inRange: vel >= 1.2 && vel <= 1.8,
+        area: Math.round(area * 100) / 100,
+        shellODmm,
+      });
+    }
+
+    // Select best pass option (closest to target velocity)
+    const bestPass =
+      passOptions.length > 0
+        ? passOptions.reduce((a, b) =>
+            Math.abs(a.velocity - tiTargetVel) < Math.abs(b.velocity - tiTargetVel) ? a : b
+          )
+        : { totalTubes: tubes, passes: 4, velocity: 0, shellODmm: 0 };
+
+    return {
+      id: idx + 1,
+      vapourSource: `Effect ${ph.effectNumber}`,
+      vapourTemp: ph.vaporTemperature,
+      swInlet: ph.seawaterInletTemp,
+      swOutlet: ph.seawaterOutletTemp,
+      duty: ph.heatExchanged,
+      lmtd: ph.lmtd,
+      designArea: ps.designArea,
+      flowTh: ph.seawaterFlow / 1000,
+      tubes: bestPass.totalTubes,
+      passes: bestPass.passes,
+      velocity: bestPass.velocity,
+      shellODmm: bestPass.shellODmm,
+      tubeOD: tiTubeOD,
+      tubeLengthMM: tiTubeLengthMM,
+      passOptions,
+    };
+  });
 }
