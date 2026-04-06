@@ -9,7 +9,7 @@
  * 2. Scenario analysis (lightweight, no full solver)
  * 3. GOR configuration matrix
  * 4. Convert to core solver inputs
- * 5. Solve H&M balance (solveMEDPlant — the source of truth)
+ * 5. Solve H&M balance (calculateMED engine — the source of truth)
  * 6. Equipment sizing
  * 7. Compose designer effect records (H&M + sizing + geometry)
  * 8. Auxiliary equipment

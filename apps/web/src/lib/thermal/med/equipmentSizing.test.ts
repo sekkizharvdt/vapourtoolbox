@@ -5,26 +5,23 @@
  * when given the Case 6 H&M balance output.
  */
 
-import { solveMEDPlant } from './medSolver';
-import { sizeEquipment } from './equipmentSizing';
-import { DEFAULT_MED_PLANT_INPUTS } from '@vapour/constants';
-import type { MEDPlantInputs } from '@vapour/types';
+import { calculateMED } from './medEngine';
+import type { EquipmentSizingResult } from './equipmentSizing';
 
-const CASE6_INPUTS: MEDPlantInputs = {
-  ...DEFAULT_MED_PLANT_INPUTS,
-};
-
-const plantResult = solveMEDPlant(CASE6_INPUTS);
-const sizing = sizeEquipment(
-  plantResult.effects,
-  plantResult.finalCondenser,
-  plantResult.preheaters,
-  CASE6_INPUTS
-);
+const engineResult = calculateMED({
+  steamFlow: 790,
+  steamTemperature: 57,
+  numberOfEffects: 6,
+  seawaterInletTemp: 30,
+  seawaterSalinity: 35000,
+  maxBrineSalinity: 59500,
+  condenserApproach: 4,
+});
+const sizing = engineResult.equipmentSizing as EquipmentSizingResult;
 
 describe('Equipment Sizing — Evaporators', () => {
   it('sizes all effects', () => {
-    expect(sizing.evaporators).toHaveLength(CASE6_INPUTS.numberOfEffects);
+    expect(sizing.evaporators).toHaveLength(6);
   });
 
   it('all effects have positive heat duty', () => {

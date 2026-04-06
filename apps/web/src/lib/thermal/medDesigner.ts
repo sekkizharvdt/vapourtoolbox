@@ -4,7 +4,7 @@
  * This file was previously a 3,002-line monolithic calculator. It has been
  * decomposed into focused modules in the ./med/ directory:
  *
- *   Core Solver:        med/medSolver.ts, med/effectModel.ts
+ *   Core Engine:        med/medEngine.ts, med/effectModel.ts
  *   Equipment Sizing:   med/equipmentSizing.ts
  *   Shell Geometry:     med/shellGeometry.ts
  *   Auxiliary Equipment: med/auxiliaryEquipment.ts
