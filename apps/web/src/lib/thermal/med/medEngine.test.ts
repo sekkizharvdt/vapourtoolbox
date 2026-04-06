@@ -492,9 +492,8 @@ describe('MED Engine — Recirculation', () => {
       const recirc = result.recirculation.flows[i]!;
       const spray = result.effects[i]!.sprayWater.flow;
       const totalFlow = spray + recirc;
-      // Wetting rate with recirc should be near target (0.045 kg/(m·s))
-      const totalTubeLength = ev.tubeCount * ev.tubeLength;
-      const wettingWithRecirc = totalFlow / 3600 / (2 * totalTubeLength);
+      // Wetting rate with recirc: Γ = flow / (N^(2/3) × L) — bundle geometry
+      const wettingWithRecirc = totalFlow / 3600 / (Math.pow(ev.tubeCount, 2 / 3) * ev.tubeLength);
       expect(wettingWithRecirc).toBeGreaterThan(0.04);
       expect(wettingWithRecirc).toBeLessThan(0.06);
     }

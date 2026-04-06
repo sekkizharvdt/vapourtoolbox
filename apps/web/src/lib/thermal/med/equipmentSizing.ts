@@ -314,22 +314,29 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR); // mm
 
   // ---- Wetting rate verification ----
+  // For a horizontal tube falling film bundle, spray enters at the top
+  // and cascades down over rows. The wetting rate Γ depends on the flow
+  // per tube in the drip direction:
+  //   Γ = spray_flow / (N_tubes^(2/3) × L_tube)
+  // The N^(2/3) accounts for bundle geometry (not all tubes are in the top row).
+  // Shorter tubes → more tubes → taller bundle → higher Γ.
+  // Longer tubes → fewer tubes → shorter bundle → lower Γ.
+  // Γ ∝ 1/L^(1/3) for a given heat transfer area.
   const sprayFlow = effect.sprayWater.flow / 3600; // kg/s
-  const totalTubeLength = tubeCount * tubeSpec.length; // m
-  // Wetting rate Γ = spray flow / (2 × total tube length on one side)
-  // For horizontal tubes: Γ = flow / (N_tubes × L × 2) ... per side
-  const wettingRate = sprayFlow / (2 * totalTubeLength);
+  const wettingRate =
+    tubeCount > 0 && tubeSpec.length > 0
+      ? sprayFlow / (Math.pow(tubeCount, 2 / 3) * tubeSpec.length)
+      : 0;
   const minimumWettingRate = MIN_WETTING_RATE;
 
-  // Recommended recirculation ratio to achieve 1.5× minimum wetting rate (target = 0.045 kg/(m·s))
+  // Target: 1.5× minimum = 0.045 kg/(m·s)
   const targetWettingRate = minimumWettingRate * 1.5;
+
+  // Recommended recirculation ratio to achieve target wetting
   const recommendedRecircRatio =
     wettingRate > 0 && wettingRate < targetWettingRate
       ? Math.ceil((targetWettingRate / wettingRate) * 10) / 10
       : 1.0;
-
-  // Always show wetting rate WITH recommended recirculation applied
-  // (actual recirculation is an equipment concern, not a process balance change)
   const wettingRateWithRecirc = wettingRate * recommendedRecircRatio;
   const effectiveWettingRate = wettingRateWithRecirc;
   const wettingRatio = effectiveWettingRate / minimumWettingRate;
