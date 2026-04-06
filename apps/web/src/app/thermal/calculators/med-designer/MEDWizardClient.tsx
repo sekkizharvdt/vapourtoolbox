@@ -49,6 +49,10 @@ export default function MEDWizardClient() {
   const [swTemp, setSwTemp] = useState('30');
   const [numberOfEffects, setNumberOfEffects] = useState('6');
   const [numberOfPreheaters, setNumberOfPreheaters] = useState('0');
+  const [tvcEnabled, setTvcEnabled] = useState(false);
+  const [tvcMotivePressure, setTvcMotivePressure] = useState('10');
+  const [tvcSuperheat, setTvcSuperheat] = useState('0');
+  const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState('');
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
   const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>('fixed_tubes');
@@ -83,6 +87,20 @@ export default function MEDWizardClient() {
       }
     }
 
+    // TVC parameters
+    const tvcParams: Record<string, unknown> = {};
+    if (tvcEnabled) {
+      const mp = parseFloat(tvcMotivePressure);
+      if (!isNaN(mp) && mp > 0) {
+        tvcParams.tvcEnabled = true;
+        tvcParams.tvcMotivePressure = mp;
+        const sh = parseFloat(tvcSuperheat);
+        if (!isNaN(sh) && sh > 0) tvcParams.tvcSuperheat = sh;
+        const ee = parseInt(tvcEntrainedEffect, 10);
+        if (!isNaN(ee) && ee >= 1) tvcParams.tvcEntrainedEffect = ee;
+      }
+    }
+
     try {
       return designMED({
         steamFlow: sf,
@@ -92,11 +110,24 @@ export default function MEDWizardClient() {
         numberOfEffects: nEff,
         numberOfPreheaters: isNaN(nPH) ? 0 : nPH,
         ...overrides,
+        ...tvcParams,
       });
     } catch {
       return null;
     }
-  }, [steamFlow, steamTemp, swTemp, numberOfEffects, numberOfPreheaters, geoMode, geoValue]);
+  }, [
+    steamFlow,
+    steamTemp,
+    swTemp,
+    numberOfEffects,
+    numberOfPreheaters,
+    geoMode,
+    geoValue,
+    tvcEnabled,
+    tvcMotivePressure,
+    tvcSuperheat,
+    tvcEntrainedEffect,
+  ]);
 
   // ── BOM generation ──────────────────────────────────────────────────────
   const bom = useMemo<MEDCompleteBOM | null>(() => {
@@ -215,6 +246,10 @@ export default function MEDWizardClient() {
     setSwTemp('30');
     setNumberOfEffects('6');
     setNumberOfPreheaters('0');
+    setTvcEnabled(false);
+    setTvcMotivePressure('10');
+    setTvcSuperheat('0');
+    setTvcEntrainedEffect('');
     setGeoValue('2000');
   };
 
@@ -269,11 +304,19 @@ export default function MEDWizardClient() {
           swTemp={swTemp}
           numberOfEffects={numberOfEffects}
           numberOfPreheaters={numberOfPreheaters}
+          tvcEnabled={tvcEnabled}
+          tvcMotivePressure={tvcMotivePressure}
+          tvcSuperheat={tvcSuperheat}
+          tvcEntrainedEffect={tvcEntrainedEffect}
           onSteamFlowChange={setSteamFlow}
           onSteamTempChange={setSteamTemp}
           onSwTempChange={setSwTemp}
           onNumberOfEffectsChange={setNumberOfEffects}
           onNumberOfPreheatersChange={setNumberOfPreheaters}
+          onTvcEnabledChange={setTvcEnabled}
+          onTvcMotivePressureChange={setTvcMotivePressure}
+          onTvcSuperheatChange={setTvcSuperheat}
+          onTvcEntrainedEffectChange={setTvcEntrainedEffect}
           designResult={designResult}
           onProceed={() => setActiveStep(1)}
         />
@@ -784,6 +827,10 @@ export default function MEDWizardClient() {
           swTemp,
           numberOfEffects,
           numberOfPreheaters,
+          tvcEnabled,
+          tvcMotivePressure,
+          tvcSuperheat,
+          tvcEntrainedEffect,
           geoMode,
           geoValue,
           geoUniformFix,
@@ -801,6 +848,12 @@ export default function MEDWizardClient() {
             setNumberOfEffects(inputs.numberOfEffects);
           if (typeof inputs.numberOfPreheaters === 'string')
             setNumberOfPreheaters(inputs.numberOfPreheaters);
+          if (typeof inputs.tvcEnabled === 'boolean') setTvcEnabled(inputs.tvcEnabled);
+          if (typeof inputs.tvcMotivePressure === 'string')
+            setTvcMotivePressure(inputs.tvcMotivePressure);
+          if (typeof inputs.tvcSuperheat === 'string') setTvcSuperheat(inputs.tvcSuperheat);
+          if (typeof inputs.tvcEntrainedEffect === 'string')
+            setTvcEntrainedEffect(inputs.tvcEntrainedEffect);
           if (
             inputs.geoMode === 'fixed_length' ||
             inputs.geoMode === 'fixed_tubes' ||

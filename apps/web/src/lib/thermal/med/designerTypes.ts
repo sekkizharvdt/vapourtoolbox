@@ -98,6 +98,16 @@ export interface MEDDesignerInput {
   /** Number of evaporator effects per physical shell (default 1; BARC uses 2) */
   effectsPerShell?: number;
 
+  // ── TVC (Thermo Vapor Compressor) ────────────────────────────────────
+  /** Enable TVC mode (default false — plain MED) */
+  tvcEnabled?: boolean;
+  /** Motive steam pressure in bar abs (required when tvcEnabled) */
+  tvcMotivePressure?: number;
+  /** Motive steam superheat in °C above saturation (default 0) */
+  tvcSuperheat?: number;
+  /** Effect from which vapor is entrained by the TVC (1-based, default: last effect) */
+  tvcEntrainedEffect?: number;
+
   // ── Per-effect overrides (user refinement after initial auto-design) ──
   /** Override tube length per effect (array indexed by effect 0..n-1) */
   tubeLengthOverrides?: (number | null)[];
@@ -586,6 +596,15 @@ export interface MEDDesignerResult {
   geometryComparisons?: GeometryComparisonOption[];
   preheaterContributions?: PreheaterContribution[];
   swReject: number; // T/h
+
+  /** TVC result (present when tvcEnabled) */
+  tvc?: {
+    motiveFlow: number; // kg/hr
+    entrainedFlow: number; // kg/hr
+    dischargeFlow: number; // kg/hr
+    compressionRatio: number;
+    entrainmentRatio: number;
+  };
 
   overallDimensions: {
     totalLengthMM: number;

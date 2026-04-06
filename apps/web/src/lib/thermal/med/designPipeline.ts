@@ -17,7 +17,12 @@
  * 10. Assemble final MEDDesignerResult
  */
 
-import { getBoilingPointElevation, getLatentHeat, getSeawaterDensity } from '@vapour/constants';
+import {
+  getBoilingPointElevation,
+  getLatentHeat,
+  getSeawaterDensity,
+  getSaturationTemperature,
+} from '@vapour/constants';
 import type {
   MEDDesignerInput,
   MEDDesignerResult,
@@ -222,7 +227,17 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     evapTubeLength: (resolved.resolvedDefaults.tubeLength as number) ?? maxTubeLength,
     evapTubeMaterial: ((resolved.resolvedDefaults.tubeMaterial as string) ??
       'titanium') as MEDEngineInput['evapTubeMaterial'],
-    // TVC support will be added when designer supports MED-TVC mode
+    // TVC: pass through when enabled
+    ...(input.tvcEnabled &&
+      input.tvcMotivePressure && {
+        tvcMotivePressure: input.tvcMotivePressure,
+        ...(input.tvcSuperheat &&
+          input.tvcSuperheat > 0 && {
+            tvcMotiveTemperature:
+              getSaturationTemperature(input.tvcMotivePressure) + input.tvcSuperheat,
+          }),
+        ...(input.tvcEntrainedEffect && { tvcEntrainedEffect: input.tvcEntrainedEffect }),
+      }),
   };
 
   // ── 5. Solve H&M balance (new engine) ───────────────────────────────
@@ -389,6 +404,16 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     dosing: dosing ?? undefined,
     vacuumSystem: vacuumSystem ?? undefined,
     swReject: condenser.seawaterFlow - makeUpFeed,
+    // TVC result
+    ...(engineResult.tvc && {
+      tvc: {
+        motiveFlow: engineResult.tvc.motiveFlow,
+        entrainedFlow: engineResult.tvc.entrainedFlow,
+        dischargeFlow: engineResult.tvc.dischargeFlow,
+        compressionRatio: engineResult.tvc.compressionRatio,
+        entrainmentRatio: engineResult.tvc.entrainmentRatio,
+      },
+    }),
     overallDimensions: {
       totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 500,
       shellODmm: largestShellOD,
