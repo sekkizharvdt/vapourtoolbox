@@ -485,15 +485,17 @@ describe('MED Engine — Recirculation', () => {
     expect(result.recirculation.totalFlow).toBeGreaterThan(0);
   });
 
-  it('per-effect recirc flow is consistent with tube geometry', () => {
+  it('per-effect recirc flow is consistent with tube geometry (VGB formula)', () => {
     if (!result.equipmentSizing) return;
     for (let i = 0; i < BARC_INPUT.numberOfEffects; i++) {
       const ev = result.equipmentSizing.evaporators[i]!;
       const recirc = result.recirculation.flows[i]!;
       const spray = result.effects[i]!.sprayWater.flow;
       const totalFlow = spray + recirc;
-      // Wetting rate with recirc: Γ = flow / (N^(2/3) × L) — bundle geometry
-      const wettingWithRecirc = totalFlow / 3600 / (Math.pow(ev.tubeCount, 2 / 3) * ev.tubeLength);
+      // VGB wetting rate: Γ = flow / (2 × L × n_rows)
+      const rowSpacing = ev.tubeOD * 1.315 * Math.sin((60 * Math.PI) / 180);
+      const nRows = Math.floor(ev.bundleDiameter / rowSpacing);
+      const wettingWithRecirc = totalFlow / 3600 / (2 * ev.tubeLength * nRows);
       expect(wettingWithRecirc).toBeGreaterThan(0.04);
       expect(wettingWithRecirc).toBeLessThan(0.06);
     }

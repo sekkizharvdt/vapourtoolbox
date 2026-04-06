@@ -685,16 +685,17 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
       if (!ev || ev.tubeCount === 0) continue;
 
       const sprayFlow = effects[i]!.sprayWater.flow / 3600; // kg/s
-      // Wetting rate: Γ = spray / (N^(2/3) × L) — bundle geometry correction
+      // VGB wetting rate: Γ = ṁ / (2 × L × n_rows)
+      const nRows =
+        ev.bundleDiameter > 0
+          ? Math.floor(ev.bundleDiameter / (ev.tubeOD * 1.315 * Math.sin((60 * Math.PI) / 180)))
+          : 1;
       const currentWetting =
-        ev.tubeCount > 0 && ev.tubeLength > 0
-          ? sprayFlow / (Math.pow(ev.tubeCount, 2 / 3) * ev.tubeLength)
-          : 0;
+        nRows > 0 && ev.tubeLength > 0 ? sprayFlow / (2 * ev.tubeLength * nRows) : 0;
 
       if (currentWetting < TARGET_WETTING_RATE) {
-        // Required total flow for target wetting: Γ_target × N^(2/3) × L
-        const requiredTotalFlow =
-          TARGET_WETTING_RATE * Math.pow(ev.tubeCount, 2 / 3) * ev.tubeLength * 3600; // kg/hr
+        // Required total flow: Γ_target × 2 × L × n_rows
+        const requiredTotalFlow = TARGET_WETTING_RATE * 2 * ev.tubeLength * nRows * 3600; // kg/hr
         recircFlows[i] = Math.max(0, requiredTotalFlow - effects[i]!.sprayWater.flow);
       }
     }

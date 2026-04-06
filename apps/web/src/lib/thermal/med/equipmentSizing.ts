@@ -314,19 +314,17 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR); // mm
 
   // ---- Wetting rate verification ----
-  // For a horizontal tube falling film bundle, spray enters at the top
-  // and cascades down over rows. The wetting rate Γ depends on the flow
-  // per tube in the drip direction:
-  //   Γ = spray_flow / (N_tubes^(2/3) × L_tube)
-  // The N^(2/3) accounts for bundle geometry (not all tubes are in the top row).
-  // Shorter tubes → more tubes → taller bundle → higher Γ.
-  // Longer tubes → fewer tubes → shorter bundle → lower Γ.
-  // Γ ∝ 1/L^(1/3) for a given heat transfer area.
+  // VGB "Engineers Guide to Desalination" (Appendix C):
+  //   Γ = ṁ / (2 × L × n_rows)
+  // where n_rows = number of tube rows the liquid cascades through
+  // from top to bottom of the bundle.
+  // Validated against BARC as-built: recirc ratio 2.18× matches formula.
   const sprayFlow = effect.sprayWater.flow / 3600; // kg/s
+  const pitch = tubeSpec.od * 1.315; // triangular pitch ≈ 1.315 × OD (33.4/25.4)
+  const rowSpacing = pitch * Math.sin((60 * Math.PI) / 180); // pitch × sin(60°)
+  const nRows = bundleDiameter > 0 ? Math.floor(bundleDiameter / rowSpacing) : 1;
   const wettingRate =
-    tubeCount > 0 && tubeSpec.length > 0
-      ? sprayFlow / (Math.pow(tubeCount, 2 / 3) * tubeSpec.length)
-      : 0;
+    nRows > 0 && tubeSpec.length > 0 ? sprayFlow / (2 * tubeSpec.length * nRows) : 0;
   const minimumWettingRate = MIN_WETTING_RATE;
 
   // Target: 1.5× minimum = 0.045 kg/(m·s)
