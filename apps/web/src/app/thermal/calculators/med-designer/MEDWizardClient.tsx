@@ -100,6 +100,13 @@ export default function MEDWizardClient() {
         overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
       } else if (geoMode === 'fixed_length') {
         overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
+      } else if (geoMode === 'uniform') {
+        // Uniform: user fixes either tubes or length, both applied uniformly
+        if (geoUniformFix === 'tubes') {
+          overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
+        } else {
+          overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
+        }
       }
     }
 
@@ -148,6 +155,7 @@ export default function MEDWizardClient() {
     nEff,
     geoMode,
     geoValue,
+    geoUniformFix,
     tvcEnabled,
     tvcMotivePressure,
     tvcSuperheat,

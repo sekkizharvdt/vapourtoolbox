@@ -330,6 +330,32 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   const condenser = composeDesignerCondenser(hmResult, sizing, resolved);
   const preheaters = composeDesignerPreheaters(hmResult, sizing, resolved);
 
+  // ── 7a. Apply user geometry overrides (Step 2 tube count/length) ───
+  const tubeCountOvr = input.tubeCountOverrides;
+  const tubeLengthOvr = input.tubeLengthOverrides;
+  if (tubeCountOvr || tubeLengthOvr) {
+    const areaPerTubePerM = Math.PI * (tubeOD / 1000);
+    for (let i = 0; i < effects.length; i++) {
+      const eff = effects[i]!;
+      const ovrTubes = tubeCountOvr?.[i];
+      const ovrLength = tubeLengthOvr?.[i];
+      if (ovrTubes != null) eff.tubes = ovrTubes;
+      if (ovrLength != null) eff.tubeLength = ovrLength;
+      if (ovrTubes != null || ovrLength != null) {
+        eff.installedArea = eff.tubes * areaPerTubePerM * eff.tubeLength;
+        eff.areaMargin =
+          eff.requiredArea > 0 ? (eff.installedArea / eff.requiredArea - 1) * 100 : 0;
+        // Recompute shell geometry for overridden tube count
+        const hasLanes = eff.hasVapourLanes;
+        const newShellID = findMinShellID(eff.tubes, tubeOD, resolved.pitch, hasLanes);
+        eff.shellODmm = Math.round(newShellID + 2 * resolved.shellThkMM);
+        eff.shellLengthMM = Math.round(
+          eff.tubeLength * 1000 + 2 * resolved.tubeSheetThkMM + resolved.tubeSheetAccessMM
+        );
+      }
+    }
+  }
+
   // ── 8. Compute summary values ───────────────────────────────────────
   const totalDistillate = hmResult.performance.netProduction; // T/h
   const totalDistillateM3Day = totalDistillate * 24; // approximate (density ≈ 1)
