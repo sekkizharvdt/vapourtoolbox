@@ -87,12 +87,20 @@ export function Step2Geometry({
         const areaPerTubePerM = (Math.PI * tubeOD) / 1000;
 
         // Common helper to build a geo row
+        // Shell ID from pipeline's bundleGeometry when tube count matches,
+        // otherwise estimate for lateral (half-circle) bundle:
+        // A half-circle of radius R holds ~N tubes → R ≈ √(2×N×pitch²/π)
         const buildRow = (tubes: number, tubeL: number) => {
           const instArea = tubes * areaPerTubePerM * tubeL;
           const margin = e.requiredArea > 0 ? (instArea / e.requiredArea - 1) * 100 : 0;
-          const shellID = Math.round(Math.sqrt((tubes * pitch * pitch * 4) / Math.PI) * 1.15);
-          const tpr = Math.round(shellID / 2 / pitch);
-          const minSpray = 0.035 * 2 * tpr * tubeL * 3.6;
+          // Use pipeline shell ID if tubes match, otherwise estimate for half-circle
+          const pipelineShellID = e.shellODmm - 2 * (detail.inputs.shellThickness ?? 8);
+          const shellID =
+            tubes === e.tubes
+              ? pipelineShellID
+              : Math.round(Math.sqrt((2 * tubes * pitch * pitch * 4) / Math.PI) + 100);
+          const nRows = e.bundleGeometry?.numberOfRows ?? Math.round(shellID / 2 / (pitch * 0.866));
+          const minSpray = 0.035 * 2 * nRows * tubeL * 3.6;
           const maxBrine = detail.inputs.maxBrineSalinity ?? 65000;
           const swSal = detail.inputs.seawaterSalinity ?? 35000;
           const feed = (e.distillateFlow * maxBrine) / (maxBrine - swSal);
@@ -181,8 +189,8 @@ export function Step2Geometry({
                 <TableCell align="right">{fmt(e.bpe, 2)}</TableCell>
                 <TableCell align="right">{fmt(e.vapourOutTemp)}</TableCell>
                 <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
-                <TableCell align="right">{fmt(e.sprayTemp)}&deg;C</TableCell>
                 <TableCell align="right">{Math.round(e.overallU)}</TableCell>
+                <TableCell align="right">{fmt(e.sprayTemp)}&deg;C</TableCell>
                 <TableCell align="right">{Math.round(e.duty)}</TableCell>
                 <TableCell align="right">{Math.round(e.requiredArea)}</TableCell>
               </TableRow>
@@ -284,6 +292,7 @@ export function Step2Geometry({
                   <TableCell align="right">Inst. Area (m&sup2;)</TableCell>
                   <TableCell align="right">Margin</TableCell>
                   <TableCell align="right">Spray (T/h)</TableCell>
+                  <TableCell align="right">Recirc (T/h)</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -313,6 +322,7 @@ export function Step2Geometry({
                       {r.margin.toFixed(0)}%
                     </TableCell>
                     <TableCell align="right">{r.totalSpray.toFixed(1)}</TableCell>
+                    <TableCell align="right">{r.recirc.toFixed(1)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -324,7 +334,7 @@ export function Step2Geometry({
       {/* Navigation */}
       <Stack direction="row" justifyContent="space-between">
         <Button startIcon={<BackIcon />} onClick={onBack}>
-          Back to Configurations
+          Back to Design Inputs
         </Button>
         <Button variant="contained" endIcon={<NextIcon />} onClick={onNext} disabled={!hasGeo}>
           Proceed to Detailed Design
