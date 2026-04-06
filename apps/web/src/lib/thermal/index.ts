@@ -362,7 +362,9 @@ export {
 // Tube Bundle Geometry
 export {
   calculateTubeBundleGeometry,
+  calculateTubeBundleWithSprayClearance,
   calculateBundleArea,
+  estimateSprayZoneClearance,
   generateDefaultVapourLanes,
   type TubePosition,
   type RowInfo,
