@@ -71,7 +71,7 @@ function canReceiveOffers(rfq: RFQ): boolean {
 export default function RFQDetailPage() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [rfq, setRfq] = useState<RFQ | null>(null);
@@ -151,7 +151,12 @@ export default function RFQDetailPage() {
     }
 
     try {
-      await issueRFQ(rfq.id, user.uid, user.displayName || user.email || 'Unknown');
+      await issueRFQ(
+        rfq.id,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        claims?.permissions || 0
+      );
       setIssueDialogOpen(false);
       await loadRFQ();
     } catch (err) {
@@ -164,7 +169,13 @@ export default function RFQDetailPage() {
     if (!rfq || !user || !cancelReason.trim()) return;
 
     try {
-      await cancelRFQ(rfq.id, cancelReason, user.uid, user.displayName || user.email || 'Unknown');
+      await cancelRFQ(
+        rfq.id,
+        cancelReason,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        claims?.permissions || 0
+      );
       setCancelDialogOpen(false);
       await loadRFQ();
     } catch (err) {

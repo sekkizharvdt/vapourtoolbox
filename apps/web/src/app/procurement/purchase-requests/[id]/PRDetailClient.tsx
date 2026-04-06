@@ -60,7 +60,7 @@ import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 export default function PRDetailPage() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [pr, setPr] = useState<PurchaseRequest | null>(null);
@@ -204,7 +204,8 @@ export default function PRDetailPage() {
         pr.id,
         user.uid,
         user.displayName || user.email || 'Unknown',
-        approvalComments
+        approvalComments,
+        claims?.permissions || 0
       );
       await loadPR(); // Reload to get updated status
       setApprovalComments('');
@@ -231,7 +232,8 @@ export default function PRDetailPage() {
         pr.id,
         user.uid,
         user.displayName || user.email || 'Unknown',
-        rejectionReason
+        rejectionReason,
+        claims?.permissions || 0
       );
       await loadPR(); // Reload to get updated status
       setRejectionReason('');

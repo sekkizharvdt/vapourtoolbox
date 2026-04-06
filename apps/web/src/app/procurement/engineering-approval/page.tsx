@@ -50,7 +50,7 @@ import { formatDate } from '@/lib/utils/formatters';
 
 export default function EngineeringApprovalPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
@@ -109,7 +109,8 @@ export default function EngineeringApprovalPage() {
         selectedPR.id,
         user.uid,
         user.displayName || user.email || 'Unknown',
-        approvalComments.trim() || undefined
+        approvalComments.trim() || undefined,
+        claims?.permissions || 0
       );
 
       setApproveDialogOpen(false);
@@ -135,7 +136,8 @@ export default function EngineeringApprovalPage() {
         selectedPR.id,
         user.uid,
         user.displayName || user.email || 'Unknown',
-        rejectionReason
+        rejectionReason,
+        claims?.permissions || 0
       );
 
       setRejectDialogOpen(false);
