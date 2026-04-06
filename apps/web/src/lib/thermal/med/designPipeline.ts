@@ -40,6 +40,7 @@ import { sizeEquipment } from './equipmentSizing';
 import { estimateU, findMinShellID, countLateralTubes } from './shellGeometry';
 import { computeGORConfigurations } from './gorAnalysis';
 import { computeGeometryComparisons } from './geometryComparison';
+import { refineBundleGeometry, applyRefinedGeometry } from './bundleRefinement';
 import { computePreheaterContributions } from './preheaterAnalysis';
 import {
   computeAuxiliaryEquipment,
@@ -336,8 +337,8 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
       ? (makeUpFeed * swSalinity + totalRecirc * maxBrineSalinity) / (makeUpFeed + totalRecirc)
       : swSalinity;
   const shellThkMM = resolved.shellThkMM;
-  const largestShellOD = Math.max(...effects.map((e) => e.shellODmm));
-  const largestShellID = largestShellOD - 2 * shellThkMM;
+  let largestShellOD = Math.max(...effects.map((e) => e.shellODmm));
+  let largestShellID = largestShellOD - 2 * shellThkMM;
 
   if (largestShellID < 1800) {
     warnings.push(
@@ -345,7 +346,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     );
   }
 
-  // ── 9. Auxiliary equipment ──────────────────────────────────────────
+  // ── 9. Auxiliary equipment (before bundle refinement — nozzle selection needed) ──
   const swDensity = getSeawaterDensity(swSalinity, input.seawaterTemperature);
   const auxiliaryEquipment = computeAuxiliaryEquipment(effects, condenser, {
     swSalinity,
@@ -363,6 +364,20 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   });
   if (auxiliaryEquipment.auxWarnings.length > 0) {
     warnings.push(...auxiliaryEquipment.auxWarnings);
+  }
+
+  // ── 9b. Bundle geometry refinement (uses spray nozzle coverage) ────
+  // Run the full geometry engine (OTL, clearances, vapour lanes) with
+  // spray coverage width from nozzle selection as the wetting cutback.
+  try {
+    const sprayCoverageWidths = auxiliaryEquipment.sprayNozzles.map((sn) => sn.coverageWidth);
+    const refined = refineBundleGeometry(effects, sizing, resolved, sprayCoverageWidths);
+    applyRefinedGeometry(effects, refined, resolved.shellThkMM);
+    // Recompute largest shell after refinement
+    largestShellOD = Math.max(...effects.map((e) => e.shellODmm));
+    largestShellID = largestShellOD - 2 * shellThkMM;
+  } catch {
+    warnings.push('Bundle geometry refinement failed — using TEMA estimates.');
   }
 
   const dosing = computeDosing(makeUpFeed, swDensity, input.antiscalantDoseMgL ?? 2);

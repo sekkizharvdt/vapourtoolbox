@@ -124,6 +124,7 @@ export function computeAuxiliaryEquipment(
         flowPerNozzle: best ? best.flowAtPressure : 0,
         sprayAngle: best?.sprayAngle ?? 0,
         sprayHeight: best?.derivedHeight ?? 400,
+        coverageWidth: best?.coverageDiameter ?? bundleWidthMM,
         nozzlesAlongLength: best?.nozzlesAlongLength ?? 0,
         rowsAcrossWidth: best?.rowsAcrossWidth ?? 0,
       };
@@ -138,6 +139,7 @@ export function computeAuxiliaryEquipment(
         flowPerNozzle: 0,
         sprayAngle: 0,
         sprayHeight: 400, // default fallback
+        coverageWidth: ctx.shellID * 0.85, // fallback to approx bundle width
         nozzlesAlongLength: 0,
         rowsAcrossWidth: 0,
       };

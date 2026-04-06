@@ -202,6 +202,25 @@ export interface MEDDesignerEffect {
   shellGroup?: number;
   /** How many effects share this physical shell */
   effectsInShell?: number;
+  /** Tube bundle geometry from full layout engine (when available) */
+  bundleGeometry?: {
+    /** OTL diameter mm */
+    otlDiameter: number;
+    /** Number of tube rows in drip direction */
+    numberOfRows: number;
+    /** Actual tube count from layout (may differ from TEMA estimate) */
+    actualTubeCount: number;
+    /** Bundle width mm */
+    bundleWidthMM: number;
+    /** Bundle height mm */
+    bundleHeightMM: number;
+    /** Tubes removed by vapour lanes */
+    tubesRemovedByLanes: number;
+    /** Bottom clearance mm (brine pool) */
+    bottomClearance: number;
+    /** Spray zone clearance mm */
+    sprayZoneClearance: number;
+  };
 }
 
 // ============================================================================
@@ -296,6 +315,8 @@ export interface MEDSprayNozzleResult {
   flowPerNozzle: number; // lpm
   sprayAngle: number; // degrees
   sprayHeight: number; // mm
+  /** Coverage width per nozzle row (mm) — used for tube field wetting cutback */
+  coverageWidth: number; // mm
   nozzlesAlongLength: number;
   rowsAcrossWidth: number;
 }
