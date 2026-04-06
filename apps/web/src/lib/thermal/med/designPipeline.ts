@@ -30,7 +30,7 @@ import {
   composeDesignerCondenser,
   composeDesignerPreheaters,
 } from './resultAdapter';
-import { solveMEDPlant } from './medSolver';
+import { calculateMED, type MEDEngineInput } from './medEngine';
 import { sizeEquipment } from './equipmentSizing';
 import { estimateU, findMinShellID, countLateralTubes } from './shellGeometry';
 import { computeGORConfigurations } from './gorAnalysis';
@@ -192,27 +192,113 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     pdLoss
   );
 
-  // ── 4. Convert to core solver inputs ────────────────────────────────
-  const solverInputs = toMEDPlantInputs(resolved);
-
-  // ── 5. Solve H&M balance ────────────────────────────────────────────
-  let hmResult;
-  try {
-    hmResult = solveMEDPlant(solverInputs);
-    if (hmResult.warnings.length > 0) {
-      warnings.push(...hmResult.warnings);
+  // ── 4. Build engine input ─────────────────────────────────────────
+  const preheaterEffects: number[] = [];
+  const nPreheaters = input.numberOfPreheaters ?? 0;
+  if (nPreheaters > 0) {
+    // Distribute preheaters evenly across effects (e.g., 2 PH on 6 eff → E3, E5)
+    const step = Math.max(1, Math.floor((nEff - 2) / nPreheaters));
+    for (let p = 0; p < nPreheaters && 2 + p * step <= nEff - 1; p++) {
+      preheaterEffects.push(2 + p * step);
     }
-  } catch (err) {
-    throw new Error(`Core solver failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  const engineInput: MEDEngineInput = {
+    steamFlow: input.steamFlow * 1000, // T/h → kg/hr
+    steamTemperature: input.steamTemperature,
+    numberOfEffects: nEff,
+    seawaterInletTemp: input.seawaterTemperature,
+    seawaterSalinity: swSalinity,
+    maxBrineSalinity,
+    condenserApproach,
+    condenserOutletTemp: condenserSWOutlet,
+    ...(preheaterEffects.length > 0 && { preheaterEffects }),
+    nea: NEA,
+    demisterLoss: demLoss,
+    ductLoss: pdLoss,
+    foulingResistance: 0.00015,
+    evapTubeOD: tubeOD,
+    evapTubeWall: tubeWall,
+    evapTubeLength: (resolved.resolvedDefaults.tubeLength as number) ?? maxTubeLength,
+    evapTubeMaterial: ((resolved.resolvedDefaults.tubeMaterial as string) ??
+      'titanium') as MEDEngineInput['evapTubeMaterial'],
+    // TVC support will be added when designer supports MED-TVC mode
+  };
+
+  // ── 5. Solve H&M balance (new engine) ───────────────────────────────
+  let engineResult;
+  try {
+    engineResult = calculateMED(engineInput);
+    if (engineResult.warnings.length > 0) {
+      warnings.push(...engineResult.warnings);
+    }
+  } catch (err) {
+    throw new Error(`Core engine failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Build MEDPlantResult-shaped object for downstream stages (sizing, adapters)
+  const hmResult = {
+    inputs: toMEDPlantInputs(resolved),
+    effects: engineResult.effects,
+    finalCondenser: engineResult.finalCondenser,
+    preheaters: engineResult.preheaters.map((ph) => ({
+      effectNumber: ph.effectNumber,
+      vaporFlow: ph.vaporFlow,
+      vaporTemperature: ph.vaporTemp,
+      seawaterFlow: ph.duty > 0 ? (engineInput.steamFlow * nEff) / nEff : 0,
+      seawaterInletTemp: ph.swInletTemp,
+      seawaterOutletTemp: ph.swOutletTemp,
+      heatExchanged: ph.duty,
+      lmtd: ph.lmtd,
+      condensateFlow: ph.condensateFlow,
+      condensateTemperature: ph.condensateTemp,
+    })),
+    tvcResult: engineResult.tvc
+      ? {
+          motiveFlow: engineResult.tvc.motiveFlow,
+          entrainedFlow: engineResult.tvc.entrainedFlow,
+          dischargeFlow: engineResult.tvc.dischargeFlow,
+          entrainmentRatio: engineResult.tvc.entrainmentRatio,
+          compressionRatio: engineResult.tvc.compressionRatio,
+          isSuperheated: engineResult.tvc.isSuperheated,
+          sprayWaterFlow: 0,
+          vaporToEffect1Temp: engineResult.tvc.vaporToEffect1Temp,
+        }
+      : undefined,
+    overallBalance: {
+      totalSteamFlow: engineInput.steamFlow,
+      totalDistillateFlow: engineResult.performance.netDistillate,
+      totalBrineFlow: engineResult.performance.brineBlowdown,
+      totalSeawaterFlow: engineResult.performance.seawaterIntake,
+      totalFeedFlow: engineResult.performance.totalFeedWater,
+    } as unknown as import('@vapour/types').MEDOverallBalance,
+    performance: {
+      gor: engineResult.performance.gor,
+      specificThermalEnergy: engineResult.performance.specificThermalEnergy,
+      specificThermalEnergy_kWh: engineResult.performance.specificThermalEnergy_kWh,
+      grossProduction: engineResult.performance.netDistillate / 1000, // kg/hr → T/h
+      netProduction: engineResult.performance.netDistillate / 1000,
+      steamFlow: engineInput.steamFlow,
+      motiveFlow: engineResult.tvc?.motiveFlow ?? 0,
+      seawaterIntake: engineResult.performance.seawaterIntake / 1000,
+      coolingWater: engineResult.performance.coolingWater / 1000,
+      makeupWater: engineResult.performance.totalFeedWater / 1000,
+      brineFlow: engineResult.performance.brineBlowdown / 1000,
+      brineSalinity: engineResult.performance.brineSalinity,
+      overdesign: 0,
+    },
+    warnings: engineResult.warnings,
+    converged: engineResult.converged,
+    iterations: engineResult.iterations,
+  };
+
+  const solverInputs = hmResult.inputs;
+
   // ── 6. Equipment sizing ─────────────────────────────────────────────
-  const sizing = sizeEquipment(
-    hmResult.effects,
-    hmResult.finalCondenser,
-    hmResult.preheaters,
-    solverInputs
-  );
+  // Use the engine's built-in sizing if available, otherwise compute
+  const sizing =
+    engineResult.equipmentSizing ??
+    sizeEquipment(hmResult.effects, hmResult.finalCondenser, hmResult.preheaters, solverInputs);
   if (sizing.warnings.length > 0) {
     warnings.push(...sizing.warnings);
   }
