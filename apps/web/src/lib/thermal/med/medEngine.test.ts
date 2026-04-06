@@ -353,6 +353,26 @@ describe('MED Engine — TVC (Thermo Vapor Compressor)', () => {
     expect(dischargeFlow).toBeCloseTo(motiveFlow + entrainedFlow, 0);
   });
 
+  it('BARC MED-TVC: GOR and Ra within 15% of as-built', () => {
+    // BARC as-built: 1040 motive @ 10 bar, 6 eff, 4 PH, GOR=9.61, Ra=0.935
+    const barc = calculateMED({
+      steamFlow: 1040,
+      steamTemperature: 58.8,
+      numberOfEffects: 6,
+      seawaterInletTemp: 30,
+      seawaterSalinity: 35000,
+      maxBrineSalinity: 59400,
+      condenserApproach: 4,
+      tvcMotivePressure: 10,
+      preheaterEffects: [2, 3, 4, 5],
+    });
+    expect(barc.tvc).not.toBeNull();
+    expect(barc.tvc!.entrainmentRatio).toBeGreaterThan(0.935 * 0.85);
+    expect(barc.tvc!.entrainmentRatio).toBeLessThan(0.935 * 1.15);
+    expect(barc.performance.gor).toBeGreaterThan(9.61 * 0.85);
+    expect(barc.performance.gor).toBeLessThan(9.61 * 1.15);
+  });
+
   it('MED-TVC has higher GOR than plain MED (same conditions)', () => {
     // Compare TVC vs plain MED with same base conditions
     const plainResult = calculateMED(TVC_BASE);

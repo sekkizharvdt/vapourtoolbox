@@ -185,114 +185,81 @@ function findTemperatureAtEnthalpy(
 // ============================================================================
 
 /**
- * Calculate theoretical entrainment ratio from energy balance (ideal case)
+ * Calculate entrainment ratio using GEA empirical correlation with
+ * expansion ratio dependence.
  *
- * Energy balance: m_m × h_m + m_e × h_e = (m_m + m_e) × h_d
+ * Source: "Curves for the Prediction of TVC Performances" by GEA,
+ * from WET's MED-TVC Excel design program.
  *
- * For discharge at saturation:
- *   Ra = (h_m - h_d_sat) / (h_d_sat - h_e)
+ * Four base curves of R(E) at fixed K, fitted to GEA performance data:
+ *   K=1.5: R = 1.5615 × E^(-0.248)
+ *   K=2.0: R = 3.0007 × E^(-0.287)
+ *   K=3.0: R = 16.318 × E^(-0.560)
+ *   K=4.0: R = 117.08 × E^(-0.914)
  *
- * This gives the MAXIMUM possible entrainment ratio assuming:
- *   - Perfect adiabatic mixing
- *   - No shock losses
- *   - No friction losses
- *   - Ideal nozzle and diffuser
+ * R is interpolated between the two nearest K curves, then Ra = 1/R.
  *
- * @param motiveEnthalpy - Motive steam enthalpy in kJ/kg
- * @param suctionEnthalpy - Suction vapor enthalpy in kJ/kg
- * @param dischargeSatEnthalpy - Saturated vapor enthalpy at discharge pressure in kJ/kg
- * @returns Theoretical maximum entrainment ratio
+ * Validated against as-built MED-TVC plants:
+ *   - BARC (K=2.82, E=128): Ra ≈ 0.95 (as-built: 0.935)
+ *   - Adani (K=2.07, E=70): Ra ≈ 1.0 (matches design)
+ *
+ * @param compressionRatio - K = Pd / Ps
+ * @param expansionRatio - E = Pm / Ps
+ * @returns Entrainment ratio Ra = F_suction / F_motive
+ */
+function calculateGEAEntrainmentRatio(compressionRatio: number, expansionRatio: number): number {
+  if (compressionRatio <= 1.0 || expansionRatio <= 1.0) return 0;
+
+  // GEA base curves: R = a × E^b at fixed K
+  const curves: { K: number; a: number; b: number }[] = [
+    { K: 1.5, a: 1.5615, b: -0.248 },
+    { K: 2.0, a: 3.0007, b: -0.287 },
+    { K: 3.0, a: 16.318, b: -0.56 },
+    { K: 4.0, a: 117.08, b: -0.914 },
+  ];
+
+  // Find bracketing K curves
+  const K = Math.max(1.5, Math.min(4.0, compressionRatio));
+
+  let lowerIdx = 0;
+  for (let i = 0; i < curves.length - 1; i++) {
+    if (K >= curves[i]!.K && K <= curves[i + 1]!.K) {
+      lowerIdx = i;
+      break;
+    }
+  }
+
+  const lower = curves[lowerIdx]!;
+  const upper = curves[lowerIdx + 1]!;
+
+  // R at each bounding K
+  const R_lower = lower.a * Math.pow(expansionRatio, lower.b);
+  const R_upper = upper.a * Math.pow(expansionRatio, upper.b);
+
+  // Linear interpolation in K
+  const frac = (K - lower.K) / (upper.K - lower.K);
+  const R = R_lower + frac * (R_upper - R_lower);
+
+  return R > 0 ? 1 / R : 0;
+}
+
+/**
+ * Calculate theoretical entrainment ratio from energy balance (for reference).
+ *
+ * Ra_theoretical = (h_m - h_d_sat) / (h_d_sat - h_e)
+ *
+ * This is the thermodynamic maximum — not used as the primary correlation
+ * but reported for comparison with the GEA empirical result.
  */
 function calculateTheoreticalEntrainmentRatio(
   motiveEnthalpy: number,
   suctionEnthalpy: number,
   dischargeSatEnthalpy: number
 ): number {
-  const numerator = motiveEnthalpy - dischargeSatEnthalpy;
   const denominator = dischargeSatEnthalpy - suctionEnthalpy;
-
-  if (denominator <= 0) {
-    throw new Error(
-      'Invalid enthalpy conditions: discharge saturation enthalpy must be greater than suction enthalpy'
-    );
-  }
-
-  if (numerator <= 0) {
-    throw new Error(
-      'Invalid enthalpy conditions: motive enthalpy must be greater than discharge saturation enthalpy'
-    );
-  }
-
+  const numerator = motiveEnthalpy - dischargeSatEnthalpy;
+  if (denominator <= 0 || numerator <= 0) return 0;
   return numerator / denominator;
-}
-
-/**
- * Calculate pressure ratio correction factor for ejector efficiency.
- *
- * Accounts for two effects:
- *   1. Compression ratio (CR = Pd/Ps): higher CR → harder pressure recovery
- *   2. Expansion ratio (ER = Pm/Ps): higher ER → more nozzle losses at extreme
- *      pressure ratios (underexpansion, oblique shocks)
- *
- * Calibrated against as-built MED-TVC projects:
- *   - Campiche (CR=2.39, ER=62.5, actual Ra=1.032) → ±0.1%
- *   - CADAFE I (CR=2.01, ER=70.9, actual Ra=1.307) → ±0.1%
- *
- * @param compressionRatio - Compression ratio (Pd / Ps)
- * @param expansionRatio - Expansion ratio (Pm / Ps)
- * @returns Correction factor (typically 0.15 to 1.0)
- */
-function calculatePressureRatioCorrectionFactor(
-  compressionRatio: number,
-  expansionRatio: number
-): number {
-  if (compressionRatio <= 1.0) return 1.0;
-  if (compressionRatio >= MAX_CR_SINGLE_STAGE) return 0.15;
-
-  // CR correction: exponential decay, k=0.7
-  // Captures diffuser/mixing losses that increase with compression
-  const crFactor = Math.exp(-0.7 * (compressionRatio - 1.0));
-
-  // Expansion ratio correction: power law penalty for high Pm/Ps
-  // Reference ER = 62.6 (calibrated to Campiche/CADAFE)
-  // At ER < 62.6: factor > 1 (easier), capped at 1.5
-  // At ER > 62.6: factor < 1 (more nozzle losses)
-  const ER_REF = 62.6;
-  const ER_EXP = 2.26;
-  const erFactor = Math.min((ER_REF / expansionRatio) ** ER_EXP, 1.5);
-
-  return crFactor * erFactor;
-}
-
-/**
- * Calculate overall ejector efficiency
- *
- * Based on 1-D constant pressure mixing theory (Huang 1999):
- *   η_ejector = η_nozzle × η_mixing × η_diffuser × f(CR, ER)
- *
- * The efficiency accounts for:
- *   - Nozzle losses (non-isentropic expansion)
- *   - Mixing losses (momentum exchange, shock formation)
- *   - Diffuser losses (pressure recovery)
- *   - Compression ratio effects (higher CR = lower efficiency)
- *   - Expansion ratio effects (extreme Pm/Ps = more nozzle losses)
- *
- * @param nozzleEff - Nozzle isentropic efficiency
- * @param mixingEff - Mixing section efficiency
- * @param diffuserEff - Diffuser efficiency
- * @param compressionRatio - Compression ratio (Pd / Ps)
- * @param expansionRatio - Expansion ratio (Pm / Ps)
- * @returns Overall ejector efficiency (actual Ra / theoretical Ra)
- */
-function calculateEjectorEfficiency(
-  nozzleEff: number,
-  mixingEff: number,
-  diffuserEff: number,
-  compressionRatio: number,
-  expansionRatio: number
-): number {
-  const prFactor = calculatePressureRatioCorrectionFactor(compressionRatio, expansionRatio);
-  return nozzleEff * mixingEff * diffuserEff * prFactor;
 }
 
 // ============================================================================
@@ -386,24 +353,17 @@ export function calculateTVC(input: TVCInput): TVCResult {
   // Discharge saturated vapor enthalpy (reference for energy balance)
   const dischargeSatEnthalpy = getEnthalpyVapor(dischargeSatTemperature);
 
-  // Calculate theoretical entrainment ratio (ideal, no losses)
+  // GEA empirical correlation — primary method (from WET Excel)
+  const entrainmentRatio = calculateGEAEntrainmentRatio(compressionRatio, expansionRatio);
+
+  // Theoretical (thermodynamic maximum) — for reference only
   const theoreticalEntrainmentRatio = calculateTheoreticalEntrainmentRatio(
     motiveEnthalpy,
     suctionEnthalpy,
     dischargeSatEnthalpy
   );
-
-  // Calculate overall ejector efficiency
-  const ejectorEfficiency = calculateEjectorEfficiency(
-    nozzleEfficiency,
-    mixingEfficiency,
-    diffuserEfficiency,
-    compressionRatio,
-    expansionRatio
-  );
-
-  // Actual entrainment ratio with losses
-  const entrainmentRatio = theoreticalEntrainmentRatio * ejectorEfficiency;
+  const ejectorEfficiency =
+    theoreticalEntrainmentRatio > 0 ? entrainmentRatio / theoreticalEntrainmentRatio : 0;
 
   // Validate result is in reasonable range
   if (entrainmentRatio < 0.1) {

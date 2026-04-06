@@ -148,7 +148,8 @@ describe('TVC Calculator - 1-D Model (Huang 1999)', () => {
         })
       );
 
-      expect(lowCR.ejectorEfficiency).toBeGreaterThan(highCR.ejectorEfficiency);
+      // With GEA correlation, higher CR → lower Ra → lower derived efficiency
+      expect(lowCR.entrainmentRatio).toBeGreaterThan(highCR.entrainmentRatio);
     });
 
     it('should use custom efficiency values when provided', () => {
@@ -300,12 +301,12 @@ describe('TVC Calculator - 1-D Model (Huang 1999)', () => {
     });
 
     it('should warn for low entrainment ratio (< 0.1)', () => {
-      // Very low motive enthalpy relative to discharge/suction, high CR
+      // Very high CR with low expansion ratio → very low Ra
       const result = calculateTVC(
         createInput({
           motivePressure: 1.5,
-          suctionPressure: 0.5,
-          dischargePressure: 1.2, // CR = 2.4 (near limit)
+          suctionPressure: 0.4,
+          dischargePressure: 1.4, // CR = 3.5, E = 3.75
         })
       );
 
