@@ -67,8 +67,10 @@ export interface MEDDesignerInput {
   pressureDropLoss?: number;
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;
-  /** Number of preheaters (auto if not set) */
+  /** Number of preheaters (auto-distributed if preheaterEffects not provided) */
   numberOfPreheaters?: number;
+  /** Specific effect numbers that supply vapor to preheaters (overrides numberOfPreheaters) */
+  preheaterEffects?: number[];
   /** Include brine recirculation calculation (default true) */
   includeBrineRecirculation?: boolean;
   /** Minimum wetting rate Γ in kg/(m·s) (default 0.035) */

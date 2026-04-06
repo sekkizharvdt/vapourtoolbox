@@ -47,8 +47,12 @@ export default function MEDWizardClient() {
   const [steamFlow, setSteamFlow] = useState('0.79');
   const [steamTemp, setSteamTemp] = useState('57');
   const [swTemp, setSwTemp] = useState('30');
+  const [swSalinity, setSwSalinity] = useState('35000');
+  const [maxBrineSalinity, setMaxBrineSalinity] = useState('65000');
   const [numberOfEffects, setNumberOfEffects] = useState('6');
-  const [numberOfPreheaters, setNumberOfPreheaters] = useState('0');
+  const [condenserApproach, setCondenserApproach] = useState('4');
+  const [condenserOutletTemp, setCondenserOutletTemp] = useState('');
+  const [preheaterEffects, setPreheaterEffects] = useState<number[]>([]);
   const [tvcEnabled, setTvcEnabled] = useState(false);
   const [tvcMotivePressure, setTvcMotivePressure] = useState('10');
   const [tvcSuperheat, setTvcSuperheat] = useState('0');
@@ -66,13 +70,25 @@ export default function MEDWizardClient() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
+  // ── Derived values ──────────────────────────────────────────────────────
+  const nEff = parseInt(numberOfEffects, 10) || 6;
+
+  const togglePreheater = (effNum: number) => {
+    setPreheaterEffects((prev) =>
+      prev.includes(effNum)
+        ? prev.filter((e) => e !== effNum)
+        : [...prev, effNum].sort((a, b) => a - b)
+    );
+  };
+
   // ── Design result (recomputed when inputs or geometry change) ────────────
   const designResult = useMemo<MEDDesignerResult | null>(() => {
     const sf = parseFloat(steamFlow);
     const st = parseFloat(steamTemp);
     const sw = parseFloat(swTemp);
-    const nEff = parseInt(numberOfEffects, 10);
-    const nPH = parseInt(numberOfPreheaters, 10);
+    const sal = parseFloat(swSalinity);
+    const maxBrine = parseFloat(maxBrineSalinity);
+    const ca = parseFloat(condenserApproach);
     const gv = parseFloat(geoValue);
     if ([sf, st, sw].some((v) => isNaN(v) || v <= 0)) return null;
     if (isNaN(nEff) || nEff < 2) return null;
@@ -108,7 +124,12 @@ export default function MEDWizardClient() {
         seawaterTemperature: sw,
         targetGOR: 10, // not used by engine (steam-in paradigm), but required by type
         numberOfEffects: nEff,
-        numberOfPreheaters: isNaN(nPH) ? 0 : nPH,
+        ...(preheaterEffects.length > 0 && { preheaterEffects }),
+        numberOfPreheaters: preheaterEffects.length,
+        ...(sal > 0 && { seawaterSalinity: sal }),
+        ...(maxBrine > 0 && { maxBrineSalinity: maxBrine }),
+        ...(!isNaN(ca) && ca > 0 && { condenserApproach: ca }),
+        ...(condenserOutletTemp && { condenserSWOutlet: parseFloat(condenserOutletTemp) }),
         ...overrides,
         ...tvcParams,
       });
@@ -119,8 +140,12 @@ export default function MEDWizardClient() {
     steamFlow,
     steamTemp,
     swTemp,
-    numberOfEffects,
-    numberOfPreheaters,
+    swSalinity,
+    maxBrineSalinity,
+    condenserApproach,
+    condenserOutletTemp,
+    preheaterEffects,
+    nEff,
     geoMode,
     geoValue,
     tvcEnabled,
@@ -244,8 +269,12 @@ export default function MEDWizardClient() {
     setSteamFlow('0.79');
     setSteamTemp('57');
     setSwTemp('30');
+    setSwSalinity('35000');
+    setMaxBrineSalinity('65000');
     setNumberOfEffects('6');
-    setNumberOfPreheaters('0');
+    setCondenserApproach('4');
+    setCondenserOutletTemp('');
+    setPreheaterEffects([]);
     setTvcEnabled(false);
     setTvcMotivePressure('10');
     setTvcSuperheat('0');
@@ -302,8 +331,12 @@ export default function MEDWizardClient() {
           steamFlow={steamFlow}
           steamTemp={steamTemp}
           swTemp={swTemp}
+          swSalinity={swSalinity}
+          maxBrineSalinity={maxBrineSalinity}
           numberOfEffects={numberOfEffects}
-          numberOfPreheaters={numberOfPreheaters}
+          condenserApproach={condenserApproach}
+          condenserOutletTemp={condenserOutletTemp}
+          preheaterEffects={preheaterEffects}
           tvcEnabled={tvcEnabled}
           tvcMotivePressure={tvcMotivePressure}
           tvcSuperheat={tvcSuperheat}
@@ -311,8 +344,12 @@ export default function MEDWizardClient() {
           onSteamFlowChange={setSteamFlow}
           onSteamTempChange={setSteamTemp}
           onSwTempChange={setSwTemp}
+          onSwSalinityChange={setSwSalinity}
+          onMaxBrineSalinityChange={setMaxBrineSalinity}
           onNumberOfEffectsChange={setNumberOfEffects}
-          onNumberOfPreheatersChange={setNumberOfPreheaters}
+          onCondenserApproachChange={setCondenserApproach}
+          onCondenserOutletTempChange={setCondenserOutletTemp}
+          onTogglePreheater={togglePreheater}
           onTvcEnabledChange={setTvcEnabled}
           onTvcMotivePressureChange={setTvcMotivePressure}
           onTvcSuperheatChange={setTvcSuperheat}
@@ -825,8 +862,12 @@ export default function MEDWizardClient() {
           steamFlow,
           steamTemp,
           swTemp,
+          swSalinity,
+          maxBrineSalinity,
           numberOfEffects,
-          numberOfPreheaters,
+          condenserApproach,
+          condenserOutletTemp,
+          preheaterEffects,
           tvcEnabled,
           tvcMotivePressure,
           tvcSuperheat,
@@ -844,10 +885,16 @@ export default function MEDWizardClient() {
           if (typeof inputs.steamFlow === 'string') setSteamFlow(inputs.steamFlow);
           if (typeof inputs.steamTemp === 'string') setSteamTemp(inputs.steamTemp);
           if (typeof inputs.swTemp === 'string') setSwTemp(inputs.swTemp);
+          if (typeof inputs.swSalinity === 'string') setSwSalinity(inputs.swSalinity);
+          if (typeof inputs.maxBrineSalinity === 'string')
+            setMaxBrineSalinity(inputs.maxBrineSalinity);
           if (typeof inputs.numberOfEffects === 'string')
             setNumberOfEffects(inputs.numberOfEffects);
-          if (typeof inputs.numberOfPreheaters === 'string')
-            setNumberOfPreheaters(inputs.numberOfPreheaters);
+          if (typeof inputs.condenserApproach === 'string')
+            setCondenserApproach(inputs.condenserApproach);
+          if (typeof inputs.condenserOutletTemp === 'string')
+            setCondenserOutletTemp(inputs.condenserOutletTemp);
+          if (Array.isArray(inputs.preheaterEffects)) setPreheaterEffects(inputs.preheaterEffects);
           if (typeof inputs.tvcEnabled === 'boolean') setTvcEnabled(inputs.tvcEnabled);
           if (typeof inputs.tvcMotivePressure === 'string')
             setTvcMotivePressure(inputs.tvcMotivePressure);

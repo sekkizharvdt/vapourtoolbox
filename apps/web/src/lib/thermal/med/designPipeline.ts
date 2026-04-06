@@ -199,13 +199,19 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   );
 
   // ── 4. Build engine input ─────────────────────────────────────────
-  const preheaterEffects: number[] = [];
-  const nPreheaters = input.numberOfPreheaters ?? 0;
-  if (nPreheaters > 0) {
-    // Distribute preheaters evenly across effects (e.g., 2 PH on 6 eff → E3, E5)
-    const step = Math.max(1, Math.floor((nEff - 2) / nPreheaters));
-    for (let p = 0; p < nPreheaters && 2 + p * step <= nEff - 1; p++) {
-      preheaterEffects.push(2 + p * step);
+  // Preheater effects: use explicit list if provided, otherwise auto-distribute
+  let preheaterEffects: number[] = [];
+  if (input.preheaterEffects && input.preheaterEffects.length > 0) {
+    // User specified exactly which effects supply preheater vapor
+    preheaterEffects = input.preheaterEffects.filter((e) => e >= 2 && e <= nEff - 1);
+  } else {
+    const nPreheaters = input.numberOfPreheaters ?? 0;
+    if (nPreheaters > 0) {
+      // Distribute preheaters evenly across effects (e.g., 2 PH on 6 eff → E3, E5)
+      const step = Math.max(1, Math.floor((nEff - 2) / nPreheaters));
+      for (let p = 0; p < nPreheaters && 2 + p * step <= nEff - 1; p++) {
+        preheaterEffects.push(2 + p * step);
+      }
     }
   }
 

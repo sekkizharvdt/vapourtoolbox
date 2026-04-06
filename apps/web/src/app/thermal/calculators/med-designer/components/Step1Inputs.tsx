@@ -8,9 +8,9 @@ import {
   Paper,
   Button,
   Box,
-  Alert,
-  FormControlLabel,
   Checkbox,
+  FormControlLabel,
+  Divider,
 } from '@mui/material';
 import { ArrowForward as ArrowForwardIcon } from '@mui/icons-material';
 import { getSaturationTemperature } from '@vapour/constants';
@@ -20,8 +20,12 @@ interface Step1InputsProps {
   steamFlow: string;
   steamTemp: string;
   swTemp: string;
+  swSalinity: string;
+  maxBrineSalinity: string;
   numberOfEffects: string;
-  numberOfPreheaters: string;
+  condenserApproach: string;
+  condenserOutletTemp: string;
+  preheaterEffects: number[];
   tvcEnabled: boolean;
   tvcMotivePressure: string;
   tvcSuperheat: string;
@@ -29,8 +33,12 @@ interface Step1InputsProps {
   onSteamFlowChange: (v: string) => void;
   onSteamTempChange: (v: string) => void;
   onSwTempChange: (v: string) => void;
+  onSwSalinityChange: (v: string) => void;
+  onMaxBrineSalinityChange: (v: string) => void;
   onNumberOfEffectsChange: (v: string) => void;
-  onNumberOfPreheatersChange: (v: string) => void;
+  onCondenserApproachChange: (v: string) => void;
+  onCondenserOutletTempChange: (v: string) => void;
+  onTogglePreheater: (effNum: number) => void;
   onTvcEnabledChange: (v: boolean) => void;
   onTvcMotivePressureChange: (v: string) => void;
   onTvcSuperheatChange: (v: string) => void;
@@ -46,15 +54,19 @@ function fmt(v: number, d = 1): string {
 /**
  * Step 1: Design Inputs
  *
- * User enters steam supply conditions, plant configuration, and optional TVC.
- * A summary card shows the computed performance (GOR, output, etc.).
+ * Matches the MED process calculator inputs — steam supply, seawater,
+ * condenser, preheaters (per-effect checkboxes), and optional TVC.
  */
 export function Step1Inputs({
   steamFlow,
   steamTemp,
   swTemp,
+  swSalinity,
+  maxBrineSalinity,
   numberOfEffects,
-  numberOfPreheaters,
+  condenserApproach,
+  condenserOutletTemp,
+  preheaterEffects,
   tvcEnabled,
   tvcMotivePressure,
   tvcSuperheat,
@@ -62,8 +74,12 @@ export function Step1Inputs({
   onSteamFlowChange,
   onSteamTempChange,
   onSwTempChange,
+  onSwSalinityChange,
+  onMaxBrineSalinityChange,
   onNumberOfEffectsChange,
-  onNumberOfPreheatersChange,
+  onCondenserApproachChange,
+  onCondenserOutletTempChange,
+  onTogglePreheater,
   onTvcEnabledChange,
   onTvcMotivePressureChange,
   onTvcSuperheatChange,
@@ -71,9 +87,7 @@ export function Step1Inputs({
   designResult,
   onProceed,
 }: Step1InputsProps) {
-  const nEff = parseInt(numberOfEffects, 10);
-  const nPH = parseInt(numberOfPreheaters, 10);
-  const maxPH = isNaN(nEff) ? 0 : Math.max(0, nEff - 2);
+  const nEff = parseInt(numberOfEffects, 10) || 6;
 
   // TVC helper: compute saturation temperature for display
   const motivePressureParsed = parseFloat(tvcMotivePressure);
@@ -86,13 +100,10 @@ export function Step1Inputs({
 
   return (
     <Stack spacing={3}>
-      {/* Steam Supply */}
+      {/* ── Steam Supply ─────────────────────────────────────────────── */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="subtitle1" gutterBottom fontWeight={600}>
           Steam Supply
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Enter the heating steam conditions available for the MED plant.
         </Typography>
 
         <FormControlLabel
@@ -113,6 +124,7 @@ export function Step1Inputs({
             value={steamFlow}
             onChange={(e) => onSteamFlowChange(e.target.value)}
             type="number"
+            size="small"
             helperText={tvcEnabled ? 'Motive steam flow to TVC' : undefined}
             InputProps={{
               endAdornment: <InputAdornment position="end">T/h</InputAdornment>,
@@ -125,6 +137,7 @@ export function Step1Inputs({
                 value={tvcMotivePressure}
                 onChange={(e) => onTvcMotivePressureChange(e.target.value)}
                 type="number"
+                size="small"
                 helperText={
                   motiveSatTemp !== null
                     ? `T_sat = ${motiveSatTemp.toFixed(1)}\u00B0C${motiveSuperheat > 0 ? ` \u2192 ${motiveTemp!.toFixed(1)}\u00B0C` : ''}`
@@ -139,6 +152,7 @@ export function Step1Inputs({
                 value={tvcSuperheat}
                 onChange={(e) => onTvcSuperheatChange(e.target.value)}
                 type="number"
+                size="small"
                 helperText="Above saturation (0 for saturated)"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
@@ -149,6 +163,7 @@ export function Step1Inputs({
                 value={steamTemp}
                 onChange={(e) => onSteamTempChange(e.target.value)}
                 type="number"
+                size="small"
                 helperText="Effect 1 operating temperature"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
@@ -159,88 +174,140 @@ export function Step1Inputs({
                 value={tvcEntrainedEffect}
                 onChange={(e) => onTvcEntrainedEffectChange(e.target.value)}
                 type="number"
-                placeholder={`Last (E${isNaN(nEff) ? '?' : nEff})`}
-                helperText="Which effect supplies vapor to TVC"
-                inputProps={{ min: 1, max: isNaN(nEff) ? 12 : nEff }}
-                sx={{ width: 160 }}
+                size="small"
+                placeholder={`Last (E${nEff})`}
+                helperText="Vapor source for TVC"
+                inputProps={{ min: 1, max: nEff }}
+                sx={{ width: 150 }}
               />
             </>
           ) : (
-            <>
-              <TextField
-                label="Vapour Temperature"
-                value={steamTemp}
-                onChange={(e) => onSteamTempChange(e.target.value)}
-                type="number"
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
-                }}
-              />
-              <TextField
-                label="Seawater Temperature"
-                value={swTemp}
-                onChange={(e) => onSwTempChange(e.target.value)}
-                type="number"
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
-                }}
-              />
-            </>
-          )}
-        </Stack>
-
-        {/* Show seawater temp when TVC is enabled (moved outside the conditional row) */}
-        {tvcEnabled && (
-          <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
             <TextField
-              label="Seawater Temperature"
-              value={swTemp}
-              onChange={(e) => onSwTempChange(e.target.value)}
+              label="Vapour Temperature"
+              value={steamTemp}
+              onChange={(e) => onSteamTempChange(e.target.value)}
               type="number"
+              size="small"
               InputProps={{
                 endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
               }}
             />
-          </Stack>
-        )}
+          )}
+        </Stack>
       </Paper>
 
-      {/* Plant Configuration */}
+      {/* ── Seawater & Condenser ─────────────────────────────────────── */}
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+          Seawater &amp; Condenser
+        </Typography>
+        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+          <TextField
+            label="Seawater Temperature"
+            value={swTemp}
+            onChange={(e) => onSwTempChange(e.target.value)}
+            type="number"
+            size="small"
+            InputProps={{
+              endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+            }}
+          />
+          <TextField
+            label="Seawater Salinity"
+            value={swSalinity}
+            onChange={(e) => onSwSalinityChange(e.target.value)}
+            type="number"
+            size="small"
+            InputProps={{
+              endAdornment: <InputAdornment position="end">ppm</InputAdornment>,
+            }}
+          />
+          <TextField
+            label="Max Brine Salinity"
+            value={maxBrineSalinity}
+            onChange={(e) => onMaxBrineSalinityChange(e.target.value)}
+            type="number"
+            size="small"
+            InputProps={{
+              endAdornment: <InputAdornment position="end">ppm</InputAdornment>,
+            }}
+          />
+          <TextField
+            label="Condenser Approach"
+            value={condenserApproach}
+            onChange={(e) => onCondenserApproachChange(e.target.value)}
+            type="number"
+            size="small"
+            InputProps={{
+              endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+            }}
+          />
+          <TextField
+            label="SW Outlet Temperature"
+            value={condenserOutletTemp}
+            onChange={(e) => onCondenserOutletTempChange(e.target.value)}
+            type="number"
+            size="small"
+            placeholder="Auto"
+            helperText="Blank = seawater + 5&deg;C"
+            InputProps={{
+              endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+            }}
+          />
+        </Stack>
+      </Paper>
+
+      {/* ── Plant Configuration ──────────────────────────────────────── */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="subtitle1" gutterBottom fontWeight={600}>
           Plant Configuration
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Select the number of effects and preheaters for the MED plant.
-        </Typography>
-        <Stack direction="row" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <TextField
             label="Number of Effects"
             value={numberOfEffects}
             onChange={(e) => onNumberOfEffectsChange(e.target.value)}
             type="number"
+            size="small"
             inputProps={{ min: 2, max: 12, step: 1 }}
             sx={{ width: 180 }}
           />
-          <TextField
-            label="Number of Preheaters"
-            value={numberOfPreheaters}
-            onChange={(e) => onNumberOfPreheatersChange(e.target.value)}
-            type="number"
-            inputProps={{ min: 0, max: maxPH, step: 1 }}
-            helperText={`0 to ${maxPH} for ${isNaN(nEff) ? '\u2013' : nEff} effects`}
-            sx={{ width: 180 }}
-          />
         </Stack>
-        {!isNaN(nPH) && nPH > maxPH && (
-          <Alert severity="warning" sx={{ mt: 1 }}>
-            Maximum {maxPH} preheaters for {nEff} effects (preheaters must be &le; effects &minus;
-            2).
-          </Alert>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="subtitle2" gutterBottom>
+          Preheaters
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+          Select which effects supply vapor to preheaters. E1 vapor cannot be used (heating steam
+          condensation). E{nEff} vapor goes to the final condenser.
+        </Typography>
+        {nEff > 2 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5}>
+            {Array.from({ length: Math.max(0, nEff - 2) }, (_, i) => i + 2).map((effNum) => (
+              <FormControlLabel
+                key={effNum}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={preheaterEffects.includes(effNum)}
+                    onChange={() => onTogglePreheater(effNum)}
+                  />
+                }
+                label={`E${effNum}`}
+                sx={{ mr: 0 }}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="caption" color="text.secondary">
+            Need at least 3 effects for preheaters.
+          </Typography>
         )}
       </Paper>
 
-      {/* Performance Summary */}
+      {/* ── Performance Summary ───────────────────────────────────────── */}
       {designResult && (
         <Paper sx={{ p: 3 }}>
           <Typography variant="subtitle1" gutterBottom fontWeight={600}>
