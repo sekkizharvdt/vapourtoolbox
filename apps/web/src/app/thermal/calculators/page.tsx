@@ -252,11 +252,11 @@ const ALL_CALCULATORS: Calculator[] = [
   {
     title: 'Thermo Vapour Compressor',
     description:
-      'Calculate entrainment ratio, flows, and performance for steam ejectors using 1-D constant pressure mixing model.',
+      'Calculate entrainment ratio, flows, and performance for steam ejectors used in MED-TVC desalination.',
     icon: <AirIcon sx={{ fontSize: 40 }} />,
     href: '/thermal/calculators/tvc',
     status: 'available',
-    reference: 'Huang 1999',
+    reference: 'GEA Correlation',
     keywords: ['ejector', 'entrainment ratio', 'motive steam', 'suction', 'TVC'],
   },
   {
@@ -265,7 +265,7 @@ const ALL_CALCULATORS: Calculator[] = [
       'Calculate shaft power, discharge conditions, and specific energy for isentropic vapor compression in MVC desalination.',
     icon: <MfgIcon sx={{ fontSize: 40 }} />,
     href: '/thermal/calculators/mvc',
-    status: 'available',
+    status: 'coming_soon',
     reference: 'Isentropic',
     keywords: ['shaft power', 'compression ratio', 'MVC', 'centrifugal compressor'],
   },
@@ -366,7 +366,7 @@ const ALL_CALCULATORS: Calculator[] = [
   {
     title: 'MED Process Calculator',
     description:
-      'Process thermodynamics for MED plants — steam flow in, GOR and distillate out. Per-effect tube/shell side heat and mass balance with individually-sized preheaters. Does not include equipment sizing.',
+      'Heat and mass balance for MED plants — steam flow in, GOR and distillate out. Per-effect enthalpy balance, equipment sizing (Chun-Seban HTC), wetting rate, and recirculation. Supports TVC and preheaters.',
     icon: <MEDPlantIcon sx={{ fontSize: 40 }} />,
     href: '/thermal/calculators/med-plant',
     status: 'available',
@@ -443,14 +443,18 @@ const CALC_BY_HREF = new Map(ALL_CALCULATORS.map((c) => [c.href, c]));
 
 const CATEGORIES: CalculatorCategory[] = [
   {
-    title: 'Properties & Lookups',
-    description: 'Thermophysical property tables — no design decisions, just data.',
+    title: 'Plant Design',
+    description:
+      'MED/MED-TVC plant design, process calculation, and complete equipment specification.',
     calculators: ALL_CALCULATORS.filter((c) =>
-      [
-        '/thermal/calculators/steam-tables',
-        '/thermal/calculators/seawater-properties',
-        '/thermal/calculators/ncg-properties',
-      ].includes(c.href)
+      ['/thermal/calculators/med-designer', '/thermal/calculators/med-plant'].includes(c.href)
+    ),
+  },
+  {
+    title: 'Compression & Ejectors',
+    description: 'Vapour compression and steam ejector performance.',
+    calculators: ALL_CALCULATORS.filter((c) =>
+      ['/thermal/calculators/tvc', '/thermal/calculators/mvc'].includes(c.href)
     ),
   },
   {
@@ -470,13 +474,6 @@ const CATEGORIES: CalculatorCategory[] = [
     ),
   },
   {
-    title: 'Compression & Ejectors',
-    description: 'Vapour compression and steam ejector performance.',
-    calculators: ALL_CALCULATORS.filter((c) =>
-      ['/thermal/calculators/tvc', '/thermal/calculators/mvc'].includes(c.href)
-    ),
-  },
-  {
     title: 'Fluid Systems & Equipment',
     description: 'Piping, pumps, and flow-related equipment sizing.',
     calculators: ALL_CALCULATORS.filter((c) =>
@@ -492,16 +489,25 @@ const CATEGORIES: CalculatorCategory[] = [
     ),
   },
   {
-    title: 'Plant Design & Auxiliaries',
-    description: 'Plant-level performance, vacuum systems, chemistry, and spray nozzles.',
+    title: 'Plant Auxiliaries',
+    description: 'Vacuum systems, chemical dosing, spray nozzles, and vacuum breakers.',
     calculators: ALL_CALCULATORS.filter((c) =>
       [
-        '/thermal/calculators/med-designer',
-        '/thermal/calculators/med-plant',
         '/thermal/calculators/vacuum-system',
         '/thermal/calculators/vacuum-breaker',
         '/thermal/calculators/chemical-dosing',
         '/thermal/calculators/spray-nozzle',
+      ].includes(c.href)
+    ),
+  },
+  {
+    title: 'Properties & Lookups',
+    description: 'Thermophysical property tables — no design decisions, just data.',
+    calculators: ALL_CALCULATORS.filter((c) =>
+      [
+        '/thermal/calculators/steam-tables',
+        '/thermal/calculators/seawater-properties',
+        '/thermal/calculators/ncg-properties',
       ].includes(c.href)
     ),
   },
