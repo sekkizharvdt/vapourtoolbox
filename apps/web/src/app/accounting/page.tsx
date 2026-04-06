@@ -51,6 +51,13 @@ export default function AccountingPage() {
           icon: <TransferIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
           path: '/accounting/cost-centres',
         },
+        {
+          id: 'fiscal-years',
+          title: 'Fiscal Years',
+          description: 'Manage fiscal years, accounting periods, and year-end closing',
+          icon: <PlanningIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+          path: '/accounting/fiscal-years',
+        },
       ],
     },
     {

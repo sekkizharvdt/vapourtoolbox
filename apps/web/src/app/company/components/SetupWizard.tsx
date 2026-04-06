@@ -19,6 +19,7 @@ import {
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { createFiscalYear, getCurrentFiscalYear } from '@/lib/accounting/fiscalYearService';
 
 interface CompanySettings {
   setupComplete?: boolean;
@@ -157,6 +158,37 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
       }
 
       await setDoc(doc(db, 'company', 'settings'), settingsData);
+
+      // Auto-create current fiscal year if none exists
+      try {
+        const existingFY = await getCurrentFiscalYear(db);
+        if (!existingFY && user) {
+          const startMonth = formData.fiscalYearStartMonth || 4;
+          const now = new Date();
+          // Determine which calendar year the current FY started in
+          const fyStartYear =
+            now.getMonth() + 1 >= startMonth ? now.getFullYear() : now.getFullYear() - 1;
+          const startDate = new Date(fyStartYear, startMonth - 1, 1);
+          const endDate = new Date(fyStartYear + 1, startMonth - 1, 0); // last day of month before start
+
+          const fyName =
+            startMonth === 1
+              ? `FY ${fyStartYear}`
+              : `FY ${fyStartYear}-${String(fyStartYear + 1).slice(2)}`;
+
+          await createFiscalYear(db, {
+            name: fyName,
+            startDate,
+            endDate,
+            isCurrent: true,
+            userId: user.uid,
+          });
+        }
+      } catch (fyErr) {
+        // Non-fatal — user can create FY manually from the Fiscal Years page
+        console.error('[SetupWizard] Failed to auto-create fiscal year:', fyErr);
+      }
+
       onComplete();
     } catch (err) {
       console.error('Error saving company settings:', err);

@@ -32,6 +32,175 @@ import type {
 const logger = createLogger({ context: 'fiscalYearService' });
 
 /**
+ * Month names for period naming
+ */
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/**
+ * Create a new fiscal year with 12 monthly accounting periods.
+ *
+ * If `isCurrent` is true, any existing current fiscal year is unset first.
+ * Periods are auto-generated as monthly intervals spanning the FY range.
+ */
+export async function createFiscalYear(
+  db: Firestore,
+  input: {
+    name: string;
+    startDate: Date;
+    endDate: Date;
+    isCurrent: boolean;
+    userId: string;
+  }
+): Promise<string> {
+  const { name, startDate, endDate, isCurrent, userId } = input;
+
+  if (endDate <= startDate) {
+    throw new Error('End date must be after start date');
+  }
+
+  // If setting as current, unset any existing current FY
+  if (isCurrent) {
+    const existing = await getCurrentFiscalYear(db);
+    if (existing) {
+      await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, existing.id), {
+        isCurrent: false,
+        updatedAt: serverTimestamp(),
+        updatedBy: userId,
+      });
+    }
+  }
+
+  // Create the fiscal year document
+  const fyData = {
+    name,
+    startDate: Timestamp.fromDate(startDate),
+    endDate: Timestamp.fromDate(endDate),
+    status: 'OPEN' as const,
+    isCurrent,
+    periods: [] as string[],
+    isYearEndClosed: false,
+    createdAt: serverTimestamp(),
+    createdBy: userId,
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+  };
+
+  const fyRef = await addDoc(collection(db, COLLECTIONS.FISCAL_YEARS), fyData);
+  const periodIds: string[] = [];
+
+  // Generate 12 monthly periods
+  let periodStart = new Date(startDate);
+  for (let i = 0; i < 12; i++) {
+    const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0); // last day of month
+    const monthName = MONTH_NAMES[periodStart.getMonth()];
+    const periodName = `${monthName} ${periodStart.getFullYear()}`;
+
+    const periodRef = await addDoc(collection(db, COLLECTIONS.ACCOUNTING_PERIODS), {
+      fiscalYearId: fyRef.id,
+      name: periodName,
+      periodType: 'MONTH' as const,
+      startDate: Timestamp.fromDate(periodStart),
+      endDate: Timestamp.fromDate(periodEnd),
+      status: 'OPEN' as const,
+      periodNumber: i + 1,
+      year: periodStart.getFullYear(),
+      createdAt: serverTimestamp(),
+      createdBy: userId,
+      updatedAt: serverTimestamp(),
+    });
+
+    periodIds.push(periodRef.id);
+
+    // Move to next month
+    periodStart = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 1);
+  }
+
+  // Update FY with period IDs
+  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fyRef.id), {
+    periods: periodIds,
+  });
+
+  logger.info('Fiscal year created', {
+    id: fyRef.id,
+    name,
+    startDate,
+    endDate,
+    periodCount: periodIds.length,
+  });
+
+  return fyRef.id;
+}
+
+/**
+ * Get all fiscal years
+ */
+export async function getAllFiscalYears(db: Firestore): Promise<FiscalYear[]> {
+  try {
+    const fiscalYearsRef = collection(db, COLLECTIONS.FISCAL_YEARS);
+    const snapshot = await getDocs(fiscalYearsRef);
+    const years = snapshot.docs.map((d) => docToTyped<FiscalYear>(d.id, d.data()));
+    // Sort by start date descending (newest first)
+    return years.sort((a, b) => {
+      const aDate =
+        a.startDate instanceof Date
+          ? a.startDate
+          : (a.startDate as unknown as { toDate: () => Date }).toDate();
+      const bDate =
+        b.startDate instanceof Date
+          ? b.startDate
+          : (b.startDate as unknown as { toDate: () => Date }).toDate();
+      return bDate.getTime() - aDate.getTime();
+    });
+  } catch (error) {
+    logger.error('Failed to get all fiscal years', { error });
+    throw new Error('Failed to get all fiscal years');
+  }
+}
+
+/**
+ * Set a fiscal year as current (unsets all others)
+ */
+export async function setCurrentFiscalYear(
+  db: Firestore,
+  fiscalYearId: string,
+  userId: string
+): Promise<void> {
+  // Unset current on all existing FYs
+  const allFYs = await getAllFiscalYears(db);
+  for (const fy of allFYs) {
+    if (fy.isCurrent) {
+      await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fy.id), {
+        isCurrent: false,
+        updatedAt: serverTimestamp(),
+        updatedBy: userId,
+      });
+    }
+  }
+
+  // Set the target FY as current
+  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
+    isCurrent: true,
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+  });
+
+  logger.info('Fiscal year set as current', { fiscalYearId });
+}
+
+/**
  * Get current fiscal year
  */
 export async function getCurrentFiscalYear(db: Firestore): Promise<FiscalYear | null> {

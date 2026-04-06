@@ -1017,6 +1017,138 @@ export async function settleLinkedTransactionViaJournal(
 }
 
 /**
+ * Auto-settle unpaid bills/invoices for entities referenced in a Journal Entry.
+ *
+ * When a JE is posted without explicit linkedVendorBillId / linkedCustomerInvoiceId,
+ * this function detects entity-specific AP/AR entries and settles matching unpaid
+ * bills/invoices for those entities (oldest first / FIFO).
+ *
+ * For vendor bills: JE debits to an entity settle the entity's unpaid bills.
+ * For customer invoices: JE credits to an entity settle the entity's unpaid invoices.
+ */
+export async function autoSettleUnlinkedJournalEntry(
+  db: Firestore,
+  journalEntryId: string,
+  journalEntries: Array<{ entityId?: string; debit?: number; credit?: number }>
+): Promise<void> {
+  // Aggregate net debit and credit per entity
+  const entityDebits = new Map<string, number>();
+  const entityCredits = new Map<string, number>();
+
+  for (const entry of journalEntries) {
+    if (!entry.entityId) continue;
+    if ((entry.debit || 0) > 0) {
+      entityDebits.set(
+        entry.entityId,
+        (entityDebits.get(entry.entityId) ?? 0) + (entry.debit || 0)
+      );
+    }
+    if ((entry.credit || 0) > 0) {
+      entityCredits.set(
+        entry.entityId,
+        (entityCredits.get(entry.entityId) ?? 0) + (entry.credit || 0)
+      );
+    }
+  }
+
+  const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+
+  // Settle vendor bills: JE debits to a vendor entity reduce AP (settle bills)
+  for (const [entityId, debitAmount] of entityDebits) {
+    if (debitAmount <= 0) continue;
+
+    const billsQuery = query(
+      transactionsRef,
+      where('type', '==', 'VENDOR_BILL'),
+      where('entityId', '==', entityId),
+      where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID'])
+    );
+    const billSnap = await getDocs(billsQuery);
+    if (billSnap.empty) continue;
+
+    // Sort by date (oldest first — FIFO)
+    const bills = billSnap.docs
+      .filter((d) => !d.data().isDeleted)
+      .sort((a, b) => {
+        const aDate = a.data().date?.toMillis?.() ?? 0;
+        const bDate = b.data().date?.toMillis?.() ?? 0;
+        return aDate - bDate;
+      });
+
+    let remaining = debitAmount;
+    for (const billDoc of bills) {
+      if (remaining <= 0.01) break;
+      const data = billDoc.data();
+      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+      const previouslyPaid = data.amountPaid || 0;
+      const outstanding = Math.max(0, totalAmountINR - previouslyPaid);
+      if (outstanding <= 0.01) continue;
+
+      const settlement = Math.min(remaining, outstanding);
+      remaining -= settlement;
+
+      await settleLinkedTransactionViaJournal(
+        db,
+        billDoc.id,
+        [{ entityId, debit: settlement }],
+        settlement,
+        journalEntryId
+      );
+    }
+  }
+
+  // Settle customer invoices: JE credits to a customer entity reduce AR (settle invoices)
+  for (const [entityId, creditAmount] of entityCredits) {
+    if (creditAmount <= 0) continue;
+
+    const invoiceQuery = query(
+      transactionsRef,
+      where('type', '==', 'CUSTOMER_INVOICE'),
+      where('entityId', '==', entityId),
+      where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID'])
+    );
+    const invoiceSnap = await getDocs(invoiceQuery);
+    if (invoiceSnap.empty) continue;
+
+    // Sort by date (oldest first — FIFO)
+    const invoices = invoiceSnap.docs
+      .filter((d) => !d.data().isDeleted)
+      .sort((a, b) => {
+        const aDate = a.data().date?.toMillis?.() ?? 0;
+        const bDate = b.data().date?.toMillis?.() ?? 0;
+        return aDate - bDate;
+      });
+
+    let remaining = creditAmount;
+    for (const invoiceDoc of invoices) {
+      if (remaining <= 0.01) break;
+      const data = invoiceDoc.data();
+      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+      const previouslyPaid = data.amountPaid || 0;
+      const outstanding = Math.max(0, totalAmountINR - previouslyPaid);
+      if (outstanding <= 0.01) continue;
+
+      const settlement = Math.min(remaining, outstanding);
+      remaining -= settlement;
+
+      await settleLinkedTransactionViaJournal(
+        db,
+        invoiceDoc.id,
+        [{ entityId, credit: settlement }],
+        settlement,
+        journalEntryId
+      );
+    }
+  }
+
+  logger.info('Auto-settled unlinked journal entry', {
+    journalEntryId,
+    vendorEntities: [...entityDebits.keys()],
+    customerEntities: [...entityCredits.keys()],
+  });
+}
+
+/**
  * Reverse a previous journal entry settlement on a bill/invoice.
  *
  * Called when a JE is voided, the linked bill/invoice is removed during edit,
