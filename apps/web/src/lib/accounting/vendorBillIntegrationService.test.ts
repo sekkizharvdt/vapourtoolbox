@@ -32,10 +32,19 @@ jest.mock('@vapour/firebase', () => ({
 
 jest.mock('@vapour/logger', () => ({
   logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
+  createLogger: () => ({ info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() }),
 }));
 
 jest.mock('@/lib/firebase/typeHelpers', () => ({
   docToTyped: jest.fn((id: string, data: Record<string, unknown>) => ({ id, ...data })),
+}));
+
+jest.mock('@/lib/firebase', () => ({
+  getFirebase: () => ({ db: {} }),
+}));
+
+jest.mock('@/lib/accounting/transactionNumberGenerator', () => ({
+  generateTransactionNumber: jest.fn().mockResolvedValue('BILL-2526-0001'),
 }));
 
 import { createVendorBillFromMatch, getVendorBillForMatch } from './vendorBillIntegrationService';

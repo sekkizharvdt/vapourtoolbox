@@ -4,7 +4,11 @@
  * Tests for transaction number parsing and validation functions
  */
 
-import { parseTransactionNumber, isValidTransactionNumber } from './transactionNumberGenerator';
+import {
+  parseTransactionNumber,
+  isValidTransactionNumber,
+  getFiscalYearCode,
+} from './transactionNumberGenerator';
 
 describe('Transaction Number Generator', () => {
   describe('parseTransactionNumber', () => {
@@ -84,7 +88,22 @@ describe('Transaction Number Generator', () => {
 
     it('should return null for numbers with special chars', () => {
       expect(parseTransactionNumber('INV-00.01')).toBeNull();
-      expect(parseTransactionNumber('INV-00-01')).toBeNull();
+    });
+
+    it('should parse new FY-scoped format', () => {
+      const result = parseTransactionNumber('BILL-2526-0042');
+      expect(result).not.toBeNull();
+      expect(result?.prefix).toBe('BILL');
+      expect(result?.fiscalYear).toBe('2526');
+      expect(result?.number).toBe(42);
+    });
+
+    it('should parse new format with calendar year', () => {
+      const result = parseTransactionNumber('INV-26-0001');
+      expect(result).not.toBeNull();
+      expect(result?.prefix).toBe('INV');
+      expect(result?.fiscalYear).toBe('26');
+      expect(result?.number).toBe(1);
     });
   });
 
@@ -128,8 +147,14 @@ describe('Transaction Number Generator', () => {
         expect(isValidTransactionNumber('INV-001')).toBe(false);
       });
 
-      it('should return false for 5-digit number', () => {
-        expect(isValidTransactionNumber('INV-00001')).toBe(false);
+      it('should accept 5-digit number (high-volume types)', () => {
+        expect(isValidTransactionNumber('INV-00001')).toBe(true);
+      });
+
+      it('should return true for new FY-scoped format', () => {
+        expect(isValidTransactionNumber('BILL-2526-0042')).toBe(true);
+        expect(isValidTransactionNumber('JE-2526-0001')).toBe(true);
+        expect(isValidTransactionNumber('INV-26-0001')).toBe(true);
       });
 
       it('should return false for lowercase prefix', () => {
@@ -174,6 +199,23 @@ describe('Transaction Number Generator', () => {
       it('should return false for underscore instead of hyphen', () => {
         expect(isValidTransactionNumber('INV_0001')).toBe(false);
       });
+    });
+  });
+
+  describe('getFiscalYearCode', () => {
+    it('should return 2526 for dates in FY 2025-26 (April start)', () => {
+      expect(getFiscalYearCode(new Date(2025, 3, 1), 4)).toBe('2526'); // Apr 2025
+      expect(getFiscalYearCode(new Date(2026, 2, 31), 4)).toBe('2526'); // Mar 2026
+      expect(getFiscalYearCode(new Date(2025, 11, 15), 4)).toBe('2526'); // Dec 2025
+    });
+
+    it('should return 2627 for dates in FY 2026-27', () => {
+      expect(getFiscalYearCode(new Date(2026, 3, 1), 4)).toBe('2627'); // Apr 2026
+    });
+
+    it('should handle calendar year (Jan start)', () => {
+      expect(getFiscalYearCode(new Date(2026, 0, 1), 1)).toBe('26');
+      expect(getFiscalYearCode(new Date(2026, 11, 31), 1)).toBe('26');
     });
   });
 

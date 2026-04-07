@@ -13,6 +13,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, InvoiceLineItem } from '@vapour/types';
 import { logger } from '@vapour/logger';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
+import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 
 /**
  * Create a vendor bill from an approved 3-way match
@@ -78,7 +79,7 @@ export async function createVendorBillFromMatch(
     const totalAmount = subtotal + taxAmount;
 
     const now = Timestamp.now();
-    const transactionNumber = 'VB-' + now.toMillis().toString();
+    const transactionNumber = await generateTransactionNumber('VENDOR_BILL');
 
     // Create vendor bill
     // Note: Firestore Timestamps are stored directly and converted at read time
