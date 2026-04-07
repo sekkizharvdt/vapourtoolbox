@@ -331,6 +331,8 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   const preheaters = composeDesignerPreheaters(hmResult, sizing, resolved);
 
   // ── 7a. Apply user geometry overrides (Step 2 tube count/length) ───
+  // When user fixes tube count: keep count, derive length from designArea.
+  // When user fixes tube length: keep length, derive count from designArea.
   const tubeCountOvr = input.tubeCountOverrides;
   const tubeLengthOvr = input.tubeLengthOverrides;
   if (tubeCountOvr || tubeLengthOvr) {
@@ -339,20 +341,36 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
       const eff = effects[i]!;
       const ovrTubes = tubeCountOvr?.[i];
       const ovrLength = tubeLengthOvr?.[i];
-      if (ovrTubes != null) eff.tubes = ovrTubes;
-      if (ovrLength != null) eff.tubeLength = ovrLength;
-      if (ovrTubes != null || ovrLength != null) {
-        eff.installedArea = eff.tubes * areaPerTubePerM * eff.tubeLength;
-        eff.areaMargin =
-          eff.requiredArea > 0 ? (eff.installedArea / eff.requiredArea - 1) * 100 : 0;
-        // Recompute shell geometry for overridden tube count
-        const hasLanes = eff.hasVapourLanes;
-        const newShellID = findMinShellID(eff.tubes, tubeOD, resolved.pitch, hasLanes);
-        eff.shellODmm = Math.round(newShellID + 2 * resolved.shellThkMM);
-        eff.shellLengthMM = Math.round(
-          eff.tubeLength * 1000 + 2 * resolved.tubeSheetThkMM + resolved.tubeSheetAccessMM
-        );
+
+      if (ovrTubes != null && ovrLength != null) {
+        // Both specified (uniform mode)
+        eff.tubes = ovrTubes;
+        eff.tubeLength = ovrLength;
+      } else if (ovrTubes != null) {
+        // Fixed tube count → derive length from design area
+        eff.tubes = ovrTubes;
+        eff.tubeLength =
+          ovrTubes > 0
+            ? Math.ceil((eff.designArea / (ovrTubes * areaPerTubePerM)) * 10) / 10
+            : eff.tubeLength;
+      } else if (ovrLength != null) {
+        // Fixed tube length → derive count from design area
+        eff.tubeLength = ovrLength;
+        eff.tubes =
+          ovrLength > 0 ? Math.ceil(eff.designArea / (areaPerTubePerM * ovrLength)) : eff.tubes;
+      } else {
+        continue; // no override for this effect
       }
+
+      eff.installedArea = eff.tubes * areaPerTubePerM * eff.tubeLength;
+      eff.areaMargin = eff.requiredArea > 0 ? (eff.installedArea / eff.requiredArea - 1) * 100 : 0;
+      // Recompute shell geometry for the overridden tube count
+      const hasLanes = eff.hasVapourLanes;
+      const newShellID = findMinShellID(eff.tubes, tubeOD, resolved.pitch, hasLanes);
+      eff.shellODmm = Math.round(newShellID + 2 * resolved.shellThkMM);
+      eff.shellLengthMM = Math.round(
+        eff.tubeLength * 1000 + 2 * resolved.tubeSheetThkMM + resolved.tubeSheetAccessMM
+      );
     }
   }
 
