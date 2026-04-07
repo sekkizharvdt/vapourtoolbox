@@ -1017,138 +1017,6 @@ export async function settleLinkedTransactionViaJournal(
 }
 
 /**
- * Auto-settle unpaid bills/invoices for entities referenced in a Journal Entry.
- *
- * When a JE is posted without explicit linkedVendorBillId / linkedCustomerInvoiceId,
- * this function detects entity-specific AP/AR entries and settles matching unpaid
- * bills/invoices for those entities (oldest first / FIFO).
- *
- * For vendor bills: JE debits to an entity settle the entity's unpaid bills.
- * For customer invoices: JE credits to an entity settle the entity's unpaid invoices.
- */
-export async function autoSettleUnlinkedJournalEntry(
-  db: Firestore,
-  journalEntryId: string,
-  journalEntries: Array<{ entityId?: string; debit?: number; credit?: number }>
-): Promise<void> {
-  // Aggregate net debit and credit per entity
-  const entityDebits = new Map<string, number>();
-  const entityCredits = new Map<string, number>();
-
-  for (const entry of journalEntries) {
-    if (!entry.entityId) continue;
-    if ((entry.debit || 0) > 0) {
-      entityDebits.set(
-        entry.entityId,
-        (entityDebits.get(entry.entityId) ?? 0) + (entry.debit || 0)
-      );
-    }
-    if ((entry.credit || 0) > 0) {
-      entityCredits.set(
-        entry.entityId,
-        (entityCredits.get(entry.entityId) ?? 0) + (entry.credit || 0)
-      );
-    }
-  }
-
-  const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-
-  // Settle vendor bills: JE debits to a vendor entity reduce AP (settle bills)
-  for (const [entityId, debitAmount] of entityDebits) {
-    if (debitAmount <= 0) continue;
-
-    const billsQuery = query(
-      transactionsRef,
-      where('type', '==', 'VENDOR_BILL'),
-      where('entityId', '==', entityId),
-      where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID'])
-    );
-    const billSnap = await getDocs(billsQuery);
-    if (billSnap.empty) continue;
-
-    // Sort by date (oldest first — FIFO)
-    const bills = billSnap.docs
-      .filter((d) => !d.data().isDeleted)
-      .sort((a, b) => {
-        const aDate = a.data().date?.toMillis?.() ?? 0;
-        const bDate = b.data().date?.toMillis?.() ?? 0;
-        return aDate - bDate;
-      });
-
-    let remaining = debitAmount;
-    for (const billDoc of bills) {
-      if (remaining <= 0.01) break;
-      const data = billDoc.data();
-      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
-      const previouslyPaid = data.amountPaid || 0;
-      const outstanding = Math.max(0, totalAmountINR - previouslyPaid);
-      if (outstanding <= 0.01) continue;
-
-      const settlement = Math.min(remaining, outstanding);
-      remaining -= settlement;
-
-      await settleLinkedTransactionViaJournal(
-        db,
-        billDoc.id,
-        [{ entityId, debit: settlement }],
-        settlement,
-        journalEntryId
-      );
-    }
-  }
-
-  // Settle customer invoices: JE credits to a customer entity reduce AR (settle invoices)
-  for (const [entityId, creditAmount] of entityCredits) {
-    if (creditAmount <= 0) continue;
-
-    const invoiceQuery = query(
-      transactionsRef,
-      where('type', '==', 'CUSTOMER_INVOICE'),
-      where('entityId', '==', entityId),
-      where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID'])
-    );
-    const invoiceSnap = await getDocs(invoiceQuery);
-    if (invoiceSnap.empty) continue;
-
-    // Sort by date (oldest first — FIFO)
-    const invoices = invoiceSnap.docs
-      .filter((d) => !d.data().isDeleted)
-      .sort((a, b) => {
-        const aDate = a.data().date?.toMillis?.() ?? 0;
-        const bDate = b.data().date?.toMillis?.() ?? 0;
-        return aDate - bDate;
-      });
-
-    let remaining = creditAmount;
-    for (const invoiceDoc of invoices) {
-      if (remaining <= 0.01) break;
-      const data = invoiceDoc.data();
-      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
-      const previouslyPaid = data.amountPaid || 0;
-      const outstanding = Math.max(0, totalAmountINR - previouslyPaid);
-      if (outstanding <= 0.01) continue;
-
-      const settlement = Math.min(remaining, outstanding);
-      remaining -= settlement;
-
-      await settleLinkedTransactionViaJournal(
-        db,
-        invoiceDoc.id,
-        [{ entityId, credit: settlement }],
-        settlement,
-        journalEntryId
-      );
-    }
-  }
-
-  logger.info('Auto-settled unlinked journal entry', {
-    journalEntryId,
-    vendorEntities: [...entityDebits.keys()],
-    customerEntities: [...entityCredits.keys()],
-  });
-}
-
-/**
  * Reverse a previous journal entry settlement on a bill/invoice.
  *
  * Called when a JE is voided, the linked bill/invoice is removed during edit,
@@ -1200,4 +1068,238 @@ export async function reverseJournalSettlement(
       newPaymentStatus,
     });
   });
+}
+
+/**
+ * Bulk auto-allocate unapplied payments to outstanding bills/invoices.
+ *
+ * For each unapplied payment, finds outstanding bills (vendor) or invoices (customer)
+ * for the same entity and allocates FIFO (oldest first). Updates both the payment
+ * document (billAllocations/invoiceAllocations) and each matched bill/invoice
+ * (amountPaid, outstandingAmount, paymentStatus) atomically per payment.
+ *
+ * Returns a summary of what was allocated.
+ */
+export async function bulkAutoAllocatePayments(
+  db: Firestore,
+  options?: { dryRun?: boolean }
+): Promise<{
+  processed: number;
+  allocated: number;
+  skipped: number;
+  details: Array<{
+    paymentId: string;
+    paymentNumber: string;
+    entityName: string;
+    type: string;
+    amount: number;
+    totalAllocated: number;
+    allocations: Array<{ billNumber: string; amount: number }>;
+  }>;
+}> {
+  const dryRun = options?.dryRun ?? false;
+  const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+
+  // Fetch all payments
+  const [customerSnap, vendorSnap] = await Promise.all([
+    getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_PAYMENT'))),
+    getDocs(query(transactionsRef, where('type', '==', 'VENDOR_PAYMENT'))),
+  ]);
+
+  // Find unapplied payments
+  type UnappliedPayment = {
+    id: string;
+    type: 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
+    entityId: string;
+    entityName: string;
+    transactionNumber: string;
+    amount: number;
+  };
+
+  const unapplied: UnappliedPayment[] = [];
+
+  customerSnap.forEach((d) => {
+    const data = d.data();
+    if (data.isDeleted || data.isAdvance) return;
+    const allocs = data.invoiceAllocations || [];
+    const totalAllocated = allocs.reduce(
+      (sum: number, a: PaymentAllocation) => sum + (a.allocatedAmount || 0),
+      0
+    );
+    if (totalAllocated === 0) {
+      unapplied.push({
+        id: d.id,
+        type: 'CUSTOMER_PAYMENT',
+        entityId: data.entityId || '',
+        entityName: data.entityName || '',
+        transactionNumber: data.transactionNumber || d.id,
+        amount: data.baseAmount || data.totalAmount || data.amount || 0,
+      });
+    }
+  });
+
+  vendorSnap.forEach((d) => {
+    const data = d.data();
+    if (data.isDeleted || data.isAdvance) return;
+    const allocs = data.billAllocations || [];
+    const totalAllocated = allocs.reduce(
+      (sum: number, a: PaymentAllocation) => sum + (a.allocatedAmount || 0),
+      0
+    );
+    if (totalAllocated === 0) {
+      unapplied.push({
+        id: d.id,
+        type: 'VENDOR_PAYMENT',
+        entityId: data.entityId || '',
+        entityName: data.entityName || '',
+        transactionNumber: data.transactionNumber || d.id,
+        amount: data.baseAmount || data.totalAmount || data.amount || 0,
+      });
+    }
+  });
+
+  let processed = 0;
+  let allocated = 0;
+  let skipped = 0;
+  const details: Array<{
+    paymentId: string;
+    paymentNumber: string;
+    entityName: string;
+    type: string;
+    amount: number;
+    totalAllocated: number;
+    allocations: Array<{ billNumber: string; amount: number }>;
+  }> = [];
+
+  for (const payment of unapplied) {
+    processed++;
+
+    if (!payment.entityId || payment.amount <= 0) {
+      skipped++;
+      continue;
+    }
+
+    // Find outstanding bills/invoices for this entity
+    const targetType = payment.type === 'VENDOR_PAYMENT' ? 'VENDOR_BILL' : 'CUSTOMER_INVOICE';
+    const outstandingQuery = query(
+      transactionsRef,
+      where('type', '==', targetType),
+      where('entityId', '==', payment.entityId),
+      where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID'])
+    );
+    const outstandingSnap = await getDocs(outstandingQuery);
+
+    if (outstandingSnap.empty) {
+      skipped++;
+      continue;
+    }
+
+    // Sort FIFO (oldest first)
+    const outstanding = outstandingSnap.docs
+      .filter((d) => !d.data().isDeleted)
+      .sort((a, b) => {
+        const aDate = a.data().date?.toMillis?.() ?? 0;
+        const bDate = b.data().date?.toMillis?.() ?? 0;
+        return aDate - bDate;
+      });
+
+    // Allocate FIFO
+    let remaining = payment.amount;
+    const newAllocations: PaymentAllocation[] = [];
+    const billUpdates: Array<{
+      ref: ReturnType<typeof doc>;
+      data: DocumentData;
+      newPaid: number;
+      newOutstanding: number;
+      newStatus: PaymentStatus;
+    }> = [];
+
+    for (const billDoc of outstanding) {
+      if (remaining <= 0.01) break;
+      const data = billDoc.data();
+      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+      const previouslyPaid = data.amountPaid || 0;
+      const billOutstanding = Math.max(0, totalAmountINR - previouslyPaid);
+      if (billOutstanding <= 0.01) continue;
+
+      const allocAmount = Math.round(Math.min(remaining, billOutstanding) * 100) / 100;
+      remaining -= allocAmount;
+
+      newAllocations.push({
+        invoiceId: billDoc.id,
+        invoiceNumber: data.transactionNumber || billDoc.id,
+        originalAmount: totalAmountINR,
+        allocatedAmount: allocAmount,
+        remainingAmount: Math.round((billOutstanding - allocAmount) * 100) / 100,
+      });
+
+      const newPaid = Math.round((previouslyPaid + allocAmount) * 100) / 100;
+      const newOutstanding = Math.round(Math.max(0, totalAmountINR - newPaid) * 100) / 100;
+      let newStatus: PaymentStatus;
+      if (newOutstanding <= 0.01 && totalAmountINR > 0) {
+        newStatus = 'PAID';
+      } else if (newPaid > 0) {
+        newStatus = 'PARTIALLY_PAID';
+      } else {
+        newStatus = 'UNPAID';
+      }
+
+      billUpdates.push({
+        ref: doc(db, COLLECTIONS.TRANSACTIONS, billDoc.id),
+        data,
+        newPaid,
+        newOutstanding,
+        newStatus,
+      });
+    }
+
+    if (newAllocations.length === 0) {
+      skipped++;
+      continue;
+    }
+
+    const totalAllocatedAmount = newAllocations.reduce((s, a) => s + a.allocatedAmount, 0);
+
+    if (!dryRun) {
+      // Write atomically: update payment + all matched bills in one batch
+      const batch = writeBatch(db);
+
+      // Update payment with allocations
+      const allocField =
+        payment.type === 'VENDOR_PAYMENT' ? 'billAllocations' : 'invoiceAllocations';
+      batch.update(doc(db, COLLECTIONS.TRANSACTIONS, payment.id), {
+        [allocField]: newAllocations,
+        updatedAt: Timestamp.now(),
+      });
+
+      // Update each bill/invoice status
+      for (const update of billUpdates) {
+        batch.update(update.ref, {
+          paymentStatus: update.newStatus,
+          amountPaid: update.newPaid,
+          outstandingAmount: update.newOutstanding,
+          updatedAt: Timestamp.now(),
+        });
+      }
+
+      await batch.commit();
+    }
+
+    allocated++;
+    details.push({
+      paymentId: payment.id,
+      paymentNumber: payment.transactionNumber,
+      entityName: payment.entityName,
+      type: payment.type,
+      amount: payment.amount,
+      totalAllocated: totalAllocatedAmount,
+      allocations: newAllocations.map((a) => ({
+        billNumber: a.invoiceNumber,
+        amount: a.allocatedAmount,
+      })),
+    });
+  }
+
+  logger.info('Bulk auto-allocate complete', { processed, allocated, skipped, dryRun });
+  return { processed, allocated, skipped, details };
 }

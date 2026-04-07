@@ -48,7 +48,6 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import {
   settleLinkedTransactionViaJournal,
   reverseJournalSettlement,
-  autoSettleUnlinkedJournalEntry,
 } from '@/lib/accounting/paymentHelpers';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 
@@ -434,10 +433,6 @@ export function CreateJournalEntryDialog({
               editingEntry.id
             );
           }
-          // Auto-settle unlinked entity bills/invoices when no explicit link
-          if (!linkedVendorBillId && !linkedCustomerInvoiceId && newIsActive) {
-            await autoSettleUnlinkedJournalEntry(db, editingEntry.id, resolvedEntries);
-          }
         } catch (settlementErr) {
           // Settlement failure is non-fatal — reconciliation will fix it
           console.error(
@@ -494,10 +489,6 @@ export function CreateJournalEntryDialog({
                 balance.totalDebits,
                 docRef.id
               );
-            }
-            // Auto-settle unlinked entity bills/invoices when no explicit link
-            if (!linkedVendorBillId && !linkedCustomerInvoiceId) {
-              await autoSettleUnlinkedJournalEntry(db, docRef.id, resolvedEntries);
             }
           } catch (settlementErr) {
             // Settlement failure is non-fatal — reconciliation will fix it

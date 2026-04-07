@@ -43,6 +43,7 @@ import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { RecordCustomerPaymentDialog } from '../../payments/components/RecordCustomerPaymentDialog';
 import { RecordVendorPaymentDialog } from '../../payments/components/RecordVendorPaymentDialog';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { bulkAutoAllocatePayments } from '@/lib/accounting/paymentHelpers';
 
 type UnappliedPayment = (CustomerPayment | VendorPayment) & {
   id: string;
@@ -68,6 +69,35 @@ export default function UnappliedPaymentsPage() {
   const [editingVendorPayment, setEditingVendorPayment] = useState<VendorPayment | null>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
+
+  // Bulk auto-allocate state
+  const [bulkAllocating, setBulkAllocating] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{
+    allocated: number;
+    skipped: number;
+    processed: number;
+  } | null>(null);
+
+  const handleBulkAutoAllocate = async () => {
+    setBulkAllocating(true);
+    setBulkResult(null);
+    setError(null);
+    try {
+      const { db } = getFirebase();
+      const result = await bulkAutoAllocatePayments(db);
+      setBulkResult({
+        allocated: result.allocated,
+        skipped: result.skipped,
+        processed: result.processed,
+      });
+      // Refresh the list
+      await fetchUnappliedPayments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk allocation failed');
+    } finally {
+      setBulkAllocating(false);
+    }
+  };
 
   const fetchUnappliedPayments = async () => {
     setLoading(true);
@@ -240,13 +270,26 @@ export default function UnappliedPaymentsPage() {
       <PageHeader
         title="Unapplied Payments"
         action={
-          <Button
-            variant="outlined"
-            startIcon={<BackIcon />}
-            onClick={() => router.push('/accounting/data-health')}
-          >
-            Back to Dashboard
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {payments.length > 0 && (
+              <Button
+                variant="contained"
+                color="warning"
+                startIcon={<MoneyIcon />}
+                onClick={handleBulkAutoAllocate}
+                disabled={bulkAllocating}
+              >
+                {bulkAllocating ? 'Allocating...' : `Auto-Allocate All (${payments.length})`}
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<BackIcon />}
+              onClick={() => router.push('/accounting/data-health')}
+            >
+              Back to Dashboard
+            </Button>
+          </Box>
         }
       />
 
@@ -258,8 +301,16 @@ export default function UnappliedPaymentsPage() {
 
       <Alert severity="info" sx={{ mb: 3 }}>
         These payments have been recorded but not applied to any invoice or bill. Click
-        &quot;Apply&quot; to allocate the payment to outstanding invoices/bills.
+        &quot;Apply&quot; to allocate individually, or use &quot;Auto-Allocate All&quot; to
+        FIFO-match all unapplied payments to outstanding bills/invoices.
       </Alert>
+
+      {bulkResult && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setBulkResult(null)}>
+          Bulk allocation complete: {bulkResult.allocated} payments allocated, {bulkResult.skipped}{' '}
+          skipped (no matching bills/invoices), {bulkResult.processed} total processed.
+        </Alert>
+      )}
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>

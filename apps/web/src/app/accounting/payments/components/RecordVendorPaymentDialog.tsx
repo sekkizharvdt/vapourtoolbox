@@ -448,6 +448,15 @@ export function RecordVendorPaymentDialog({
       return;
     }
 
+    // Require allocation unless marked as advance
+    const validAllocationsCheck = allocations.filter((a) => a.allocatedAmount > 0);
+    if (!isAdvance && validAllocationsCheck.length === 0) {
+      setError(
+        'Please allocate the payment to at least one bill, or mark it as an advance payment.'
+      );
+      return;
+    }
+
     setLoading(true);
     setError('');
 
