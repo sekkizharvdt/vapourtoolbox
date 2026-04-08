@@ -421,7 +421,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   // spray coverage width from nozzle selection as the wetting cutback.
   try {
     const sprayCoverageWidths = auxiliaryEquipment.sprayNozzles.map((sn) => sn.coverageWidth);
-    const refined = refineBundleGeometry(effects, sizing, resolved, sprayCoverageWidths);
+    const refined = refineBundleGeometry(effects, resolved, sprayCoverageWidths);
     applyRefinedGeometry(effects, refined, resolved.shellThkMM);
     // Recompute largest shell after refinement
     largestShellOD = Math.max(...effects.map((e) => e.shellODmm));

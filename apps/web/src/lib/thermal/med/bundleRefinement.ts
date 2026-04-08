@@ -15,7 +15,6 @@ import {
   generateDefaultVapourLanes,
   type TubeBundleGeometryResult,
 } from '../tubeBundleGeometry';
-import type { EquipmentSizingResult } from './equipmentSizing';
 import type { MEDDesignerEffect } from './designerTypes';
 import type { ResolvedDesignerInputs } from './inputAdapter';
 
@@ -43,7 +42,6 @@ export interface RefinedBundleGeometry {
  */
 export function refineBundleGeometry(
   effects: MEDDesignerEffect[],
-  sizing: EquipmentSizingResult,
   resolved: ResolvedDesignerInputs,
   sprayCoverageWidths?: number[]
 ): RefinedBundleGeometry[] {
@@ -52,8 +50,8 @@ export function refineBundleGeometry(
 
   for (let i = 0; i < effects.length; i++) {
     const eff = effects[i]!;
-    const evap = sizing.evaporators[i];
-    const requiredTubes = evap ? evap.tubeCount : eff.tubes;
+    // Use the effect's tube count (which includes user overrides from Step 2)
+    const requiredTubes = eff.tubes;
 
     if (requiredTubes <= 0) {
       results.push({
