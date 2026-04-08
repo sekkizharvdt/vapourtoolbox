@@ -62,6 +62,7 @@ export default function MEDWizardClient() {
   const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>('fixed_tubes');
   const [geoValue, setGeoValue] = useState('2000');
   const [geoUniformFix, setGeoUniformFix] = useState<'tubes' | 'length'>('tubes');
+  const [uniformMargin, setUniformMargin] = useState('15'); // % overdesign above max duty effect
 
   // ── PDF dialog ─────────────────────────────────────────────────────────
   const [reportOpen, setReportOpen] = useState(false);
@@ -102,20 +103,22 @@ export default function MEDWizardClient() {
         overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
       } else if (geoMode === 'uniform' && designResult) {
         // Uniform: ALL effects get the same tubes AND length.
-        // Derive the missing parameter from the MAXIMUM design area
-        // across all effects — so no effect is undersized.
+        // Derive the missing parameter from the MAXIMUM required area
+        // across all effects, plus user-specified overdesign margin.
         const tubeOD = designResult.inputs.tubeOD ?? 25.4;
         const areaPerTubePerM = (Math.PI * tubeOD) / 1000;
-        const maxDesignArea = Math.max(...designResult.effects.map((e) => e.designArea));
+        const maxReqArea = Math.max(...designResult.effects.map((e) => e.requiredArea));
+        const marginFrac = 1 + (parseFloat(uniformMargin) || 15) / 100;
+        const targetArea = maxReqArea * marginFrac;
         if (geoUniformFix === 'tubes') {
           const tubes = Math.round(gv);
           const length =
-            tubes > 0 ? Math.ceil((maxDesignArea / (tubes * areaPerTubePerM)) * 10) / 10 : 1;
+            tubes > 0 ? Math.ceil((targetArea / (tubes * areaPerTubePerM)) * 10) / 10 : 1;
           overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
           overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
         } else {
           const length = gv;
-          const tubes = length > 0 ? Math.ceil(maxDesignArea / (areaPerTubePerM * length)) : 1;
+          const tubes = length > 0 ? Math.ceil(targetArea / (areaPerTubePerM * length)) : 1;
           overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
           overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
         }
@@ -168,6 +171,7 @@ export default function MEDWizardClient() {
     geoMode,
     geoValue,
     geoUniformFix,
+    uniformMargin,
     tvcEnabled,
     tvcMotivePressure,
     tvcSuperheat,
@@ -300,6 +304,7 @@ export default function MEDWizardClient() {
     setTvcSuperheat('0');
     setTvcEntrainedEffect('');
     setGeoValue('2000');
+    setUniformMargin('15');
   };
 
   const fmt = (v: number, d = 1) => v.toFixed(d);
@@ -389,6 +394,8 @@ export default function MEDWizardClient() {
           onGeoModeChange={setGeoMode}
           onGeoValueChange={setGeoValue}
           onGeoUniformFixChange={setGeoUniformFix}
+          uniformMargin={uniformMargin}
+          onUniformMarginChange={setUniformMargin}
           onBack={() => setActiveStep(0)}
           onNext={() => setActiveStep(2)}
         />
@@ -895,6 +902,7 @@ export default function MEDWizardClient() {
           geoMode,
           geoValue,
           geoUniformFix,
+          uniformMargin,
         }}
       />
       <LoadCalculationDialog
@@ -930,6 +938,7 @@ export default function MEDWizardClient() {
           if (typeof inputs.geoValue === 'string') setGeoValue(inputs.geoValue);
           if (inputs.geoUniformFix === 'tubes' || inputs.geoUniformFix === 'length')
             setGeoUniformFix(inputs.geoUniformFix);
+          if (typeof inputs.uniformMargin === 'string') setUniformMargin(inputs.uniformMargin);
           // Return to step 1 after loading
           setActiveStep(0);
         }}

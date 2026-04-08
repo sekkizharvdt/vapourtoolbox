@@ -2,6 +2,7 @@
 
 import {
   TextField,
+  InputAdornment,
   Stack,
   Typography,
   Paper,
@@ -25,9 +26,11 @@ interface Step2GeometryProps {
   geoMode: GeoMode;
   geoValue: string;
   geoUniformFix: UniformFix;
+  uniformMargin: string;
   onGeoModeChange: (v: GeoMode) => void;
   onGeoValueChange: (v: string) => void;
   onGeoUniformFixChange: (v: UniformFix) => void;
+  onUniformMarginChange: (v: string) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -48,9 +51,11 @@ export function Step2Geometry({
   geoMode,
   geoValue,
   geoUniformFix,
+  uniformMargin,
   onGeoModeChange,
   onGeoValueChange,
   onGeoUniformFixChange,
+  onUniformMarginChange,
   onBack,
   onNext,
 }: Step2GeometryProps) {
@@ -153,17 +158,19 @@ export function Step2Geometry({
             <MenuItem value="uniform">Uniform Geometry</MenuItem>
           </TextField>
           {geoMode === 'uniform' && (
-            <TextField
-              select
-              label="Input"
-              value={geoUniformFix}
-              onChange={(e) => onGeoUniformFixChange(e.target.value as UniformFix)}
-              size="small"
-              sx={{ minWidth: 140 }}
-            >
-              <MenuItem value="tubes">Tubes</MenuItem>
-              <MenuItem value="length">Length</MenuItem>
-            </TextField>
+            <>
+              <TextField
+                select
+                label="Input"
+                value={geoUniformFix}
+                onChange={(e) => onGeoUniformFixChange(e.target.value as UniformFix)}
+                size="small"
+                sx={{ minWidth: 140 }}
+              >
+                <MenuItem value="tubes">Tubes</MenuItem>
+                <MenuItem value="length">Length</MenuItem>
+              </TextField>
+            </>
           )}
           <TextField
             label={
@@ -181,6 +188,20 @@ export function Step2Geometry({
             size="small"
             sx={{ width: 180 }}
           />
+          {geoMode === 'uniform' && (
+            <TextField
+              label="Overdesign Margin"
+              value={uniformMargin}
+              onChange={(e) => onUniformMarginChange(e.target.value)}
+              type="number"
+              size="small"
+              helperText="Above highest-duty effect"
+              InputProps={{
+                endAdornment: <InputAdornment position="end">%</InputAdornment>,
+              }}
+              sx={{ width: 160 }}
+            />
+          )}
         </Stack>
 
         {/* Equipment table — directly from pipeline results */}
