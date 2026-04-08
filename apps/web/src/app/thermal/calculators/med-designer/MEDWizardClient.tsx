@@ -59,6 +59,14 @@ export default function MEDWizardClient() {
   const [tvcSuperheat, setTvcSuperheat] = useState('0');
   const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState('');
 
+  // ── Step 1: Advanced parameters ────────────────────────────────────────
+  const [tubeMaterial, setTubeMaterial] = useState('Al 5052');
+  const [nea, setNea] = useState('0.25');
+  const [demisterLoss, setDemisterLoss] = useState('0.15');
+  const [ductLoss, setDuctLoss] = useState('0.30');
+  const [foulingResistance, setFoulingResistance] = useState('0.00015');
+  const [designMargin, setDesignMargin] = useState('15');
+
   // ── Step 2: Geometry selection ──────────────────────────────────────────
   const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>(
     'fixed_length'
@@ -155,6 +163,12 @@ export default function MEDWizardClient() {
         ...(maxBrine > 0 && { maxBrineSalinity: maxBrine }),
         ...(!isNaN(ca) && ca > 0 && { condenserApproach: ca }),
         ...(condenserOutletTemp && { condenserSWOutlet: parseFloat(condenserOutletTemp) }),
+        tubeMaterialName: tubeMaterial,
+        NEA: parseFloat(nea) || 0.25,
+        demisterLoss: parseFloat(demisterLoss) || 0.15,
+        pressureDropLoss: parseFloat(ductLoss) || 0.3,
+        foulingResistance: parseFloat(foulingResistance) || 0.00015,
+        designMargin: (parseFloat(designMargin) || 15) / 100,
         ...overrides,
         ...tvcParams,
       });
@@ -179,6 +193,12 @@ export default function MEDWizardClient() {
     tvcMotivePressure,
     tvcSuperheat,
     tvcEntrainedEffect,
+    tubeMaterial,
+    nea,
+    demisterLoss,
+    ductLoss,
+    foulingResistance,
+    designMargin,
   ]);
 
   // ── BOM generation ──────────────────────────────────────────────────────
@@ -306,7 +326,13 @@ export default function MEDWizardClient() {
     setTvcMotivePressure('10');
     setTvcSuperheat('0');
     setTvcEntrainedEffect('');
-    setGeoValue('2000');
+    setTubeMaterial('Al 5052');
+    setNea('0.25');
+    setDemisterLoss('0.15');
+    setDuctLoss('0.30');
+    setFoulingResistance('0.00015');
+    setDesignMargin('15');
+    setGeoValue('1.2');
     setUniformMargin('15');
   };
 
@@ -382,6 +408,18 @@ export default function MEDWizardClient() {
           onTvcMotivePressureChange={setTvcMotivePressure}
           onTvcSuperheatChange={setTvcSuperheat}
           onTvcEntrainedEffectChange={setTvcEntrainedEffect}
+          tubeMaterial={tubeMaterial}
+          nea={nea}
+          demisterLoss={demisterLoss}
+          ductLoss={ductLoss}
+          foulingResistance={foulingResistance}
+          designMargin={designMargin}
+          onTubeMaterialChange={setTubeMaterial}
+          onNeaChange={setNea}
+          onDemisterLossChange={setDemisterLoss}
+          onDuctLossChange={setDuctLoss}
+          onFoulingResistanceChange={setFoulingResistance}
+          onDesignMarginChange={setDesignMargin}
           designResult={designResult}
           onProceed={() => setActiveStep(1)}
         />
@@ -909,6 +947,12 @@ export default function MEDWizardClient() {
           geoValue,
           geoUniformFix,
           uniformMargin,
+          tubeMaterial,
+          nea,
+          demisterLoss,
+          ductLoss,
+          foulingResistance,
+          designMargin,
         }}
       />
       <LoadCalculationDialog
@@ -945,6 +989,13 @@ export default function MEDWizardClient() {
           if (inputs.geoUniformFix === 'tubes' || inputs.geoUniformFix === 'length')
             setGeoUniformFix(inputs.geoUniformFix);
           if (typeof inputs.uniformMargin === 'string') setUniformMargin(inputs.uniformMargin);
+          if (typeof inputs.tubeMaterial === 'string') setTubeMaterial(inputs.tubeMaterial);
+          if (typeof inputs.nea === 'string') setNea(inputs.nea);
+          if (typeof inputs.demisterLoss === 'string') setDemisterLoss(inputs.demisterLoss);
+          if (typeof inputs.ductLoss === 'string') setDuctLoss(inputs.ductLoss);
+          if (typeof inputs.foulingResistance === 'string')
+            setFoulingResistance(inputs.foulingResistance);
+          if (typeof inputs.designMargin === 'string') setDesignMargin(inputs.designMargin);
           // Return to step 1 after loading
           setActiveStep(0);
         }}

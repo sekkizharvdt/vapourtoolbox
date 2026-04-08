@@ -11,7 +11,12 @@ import {
   Checkbox,
   FormControlLabel,
   Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  MenuItem,
 } from '@mui/material';
+import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { ArrowForward as ArrowForwardIcon } from '@mui/icons-material';
 import { getSaturationTemperature } from '@vapour/constants';
 import type { MEDDesignerResult } from '@/lib/thermal';
@@ -43,6 +48,19 @@ interface Step1InputsProps {
   onTvcMotivePressureChange: (v: string) => void;
   onTvcSuperheatChange: (v: string) => void;
   onTvcEntrainedEffectChange: (v: string) => void;
+  // Advanced parameters
+  tubeMaterial: string;
+  nea: string;
+  demisterLoss: string;
+  ductLoss: string;
+  foulingResistance: string;
+  designMargin: string;
+  onTubeMaterialChange: (v: string) => void;
+  onNeaChange: (v: string) => void;
+  onDemisterLossChange: (v: string) => void;
+  onDuctLossChange: (v: string) => void;
+  onFoulingResistanceChange: (v: string) => void;
+  onDesignMarginChange: (v: string) => void;
   designResult: MEDDesignerResult | null;
   onProceed: () => void;
 }
@@ -84,6 +102,18 @@ export function Step1Inputs({
   onTvcMotivePressureChange,
   onTvcSuperheatChange,
   onTvcEntrainedEffectChange,
+  tubeMaterial,
+  nea,
+  demisterLoss,
+  ductLoss,
+  foulingResistance,
+  designMargin,
+  onTubeMaterialChange,
+  onNeaChange,
+  onDemisterLossChange,
+  onDuctLossChange,
+  onFoulingResistanceChange,
+  onDesignMarginChange,
   designResult,
   onProceed,
 }: Step1InputsProps) {
@@ -306,6 +336,91 @@ export function Step1Inputs({
           </Typography>
         )}
       </Paper>
+
+      {/* ── Advanced Parameters ─────────────────────────────────────── */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle2">Advanced Parameters</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              <TextField
+                select
+                label="Tube Material"
+                value={tubeMaterial}
+                onChange={(e) => onTubeMaterialChange(e.target.value)}
+                size="small"
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="Al 5052">Al 5052</MenuItem>
+                <MenuItem value="Titanium">Titanium</MenuItem>
+                <MenuItem value="Cu-Ni 90/10">Cu-Ni 90/10</MenuItem>
+                <MenuItem value="Cu-Ni 70/30">Cu-Ni 70/30</MenuItem>
+              </TextField>
+              <TextField
+                label="Design Margin"
+                value={designMargin}
+                onChange={(e) => onDesignMarginChange(e.target.value)}
+                type="number"
+                size="small"
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                }}
+                sx={{ width: 140 }}
+              />
+              <TextField
+                label="Fouling Resistance"
+                value={foulingResistance}
+                onChange={(e) => onFoulingResistanceChange(e.target.value)}
+                type="number"
+                size="small"
+                helperText="m&sup2;&middot;K/W"
+                sx={{ width: 160 }}
+              />
+            </Stack>
+            <Divider />
+            <Typography variant="caption" color="text.secondary">
+              Temperature losses per effect
+            </Typography>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="NEA"
+                value={nea}
+                onChange={(e) => onNeaChange(e.target.value)}
+                type="number"
+                size="small"
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+                }}
+                sx={{ width: 120 }}
+              />
+              <TextField
+                label="Demister Loss"
+                value={demisterLoss}
+                onChange={(e) => onDemisterLossChange(e.target.value)}
+                type="number"
+                size="small"
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+                }}
+                sx={{ width: 140 }}
+              />
+              <TextField
+                label="Duct Loss"
+                value={ductLoss}
+                onChange={(e) => onDuctLossChange(e.target.value)}
+                type="number"
+                size="small"
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+                }}
+                sx={{ width: 120 }}
+              />
+            </Stack>
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
 
       {/* ── Performance Summary ───────────────────────────────────────── */}
       {designResult && (
