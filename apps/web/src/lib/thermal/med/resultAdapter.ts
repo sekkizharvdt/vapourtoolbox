@@ -86,7 +86,7 @@ export function composeDesignerEffects(
     const areaMargin = requiredArea > 0 ? (installedArea / requiredArea - 1) * 100 : 0;
 
     // Shell geometry
-    const hasVapourLanes = i === 0;
+    const hasVapourLanes = true; // all effects need vapour escape lanes
     const effShellID =
       resolved.input.shellIDOverrides?.[i] ?? findMinShellID(tubes, tubeOD, pitch, hasVapourLanes);
     const effTubesPerRow = getMaxTubesPerRow(effShellID, pitch);

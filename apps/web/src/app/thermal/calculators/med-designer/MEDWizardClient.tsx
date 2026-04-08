@@ -100,12 +100,24 @@ export default function MEDWizardClient() {
         overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
       } else if (geoMode === 'fixed_length') {
         overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
-      } else if (geoMode === 'uniform') {
-        // Uniform: user fixes either tubes or length, both applied uniformly
+      } else if (geoMode === 'uniform' && designResult) {
+        // Uniform: ALL effects get the same tubes AND length.
+        // Derive the missing parameter from the MAXIMUM design area
+        // across all effects — so no effect is undersized.
+        const tubeOD = designResult.inputs.tubeOD ?? 25.4;
+        const areaPerTubePerM = (Math.PI * tubeOD) / 1000;
+        const maxDesignArea = Math.max(...designResult.effects.map((e) => e.designArea));
         if (geoUniformFix === 'tubes') {
-          overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
+          const tubes = Math.round(gv);
+          const length =
+            tubes > 0 ? Math.ceil((maxDesignArea / (tubes * areaPerTubePerM)) * 10) / 10 : 1;
+          overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
+          overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
         } else {
-          overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
+          const length = gv;
+          const tubes = length > 0 ? Math.ceil(maxDesignArea / (areaPerTubePerM * length)) : 1;
+          overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
+          overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
         }
       }
     }
