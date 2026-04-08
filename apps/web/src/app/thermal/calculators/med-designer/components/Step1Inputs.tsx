@@ -15,6 +15,11 @@ import {
   AccordionSummary,
   AccordionDetails,
   MenuItem,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
 } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { ArrowForward as ArrowForwardIcon } from '@mui/icons-material';
@@ -334,6 +339,50 @@ export function Step1Inputs({
           <Typography variant="caption" color="text.secondary">
             Need at least 3 effects for preheaters.
           </Typography>
+        )}
+
+        {/* Preheater performance table — visible when preheaters selected and design computed */}
+        {designResult && designResult.preheaters.length > 0 && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" gutterBottom>
+              Preheater Performance
+            </Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Source</TableCell>
+                  <TableCell align="right">Vap Temp (&deg;C)</TableCell>
+                  <TableCell align="right">SW In (&deg;C)</TableCell>
+                  <TableCell align="right">SW Out (&deg;C)</TableCell>
+                  <TableCell align="right">&Delta;T Rise</TableCell>
+                  <TableCell align="right">LMTD (&deg;C)</TableCell>
+                  <TableCell align="right">Duty (kW)</TableCell>
+                  <TableCell align="right">SW Flow (T/h)</TableCell>
+                  <TableCell align="right">Area (m&sup2;)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {designResult.preheaters.map((ph) => (
+                  <TableRow key={ph.id}>
+                    <TableCell>{ph.vapourSource}</TableCell>
+                    <TableCell align="right">{fmt(ph.vapourTemp)}</TableCell>
+                    <TableCell align="right">{fmt(ph.swInlet)}</TableCell>
+                    <TableCell align="right">{fmt(ph.swOutlet)}</TableCell>
+                    <TableCell align="right">{fmt(ph.swOutlet - ph.swInlet)}</TableCell>
+                    <TableCell align="right">{fmt(ph.lmtd)}</TableCell>
+                    <TableCell align="right">{Math.round(ph.duty)}</TableCell>
+                    <TableCell align="right">{fmt(ph.flowTh)}</TableCell>
+                    <TableCell align="right">{fmt(ph.designArea)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Preheaters on later effects (closer to condenser end) improve GOR more — vapor
+              diverted from earlier effects loses more cascade steps.
+            </Typography>
+          </>
         )}
       </Paper>
 
