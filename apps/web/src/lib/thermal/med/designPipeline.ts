@@ -207,11 +207,15 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   } else {
     const nPreheaters = input.numberOfPreheaters ?? 0;
     if (nPreheaters > 0) {
-      // Distribute preheaters evenly across effects (e.g., 2 PH on 6 eff → E3, E5)
-      const step = Math.max(1, Math.floor((nEff - 2) / nPreheaters));
-      for (let p = 0; p < nPreheaters && 2 + p * step <= nEff - 1; p++) {
-        preheaterEffects.push(2 + p * step);
+      // Distribute preheaters on LATER effects (closest to condenser end).
+      // Vapor diverted from later effects loses fewer cascade steps.
+      // E.g., 3 PH on 8 eff → [E5, E6, E7]; 4 PH on 8 eff → [E4, E5, E6, E7]
+      const maxPH = nEff - 2; // E2..E(N-1)
+      const actualPH = Math.min(nPreheaters, maxPH);
+      for (let p = 0; p < actualPH; p++) {
+        preheaterEffects.push(nEff - 1 - p); // start from E(N-1) downward
       }
+      preheaterEffects.sort((a, b) => a - b);
     }
   }
 

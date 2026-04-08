@@ -178,22 +178,20 @@ describe('MED Engine — More effects = higher GOR', () => {
 
 describe('MED Engine — Preheaters increase GOR', () => {
   const noPH = calculateMED({ ...BARC_INPUT });
+  // Preheaters on LATER effects — optimal placement.
+  // Vapor diverted from late effects loses fewer cascade steps,
+  // and the preheated seawater benefits earlier effects.
   const withPH = calculateMED({
     ...BARC_INPUT,
-    preheaterEffects: [2, 4], // PH on effects 2 and 4
+    preheaterEffects: [4, 5],
   });
 
-  it('preheaters maintain or improve GOR', () => {
-    // In the combined shell model, preheater GOR benefit is small because
-    // hot cascaded brine already warms the spray pool. Preheaters mainly
-    // reduce condenser cooling water and improve temperature profile.
-    expect(withPH.performance.gor).toBeGreaterThanOrEqual(noPH.performance.gor - 0.1);
+  it('preheaters on late effects improve GOR', () => {
+    expect(withPH.performance.gor).toBeGreaterThan(noPH.performance.gor);
   });
 
-  it('preheaters maintain or improve distillate', () => {
-    expect(withPH.performance.netDistillate).toBeGreaterThanOrEqual(
-      noPH.performance.netDistillate - 50
-    );
+  it('preheaters on late effects improve distillate', () => {
+    expect(withPH.performance.netDistillate).toBeGreaterThan(noPH.performance.netDistillate);
   });
 
   it('each preheater is individually sized', () => {

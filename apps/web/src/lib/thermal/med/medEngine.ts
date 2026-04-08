@@ -287,11 +287,12 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   // Preheater configuration — filter to valid effect range (2..N-1)
   const phEffects = (input.preheaterEffects ?? []).filter((e) => e >= 2 && e <= N - 1);
 
-  // Initial feed temperature = condenser outlet (no preheaters on first pass)
-  let feedWaterTemp = condenserOutlet;
+  // Per-effect spray temperatures (computed after preheater sizing each iteration)
+  // Initially all effects get condenser outlet temperature
+  const sprayTemps: number[] = Array.from({ length: N }, () => condenserOutlet);
 
   // NCG in steam to Effect 1 (= dissolved gases from seawater in Effect 1)
-  const swDensity = getSeawaterDensity(swSalinity, feedWaterTemp);
+  const swDensity = getSeawaterDensity(swSalinity, condenserOutlet);
   const ncgFromSeawater = ((feedPerEffect / swDensity) * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6;
 
   let converged = false;
@@ -357,7 +358,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
           entrainedVaporTemp,
           dischargePressure,
           motiveFlow: input.steamFlow, // motive steam IS the input
-          sprayWaterTemp: feedWaterTemp,
+          sprayWaterTemp: sprayTemps[0]!,
         });
 
         // E1 receives TVC discharge (motive + entrained)
@@ -414,9 +415,9 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         preheaterCondensateInFlow: phCond.flow,
         preheaterCondensateInTemp: phCond.temp,
 
-        // Shell side spray
+        // Shell side spray — per-effect temperature from preheater chain
         seawaterSprayFlow: feedPerEffect,
-        seawaterSprayTemp: feedWaterTemp,
+        seawaterSprayTemp: sprayTemps[i]!,
         seawaterSalinity: swSalinity,
         recircBrineFlow: 0, // Recirc computed post-sizing (equipment concern, not process balance)
         recircBrineTemp: 0,
@@ -552,10 +553,48 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         currentSWTemp = phResult.seawaterOutletTemp;
       }
 
-      // Update feed water temperature from preheater chain outlet
-      feedWaterTemp = currentSWTemp;
+      // ---- Compute per-effect spray temperatures from preheater chain ----
+      // Seawater flows from condenser → PH (highest effect) → PH (next) → ... → PH (lowest effect)
+      // Effects downstream of all preheaters get condenser outlet temp.
+      // Each effect gets the seawater temperature AT the point it's peeled off.
+      //
+      // sortedPHEffects is [E7, E5, E3, E2] (descending) — the chain order.
+      // After passing through PH on E7, SW temp rises. Effects E1-E6 get this temp.
+      // After passing through PH on E5, SW temp rises more. Effects E1-E4 get this temp.
+      // etc.
+      //
+      // Logic: start all at condenserOutlet. For each PH (in chain order, descending),
+      // all effects with effectNumber < phEffectNumber get the outlet temperature.
+      // The last effect and effects between preheaters get intermediate temperatures.
+
+      // Start: all effects at condenser outlet
+      for (let i = 0; i < N; i++) sprayTemps[i] = condenserOutlet;
+
+      // Walk the preheater chain (sorted descending: coldest PH first)
+      let chainTemp = condenserOutlet;
+      for (const ph of preheaterDetails) {
+        chainTemp = ph.swOutletTemp;
+        // All effects UPSTREAM of this preheater (lower effect number) get this temp
+        for (let i = 0; i < ph.effectNumber - 1; i++) {
+          sprayTemps[i] = chainTemp;
+        }
+      }
     } else {
-      feedWaterTemp = condenserOutlet;
+      // No preheaters: all effects get condenser outlet
+      for (let i = 0; i < N; i++) sprayTemps[i] = condenserOutlet;
+    }
+
+    // ---- Cap spray temperature per effect ----
+    // Spray must enter BELOW the effect's vapour saturation temperature
+    // to avoid flashing at the spray nozzle. Maximum approach: 5°C below
+    // vapour temperature. Ideally just below saturation for minimum
+    // sensible heating.
+    const SPRAY_APPROACH_MIN = 2.0; // °C below vapour saturation temperature
+    for (let i = 0; i < N; i++) {
+      const maxSprayTemp = effectTemps[i]! - SPRAY_APPROACH_MIN;
+      if (sprayTemps[i]! > maxSprayTemp) {
+        sprayTemps[i] = maxSprayTemp;
+      }
     }
 
     // ---- Update preheater vapor diversion in effect calculation ----
@@ -728,7 +767,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         entrainedVaporTemp: entrainedEffect.totalVaporOut.temperature,
         dischargePressure: getSaturationPressure(steamTemp),
         motiveFlow: input.steamFlow,
-        sprayWaterTemp: feedWaterTemp,
+        sprayWaterTemp: sprayTemps[0]!,
       });
       return {
         motiveFlow: tvr.motiveFlow,
