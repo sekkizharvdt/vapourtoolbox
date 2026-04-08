@@ -423,26 +423,34 @@ export interface MEDAuxiliaryEquipment {
 /** Cost estimation line item */
 export interface MEDCostItem {
   item: string;
+  category: string;
   material: string;
   weightKg: number;
+  /** Price per kg from materials database (0 if not available) */
   ratePerKg: number;
+  /** Cost = weightKg × ratePerKg */
   cost: number;
+  /** Currency from materials database */
+  currency: string;
+  /** True if price was found in materials database */
+  priceAvailable: boolean;
 }
 
-/** Cost estimate summary */
+/** Cost estimate summary — equipment cost only, priced from materials database */
 export interface MEDCostEstimate {
   equipmentItems: MEDCostItem[];
+  /** Total cost of items with available prices */
   totalEquipmentCost: number;
-  pipingCost: number;
-  instrumentationCost: number;
-  electricalCost: number;
-  civilCost: number;
-  installationCost: number;
-  subtotal: number;
-  contingency: number;
-  totalInstalledCost: number;
-  accuracy: string;
+  /** Currency of the total */
+  currency: string;
+  /** Cost per m³/day of distillate output */
   costPerM3Day: number;
+  /** Items where material price was found */
+  pricedItemCount: number;
+  /** Items where material price was NOT found */
+  unpricedItemCount: number;
+  /** List of materials with no price in database */
+  unpricedMaterials: string[];
 }
 
 /** Turndown point */
@@ -638,6 +646,9 @@ export interface MEDDesignerResult {
     shellODmm: number;
     shellLengthRange: { min: number; max: number };
   };
+
+  /** Plant weight estimate (dry and operating) */
+  weightEstimate?: MEDWeightEstimate;
 
   warnings: string[];
 }

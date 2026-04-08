@@ -540,10 +540,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
 
   // Weight estimation
   try {
-    const weight = estimatePlantWeight(result);
-    // Weight is informational — stored in design options, not in main result
-    // The BOM generator accesses it via generateDesignOptions
-    void weight; // consumed by generateDesignOptions
+    result.weightEstimate = estimatePlantWeight(result);
   } catch {
     // Weight estimation is non-critical
   }

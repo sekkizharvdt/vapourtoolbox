@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -37,6 +37,9 @@ import { AuxiliaryEquipmentSections } from './components/AuxiliaryEquipmentSecti
 import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
+import { getFirebase } from '@/lib/firebase';
+import { computeCostEstimate } from '@/lib/thermal/med/costEstimation';
+import type { MEDCostEstimate } from '@/lib/thermal/med/designerTypes';
 
 const STEPS = ['Design Inputs', 'Equipment & Geometry', 'Detailed Design', 'Review & Export'];
 
@@ -213,6 +216,32 @@ export default function MEDWizardClient() {
       return null;
     }
   }, [designResult]);
+
+  // ── Cost estimation (async — looks up material prices from database) ────
+  const [costEstimate, setCostEstimate] = useState<MEDCostEstimate | null>(null);
+  const [costLoading, setCostLoading] = useState(false);
+  useEffect(() => {
+    if (!bom || !designResult) {
+      setCostEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    setCostLoading(true);
+    (async () => {
+      try {
+        const { db } = getFirebase();
+        const estimate = await computeCostEstimate(bom, db, designResult.totalDistillateM3Day);
+        if (!cancelled) setCostEstimate(estimate);
+      } catch {
+        if (!cancelled) setCostEstimate(null);
+      } finally {
+        if (!cancelled) setCostLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bom, designResult]);
 
   // ── BOM tab state ──────────────────────────────────────────────────────
   const [bomTab, setBomTab] = useState(0);
@@ -726,6 +755,55 @@ export default function MEDWizardClient() {
             </Stack>
           </Paper>
 
+          {/* Cost Estimate */}
+          {(costEstimate || costLoading) && (
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                Cost Estimate
+              </Typography>
+              {costLoading ? (
+                <Typography variant="body2" color="text.secondary">
+                  Looking up material prices...
+                </Typography>
+              ) : costEstimate ? (
+                <Stack spacing={2}>
+                  <Stack direction="row" spacing={4} flexWrap="wrap" useFlexGap>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Equipment Cost
+                      </Typography>
+                      <Typography variant="h5" fontWeight={700}>
+                        {costEstimate.totalEquipmentCost.toLocaleString()} {costEstimate.currency}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Cost per m&sup3;/day
+                      </Typography>
+                      <Typography variant="h6">
+                        {costEstimate.costPerM3Day.toLocaleString()} {costEstimate.currency}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Priced Items
+                      </Typography>
+                      <Typography variant="h6">
+                        {costEstimate.pricedItemCount} /{' '}
+                        {costEstimate.pricedItemCount + costEstimate.unpricedItemCount}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  {costEstimate.unpricedMaterials.length > 0 && (
+                    <Typography variant="body2" color="warning.main">
+                      Prices not available for: {costEstimate.unpricedMaterials.join(', ')}
+                    </Typography>
+                  )}
+                </Stack>
+              ) : null}
+            </Paper>
+          )}
+
           {/* BOM Tabs */}
           {bom && (
             <Paper sx={{ p: 3 }}>
@@ -864,12 +942,14 @@ export default function MEDWizardClient() {
 
               {/* Summary */}
               {bomTab === 3 && (
-                <Stack spacing={2}>
+                <Stack spacing={3}>
                   <Typography variant="body2">
                     <strong>Total Equipment Items:</strong> {bom.summary.totalEquipmentItems} |{' '}
                     <strong>Instruments:</strong> {bom.summary.totalInstruments} |{' '}
                     <strong>Valves:</strong> {bom.summary.totalValves}
                   </Typography>
+
+                  {/* Category breakdown */}
                   <Table size="small">
                     <TableHead>
                       <TableRow>
@@ -899,6 +979,84 @@ export default function MEDWizardClient() {
                       </TableRow>
                     </TableBody>
                   </Table>
+
+                  {/* Material breakdown — consolidated by material type */}
+                  <Typography variant="subtitle2">Material Breakdown</Typography>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Material</TableCell>
+                        <TableCell align="right">Items</TableCell>
+                        <TableCell align="right">Total Weight (kg)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(() => {
+                        const matMap = new Map<string, { items: number; weight: number }>();
+                        for (const item of bom.equipment) {
+                          const key = item.material || 'Unspecified';
+                          const prev = matMap.get(key) ?? { items: 0, weight: 0 };
+                          matMap.set(key, {
+                            items: prev.items + 1,
+                            weight: prev.weight + item.totalWeightKg,
+                          });
+                        }
+                        return Array.from(matMap.entries())
+                          .sort((a, b) => b[1].weight - a[1].weight)
+                          .map(([mat, data]) => (
+                            <TableRow key={mat}>
+                              <TableCell>{mat}</TableCell>
+                              <TableCell align="right">{data.items}</TableCell>
+                              <TableCell align="right">
+                                {Math.round(data.weight).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ));
+                      })()}
+                    </TableBody>
+                  </Table>
+
+                  {/* Plant weight estimate */}
+                  {designResult.weightEstimate && (
+                    <>
+                      <Typography variant="subtitle2">Plant Weight</Typography>
+                      <Stack direction="row" spacing={4}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Total Dry Weight
+                          </Typography>
+                          <Typography variant="h6">
+                            {Math.round(
+                              designResult.weightEstimate.totalDryWeight
+                            ).toLocaleString()}{' '}
+                            kg
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Total Operating Weight
+                          </Typography>
+                          <Typography variant="h6">
+                            {Math.round(
+                              designResult.weightEstimate.totalOperatingWeight
+                            ).toLocaleString()}{' '}
+                            kg
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Condenser
+                          </Typography>
+                          <Typography variant="h6">
+                            {Math.round(
+                              designResult.weightEstimate.condenserWeight
+                            ).toLocaleString()}{' '}
+                            kg
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </>
+                  )}
                 </Stack>
               )}
             </Paper>
