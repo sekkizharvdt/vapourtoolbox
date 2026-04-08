@@ -33,6 +33,7 @@ import { Step1Inputs } from './components/Step1Inputs';
 import { Step2Geometry } from './components/Step2Geometry';
 import { MEDProcessFlowDiagram } from './components/MEDProcessFlowDiagram';
 import { MEDGeneralArrangement } from './components/MEDGeneralArrangement';
+import { AuxiliaryEquipmentSections } from './components/AuxiliaryEquipmentSections';
 import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
@@ -59,8 +60,10 @@ export default function MEDWizardClient() {
   const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState('');
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
-  const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>('fixed_tubes');
-  const [geoValue, setGeoValue] = useState('2000');
+  const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>(
+    'fixed_length'
+  );
+  const [geoValue, setGeoValue] = useState('1.2');
   const [geoUniformFix, setGeoUniformFix] = useState<'tubes' | 'length'>('tubes');
   const [uniformMargin, setUniformMargin] = useState('15'); // % overdesign above max duty effect
 
@@ -601,6 +604,9 @@ export default function MEDWizardClient() {
               </TableBody>
             </Table>
           </Paper>
+
+          {/* Auxiliary Equipment */}
+          <AuxiliaryEquipmentSections result={designResult} />
 
           {/* GA Drawing */}
           <MEDGeneralArrangement result={designResult} />

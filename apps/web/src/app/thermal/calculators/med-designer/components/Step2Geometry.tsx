@@ -231,11 +231,20 @@ export function Step2Geometry({
                   <TableCell align="right">Margin</TableCell>
                   <TableCell align="right">Spray (T/h)</TableCell>
                   <TableCell align="right">Recirc (T/h)</TableCell>
+                  <TableCell align="right">&Gamma; (kg/m&middot;s)</TableCell>
+                  <TableCell align="right">Rows</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {effects.map((e) => {
                   const eShellID = e.shellODmm - 2 * shellThk;
+                  // Wetting rate: Γ = spray_flow / (2 × L × nRows) in kg/(m·s)
+                  const nRows = e.bundleGeometry?.numberOfRows ?? 0;
+                  const gamma =
+                    nRows > 0 && e.tubeLength > 0
+                      ? (e.minSprayFlow * 1000) / 3600 / (2 * e.tubeLength * nRows)
+                      : 0;
+                  const gammaOk = gamma >= 0.035;
                   return (
                     <TableRow key={e.effect}>
                       <TableCell>E{e.effect}</TableCell>
@@ -258,6 +267,18 @@ export function Step2Geometry({
                       </TableCell>
                       <TableCell align="right">{fmt(e.minSprayFlow)}</TableCell>
                       <TableCell align="right">{fmt(e.brineRecirculation)}</TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color: gammaOk ? 'text.primary' : 'error.main',
+                          fontWeight: gammaOk ? 400 : 700,
+                        }}
+                      >
+                        {gamma > 0 ? fmt(gamma, 3) : '\u2014'}
+                      </TableCell>
+                      <TableCell align="right">
+                        {e.bundleGeometry?.numberOfRows ?? '\u2014'}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
