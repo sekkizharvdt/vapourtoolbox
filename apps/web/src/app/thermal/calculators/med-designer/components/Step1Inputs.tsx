@@ -49,6 +49,8 @@ interface Step1InputsProps {
   onCondenserApproachChange: (v: string) => void;
   onCondenserOutletTempChange: (v: string) => void;
   onTogglePreheater: (effNum: number) => void;
+  preheaterTempRise: string;
+  onPreheaterTempRiseChange: (v: string) => void;
   onTvcEnabledChange: (v: boolean) => void;
   onTvcMotivePressureChange: (v: string) => void;
   onTvcSuperheatChange: (v: string) => void;
@@ -103,6 +105,8 @@ export function Step1Inputs({
   onCondenserApproachChange,
   onCondenserOutletTempChange,
   onTogglePreheater,
+  preheaterTempRise,
+  onPreheaterTempRiseChange,
   onTvcEnabledChange,
   onTvcMotivePressureChange,
   onTvcSuperheatChange,
@@ -319,21 +323,38 @@ export function Step1Inputs({
           condensation). E{nEff} vapor goes to the final condenser.
         </Typography>
         {nEff > 2 ? (
-          <Stack direction="row" flexWrap="wrap" gap={0.5}>
-            {Array.from({ length: Math.max(0, nEff - 2) }, (_, i) => i + 2).map((effNum) => (
-              <FormControlLabel
-                key={effNum}
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={preheaterEffects.includes(effNum)}
-                    onChange={() => onTogglePreheater(effNum)}
-                  />
-                }
-                label={`E${effNum}`}
-                sx={{ mr: 0 }}
+          <Stack spacing={1.5}>
+            <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center">
+              {Array.from({ length: Math.max(0, nEff - 2) }, (_, i) => i + 2).map((effNum) => (
+                <FormControlLabel
+                  key={effNum}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={preheaterEffects.includes(effNum)}
+                      onChange={() => onTogglePreheater(effNum)}
+                    />
+                  }
+                  label={`E${effNum}`}
+                  sx={{ mr: 0 }}
+                />
+              ))}
+            </Stack>
+            {preheaterEffects.length > 0 && (
+              <TextField
+                label="Temp Rise per PH"
+                value={preheaterTempRise}
+                onChange={(e) => onPreheaterTempRiseChange(e.target.value)}
+                type="number"
+                size="small"
+                helperText="Higher = more vapor diverted. Typical 3-5&deg;C."
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
+                }}
+                inputProps={{ min: 1, max: 10, step: 0.5 }}
+                sx={{ width: 180 }}
               />
-            ))}
+            )}
           </Stack>
         ) : (
           <Typography variant="caption" color="text.secondary">

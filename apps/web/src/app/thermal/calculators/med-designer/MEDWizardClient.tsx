@@ -54,6 +54,7 @@ export default function MEDWizardClient() {
   const [condenserApproach, setCondenserApproach] = useState('4');
   const [condenserOutletTemp, setCondenserOutletTemp] = useState('');
   const [preheaterEffects, setPreheaterEffects] = useState<number[]>([]);
+  const [preheaterTempRise, setPreheaterTempRise] = useState('4');
   const [tvcEnabled, setTvcEnabled] = useState(false);
   const [tvcMotivePressure, setTvcMotivePressure] = useState('10');
   const [tvcSuperheat, setTvcSuperheat] = useState('0');
@@ -169,6 +170,7 @@ export default function MEDWizardClient() {
         pressureDropLoss: parseFloat(ductLoss) || 0.3,
         foulingResistance: parseFloat(foulingResistance) || 0.00015,
         designMargin: (parseFloat(designMargin) || 15) / 100,
+        ...(preheaterTempRise && { preheaterTempRise: parseFloat(preheaterTempRise) || 4 }),
         ...overrides,
         ...tvcParams,
       });
@@ -199,6 +201,7 @@ export default function MEDWizardClient() {
     ductLoss,
     foulingResistance,
     designMargin,
+    preheaterTempRise,
   ]);
 
   // ── BOM generation ──────────────────────────────────────────────────────
@@ -404,6 +407,8 @@ export default function MEDWizardClient() {
           onCondenserApproachChange={setCondenserApproach}
           onCondenserOutletTempChange={setCondenserOutletTemp}
           onTogglePreheater={togglePreheater}
+          preheaterTempRise={preheaterTempRise}
+          onPreheaterTempRiseChange={setPreheaterTempRise}
           onTvcEnabledChange={setTvcEnabled}
           onTvcMotivePressureChange={setTvcMotivePressure}
           onTvcSuperheatChange={setTvcSuperheat}

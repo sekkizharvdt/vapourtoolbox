@@ -249,6 +249,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
           }),
         ...(input.tvcEntrainedEffect && { tvcEntrainedEffect: input.tvcEntrainedEffect }),
       }),
+    ...(input.preheaterTempRise && { preheaterTempRise: input.preheaterTempRise }),
   };
 
   // ── 5. Solve H&M balance (new engine) ───────────────────────────────

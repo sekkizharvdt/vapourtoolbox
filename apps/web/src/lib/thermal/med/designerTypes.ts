@@ -110,6 +110,10 @@ export interface MEDDesignerInput {
   /** Effect from which vapor is entrained by the TVC (1-based, default: last effect) */
   tvcEntrainedEffect?: number;
 
+  // ── Preheater tuning ─────────────────────────────────────────────────
+  /** Target temperature rise per preheater in °C (default 4). Higher = more vapor diverted. */
+  preheaterTempRise?: number;
+
   // ── Per-effect overrides (user refinement after initial auto-design) ──
   /** Override tube length per effect (array indexed by effect 0..n-1) */
   tubeLengthOverrides?: (number | null)[];

@@ -113,6 +113,10 @@ export interface MEDEngineInput {
   tvcMotiveTemperature?: number;
   /** Effect from which vapor is entrained by the TVC (1-based, default: last effect) */
   tvcEntrainedEffect?: number;
+
+  // ---- Preheater tuning ----
+  /** Target temperature rise per preheater in °C (default 4). Controls vapor diverted. */
+  preheaterTempRise?: number;
 }
 
 // ============================================================================
@@ -519,7 +523,8 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         // Estimate vapor flow to divert: enough to raise SW temp by ~3-4°C
         // Q = m_sw × Cp × ΔT = m_vapor × hfg
         const cpSW = getSeawaterSpecificHeat(swSalinity, currentSWTemp);
-        const targetTempRise = Math.min(4.0, vaporTemp - currentSWTemp - 2.0); // leave 2°C approach
+        const maxRise = input.preheaterTempRise ?? 4.0;
+        const targetTempRise = Math.min(maxRise, vaporTemp - currentSWTemp - 2.0); // leave 2°C approach
         if (targetTempRise <= 0.5) continue; // skip if no meaningful heating possible
 
         const qNeeded = (totalSWFlow * cpSW * targetTempRise) / 3600; // kW
