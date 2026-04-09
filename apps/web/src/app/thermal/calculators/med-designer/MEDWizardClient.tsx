@@ -482,15 +482,9 @@ export default function MEDWizardClient() {
           onTvcSuperheatChange={setTvcSuperheat}
           onTvcEntrainedEffectChange={setTvcEntrainedEffect}
           tubeMaterial={tubeMaterial}
-          nea={nea}
-          demisterLoss={demisterLoss}
-          ductLoss={ductLoss}
           foulingResistance={foulingResistance}
           designMargin={designMargin}
           onTubeMaterialChange={setTubeMaterial}
-          onNeaChange={setNea}
-          onDemisterLossChange={setDemisterLoss}
-          onDuctLossChange={setDuctLoss}
           onFoulingResistanceChange={setFoulingResistance}
           onDesignMarginChange={setDesignMargin}
           includeTurndown={includeTurndown}

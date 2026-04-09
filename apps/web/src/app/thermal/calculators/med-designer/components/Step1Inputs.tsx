@@ -59,15 +59,10 @@ interface Step1InputsProps {
   onTvcEntrainedEffectChange: (v: string) => void;
   // Advanced parameters
   tubeMaterial: string;
-  nea: string;
-  demisterLoss: string;
-  ductLoss: string;
   foulingResistance: string;
   designMargin: string;
   onTubeMaterialChange: (v: string) => void;
-  onNeaChange: (v: string) => void;
-  onDemisterLossChange: (v: string) => void;
-  onDuctLossChange: (v: string) => void;
+  // NEA, demister loss, duct loss are computed by the engine — not user inputs
   onFoulingResistanceChange: (v: string) => void;
   onDesignMarginChange: (v: string) => void;
   includeTurndown: boolean;
@@ -118,15 +113,9 @@ export function Step1Inputs({
   onTvcSuperheatChange,
   onTvcEntrainedEffectChange,
   tubeMaterial,
-  nea,
-  demisterLoss,
-  ductLoss,
   foulingResistance,
   designMargin,
   onTubeMaterialChange,
-  onNeaChange,
-  onDemisterLossChange,
-  onDuctLossChange,
   onFoulingResistanceChange,
   onDesignMarginChange,
   includeTurndown,
@@ -475,45 +464,20 @@ export function Step1Inputs({
                 sx={{ width: 160 }}
               />
             </Stack>
-            <Divider />
-            <Typography variant="caption" color="text.secondary">
-              Temperature losses per effect
-            </Typography>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="NEA"
-                value={nea}
-                onChange={(e) => onNeaChange(e.target.value)}
-                type="number"
-                size="small"
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
-                }}
-                sx={{ width: 120 }}
-              />
-              <TextField
-                label="Demister Loss"
-                value={demisterLoss}
-                onChange={(e) => onDemisterLossChange(e.target.value)}
-                type="number"
-                size="small"
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
-                }}
-                sx={{ width: 140 }}
-              />
-              <TextField
-                label="Duct Loss"
-                value={ductLoss}
-                onChange={(e) => onDuctLossChange(e.target.value)}
-                type="number"
-                size="small"
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
-                }}
-                sx={{ width: 120 }}
-              />
-            </Stack>
+            {designResult && designResult.effects.length > 0 && (
+              <>
+                <Divider />
+                <Typography variant="caption" color="text.secondary">
+                  Temperature losses (computed per effect by engine)
+                </Typography>
+                <Typography variant="body2">
+                  NEA: {fmt(designResult.effects[0]!.nea, 2)}&ndash;
+                  {fmt(designResult.effects[designResult.effects.length - 1]!.nea, 2)}&deg;C |
+                  Demister: {fmt(designResult.effects[0]!.demisterLoss, 2)}&deg;C | Duct:{' '}
+                  {fmt(designResult.effects[0]!.pressureDropLoss, 2)}&deg;C
+                </Typography>
+              </>
+            )}
             <Divider />
             <FormControlLabel
               control={
@@ -536,9 +500,15 @@ export function Step1Inputs({
             Performance Summary
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-            {tubeMaterial} tubes | NEA {nea}&deg;C + Demister {demisterLoss}&deg;C + Duct {ductLoss}
-            &deg;C = {fmt(parseFloat(nea) + parseFloat(demisterLoss) + parseFloat(ductLoss), 2)}
-            &deg;C/effect | Fouling {foulingResistance} m&sup2;&middot;K/W | Margin {designMargin}%
+            {tubeMaterial} tubes | Fouling {foulingResistance} m&sup2;&middot;K/W | Margin{' '}
+            {designMargin}% | Non-BPE losses:{' '}
+            {fmt(
+              (designResult.effects[0]?.nea ?? 0) +
+                (designResult.effects[0]?.demisterLoss ?? 0) +
+                (designResult.effects[0]?.pressureDropLoss ?? 0),
+              2
+            )}
+            &deg;C/effect (computed)
           </Typography>
           <Stack direction="row" spacing={4} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
             <Box>
