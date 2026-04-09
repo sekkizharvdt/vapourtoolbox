@@ -72,6 +72,10 @@ export default function MEDWizardClient() {
   const [foulingResistance, setFoulingResistance] = useState('0.00015');
   const [designMargin, setDesignMargin] = useState('15');
   const [includeBrineRecirculation, setIncludeBrineRecirculation] = useState(true);
+  const [antiscalantDose, setAntiscalantDose] = useState('2');
+  const [vacuumConfig, setVacuumConfig] = useState<
+    'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
+  >('two_stage_ejector');
   const [includeTurndown, setIncludeTurndown] = useState(false);
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
@@ -208,6 +212,8 @@ export default function MEDWizardClient() {
           return Object.keys(map).length > 0 ? { preheaterTempRiseMap: map } : {};
         })(),
         includeBrineRecirculation,
+        antiscalantDoseMgL: parseFloat(antiscalantDose) || 2,
+        vacuumTrainConfig: vacuumConfig,
         ...(includeTurndown && { includeTurndown: true }),
         ...overrides,
         ...tvcParams,
@@ -242,6 +248,8 @@ export default function MEDWizardClient() {
     preheaterTempRise,
     preheaterTempRiseMap,
     includeBrineRecirculation,
+    antiscalantDose,
+    vacuumConfig,
     includeTurndown,
   ]);
 
@@ -492,6 +500,12 @@ export default function MEDWizardClient() {
           onDesignMarginChange={setDesignMargin}
           includeBrineRecirculation={includeBrineRecirculation}
           onIncludeBrineRecirculationChange={setIncludeBrineRecirculation}
+          antiscalantDose={antiscalantDose}
+          onAntiscalantDoseChange={setAntiscalantDose}
+          vacuumConfig={vacuumConfig}
+          onVacuumConfigChange={(v) =>
+            setVacuumConfig(v as 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid')
+          }
           includeTurndown={includeTurndown}
           onIncludeTurndownChange={setIncludeTurndown}
           designResult={designResult}

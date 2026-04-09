@@ -67,6 +67,10 @@ interface Step1InputsProps {
   onDesignMarginChange: (v: string) => void;
   includeBrineRecirculation: boolean;
   onIncludeBrineRecirculationChange: (v: boolean) => void;
+  antiscalantDose: string;
+  onAntiscalantDoseChange: (v: string) => void;
+  vacuumConfig: string;
+  onVacuumConfigChange: (v: string) => void;
   includeTurndown: boolean;
   onIncludeTurndownChange: (v: boolean) => void;
   designResult: MEDDesignerResult | null;
@@ -122,6 +126,10 @@ export function Step1Inputs({
   onDesignMarginChange,
   includeBrineRecirculation,
   onIncludeBrineRecirculationChange,
+  antiscalantDose,
+  onAntiscalantDoseChange,
+  vacuumConfig,
+  onVacuumConfigChange,
   includeTurndown,
   onIncludeTurndownChange,
   designResult,
@@ -493,6 +501,34 @@ export function Step1Inputs({
               }
               label="Include brine recirculation (maintains tube wetting at design load)"
             />
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <TextField
+                select
+                size="small"
+                label="Vacuum System"
+                value={vacuumConfig}
+                onChange={(e) => onVacuumConfigChange(e.target.value)}
+                helperText="NCG extraction method"
+                sx={{ minWidth: 260 }}
+              >
+                <MenuItem value="single_ejector">Single-stage steam ejector</MenuItem>
+                <MenuItem value="two_stage_ejector">Two-stage steam ejector</MenuItem>
+                <MenuItem value="lrvp_only">Liquid ring vacuum pump (LRVP)</MenuItem>
+                <MenuItem value="hybrid">Hybrid (ejector + LRVP)</MenuItem>
+              </TextField>
+              <TextField
+                size="small"
+                label="Anti-scalant Dose"
+                value={antiscalantDose}
+                onChange={(e) => onAntiscalantDoseChange(e.target.value)}
+                type="number"
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">mg/L</InputAdornment>,
+                }}
+                helperText="Typical 1-5 mg/L"
+                sx={{ maxWidth: 160 }}
+              />
+            </Box>
             <FormControlLabel
               control={
                 <Checkbox
