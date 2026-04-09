@@ -785,6 +785,133 @@ export function generateMEDBOM(result: MEDDesignerResult): MEDCompleteBOM {
     }
   );
 
+  // ── VACUUM SYSTEM ─────────────────────────────────────────────────────
+  if (result.vacuumSystem) {
+    const vs = result.vacuumSystem;
+    equipment.push({
+      itemNumber: `${nEff + 3}.1`,
+      category: 'MISCELLANEOUS',
+      description: `Vacuum System — ${vs.trainConfig}`,
+      tagNumber: 'VS-01',
+      quantity: 1,
+      unit: 'lot',
+      material: 'SS316L / Cast Iron',
+      specification: `NCG load: ${vs.totalDryNcgKgH.toFixed(1)} kg/h, Motive steam: ${Math.round(vs.totalMotiveSteamKgH)} kg/h`,
+      netWeightKg: 0,
+      wastagePercent: 0,
+      grossWeightKg: 0,
+      totalWeightKg: 0,
+      size: `Last effect: ${Math.round(vs.lastEffectPressureMbar)} mbar`,
+      notes: `Power: ${vs.totalPowerKW.toFixed(1)} kW. Evacuation: ${Math.round(vs.evacuationTimeMinutes)} min`,
+    });
+  }
+
+  // ── CHEMICAL DOSING ──────────────────────────────────────────────────
+  if (result.dosing) {
+    const dos = result.dosing;
+    equipment.push(
+      {
+        itemNumber: `${nEff + 4}.1`,
+        category: 'MISCELLANEOUS',
+        description: 'Anti-scalant Dosing Pump',
+        tagNumber: 'DP-AS-01',
+        quantity: 2,
+        unit: 'nos',
+        material: 'PVDF wetted parts',
+        specification: `Flow: ${dos.chemicalFlowLh.toFixed(2)} L/h, Metering type`,
+        netWeightKg: 15,
+        wastagePercent: 0,
+        grossWeightKg: 15,
+        totalWeightKg: 30,
+        size: dos.dosingLineOD,
+        notes: '1 duty + 1 standby',
+      },
+      {
+        itemNumber: `${nEff + 4}.2`,
+        category: 'TANK',
+        description: 'Anti-scalant Storage Tank',
+        tagNumber: 'TK-AS-01',
+        quantity: 1,
+        unit: 'nos',
+        material: 'HDPE',
+        specification: `Volume: ${dos.storageTankM3.toFixed(2)} m³`,
+        netWeightKg: Math.round(dos.storageTankM3 * 50),
+        wastagePercent: 0,
+        grossWeightKg: Math.round(dos.storageTankM3 * 50),
+        totalWeightKg: Math.round(dos.storageTankM3 * 50),
+        size: `${dos.storageTankM3.toFixed(2)} m³`,
+        notes: `Monthly consumption: ${Math.round(dos.monthlyConsumptionKg)} kg`,
+      }
+    );
+  }
+
+  // ── SIPHON PIPING ────────────────────────────────────────────────────
+  const siphons = result.auxiliaryEquipment?.siphons ?? [];
+  for (let si = 0; si < siphons.length; si++) {
+    const s = siphons[si]!;
+    equipment.push({
+      itemNumber: `${nEff + 5}.${si + 1}`,
+      category: 'PIPING',
+      description: `${s.fluidType === 'distillate' ? 'Distillate' : 'Brine'} Siphon E${s.fromEffect}→E${s.toEffect}`,
+      tagNumber: `SP-${s.fluidType === 'distillate' ? 'D' : 'B'}-${s.fromEffect}${s.toEffect}`,
+      quantity: 1,
+      unit: 'nos',
+      material: s.fluidType === 'distillate' ? 'SS316L' : 'Duplex 2205',
+      specification: `${s.pipeSize}, Min height: ${s.minimumHeight.toFixed(3)} m`,
+      netWeightKg: 0,
+      wastagePercent: 10,
+      grossWeightKg: 0,
+      totalWeightKg: 0,
+      size: s.pipeSize,
+      notes: `Flow: ${s.flowRate.toFixed(2)} T/h, Velocity: ${s.velocity.toFixed(2)} m/s`,
+    });
+  }
+
+  // ── LINE SIZING (HEADERS) ────────────────────────────────────────────
+  const lines = result.auxiliaryEquipment?.lineSizing ?? [];
+  for (let li = 0; li < lines.length; li++) {
+    const l = lines[li]!;
+    equipment.push({
+      itemNumber: `${nEff + 6}.${li + 1}`,
+      category: 'PIPING',
+      description: `${l.service} Header`,
+      tagNumber: `LN-${li + 1}`,
+      quantity: 1,
+      unit: 'lot',
+      material: 'Duplex 2205',
+      specification: `${l.pipeSize} (${l.dn})`,
+      netWeightKg: 0,
+      wastagePercent: 10,
+      grossWeightKg: 0,
+      totalWeightKg: 0,
+      size: `${l.pipeSize} ${l.dn}`,
+      notes: `Flow: ${l.flowRate.toFixed(2)} T/h, Vel: ${l.velocity.toFixed(2)} m/s (${l.velocityStatus})`,
+    });
+  }
+
+  // ── SHELL NOZZLES ────────────────────────────────────────────────────
+  const nozzleSchedule = result.auxiliaryEquipment?.nozzleSchedule;
+  if (nozzleSchedule && nozzleSchedule.nozzles.length > 0) {
+    nozzleSchedule.nozzles.forEach((nz, ni) => {
+      equipment.push({
+        itemNumber: `${nEff + 7}.${ni + 1}`,
+        category: 'MISCELLANEOUS',
+        description: `${nz.service.replace(/_/g, ' ')} Nozzle — E${nz.effect}`,
+        tagNumber: `NZ-${nz.effect}-${nz.service.slice(0, 2).toUpperCase()}`,
+        quantity: 1,
+        unit: 'nos',
+        material: 'Duplex 2205',
+        specification: `${nz.pipeSize} (${nz.dn})`,
+        netWeightKg: 0,
+        wastagePercent: 0,
+        grossWeightKg: 0,
+        totalWeightKg: 0,
+        size: nz.pipeSize,
+        notes: `Flow: ${nz.flowRate.toFixed(2)} T/h, Vel: ${nz.velocity.toFixed(2)} m/s (${nz.velocityStatus})`,
+      });
+    });
+  }
+
   // ── SUMMARY ──────────────────────────────────────────────────────────
   const totalWeight = equipment.reduce((s, e) => s + e.totalWeightKg, 0);
   const categorySummary = new Map<MEDBOMCategory, { items: number; weight: number }>();

@@ -68,6 +68,8 @@ interface Step1InputsProps {
   onDuctLossChange: (v: string) => void;
   onFoulingResistanceChange: (v: string) => void;
   onDesignMarginChange: (v: string) => void;
+  includeTurndown: boolean;
+  onIncludeTurndownChange: (v: boolean) => void;
   designResult: MEDDesignerResult | null;
   onProceed: () => void;
 }
@@ -123,6 +125,8 @@ export function Step1Inputs({
   onDuctLossChange,
   onFoulingResistanceChange,
   onDesignMarginChange,
+  includeTurndown,
+  onIncludeTurndownChange,
   designResult,
   onProceed,
 }: Step1InputsProps) {
@@ -488,6 +492,17 @@ export function Step1Inputs({
                 sx={{ width: 120 }}
               />
             </Stack>
+            <Divider />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={includeTurndown}
+                  onChange={(e) => onIncludeTurndownChange(e.target.checked)}
+                />
+              }
+              label="Include turndown analysis (30/50/70/100% load)"
+            />
           </Stack>
         </AccordionDetails>
       </Accordion>

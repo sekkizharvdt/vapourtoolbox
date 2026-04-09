@@ -70,6 +70,7 @@ export default function MEDWizardClient() {
   const [ductLoss, setDuctLoss] = useState('0.30');
   const [foulingResistance, setFoulingResistance] = useState('0.00015');
   const [designMargin, setDesignMargin] = useState('15');
+  const [includeTurndown, setIncludeTurndown] = useState(false);
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
   const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>(
@@ -174,6 +175,7 @@ export default function MEDWizardClient() {
         foulingResistance: parseFloat(foulingResistance) || 0.00015,
         designMargin: (parseFloat(designMargin) || 15) / 100,
         ...(preheaterTempRise && { preheaterTempRise: parseFloat(preheaterTempRise) || 4 }),
+        ...(includeTurndown && { includeTurndown: true }),
         ...overrides,
         ...tvcParams,
       });
@@ -205,6 +207,7 @@ export default function MEDWizardClient() {
     foulingResistance,
     designMargin,
     preheaterTempRise,
+    includeTurndown,
   ]);
 
   // ── BOM generation ──────────────────────────────────────────────────────
@@ -454,6 +457,8 @@ export default function MEDWizardClient() {
           onDuctLossChange={setDuctLoss}
           onFoulingResistanceChange={setFoulingResistance}
           onDesignMarginChange={setDesignMargin}
+          includeTurndown={includeTurndown}
+          onIncludeTurndownChange={setIncludeTurndown}
           designResult={designResult}
           onProceed={() => setActiveStep(1)}
         />
@@ -679,6 +684,58 @@ export default function MEDWizardClient() {
 
           {/* Auxiliary Equipment */}
           <AuxiliaryEquipmentSections result={designResult} />
+
+          {/* Turndown Analysis */}
+          {designResult.turndownAnalysis && (
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+                Turndown Analysis
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Minimum stable load: {designResult.turndownAnalysis.minimumLoadPercent}%
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Load</TableCell>
+                    <TableCell align="right">Steam (T/h)</TableCell>
+                    <TableCell align="right">Distillate (m&sup3;/day)</TableCell>
+                    <TableCell align="right">GOR</TableCell>
+                    <TableCell align="center">Wetting OK</TableCell>
+                    <TableCell align="center">Siphons OK</TableCell>
+                    <TableCell align="center">Feasible</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {designResult.turndownAnalysis.points.map((pt) => (
+                    <TableRow
+                      key={pt.loadPercent}
+                      sx={{
+                        bgcolor: !pt.feasible ? 'error.50' : undefined,
+                      }}
+                    >
+                      <TableCell>{pt.loadPercent}%</TableCell>
+                      <TableCell align="right">{fmt(pt.steamFlow / 1000, 2)}</TableCell>
+                      <TableCell align="right">{Math.round(pt.distillateM3Day)}</TableCell>
+                      <TableCell align="right">{fmt(pt.gor, 2)}</TableCell>
+                      <TableCell align="center">
+                        {pt.wettingAdequacy.every((w) => w.adequate) ? '\u2713' : '\u2717'}
+                      </TableCell>
+                      <TableCell align="center">{pt.siphonsSealOk ? '\u2713' : '\u2717'}</TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={pt.feasible ? 'Yes' : 'No'}
+                          size="small"
+                          color={pt.feasible ? 'success' : 'error'}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          )}
 
           {/* GA Drawing */}
           <MEDGeneralArrangement result={designResult} />
