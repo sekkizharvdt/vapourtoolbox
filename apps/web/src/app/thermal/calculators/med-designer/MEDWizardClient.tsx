@@ -118,26 +118,45 @@ export default function MEDWizardClient() {
         overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
       } else if (geoMode === 'fixed_length') {
         overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
-      } else if (geoMode === 'uniform' && designResult) {
+      } else if (geoMode === 'uniform') {
         // Uniform: ALL effects get the same tubes AND length.
-        // Derive the missing parameter from the MAXIMUM required area
-        // across all effects, plus user-specified overdesign margin.
-        const tubeOD = designResult.inputs.tubeOD ?? 25.4;
-        const areaPerTubePerM = (Math.PI * tubeOD) / 1000;
-        const maxReqArea = Math.max(...designResult.effects.map((e) => e.requiredArea));
-        const marginFrac = 1 + (parseFloat(uniformMargin) || 15) / 100;
-        const targetArea = maxReqArea * marginFrac;
-        if (geoUniformFix === 'tubes') {
-          const tubes = Math.round(gv);
-          const length =
-            tubes > 0 ? Math.ceil((targetArea / (tubes * areaPerTubePerM)) * 10) / 10 : 1;
-          overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
-          overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
-        } else {
-          const length = gv;
-          const tubes = length > 0 ? Math.ceil(targetArea / (areaPerTubePerM * length)) : 1;
-          overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
-          overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
+        // First run without overrides to get max required area, then derive both.
+        try {
+          const baseRun = designMED({
+            steamFlow: sf,
+            steamTemperature: st,
+            seawaterTemperature: sw,
+            targetGOR: 10,
+            numberOfEffects: nEff,
+            ...(preheaterEffects.length > 0 && { preheaterEffects }),
+            numberOfPreheaters: preheaterEffects.length,
+            ...(sal > 0 && { seawaterSalinity: sal }),
+            ...(maxBrine > 0 && { maxBrineSalinity: maxBrine }),
+          });
+          const tubeOD = baseRun.inputs.tubeOD ?? 25.4;
+          const areaPerTubePerM = (Math.PI * tubeOD) / 1000;
+          const maxReqArea = Math.max(...baseRun.effects.map((e) => e.requiredArea));
+          const marginFrac = 1 + (parseFloat(uniformMargin) || 15) / 100;
+          const targetArea = maxReqArea * marginFrac;
+          if (geoUniformFix === 'tubes') {
+            const tubes = Math.round(gv);
+            const length =
+              tubes > 0 ? Math.ceil((targetArea / (tubes * areaPerTubePerM)) * 10) / 10 : 1;
+            overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
+            overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
+          } else {
+            const length = gv;
+            const tubes = length > 0 ? Math.ceil(targetArea / (areaPerTubePerM * length)) : 1;
+            overrides.tubeCountOverrides = Array.from({ length: nEff }, () => tubes);
+            overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => length);
+          }
+        } catch {
+          // Fallback: just pass the user's value, pipeline derives the other
+          if (geoUniformFix === 'tubes') {
+            overrides.tubeCountOverrides = Array.from({ length: nEff }, () => Math.round(gv));
+          } else {
+            overrides.tubeLengthOverrides = Array.from({ length: nEff }, () => gv);
+          }
         }
       }
     }
