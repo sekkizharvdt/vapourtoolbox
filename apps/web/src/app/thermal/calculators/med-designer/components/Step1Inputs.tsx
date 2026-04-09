@@ -65,6 +65,8 @@ interface Step1InputsProps {
   // NEA, demister loss, duct loss are computed by the engine — not user inputs
   onFoulingResistanceChange: (v: string) => void;
   onDesignMarginChange: (v: string) => void;
+  includeBrineRecirculation: boolean;
+  onIncludeBrineRecirculationChange: (v: boolean) => void;
   includeTurndown: boolean;
   onIncludeTurndownChange: (v: boolean) => void;
   designResult: MEDDesignerResult | null;
@@ -118,6 +120,8 @@ export function Step1Inputs({
   onTubeMaterialChange,
   onFoulingResistanceChange,
   onDesignMarginChange,
+  includeBrineRecirculation,
+  onIncludeBrineRecirculationChange,
   includeTurndown,
   onIncludeTurndownChange,
   designResult,
@@ -479,6 +483,16 @@ export function Step1Inputs({
               </>
             )}
             <Divider />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={includeBrineRecirculation}
+                  onChange={(e) => onIncludeBrineRecirculationChange(e.target.checked)}
+                />
+              }
+              label="Include brine recirculation (maintains tube wetting at design load)"
+            />
             <FormControlLabel
               control={
                 <Checkbox

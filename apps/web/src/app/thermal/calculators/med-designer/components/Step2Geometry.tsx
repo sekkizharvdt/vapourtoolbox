@@ -238,11 +238,13 @@ export function Step2Geometry({
               <TableBody>
                 {effects.map((e) => {
                   const eShellID = e.shellODmm - 2 * shellThk;
-                  // Wetting rate: Γ = spray_flow / (2 × L × nRows) in kg/(m·s)
+                  // Wetting rate: Γ = total_spray / (2 × L × nRows) in kg/(m·s)
+                  // Total spray = feed + recirculation (both contribute to tube wetting)
                   const nRows = e.bundleGeometry?.numberOfRows ?? 0;
+                  const totalSprayTh = e.minSprayFlow + e.brineRecirculation;
                   const gamma =
                     nRows > 0 && e.tubeLength > 0
-                      ? (e.minSprayFlow * 1000) / 3600 / (2 * e.tubeLength * nRows)
+                      ? (totalSprayTh * 1000) / 3600 / (2 * e.tubeLength * nRows)
                       : 0;
                   const gammaOk = gamma >= 0.035;
                   return (

@@ -71,6 +71,7 @@ export default function MEDWizardClient() {
   const [ductLoss, setDuctLoss] = useState('0.30');
   const [foulingResistance, setFoulingResistance] = useState('0.00015');
   const [designMargin, setDesignMargin] = useState('15');
+  const [includeBrineRecirculation, setIncludeBrineRecirculation] = useState(true);
   const [includeTurndown, setIncludeTurndown] = useState(false);
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
@@ -206,6 +207,7 @@ export default function MEDWizardClient() {
           }
           return Object.keys(map).length > 0 ? { preheaterTempRiseMap: map } : {};
         })(),
+        includeBrineRecirculation,
         ...(includeTurndown && { includeTurndown: true }),
         ...overrides,
         ...tvcParams,
@@ -239,6 +241,7 @@ export default function MEDWizardClient() {
     designMargin,
     preheaterTempRise,
     preheaterTempRiseMap,
+    includeBrineRecirculation,
     includeTurndown,
   ]);
 
@@ -487,6 +490,8 @@ export default function MEDWizardClient() {
           onTubeMaterialChange={setTubeMaterial}
           onFoulingResistanceChange={setFoulingResistance}
           onDesignMarginChange={setDesignMargin}
+          includeBrineRecirculation={includeBrineRecirculation}
+          onIncludeBrineRecirculationChange={setIncludeBrineRecirculation}
           includeTurndown={includeTurndown}
           onIncludeTurndownChange={setIncludeTurndown}
           designResult={designResult}
