@@ -535,23 +535,38 @@ export function MEDVerificationReportPDF({
         <ReportSection title="8. Wetting Rate Analysis">
           <ReportTable
             columns={[
-              { key: 'effect', header: 'Effect', width: '10%' },
-              { key: 'minSpray', header: 'Min Spray Flow (T/h)', width: '20%', align: 'right' },
-              { key: 'recirc', header: 'Recirculation (T/h)', width: '20%', align: 'right' },
-              { key: 'minGamma', header: 'Min \u0393 (kg/m·s)', width: '25%', align: 'right' },
-              { key: 'status', header: 'Status', width: '25%', align: 'center' },
+              { key: 'effect', header: 'Effect', width: '8%' },
+              { key: 'feed', header: 'Feed (T/h)', width: '14%', align: 'right' },
+              { key: 'recirc', header: 'Recirc (T/h)', width: '14%', align: 'right' },
+              { key: 'totalSpray', header: 'Total Spray (T/h)', width: '16%', align: 'right' },
+              { key: 'gamma', header: '\u0393 (kg/m·s)', width: '16%', align: 'right' },
+              { key: 'minGamma', header: 'Min \u0393', width: '14%', align: 'right' },
+              { key: 'status', header: 'Status', width: '18%', align: 'center' },
             ]}
-            rows={r.effects.map((e) => ({
-              effect: `E${e.effect}`,
-              minSpray: fmt(e.minSprayFlow, 2),
-              recirc: fmt(e.brineRecirculation, 2),
-              minGamma: fmt(Number(rd.minimumWettingRate ?? 0.035), 3),
-              status: e.brineRecirculation > 0 ? 'Recirculation required' : 'Adequate',
-            }))}
+            rows={r.effects.map((e) => {
+              const totalSpray = e.minSprayFlow + e.brineRecirculation;
+              const nRows = e.bundleGeometry?.numberOfRows ?? 0;
+              const gamma =
+                nRows > 0 && e.tubeLength > 0
+                  ? (totalSpray * 1000) / 3600 / (2 * e.tubeLength * nRows)
+                  : 0;
+              const gammaMin = Number(rd.minimumWettingRate ?? 0.035);
+              return {
+                effect: `E${e.effect}`,
+                feed: fmt(e.minSprayFlow, 2),
+                recirc: fmt(e.brineRecirculation, 2),
+                totalSpray: fmt(totalSpray, 2),
+                gamma: fmt(gamma, 3),
+                minGamma: fmt(gammaMin, 3),
+                status: gamma >= gammaMin ? 'Adequate' : 'Insufficient',
+              };
+            })}
             totalRow={{
               effect: 'Total',
-              minSpray: '',
+              feed: '',
               recirc: fmt(r.totalBrineRecirculation, 2),
+              totalSpray: '',
+              gamma: '',
               minGamma: '',
               status: '',
             }}

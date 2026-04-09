@@ -234,13 +234,13 @@ export function MEDBriefReportPDF({
               },
               {
                 stream: 'Condenser SW (in)',
-                flow: fmt(r.condenser.seawaterFlowM3h * 1.024, 0),
+                flow: fmt(r.condenser.seawaterFlow, 0),
                 temp: fmt(r.inputs.seawaterTemperature),
                 tds: String(r.inputs.resolvedDefaults.seawaterSalinity),
               },
               {
                 stream: 'Condenser SW (out)',
-                flow: fmt(r.condenser.seawaterFlowM3h * 1.024, 0),
+                flow: fmt(r.condenser.seawaterFlow, 0),
                 temp: fmt(Number(r.inputs.resolvedDefaults.condenserSWOutlet ?? 35)),
                 tds: String(r.inputs.resolvedDefaults.seawaterSalinity),
               },
