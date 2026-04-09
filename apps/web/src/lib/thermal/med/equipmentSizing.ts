@@ -268,9 +268,6 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   // ---- Shell-side HTC (falling film evaporation) ----
   // Chun-Seban falling film correlation (used by WET Excel programs):
   //   h = 0.18 × Re_film^0.24 × Pr^0.66 × (μ²/(k³×ρ²×g))^(-1/3)
-  // Requires film Reynolds number which depends on wetting rate (tube count unknown
-  // at this stage). Use design wetting rate Γ ≈ 0.045 kg/(m·s) for HTC estimation.
-  const designWettingRate = 0.045; // kg/(m·s) — target with recirculation
   const brineSalForProps = Math.min(
     inputs.seawaterSalinity * inputs.brineConcentrationFactor,
     120000
@@ -279,50 +276,75 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   const k_ff = getSeawaterThermalConductivity(brineSalForProps, effectTemp);
   const rho_ff = getSeawaterDensity(brineSalForProps, effectTemp);
   const cp_ff = getSeawaterSpecificHeat(brineSalForProps, effectTemp) * 1000; // kJ→J
-  const Re_film = (4 * designWettingRate) / mu_ff;
   const Pr_ff = (cp_ff * mu_ff) / k_ff;
   const GRAVITY = 9.80665;
   const filmFactor = Math.pow(
     (mu_ff * mu_ff) / (k_ff * k_ff * k_ff * rho_ff * rho_ff * GRAVITY),
     -1 / 3
   );
-  const shellSideHTC = 0.18 * Math.pow(Re_film, 0.24) * Math.pow(Pr_ff, 0.66) * filmFactor;
+
+  /** Compute Chun-Seban shell-side HTC for a given wetting rate */
+  const computeShellSideHTC = (gamma: number): number => {
+    const Re = (4 * gamma) / mu_ff;
+    return 0.18 * Math.pow(Re, 0.24) * Math.pow(Pr_ff, 0.66) * filmFactor;
+  };
 
   // ---- Overall HTC ----
   const tubeID = tubeSpec.od - 2 * tubeSpec.thickness; // mm
   const tubeWallConductivity = MED_TUBE_CONDUCTIVITY[tubeMaterial] ?? 15; // W/(m·K)
-  const overallResult = calculateOverallHTC({
-    tubeSideHTC,
-    shellSideHTC,
-    tubeOD: tubeSpec.od / 1000, // m
-    tubeID: tubeID / 1000, // m
-    tubeWallConductivity,
-    tubeSideFouling: DEFAULT_FOULING_DISTILLATE,
-    shellSideFouling: DEFAULT_FOULING_SEAWATER,
-  });
-  const overallHTC = overallResult.overallHTC;
 
-  // ---- Area calculation ----
-  const requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, effectiveDeltaT);
-  const designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
+  const computeOverallHTCEvap = (shellHTC: number): number => {
+    const result = calculateOverallHTC({
+      tubeSideHTC,
+      shellSideHTC: shellHTC,
+      tubeOD: tubeSpec.od / 1000,
+      tubeID: tubeID / 1000,
+      tubeWallConductivity,
+      tubeSideFouling: DEFAULT_FOULING_DISTILLATE,
+      shellSideFouling: DEFAULT_FOULING_SEAWATER,
+    });
+    return result.overallHTC;
+  };
 
-  // ---- Tube count ----
+  // ---- Pass 1: Size with assumed design wetting rate Γ ≈ 0.045 kg/(m·s) ----
+  const designWettingRate = 0.045;
+  let shellSideHTC = computeShellSideHTC(designWettingRate);
+  let overallHTC = computeOverallHTCEvap(shellSideHTC);
+  let requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, effectiveDeltaT);
+  let designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
   const tubeOuterArea = Math.PI * (tubeSpec.od / 1000) * tubeSpec.length; // m² per tube
-  const tubeCount = Math.ceil(designArea / tubeOuterArea);
+  let tubeCount = Math.ceil(designArea / tubeOuterArea);
+  const pitch = tubeSpec.od * 1.315; // triangular pitch ≈ 1.315 × OD (33.4/25.4)
+  const rowSpacing = pitch * Math.sin((60 * Math.PI) / 180); // pitch × sin(60°)
+  let bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR);
+  let nRows = bundleDiameter > 0 ? Math.floor(bundleDiameter / rowSpacing) : 1;
 
-  // ---- Bundle diameter (triangular pitch) ----
-  const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR); // mm
+  // ---- Pass 2: Re-iterate HTC with actual wetting rate ----
+  // Resolves circular dependency: HTC → area → tubeCount → wettingRate → HTC
+  const sprayFlow = effect.sprayWater.flow / 3600; // kg/s
+  const actualGamma =
+    nRows > 0 && tubeSpec.length > 0
+      ? sprayFlow / (2 * tubeSpec.length * nRows)
+      : designWettingRate;
+
+  if (Math.abs(actualGamma - designWettingRate) / designWettingRate > 0.05) {
+    // Wetting rate differs from assumption by >5% — recompute
+    const revisedShellHTC = computeShellSideHTC(actualGamma);
+    if (Math.abs(revisedShellHTC - shellSideHTC) / shellSideHTC > 0.05) {
+      shellSideHTC = revisedShellHTC;
+      overallHTC = computeOverallHTCEvap(shellSideHTC);
+      requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, effectiveDeltaT);
+      designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
+      tubeCount = Math.ceil(designArea / tubeOuterArea);
+      bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR);
+      nRows = bundleDiameter > 0 ? Math.floor(bundleDiameter / rowSpacing) : 1;
+    }
+  }
 
   // ---- Wetting rate verification ----
   // VGB "Engineers Guide to Desalination" (Appendix C):
   //   Γ = ṁ / (2 × L × n_rows)
-  // where n_rows = number of tube rows the liquid cascades through
-  // from top to bottom of the bundle.
   // Validated against BARC as-built: recirc ratio 2.18× matches formula.
-  const sprayFlow = effect.sprayWater.flow / 3600; // kg/s
-  const pitch = tubeSpec.od * 1.315; // triangular pitch ≈ 1.315 × OD (33.4/25.4)
-  const rowSpacing = pitch * Math.sin((60 * Math.PI) / 180); // pitch × sin(60°)
-  const nRows = bundleDiameter > 0 ? Math.floor(bundleDiameter / rowSpacing) : 1;
   const wettingRate =
     nRows > 0 && tubeSpec.length > 0 ? sprayFlow / (2 * tubeSpec.length * nRows) : 0;
   const minimumWettingRate = MIN_WETTING_RATE;
@@ -579,7 +601,8 @@ function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
 
   // ---- Bundle & shell ----
   const bundleDiameter = tubeSpec.od * Math.pow(tubeCount / K1_TRIANGULAR, 1 / N1_TRIANGULAR);
-  const shellID = bundleDiameter + 20;
+  // Minimum 50mm clearance between bundle OD and shell ID (industry standard)
+  const shellID = bundleDiameter + Math.max(50, Math.round(bundleDiameter * 0.05));
 
   // ---- Velocity warnings ----
   if (tubeVelocity > 2.5) {

@@ -304,6 +304,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   let converged = false;
   let iterations = 0;
   let prevTotalDistillate = 0;
+  let prevSprayTemps: number[] = [...sprayTemps];
 
   let effects: MEDEffectResult[] = [];
   let preheaterDetails: PreheaterDetail[] = [];
@@ -440,6 +441,13 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
 
       const result = calculateEffect(effectInput);
       effects.push(result);
+
+      // Flag per-effect energy balance errors > 0.5%
+      if (result.energyBalanceError > 0.5) {
+        warnings.push(
+          `Effect ${i + 1}: Energy balance error ${result.energyBalanceError.toFixed(2)}% exceeds 0.5% threshold.`
+        );
+      }
 
       // Cascade outputs → next effect inputs
       prevVaporOut = result.totalVaporOut.flow;
@@ -630,12 +638,23 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     if (iter > 0 && prevTotalDistillate > 0) {
       const change = Math.abs(netDistillate - prevTotalDistillate) / prevTotalDistillate;
       if (change < CONVERGENCE_TOLERANCE) {
+        // Secondary check: spray temperatures should also have stabilized
+        const maxSprayChange = sprayTemps.reduce(
+          (mx, t, i) => Math.max(mx, Math.abs(t - prevSprayTemps[i]!)),
+          0
+        );
+        if (maxSprayChange > 0.5) {
+          warnings.push(
+            `Spray temperatures still changing (max Δ ${maxSprayChange.toFixed(2)}°C) despite distillate convergence. Results may be approximate.`
+          );
+        }
         converged = true;
         prevTotalDistillate = netDistillate;
         break;
       }
     }
     prevTotalDistillate = netDistillate;
+    prevSprayTemps = [...sprayTemps];
   }
 
   if (!converged && iterations >= MAX_ITERATIONS) {

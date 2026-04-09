@@ -44,16 +44,20 @@ export function computeTurndownAnalysis(
       const result = designMED(turndownInput);
 
       // Wetting adequacy check per effect
-      const wettingAdequacy = result.effects.map((e) => {
+      const wettingAdequacy = result.effects.map((e, idx) => {
         // At reduced load, the recirculation pump still runs
         // but feed flow is reduced proportionally
         const feedPerEffect = result.makeUpFeed / result.effects.length;
         const totalSpray = feedPerEffect + e.brineRecirculation;
-        // Wetting rate: spray flow / (2 × tubes_per_row × tube_length)
-        // We need tubes per row — approximate from tube count and rows
-        const approxRows = Math.max(1, Math.round(Math.sqrt(e.tubes / 2)));
-        const approxTubesPerRow = Math.max(1, Math.round(e.tubes / approxRows));
-        const gamma = (totalSpray * 1000) / 3600 / (2 * approxTubesPerRow * e.tubeLength);
+        // Wetting rate: Γ = ṁ / (2 × L × n_rows)
+        // Use actual row count from bundle geometry if available (accurate),
+        // otherwise fall back to base design's bundle geometry, then approximate.
+        const baseEffect = baseResult.effects[idx];
+        const nRows =
+          e.bundleGeometry?.numberOfRows ??
+          baseEffect?.bundleGeometry?.numberOfRows ??
+          Math.max(1, Math.round(Math.sqrt(e.tubes / 2)));
+        const gamma = (totalSpray * 1000) / 3600 / (2 * e.tubeLength * nRows);
         const gammaMin = input.minimumWettingRate ?? 0.035;
 
         return {

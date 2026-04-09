@@ -12,9 +12,10 @@
  * 5. Solve H&M balance (calculateMED engine — the source of truth)
  * 6. Equipment sizing
  * 7. Compose designer effect records (H&M + sizing + geometry)
- * 8. Auxiliary equipment
- * 9. Optional analyses (geometry comparison, weight, turndown)
- * 10. Assemble final MEDDesignerResult
+ * 8. Bundle geometry refinement (full geometry engine)
+ * 9. Auxiliary equipment (uses actual bundle width from step 8)
+ * 10. Optional analyses (geometry comparison, weight, turndown)
+ * 11. Assemble final MEDDesignerResult
  */
 
 import {
@@ -402,8 +403,23 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     );
   }
 
-  // ── 9. Auxiliary equipment (before bundle refinement — nozzle selection needed) ──
+  // ── 9. Bundle geometry refinement (BEFORE auxiliary equipment) ────────
+  // Run the full geometry engine (OTL, clearances, vapour lanes) first so
+  // auxiliary equipment (especially spray nozzles) uses actual bundle width.
+  try {
+    const refined = refineBundleGeometry(effects, resolved);
+    applyRefinedGeometry(effects, refined, resolved.shellThkMM);
+    // Recompute largest shell after refinement
+    largestShellOD = Math.max(...effects.map((e) => e.shellODmm));
+    largestShellID = largestShellOD - 2 * shellThkMM;
+  } catch {
+    warnings.push('Bundle geometry refinement failed — using TEMA estimates.');
+  }
+
+  // ── 9b. Auxiliary equipment (AFTER bundle refinement — uses actual bundle width) ──
   const swDensity = getSeawaterDensity(swSalinity, input.seawaterTemperature);
+  // Pass actual bundle width from refinement to auxiliary equipment for accurate nozzle sizing
+  const actualBundleWidths = effects.map((e) => e.bundleGeometry?.bundleWidthMM);
   const auxiliaryEquipment = computeAuxiliaryEquipment(effects, condenser, {
     swSalinity,
     maxBrineSalinity,
@@ -417,23 +433,10 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     steamFlow: input.steamFlow,
     swTemp: input.seawaterTemperature,
     condenserSWFlowM3h: condenser.seawaterFlowM3h,
+    bundleWidths: actualBundleWidths,
   });
   if (auxiliaryEquipment.auxWarnings.length > 0) {
     warnings.push(...auxiliaryEquipment.auxWarnings);
-  }
-
-  // ── 9b. Bundle geometry refinement (uses spray nozzle coverage) ────
-  // Run the full geometry engine (OTL, clearances, vapour lanes) with
-  // spray coverage width from nozzle selection as the wetting cutback.
-  try {
-    const sprayCoverageWidths = auxiliaryEquipment.sprayNozzles.map((sn) => sn.coverageWidth);
-    const refined = refineBundleGeometry(effects, resolved, sprayCoverageWidths);
-    applyRefinedGeometry(effects, refined, resolved.shellThkMM);
-    // Recompute largest shell after refinement
-    largestShellOD = Math.max(...effects.map((e) => e.shellODmm));
-    largestShellID = largestShellOD - 2 * shellThkMM;
-  } catch {
-    warnings.push('Bundle geometry refinement failed — using TEMA estimates.');
   }
 
   const dosing = computeDosing(makeUpFeed, swDensity, input.antiscalantDoseMgL ?? 2);

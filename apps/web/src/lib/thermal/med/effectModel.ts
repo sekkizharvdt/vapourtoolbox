@@ -363,30 +363,45 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
 
   // Outlet enthalpies
   const h_vaporOut_shell = getEnthalpyVapor(Math.max(vaporOutTemp, 5));
-  // Brine outlet enthalpy: the outlet salinity depends on vapor production (circular).
-  // Use the average of inlet and max brine salinity as approximation.
-  const avgBrineSalinity = Math.min(
-    (blendedSalinity + blendedSalinity * brineConcentrationFactor) / 2,
-    120000
-  );
-  const h_brineOut_shell = getSeawaterEnthalpy(avgBrineSalinity, brineBoilingTemp);
 
   // Total shell inlet mass (including distillate flash condensate that re-enters the pool)
   const shellInletMass = totalSprayFlow + distillateFlashVapor;
+  const totalInletSalt = totalSprayFlow * blendedSalinity; // salt mass flow (ppm × kg/hr)
+
+  // Brine outlet salinity depends on vapor production (circular).
+  // Pass 1: estimate with approximate salinity, then refine once.
+  const estimatedOutletSalinity = Math.min(
+    (blendedSalinity + blendedSalinity * brineConcentrationFactor) / 2,
+    120000
+  );
+  let h_brineOut_shell = getSeawaterEnthalpy(estimatedOutletSalinity, brineBoilingTemp);
 
   // Enthalpy balance: m_vapor = (Q_total - m_in × h_brine) / (h_vapor - h_brine)
-  const denominator = h_vaporOut_shell - h_brineOut_shell;
-  const sprayVaporProduced =
+  let denominator = h_vaporOut_shell - h_brineOut_shell;
+  let sprayVaporProduced =
     denominator > 0
       ? Math.max(0, (Q_shell_total * 3600 - shellInletMass * h_brineOut_shell) / denominator)
       : 0;
+
+  // Pass 2: recompute with mass-balance-derived outlet salinity
+  const pass1BrineFlow = Math.max(1, shellInletMass - sprayVaporProduced);
+  const pass2Salinity = Math.min(totalInletSalt / pass1BrineFlow, 120000);
+  const h_brineOut_refined = getSeawaterEnthalpy(pass2Salinity, brineBoilingTemp);
+  if (Math.abs(h_brineOut_refined - h_brineOut_shell) > 0.1) {
+    h_brineOut_shell = h_brineOut_refined;
+    denominator = h_vaporOut_shell - h_brineOut_shell;
+    sprayVaporProduced =
+      denominator > 0
+        ? Math.max(0, (Q_shell_total * 3600 - shellInletMass * h_brineOut_shell) / denominator)
+        : 0;
+  }
 
   // Brine remaining = total pool + distillate flash condensate - evaporated vapor
   const sprayBrineFlow = Math.max(0, totalSprayFlow + distillateFlashVapor - sprayVaporProduced);
   // Brine salinity (conservation of salt — all salt stays in the brine)
   const sprayBrineSalinity =
     sprayBrineFlow > 0
-      ? (totalSprayFlow * blendedSalinity) / sprayBrineFlow
+      ? totalInletSalt / sprayBrineFlow
       : blendedSalinity * brineConcentrationFactor;
 
   // NCG released from seawater (dissolved gases) — only from the seawater portion

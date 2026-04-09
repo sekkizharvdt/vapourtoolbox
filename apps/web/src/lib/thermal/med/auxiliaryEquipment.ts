@@ -42,6 +42,8 @@ export interface AuxContext {
   steamFlow: number;
   swTemp: number;
   condenserSWFlowM3h: number;
+  /** Per-effect actual bundle width from geometry refinement (mm) */
+  bundleWidths?: (number | undefined)[];
 }
 
 export function computeAuxiliaryEquipment(
@@ -102,8 +104,9 @@ export function computeAuxiliaryEquipment(
 
       // Use layout calculator — gives nozzle height, count, and positioning
       const bundleLengthMM = e.tubeLength * 1000; // tube length in mm
-      // Bundle width ≈ half-shell width for lateral bundle
-      const bundleWidthMM = ctx.shellID * 0.85; // approx usable width
+      // Use actual bundle width from geometry refinement if available, else approximate
+      const effectIdx = effects.indexOf(e);
+      const bundleWidthMM = ctx.bundleWidths?.[effectIdx] ?? ctx.shellID * 0.85;
 
       const layoutResult = calculateNozzleLayout({
         category: 'full_cone_square',
@@ -139,7 +142,7 @@ export function computeAuxiliaryEquipment(
         flowPerNozzle: 0,
         sprayAngle: 0,
         sprayHeight: 400, // default fallback
-        coverageWidth: ctx.shellID * 0.85, // fallback to approx bundle width
+        coverageWidth: ctx.bundleWidths?.[effects.indexOf(e)] ?? ctx.shellID * 0.85,
         nozzlesAlongLength: 0,
         rowsAcrossWidth: 0,
       };
