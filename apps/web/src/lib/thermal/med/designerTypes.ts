@@ -111,8 +111,10 @@ export interface MEDDesignerInput {
   tvcEntrainedEffect?: number;
 
   // ── Preheater tuning ─────────────────────────────────────────────────
-  /** Target temperature rise per preheater in °C (default 4). Higher = more vapor diverted. */
+  /** Default target temperature rise per preheater in °C (default 4). */
   preheaterTempRise?: number;
+  /** Per-preheater target temp rise override. Key = effect number, value = °C. */
+  preheaterTempRiseMap?: Record<number, number>;
 
   // ── Per-effect overrides (user refinement after initial auto-design) ──
   /** Override tube length per effect (array indexed by effect 0..n-1) */

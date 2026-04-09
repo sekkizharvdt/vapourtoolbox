@@ -58,6 +58,7 @@ export default function MEDWizardClient() {
   const [condenserOutletTemp, setCondenserOutletTemp] = useState('');
   const [preheaterEffects, setPreheaterEffects] = useState<number[]>([]);
   const [preheaterTempRise, setPreheaterTempRise] = useState('4');
+  const [preheaterTempRiseMap, setPreheaterTempRiseMap] = useState<Record<number, string>>({});
   const [tvcEnabled, setTvcEnabled] = useState(false);
   const [tvcMotivePressure, setTvcMotivePressure] = useState('10');
   const [tvcSuperheat, setTvcSuperheat] = useState('0');
@@ -178,6 +179,14 @@ export default function MEDWizardClient() {
         foulingResistance: parseFloat(foulingResistance) || 0.00015,
         designMargin: (parseFloat(designMargin) || 15) / 100,
         ...(preheaterTempRise && { preheaterTempRise: parseFloat(preheaterTempRise) || 4 }),
+        ...(() => {
+          const map: Record<number, number> = {};
+          for (const [k, v] of Object.entries(preheaterTempRiseMap)) {
+            const parsed = parseFloat(v);
+            if (!isNaN(parsed) && parsed > 0) map[parseInt(k)] = parsed;
+          }
+          return Object.keys(map).length > 0 ? { preheaterTempRiseMap: map } : {};
+        })(),
         ...(includeTurndown && { includeTurndown: true }),
         ...overrides,
         ...tvcParams,
@@ -210,6 +219,7 @@ export default function MEDWizardClient() {
     foulingResistance,
     designMargin,
     preheaterTempRise,
+    preheaterTempRiseMap,
     includeTurndown,
   ]);
 
@@ -444,6 +454,10 @@ export default function MEDWizardClient() {
           onTogglePreheater={togglePreheater}
           preheaterTempRise={preheaterTempRise}
           onPreheaterTempRiseChange={setPreheaterTempRise}
+          preheaterTempRiseMap={preheaterTempRiseMap}
+          onPreheaterTempRiseMapChange={(effNum, val) =>
+            setPreheaterTempRiseMap((prev) => ({ ...prev, [effNum]: val }))
+          }
           onTvcEnabledChange={setTvcEnabled}
           onTvcMotivePressureChange={setTvcMotivePressure}
           onTvcSuperheatChange={setTvcSuperheat}

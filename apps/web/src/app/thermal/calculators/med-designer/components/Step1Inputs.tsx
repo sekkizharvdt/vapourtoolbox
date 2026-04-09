@@ -51,6 +51,8 @@ interface Step1InputsProps {
   onTogglePreheater: (effNum: number) => void;
   preheaterTempRise: string;
   onPreheaterTempRiseChange: (v: string) => void;
+  preheaterTempRiseMap: Record<number, string>;
+  onPreheaterTempRiseMapChange: (effNum: number, val: string) => void;
   onTvcEnabledChange: (v: boolean) => void;
   onTvcMotivePressureChange: (v: string) => void;
   onTvcSuperheatChange: (v: string) => void;
@@ -109,6 +111,8 @@ export function Step1Inputs({
   onTogglePreheater,
   preheaterTempRise,
   onPreheaterTempRiseChange,
+  preheaterTempRiseMap,
+  onPreheaterTempRiseMapChange,
   onTvcEnabledChange,
   onTvcMotivePressureChange,
   onTvcSuperheatChange,
@@ -382,30 +386,43 @@ export function Step1Inputs({
               <TableHead>
                 <TableRow>
                   <TableCell>Source</TableCell>
-                  <TableCell align="right">Vap Temp (&deg;C)</TableCell>
-                  <TableCell align="right">SW In (&deg;C)</TableCell>
-                  <TableCell align="right">SW Out (&deg;C)</TableCell>
-                  <TableCell align="right">&Delta;T Rise</TableCell>
-                  <TableCell align="right">LMTD (&deg;C)</TableCell>
+                  <TableCell align="center">Target Rise (&deg;C)</TableCell>
+                  <TableCell align="right">Vap Temp</TableCell>
+                  <TableCell align="right">SW In</TableCell>
+                  <TableCell align="right">SW Out</TableCell>
+                  <TableCell align="right">Actual Rise</TableCell>
+                  <TableCell align="right">LMTD</TableCell>
                   <TableCell align="right">Duty (kW)</TableCell>
-                  <TableCell align="right">SW Flow (T/h)</TableCell>
                   <TableCell align="right">Area (m&sup2;)</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {designResult.preheaters.map((ph) => (
-                  <TableRow key={ph.id}>
-                    <TableCell>{ph.vapourSource}</TableCell>
-                    <TableCell align="right">{fmt(ph.vapourTemp)}</TableCell>
-                    <TableCell align="right">{fmt(ph.swInlet)}</TableCell>
-                    <TableCell align="right">{fmt(ph.swOutlet)}</TableCell>
-                    <TableCell align="right">{fmt(ph.swOutlet - ph.swInlet)}</TableCell>
-                    <TableCell align="right">{fmt(ph.lmtd)}</TableCell>
-                    <TableCell align="right">{Math.round(ph.duty)}</TableCell>
-                    <TableCell align="right">{fmt(ph.flowTh)}</TableCell>
-                    <TableCell align="right">{fmt(ph.designArea)}</TableCell>
-                  </TableRow>
-                ))}
+                {designResult.preheaters.map((ph) => {
+                  // Extract effect number from "Effect 6" → 6
+                  const effNum = parseInt(ph.vapourSource.replace(/\D/g, ''));
+                  return (
+                    <TableRow key={ph.id}>
+                      <TableCell>{ph.vapourSource}</TableCell>
+                      <TableCell align="center">
+                        <TextField
+                          value={preheaterTempRiseMap[effNum] ?? preheaterTempRise}
+                          onChange={(e) => onPreheaterTempRiseMapChange(effNum, e.target.value)}
+                          type="number"
+                          size="small"
+                          inputProps={{ min: 1, max: 15, step: 0.5 }}
+                          sx={{ width: 80 }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">{fmt(ph.vapourTemp)}</TableCell>
+                      <TableCell align="right">{fmt(ph.swInlet)}</TableCell>
+                      <TableCell align="right">{fmt(ph.swOutlet)}</TableCell>
+                      <TableCell align="right">{fmt(ph.swOutlet - ph.swInlet)}</TableCell>
+                      <TableCell align="right">{fmt(ph.lmtd)}</TableCell>
+                      <TableCell align="right">{Math.round(ph.duty)}</TableCell>
+                      <TableCell align="right">{fmt(ph.designArea)}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
