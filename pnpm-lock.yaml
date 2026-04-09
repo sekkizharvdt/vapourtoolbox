@@ -18,7 +18,7 @@ overrides:
   lodash@>=4.0.0 <=4.17.23: '>=4.18.0'
   fast-xml-parser@>=4.0.0-beta.3 <=5.5.6: '>=5.5.7'
   minimatch@<10.2.3: '>=10.2.3'
-  basic-ftp@<5.2.0: '>=5.2.0'
+  basic-ftp@<=5.2.0: '>=5.2.1'
   rollup@>=4.0.0 <4.59.0: '>=4.59.0'
   serialize-javascript@<=7.0.2: '>=7.0.3'
   picomatch@>=4.0.0 <4.0.4: '>=4.0.4'
@@ -6433,10 +6433,10 @@ packages:
       }
     engines: { node: '>= 0.8' }
 
-  basic-ftp@5.2.0:
+  basic-ftp@5.2.1:
     resolution:
       {
-        integrity: sha512-VoMINM2rqJwJgfdHq6RiUudKt2BV+FY5ZFezP/ypmwayk68+NzzAQy4XXLlqsGD4MCzq3DrmNFD/uUmBJuGoXw==,
+        integrity: sha512-0yaL8JdxTknKDILitVpfYfV2Ob6yb3udX/hK97M7I3jOeznBNxQPtVvTUtnhUkyHlxFWyr5Lvknmgzoc7jf+1Q==,
       }
     engines: { node: '>=10.0.0' }
 
@@ -19460,7 +19460,7 @@ snapshots:
     dependencies:
       safe-buffer: 5.1.2
 
-  basic-ftp@5.2.0: {}
+  basic-ftp@5.2.1: {}
 
   bidi-js@1.0.3:
     dependencies:
@@ -21557,7 +21557,7 @@ snapshots:
 
   get-uri@6.0.5:
     dependencies:
-      basic-ftp: 5.2.0
+      basic-ftp: 5.2.1
       data-uri-to-buffer: 6.0.2
       debug: 4.4.3
     transitivePeerDependencies:
