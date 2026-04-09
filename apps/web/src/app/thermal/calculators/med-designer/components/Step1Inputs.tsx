@@ -535,6 +535,11 @@ export function Step1Inputs({
           <Typography variant="subtitle1" gutterBottom fontWeight={600}>
             Performance Summary
           </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+            {tubeMaterial} tubes | NEA {nea}&deg;C + Demister {demisterLoss}&deg;C + Duct {ductLoss}
+            &deg;C = {fmt(parseFloat(nea) + parseFloat(demisterLoss) + parseFloat(ductLoss), 2)}
+            &deg;C/effect | Fouling {foulingResistance} m&sup2;&middot;K/W | Margin {designMargin}%
+          </Typography>
           <Stack direction="row" spacing={4} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
             <Box>
               <Typography variant="caption" color="text.secondary">
