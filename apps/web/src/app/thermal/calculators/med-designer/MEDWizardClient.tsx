@@ -167,7 +167,10 @@ export default function MEDWizardClient() {
         ...(sal > 0 && { seawaterSalinity: sal }),
         ...(maxBrine > 0 && { maxBrineSalinity: maxBrine }),
         ...(!isNaN(ca) && ca > 0 && { condenserApproach: ca }),
-        ...(condenserOutletTemp && { condenserSWOutlet: parseFloat(condenserOutletTemp) }),
+        ...(condenserOutletTemp &&
+          parseFloat(condenserOutletTemp) > sw && {
+            condenserSWOutlet: parseFloat(condenserOutletTemp),
+          }),
         tubeMaterialName: tubeMaterial,
         NEA: parseFloat(nea) || 0.25,
         demisterLoss: parseFloat(demisterLoss) || 0.15,

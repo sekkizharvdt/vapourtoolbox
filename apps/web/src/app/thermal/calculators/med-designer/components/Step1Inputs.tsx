@@ -286,13 +286,18 @@ export function Step1Inputs({
             }}
           />
           <TextField
-            label="SW Outlet Temperature"
+            label="SW Outlet Temp (absolute)"
             value={condenserOutletTemp}
             onChange={(e) => onCondenserOutletTempChange(e.target.value)}
             type="number"
             size="small"
             placeholder="Auto"
-            helperText="Blank = seawater + 5&deg;C"
+            helperText={`Blank = ${parseFloat(swTemp) + 5}&deg;C (SW + 5). Must be > ${swTemp}&deg;C.`}
+            error={
+              !!condenserOutletTemp &&
+              parseFloat(condenserOutletTemp) > 0 &&
+              parseFloat(condenserOutletTemp) <= parseFloat(swTemp)
+            }
             InputProps={{
               endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
             }}
