@@ -71,6 +71,8 @@ interface Step1InputsProps {
   onAntiscalantDoseChange: (v: string) => void;
   vacuumConfig: string;
   onVacuumConfigChange: (v: string) => void;
+  shellsPerEffect: string;
+  onShellsPerEffectChange: (v: string) => void;
   includeTurndown: boolean;
   onIncludeTurndownChange: (v: boolean) => void;
   designResult: MEDDesignerResult | null;
@@ -130,6 +132,8 @@ export function Step1Inputs({
   onAntiscalantDoseChange,
   vacuumConfig,
   onVacuumConfigChange,
+  shellsPerEffect,
+  onShellsPerEffectChange,
   includeTurndown,
   onIncludeTurndownChange,
   designResult,
@@ -528,6 +532,19 @@ export function Step1Inputs({
                 helperText="Typical 1-5 mg/L"
                 sx={{ maxWidth: 160 }}
               />
+              <TextField
+                select
+                size="small"
+                label="Shells per Effect"
+                value={shellsPerEffect}
+                onChange={(e) => onShellsPerEffectChange(e.target.value)}
+                helperText="Split long evaporators"
+                sx={{ minWidth: 140 }}
+              >
+                <MenuItem value="1">1 (single)</MenuItem>
+                <MenuItem value="2">2 (split)</MenuItem>
+                <MenuItem value="3">3 (split)</MenuItem>
+              </TextField>
             </Box>
             <FormControlLabel
               control={

@@ -38,7 +38,7 @@ import {
 } from './resultAdapter';
 import { calculateMED, type MEDEngineInput } from './medEngine';
 import { sizeEquipment } from './equipmentSizing';
-import { estimateU, findMinShellID, countLateralTubes } from './shellGeometry';
+import { estimateU, findMinShellID, countLateralTubes, getMaxTubesPerRow } from './shellGeometry';
 import { computeGORConfigurations } from './gorAnalysis';
 import { computeGeometryComparisons } from './geometryComparison';
 import { refineBundleGeometry, applyRefinedGeometry } from './bundleRefinement';
@@ -381,6 +381,41 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     }
   }
 
+  // ── 7b. Equalize spray distribution in uniform geometry mode ────────
+  // When all effects have identical geometry (uniform mode), feed is
+  // distributed equally and spray requirements are the same per effect.
+  const isUniform =
+    effects.length > 1 &&
+    effects.every((e) => e.tubes === effects[0]!.tubes && e.tubeLength === effects[0]!.tubeLength);
+  if (isUniform) {
+    const eff0 = effects[0]!;
+    const uniformShellID = eff0.shellODmm - 2 * resolved.shellThkMM;
+    const uniformTubesPerRow = getMaxTubesPerRow(uniformShellID, resolved.pitch);
+    const uniformMinSpray = resolved.minGamma * 2 * uniformTubesPerRow * eff0.tubeLength * 3.6; // T/h
+    const totalFeed = hmResult.performance.makeupWater; // T/h
+    const feedPerEffect = totalFeed / effects.length;
+    const uniformRecirc = resolved.includeRecirc ? Math.max(0, uniformMinSpray - feedPerEffect) : 0;
+    for (const eff of effects) {
+      eff.minSprayFlow = uniformMinSpray;
+      eff.brineRecirculation = uniformRecirc;
+    }
+  }
+
+  // ── 7c. Shell splitting (when tubes are long, split each effect into N sub-shells) ──
+  const shellsPerEffect = input.shellsPerEffect ?? 1;
+  if (shellsPerEffect > 1) {
+    for (const eff of effects) {
+      eff.shellsPerEffect = shellsPerEffect;
+      // Each sub-shell gets the same tube count but shorter tubes
+      const subTubeLength = eff.tubeLength / shellsPerEffect;
+      eff.subShellLengthMM = Math.round(
+        subTubeLength * 1000 + 2 * resolved.tubeSheetThkMM + resolved.tubeSheetAccessMM
+      );
+      // Original shellLengthMM stays as the full effect length for area calculations
+      // but overallDimensions will use subShellLengthMM × shellsPerEffect
+    }
+  }
+
   // ── 8. Compute summary values ───────────────────────────────────────
   const totalDistillate = hmResult.performance.netProduction; // T/h
   const totalDistillateM3Day = totalDistillate * 24; // approximate (density ≈ 1)
@@ -473,7 +508,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     makeUpFeed,
     brineBlowdown,
     spraySalinity,
-    numberOfShells: nEff,
+    numberOfShells: nEff * (shellsPerEffect > 1 ? shellsPerEffect : 1),
     auxiliaryEquipment,
     dosing: dosing ?? undefined,
     vacuumSystem: vacuumSystem ?? undefined,
@@ -489,7 +524,17 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
       },
     }),
     overallDimensions: {
-      totalLengthMM: effects.reduce((sum, e) => sum + e.shellLengthMM, 0) + (nEff - 1) * 500,
+      // Each shell includes one access clearance; add one more for the opposite end of the train
+      // When shells are split, use sub-shell lengths × count per effect
+      totalLengthMM:
+        effects.reduce(
+          (sum, e) =>
+            sum +
+            (e.shellsPerEffect && e.shellsPerEffect > 1
+              ? e.subShellLengthMM! * e.shellsPerEffect
+              : e.shellLengthMM),
+          0
+        ) + resolved.tubeSheetAccessMM,
       shellODmm: largestShellOD,
       shellLengthRange: {
         min: Math.min(...effects.map((e) => e.shellLengthMM)),

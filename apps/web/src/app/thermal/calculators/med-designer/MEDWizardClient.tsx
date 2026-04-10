@@ -73,6 +73,7 @@ export default function MEDWizardClient() {
   const [designMargin, setDesignMargin] = useState('15');
   const [includeBrineRecirculation, setIncludeBrineRecirculation] = useState(true);
   const [antiscalantDose, setAntiscalantDose] = useState('2');
+  const [shellsPerEffect, setShellsPerEffect] = useState('1');
   const [vacuumConfig, setVacuumConfig] = useState<
     'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
   >('two_stage_ejector');
@@ -214,6 +215,7 @@ export default function MEDWizardClient() {
         includeBrineRecirculation,
         antiscalantDoseMgL: parseFloat(antiscalantDose) || 2,
         vacuumTrainConfig: vacuumConfig,
+        ...(parseInt(shellsPerEffect) > 1 && { shellsPerEffect: parseInt(shellsPerEffect) }),
         ...(includeTurndown && { includeTurndown: true }),
         ...overrides,
         ...tvcParams,
@@ -250,6 +252,7 @@ export default function MEDWizardClient() {
     includeBrineRecirculation,
     antiscalantDose,
     vacuumConfig,
+    shellsPerEffect,
     includeTurndown,
   ]);
 
@@ -503,6 +506,8 @@ export default function MEDWizardClient() {
           antiscalantDose={antiscalantDose}
           onAntiscalantDoseChange={setAntiscalantDose}
           vacuumConfig={vacuumConfig}
+          shellsPerEffect={shellsPerEffect}
+          onShellsPerEffectChange={setShellsPerEffect}
           onVacuumConfigChange={(v) =>
             setVacuumConfig(v as 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid')
           }

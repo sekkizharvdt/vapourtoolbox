@@ -95,76 +95,68 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
             Total length: {(maxTrainLen / 1000).toFixed(1)} m | Shell OD: {dims.shellODmm} mm
           </text>
 
-          {/* Draw each shell with tube sheets and access space */}
+          {/* Build flat list of physical shells (handles shellsPerEffect splitting) */}
           {(() => {
-            let xCursor = 80;
-            const headR = 10; // dished head depth
-            const tsW = 3; // tube sheet width in SVG px
-            const accessW = 750 * scale; // 750mm access space scaled
-            const accessCol = '#e3f2fd'; // light blue for access space
+            // Build physical shell list
+            interface PhysicalShell {
+              effectLabel: string;
+              shellLengthMM: number;
+              tubeLength: number;
+              tubes: number;
+              isSubShell: boolean;
+              subIndex: number;
+              subCount: number;
+            }
+            const physicalShells: PhysicalShell[] = [];
+            for (const e of result.effects) {
+              const nSub = e.shellsPerEffect ?? 1;
+              if (nSub > 1 && e.subShellLengthMM) {
+                for (let s = 0; s < nSub; s++) {
+                  physicalShells.push({
+                    effectLabel: `E${e.effect}${String.fromCharCode(97 + s)}`,
+                    shellLengthMM: e.subShellLengthMM,
+                    tubeLength: e.tubeLength / nSub,
+                    tubes: e.tubes,
+                    isSubShell: true,
+                    subIndex: s,
+                    subCount: nSub,
+                  });
+                }
+              } else {
+                physicalShells.push({
+                  effectLabel: `E${e.effect}`,
+                  shellLengthMM: e.shellLengthMM,
+                  tubeLength: e.tubeLength,
+                  tubes: e.tubes,
+                  isSubShell: false,
+                  subIndex: 0,
+                  subCount: 1,
+                });
+              }
+            }
 
-            return result.effects.map((e, i) => {
-              const shellLen = e.shellLengthMM * scale;
+            let xCursor = 80;
+            const headR = 10;
+            const tsW = 3;
+            const totalShells = physicalShells.length;
+
+            return physicalShells.map((ps, i) => {
+              const shellLen = ps.shellLengthMM * scale;
               const shellH = elevH;
               const x = xCursor;
-
-              // Layout within shell: [head][TS][access 750][tubes][access 750][TS][head]
-              // But adjacent effects share access space, so:
-              // First effect: [head][TS][access][tubes][TS]
-              // Middle effects: [access][TS][tubes][TS]  (access shared with previous)
-              // Last effect: [access][TS][tubes][TS][head]
               const isFirst = i === 0;
-              const isLast = i === nEff - 1;
+              const isLast = i === totalShells - 1;
 
-              // Total for this shell segment
-              const segmentLen = shellLen + (isFirst ? 0 : accessW);
-              xCursor += segmentLen;
+              xCursor += shellLen;
 
-              const bodyX = x + (isFirst ? headR : accessW);
+              const bodyX = x + (isFirst ? headR : 0);
               const bodyW = shellLen - (isFirst ? headR : 0) - (isLast ? headR : 0);
-
-              // Tube region within the shell
               const tubeX1 = bodyX + tsW + 2;
               const tubeX2 = bodyX + bodyW - tsW - 2;
 
               return (
                 <g key={i}>
-                  {/* Access space between effects (750mm) */}
-                  {!isFirst && (
-                    <g>
-                      <rect
-                        x={x}
-                        y={elevY + 2}
-                        width={accessW}
-                        height={shellH - 4}
-                        fill={accessCol}
-                        stroke="none"
-                        opacity={0.5}
-                      />
-                      <text
-                        x={x + accessW / 2}
-                        y={elevY + shellH + 30}
-                        textAnchor="middle"
-                        fontSize={10}
-                        fill="#1565c0"
-                      >
-                        750mm
-                      </text>
-                      {/* Dimension arrows */}
-                      <line
-                        x1={x + 1}
-                        y1={elevY + shellH + 25}
-                        x2={x + accessW - 1}
-                        y2={elevY + shellH + 25}
-                        stroke="#1565c0"
-                        strokeWidth={0.5}
-                        markerStart="url(#dimArrowL)"
-                        markerEnd="url(#dimArrowR)"
-                      />
-                    </g>
-                  )}
-
-                  {/* Shell body (cylindrical section) */}
+                  {/* Shell body */}
                   <rect
                     x={bodyX}
                     y={elevY}
@@ -175,7 +167,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     strokeWidth={1.5}
                   />
 
-                  {/* Left dished head (only for first effect) */}
+                  {/* Left dished head (first shell only) */}
                   {isFirst && (
                     <ellipse
                       cx={bodyX}
@@ -188,7 +180,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     />
                   )}
 
-                  {/* Right dished head (only for last effect) */}
+                  {/* Right dished head (last shell only) */}
                   {isLast && (
                     <ellipse
                       cx={bodyX + bodyW}
@@ -221,7 +213,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     stroke="none"
                   />
 
-                  {/* Tube bundle lines (horizontal) */}
+                  {/* Tube bundle lines */}
                   {[0.25, 0.35, 0.45, 0.55, 0.65, 0.75].map((frac, j) => (
                     <line
                       key={j}
@@ -239,14 +231,14 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     x={bodyX + bodyW / 2}
                     y={elevY - 5}
                     textAnchor="middle"
-                    fontSize={14}
+                    fontSize={ps.isSubShell ? 12 : 14}
                     fontWeight="bold"
                     fill={textCol}
                   >
-                    E{e.effect}
+                    {ps.effectLabel}
                   </text>
 
-                  {/* Dimension: shell length */}
+                  {/* Shell length dimension */}
                   <text
                     x={bodyX + bodyW / 2}
                     y={elevY + shellH + 15}
@@ -254,10 +246,10 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     fontSize={11}
                     fill={shellCol}
                   >
-                    {e.shellLengthMM} mm
+                    {ps.shellLengthMM} mm
                   </text>
 
-                  {/* Tube length annotation */}
+                  {/* Tube spec annotation */}
                   <text
                     x={bodyX + bodyW / 2}
                     y={elevY + shellH + 25}
@@ -265,7 +257,7 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
                     fontSize={11}
                     fill={textCol}
                   >
-                    L={e.tubeLength}m | {e.tubes} tubes
+                    L={ps.tubeLength.toFixed(1)}m | {ps.tubes} tubes
                   </text>
 
                   {/* Top nozzle: vapour */}
@@ -295,13 +287,13 @@ export function MEDGeneralArrangement({ result }: MEDGeneralArrangementProps) {
           <line
             x1={80}
             y1={elevY + elevH + 38}
-            x2={80 + maxTrainLen * scale + (nEff - 1) * 8}
+            x2={80 + maxTrainLen * scale}
             y2={elevY + elevH + 38}
             stroke={textCol}
             strokeWidth={0.5}
           />
           <text
-            x={80 + (maxTrainLen * scale + (nEff - 1) * 8) / 2}
+            x={80 + (maxTrainLen * scale) / 2}
             y={elevY + elevH + 50}
             textAnchor="middle"
             fontSize={14}

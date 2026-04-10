@@ -99,6 +99,8 @@ export interface MEDDesignerInput {
   brineRecircThroughPreheaters?: boolean;
   /** Number of evaporator effects per physical shell (default 1; BARC uses 2) */
   effectsPerShell?: number;
+  /** Number of physical shells per effect (default 1; use 2-3 for long tubes to shorten shells) */
+  shellsPerEffect?: number;
 
   // ── TVC (Thermo Vapor Compressor) ────────────────────────────────────
   /** Enable TVC mode (default false — plain MED) */
@@ -210,6 +212,10 @@ export interface MEDDesignerEffect {
   shellGroup?: number;
   /** How many effects share this physical shell */
   effectsInShell?: number;
+  /** Number of physical shells this effect is split across (default 1) */
+  shellsPerEffect?: number;
+  /** Length of each sub-shell when split mm */
+  subShellLengthMM?: number;
   /** Tube bundle geometry from full layout engine (when available) */
   bundleGeometry?: {
     /** OTL diameter mm */
