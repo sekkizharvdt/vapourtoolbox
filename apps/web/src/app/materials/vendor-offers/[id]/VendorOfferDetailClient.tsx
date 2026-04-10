@@ -79,6 +79,7 @@ export default function VendorOfferDetailClient() {
   const [offer, setOffer] = useState<VendorOffer | null>(null);
   const [items, setItems] = useState<VendorOfferItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Add item form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -106,14 +107,24 @@ export default function VendorOfferDetailClient() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [fetchedOffer, fetchedItems] = await Promise.all([
-        getVendorOfferById(db, offerId),
-        getOfferItems(db, offerId),
-      ]);
+      setError(null);
+
+      // Fetch offer and items independently so a failure in one doesn't block the other
+      const fetchedOffer = await getVendorOfferById(db, offerId);
       setOffer(fetchedOffer);
-      setItems(fetchedItems);
+
+      if (fetchedOffer) {
+        try {
+          const fetchedItems = await getOfferItems(db, offerId);
+          setItems(fetchedItems);
+        } catch (itemErr) {
+          console.error('Error loading offer items:', itemErr);
+          // Offer still shows even if items fail to load
+        }
+      }
     } catch (err) {
       console.error('Error loading offer:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load offer');
     } finally {
       setLoading(false);
     }
@@ -238,6 +249,7 @@ export default function VendorOfferDetailClient() {
   };
 
   if (loading) return <LoadingState message="Loading vendor offer..." />;
+  if (error) return <Typography color="error">{error}</Typography>;
   if (!offer) return <Typography color="error">Offer not found</Typography>;
 
   return (

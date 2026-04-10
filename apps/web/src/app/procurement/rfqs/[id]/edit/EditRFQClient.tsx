@@ -203,10 +203,7 @@ export default function EditRFQClient() {
     // Allow past due dates to be updated - don't block edit because date is overdue
     // Users should be able to fix an overdue date
 
-    if (selectedVendors.length === 0) {
-      setError('At least one vendor must be selected');
-      return;
-    }
+    // Vendors are optional in DRAFT — required only when issuing (enforced by issueRFQ in workflow.ts)
 
     setSaving(true);
     setError(null);
