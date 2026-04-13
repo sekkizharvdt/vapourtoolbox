@@ -90,6 +90,7 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
 
   // Form state - Vendor Categorization
   const [vendorCategories, setVendorCategories] = useState<string[]>([]);
+  const [vendorSubCategory, setVendorSubCategory] = useState('');
   const [servicesOffered, setServicesOffered] = useState('');
 
   // Form state - Credit Terms
@@ -219,6 +220,7 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
 
       // Load vendor categorization
       setVendorCategories(entity.vendorCategories ?? []);
+      setVendorSubCategory(entity.vendorSubCategory ?? '');
       setServicesOffered((entity.servicesOffered ?? []).join(', '));
     }
   }, [entity]);
@@ -400,6 +402,10 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
 
       // Add vendor categorization
       updateData.vendorCategories = vendorCategories.length > 0 ? vendorCategories : null;
+      updateData.vendorSubCategory =
+        vendorCategories.includes('Bought Out Items') && vendorSubCategory.trim()
+          ? vendorSubCategory.trim()
+          : null;
       updateData.servicesOffered = servicesOffered.trim()
         ? servicesOffered
             .split(',')
@@ -629,6 +635,20 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
                   />
                 </Grid>
               </Grid>
+
+              {/* Sub-category for Bought Out Items */}
+              {vendorCategories.includes('Bought Out Items') && (
+                <TextField
+                  label="Bought Out Sub-Category"
+                  value={vendorSubCategory}
+                  onChange={(e) => setVendorSubCategory(e.target.value)}
+                  fullWidth
+                  disabled={loading}
+                  placeholder="e.g., Valves, Pumps, Instruments, Gaskets"
+                  helperText="Specify the type of bought out items this vendor supplies"
+                  sx={{ mt: 2 }}
+                />
+              )}
             </>
           )}
         </Box>

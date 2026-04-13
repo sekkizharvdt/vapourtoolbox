@@ -101,12 +101,12 @@ describe('RFQ Helpers', () => {
       expect(canIssueRFQ(rfq)).toBe(true);
     });
 
-    it('should return false for DRAFT without vendors', () => {
+    it('should return true for DRAFT without vendors', () => {
       const rfq = createMockRFQ({
         status: 'DRAFT',
         vendorIds: [],
       });
-      expect(canIssueRFQ(rfq)).toBe(false);
+      expect(canIssueRFQ(rfq)).toBe(true);
     });
 
     it('should return false for non-DRAFT status', () => {
@@ -252,11 +252,10 @@ describe('RFQ Helpers', () => {
       expect(result.errors).toContain('Description is required');
     });
 
-    it('should fail for no vendors', () => {
+    it('should pass for no vendors', () => {
       const rfq = createMockRFQ({ vendorIds: [] });
       const result = validateRFQForIssuance(rfq);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('At least one vendor must be selected');
+      expect(result.errors).not.toContain('At least one vendor must be selected');
     });
 
     it('should fail for missing due date', () => {

@@ -1061,8 +1061,8 @@ service cloud.firestore {
     // ============================================
 
     match /services/{serviceId} {
-      // Read: Users with VIEW_ESTIMATION permission
-      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      // Read: Users with VIEW_ESTIMATION or MANAGE_ESTIMATION permission (manage implies view)
+      allow read: if isInternalUser() && (hasPermission(524288) || hasPermission(262144)); // VIEW_ESTIMATION (bit 19) or MANAGE_ESTIMATION (bit 18)
 
       // Create: Users with MANAGE_ESTIMATION permission
       allow create: if hasPermission(262144) && isInternalUser() &&
@@ -1078,8 +1078,8 @@ service cloud.firestore {
 
     // Service Rates Subcollection (historical pricing data)
     match /serviceRates/{rateId} {
-      // Read: Users with VIEW_ESTIMATION permission
-      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      // Read: Users with VIEW_ESTIMATION or MANAGE_ESTIMATION permission (manage implies view)
+      allow read: if isInternalUser() && (hasPermission(524288) || hasPermission(262144)); // VIEW_ESTIMATION (bit 19) or MANAGE_ESTIMATION (bit 18)
 
       // Create: Users with MANAGE_ESTIMATION permission
       allow create: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)

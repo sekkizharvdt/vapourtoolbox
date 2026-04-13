@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TextField, Grid, MenuItem, Box, Typography, Alert } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
+import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { getFirebase } from '@/lib/firebase';
@@ -39,6 +40,8 @@ interface DirectPayment {
   projectId?: string;
   chequeNumber?: string;
   upiTransactionId?: string;
+  entityId?: string;
+  entityName?: string;
 }
 
 interface RecordDirectPaymentDialogProps {
@@ -73,6 +76,8 @@ export function RecordDirectPaymentDialog({
   const [description, setDescription] = useState<string>('');
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [entityId, setEntityId] = useState<string | null>(null);
+  const [entityName, setEntityName] = useState<string>('');
 
   // Track selected bank account details for GL entries
   const [bankAccountCode, setBankAccountCode] = useState<string>('');
@@ -104,6 +109,8 @@ export function RecordDirectPaymentDialog({
         setDescription(editingPayment.description || '');
         setReference(editingPayment.reference || '');
         setProjectId(editingPayment.projectId || null);
+        setEntityId(editingPayment.entityId || null);
+        setEntityName(editingPayment.entityName || '');
       } else {
         setPaymentDate(new Date().toISOString().split('T')[0] || '');
         setExpenseAccountId(null);
@@ -115,6 +122,8 @@ export function RecordDirectPaymentDialog({
         setDescription('');
         setReference('');
         setProjectId(null);
+        setEntityId(null);
+        setEntityName('');
       }
       setError('');
     }
@@ -224,6 +233,10 @@ export function RecordDirectPaymentDialog({
       if (projectId) {
         paymentData.projectId = projectId;
         paymentData.costCentreId = projectId;
+      }
+      if (entityId) {
+        paymentData.entityId = entityId;
+        paymentData.entityName = entityName;
       }
 
       // Remove undefined values (Firestore doesn't accept undefined)
@@ -352,6 +365,19 @@ export function RecordDirectPaymentDialog({
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               required
               {...getFieldProps(1)}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <EntitySelector
+              value={entityId}
+              onChange={setEntityId}
+              onEntitySelect={(entity) => {
+                setEntityName(entity?.name || '');
+              }}
+              label="Vendor / Payee (Optional)"
+              placeholder="Link to a vendor..."
+              filterByRole="VENDOR"
             />
           </Grid>
 

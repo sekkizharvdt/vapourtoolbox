@@ -544,6 +544,57 @@ export function ViewEntityDialog({
             </Card>
           </Grid>
 
+          {/* Vendor Categorization */}
+          {entity.roles.includes('VENDOR') &&
+            ((entity.vendorCategories && entity.vendorCategories.length > 0) ||
+              entity.vendorSubCategory ||
+              (entity.servicesOffered && entity.servicesOffered.length > 0)) && (
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" color="primary" gutterBottom>
+                      Vendor Categorization
+                    </Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {entity.vendorCategories && entity.vendorCategories.length > 0 && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Categories
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                            {entity.vendorCategories.map((cat) => (
+                              <Chip key={cat} label={cat} size="small" />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                      {entity.vendorSubCategory && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Bought Out Sub-Category
+                          </Typography>
+                          <Typography variant="body2">{entity.vendorSubCategory}</Typography>
+                        </Box>
+                      )}
+                      {entity.servicesOffered && entity.servicesOffered.length > 0 && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Services Offered
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                            {entity.servicesOffered.map((service) => (
+                              <Chip key={service} label={service} size="small" variant="outlined" />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
+
           {/* Notes */}
           {entity.notes && (
             <Grid size={{ xs: 12 }}>

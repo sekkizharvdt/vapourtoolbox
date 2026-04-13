@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Grid, Box, Typography, Stack, Button as MuiButton } from '@mui/material';
+import { Grid, Box, Typography, Stack, Button as MuiButton, Divider } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
@@ -22,6 +22,7 @@ import type { TDSSection as TDSSectionType } from '@/lib/accounting/tdsCalculato
 import { useAuth } from '@/contexts/AuthContext';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
+import { PurchaseOrderSelector } from '@/components/common/forms/PurchaseOrderSelector';
 
 interface CreateBillDialogProps {
   open: boolean;
@@ -47,6 +48,10 @@ export function CreateBillDialog({
     disabled: loading || viewOnly,
   });
   const [vendorBillNumber, setVendorBillNumber] = useState('');
+
+  // Purchase Order linkage (optional)
+  const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
+  const [sourcePoNumber, setSourcePoNumber] = useState('');
 
   // Memoize initial data to prevent useEffect re-runs on every render
   const initialFormData = useMemo(
@@ -121,10 +126,26 @@ export function CreateBillDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedEntityName, formState.entityId, formState.setEntityName]);
 
-  // Load TDS data and vendor bill number when editing
+  // Clear PO selection when vendor changes (POs are vendor-specific)
+  const prevEntityIdRef = useRef(formState.entityId);
+  React.useEffect(() => {
+    if (prevEntityIdRef.current !== formState.entityId) {
+      // Only clear if vendor actually changed (not on initial load / edit restore)
+      if (prevEntityIdRef.current !== null) {
+        setSelectedPoId(null);
+        setSourcePoNumber('');
+      }
+      prevEntityIdRef.current = formState.entityId;
+    }
+  }, [formState.entityId]);
+
+  // Load TDS data, vendor bill number, and PO linkage when editing
   React.useEffect(() => {
     if (open && editingBill) {
       setVendorBillNumber(editingBill.vendorInvoiceNumber || '');
+      // Restore PO linkage (rule 22: restore all saved fields on edit)
+      setSelectedPoId(editingBill.sourceDocumentId || null);
+      setSourcePoNumber(editingBill.sourcePoNumber || '');
       if (editingBill.tdsDeducted) {
         setTdsDeducted(true);
         setTdsSection((editingBill.tdsDetails?.section as TDSSectionType) || '194C');
@@ -136,6 +157,8 @@ export function CreateBillDialog({
       }
     } else if (open) {
       setVendorBillNumber('');
+      setSelectedPoId(null);
+      setSourcePoNumber('');
     }
   }, [open, editingBill, setTdsDeducted, setTdsSection, setVendorPAN, setTdsRateOverride]);
 
@@ -233,6 +256,9 @@ export function CreateBillDialog({
         currency: 'INR',
         baseAmount: totalAmount,
         attachments: [],
+        // Purchase Order linkage (conditional spread — rule 12)
+        ...(selectedPoId && { sourceDocumentId: selectedPoId }),
+        ...(sourcePoNumber && { sourcePoNumber }),
         // Payment tracking - preserve existing values on edit, initialize on create
         paidAmount: editingBill?.paidAmount ?? 0,
         outstandingAmount: editingBill?.outstandingAmount ?? totalAmount,
@@ -379,6 +405,24 @@ export function CreateBillDialog({
             project: getFieldProps(7, { isAutocomplete: true }),
           }}
         />
+
+        {/* Purchase Order Linkage (optional) */}
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ my: 1 }} />
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Link to Purchase Order (optional)
+          </Typography>
+          <PurchaseOrderSelector
+            value={selectedPoId}
+            onChange={setSelectedPoId}
+            onPOSelect={(po) => {
+              setSourcePoNumber(po?.number || '');
+            }}
+            vendorId={formState.entityId}
+            disabled={viewOnly}
+            helperText={!formState.entityId ? 'Select a vendor first to see their POs' : undefined}
+          />
+        </Grid>
 
         {/* Line Items Table */}
         <Grid size={{ xs: 12 }}>

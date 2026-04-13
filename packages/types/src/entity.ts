@@ -95,6 +95,7 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
 
   // Vendor categorization (used for filtering on RFQ vendor selection)
   vendorCategories?: string[]; // e.g., "Raw Materials", "Lab Testing", "Fabrication"
+  vendorSubCategory?: string; // Free-text sub-category for "Bought Out Items" (e.g., "valves", "pumps", "instruments")
   servicesOffered?: string[]; // e.g., "Proximate Analysis", "Calibration"
 
   // Notes

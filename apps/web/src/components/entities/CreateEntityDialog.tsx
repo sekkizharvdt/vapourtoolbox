@@ -84,6 +84,7 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
 
   // Form state - Vendor Categorization
   const [vendorCategories, setVendorCategories] = useState<string[]>([]);
+  const [vendorSubCategory, setVendorSubCategory] = useState('');
   const [servicesOffered, setServicesOffered] = useState('');
 
   // Form state - Credit Terms
@@ -267,6 +268,7 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
           openingBalance && parseFloat(openingBalance) > 0 ? openingBalanceType : undefined,
         // Vendor categorization
         ...(vendorCategories.length > 0 && { vendorCategories }),
+        ...(vendorSubCategory.trim() && { vendorSubCategory: vendorSubCategory.trim() }),
         ...(servicesOffered.trim() && {
           servicesOffered: servicesOffered
             .split(',')
@@ -322,6 +324,7 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
     setCreditDays('');
     setCreditLimit('');
     setVendorCategories([]);
+    setVendorSubCategory('');
     setServicesOffered('');
     setError('');
   };
@@ -754,6 +757,20 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                     />
                   </Grid>
                 </Grid>
+
+                {/* Sub-category for Bought Out Items */}
+                {vendorCategories.includes('Bought Out Items') && (
+                  <TextField
+                    label="Bought Out Sub-Category"
+                    value={vendorSubCategory}
+                    onChange={(e) => setVendorSubCategory(e.target.value)}
+                    fullWidth
+                    disabled={loading}
+                    placeholder="e.g., Valves, Pumps, Instruments, Gaskets"
+                    helperText="Specify the type of bought out items this vendor supplies"
+                    sx={{ mt: 2 }}
+                  />
+                )}
               </Box>
             )}
           </Box>

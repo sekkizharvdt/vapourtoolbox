@@ -83,6 +83,8 @@ export default function EntitiesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived' | 'all'>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [subCategoryFilter, setSubCategoryFilter] = useState<string>('all');
 
   // Sorting
   type SortField = 'name' | 'contactPerson' | 'status' | 'createdAt';
@@ -120,6 +122,23 @@ export default function EntitiesPage() {
   // Filter out deleted entities (client-side filtering to handle legacy data)
   const entities = allEntities.filter((entity) => entity.isDeleted !== true);
 
+  // Compute distinct vendor categories and sub-categories from data
+  const availableVendorCategories = useMemo(() => {
+    const cats = new Set<string>();
+    entities.forEach((e) => {
+      (e.vendorCategories ?? []).forEach((c) => cats.add(c));
+    });
+    return Array.from(cats).sort();
+  }, [entities]);
+
+  const availableSubCategories = useMemo(() => {
+    const subs = new Set<string>();
+    entities.forEach((e) => {
+      if (e.vendorSubCategory) subs.add(e.vendorSubCategory);
+    });
+    return Array.from(subs).sort();
+  }, [entities]);
+
   // Client-side filtering and sorting
   const filteredAndSortedEntities = entities
     .filter((entity) => {
@@ -142,7 +161,16 @@ export default function EntitiesPage() {
         roleFilter === 'all' ||
         entity.roles.includes(roleFilter.toUpperCase() as 'VENDOR' | 'CUSTOMER');
 
-      return matchesSearch && matchesStatus && matchesRole;
+      // Vendor category filter
+      const matchesCategory =
+        categoryFilter === 'all' || (entity.vendorCategories ?? []).includes(categoryFilter);
+
+      // Vendor sub-category filter (only relevant for Bought Out Items)
+      const matchesSubCategory =
+        subCategoryFilter === 'all' ||
+        (entity.vendorSubCategory ?? '').toLowerCase() === subCategoryFilter.toLowerCase();
+
+      return matchesSearch && matchesStatus && matchesRole && matchesCategory && matchesSubCategory;
     })
     .sort((a, b) => {
       let comparison = 0;
@@ -274,6 +302,8 @@ export default function EntitiesPage() {
             setSearchTerm('');
             setStatusFilter('all');
             setRoleFilter('all');
+            setCategoryFilter('all');
+            setSubCategoryFilter('all');
             setPage(0);
           }}
         >
@@ -312,6 +342,50 @@ export default function EntitiesPage() {
               <MenuItem value="SUPPLIER">Supplier</MenuItem>
             </Select>
           </FormControl>
+          {availableVendorCategories.length > 0 && (
+            <FormControl sx={{ minWidth: 180 }}>
+              <InputLabel>Vendor Category</InputLabel>
+              <Select
+                value={categoryFilter}
+                label="Vendor Category"
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  // Reset sub-category when category changes away from Bought Out Items
+                  if (e.target.value !== 'Bought Out Items') {
+                    setSubCategoryFilter('all');
+                  }
+                  setPage(0);
+                }}
+              >
+                <MenuItem value="all">All Categories</MenuItem>
+                {availableVendorCategories.map((cat) => (
+                  <MenuItem key={cat} value={cat}>
+                    {cat}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          {categoryFilter === 'Bought Out Items' && availableSubCategories.length > 0 && (
+            <FormControl sx={{ minWidth: 180 }}>
+              <InputLabel>Sub-Category</InputLabel>
+              <Select
+                value={subCategoryFilter}
+                label="Sub-Category"
+                onChange={(e) => {
+                  setSubCategoryFilter(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <MenuItem value="all">All Sub-Categories</MenuItem>
+                {availableSubCategories.map((sub) => (
+                  <MenuItem key={sub} value={sub}>
+                    {sub}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </FilterBar>
 
         {/* Entities Table */}

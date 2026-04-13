@@ -22,7 +22,7 @@ export function canEditRFQ(rfq: RFQ): boolean {
  * Check if RFQ can be issued
  */
 export function canIssueRFQ(rfq: RFQ): boolean {
-  return rfq.status === 'DRAFT' && rfq.vendorIds.length > 0;
+  return rfq.status === 'DRAFT';
 }
 
 /**
@@ -108,10 +108,6 @@ export function validateRFQForIssuance(rfq: RFQ): { valid: boolean; errors: stri
 
   if (!rfq.description || rfq.description.trim() === '') {
     errors.push('Description is required');
-  }
-
-  if (rfq.vendorIds.length === 0) {
-    errors.push('At least one vendor must be selected');
   }
 
   if (!rfq.dueDate) {

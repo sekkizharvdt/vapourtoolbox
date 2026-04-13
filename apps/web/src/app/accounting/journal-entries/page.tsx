@@ -20,6 +20,10 @@ import {
   Breadcrumbs,
   Link,
   TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { FilterBar } from '@vapour/ui';
 import {
@@ -48,6 +52,21 @@ import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 
+// Generate month options for the filter (current month and 11 previous months)
+function getMonthOptions() {
+  const options: Array<{ value: string; label: string }> = [];
+  const now = new Date();
+
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    options.push({ value, label });
+  }
+
+  return options;
+}
+
 export default function JournalEntriesPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
@@ -57,10 +76,13 @@ export default function JournalEntriesPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterMonth, setFilterMonth] = useState<string>('ALL');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+
+  const monthOptions = useMemo(() => getMonthOptions(), []);
 
   // Real-time listener for journal entries
   useEffect(() => {
@@ -136,15 +158,28 @@ export default function JournalEntriesPage() {
   };
 
   const filteredEntries = useMemo(() => {
-    if (!searchTerm) return journalEntries;
-    const term = searchTerm.toLowerCase();
-    return journalEntries.filter(
-      (entry) =>
-        entry.transactionNumber?.toLowerCase().includes(term) ||
-        entry.description?.toLowerCase().includes(term) ||
-        entry.reference?.toLowerCase().includes(term)
-    );
-  }, [journalEntries, searchTerm]);
+    return journalEntries.filter((entry) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        entry.transactionNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.reference?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Month filter - compare year-month of entry date
+      let matchesMonth = true;
+      if (filterMonth !== 'ALL' && entry.date) {
+        // Handle both Firestore Timestamp and Date objects
+        const entryDate =
+          typeof (entry.date as unknown as { toDate?: () => Date }).toDate === 'function'
+            ? (entry.date as unknown as { toDate: () => Date }).toDate()
+            : new Date(entry.date as unknown as string | number);
+        const entryYearMonth = `${entryDate.getFullYear()}-${String(entryDate.getMonth() + 1).padStart(2, '0')}`;
+        matchesMonth = entryYearMonth === filterMonth;
+      }
+
+      return matchesSearch && matchesMonth;
+    });
+  }, [journalEntries, searchTerm, filterMonth]);
 
   // Paginate journal entries in memory
   const paginatedEntries = filteredEntries.slice(
@@ -254,7 +289,12 @@ export default function JournalEntriesPage() {
         </Stack>
       </Stack>
 
-      <FilterBar onClear={() => setSearchTerm('')}>
+      <FilterBar
+        onClear={() => {
+          setSearchTerm('');
+          setFilterMonth('ALL');
+        }}
+      >
         <TextField
           placeholder="Search by number, description or reference..."
           value={searchTerm}
@@ -265,6 +305,24 @@ export default function JournalEntriesPage() {
           size="small"
           sx={{ minWidth: 340 }}
         />
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Month</InputLabel>
+          <Select
+            value={filterMonth}
+            onChange={(e) => {
+              setFilterMonth(e.target.value);
+              setPage(0);
+            }}
+            label="Month"
+          >
+            <MenuItem value="ALL">All Months</MenuItem>
+            {monthOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </FilterBar>
 
       <TableContainer component={Paper}>

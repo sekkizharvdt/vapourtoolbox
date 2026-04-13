@@ -78,6 +78,22 @@ export const createEntity = onCall(async (request) => {
     isActive: data.isActive !== undefined ? data.isActive : true,
     primaryContactId: data.primaryContactId,
     assignedToUserId: data.assignedToUserId,
+    // Vendor categorization
+    vendorCategories: Array.isArray(data.vendorCategories) ? data.vendorCategories : undefined,
+    vendorSubCategory:
+      data.vendorSubCategory && typeof data.vendorSubCategory === 'string'
+        ? data.vendorSubCategory.trim()
+        : undefined,
+    servicesOffered: Array.isArray(data.servicesOffered) ? data.servicesOffered : undefined,
+    // Opening balance
+    openingBalance:
+      data.openingBalance && typeof data.openingBalance === 'number'
+        ? data.openingBalance
+        : undefined,
+    openingBalanceType:
+      data.openingBalanceType === 'DR' || data.openingBalanceType === 'CR'
+        ? data.openingBalanceType
+        : undefined,
   };
 
   const db = admin.firestore();
