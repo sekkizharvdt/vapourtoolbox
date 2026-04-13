@@ -285,7 +285,8 @@ export async function createLeaveRequest(
   input: CreateLeaveRequestInput,
   userId: string,
   userName: string,
-  userEmail: string
+  userEmail: string,
+  tenantId?: string
 ): Promise<{ requestId: string; requestNumber: string }> {
   const { db } = getFirebase();
 
@@ -367,6 +368,7 @@ export async function createLeaveRequest(
       fiscalYear,
       approverIds: [], // Will be set when submitted
       approvalHistory: [],
+      ...(tenantId && { tenantId }),
       createdAt: now,
       updatedAt: now,
     };

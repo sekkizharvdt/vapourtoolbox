@@ -196,6 +196,9 @@ export async function createFixedAsset(
     totalDepreciation: 0,
     writtenDownValue: input.purchaseAmount,
 
+    // Multi-tenancy
+    ...(tenantId && { tenantId }),
+
     // Metadata
     ...(input.notes && { notes: input.notes }),
     ...(input.tags && input.tags.length > 0 && { tags: input.tags }),
@@ -671,6 +674,7 @@ export async function runDepreciation(
     currency: 'INR',
     status: 'POSTED',
     entityId: tenantId,
+    ...(tenantId && { tenantId }),
     entries,
     journalType: 'ADJUSTING',
     journalDate: depDate,

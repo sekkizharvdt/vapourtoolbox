@@ -246,6 +246,184 @@ function checkServiceFiles() {
   }
 }
 
+// ─── Check 6: setDoc/addDoc/batch.set in tenant-scoped collections must include tenantId ──
+
+function checkDocCreationHasTenantId() {
+  console.log(
+    '\n  Check 6: Document creation calls include tenantId for tenant-scoped collections'
+  );
+
+  // Collections that are NOT tenant-scoped (safe to create without tenantId)
+  const nonTenantCollections = [
+    'users',
+    'taskNotifications',
+    'entities',
+    'entity_contacts',
+    'materials',
+    'shapes',
+    'boughtOutItems',
+    'bought_out_items',
+    'auditLogs',
+    'notificationSettings',
+    'company',
+    'counters',
+    'idempotency',
+    'aggregations',
+    'materialPrices',
+    'stockMovements',
+    'exchangeRates',
+    'currencyConfig',
+    'systemStatus',
+    'feedback',
+    'hrConfig',
+    'hrHolidays',
+    'holidayWorkingOverrides',
+    'hrLeaveTypes',
+    'hrLeaveBalances',
+    'hrLeaveRequests',
+    'hrCompOffGrants',
+    'onDutyRecords',
+    'periodLockAudit',
+  ];
+
+  // Get staged .ts/.tsx files (only check what's being committed)
+  let stagedFiles;
+  try {
+    stagedFiles = execSync(
+      'git diff --cached --name-only --diff-filter=ACM -- "*.ts" "*.tsx" 2>/dev/null || true',
+      { encoding: 'utf8' }
+    )
+      .trim()
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    stagedFiles = [];
+  }
+
+  if (stagedFiles.length === 0) {
+    pass('No staged TypeScript files to check');
+    return;
+  }
+
+  // Skip test files and migration scripts — they create test fixtures, not real documents
+  const filesToCheck = stagedFiles.filter(
+    (f) =>
+      !f.includes('__test__') &&
+      !f.includes('__integration__') &&
+      !f.includes('.test.') &&
+      !f.includes('.spec.') &&
+      !f.includes('scripts/') &&
+      !f.includes('seed/')
+  );
+
+  if (filesToCheck.length === 0) {
+    pass('No non-test staged files to check');
+    return;
+  }
+
+  let violations = 0;
+  let filesChecked = 0;
+
+  for (const file of filesToCheck) {
+    const fullPath = path.resolve(__dirname, '..', file);
+    if (!fs.existsSync(fullPath)) continue;
+
+    const content = fs.readFileSync(fullPath, 'utf8');
+    const lines = content.split('\n');
+
+    // Find setDoc(, addDoc(, batch.set( calls
+    const docWritePattern = /\b(setDoc|addDoc)\s*\(|batch\.set\s*\(/;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (!docWritePattern.test(lines[i])) continue;
+
+      // Extract the statement: from the write call to its closing ");".
+      // Track parenthesis depth to find the full call expression.
+      let depth = 0;
+      let statementLines = [];
+      let foundOpen = false;
+      for (let j = i; j < Math.min(lines.length, i + 50); j++) {
+        statementLines.push(lines[j]);
+        for (const ch of lines[j]) {
+          if (ch === '(') {
+            depth++;
+            foundOpen = true;
+          }
+          if (ch === ')') {
+            depth--;
+          }
+        }
+        if (foundOpen && depth <= 0) break;
+      }
+      const statement = statementLines.join('\n');
+
+      // Also grab a small window before the call for variable refs (e.g., the data var)
+      const preambleStart = Math.max(0, i - 10);
+      const preamble = lines.slice(preambleStart, i).join('\n');
+
+      // Check if this targets a non-tenant-scoped collection
+      const fullContext = preamble + '\n' + statement;
+      const isNonTenant = nonTenantCollections.some((col) => {
+        return (
+          fullContext.includes(`'${col}'`) ||
+          fullContext.includes(`"${col}"`) ||
+          fullContext.includes(`\`${col}\``)
+        );
+      });
+
+      if (isNonTenant) continue;
+
+      // Check if this is a subcollection write (e.g., boms/{id}/items) — these
+      // inherit tenant scope from the parent document
+      if (
+        fullContext.includes('/items') ||
+        fullContext.includes('SUBCOLLECTIONS') ||
+        fullContext.includes('subcollection')
+      ) {
+        continue;
+      }
+
+      // Check if this is writing to a utility/system collection (counters, idempotency, aggregations)
+      if (
+        fullContext.includes('counterRef') ||
+        fullContext.includes('CounterRef') ||
+        fullContext.includes('idempotency') ||
+        fullContext.includes('aggregation') ||
+        fullContext.includes('Aggregation') ||
+        fullContext.includes('placeholderDoc')
+      ) {
+        continue;
+      }
+
+      // Check if tenantId is in the data being written.
+      // First check the statement itself (catches inline objects with tenantId).
+      if (statement.includes('tenantId')) continue;
+
+      // If data is passed as a variable, check the surrounding function scope.
+      // Search 300 lines above the call for tenantId — this covers the data
+      // object construction and function parameters even in large functions.
+      const scopeStart = Math.max(0, i - 300);
+      const scope = lines.slice(scopeStart, i + 5).join('\n');
+      if (scope.includes('tenantId')) continue;
+
+      // This is a potential violation
+      violations++;
+      fail(
+        `${file}:${i + 1} — setDoc/addDoc/batch.set without tenantId in data (tenant-scoped collection)`
+      );
+      console.log(`    ${lines[i].trim()}`);
+    }
+
+    filesChecked++;
+  }
+
+  if (violations === 0) {
+    pass(
+      `All document creation calls in ${filesChecked} staged file(s) include tenantId or target non-tenant collections`
+    );
+  }
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 function main() {
@@ -256,6 +434,7 @@ function main() {
   checkFirestoreRules();
   checkCloudFunctionsFallback();
   checkServiceFiles();
+  checkDocCreationHasTenantId();
 
   console.log('');
 

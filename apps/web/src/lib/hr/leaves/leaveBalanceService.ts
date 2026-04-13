@@ -161,7 +161,8 @@ export async function initializeUserLeaveBalances(
   userName: string,
   userEmail: string,
   fiscalYear?: number,
-  _adminUserId?: string
+  _adminUserId?: string,
+  tenantId?: string
 ): Promise<void> {
   const { db } = getFirebase();
   const year = fiscalYear ?? getCurrentFiscalYear();
@@ -206,6 +207,7 @@ export async function initializeUserLeaveBalances(
         carryForward: 0,
         createdAt: now,
         updatedAt: now,
+        ...(tenantId && { tenantId }),
       };
 
       batch.set(balanceRef, balanceData);

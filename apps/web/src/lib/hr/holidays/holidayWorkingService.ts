@@ -44,7 +44,8 @@ export async function createHolidayWorkingOverride(
   input: CreateHolidayWorkingInput,
   adminUserId: string,
   adminUserName: string,
-  adminUserEmail: string
+  adminUserEmail: string,
+  tenantId?: string
 ): Promise<{ overrideId: string }> {
   const { db } = getFirebase();
 
@@ -145,6 +146,7 @@ export async function createHolidayWorkingOverride(
       status: 'PROCESSING',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
+      ...(tenantId && { tenantId }),
     };
 
     await setDoc(overrideRef, override);

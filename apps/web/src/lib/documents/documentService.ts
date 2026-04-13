@@ -101,6 +101,9 @@ export async function uploadDocument(
     // 6. Create document record
     const now = Timestamp.now();
     const documentRecord: Omit<DocumentRecord, 'id'> = {
+      // Multi-tenancy
+      ...(request.tenantId && { tenantId: request.tenantId }),
+
       // File information
       fileName: request.file.name,
       fileUrl,

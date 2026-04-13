@@ -135,12 +135,15 @@ export default function GRDetailClient() {
 
     setActionLoading(true);
     try {
+      const tenantId = claims?.tenantId || 'default-entity';
       await completeGR(
         grId,
         user.uid,
         user.email || '',
         user.displayName || '',
-        claims?.permissions || 0
+        claims?.permissions || 0,
+        undefined,
+        tenantId
       );
       setCompleteDialogOpen(false);
       await loadGR();
@@ -159,7 +162,8 @@ export default function GRDetailClient() {
     setError('');
     try {
       const { db } = getFirebase();
-      await createBillFromGoodsReceipt(db, gr, user.uid, user.email || '');
+      const tenantId = claims?.tenantId || 'default-entity';
+      await createBillFromGoodsReceipt(db, gr, user.uid, user.email || '', tenantId);
       await loadGR();
     } catch (err) {
       console.error('[GRDetailClient] Error creating bill:', err);

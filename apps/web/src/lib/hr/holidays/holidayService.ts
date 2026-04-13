@@ -72,7 +72,8 @@ export interface HolidayInfo {
  */
 export async function createHoliday(
   input: CreateHolidayInput,
-  userId: string
+  userId: string,
+  tenantId?: string
 ): Promise<{ holidayId: string }> {
   const { db } = getFirebase();
 
@@ -96,6 +97,7 @@ export async function createHoliday(
       updatedAt: now,
       createdBy: userId,
       updatedBy: userId,
+      ...(tenantId && { tenantId }),
     };
 
     await setDoc(holidayRef, holidayData);
@@ -477,7 +479,8 @@ export async function countWorkingDays(
 export async function copyHolidaysToYear(
   sourceYear: number,
   targetYear: number,
-  userId: string
+  userId: string,
+  tenantId?: string
 ): Promise<{ copied: number; skipped: number }> {
   const { db } = getFirebase();
 
@@ -512,6 +515,7 @@ export async function copyHolidaysToYear(
         description: holiday.description,
         color: holiday.color,
         isActive: true,
+        ...(tenantId && { tenantId }),
         createdAt: now,
         updatedAt: now,
         createdBy: userId,

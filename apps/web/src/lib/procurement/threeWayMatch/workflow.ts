@@ -38,7 +38,8 @@ export async function approveMatch(
   userId: string,
   userName: string,
   comments?: string,
-  auth?: AuthorizationContext
+  auth?: AuthorizationContext,
+  tenantId?: string
 ): Promise<void> {
   // Check permission if auth context provided
   if (auth) {
@@ -79,7 +80,7 @@ export async function approveMatch(
     const { createVendorBillFromMatch } =
       await import('@/lib/accounting/vendorBillIntegrationService');
 
-    const vendorBillId = await createVendorBillFromMatch(db, matchId, userId, userName);
+    const vendorBillId = await createVendorBillFromMatch(db, matchId, userId, userName, tenantId);
 
     // Update match with vendor bill ID
     await updateDoc(matchRef, {

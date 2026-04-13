@@ -144,6 +144,7 @@ interface CreateTravelExpenseParams {
   employeeName: string;
   employeeEmail: string;
   department?: string;
+  tenantId?: string;
 }
 
 /**
@@ -159,8 +160,16 @@ export function useCreateTravelExpenseReport() {
       employeeName,
       employeeEmail,
       department,
+      tenantId,
     }: CreateTravelExpenseParams) =>
-      createTravelExpenseReport(input, employeeId, employeeName, employeeEmail, department),
+      createTravelExpenseReport(
+        input,
+        employeeId,
+        employeeName,
+        employeeEmail,
+        department,
+        tenantId
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: travelExpenseKeys.lists() });
       queryClient.invalidateQueries({ queryKey: travelExpenseKeys.myReports() });

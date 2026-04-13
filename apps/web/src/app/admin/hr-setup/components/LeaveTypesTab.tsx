@@ -230,7 +230,7 @@ export default function LeaveTypesTab() {
           allowHalfDay: formData.allowHalfDay,
           color: formData.color,
         };
-        await createLeaveType(input, user.uid);
+        await createLeaveType(input, user.uid, tenantId);
       }
 
       setDialogOpen(false);
@@ -276,7 +276,7 @@ export default function LeaveTypesTab() {
       const errors: string[] = [];
       for (const leaveType of toCreate) {
         try {
-          await createLeaveType(leaveType, user.uid);
+          await createLeaveType(leaveType, user.uid, tenantId);
           created++;
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'Unknown error';

@@ -414,7 +414,8 @@ export async function completeGR(
   userEmail: string,
   userName?: string,
   userPermissions?: number,
-  userPermissions2?: number
+  userPermissions2?: number,
+  tenantId?: string
 ): Promise<void> {
   // PR-16: Use granular APPROVE_GR flag when available, fall back to MANAGE_PROCUREMENT
   if (userPermissions2 !== undefined) {
@@ -501,7 +502,7 @@ export async function completeGR(
   const updatedGR = await getGRById(grId);
   if (updatedGR && !updatedGR.paymentRequestId) {
     try {
-      await createBillFromGoodsReceipt(db, updatedGR, userId, userEmail);
+      await createBillFromGoodsReceipt(db, updatedGR, userId, userEmail, tenantId);
     } catch (err) {
       // Log error but don't fail - GR is complete, bill can be created manually
       logger.error('Error creating bill from GR (can be created manually)', { error: err, grId });

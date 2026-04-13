@@ -22,7 +22,8 @@ export async function createVendorBillFromMatch(
   db: Firestore,
   threeWayMatchId: string,
   userId: string,
-  userName: string
+  userName: string,
+  tenantId?: string
 ): Promise<string> {
   try {
     // Get the 3-way match
@@ -115,6 +116,9 @@ export async function createVendorBillFromMatch(
       sourceDocumentId: threeWayMatchId,
       sourceDocumentType: 'vendorInvoice',
       ...(match.poNumber && { sourcePoNumber: match.poNumber }),
+
+      // Tenant scoping
+      ...(tenantId && { tenantId }),
 
       // Metadata
       createdAt: now,

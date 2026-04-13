@@ -214,7 +214,8 @@ export default function NewLeaveRequestPage() {
         },
         user.uid,
         user.displayName || 'User',
-        user.email || ''
+        user.email || '',
+        claims?.tenantId || 'default-entity'
       );
 
       if (submitForApproval) {

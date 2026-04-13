@@ -75,7 +75,8 @@ function getSortValue(item: GRNPendingBill, field: SortField): string | number {
 
 export default function GRNBillsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -164,7 +165,13 @@ export default function GRNBillsPage() {
     setSuccessMessage('');
     try {
       const { db } = getFirebase();
-      const billId = await createBillFromGoodsReceipt(db, item.gr, user.uid, user.email || '');
+      const billId = await createBillFromGoodsReceipt(
+        db,
+        item.gr,
+        user.uid,
+        user.email || '',
+        tenantId
+      );
       setSuccessMessage(`Bill created successfully for ${item.gr.number} (ID: ${billId})`);
       setPendingGRs((prev) => prev.filter((g) => g.gr.id !== item.gr.id));
     } catch (err) {

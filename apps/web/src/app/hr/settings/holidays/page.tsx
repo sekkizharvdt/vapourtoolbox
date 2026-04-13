@@ -123,6 +123,7 @@ export default function HolidaySettingsPage() {
 
   const permissions2 = claims?.permissions2 ?? 0;
   const hasManageAccess = canManageHRSettings(permissions2);
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const loadData = async () => {
     setLoading(true);
@@ -203,7 +204,8 @@ export default function HolidaySettingsPage() {
             description: formData.description,
             color: formData.color,
           },
-          user.uid
+          user.uid,
+          tenantId
         );
         setSuccess('Holiday created successfully');
       }
@@ -246,7 +248,7 @@ export default function HolidaySettingsPage() {
     setError(null);
 
     try {
-      const result = await copyHolidaysToYear(selectedYear, copyTargetYear, user.uid);
+      const result = await copyHolidaysToYear(selectedYear, copyTargetYear, user.uid, tenantId);
       setSuccess(
         `Copied ${result.copied} holidays to ${copyTargetYear}. ${result.skipped} skipped (already exist).`
       );
@@ -282,7 +284,8 @@ export default function HolidaySettingsPage() {
       },
       user.uid,
       user.displayName || 'Admin',
-      user.email || ''
+      user.email || '',
+      tenantId
     );
 
     setSuccess(
@@ -313,7 +316,8 @@ export default function HolidaySettingsPage() {
       },
       user.uid,
       user.displayName || 'Admin',
-      user.email || ''
+      user.email || '',
+      tenantId
     );
 
     setSuccess(

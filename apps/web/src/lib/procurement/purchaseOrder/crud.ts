@@ -390,6 +390,7 @@ export async function createPOFromOffer(
         // Build PO item with only defined fields to prevent Firestore errors
         const poItemData: Record<string, unknown> = {
           purchaseOrderId: poRef.id,
+          ...(offer.tenantId && { tenantId: offer.tenantId }),
           offerItemId: item.id,
           rfqItemId: item.rfqItemId,
           lineNumber: item.lineNumber,

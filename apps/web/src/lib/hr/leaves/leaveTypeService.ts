@@ -161,7 +161,8 @@ export async function getLeaveTypeByCode(code: LeaveTypeCode): Promise<LeaveType
  */
 export async function createLeaveType(
   input: CreateLeaveTypeInput,
-  _userId: string
+  _userId: string,
+  tenantId?: string
 ): Promise<string> {
   const { db } = getFirebase();
 
@@ -191,6 +192,7 @@ export async function createLeaveType(
       isActive: true,
       createdAt: now,
       updatedAt: now,
+      ...(tenantId && { tenantId }),
     };
 
     await setDoc(leaveTypeRef, leaveTypeData);

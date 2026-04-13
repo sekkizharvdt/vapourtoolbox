@@ -123,7 +123,8 @@ export async function createTravelExpenseReport(
   employeeId: string,
   employeeName: string,
   employeeEmail: string,
-  department?: string
+  department?: string,
+  tenantId?: string
 ): Promise<{ reportId: string; reportNumber: string }> {
   const { db } = getFirebase();
 
@@ -153,6 +154,9 @@ export async function createTravelExpenseReport(
       createdAt: now,
       updatedAt: now,
     };
+
+    // Add tenantId if provided
+    if (tenantId) reportData.tenantId = tenantId;
 
     // Only add optional fields if they have values
     if (input.projectId) reportData.projectId = input.projectId;

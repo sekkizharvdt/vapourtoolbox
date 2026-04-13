@@ -104,7 +104,8 @@ export function UploadDocumentDialog({
   projectId,
   currentFolder,
 }: UploadDocumentDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -177,6 +178,7 @@ export function UploadDocumentDialog({
       await uploadDocument(
         {
           file,
+          tenantId,
           module,
           documentType,
           projectId,
@@ -220,6 +222,7 @@ export function UploadDocumentDialog({
     title,
     description,
     tags,
+    tenantId,
     currentFolder,
     onSuccess,
     onClose,

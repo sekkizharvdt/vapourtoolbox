@@ -51,7 +51,8 @@ import {
 export default function ThreeWayMatchDetailClient() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -177,7 +178,15 @@ export default function ThreeWayMatchDetailClient() {
     setActionLoading(true);
     try {
       const { db } = getFirebase();
-      await approveMatch(db, matchId, user.uid, user.displayName || '');
+      await approveMatch(
+        db,
+        matchId,
+        user.uid,
+        user.displayName || '',
+        undefined,
+        undefined,
+        tenantId
+      );
       setApproveDialogOpen(false);
       await loadMatch();
     } catch (err) {

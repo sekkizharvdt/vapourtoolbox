@@ -217,6 +217,7 @@ export async function createRFQ(
     // Firestore throws "Unsupported field value: undefined" if any field is undefined
     const itemData: Record<string, unknown> = {
       rfqId: rfqRef.id,
+      ...(input.tenantId && { tenantId: input.tenantId }),
       purchaseRequestId: item.purchaseRequestId,
       purchaseRequestItemId: item.purchaseRequestItemId,
       lineNumber: index + 1,

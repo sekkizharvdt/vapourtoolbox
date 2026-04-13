@@ -46,7 +46,8 @@ const COMMON_DESTINATIONS = [
 
 export default function NewTravelExpensePage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const createReportMutation = useCreateTravelExpenseReport();
 
@@ -100,6 +101,7 @@ export default function NewTravelExpensePage() {
         employeeId: user.uid,
         employeeName: user.displayName || 'User',
         employeeEmail: user.email || '',
+        tenantId,
       });
 
       // Navigate to the detail page to add expense items

@@ -79,7 +79,8 @@ export async function createBillFromGoodsReceipt(
   db: Firestore,
   goodsReceipt: GoodsReceipt,
   userId: string,
-  userEmail: string
+  userEmail: string,
+  tenantId?: string
 ): Promise<string> {
   try {
     // Validate goods receipt is approved
@@ -325,6 +326,9 @@ export async function createBillFromGoodsReceipt(
       // Notes
       notes: `Auto-generated from Goods Receipt ${goodsReceipt.number || goodsReceipt.id}`,
       description: `Bill for PO ${purchaseOrder.number || purchaseOrder.id}`,
+
+      // Tenant scoping
+      ...(tenantId && { tenantId }),
 
       // Audit trail
       createdAt: Timestamp.now(),

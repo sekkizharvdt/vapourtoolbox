@@ -23,7 +23,8 @@ import { createOnDutyRequest, submitOnDutyRequest, validateOnDutyDate } from '@/
 
 export default function NewOnDutyRequestPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +80,9 @@ export default function NewOnDutyRequestPage() {
         },
         user.uid,
         user.displayName || 'Unknown User',
-        user.email || ''
+        user.email || '',
+        undefined,
+        tenantId
       );
 
       router.push('/hr/on-duty/my-requests');
@@ -115,7 +118,9 @@ export default function NewOnDutyRequestPage() {
         },
         user.uid,
         user.displayName || 'Unknown User',
-        user.email || ''
+        user.email || '',
+        undefined,
+        tenantId
       );
 
       // Submit for approval

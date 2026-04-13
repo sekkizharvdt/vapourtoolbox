@@ -101,6 +101,9 @@ export type DocumentEntityType =
 export interface DocumentRecord {
   id: string;
 
+  // Multi-tenancy
+  tenantId?: string;
+
   // File information
   fileName: string;
   fileUrl: string; // Firebase Storage URL
@@ -180,6 +183,9 @@ export interface DocumentRecord {
 export interface DocumentUploadRequest {
   // File (will be handled by the service)
   file: File;
+
+  // Multi-tenancy
+  tenantId?: string;
 
   // Categorization
   module: DocumentModule;

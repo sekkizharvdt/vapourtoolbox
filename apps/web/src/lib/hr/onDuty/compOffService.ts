@@ -36,7 +36,8 @@ async function ensureCompOffBalanceExists(
   userId: string,
   userName: string,
   userEmail: string,
-  fiscalYear: number
+  fiscalYear: number,
+  tenantId?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
@@ -76,6 +77,7 @@ async function ensureCompOffBalanceExists(
       order: 7,
       createdAt: createTimestamp,
       updatedAt: createTimestamp,
+      ...(tenantId && { tenantId }),
     });
 
     // Re-query to get the document
@@ -111,6 +113,7 @@ async function ensureCompOffBalanceExists(
     carryForward: 0,
     createdAt: now,
     updatedAt: now,
+    ...(tenantId && { tenantId }),
   });
 
   logger.info('Auto-initialized COMP_OFF balance', { userId, fiscalYear });
@@ -129,7 +132,8 @@ export async function grantCompOff(
   userId: string,
   source: CompOffSource,
   grantedBy: string,
-  userInfo?: { userName: string; userEmail: string }
+  userInfo?: { userName: string; userEmail: string },
+  tenantId?: string
 ): Promise<void> {
   try {
     const fiscalYear = getCurrentFiscalYear();
@@ -139,7 +143,13 @@ export async function grantCompOff(
 
     // Auto-initialize COMP_OFF balance if it doesn't exist and we have user info
     if (!balance && userInfo) {
-      await ensureCompOffBalanceExists(userId, userInfo.userName, userInfo.userEmail, fiscalYear);
+      await ensureCompOffBalanceExists(
+        userId,
+        userInfo.userName,
+        userInfo.userEmail,
+        fiscalYear,
+        tenantId
+      );
       balance = await getUserLeaveBalanceByType(userId, COMP_OFF_LEAVE_TYPE, fiscalYear);
     }
 

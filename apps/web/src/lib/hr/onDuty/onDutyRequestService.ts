@@ -164,7 +164,8 @@ export async function createOnDutyRequest(
   userId: string,
   userName: string,
   userEmail: string,
-  department?: string
+  department?: string,
+  tenantId?: string
 ): Promise<{ requestId: string; requestNumber: string }> {
   const { db } = getFirebase();
 
@@ -227,6 +228,7 @@ export async function createOnDutyRequest(
       approvalHistory: [],
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
+      ...(tenantId && { tenantId }),
     };
 
     await setDoc(requestRef, request);
