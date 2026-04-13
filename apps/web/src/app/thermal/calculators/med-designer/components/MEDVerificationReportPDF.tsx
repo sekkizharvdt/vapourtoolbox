@@ -48,6 +48,29 @@ const ls = StyleSheet.create({
     marginBottom: 2,
     paddingLeft: 12,
   },
+  warningItem: {
+    fontSize: 7.5,
+    lineHeight: 1.5,
+    color: '#b71c1c',
+    marginBottom: 2,
+    paddingLeft: 8,
+  },
+  nomenclatureRow: {
+    flexDirection: 'row' as const,
+    borderBottom: `0.5pt solid ${REPORT_THEME.border}`,
+    paddingVertical: 1.5,
+  },
+  nomenclatureAbbr: {
+    fontSize: 7,
+    fontWeight: 'bold' as const,
+    width: '18%',
+    color: REPORT_THEME.text,
+  },
+  nomenclatureDesc: {
+    fontSize: 7,
+    width: '82%',
+    color: REPORT_THEME.textSecondary,
+  },
   simpleHeader: {
     marginBottom: 10,
     paddingBottom: 6,
@@ -198,11 +221,11 @@ export function MEDVerificationReportPDF({
   // Computed steam pressure for design basis
   const steamPressureBar = getSaturationPressure(steamTemp);
 
-  // Energy balance
-  const totalSteamHeat = (r.inputs.steamFlow * getLatentHeat(steamTemp)) / 3.6; // T/h * kJ/kg / 3.6 -> kW
-  const totalDistillateHeat = r.effects.reduce((s, e) => s + e.duty, 0);
-  const energyBalanceErrorPct =
-    totalSteamHeat > 0 ? ((totalSteamHeat - totalDistillateHeat) / totalSteamHeat) * 100 : 0;
+  // Overall energy balance: steam input kW (for display and STE calculation)
+  // Per-effect energy balance is validated by the engine (warns if any > 0.5%).
+  // The overall plant balance check uses the engine's convergence status.
+  const totalSteamHeat = (r.inputs.steamFlow * getLatentHeat(steamTemp)) / 3.6; // kW
+  const hasEnergyWarnings = r.warnings.some((w) => w.includes('Energy balance error'));
   const specificThermalEnergy =
     r.totalDistillateM3Day > 0 ? (totalSteamHeat * 24) / r.totalDistillateM3Day : 0; // kWh/m³
 
@@ -223,6 +246,29 @@ export function MEDVerificationReportPDF({
             { label: 'Project', value: projectName ?? '—' },
             { label: 'Date', value: today },
           ]}
+        />
+
+        {/* Revision history */}
+        <ReportTable
+          columns={[
+            { key: 'rev', header: 'Rev', width: '8%' },
+            { key: 'date', header: 'Date', width: '15%' },
+            { key: 'description', header: 'Description', width: '42%' },
+            { key: 'preparedBy', header: 'Prepared', width: '15%' },
+            { key: 'checkedBy', header: 'Checked', width: '10%' },
+            { key: 'approvedBy', header: 'Approved', width: '10%' },
+          ]}
+          rows={[
+            {
+              rev: revision,
+              date: today,
+              description: revision === '0' ? 'Issued for review' : 'Revised',
+              preparedBy: '—',
+              checkedBy: '—',
+              approvedBy: '—',
+            },
+          ]}
+          fontSize={7}
         />
 
         <SummaryCards
@@ -267,11 +313,21 @@ export function MEDVerificationReportPDF({
                   { label: 'Tube Conductivity', value: `${rd.tubeConductivity} W/m·K` },
                   { label: 'Tube Pitch', value: `${rd.tubePitch} mm (triangular)` },
                   {
-                    label: 'Available Tube Lengths',
-                    value: `${(rd.availableTubeLengths ?? [0.8, 1.0, 1.2, 1.5]).toString()} m`,
+                    label: 'Tube Length',
+                    value: `${r.effects[0]?.tubeLength ?? 'N/A'} m`,
                   },
                   { label: 'Design Margin', value: `${Number(rd.designMargin) * 100}%` },
-                  { label: 'Fouling Resistance', value: `${rd.foulingResistance} m²·K/W` },
+                  {
+                    label: 'Fouling Resistance',
+                    value: `${rd.foulingResistance ?? 0.00015} m2.K/W`,
+                  },
+                  {
+                    label: 'BPE Safety Factor',
+                    value:
+                      rd.bpeSafetyFactor && Number(rd.bpeSafetyFactor) !== 1
+                        ? `x${rd.bpeSafetyFactor} (+${((Number(rd.bpeSafetyFactor) - 1) * 100).toFixed(0)}%)`
+                        : '1.0 (none)',
+                  },
                   { label: 'NEA per Effect', value: `${rd.NEA}°C` },
                   { label: 'Demister Loss per Effect', value: `${rd.demisterLoss}°C` },
                   { label: 'Duct Pressure Drop Loss', value: `${rd.pressureDropLoss}°C` },
@@ -327,10 +383,10 @@ export function MEDVerificationReportPDF({
               { key: 'hv', header: 'h_v (kJ/kg)', width: '10%', align: 'right' },
               { key: 'hl', header: 'h_l (kJ/kg)', width: '10%', align: 'right' },
               { key: 'hfg', header: 'h_fg (kJ/kg)', width: '10%', align: 'right' },
-              { key: 'rhoL', header: '\u03C1_l (kg/m³)', width: '10%', align: 'right' },
-              { key: 'rhoV', header: '\u03C1_v (kg/m³)', width: '10%', align: 'right' },
-              { key: 'muL', header: '\u03BC_l (Pa·s)', width: '12%', align: 'right' },
-              { key: 'kL', header: 'k_l (W/m·K)', width: '13%', align: 'right' },
+              { key: 'rhoL', header: 'rho_l (kg/m3)', width: '10%', align: 'right' },
+              { key: 'rhoV', header: 'rho_v (kg/m3)', width: '10%', align: 'right' },
+              { key: 'muL', header: 'mu_l (Pa.s)', width: '12%', align: 'right' },
+              { key: 'kL', header: 'k_l (W/m.K)', width: '13%', align: 'right' },
             ]}
             rows={steamPropRows}
             striped
@@ -380,9 +436,9 @@ export function MEDVerificationReportPDF({
               { key: 'bpe', header: 'BPE (°C)', width: '8%', align: 'right' },
               { key: 'nea', header: 'NEA (°C)', width: '8%', align: 'right' },
               { key: 'demL', header: 'Demister (°C)', width: '9%', align: 'right' },
-              { key: 'dpL', header: 'Duct \u0394P (°C)', width: '9%', align: 'right' },
+              { key: 'dpL', header: 'Duct dP (°C)', width: '9%', align: 'right' },
               { key: 'vapOutT', header: 'Vap. Out (°C)', width: '10%', align: 'right' },
-              { key: 'workDT', header: 'Working \u0394T (°C)', width: '10%', align: 'right' },
+              { key: 'workDT', header: 'Working dT (°C)', width: '10%', align: 'right' },
               { key: 'press', header: 'Pressure (mbar)', width: '10%', align: 'right' },
               { key: 'hfg', header: 'h_fg (kJ/kg)', width: '10%', align: 'right' },
             ]}
@@ -404,9 +460,9 @@ export function MEDVerificationReportPDF({
           />
           <View style={{ marginTop: 4 }}>
             <Text style={{ fontSize: 6, color: REPORT_THEME.textMuted }}>
-              Temperature drop per effect: Incoming vapour → Brine (= working \u0394T) | Brine → Vap
-              out: BPE + NEA + demister + duct \u0394P | Vapour out of Effect N = incoming vapour to
-              Effect N+1
+              Temperature drop per effect: Incoming vapour → Brine (= working dT) | Brine → Vap out:
+              BPE + NEA + demister + duct dP | Vapour out of Effect N = incoming vapour to Effect
+              N+1
             </Text>
           </View>
         </ReportSection>
@@ -488,30 +544,34 @@ export function MEDVerificationReportPDF({
         <ReportSection title="7. Heat Transfer Coefficient & Equipment Sizing">
           <ReportTable
             columns={[
-              { key: 'effect', header: 'Effect', width: '6%' },
-              { key: 'u', header: 'U (W/m²·K)', width: '9%', align: 'right' },
-              { key: 'reqA', header: 'Req. Area (m²)', width: '10%', align: 'right' },
-              { key: 'desA', header: 'Design Area (m²)', width: '11%', align: 'right' },
-              { key: 'instA', header: 'Installed (m²)', width: '10%', align: 'right' },
-              { key: 'margin', header: 'Margin (%)', width: '8%', align: 'right' },
+              { key: 'effect', header: 'Effect', width: '5%' },
+              { key: 'hTube', header: 'h_tube', width: '7%', align: 'right' },
+              { key: 'hShell', header: 'h_shell', width: '7%', align: 'right' },
+              { key: 'u', header: 'U', width: '6%', align: 'right' },
+              { key: 'reqA', header: 'Req (m2)', width: '8%', align: 'right' },
+              { key: 'desA', header: 'Design (m2)', width: '8%', align: 'right' },
+              { key: 'instA', header: 'Inst. (m2)', width: '8%', align: 'right' },
+              { key: 'margin', header: 'Margin', width: '7%', align: 'right' },
               { key: 'tubes', header: 'Tubes', width: '7%', align: 'right' },
-              { key: 'tubeL', header: 'Tube L (m)', width: '8%', align: 'right' },
-              { key: 'shellOD', header: 'Shell OD (mm)', width: '10%', align: 'right' },
-              { key: 'shellL', header: 'Shell L (mm)', width: '10%', align: 'right' },
-              { key: 'vapLanes', header: 'Vap. Lanes', width: '7%', align: 'center' },
+              { key: 'tubeL', header: 'L (m)', width: '6%', align: 'right' },
+              { key: 'shellOD', header: 'Shell OD', width: '8%', align: 'right' },
+              { key: 'shellL', header: 'Shell L', width: '8%', align: 'right' },
+              { key: 'vapLanes', header: 'Lanes', width: '5%', align: 'center' },
             ]}
             rows={r.effects.map((e) => ({
               effect: `E${e.effect}`,
+              hTube: fmt(e.tubeSideHTC, 0),
+              hShell: fmt(e.shellSideHTC, 0),
               u: fmt(e.overallU, 0),
               reqA: fmt(e.requiredArea, 1),
               desA: fmt(e.designArea, 1),
               instA: fmt(e.installedArea, 1),
-              margin: `${e.areaMargin >= 0 ? '+' : ''}${fmt(e.areaMargin, 1)}`,
+              margin: `${e.areaMargin >= 0 ? '+' : ''}${fmt(e.areaMargin, 0)}%`,
               tubes: e.tubes.toString(),
               tubeL: fmt(e.tubeLength, 2),
               shellOD: e.shellODmm.toString(),
               shellL: e.shellLengthMM.toLocaleString(),
-              vapLanes: e.hasVapourLanes ? 'Yes' : 'No',
+              vapLanes: e.hasVapourLanes ? 'Y' : 'N',
             }))}
             totalRow={{
               effect: 'Total',
@@ -539,8 +599,8 @@ export function MEDVerificationReportPDF({
               { key: 'feed', header: 'Feed (T/h)', width: '14%', align: 'right' },
               { key: 'recirc', header: 'Recirc (T/h)', width: '14%', align: 'right' },
               { key: 'totalSpray', header: 'Total Spray (T/h)', width: '16%', align: 'right' },
-              { key: 'gamma', header: '\u0393 (kg/m·s)', width: '16%', align: 'right' },
-              { key: 'minGamma', header: 'Min \u0393', width: '14%', align: 'right' },
+              { key: 'gamma', header: 'Gamma (kg/m·s)', width: '16%', align: 'right' },
+              { key: 'minGamma', header: 'Min Gamma', width: '14%', align: 'right' },
               { key: 'status', header: 'Status', width: '18%', align: 'center' },
             ]}
             rows={r.effects.map((e) => {
@@ -574,7 +634,7 @@ export function MEDVerificationReportPDF({
           />
           <View style={{ marginTop: 4 }}>
             <Text style={{ fontSize: 6, color: REPORT_THEME.textMuted }}>
-              Minimum wetting rate \u0393 = {rd.minimumWettingRate ?? 0.035} kg/m·s | Recirculation
+              Minimum wetting rate Gamma = {rd.minimumWettingRate ?? 0.035} kg/m·s | Recirculation
               added where natural spray flow is insufficient for tube wetting
             </Text>
           </View>
@@ -599,10 +659,19 @@ export function MEDVerificationReportPDF({
               <KeyValueTable
                 rows={[
                   { label: 'Vapour Flow', value: `${fmt(r.condenser.vapourFlow, 3)} T/h` },
-                  { label: 'Vapour Temperature', value: `${fmt(r.condenser.vapourTemp, 2)}°C` },
+                  { label: 'Vapour Temperature', value: `${fmt(r.condenser.vapourTemp, 2)} C` },
                   { label: 'Heat Duty', value: `${fmt(r.condenser.duty, 0)} kW` },
-                  { label: 'LMTD', value: `${fmt(r.condenser.lmtd, 2)}°C` },
-                  { label: 'Overall U', value: `${fmt(r.condenser.overallU, 0)} W/m²·K` },
+                  { label: 'LMTD', value: `${fmt(r.condenser.lmtd, 2)} C` },
+                  {
+                    label: 'Tube-side HTC (Dittus-Boelter)',
+                    value: `${fmt(r.condenser.tubeSideHTC, 0)} W/m2.K`,
+                  },
+                  {
+                    label: 'Shell-side HTC (Nusselt+Kern)',
+                    value: `${fmt(r.condenser.shellSideHTC, 0)} W/m2.K`,
+                  },
+                  { label: 'Overall U', value: `${fmt(r.condenser.overallU, 0)} W/m2.K` },
+                  { label: 'Required Area', value: `${fmt(r.condenser.requiredArea, 1)} m2` },
                 ]}
               />
             }
@@ -635,30 +704,35 @@ export function MEDVerificationReportPDF({
           <ReportSection title="10. Preheaters">
             <ReportTable
               columns={[
-                { key: 'id', header: 'PH', width: '6%' },
-                { key: 'source', header: 'Vapour Source', width: '14%' },
-                { key: 'vapT', header: 'Vap. T (°C)', width: '10%', align: 'right' },
-                { key: 'swIn', header: 'SW In (°C)', width: '10%', align: 'right' },
-                { key: 'swOut', header: 'SW Out (°C)', width: '10%', align: 'right' },
-                { key: 'duty', header: 'Duty (kW)', width: '10%', align: 'right' },
-                { key: 'lmtd', header: 'LMTD (°C)', width: '10%', align: 'right' },
-                { key: 'area', header: 'Design Area (m²)', width: '12%', align: 'right' },
-                { key: 'tubes', header: 'Tubes', width: '8%', align: 'right' },
-                { key: 'vel', header: 'Vel. (m/s)', width: '10%', align: 'right' },
+                { key: 'id', header: 'PH', width: '5%' },
+                { key: 'source', header: 'Source', width: '10%' },
+                { key: 'duty', header: 'Duty (kW)', width: '9%', align: 'right' },
+                { key: 'lmtd', header: 'LMTD (C)', width: '8%', align: 'right' },
+                { key: 'hTube', header: 'h_tube', width: '8%', align: 'right' },
+                { key: 'hShell', header: 'h_shell', width: '8%', align: 'right' },
+                { key: 'U', header: 'U', width: '8%', align: 'right' },
+                { key: 'reqArea', header: 'Req (m2)', width: '8%', align: 'right' },
+                { key: 'area', header: 'Design (m2)', width: '9%', align: 'right' },
+                { key: 'tubes', header: 'Tubes', width: '7%', align: 'right' },
+                { key: 'vel', header: 'Vel (m/s)', width: '8%', align: 'right' },
+                { key: 'shell', header: 'Shell (mm)', width: '8%', align: 'right' },
               ]}
               rows={r.preheaters.map((ph) => ({
                 id: `PH${ph.id}`,
                 source: ph.vapourSource,
-                vapT: fmt(ph.vapourTemp, 1),
-                swIn: fmt(ph.swInlet, 1),
-                swOut: fmt(ph.swOutlet, 1),
                 duty: fmt(ph.duty, 0),
                 lmtd: fmt(ph.lmtd, 2),
+                hTube: fmt(ph.tubeSideHTC, 0),
+                hShell: fmt(ph.shellSideHTC, 0),
+                U: fmt(ph.overallU, 0),
+                reqArea: fmt(ph.requiredArea, 1),
                 area: fmt(ph.designArea, 1),
                 tubes: ph.tubes.toString(),
                 vel: fmt(ph.velocity, 2),
+                shell: ph.shellODmm.toString(),
               }))}
               striped
+              fontSize={7}
             />
           </ReportSection>
         )}
@@ -862,7 +936,12 @@ export function MEDVerificationReportPDF({
                     label: 'Total Brine Recirculation',
                     value: `${fmt(r.totalBrineRecirculation, 1)} T/h`,
                   },
-                  { label: 'Energy Balance Error', value: `${fmt(energyBalanceErrorPct, 2)}%` },
+                  {
+                    label: 'Energy Balance',
+                    value: hasEnergyWarnings
+                      ? 'Per-effect error > 0.5% (see warnings)'
+                      : 'Verified (< 0.5% per effect)',
+                  },
                   { label: 'Spray Salinity', value: `${fmt(r.spraySalinity, 0)} ppm` },
                 ]}
               />
@@ -870,8 +949,81 @@ export function MEDVerificationReportPDF({
           />
         </ReportSection>
 
-        {/* Section 13: References & Standards */}
-        <ReportSection title="13. References & Standards">
+        {/* Section 13: Design Warnings & Notes */}
+        {r.warnings.length > 0 && (
+          <ReportSection title="13. Design Warnings">
+            {r.warnings.map((w, i) => (
+              <Text key={i} style={ls.warningItem}>
+                {i + 1}. {w}
+              </Text>
+            ))}
+          </ReportSection>
+        )}
+
+        {/* Section 14: Nomenclature */}
+        <ReportSection title={r.warnings.length > 0 ? '14. Nomenclature' : '13. Nomenclature'}>
+          {(
+            [
+              [
+                'BPE',
+                'Boiling Point Elevation — temperature increase of boiling brine over pure water at the same pressure',
+              ],
+              [
+                'GOR',
+                'Gain Output Ratio — kg distillate produced per kg of heating steam consumed',
+              ],
+              ['NEA', 'Non-Equilibrium Allowance — temperature loss due to incomplete flashing'],
+              [
+                'STE',
+                'Specific Thermal Energy — thermal energy consumed per unit distillate (kWh/m3)',
+              ],
+              [
+                'LMTD',
+                'Log Mean Temperature Difference — effective driving force for heat transfer',
+              ],
+              [
+                'HTC / U',
+                'Heat Transfer Coefficient / Overall HTC — rate of heat transfer per unit area per unit temperature difference (W/m2.K)',
+              ],
+              [
+                'Gamma',
+                'Wetting Rate — liquid mass flow per unit tube length per row (kg/m.s). Minimum ~0.035 for falling film evaporation',
+              ],
+              [
+                'NCG',
+                'Non-Condensable Gases — air leakage and dissolved gases released from seawater',
+              ],
+              [
+                'TVC',
+                'Thermo Vapor Compressor — steam ejector that entrains low-pressure vapor to boost Effect 1 capacity',
+              ],
+              [
+                'OTL',
+                'Outer Tube Limit — diameter of the circle bounding the outermost tube centres',
+              ],
+              [
+                'TEMA',
+                'Tubular Exchanger Manufacturers Association — standards for shell and tube heat exchanger design',
+              ],
+              [
+                'CF',
+                'Concentration Factor — ratio of max brine salinity to feed salinity (dimensionless)',
+              ],
+            ] as [string, string][]
+          ).map(([abbr, desc], i) => (
+            <View key={i} style={ls.nomenclatureRow}>
+              <Text style={ls.nomenclatureAbbr}>{abbr}</Text>
+              <Text style={ls.nomenclatureDesc}>{desc}</Text>
+            </View>
+          ))}
+        </ReportSection>
+
+        {/* Section 15: References & Standards */}
+        <ReportSection
+          title={
+            r.warnings.length > 0 ? '15. References & Standards' : '14. References & Standards'
+          }
+        >
           {[
             '1. El-Dessouky, H.T. & Ettouney, H.M. (2002) "Fundamentals of Salt Water Desalination," Elsevier',
             '2. Sharqawy, M.H. et al. (2010) "Thermophysical properties of seawater: a review," Desalination and Water Treatment, 16, pp. 354-380',

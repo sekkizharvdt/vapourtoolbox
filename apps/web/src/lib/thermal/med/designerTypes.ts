@@ -157,6 +157,10 @@ export interface MEDDesignerEffect {
   workingDeltaT: number;
   /** Pressure in mbar abs */
   pressure: number;
+  /** Tube-side HTC (Nusselt condensation) W/(m²·K) */
+  tubeSideHTC: number;
+  /** Shell-side HTC (Chun-Seban falling film) W/(m²·K) */
+  shellSideHTC: number;
   /** Overall HTC W/(m²·K) */
   overallU: number;
   /** Heat duty kW */
@@ -264,7 +268,13 @@ export interface MEDDesignerCondenser {
   duty: number; // kW
   lmtd: number; // °C
   overallU: number; // W/(m²·K)
+  /** Tube-side HTC (seawater forced convection, Dittus-Boelter) W/(m²·K) */
+  tubeSideHTC: number;
+  /** Shell-side HTC (Nusselt condensation with Kern row correction and NCG degradation) W/(m²·K) */
+  shellSideHTC: number;
   designArea: number; // m²
+  /** Required area before design margin m² */
+  requiredArea: number;
   seawaterFlow: number; // T/h
   seawaterFlowM3h: number; // m³/h
   /** Number of tubes */
@@ -292,7 +302,14 @@ export interface MEDDesignerPreheater {
   swOutlet: number; // °C
   duty: number; // kW
   lmtd: number; // °C
+  overallU: number; // W/(m²·K)
+  /** Tube-side HTC (seawater forced convection) W/(m²·K) */
+  tubeSideHTC: number;
+  /** Shell-side HTC (Nusselt condensation with Kern correction) W/(m²·K) */
+  shellSideHTC: number;
   designArea: number; // m²
+  /** Required area before design margin m² */
+  requiredArea: number;
   /** Flow through this PH (decreasing as spray peeled off) T/h */
   flowTh: number;
   /** Number of tubes */

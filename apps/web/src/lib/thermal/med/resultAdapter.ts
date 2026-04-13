@@ -73,6 +73,8 @@ export function composeDesignerEffects(
 
     // Duty and area from equipment sizing (or H&M if sizing unavailable)
     const duty = eff.heatTransferred;
+    const tubeSideHTC = evap ? evap.tubeSideHTC : 0;
+    const shellSideHTC = evap ? evap.shellSideHTC : 0;
     const overallU = evap ? evap.overallHTC : 2500;
     const requiredArea = evap
       ? evap.requiredArea
@@ -143,6 +145,8 @@ export function composeDesignerEffects(
       vapourOutTemp,
       workingDeltaT,
       pressure,
+      tubeSideHTC,
+      shellSideHTC,
       overallU,
       duty,
       requiredArea,
@@ -270,6 +274,9 @@ export function composeDesignerCondenser(
     duty: fc.heatTransferred,
     lmtd: cs.lmtd,
     overallU: cs.overallHTC,
+    tubeSideHTC: cs.tubeSideHTC,
+    shellSideHTC: cs.shellSideHTC,
+    requiredArea: cs.requiredArea,
     designArea: cs.designArea,
     seawaterFlow: fc.seawaterIn.flow / 1000, // T/h
     seawaterFlowM3h:
@@ -320,6 +327,10 @@ export function composeDesignerPreheaters(
         swOutlet: ph.seawaterOutletTemp,
         duty: ph.heatExchanged,
         lmtd: ph.lmtd,
+        overallU: 0,
+        tubeSideHTC: 0,
+        shellSideHTC: 0,
+        requiredArea: 0,
         designArea: 0,
         flowTh: ph.seawaterFlow / 1000,
         tubes: 0,
@@ -377,6 +388,10 @@ export function composeDesignerPreheaters(
       swOutlet: ph.seawaterOutletTemp,
       duty: ph.heatExchanged,
       lmtd: ph.lmtd,
+      overallU: ps.overallHTC,
+      tubeSideHTC: ps.tubeSideHTC,
+      shellSideHTC: ps.shellSideHTC,
+      requiredArea: ps.requiredArea,
       designArea: ps.designArea,
       flowTh: ph.seawaterFlow / 1000,
       tubes: bestPass.totalTubes,

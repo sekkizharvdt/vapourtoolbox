@@ -67,6 +67,27 @@ export function MEDDesignerReportPDF({
             { label: 'Date', value: new Date().toLocaleDateString('en-GB') },
           ]}
         />
+        <ReportTable
+          columns={[
+            { key: 'rev', header: 'Rev', width: '8%' },
+            { key: 'date', header: 'Date', width: '15%' },
+            { key: 'description', header: 'Description', width: '42%' },
+            { key: 'preparedBy', header: 'Prepared', width: '15%' },
+            { key: 'checkedBy', header: 'Checked', width: '10%' },
+            { key: 'approvedBy', header: 'Approved', width: '10%' },
+          ]}
+          rows={[
+            {
+              rev: revision,
+              date: new Date().toLocaleDateString('en-GB'),
+              description: revision === '0' ? 'Issued for review' : 'Revised',
+              preparedBy: '—',
+              checkedBy: '—',
+              approvedBy: '—',
+            },
+          ]}
+          fontSize={7}
+        />
 
         <SummaryCards
           items={[

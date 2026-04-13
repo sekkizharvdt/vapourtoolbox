@@ -150,6 +150,10 @@ export interface PreheaterSizingResult {
   heatDuty: number;
   /** LMTD in °C */
   lmtd: number;
+  /** Tube-side (seawater) HTC in W/(m²·K) */
+  tubeSideHTC: number;
+  /** Shell-side (condensation) HTC in W/(m²·K) */
+  shellSideHTC: number;
   /** Overall HTC in W/(m²·K) */
   overallHTC: number;
   /** Required area in m² */
@@ -759,6 +763,8 @@ function sizePreheater(
     effectNumber: preheater.effectNumber,
     heatDuty: Math.round(heatDuty * 10) / 10,
     lmtd: Math.round(lmtd * 100) / 100,
+    tubeSideHTC: hx.tubeSideHTC,
+    shellSideHTC: hx.shellSideHTC,
     overallHTC: hx.overallHTC,
     requiredArea: hx.requiredArea,
     designArea: hx.designArea,
@@ -882,6 +888,8 @@ function emptyPreheaterResult(effectNumber: number, warnings: string[]): Preheat
     effectNumber,
     heatDuty: 0,
     lmtd: 0,
+    tubeSideHTC: 0,
+    shellSideHTC: 0,
     overallHTC: 0,
     requiredArea: 0,
     designArea: 0,
