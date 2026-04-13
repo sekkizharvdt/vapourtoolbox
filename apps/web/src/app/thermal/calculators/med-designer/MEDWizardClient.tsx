@@ -70,6 +70,7 @@ export default function MEDWizardClient() {
   const [demisterLoss, setDemisterLoss] = useState('0.15');
   const [ductLoss, setDuctLoss] = useState('0.30');
   const [foulingResistance, setFoulingResistance] = useState('0.00015');
+  const [bpeSafetyFactor, setBpeSafetyFactor] = useState('1.0');
   const [designMargin, setDesignMargin] = useState('15');
   const [includeBrineRecirculation, setIncludeBrineRecirculation] = useState(true);
   const [antiscalantDose, setAntiscalantDose] = useState('2');
@@ -202,6 +203,7 @@ export default function MEDWizardClient() {
         demisterLoss: parseFloat(demisterLoss) || 0.15,
         pressureDropLoss: parseFloat(ductLoss) || 0.3,
         foulingResistance: parseFloat(foulingResistance) || 0.00015,
+        bpeSafetyFactor: parseFloat(bpeSafetyFactor) || 1.0,
         designMargin: (parseFloat(designMargin) || 15) / 100,
         ...(preheaterTempRise && { preheaterTempRise: parseFloat(preheaterTempRise) || 4 }),
         ...(() => {
@@ -246,6 +248,7 @@ export default function MEDWizardClient() {
     demisterLoss,
     ductLoss,
     foulingResistance,
+    bpeSafetyFactor,
     designMargin,
     preheaterTempRise,
     preheaterTempRiseMap,
@@ -500,6 +503,8 @@ export default function MEDWizardClient() {
           designMargin={designMargin}
           onTubeMaterialChange={setTubeMaterial}
           onFoulingResistanceChange={setFoulingResistance}
+          bpeSafetyFactor={bpeSafetyFactor}
+          onBpeSafetyFactorChange={setBpeSafetyFactor}
           onDesignMarginChange={setDesignMargin}
           includeBrineRecirculation={includeBrineRecirculation}
           onIncludeBrineRecirculationChange={setIncludeBrineRecirculation}
@@ -545,7 +550,8 @@ export default function MEDWizardClient() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {designResult.effects.length} effects, {designResult.preheaters.length} preheaters,
               GOR {fmt(designResult.achievedGOR)}, Output:{' '}
-              {Math.round(designResult.totalDistillateM3Day)} m&sup3;/day
+              {Math.round(designResult.totalDistillateM3Day)} m&sup3;/day (clean conditions &mdash;
+              production decreases with fouling over time)
             </Typography>
           </Paper>
 

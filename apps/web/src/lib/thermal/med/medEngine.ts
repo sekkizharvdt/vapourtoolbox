@@ -83,6 +83,11 @@ export interface MEDEngineInput {
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;
 
+  /** BPE safety factor (multiplier on computed BPE, default 1.0 = no margin).
+   *  Dr Rognoni recommends 1.1–1.2 to account for local concentration effects
+   *  at the tube surface with brine recirculation. */
+  bpeSafetyFactor?: number;
+
   // ---- Tube specifications (for equipment sizing) ----
   /** Evaporator tube OD in mm (default 25.4) */
   evapTubeOD?: number;
@@ -278,6 +283,14 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   const swSalinity = input.seawaterSalinity;
   const concentrationFactor = maxBrineSalinity / swSalinity;
 
+  // CaSO4 scaling risk warning (per Dr Rognoni)
+  if (maxBrineSalinity > 60000) {
+    warnings.push(
+      `Max brine salinity (${(maxBrineSalinity / 1000).toFixed(0)} g/L) exceeds 60 g/L. ` +
+        `Risk of CaSO4 scaling — verify seawater Ca++ concentration before finalising design.`
+    );
+  }
+
   // Temperature profile
   const { effectTemps, steamTemp } = buildTemperatureProfile(input);
 
@@ -437,6 +450,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
 
         preheater: preheaterMap.get(effectNumber) ?? null,
         brineConcentrationFactor: concentrationFactor,
+        bpeSafetyFactor: input.bpeSafetyFactor,
       };
 
       const result = calculateEffect(effectInput);

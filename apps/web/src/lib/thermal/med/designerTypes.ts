@@ -67,6 +67,9 @@ export interface MEDDesignerInput {
   pressureDropLoss?: number;
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;
+  /** BPE safety factor (multiplier on computed BPE, default 1.0).
+   *  1.1–1.2 recommended with brine recirculation per Dr Rognoni. */
+  bpeSafetyFactor?: number;
   /** Number of preheaters (auto-distributed if preheaterEffects not provided) */
   numberOfPreheaters?: number;
   /** Specific effect numbers that supply vapor to preheaters (overrides numberOfPreheaters) */

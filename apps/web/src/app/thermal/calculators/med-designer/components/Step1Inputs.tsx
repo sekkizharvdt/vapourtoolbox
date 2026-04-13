@@ -60,10 +60,12 @@ interface Step1InputsProps {
   // Advanced parameters
   tubeMaterial: string;
   foulingResistance: string;
+  bpeSafetyFactor: string;
   designMargin: string;
   onTubeMaterialChange: (v: string) => void;
   // NEA, demister loss, duct loss are computed by the engine — not user inputs
   onFoulingResistanceChange: (v: string) => void;
+  onBpeSafetyFactorChange: (v: string) => void;
   onDesignMarginChange: (v: string) => void;
   includeBrineRecirculation: boolean;
   onIncludeBrineRecirculationChange: (v: boolean) => void;
@@ -125,6 +127,8 @@ export function Step1Inputs({
   designMargin,
   onTubeMaterialChange,
   onFoulingResistanceChange,
+  bpeSafetyFactor,
+  onBpeSafetyFactorChange,
   onDesignMarginChange,
   includeBrineRecirculation,
   onIncludeBrineRecirculationChange,
@@ -479,6 +483,15 @@ export function Step1Inputs({
                 helperText="m&sup2;&middot;K/W"
                 sx={{ width: 160 }}
               />
+              <TextField
+                label="BPE Safety Factor"
+                value={bpeSafetyFactor}
+                onChange={(e) => onBpeSafetyFactorChange(e.target.value)}
+                type="number"
+                size="small"
+                helperText="1.0 = none, 1.15 = +15%"
+                sx={{ width: 160 }}
+              />
             </Stack>
             {designResult && designResult.effects.length > 0 && (
               <>
@@ -567,15 +580,16 @@ export function Step1Inputs({
             Performance Summary
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-            {tubeMaterial} tubes | Fouling {foulingResistance} m&sup2;&middot;K/W | Margin{' '}
-            {designMargin}% | Non-BPE losses:{' '}
+            {tubeMaterial} tubes | Fouling {foulingResistance} m&sup2;&middot;K/W | BPE safety{' '}
+            {bpeSafetyFactor !== '1.0' && bpeSafetyFactor !== '1' ? `×${bpeSafetyFactor}` : 'none'}{' '}
+            | Margin {designMargin}% | Non-BPE losses:{' '}
             {fmt(
               (designResult.effects[0]?.nea ?? 0) +
                 (designResult.effects[0]?.demisterLoss ?? 0) +
                 (designResult.effects[0]?.pressureDropLoss ?? 0),
               2
             )}
-            &deg;C/effect (computed)
+            &deg;C/effect (computed) | Clean-condition performance
           </Typography>
           <Stack direction="row" spacing={4} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
             <Box>

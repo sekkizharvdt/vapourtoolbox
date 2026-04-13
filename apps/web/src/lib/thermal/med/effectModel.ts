@@ -137,6 +137,8 @@ export interface EffectInput {
 
   /** Brine concentration factor */
   brineConcentrationFactor: number;
+  /** BPE safety factor (multiplier, default 1.0) */
+  bpeSafetyFactor?: number;
 }
 
 /**
@@ -172,7 +174,8 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
 
   // ---- Temperature losses ----
   const brineSalinityForBPE = seawaterSalinity * brineConcentrationFactor;
-  const bpe = getBoilingPointElevation(Math.min(brineSalinityForBPE, 120000), effectTemp);
+  const bpeRaw = getBoilingPointElevation(Math.min(brineSalinityForBPE, 120000), effectTemp);
+  const bpe = bpeRaw * (input.bpeSafetyFactor ?? 1.0);
   const nea = getNEA(index, totalEffects);
   const deltaTP = DELTA_T_PRESSURE_DROP;
 

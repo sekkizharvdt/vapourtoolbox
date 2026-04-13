@@ -233,7 +233,9 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     nea: NEA,
     demisterLoss: demLoss,
     ductLoss: pdLoss,
-    foulingResistance: 0.00015,
+    foulingResistance: input.foulingResistance ?? 0.00015,
+    ...(input.bpeSafetyFactor &&
+      input.bpeSafetyFactor !== 1.0 && { bpeSafetyFactor: input.bpeSafetyFactor }),
     evapTubeOD: tubeOD,
     evapTubeWall: tubeWall,
     evapTubeLength: (resolved.resolvedDefaults.tubeLength as number) ?? maxTubeLength,
