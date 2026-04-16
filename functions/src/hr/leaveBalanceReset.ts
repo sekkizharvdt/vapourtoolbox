@@ -122,7 +122,7 @@ export const resetLeaveBalances = onSchedule(
 
           const now = admin.firestore.Timestamp.now();
 
-          const tenantId = userData.tenantId || userData.entityId || 'default-entity';
+          const tenantId = userData.tenantId || 'default-entity';
 
           // Create sick leave balance
           const sickBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
@@ -447,7 +447,7 @@ export const manualResetLeaveBalances = onCall(
         }
 
         const now = admin.firestore.Timestamp.now();
-        const tenantId = userData.tenantId || userData.entityId || 'default-entity';
+        const tenantId = userData.tenantId || 'default-entity';
         const batch = db.batch();
 
         // If user has valid SICK/CASUAL balances but no COMP_OFF, just add COMP_OFF
