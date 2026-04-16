@@ -739,8 +739,48 @@ export function MEDVerificationReportPDF({
 
         {/* Section 11: Auxiliary Equipment */}
         <ReportSection title="11. Auxiliary Equipment Summary">
-          {/* Demisters */}
-          {r.auxiliaryEquipment.demisters.length > 0 && (
+          {/* Demister & Steam Flow Area — from lateral shell geometry */}
+          {r.vaporPathGeometry && r.vaporPathGeometry.length > 0 ? (
+            <View style={{ marginBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 8,
+                  fontWeight: 'bold',
+                  marginBottom: 3,
+                  color: REPORT_THEME.text,
+                }}
+              >
+                Demister &amp; Steam Flow Area (Lateral Shell Geometry)
+              </Text>
+              <ReportTable
+                columns={[
+                  { key: 'effect', header: 'Effect', width: '8%' },
+                  { key: 'elev', header: 'Dem. Elev. (mm)', width: '13%', align: 'right' },
+                  { key: 'chord', header: 'Dem. Width (mm)', width: '13%', align: 'right' },
+                  { key: 'demArea', header: 'Dem. Area (m²)', width: '13%', align: 'right' },
+                  { key: 'demVel', header: 'Dem. Vel. (m/s)', width: '13%', align: 'right' },
+                  { key: 'sfArea', header: 'Steam Area (m²)', width: '13%', align: 'right' },
+                  { key: 'sfVel', header: 'Steam Vel. (m/s)', width: '13%', align: 'right' },
+                ]}
+                rows={r.vaporPathGeometry.map((vpg, i) => ({
+                  effect: `E${i + 1}`,
+                  elev: fmt(vpg.demisterElevation, 0),
+                  chord: fmt(vpg.demisterChordWidth, 0),
+                  demArea: fmt(vpg.demisterArea, 3),
+                  demVel: fmt(vpg.demisterVelocity, 2),
+                  sfArea: fmt(vpg.steamFlowArea, 4),
+                  sfVel: fmt(vpg.steamFlowVelocity, 1),
+                }))}
+                striped
+                fontSize={7}
+              />
+              <Text style={{ fontSize: 6, color: REPORT_THEME.textMuted, marginTop: 2 }}>
+                Demister: wire mesh pad in free (right) semicircle of lateral shell | Steam flow
+                area: cutout in tubesheet above demister + 100mm clearance | Elevation optimised
+                per-effect (Souders-Brown + steam flow velocity target 30 m/s)
+              </Text>
+            </View>
+          ) : r.auxiliaryEquipment.demisters.length > 0 ? (
             <View style={{ marginBottom: 8 }}>
               <Text
                 style={{
@@ -776,7 +816,7 @@ export function MEDVerificationReportPDF({
                 fontSize={7}
               />
             </View>
-          )}
+          ) : null}
 
           {/* Spray Nozzles */}
           {r.auxiliaryEquipment.sprayNozzles.length > 0 && (

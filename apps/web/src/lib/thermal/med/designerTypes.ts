@@ -652,6 +652,16 @@ export interface MEDDesignerResult {
   numberOfShells: number;
 
   auxiliaryEquipment: MEDAuxiliaryEquipment;
+
+  /** Per-effect vapour path geometry (demister pad + steam flow cutout from engine) */
+  vaporPathGeometry?: {
+    demisterElevation: number; // mm above shell centre
+    demisterChordWidth: number; // mm
+    demisterArea: number; // m²
+    demisterVelocity: number; // m/s
+    steamFlowArea: number; // m²
+    steamFlowVelocity: number; // m/s
+  }[];
   dosing?: MEDDosingResult;
   vacuumSystem?: MEDVacuumResult;
   costEstimate?: MEDCostEstimate;

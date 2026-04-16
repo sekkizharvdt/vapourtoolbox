@@ -512,6 +512,8 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     spraySalinity,
     numberOfShells: nEff * (shellsPerEffect > 1 ? shellsPerEffect : 1),
     auxiliaryEquipment,
+    vaporPathGeometry:
+      engineResult.vaporPathGeometry.length > 0 ? engineResult.vaporPathGeometry : undefined,
     dosing: dosing ?? undefined,
     vacuumSystem: vacuumSystem ?? undefined,
     swReject: condenser.seawaterFlow - makeUpFeed,

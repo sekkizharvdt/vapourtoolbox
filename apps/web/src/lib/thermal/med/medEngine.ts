@@ -49,7 +49,7 @@ import { calculatePreheater } from './preheaterModel';
 import { calculateFinalCondenser } from './finalCondenserModel';
 import { solveTVCIntegration, type TVCIntegrationResult } from './tvcIntegration';
 import { sizeEquipment, type EquipmentSizingResult } from './equipmentSizing';
-import { findMinShellID, computeVaporPathGeometry } from './shellGeometry';
+import { findMinShellID, computeVaporPathGeometry, type VaporPathGeometry } from './shellGeometry';
 import type { MEDPlantInputs, MEDPreheaterResult, TubeMaterial } from '@vapour/types';
 
 // ============================================================================
@@ -147,6 +147,8 @@ export interface MEDEngineResult {
   preheaters: PreheaterDetail[];
   /** Equipment sizing (null if tube specs not provided) */
   equipmentSizing: EquipmentSizingResult | null;
+  /** Per-effect vapour path geometry (demister pad + steam flow cutout) */
+  vaporPathGeometry: VaporPathGeometry[];
   /** Overall performance */
   performance: {
     /** Gain Output Ratio — distillate / steam */
@@ -702,6 +704,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   let equipmentSizing: EquipmentSizingResult | null = null;
   const demisterDeltaTOverrides: (number | undefined)[] = new Array(N).fill(undefined);
   const ductDeltaTOverrides: (number | undefined)[] = new Array(N).fill(undefined);
+  const vaporPathResults: VaporPathGeometry[] = [];
 
   const buildSizingInputs = (): MEDPlantInputs => ({
     plantType: input.tvcMotivePressure ? 'MED_TVC' : 'MED',
@@ -811,6 +814,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
 
       demisterDeltaTOverrides[i] = actualDemDT;
       ductDeltaTOverrides[i] = actualDuctDT;
+      vaporPathResults[i] = vpg;
     }
 
     // ---- Check convergence ----
@@ -1085,6 +1089,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     finalCondenser: finalCondenser!,
     preheaters: preheaterDetails,
     equipmentSizing,
+    vaporPathGeometry: vaporPathResults,
     performance: {
       gor: Math.round(gor * 100) / 100,
       netDistillate: Math.round(netDistillate),
