@@ -60,7 +60,8 @@ async function createPRFromItem(
   projectName: string,
   item: ProcurementItem,
   userId: string,
-  userName: string
+  userName: string,
+  tenantId: string | undefined
 ): Promise<{ prId: string; prNumber: string } | null> {
   try {
     const batch = db.batch();
@@ -100,6 +101,9 @@ async function createPRFromItem(
 
       // Charter link
       charterItemId: item.id,
+
+      // Tenant
+      ...(tenantId && { tenantId }),
 
       // Timestamps
       createdAt: now,
@@ -152,6 +156,9 @@ async function createPRFromItem(
 
       // Status
       status: 'PENDING',
+
+      // Tenant
+      ...(tenantId && { tenantId }),
 
       // Timestamps
       createdAt: now,
@@ -206,6 +213,7 @@ export const onCharterApproved = onDocumentUpdated(
     logger.info(`[onCharterApproved] Charter approved for project ${projectId}`);
 
     const projectName = after.name || projectId;
+    const tenantId = (after.tenantId as string) || 'default-entity';
     const procurementItems = (after.procurementItems || []) as ProcurementItem[];
     const approvedBy = after.charter?.authorization?.approvedBy || 'system';
     const approvedByName = 'System'; // TODO: Look up user name from approvedBy UID
@@ -234,7 +242,8 @@ export const onCharterApproved = onDocumentUpdated(
         projectName,
         item,
         approvedBy,
-        approvedByName
+        approvedByName,
+        tenantId
       );
 
       if (result) {

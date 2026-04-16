@@ -122,10 +122,13 @@ export const resetLeaveBalances = onSchedule(
 
           const now = admin.firestore.Timestamp.now();
 
+          const tenantId = userData.tenantId || userData.entityId || 'default-entity';
+
           // Create sick leave balance
           const sickBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
           currentBatch.set(sickBalanceRef, {
             userId,
+            tenantId,
             userName: userData.displayName || userData.email || 'Unknown',
             userEmail: userData.email || '',
             leaveTypeId: sickLeaveInfo.id,
@@ -148,6 +151,7 @@ export const resetLeaveBalances = onSchedule(
           const casualBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
           currentBatch.set(casualBalanceRef, {
             userId,
+            tenantId,
             userName: userData.displayName || userData.email || 'Unknown',
             userEmail: userData.email || '',
             leaveTypeId: casualLeaveInfo.id,
@@ -443,6 +447,7 @@ export const manualResetLeaveBalances = onCall(
         }
 
         const now = admin.firestore.Timestamp.now();
+        const tenantId = userData.tenantId || userData.entityId || 'default-entity';
         const batch = db.batch();
 
         // If user has valid SICK/CASUAL balances but no COMP_OFF, just add COMP_OFF
@@ -450,6 +455,7 @@ export const manualResetLeaveBalances = onCall(
           const compOffBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
           batch.set(compOffBalanceRef, {
             userId,
+            tenantId,
             userName: userData.displayName || userData.email || 'Unknown',
             userEmail: userData.email || '',
             leaveTypeId: compOffInfo.id,
@@ -503,6 +509,7 @@ export const manualResetLeaveBalances = onCall(
             const compOffBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
             batch.set(compOffBalanceRef, {
               userId,
+              tenantId,
               userName: userData.displayName || userData.email || 'Unknown',
               userEmail: userData.email || '',
               leaveTypeId: compOffInfo.id,
@@ -529,6 +536,7 @@ export const manualResetLeaveBalances = onCall(
           const sickBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
           batch.set(sickBalanceRef, {
             userId,
+            tenantId,
             userName: userData.displayName || userData.email || 'Unknown',
             userEmail: userData.email || '',
             leaveTypeId: sickLeaveInfo.id,
@@ -550,6 +558,7 @@ export const manualResetLeaveBalances = onCall(
           const casualBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
           batch.set(casualBalanceRef, {
             userId,
+            tenantId,
             userName: userData.displayName || userData.email || 'Unknown',
             userEmail: userData.email || '',
             leaveTypeId: casualLeaveInfo.id,
@@ -571,6 +580,7 @@ export const manualResetLeaveBalances = onCall(
           const compOffBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
           batch.set(compOffBalanceRef, {
             userId,
+            tenantId,
             userName: userData.displayName || userData.email || 'Unknown',
             userEmail: userData.email || '',
             leaveTypeId: compOffInfo.id,
