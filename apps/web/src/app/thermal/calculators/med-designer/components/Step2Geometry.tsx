@@ -88,8 +88,9 @@ export function Step2Geometry({
               (after {result.preheaters.length} PHs).
             </>
           )}{' '}
-          Non-BPE losses: NEA {effects[0]?.nea}&deg;C + Demister {effects[0]?.demisterLoss}&deg;C +
-          Duct {effects[0]?.pressureDropLoss}&deg;C ={' '}
+          Non-BPE losses: NEA {effects[0]?.nea?.toFixed(2)}&deg;C + Demister{' '}
+          {effects[0]?.demisterLoss?.toFixed(3)}&deg;C + Duct{' '}
+          {effects[0]?.pressureDropLoss?.toFixed(3)}&deg;C ={' '}
           {fmt(
             (effects[0]?.nea ?? 0) +
               (effects[0]?.demisterLoss ?? 0) +
