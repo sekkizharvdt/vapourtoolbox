@@ -47,6 +47,7 @@ import { calculatePreheater } from './preheaterModel';
 import { calculateFinalCondenser } from './finalCondenserModel';
 import { solveTVCIntegration, type TVCIntegrationResult } from './tvcIntegration';
 import { sizeEquipment, type EquipmentSizingResult } from './equipmentSizing';
+import { findMinShellID } from './shellGeometry';
 import type { MEDPlantInputs, MEDPreheaterResult, TubeMaterial } from '@vapour/types';
 
 // ============================================================================
@@ -749,7 +750,8 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
 
   const MAX_DP_ITERATIONS = 3;
   const DP_CONVERGENCE_THRESHOLD = 0.02; // °C — below this, ΔT change is negligible
-  const SHELL_CLEARANCE_FACTOR = 1.2; // shellID ≈ bundleDiameter × 1.2
+  const tubeOD = input.evapTubeOD ?? 25.4;
+  const pitch = tubeOD * 1.315; // triangular pitch
 
   for (let dpIter = 0; dpIter < MAX_DP_ITERATIONS; dpIter++) {
     // ---- Size equipment ----
@@ -769,15 +771,16 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     let maxDeltaTChange = 0;
     for (let i = 0; i < N; i++) {
       const ev = equipmentSizing.evaporators[i];
-      if (!ev || ev.bundleDiameter <= 0) continue;
+      if (!ev || ev.tubeCount <= 0) continue;
 
       const effTemp = effects[i]!.temperature;
       const rhoV = getDensityVapor(Math.max(effTemp, 5));
       const vaporMassFlow = effects[i]!.totalVaporOut.flow / 3600; // kg/hr → kg/s
       const vaporVolFlow = rhoV > 0 ? vaporMassFlow / rhoV : 0; // m³/s
 
-      // Shell cross-section from bundle diameter + clearance
-      const shellID_m = (ev.bundleDiameter * SHELL_CLEARANCE_FACTOR) / 1000;
+      // Shell ID from actual tube count using lateral bundle geometry
+      const shellID_mm = findMinShellID(ev.tubeCount, tubeOD, pitch, true);
+      const shellID_m = shellID_mm / 1000;
       const shellArea = (Math.PI / 4) * shellID_m * shellID_m;
       const actualVelocity = shellArea > 0 ? vaporVolFlow / shellArea : 0;
 
@@ -1083,6 +1086,6 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     },
     iterations,
     converged,
-    warnings,
+    warnings: [...new Set(warnings)],
   };
 }
