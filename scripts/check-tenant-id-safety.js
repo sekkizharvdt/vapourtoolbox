@@ -284,6 +284,7 @@ function checkDocCreationHasTenantId() {
     'hrCompOffGrants',
     'onDutyRecords',
     'periodLockAudit',
+    'amendmentApprovalHistory',
   ];
 
   // Get staged .ts/.tsx files (only check what's being committed)

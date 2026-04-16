@@ -67,7 +67,8 @@ export async function createAmendment(
   changes: PurchaseOrderChange[],
   reason: string,
   userId: string,
-  userName: string
+  userName: string,
+  tenantId?: string
 ): Promise<string> {
   try {
     // Get the current PO
@@ -79,8 +80,9 @@ export async function createAmendment(
     const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
     // Validate PO status
-    if (po.status !== 'APPROVED' && po.status !== 'AMENDED') {
-      throw new Error('Only approved purchase orders can be amended');
+    const amendableStatuses = ['APPROVED', 'ISSUED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'AMENDED'];
+    if (!amendableStatuses.includes(po.status)) {
+      throw new Error('Only approved, issued, or in-progress purchase orders can be amended');
     }
 
     // Get the next amendment number
@@ -120,6 +122,7 @@ export async function createAmendment(
       totalChange,
       status: 'DRAFT',
       applied: false,
+      ...(tenantId && { tenantId }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       createdBy: userId,

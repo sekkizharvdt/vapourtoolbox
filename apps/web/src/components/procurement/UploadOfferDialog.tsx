@@ -68,6 +68,20 @@ import type { RFQ, RFQItem } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
 
+/**
+ * Normalize date strings from AI parsers (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY)
+ * to YYYY-MM-DD format expected by HTML date inputs and `new Date()`.
+ */
+function normalizeDateString(dateStr: string): string {
+  const match = dateStr.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (match) {
+    const [, day, month, year] = match;
+    return `${year}-${month!.padStart(2, '0')}-${day!.padStart(2, '0')}`;
+  }
+  // Already YYYY-MM-DD or other format — return as-is
+  return dateStr;
+}
+
 const UNLISTED_VENDOR = '__other__' as const;
 type VendorSelection = number | '' | typeof UNLISTED_VENDOR;
 
@@ -418,8 +432,10 @@ export default function UploadOfferDialog({
   const applyParsedData = (result: SingleParserResult) => {
     if (result.header) {
       if (result.header.vendorOfferNumber) setVendorOfferNumber(result.header.vendorOfferNumber);
-      if (result.header.vendorOfferDate) setVendorOfferDate(result.header.vendorOfferDate);
-      if (result.header.validityDate) setValidityDate(result.header.validityDate);
+      if (result.header.vendorOfferDate)
+        setVendorOfferDate(normalizeDateString(result.header.vendorOfferDate));
+      if (result.header.validityDate)
+        setValidityDate(normalizeDateString(result.header.validityDate));
       if (result.header.paymentTerms) setPaymentTerms(result.header.paymentTerms);
       if (result.header.deliveryTerms) setDeliveryTerms(result.header.deliveryTerms);
       if (result.header.warrantyTerms) setWarrantyTerms(result.header.warrantyTerms);

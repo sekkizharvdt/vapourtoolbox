@@ -44,7 +44,8 @@ type AmendmentType = PurchaseOrderAmendment['amendmentType'];
 export default function NewAmendmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
   const preselectedPoId = searchParams.get('poId');
 
   const [loading, setLoading] = useState(true);
@@ -141,7 +142,8 @@ export default function NewAmendmentPage() {
         changes,
         reason,
         user.uid,
-        user.displayName || 'Unknown'
+        user.displayName || 'Unknown',
+        tenantId
       );
 
       router.push(`/procurement/amendments/${amendmentId}`);
