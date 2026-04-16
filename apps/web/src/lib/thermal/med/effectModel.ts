@@ -33,12 +33,14 @@ import {
   getSaturationPressure,
   getSaturationTemperature,
   getDensityVapor,
+  getDensityLiquid,
   NEA_HOT_END,
   NEA_COLD_END,
   CARRIER_STEAM_FRACTION,
   TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
   DEMISTER_DP_MODEL,
-  MED_DEMISTER_VELOCITY,
+  DEMISTER_K_FACTOR,
+  DEMISTER_DESIGN_MARGIN,
   DUCT_DESIGN_VELOCITY,
   DUCT_K_FACTOR,
 } from '@vapour/constants';
@@ -100,7 +102,7 @@ const MIN_PSAT_BAR = 0.007;
  *
  * Uses: T_sat(P_sat) − T_sat(P_sat − ΔP)
  */
-function pressureDropToTempDrop(tempC: number, deltaPa: number): number {
+export function pressureDropToTempDrop(tempC: number, deltaPa: number): number {
   const pSatBar = getSaturationPressure(Math.max(tempC, 5));
   const pNewBar = pSatBar - deltaPa / 1e5; // Pa → bar
   if (pNewBar <= MIN_PSAT_BAR) return 0.5; // floor near triple point
@@ -111,29 +113,22 @@ function pressureDropToTempDrop(tempC: number, deltaPa: number): number {
 /**
  * Calculate demister pad pressure drop as equivalent temperature loss (°C).
  *
- * In MED evaporators, the demister pad fills the entire shell cross-section
- * (sized by the tube bundle, not by Souders-Brown minimum). The actual vapor
- * velocity through the demister is therefore much lower than V_max — typically
- * 2–3 m/s vs 8–10 m/s at Souders-Brown design.
- *
- * We use the Koch-Otto York pressure drop model at a representative shell
- * cross-section velocity of MED_DEMISTER_VELOCITY (2.5 m/s):
- *   ΔP = C × (t/t_ref) × ρ_V × V^n
- *
- * The velocity is approximately constant across effects (all shells are
- * similar diameter), but ρ_V varies — less dense vapor at the cold end
- * gives lower ΔP in Pa, partially offset by the steeper dT/dP at
- * lower pressures.
+ * Initial estimate used before equipment sizing determines the actual shell
+ * geometry. Uses Souders-Brown at DEMISTER_DESIGN_MARGIN (50%) loading as
+ * a representative velocity. After equipment sizing, the coupling loop in
+ * medEngine.ts computes the actual velocity from the lateral shell geometry
+ * and passes it back via demisterDeltaTOverride.
  */
 export function calculateDemisterDeltaT(tempC: number): number {
   const rhoV = getDensityVapor(Math.max(tempC, 5));
+  const rhoL = getDensityLiquid(Math.max(tempC, 5));
 
-  // Velocity through demister = shell cross-section velocity, not Souders-Brown
-  const vActual = MED_DEMISTER_VELOCITY;
+  // Souders-Brown at design margin — initial estimate
+  const vMax = DEMISTER_K_FACTOR * Math.sqrt(Math.max((rhoL - rhoV) / rhoV, 0));
+  const vEstimate = DEMISTER_DESIGN_MARGIN * vMax;
 
-  // Pressure drop through pad
   const { C, n, padThickness_mm, refThickness_mm } = DEMISTER_DP_MODEL;
-  const deltaPa = C * (padThickness_mm / refThickness_mm) * rhoV * Math.pow(vActual, n);
+  const deltaPa = C * (padThickness_mm / refThickness_mm) * rhoV * Math.pow(vEstimate, n);
 
   return pressureDropToTempDrop(tempC, deltaPa);
 }
@@ -228,8 +223,10 @@ export interface EffectInput {
   bpeSafetyFactor?: number;
 
   // ---- Per-effect pressure drop overrides (from equipment sizing coupling) ----
-  /** Override demister ΔT from actual shell geometry (°C). If undefined, computed from default velocity. */
+  /** Override demister ΔT from actual shell geometry (°C). If undefined, computed from default. */
   demisterDeltaTOverride?: number;
+  /** Override duct ΔT from actual shell geometry (°C). If undefined, computed from default. */
+  ductDeltaTOverride?: number;
 }
 
 /**
@@ -270,9 +267,9 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const nea = getNEA(index, totalEffects);
 
   // Per-effect demister and duct pressure drops (computed from vapour conditions)
-  // Use equipment-sizing override for demister if available (coupled iteration)
+  // Use equipment-sizing overrides if available (coupled iteration)
   const demisterDT = input.demisterDeltaTOverride ?? calculateDemisterDeltaT(effectTemp);
-  const ductDT = calculateDuctDeltaT(effectTemp);
+  const ductDT = input.ductDeltaTOverride ?? calculateDuctDeltaT(effectTemp);
   const deltaTP = demisterDT + ductDT;
 
   // Brine boiling temperature (includes BPE above pure-water saturation)

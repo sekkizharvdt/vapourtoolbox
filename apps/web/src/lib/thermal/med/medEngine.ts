@@ -36,18 +36,20 @@ import {
   getSaturationPressure,
   getDensityVapor,
   TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
+  DUCT_K_FACTOR,
 } from '@vapour/constants';
 import type { MEDEffectResult, MEDFinalCondenserResult, PreheaterConfig } from '@vapour/types';
 import {
   calculateEffect,
   calculateDemisterDeltaTFromVelocity,
+  pressureDropToTempDrop,
   type EffectInput,
 } from './effectModel';
 import { calculatePreheater } from './preheaterModel';
 import { calculateFinalCondenser } from './finalCondenserModel';
 import { solveTVCIntegration, type TVCIntegrationResult } from './tvcIntegration';
 import { sizeEquipment, type EquipmentSizingResult } from './equipmentSizing';
-import { findMinShellID } from './shellGeometry';
+import { findMinShellID, computeVaporPathGeometry } from './shellGeometry';
 import type { MEDPlantInputs, MEDPreheaterResult, TubeMaterial } from '@vapour/types';
 
 // ============================================================================
@@ -699,6 +701,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
 
   let equipmentSizing: EquipmentSizingResult | null = null;
   const demisterDeltaTOverrides: (number | undefined)[] = new Array(N).fill(undefined);
+  const ductDeltaTOverrides: (number | undefined)[] = new Array(N).fill(undefined);
 
   const buildSizingInputs = (): MEDPlantInputs => ({
     plantType: input.tvcMotivePressure ? 'MED_TVC' : 'MED',
@@ -767,30 +770,47 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
       break;
     }
 
-    // ---- Compute actual demister ΔT from shell geometry ----
+    // ---- Compute actual demister & duct ΔT from lateral shell geometry ----
     let maxDeltaTChange = 0;
+    const tubeLength = input.evapTubeLength ?? 1.2;
+
     for (let i = 0; i < N; i++) {
       const ev = equipmentSizing.evaporators[i];
       if (!ev || ev.tubeCount <= 0) continue;
 
-      const effTemp = effects[i]!.temperature;
+      const eff = effects[i]!;
+      const effTemp = eff.temperature;
       const rhoV = getDensityVapor(Math.max(effTemp, 5));
-      const vaporMassFlow = effects[i]!.totalVaporOut.flow / 3600; // kg/hr → kg/s
+      const rhoL = 998; // pure water density approx — for Souders-Brown ratio
+      const vaporMassFlow = eff.totalVaporOut.flow / 3600; // kg/hr → kg/s
       const vaporVolFlow = rhoV > 0 ? vaporMassFlow / rhoV : 0; // m³/s
 
       // Shell ID from actual tube count using lateral bundle geometry
       const shellID_mm = findMinShellID(ev.tubeCount, tubeOD, pitch, true);
-      const shellID_m = shellID_mm / 1000;
-      const shellArea = (Math.PI / 4) * shellID_m * shellID_m;
-      const actualVelocity = shellArea > 0 ? vaporVolFlow / shellArea : 0;
 
-      // Compute demister ΔT at actual velocity
-      const actualDemDT = calculateDemisterDeltaTFromVelocity(effTemp, actualVelocity);
-      const usedDemDT = effects[i]!.demisterDeltaT;
-      const change = Math.abs(actualDemDT - usedDemDT);
+      // Compute demister & duct geometry in the free (right) semicircle
+      const vpg = computeVaporPathGeometry(shellID_mm, tubeLength, vaporVolFlow, rhoV, rhoL);
+
+      // Demister ΔT from actual velocity through pad
+      const actualDemDT = calculateDemisterDeltaTFromVelocity(effTemp, vpg.demisterVelocity);
+
+      // Duct ΔT from velocity-head model at actual steam flow area velocity
+      const actualDuctDT =
+        vpg.steamFlowArea > 0 && vpg.steamFlowVelocity > 0
+          ? pressureDropToTempDrop(
+              effTemp,
+              DUCT_K_FACTOR * 0.5 * rhoV * vpg.steamFlowVelocity * vpg.steamFlowVelocity
+            )
+          : 0;
+
+      // Track maximum change for convergence check
+      const demChange = Math.abs(actualDemDT - eff.demisterDeltaT);
+      const ductChange = Math.abs(actualDuctDT - eff.ductDeltaT);
+      const change = Math.max(demChange, ductChange);
       if (change > maxDeltaTChange) maxDeltaTChange = change;
 
       demisterDeltaTOverrides[i] = actualDemDT;
+      ductDeltaTOverrides[i] = actualDuctDT;
     }
 
     // ---- Check convergence ----
@@ -881,6 +901,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         brineConcentrationFactor: concentrationFactor,
         bpeSafetyFactor: input.bpeSafetyFactor,
         demisterDeltaTOverride: demisterDeltaTOverrides[i],
+        ductDeltaTOverride: ductDeltaTOverrides[i],
       };
 
       const result = calculateEffect(effectInput);

@@ -91,19 +91,6 @@ export const DEMISTER_K_FACTOR = 0.107; // m/s
 export const DEMISTER_DESIGN_MARGIN = 0.8;
 
 /**
- * Representative vapour velocity through MED evaporator demister in m/s.
- *
- * In MED evaporators the demister pad fills the entire shell cross-section,
- * which is sized by the tube bundle — NOT by Souders-Brown minimum area.
- * The actual velocity is therefore much lower than V_max (8–10 m/s) and
- * is typically 2–3 m/s for horizontal MED shells.
- *
- * This is used for the per-effect demister ΔT calculation in the
- * effect model (not for standalone demister sizing).
- */
-export const MED_DEMISTER_VELOCITY = 2.5; // m/s
-
-/**
  * Velocity-based pressure drop model for wire mesh demister:
  *   ΔP = C × (t / t_ref) × ρ_V × V^n
  *
@@ -117,19 +104,39 @@ export const DEMISTER_DP_MODEL = {
 } as const;
 
 // ============================================================================
+// Shell Vapour Path Geometry
+// ============================================================================
+
+/**
+ * Partition plate thickness between tube bundle and free side (mm).
+ * The partition separates the tube (left) side from the vapour
+ * collection (right) side in a lateral MED shell. It is partial —
+ * starting ~200mm below the demister bottom and extending upward.
+ * Below the partition, the space is open for vapor to flow from
+ * the tube side into the free side.
+ */
+export const PARTITION_PLATE_THICKNESS = 4; // mm
+
+/**
+ * Minimum vertical clearance between demister pad top and vapour duct
+ * bottom (mm). Prevents re-entrainment of separated droplets.
+ */
+export const DUCT_CLEARANCE_ABOVE_DEMISTER = 100; // mm
+
+// ============================================================================
 // Vapour Duct Pressure Drop Model (used in per-effect calculation)
 // ============================================================================
 
 /**
  * Design velocity for inter-effect vapour ducts in m/s.
- * Ducts are sized to achieve this velocity at design vapour flow.
+ * Used as initial estimate before equipment sizing provides actual duct area.
  * Typical range: 25–35 m/s for MED inter-effect ducts.
  */
 export const DUCT_DESIGN_VELOCITY = 30; // m/s
 
 /**
- * Total resistance coefficient (velocity heads) for a typical inter-effect
- * vapour duct, including:
+ * Total resistance coefficient (velocity heads) for the vapour duct
+ * passage in the free side of the shell, including:
  *   - Entry loss: 0.5
  *   - Two 90° bends: 2 × 0.5 = 1.0
  *   - Exit loss: 1.0
