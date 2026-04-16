@@ -329,8 +329,8 @@ export function MEDVerificationReportPDF({
                         : '1.0 (none)',
                   },
                   { label: 'NEA per Effect', value: `${rd.NEA}°C` },
-                  { label: 'Demister Loss per Effect', value: `${rd.demisterLoss}°C` },
-                  { label: 'Duct Pressure Drop Loss', value: `${rd.pressureDropLoss}°C` },
+                  { label: 'Demister Loss per Effect', value: 'Computed per effect' },
+                  { label: 'Duct Pressure Drop Loss', value: 'Computed per effect' },
                   { label: 'Condenser Approach', value: `${rd.condenserApproach}°C` },
                   { label: 'Max Brine Salinity', value: `${rd.maxBrineSalinity} ppm` },
                   {

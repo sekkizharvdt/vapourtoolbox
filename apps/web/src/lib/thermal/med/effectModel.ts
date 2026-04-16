@@ -31,11 +31,16 @@ import {
   getSeawaterEnthalpy,
   getSeawaterDensity,
   getSaturationPressure,
+  getSaturationTemperature,
+  getDensityVapor,
   NEA_HOT_END,
   NEA_COLD_END,
-  DELTA_T_PRESSURE_DROP,
   CARRIER_STEAM_FRACTION,
   TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
+  DEMISTER_DP_MODEL,
+  MED_DEMISTER_VELOCITY,
+  DUCT_DESIGN_VELOCITY,
+  DUCT_K_FACTOR,
 } from '@vapour/constants';
 import type {
   MEDStream,
@@ -80,6 +85,88 @@ export function getNEA(effectIndex: number, totalEffects: number): number {
   if (totalEffects <= 1) return NEA_HOT_END;
   const fraction = effectIndex / (totalEffects - 1);
   return NEA_HOT_END + (NEA_COLD_END - NEA_HOT_END) * fraction;
+}
+
+// ============================================================================
+// Pressure Drop → Temperature Drop Conversion
+// ============================================================================
+
+/** Minimum saturation pressure (bar) — triple point floor */
+const MIN_PSAT_BAR = 0.007;
+
+/**
+ * Convert a pressure drop (Pa) to an equivalent saturation temperature
+ * drop (°C) at the given effect temperature.
+ *
+ * Uses: T_sat(P_sat) − T_sat(P_sat − ΔP)
+ */
+function pressureDropToTempDrop(tempC: number, deltaPa: number): number {
+  const pSatBar = getSaturationPressure(Math.max(tempC, 5));
+  const pNewBar = pSatBar - deltaPa / 1e5; // Pa → bar
+  if (pNewBar <= MIN_PSAT_BAR) return 0.5; // floor near triple point
+  const tNew = getSaturationTemperature(pNewBar);
+  return Math.max(tempC - tNew, 0);
+}
+
+/**
+ * Calculate demister pad pressure drop as equivalent temperature loss (°C).
+ *
+ * In MED evaporators, the demister pad fills the entire shell cross-section
+ * (sized by the tube bundle, not by Souders-Brown minimum). The actual vapor
+ * velocity through the demister is therefore much lower than V_max — typically
+ * 2–3 m/s vs 8–10 m/s at Souders-Brown design.
+ *
+ * We use the Koch-Otto York pressure drop model at a representative shell
+ * cross-section velocity of MED_DEMISTER_VELOCITY (2.5 m/s):
+ *   ΔP = C × (t/t_ref) × ρ_V × V^n
+ *
+ * The velocity is approximately constant across effects (all shells are
+ * similar diameter), but ρ_V varies — less dense vapor at the cold end
+ * gives lower ΔP in Pa, partially offset by the steeper dT/dP at
+ * lower pressures.
+ */
+export function calculateDemisterDeltaT(tempC: number): number {
+  const rhoV = getDensityVapor(Math.max(tempC, 5));
+
+  // Velocity through demister = shell cross-section velocity, not Souders-Brown
+  const vActual = MED_DEMISTER_VELOCITY;
+
+  // Pressure drop through pad
+  const { C, n, padThickness_mm, refThickness_mm } = DEMISTER_DP_MODEL;
+  const deltaPa = C * (padThickness_mm / refThickness_mm) * rhoV * Math.pow(vActual, n);
+
+  return pressureDropToTempDrop(tempC, deltaPa);
+}
+
+/**
+ * Calculate vapour duct pressure drop as equivalent temperature loss (°C).
+ *
+ * Ducts are sized for a target velocity (DUCT_DESIGN_VELOCITY), so the
+ * dynamic pressure varies with vapour density. Total resistance is
+ * DUCT_K_FACTOR velocity heads (entry + bends + exit).
+ *
+ *   ΔP = K × ½ × ρ_V × V²
+ */
+export function calculateDuctDeltaT(tempC: number): number {
+  const rhoV = getDensityVapor(Math.max(tempC, 5));
+  const v = DUCT_DESIGN_VELOCITY;
+  const deltaPa = DUCT_K_FACTOR * 0.5 * rhoV * v * v;
+
+  return pressureDropToTempDrop(tempC, deltaPa);
+}
+
+/**
+ * Calculate demister ΔT from the actual vapor velocity through the shell
+ * cross-section, given the shell diameter from equipment sizing.
+ *
+ * This is used in the coupled iteration: after equipment sizing determines
+ * the shell diameter, the actual demister velocity is computed and fed back.
+ */
+export function calculateDemisterDeltaTFromVelocity(tempC: number, actualVelocity: number): number {
+  const rhoV = getDensityVapor(Math.max(tempC, 5));
+  const { C, n, padThickness_mm, refThickness_mm } = DEMISTER_DP_MODEL;
+  const deltaPa = C * (padThickness_mm / refThickness_mm) * rhoV * Math.pow(actualVelocity, n);
+  return pressureDropToTempDrop(tempC, deltaPa);
 }
 
 // ============================================================================
@@ -139,6 +226,10 @@ export interface EffectInput {
   brineConcentrationFactor: number;
   /** BPE safety factor (multiplier, default 1.0) */
   bpeSafetyFactor?: number;
+
+  // ---- Per-effect pressure drop overrides (from equipment sizing coupling) ----
+  /** Override demister ΔT from actual shell geometry (°C). If undefined, computed from default velocity. */
+  demisterDeltaTOverride?: number;
 }
 
 /**
@@ -177,12 +268,17 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const bpeRaw = getBoilingPointElevation(Math.min(brineSalinityForBPE, 120000), effectTemp);
   const bpe = bpeRaw * (input.bpeSafetyFactor ?? 1.0);
   const nea = getNEA(index, totalEffects);
-  const deltaTP = DELTA_T_PRESSURE_DROP;
+
+  // Per-effect demister and duct pressure drops (computed from vapour conditions)
+  // Use equipment-sizing override for demister if available (coupled iteration)
+  const demisterDT = input.demisterDeltaTOverride ?? calculateDemisterDeltaT(effectTemp);
+  const ductDT = calculateDuctDeltaT(effectTemp);
+  const deltaTP = demisterDT + ductDT;
 
   // Brine boiling temperature (includes BPE above pure-water saturation)
   const brineBoilingTemp = effectTemp + bpe;
 
-  // Temperature of vapor produced (pure water at effectTemp, minus NEA and ΔT_PD)
+  // Temperature of vapor produced (pure water at effectTemp, minus NEA, demister ΔP, duct ΔP)
   const vaporOutTemp = effectTemp - nea - deltaTP;
 
   // Effective ΔT for heat transfer (tube side steam temp → shell side brine boiling)
@@ -641,6 +737,8 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     bpe,
     nea,
     deltaTPressureDrop: deltaTP,
+    demisterDeltaT: demisterDT,
+    ductDeltaT: ductDT,
     effectiveDeltaT,
 
     // Detailed zone balances

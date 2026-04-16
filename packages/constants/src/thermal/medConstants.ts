@@ -62,11 +62,82 @@ export const NEA_COLD_END = 0.5; // °C — cold end (last effect)
 
 /**
  * Temperature loss due to pressure drop across demisters and vapour ducts
- * in °C. This is approximately constant per effect.
+ * in °C. Legacy constant — kept for backward compatibility.
+ *
+ * The effect model now computes per-effect demister and duct ΔT from
+ * Souders-Brown velocity and velocity-head pressure drop respectively.
  *
  * Typical value from El-Dessouky & Ettouney (2002): 0.1–0.3°C
  */
-export const DELTA_T_PRESSURE_DROP = 0.15; // °C per effect
+export const DELTA_T_PRESSURE_DROP = 0.15; // °C per effect (legacy fallback)
+
+// ============================================================================
+// Demister Pressure Drop Model (used in per-effect calculation)
+// ============================================================================
+
+/**
+ * Souders-Brown K factor for wire mesh demister, horizontal orientation.
+ * Reference: Koch-Otto York / GPSA Engineering Data Book.
+ *
+ * Used by the standalone demister calculator for minimum-area sizing.
+ * NOT used for MED per-effect ΔT — see MED_DEMISTER_VELOCITY instead.
+ */
+export const DEMISTER_K_FACTOR = 0.107; // m/s
+
+/**
+ * Design margin for demister — operate at this fraction of V_max.
+ * Typical: 0.75–0.85
+ */
+export const DEMISTER_DESIGN_MARGIN = 0.8;
+
+/**
+ * Representative vapour velocity through MED evaporator demister in m/s.
+ *
+ * In MED evaporators the demister pad fills the entire shell cross-section,
+ * which is sized by the tube bundle — NOT by Souders-Brown minimum area.
+ * The actual velocity is therefore much lower than V_max (8–10 m/s) and
+ * is typically 2–3 m/s for horizontal MED shells.
+ *
+ * This is used for the per-effect demister ΔT calculation in the
+ * effect model (not for standalone demister sizing).
+ */
+export const MED_DEMISTER_VELOCITY = 2.5; // m/s
+
+/**
+ * Velocity-based pressure drop model for wire mesh demister:
+ *   ΔP = C × (t / t_ref) × ρ_V × V^n
+ *
+ * Calibrated against Koch-Otto York and GPSA data.
+ */
+export const DEMISTER_DP_MODEL = {
+  C: 170,
+  n: 1.8,
+  padThickness_mm: 150,
+  refThickness_mm: 150,
+} as const;
+
+// ============================================================================
+// Vapour Duct Pressure Drop Model (used in per-effect calculation)
+// ============================================================================
+
+/**
+ * Design velocity for inter-effect vapour ducts in m/s.
+ * Ducts are sized to achieve this velocity at design vapour flow.
+ * Typical range: 25–35 m/s for MED inter-effect ducts.
+ */
+export const DUCT_DESIGN_VELOCITY = 30; // m/s
+
+/**
+ * Total resistance coefficient (velocity heads) for a typical inter-effect
+ * vapour duct, including:
+ *   - Entry loss: 0.5
+ *   - Two 90° bends: 2 × 0.5 = 1.0
+ *   - Exit loss: 1.0
+ *   - Total: 2.5 velocity heads
+ *
+ * Reference: Crane TP-410
+ */
+export const DUCT_K_FACTOR = 2.5;
 
 /**
  * Fraction of last-effect vapor lost as vent (NCG + water vapor carry-over).

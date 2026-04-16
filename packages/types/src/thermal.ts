@@ -829,8 +829,12 @@ export interface MEDEffectResult {
   bpe: number;
   /** Non-equilibrium allowance in °C */
   nea: number;
-  /** Temperature loss from demister/duct pressure drop in °C */
+  /** Temperature loss from demister/duct pressure drop in °C (combined demister + duct) */
   deltaTPressureDrop: number;
+  /** Temperature loss from demister pad pressure drop in °C */
+  demisterDeltaT: number;
+  /** Temperature loss from vapour duct pressure drop in °C */
+  ductDeltaT: number;
   /** Net working ΔT for heat transfer in °C */
   effectiveDeltaT: number;
 

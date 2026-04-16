@@ -34,10 +34,15 @@ import {
   getSeawaterDensity,
   getSeawaterSpecificHeat,
   getSaturationPressure,
+  getDensityVapor,
   TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
 } from '@vapour/constants';
 import type { MEDEffectResult, MEDFinalCondenserResult, PreheaterConfig } from '@vapour/types';
-import { calculateEffect, type EffectInput } from './effectModel';
+import {
+  calculateEffect,
+  calculateDemisterDeltaTFromVelocity,
+  type EffectInput,
+} from './effectModel';
 import { calculatePreheater } from './preheaterModel';
 import { calculateFinalCondenser } from './finalCondenserModel';
 import { solveTVCIntegration, type TVCIntegrationResult } from './tvcIntegration';
@@ -277,7 +282,6 @@ const CONVERGENCE_TOLERANCE = 0.001; // 0.1% change in distillate
 export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   const warnings: string[] = [];
   const N = input.numberOfEffects;
-  const ductLoss = input.ductLoss ?? 0.3;
   const condenserOutlet = input.condenserOutletTemp ?? input.seawaterInletTemp + 5;
   const maxBrineSalinity = input.maxBrineSalinity;
   const swSalinity = input.seawaterSalinity;
@@ -678,56 +682,63 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   }
 
   // ======================================================================
-  // EQUIPMENT SIZING (optional — when tube specs are provided)
+  // EQUIPMENT SIZING + DEMISTER ΔT COUPLING
+  //
+  // The demister pad fills the shell cross-section, so its pressure drop
+  // depends on the shell diameter which comes from equipment sizing. But
+  // the equipment sizing depends on the H&M balance which depends on the
+  // demister ΔT. This coupling is resolved by iterating:
+  //
+  //   1. Size equipment → get shell/bundle diameter per effect
+  //   2. Compute actual demister velocity from shell geometry
+  //   3. Compute actual demister ΔT at that velocity
+  //   4. If ΔT changed significantly, re-run cascade with updated ΔT
+  //   5. Re-size equipment, repeat until stable (typically 1–2 iterations)
   // ======================================================================
 
   let equipmentSizing: EquipmentSizingResult | null = null;
+  const demisterDeltaTOverrides: (number | undefined)[] = new Array(N).fill(undefined);
 
-  try {
-    const evapMaterial: TubeMaterial = input.evapTubeMaterial ?? 'titanium';
-    const condenserOutletForSizing = condenserOutlet;
+  const buildSizingInputs = (): MEDPlantInputs => ({
+    plantType: input.tvcMotivePressure ? 'MED_TVC' : 'MED',
+    numberOfEffects: N,
+    preheaters: preheaterDetails.map((ph) => ({
+      effectNumber: ph.effectNumber,
+      vaporFlow: ph.vaporFlow,
+    })),
+    capacity: prevTotalDistillate / 1000,
+    gorTarget: prevTotalDistillate / input.steamFlow,
+    steamPressure: getSaturationPressure(steamTemp),
+    steamTemperature: steamTemp,
+    seawaterInletTemp: input.seawaterInletTemp,
+    seawaterDischargeTemp: condenserOutlet,
+    seawaterSalinity: swSalinity,
+    topBrineTemp: effectTemps[0] ?? steamTemp - 3,
+    brineConcentrationFactor: concentrationFactor,
+    condenserApproachTemp: input.condenserApproach ?? 4,
+    distillateTemp: condenserOutlet - 2,
+    condensateExtraction: 'FINAL_CONDENSER',
+    foulingFactor: input.foulingResistance ?? 0.00015,
+    evaporatorTubes: {
+      od: input.evapTubeOD ?? 25.4,
+      thickness: input.evapTubeWall ?? 1.0,
+      length: input.evapTubeLength ?? 1.2,
+      material: (input.evapTubeMaterial ?? 'titanium') as TubeMaterial,
+    },
+    condenserTubes: {
+      od: input.condTubeOD ?? 17,
+      thickness: input.condTubeWall ?? 0.4,
+      length: input.condTubeLength ?? 2.1,
+      material: 'titanium',
+    },
+  });
 
-    // Build MEDPlantInputs for the sizing function
-    const sizingInputs: MEDPlantInputs = {
-      plantType: input.tvcMotivePressure ? 'MED_TVC' : 'MED',
-      numberOfEffects: N,
-      preheaters: preheaterDetails.map((ph) => ({
-        effectNumber: ph.effectNumber,
-        vaporFlow: ph.vaporFlow,
-      })),
-      capacity: prevTotalDistillate / 1000, // kg/hr → T/h
-      gorTarget: prevTotalDistillate / input.steamFlow,
-      steamPressure: getSaturationPressure(steamTemp),
-      steamTemperature: steamTemp,
-      seawaterInletTemp: input.seawaterInletTemp,
-      seawaterDischargeTemp: condenserOutletForSizing,
-      seawaterSalinity: swSalinity,
-      topBrineTemp: effectTemps[0] ?? steamTemp - 3,
-      brineConcentrationFactor: concentrationFactor,
-      condenserApproachTemp: input.condenserApproach ?? 4,
-      distillateTemp: condenserOutletForSizing - 2,
-      condensateExtraction: 'FINAL_CONDENSER',
-      foulingFactor: input.foulingResistance ?? 0.00015,
-      evaporatorTubes: {
-        od: input.evapTubeOD ?? 25.4,
-        thickness: input.evapTubeWall ?? 1.0,
-        length: input.evapTubeLength ?? 1.2,
-        material: evapMaterial,
-      },
-      condenserTubes: {
-        od: input.condTubeOD ?? 17,
-        thickness: input.condTubeWall ?? 0.4,
-        length: input.condTubeLength ?? 2.1,
-        material: 'titanium',
-      },
-    };
-
-    // Convert engine preheater details to MEDPreheaterResult for sizing
-    const phResultsForSizing: MEDPreheaterResult[] = preheaterDetails.map((ph) => ({
+  const buildPHForSizing = (): MEDPreheaterResult[] =>
+    preheaterDetails.map((ph) => ({
       effectNumber: ph.effectNumber,
       vaporFlow: ph.vaporFlow,
       vaporTemperature: ph.vaporTemp,
-      seawaterFlow: feedPerEffect * N, // total flow through PH chain
+      seawaterFlow: feedPerEffect * N,
       seawaterInletTemp: ph.swInletTemp,
       seawaterOutletTemp: ph.swOutletTemp,
       heatExchanged: ph.duty,
@@ -736,9 +747,208 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
       condensateTemperature: ph.condensateTemp,
     }));
 
-    equipmentSizing = sizeEquipment(effects, finalCondenser!, phResultsForSizing, sizingInputs);
-  } catch (err) {
-    warnings.push(`Equipment sizing: ${err instanceof Error ? err.message : String(err)}`);
+  const MAX_DP_ITERATIONS = 3;
+  const DP_CONVERGENCE_THRESHOLD = 0.02; // °C — below this, ΔT change is negligible
+  const SHELL_CLEARANCE_FACTOR = 1.2; // shellID ≈ bundleDiameter × 1.2
+
+  for (let dpIter = 0; dpIter < MAX_DP_ITERATIONS; dpIter++) {
+    // ---- Size equipment ----
+    try {
+      equipmentSizing = sizeEquipment(
+        effects,
+        finalCondenser!,
+        buildPHForSizing(),
+        buildSizingInputs()
+      );
+    } catch (err) {
+      warnings.push(`Equipment sizing: ${err instanceof Error ? err.message : String(err)}`);
+      break;
+    }
+
+    // ---- Compute actual demister ΔT from shell geometry ----
+    let maxDeltaTChange = 0;
+    for (let i = 0; i < N; i++) {
+      const ev = equipmentSizing.evaporators[i];
+      if (!ev || ev.bundleDiameter <= 0) continue;
+
+      const effTemp = effects[i]!.temperature;
+      const rhoV = getDensityVapor(Math.max(effTemp, 5));
+      const vaporMassFlow = effects[i]!.totalVaporOut.flow / 3600; // kg/hr → kg/s
+      const vaporVolFlow = rhoV > 0 ? vaporMassFlow / rhoV : 0; // m³/s
+
+      // Shell cross-section from bundle diameter + clearance
+      const shellID_m = (ev.bundleDiameter * SHELL_CLEARANCE_FACTOR) / 1000;
+      const shellArea = (Math.PI / 4) * shellID_m * shellID_m;
+      const actualVelocity = shellArea > 0 ? vaporVolFlow / shellArea : 0;
+
+      // Compute demister ΔT at actual velocity
+      const actualDemDT = calculateDemisterDeltaTFromVelocity(effTemp, actualVelocity);
+      const usedDemDT = effects[i]!.demisterDeltaT;
+      const change = Math.abs(actualDemDT - usedDemDT);
+      if (change > maxDeltaTChange) maxDeltaTChange = change;
+
+      demisterDeltaTOverrides[i] = actualDemDT;
+    }
+
+    // ---- Check convergence ----
+    if (maxDeltaTChange < DP_CONVERGENCE_THRESHOLD) break; // converged
+
+    // ---- Re-run cascade with updated demister ΔT overrides ----
+    effects = [];
+    let prevVaporOut = input.steamFlow;
+    let prevVaporTemp = steamTemp;
+    let distillateAccum = 0;
+    let distillateTemp = steamTemp;
+    let cascadedBrineFlow = 0;
+    let cascadedBrineTemp = 0;
+    let cascadedBrineSalinity = 0;
+    let ncgAccum = ncgFromSeawater;
+
+    // TVC re-integration (if configured)
+    if (input.tvcMotivePressure && input.tvcMotivePressure > 0) {
+      try {
+        const entrainedIdx = (input.tvcEntrainedEffect ?? N) - 1;
+        const entrainedVaporTemp = effectTemps[Math.min(entrainedIdx, N - 1)]!;
+        const tvcR = solveTVCIntegration({
+          motivePressure: input.tvcMotivePressure,
+          ...(input.tvcMotiveTemperature !== undefined && {
+            motiveTemperature: input.tvcMotiveTemperature,
+          }),
+          entrainedEffectNumber: input.tvcEntrainedEffect ?? N,
+          entrainedVaporTemp,
+          dischargePressure: getSaturationPressure(steamTemp),
+          motiveFlow: input.steamFlow,
+          sprayWaterTemp: sprayTemps[0]!,
+        });
+        prevVaporOut = tvcR.dischargeFlow;
+        prevVaporTemp = tvcR.vaporToEffect1Temp;
+      } catch {
+        // TVC failed — use plain steam
+      }
+    }
+
+    // Build preheater condensate map from last converged preheater details
+    const phCondMap = new Map<number, { flow: number; temp: number }>();
+    for (const ph of preheaterDetails) {
+      const target = ph.condensateToEffect;
+      const existing = phCondMap.get(target) ?? { flow: 0, temp: 0 };
+      const totalFlow = existing.flow + ph.condensateFlow;
+      const blendedTemp =
+        totalFlow > 0
+          ? (existing.flow * existing.temp + ph.condensateFlow * ph.condensateTemp) / totalFlow
+          : ph.condensateTemp;
+      phCondMap.set(target, { flow: totalFlow, temp: blendedTemp });
+    }
+
+    const preheaterMap = new Map<number, PreheaterConfig>();
+    for (const ph of preheaterDetails) {
+      preheaterMap.set(ph.effectNumber, {
+        effectNumber: ph.effectNumber,
+        vaporFlow: ph.vaporFlow,
+        condensateToEffect: ph.condensateToEffect,
+      });
+    }
+
+    for (let i = 0; i < N; i++) {
+      const effectNumber = i + 1;
+      const phCond = phCondMap.get(effectNumber) ?? { flow: 0, temp: 0 };
+      const effTemp = effectTemps[i]!;
+
+      const effectInput: EffectInput = {
+        index: i,
+        totalEffects: N,
+        effectTemp: effTemp,
+        steamTemp: i === 0 ? steamTemp : prevVaporTemp,
+        vaporInFlow: prevVaporOut,
+        distillateInFlow: distillateAccum,
+        distillateInTemp: distillateTemp,
+        ncgInFlow: ncgAccum,
+        preheaterCondensateInFlow: phCond.flow,
+        preheaterCondensateInTemp: phCond.temp,
+        seawaterSprayFlow: feedPerEffect,
+        seawaterSprayTemp: sprayTemps[i]!,
+        seawaterSalinity: swSalinity,
+        recircBrineFlow: 0,
+        recircBrineTemp: 0,
+        recircBrineSalinity: 0,
+        cascadedBrineFlow,
+        cascadedBrineTemp,
+        cascadedBrineSalinity,
+        preheater: preheaterMap.get(effectNumber) ?? null,
+        brineConcentrationFactor: concentrationFactor,
+        bpeSafetyFactor: input.bpeSafetyFactor,
+        demisterDeltaTOverride: demisterDeltaTOverrides[i],
+      };
+
+      const result = calculateEffect(effectInput);
+      effects.push(result);
+
+      prevVaporOut = result.totalVaporOut.flow;
+      prevVaporTemp = result.totalVaporOut.temperature;
+      distillateAccum = result.distillateOut.flow;
+      distillateTemp = result.distillateOut.temperature;
+      cascadedBrineFlow = result.totalBrineOut.flow;
+      cascadedBrineTemp = result.totalBrineOut.temperature;
+      cascadedBrineSalinity = result.totalBrineOut.salinity;
+      ncgAccum = result.tubeSide.ncgVent + result.shellSprayZone.ncgReleased;
+    }
+
+    // Re-apply TVC entrainment subtraction (same logic as main loop)
+    if (input.tvcMotivePressure && input.tvcMotivePressure > 0) {
+      try {
+        const entrainedIdx = (input.tvcEntrainedEffect ?? N) - 1;
+        const entrainedEffect = effects[entrainedIdx];
+        if (entrainedEffect) {
+          const tvcR = solveTVCIntegration({
+            motivePressure: input.tvcMotivePressure,
+            ...(input.tvcMotiveTemperature !== undefined && {
+              motiveTemperature: input.tvcMotiveTemperature,
+            }),
+            entrainedEffectNumber: input.tvcEntrainedEffect ?? N,
+            entrainedVaporTemp: entrainedEffect.totalVaporOut.temperature,
+            dischargePressure: getSaturationPressure(steamTemp),
+            motiveFlow: input.steamFlow,
+            sprayWaterTemp: sprayTemps[0]!,
+          });
+          const actualEntrained = Math.min(tvcR.entrainedFlow, entrainedEffect.totalVaporOut.flow);
+          const remainingVapor = entrainedEffect.totalVaporOut.flow - actualEntrained;
+          effects[entrainedIdx] = {
+            ...entrainedEffect,
+            totalVaporOut: {
+              ...entrainedEffect.totalVaporOut,
+              flow: remainingVapor,
+              energy: (remainingVapor * entrainedEffect.totalVaporOut.enthalpy) / 3600,
+            },
+            vaporOut: {
+              ...entrainedEffect.vaporOut,
+              flow: remainingVapor,
+              energy: (remainingVapor * entrainedEffect.vaporOut.enthalpy) / 3600,
+            },
+          };
+        }
+      } catch {
+        // TVC re-application failed — proceed with uncorrected effects
+      }
+    }
+
+    // Re-compute final condenser with updated cascade
+    const lastEff = effects[N - 1]!;
+    finalCondenser = calculateFinalCondenser({
+      vaporInFlow: lastEff.totalVaporOut.flow,
+      vaporInTemp: lastEff.totalVaporOut.temperature,
+      distillateInFlow: distillateAccum,
+      distillateInTemp: distillateTemp,
+      condensateInFlow: 0,
+      condensateInTemp: 0,
+      seawaterInletTemp: input.seawaterInletTemp,
+      seawaterOutletTemp: condenserOutlet,
+      seawaterSalinity: swSalinity,
+      distillateOutTemp: condenserOutlet - 2,
+    });
+
+    // Update distillate total for next sizing
+    const totalDistOut = finalCondenser.distillateOut.flow;
+    prevTotalDistillate = totalDistOut - input.steamFlow;
   }
 
   // ======================================================================
@@ -840,8 +1050,8 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     vaporOutTemp: eff.totalVaporOut.temperature,
     bpe: eff.bpe,
     nea: eff.nea,
-    demisterLoss: eff.deltaTPressureDrop,
-    ductLoss: ductLoss,
+    demisterLoss: eff.demisterDeltaT,
+    ductLoss: eff.ductDeltaT,
     workingDeltaT: eff.effectiveDeltaT,
     pressure: getSaturationPressure(eff.temperature) * 1000, // bar → mbar
   }));

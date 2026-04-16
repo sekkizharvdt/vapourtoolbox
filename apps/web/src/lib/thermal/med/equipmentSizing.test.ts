@@ -8,9 +8,12 @@
 import { calculateMED } from './medEngine';
 import type { EquipmentSizingResult } from './equipmentSizing';
 
+// Note: steam temp 59°C (not 57°C) because the engine now correctly applies
+// both demister AND duct pressure drop losses in the cascade. The extra 2°C
+// compensates for the previously-missing duct losses (~6 × 0.3°C).
 const engineResult = calculateMED({
   steamFlow: 790,
-  steamTemperature: 57,
+  steamTemperature: 59,
   numberOfEffects: 6,
   seawaterInletTemp: 30,
   seawaterSalinity: 35000,
