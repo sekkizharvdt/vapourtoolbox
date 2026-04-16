@@ -388,10 +388,49 @@ export default function MEDWizardClient() {
     downloadCSV([header, ...rows], 'MED_Valve_Schedule.csv');
   };
 
+  const exportMaterialSummary = () => {
+    if (!bom) return;
+    const header = [
+      'Material',
+      'Form',
+      'Specification',
+      'BOM Items',
+      'Total Qty',
+      'Unit',
+      'Net Weight (kg)',
+      'Gross Weight incl. Wastage (kg)',
+    ];
+    const rows = bom.materialSummary.map((m) => [
+      m.material,
+      m.form,
+      m.specification,
+      String(m.itemCount),
+      String(m.totalQuantity),
+      m.unit,
+      String(Math.round(m.totalNetWeight)),
+      String(Math.round(m.totalGrossWeight)),
+    ]);
+    // Add total row
+    const totalNet = bom.materialSummary.reduce((s, m) => s + m.totalNetWeight, 0);
+    const totalGross = bom.materialSummary.reduce((s, m) => s + m.totalGrossWeight, 0);
+    rows.push([
+      'TOTAL',
+      '',
+      '',
+      '',
+      '',
+      '',
+      String(Math.round(totalNet)),
+      String(Math.round(totalGross)),
+    ]);
+    downloadCSV([header, ...rows], 'MED_Material_Summary.csv');
+  };
+
   const exportAllBOM = () => {
     exportEquipmentBOM();
     setTimeout(() => exportInstruments(), 200);
     setTimeout(() => exportValves(), 400);
+    setTimeout(() => exportMaterialSummary(), 600);
   };
 
   // ── Handlers ───────────────────────────────────────────────────────────

@@ -96,12 +96,33 @@ export interface MEDValveItem {
   notes?: string;
 }
 
+export interface MEDMaterialSummaryRow {
+  /** Material description (e.g., "Duplex SS UNS S32304") */
+  material: string;
+  /** Key dimension (e.g., "8mm plate", "25.4×1.0mm tube") */
+  form: string;
+  /** Specification (e.g., "SA 240") */
+  specification: string;
+  /** Number of BOM items using this material+form */
+  itemCount: number;
+  /** Total quantity (sum of individual quantities) */
+  totalQuantity: number;
+  /** Unit */
+  unit: string;
+  /** Total net weight (kg) */
+  totalNetWeight: number;
+  /** Total gross weight including wastage (kg) */
+  totalGrossWeight: number;
+}
+
 export interface MEDCompleteBOM {
   equipment: MEDBOMItem[];
   instruments: MEDInstrumentItem[];
   valves: MEDValveItem[];
   /** Instrument accessories BOM (thermowells, cable glands, cables, ferrules, JBs, I/O) */
   instrumentAccessories?: InstrumentAccessoryBOM;
+  /** Material summary — equipment grouped by material + form */
+  materialSummary: MEDMaterialSummaryRow[];
   summary: {
     totalEquipmentItems: number;
     totalInstruments: number;
@@ -179,6 +200,16 @@ function grommetWeight(holeDia_mm: number, tubeDia_mm: number): number {
   const r_inner = tubeDia_mm / 2 / 1000;
   const height = 0.015; // 15mm typical
   return Math.PI * (r_outer * r_outer - r_inner * r_inner) * height * DENSITY.RUBBER;
+}
+
+/** Flat plate weight (kg) — rectangular */
+function plateWeight(
+  width_mm: number,
+  height_mm: number,
+  thickness_mm: number,
+  density: number
+): number {
+  return (width_mm / 1000) * (height_mm / 1000) * (thickness_mm / 1000) * density;
 }
 
 // ============================================================================
@@ -353,6 +384,71 @@ export function generateMEDBOM(result: MEDDesignerResult): MEDCompleteBOM {
       totalWeightKg: Math.round(demWeight * (1 + WASTAGE.DEMISTER)),
       size: `${demArea.toFixed(2)} m² × 100mm thick`,
     });
+
+    // 8. Shell-Side Partition Plate (4mm)
+    // Vertical plate inside the shell, from shell top to 200mm below demister bottom.
+    // Separates the tube bundle (left) from the free side (right).
+    // Length = tube length, height = R - (demisterElevation - 200mm)
+    const shellR = (shellOD - 2 * shellThk) / 2; // shell inner radius
+    const vpg = result.vaporPathGeometry?.[i];
+    const demElev = vpg?.demisterElevation ?? shellR * 0.4; // fallback
+    const shellPartitionHeight = Math.max(100, shellR - demElev + 200); // mm
+    const shellPartitionLen = e.tubeLength * 1000; // mm
+    const shellPartThk = 4; // mm
+    const spw = plateWeight(
+      shellPartitionLen,
+      shellPartitionHeight,
+      shellPartThk,
+      DENSITY.DUPLEX_SS
+    );
+    equipment.push({
+      itemNumber: `${prefix}.8`,
+      category: 'EVAPORATOR',
+      description: `Shell-Side Partition Plate for ${effTag}`,
+      tagNumber: `${effTag}-SPP`,
+      quantity: 1,
+      unit: 'nos',
+      material: 'Duplex SS UNS S32304',
+      specification: 'SA 240, 4mm thk',
+      netWeightKg: Math.round(spw * 10) / 10,
+      wastagePercent: WASTAGE.PLATE * 100,
+      grossWeightKg: Math.round(spw * (1 + WASTAGE.PLATE) * 10) / 10,
+      totalWeightKg: Math.round(spw * (1 + WASTAGE.PLATE) * 10) / 10,
+      size: `${shellPartitionLen}mm L × ${Math.round(shellPartitionHeight)}mm H × ${shellPartThk}mm thk`,
+      shapeType: 'PLATE_FLAT',
+      notes:
+        'Vertical plate separating tube side from free side, top of shell to 200mm below demister',
+    });
+
+    // 9. Vapour Box Partition Plate (8mm)
+    // Inside the 750mm vapour box between adjacent tube sheets.
+    // Separates tube-side vapor from shell-side produced vapor.
+    // Not needed for the last effect (has a dished head instead).
+    if (i < nEff - 1) {
+      const vapourBoxDepth = 750; // mm between adjacent tube sheets
+      const shellID = shellOD - 2 * shellThk;
+      // Semicircular plate (fills one half of the circular cross-section)
+      const vbpArea = (Math.PI * (shellID / 2) * (shellID / 2)) / 2; // half-circle area, mm²
+      const vbpThk = 8; // mm — handles differential pressure
+      const vbpWeight = (vbpArea / 1e6) * (vbpThk / 1000) * DENSITY.DUPLEX_SS;
+      equipment.push({
+        itemNumber: `${prefix}.9`,
+        category: 'EVAPORATOR',
+        description: `Vapour Box Partition Plate for ${effTag}`,
+        tagNumber: `${effTag}-VBP`,
+        quantity: 1,
+        unit: 'nos',
+        material: 'Duplex SS UNS S32304',
+        specification: 'SA 240, 8mm thk',
+        netWeightKg: Math.round(vbpWeight * 10) / 10,
+        wastagePercent: WASTAGE.PLATE * 100,
+        grossWeightKg: Math.round(vbpWeight * (1 + WASTAGE.PLATE) * 10) / 10,
+        totalWeightKg: Math.round(vbpWeight * (1 + WASTAGE.PLATE) * 10) / 10,
+        size: `Ø${shellID}mm half-circle × ${vbpThk}mm thk (in ${vapourBoxDepth}mm vapour box)`,
+        shapeType: 'PLATE_FLAT',
+        notes: 'Separates tube-side vapor from shell-side produced vapor in the vapour box',
+      });
+    }
 
     // ── Instruments per effect ──
     instruments.push({
@@ -912,6 +1008,46 @@ export function generateMEDBOM(result: MEDDesignerResult): MEDCompleteBOM {
     });
   }
 
+  // ── EPDM GASKETS (square, side = nozzle DN) ──────────────────────────
+  // One gasket per nozzle connection. Gasket is a square sheet with side = DN.
+  // Total area is the sum of all individual gaskets.
+  if (nozzleSchedule && nozzleSchedule.nozzles.length > 0) {
+    const gasketThk = 3; // mm typical EPDM gasket thickness
+    let totalGasketArea_mm2 = 0;
+    const gasketDetails: string[] = [];
+
+    for (const nz of nozzleSchedule.nozzles) {
+      // Extract DN as number (e.g., "DN150" → 150)
+      const dnMatch = nz.dn.match(/(\d+)/);
+      const dn = dnMatch ? parseInt(dnMatch[1]!, 10) : 0;
+      if (dn <= 0) continue;
+
+      const area = dn * dn; // square gasket, side = DN (mm²)
+      totalGasketArea_mm2 += area;
+      gasketDetails.push(`E${nz.effect}-${nz.service}:${dn}×${dn}`);
+    }
+
+    const totalGasketArea_m2 = totalGasketArea_mm2 / 1e6;
+    const gasketWeight = totalGasketArea_m2 * (gasketThk / 1000) * DENSITY.RUBBER;
+
+    equipment.push({
+      itemNumber: `${nEff + 8}.1`,
+      category: 'MISCELLANEOUS',
+      description: 'EPDM Gaskets (square, all nozzle connections)',
+      tagNumber: 'GSK-EPDM',
+      quantity: nozzleSchedule.nozzles.filter((nz) => nz.dn !== 'N/A').length,
+      unit: 'nos',
+      material: 'EPDM Rubber',
+      specification: `${gasketThk}mm thick, square cut to nozzle DN`,
+      netWeightKg: Math.round(gasketWeight * 100) / 100,
+      wastagePercent: WASTAGE.GROMMET * 100,
+      grossWeightKg: Math.round(gasketWeight * (1 + WASTAGE.GROMMET) * 100) / 100,
+      totalWeightKg: Math.round(gasketWeight * (1 + WASTAGE.GROMMET) * 100) / 100,
+      size: `Total gasket area: ${totalGasketArea_m2.toFixed(4)} m² (${(totalGasketArea_mm2 / 1e4).toFixed(2)} dm²)`,
+      notes: `${nozzleSchedule.nozzles.filter((nz) => nz.dn !== 'N/A').length} gaskets, each side = nozzle DN`,
+    });
+  }
+
   // ── SUMMARY ──────────────────────────────────────────────────────────
   const totalWeight = equipment.reduce((s, e) => s + e.totalWeightKg, 0);
   const categorySummary = new Map<MEDBOMCategory, { items: number; weight: number }>();
@@ -944,11 +1080,67 @@ export function generateMEDBOM(result: MEDDesignerResult): MEDCompleteBOM {
     // Non-critical — accessory generation failure doesn't block the BOM
   }
 
+  // ── MATERIAL SUMMARY (grouped by material + form) ────────────────────
+  const materialMap = new Map<
+    string,
+    {
+      material: string;
+      form: string;
+      specification: string;
+      itemCount: number;
+      totalQuantity: number;
+      unit: string;
+      totalNetWeight: number;
+      totalGrossWeight: number;
+    }
+  >();
+
+  for (const item of equipment) {
+    if (!item.material || item.material === 'N/A') continue;
+
+    // Extract form from size or shapeType
+    let form = '';
+    if (item.shapeType === 'CYLINDRICAL_SHELL') form = `${shellThk}mm shell plate`;
+    else if (item.shapeType === 'HEAD_ELLIPSOIDAL') form = `${shellThk}mm dished head`;
+    else if (item.shapeType === 'TUBE_SHEET') form = `${tubeSheetThk}mm plate`;
+    else if (item.shapeType === 'TUBE_STRAIGHT') form = `${item.size.split('×')[0]?.trim()} tube`;
+    else if (item.shapeType === 'PLATE_FLAT') {
+      // Extract thickness from size
+      const thkMatch = item.size.match(/(\d+)mm thk/);
+      form = thkMatch ? `${thkMatch[1]}mm plate` : 'plate';
+    } else if (item.description.includes('Demister')) form = 'wire mesh pad';
+    else if (item.description.includes('Grommet')) form = 'rubber grommet';
+    else if (item.description.includes('Gasket')) form = 'gasket sheet';
+    else form = item.unit === 'nos' ? 'bought-out' : 'misc';
+
+    const key = `${item.material}|${form}`;
+    const existing = materialMap.get(key) ?? {
+      material: item.material,
+      form,
+      specification: item.specification,
+      itemCount: 0,
+      totalQuantity: 0,
+      unit: item.unit,
+      totalNetWeight: 0,
+      totalGrossWeight: 0,
+    };
+    existing.itemCount += 1;
+    existing.totalQuantity += item.quantity;
+    existing.totalNetWeight += item.netWeightKg * item.quantity;
+    existing.totalGrossWeight += item.totalWeightKg;
+    materialMap.set(key, existing);
+  }
+
+  const materialSummary: MEDMaterialSummaryRow[] = Array.from(materialMap.values()).sort(
+    (a, b) => b.totalGrossWeight - a.totalGrossWeight
+  );
+
   return {
     equipment,
     instruments,
     valves,
     instrumentAccessories,
+    materialSummary,
     summary: {
       totalEquipmentItems: equipment.length,
       totalInstruments: instruments.length,
