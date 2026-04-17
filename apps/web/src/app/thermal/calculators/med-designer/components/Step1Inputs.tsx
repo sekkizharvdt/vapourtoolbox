@@ -362,19 +362,19 @@ export function Step1Inputs({
                 />
               ))}
             </Stack>
-            {preheaterEffects.length > 0 && (
+            {preheaterEffects.length > 0 && !designResult && (
               <TextField
-                label="Temp Rise per PH"
+                label="Default Temp Rise per PH"
                 value={preheaterTempRise}
                 onChange={(e) => onPreheaterTempRiseChange(e.target.value)}
                 type="number"
                 size="small"
-                helperText="Higher = more vapor diverted. Typical 3-5&deg;C."
+                helperText="Higher = more vapor diverted. Typical 3-5&deg;C. Editable per PH below."
                 InputProps={{
                   endAdornment: <InputAdornment position="end">&deg;C</InputAdornment>,
                 }}
                 inputProps={{ min: 1, max: 10, step: 0.5 }}
-                sx={{ width: 180 }}
+                sx={{ width: 220 }}
               />
             )}
           </Stack>
