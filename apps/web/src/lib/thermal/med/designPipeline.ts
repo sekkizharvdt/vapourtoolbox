@@ -445,7 +445,14 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   // auxiliary equipment (especially spray nozzles) uses actual bundle width.
   try {
     const refined = refineBundleGeometry(effects, resolved);
-    applyRefinedGeometry(effects, refined, resolved.shellThkMM);
+    applyRefinedGeometry(
+      effects,
+      refined,
+      resolved.shellThkMM,
+      resolved.pitch,
+      resolved.minGamma,
+      resolved.includeRecirc
+    );
     // Recompute largest shell after refinement
     largestShellOD = Math.max(...effects.map((e) => e.shellODmm));
     largestShellID = largestShellOD - 2 * shellThkMM;

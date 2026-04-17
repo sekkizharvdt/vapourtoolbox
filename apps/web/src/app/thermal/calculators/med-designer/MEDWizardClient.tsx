@@ -814,7 +814,7 @@ export default function MEDWizardClient() {
                       }}
                     >
                       <TableCell>{pt.loadPercent}%</TableCell>
-                      <TableCell align="right">{fmt(pt.steamFlow / 1000, 2)}</TableCell>
+                      <TableCell align="right">{fmt(pt.steamFlow, 2)}</TableCell>
                       <TableCell align="right">{Math.round(pt.distillateM3Day)}</TableCell>
                       <TableCell align="right">{fmt(pt.gor, 2)}</TableCell>
                       <TableCell align="center">

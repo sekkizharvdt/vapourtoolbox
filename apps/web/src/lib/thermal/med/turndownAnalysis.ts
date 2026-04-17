@@ -17,6 +17,7 @@ import type {
 // This creates a circular dependency (medDesigner → turndownAnalysis → medDesigner)
 // but it is safe because the turndown call sets includeTurndown=false, preventing recursion.
 import { designMED } from '../medDesigner';
+import { getMaxTubesPerRow } from './shellGeometry';
 
 export function computeTurndownAnalysis(
   input: MEDDesignerInput,
@@ -43,28 +44,47 @@ export function computeTurndownAnalysis(
 
       const result = designMED(turndownInput);
 
-      // Wetting adequacy check per effect
-      const wettingAdequacy = result.effects.map((e, idx) => {
-        // At reduced load, the recirculation pump still runs
-        // but feed flow is reduced proportionally
-        const feedPerEffect = result.makeUpFeed / result.effects.length;
-        const totalSpray = feedPerEffect + e.brineRecirculation;
-        // Wetting rate: Γ = ṁ / (2 × L × n_rows)
-        // Use actual row count from bundle geometry if available (accurate),
-        // otherwise fall back to base design's bundle geometry, then approximate.
-        const baseEffect = baseResult.effects[idx];
-        const nRows =
-          e.bundleGeometry?.numberOfRows ??
-          baseEffect?.bundleGeometry?.numberOfRows ??
-          Math.max(1, Math.round(Math.sqrt(e.tubes / 2)));
-        const gamma = (totalSpray * 1000) / 3600 / (2 * e.tubeLength * nRows);
-        const gammaMin = input.minimumWettingRate ?? 0.035;
+      // Wetting adequacy check per effect.
+      //
+      // The design uses minSprayFlow = Γ_min × 2 × tubesPerRow × L (in T/h)
+      // and sizes the recirculation pump so actual spray ≥ minSprayFlow.
+      // At 100% load, actual spray = minSprayFlow (exactly) when recirc > 0.
+      //
+      // At reduced load, the seawater feed scales with load (less distillate
+      // means less feed), but the recirculation pump runs at constant flow:
+      //   spray(load%) = feed_100 × load% + recirc_base
+      //   where feed_100 = minSprayFlow - recirc_base
+      //
+      // Uses the SAME tubesPerRow formula as design sizing (getMaxTubesPerRow)
+      // to ensure consistency with resultAdapter.ts.
+      const gammaMin = input.minimumWettingRate ?? 0.035;
+      const tubeOD = input.tubeOD ?? 25.4;
+      const pitch = input.tubePitch ?? tubeOD * 1.315;
+      const shellThkMM = input.shellThickness ?? 8;
+      const loadFraction = loadPct / 100;
+
+      const wettingAdequacy = baseResult.effects.map((baseEffect) => {
+        // Total spray at 100% (from design): feed + recirc = minSprayFlow
+        const sprayAt100 = baseEffect.minSprayFlow;
+        const recirc = baseEffect.brineRecirculation;
+        const feedAt100 = Math.max(0, sprayAt100 - recirc);
+        // Feed scales with load, recirc stays constant
+        const totalSpray = feedAt100 * loadFraction + recirc; // T/h
+
+        // Use the SAME tubesPerRow formula as design sizing
+        const effShellID = baseEffect.shellODmm - 2 * shellThkMM;
+        const tubesPerRow = getMaxTubesPerRow(effShellID, pitch);
+
+        // Γ (kg/m·s) = spray (T/h) × 1000/3600 / (2 × tubesPerRow × L)
+        const denom = 2 * tubesPerRow * baseEffect.tubeLength;
+        const gamma = denom > 0 ? (totalSpray * 1000) / 3600 / denom : 0;
 
         return {
-          effect: e.effect,
+          effect: baseEffect.effect,
           gamma: Math.round(gamma * 10000) / 10000,
           gammaMin,
-          adequate: gamma >= gammaMin,
+          // Tiny tolerance (1%) to avoid floating-point false negatives at 100% load
+          adequate: gamma >= gammaMin * 0.99,
         };
       });
 

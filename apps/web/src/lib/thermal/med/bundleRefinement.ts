@@ -17,6 +17,7 @@ import {
 } from '../tubeBundleGeometry';
 import type { MEDDesignerEffect } from './designerTypes';
 import type { ResolvedDesignerInputs } from './inputAdapter';
+import { getMaxTubesPerRow } from './shellGeometry';
 
 /** Refined geometry for one evaporator effect */
 export interface RefinedBundleGeometry {
@@ -140,7 +141,10 @@ export function refineBundleGeometry(
 export function applyRefinedGeometry(
   effects: MEDDesignerEffect[],
   refined: RefinedBundleGeometry[],
-  shellThkMM: number
+  shellThkMM: number,
+  pitch: number,
+  minGamma: number,
+  includeRecirc: boolean
 ): void {
   for (let i = 0; i < effects.length; i++) {
     const ref = refined[i];
@@ -167,6 +171,17 @@ export function applyRefinedGeometry(
     // Update drainage and spray clearance from actual geometry
     eff.drainageClearanceMM = geo.bottomClearance;
     eff.sprayNozzleSpaceMM = geo.sprayZoneClearance;
+
+    // Recompute wetting-related values with the REFINED tubesPerRow.
+    // The shell diameter may have increased during refinement (to accommodate
+    // vapour lanes, structural clearances, etc.), so tubesPerRow is larger
+    // than the original findMinShellID estimate. We must resize recirculation
+    // to maintain the design wetting rate.
+    const refinedTubesPerRow = getMaxTubesPerRow(ref.shellID, pitch);
+    const refinedMinSpray = minGamma * 2 * refinedTubesPerRow * eff.tubeLength * 3.6; // T/h
+    const currentFeed = Math.max(0, eff.minSprayFlow - eff.brineRecirculation); // T/h
+    eff.minSprayFlow = refinedMinSpray;
+    eff.brineRecirculation = includeRecirc ? Math.max(0, refinedMinSpray - currentFeed) : 0;
   }
 }
 
