@@ -779,7 +779,11 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
 
     for (let i = 0; i < N; i++) {
       const ev = equipmentSizing.evaporators[i];
-      if (!ev || ev.tubeCount <= 0) continue;
+      if (!ev || ev.tubeCount <= 0) {
+        // Effect failed sizing (negative working ΔT) — keep previous overrides
+        // so the default doesn't revert to a potentially incorrect estimate
+        continue;
+      }
 
       const eff = effects[i]!;
       const effTemp = eff.temperature;

@@ -33,14 +33,11 @@ import {
   getSaturationPressure,
   getSaturationTemperature,
   getDensityVapor,
-  getDensityLiquid,
   NEA_HOT_END,
   NEA_COLD_END,
   CARRIER_STEAM_FRACTION,
   TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
   DEMISTER_DP_MODEL,
-  DEMISTER_K_FACTOR,
-  DEMISTER_DESIGN_MARGIN,
   DUCT_DESIGN_VELOCITY,
   DUCT_K_FACTOR,
 } from '@vapour/constants';
@@ -111,26 +108,21 @@ export function pressureDropToTempDrop(tempC: number, deltaPa: number): number {
 }
 
 /**
- * Calculate demister pad pressure drop as equivalent temperature loss (°C).
+ * Initial estimate for demister pad ΔT before equipment sizing.
  *
- * Initial estimate used before equipment sizing determines the actual shell
- * geometry. Uses Souders-Brown at DEMISTER_DESIGN_MARGIN (50%) loading as
- * a representative velocity. After equipment sizing, the coupling loop in
- * medEngine.ts computes the actual velocity from the lateral shell geometry
- * and passes it back via demisterDeltaTOverride.
+ * In MED evaporators, the actual demister velocity is 2–4 m/s (determined
+ * by shell geometry in the coupling loop). The Souders-Brown minimum-area
+ * velocity (8–10 m/s) is NOT appropriate as a default — it would give
+ * ~1.5°C which is far too high and causes cold-end effects to fail.
+ *
+ * We use a representative shell velocity of 3 m/s as the initial estimate.
+ * After equipment sizing, the coupling loop replaces this with the actual
+ * velocity from computeVaporPathGeometry().
  */
+const INITIAL_DEMISTER_VELOCITY = 3.0; // m/s — representative MED shell velocity
+
 export function calculateDemisterDeltaT(tempC: number): number {
-  const rhoV = getDensityVapor(Math.max(tempC, 5));
-  const rhoL = getDensityLiquid(Math.max(tempC, 5));
-
-  // Souders-Brown at design margin — initial estimate
-  const vMax = DEMISTER_K_FACTOR * Math.sqrt(Math.max((rhoL - rhoV) / rhoV, 0));
-  const vEstimate = DEMISTER_DESIGN_MARGIN * vMax;
-
-  const { C, n, padThickness_mm, refThickness_mm } = DEMISTER_DP_MODEL;
-  const deltaPa = C * (padThickness_mm / refThickness_mm) * rhoV * Math.pow(vEstimate, n);
-
-  return pressureDropToTempDrop(tempC, deltaPa);
+  return calculateDemisterDeltaTFromVelocity(tempC, INITIAL_DEMISTER_VELOCITY);
 }
 
 /**
