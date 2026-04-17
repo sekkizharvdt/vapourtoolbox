@@ -176,12 +176,16 @@ export function Step1Inputs({
 
         <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
           <TextField
-            label="Vapour Flow"
+            label={tvcEnabled ? 'Motive Steam Flow' : 'Heating Steam Flow'}
             value={steamFlow}
             onChange={(e) => onSteamFlowChange(e.target.value)}
             type="number"
             size="small"
-            helperText={tvcEnabled ? 'Motive steam flow to TVC' : undefined}
+            helperText={
+              tvcEnabled
+                ? 'HP steam supplied to the TVC ejector'
+                : 'Heating vapour supplied to Effect 1 tubes'
+            }
             InputProps={{
               endAdornment: <InputAdornment position="end">T/h</InputAdornment>,
             }}
@@ -226,16 +230,21 @@ export function Step1Inputs({
                 }}
               />
               <TextField
-                label="Entrained Effect"
-                value={tvcEntrainedEffect}
+                select
+                label="Entrained from Effect"
+                value={tvcEntrainedEffect || String(nEff)}
                 onChange={(e) => onTvcEntrainedEffectChange(e.target.value)}
-                type="number"
                 size="small"
-                placeholder={`Last (E${nEff})`}
-                helperText="Vapor source for TVC"
-                inputProps={{ min: 1, max: nEff }}
-                sx={{ width: 150 }}
-              />
+                helperText={`Vapor source (default: last effect E${nEff})`}
+                sx={{ width: 200 }}
+              >
+                {Array.from({ length: Math.max(0, nEff - 1) }, (_, i) => i + 2).map((effNum) => (
+                  <MenuItem key={effNum} value={String(effNum)}>
+                    E{effNum}
+                    {effNum === nEff ? ' (last, recommended)' : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
             </>
           ) : (
             <TextField
@@ -633,15 +642,69 @@ export function Step1Inputs({
                 {fmt(designResult.effects[0]?.workingDeltaT ?? 0, 2)}&deg;C
               </Typography>
             </Box>
-            {designResult.tvc && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  TVC Entrainment Ratio
-                </Typography>
-                <Typography variant="h6">{fmt(designResult.tvc.entrainmentRatio, 2)}</Typography>
-              </Box>
-            )}
           </Stack>
+          {designResult.tvc && (
+            <Box
+              sx={{
+                mt: 2,
+                p: 2,
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                TVC Summary
+              </Typography>
+              <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Motive Steam (in)
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.motiveFlow / 1000, 3)} T/h
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Entrained Vapor
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.entrainedFlow / 1000, 3)} T/h
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Discharge to E1
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.dischargeFlow / 1000, 3)} T/h
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Entrainment Ratio (Ra)
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.entrainmentRatio, 3)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Compression Ratio
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.compressionRatio, 2)}
+                  </Typography>
+                </Box>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                Motive: HP steam input to ejector | Entrained: LP vapor drawn from selected effect |
+                Discharge: motive + entrained → Effect 1 tubes
+              </Typography>
+            </Box>
+          )}
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
             <Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={onProceed}>
               Proceed to Equipment &amp; Geometry
