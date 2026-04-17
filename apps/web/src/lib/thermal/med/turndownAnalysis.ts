@@ -23,7 +23,9 @@ export function computeTurndownAnalysis(
   input: MEDDesignerInput,
   baseResult: MEDDesignerResult
 ): MEDTurndownAnalysis {
-  const loadPoints = [30, 50, 70, 100];
+  // 100% is the base design (already shown elsewhere); 70% is rarely useful.
+  // We show 50% and 30% to verify turndown feasibility at reduced loads.
+  const loadPoints = [30, 50];
   const points: MEDTurndownPoint[] = [];
   const analysisWarnings: string[] = [];
 
