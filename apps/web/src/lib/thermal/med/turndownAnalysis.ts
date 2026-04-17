@@ -46,30 +46,32 @@ export function computeTurndownAnalysis(
 
       // Wetting adequacy check per effect.
       //
-      // The design uses minSprayFlow = Γ_min × 2 × tubesPerRow × L (in T/h)
-      // and sizes the recirculation pump so actual spray ≥ minSprayFlow.
-      // At 100% load, actual spray = minSprayFlow (exactly) when recirc > 0.
+      // The recirculation pump is sized for FULL spray flow (= minSprayFlow).
+      // This is because during annual acid cleaning the pump must recirculate
+      // acid over the entire tube bundle, so its nameplate capacity equals
+      // the total design spray, not just the make-up portion.
       //
-      // At reduced load, the seawater feed scales with load (less distillate
-      // means less feed), but the recirculation pump runs at constant flow:
-      //   spray(load%) = feed_100 × load% + recirc_base
-      //   where feed_100 = minSprayFlow - recirc_base
+      // A VFD controls the pump to maintain total_spray = minSprayFlow at
+      // ALL operating loads:
+      //   feed(load)   = base_feed × load%  (seawater makeup, scales with load)
+      //   recirc(load) = minSprayFlow − feed(load)  (pump ramps to compensate)
+      //   total_spray  = minSprayFlow  (constant, equals design target)
       //
-      // Uses the SAME tubesPerRow formula as design sizing (getMaxTubesPerRow)
-      // to ensure consistency with resultAdapter.ts.
+      // Since the pump is sized for the full spray, it always has capacity
+      // to cover the shortfall from reduced feed. Wetting therefore stays
+      // at the design Γ at every load — the turndown limit comes from other
+      // constraints (siphon seal, condenser performance, process stability),
+      // NOT wetting.
+      //
+      // Uses the SAME tubesPerRow formula as design sizing.
       const gammaMin = input.minimumWettingRate ?? 0.035;
       const tubeOD = input.tubeOD ?? 25.4;
       const pitch = input.tubePitch ?? tubeOD * 1.315;
       const shellThkMM = input.shellThickness ?? 8;
-      const loadFraction = loadPct / 100;
 
       const wettingAdequacy = baseResult.effects.map((baseEffect) => {
-        // Total spray at 100% (from design): feed + recirc = minSprayFlow
-        const sprayAt100 = baseEffect.minSprayFlow;
-        const recirc = baseEffect.brineRecirculation;
-        const feedAt100 = Math.max(0, sprayAt100 - recirc);
-        // Feed scales with load, recirc stays constant
-        const totalSpray = feedAt100 * loadFraction + recirc; // T/h
+        // Pump maintains total spray = minSprayFlow at any load
+        const totalSpray = baseEffect.minSprayFlow; // T/h
 
         // Use the SAME tubesPerRow formula as design sizing
         const effShellID = baseEffect.shellODmm - 2 * shellThkMM;
@@ -83,7 +85,7 @@ export function computeTurndownAnalysis(
           effect: baseEffect.effect,
           gamma: Math.round(gamma * 10000) / 10000,
           gammaMin,
-          // Tiny tolerance (1%) to avoid floating-point false negatives at 100% load
+          // Tiny tolerance (1%) for floating-point
           adequate: gamma >= gammaMin * 0.99,
         };
       });
