@@ -107,10 +107,12 @@ export function Step2Geometry({
               <TableCell align="right">Vap In (&deg;C)</TableCell>
               <TableCell align="right">Brine (&deg;C)</TableCell>
               <TableCell align="right">BPE (&deg;C)</TableCell>
+              <TableCell align="right">NEA (&deg;C)</TableCell>
+              <TableCell align="right">Demister (&deg;C)</TableCell>
+              <TableCell align="right">Duct dP (&deg;C)</TableCell>
               <TableCell align="right">Vap Out (&deg;C)</TableCell>
               <TableCell align="right">Work &Delta;T (&deg;C)</TableCell>
               <TableCell align="right">U (W/m&sup2;&middot;K)</TableCell>
-              <TableCell align="right">Spray T (&deg;C)</TableCell>
               <TableCell align="right">Duty (kW)</TableCell>
               <TableCell align="right">Req. Area (m&sup2;)</TableCell>
             </TableRow>
@@ -125,10 +127,12 @@ export function Step2Geometry({
                 <TableCell align="right">{fmt(e.incomingVapourTemp)}</TableCell>
                 <TableCell align="right">{fmt(e.brineTemp)}</TableCell>
                 <TableCell align="right">{fmt(e.bpe, 2)}</TableCell>
+                <TableCell align="right">{fmt(e.nea, 3)}</TableCell>
+                <TableCell align="right">{fmt(e.demisterLoss, 3)}</TableCell>
+                <TableCell align="right">{fmt(e.pressureDropLoss, 3)}</TableCell>
                 <TableCell align="right">{fmt(e.vapourOutTemp)}</TableCell>
                 <TableCell align="right">{fmt(e.workingDeltaT, 2)}</TableCell>
                 <TableCell align="right">{Math.round(e.overallU)}</TableCell>
-                <TableCell align="right">{fmt(e.sprayTemp)}&deg;C</TableCell>
                 <TableCell align="right">{Math.round(e.duty)}</TableCell>
                 <TableCell align="right">{Math.round(e.requiredArea)}</TableCell>
               </TableRow>

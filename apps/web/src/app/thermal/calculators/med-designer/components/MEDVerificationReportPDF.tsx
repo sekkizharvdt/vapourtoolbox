@@ -430,39 +430,50 @@ export function MEDVerificationReportPDF({
         <ReportSection title="5. Temperature Cascade Breakdown">
           <ReportTable
             columns={[
-              { key: 'effect', header: 'Effect', width: '7%' },
-              { key: 'inVapT', header: 'Incoming Vap. (°C)', width: '10%', align: 'right' },
-              { key: 'brineT', header: 'Brine T (°C)', width: '9%', align: 'right' },
-              { key: 'bpe', header: 'BPE (°C)', width: '8%', align: 'right' },
-              { key: 'nea', header: 'NEA (°C)', width: '8%', align: 'right' },
-              { key: 'demL', header: 'Demister (°C)', width: '9%', align: 'right' },
-              { key: 'dpL', header: 'Duct dP (°C)', width: '9%', align: 'right' },
-              { key: 'vapOutT', header: 'Vap. Out (°C)', width: '10%', align: 'right' },
-              { key: 'workDT', header: 'Working dT (°C)', width: '10%', align: 'right' },
-              { key: 'press', header: 'Pressure (mbar)', width: '10%', align: 'right' },
-              { key: 'hfg', header: 'h_fg (kJ/kg)', width: '10%', align: 'right' },
+              { key: 'effect', header: 'Effect', width: '5%' },
+              { key: 'inVapT', header: 'Incoming Vap. (°C)', width: '9%', align: 'right' },
+              { key: 'brineT', header: 'Brine T (°C)', width: '8%', align: 'right' },
+              { key: 'bpe', header: 'BPE (°C)', width: '7%', align: 'right' },
+              { key: 'flashDT', header: 'Flash ΔT (°C)', width: '8%', align: 'right' },
+              { key: 'nea', header: 'NEA (°C)', width: '7%', align: 'right' },
+              { key: 'demL', header: 'Demister (°C)', width: '8%', align: 'right' },
+              { key: 'dpL', header: 'Duct dP (°C)', width: '8%', align: 'right' },
+              { key: 'totalLoss', header: 'Total Loss (°C)', width: '8%', align: 'right' },
+              { key: 'vapOutT', header: 'Vap. Out (°C)', width: '8%', align: 'right' },
+              { key: 'workDT', header: 'Working dT (°C)', width: '8%', align: 'right' },
+              { key: 'press', header: 'Pressure (mbar)', width: '8%', align: 'right' },
+              { key: 'hfg', header: 'h_fg (kJ/kg)', width: '8%', align: 'right' },
             ]}
-            rows={r.effects.map((e) => ({
-              effect: `E${e.effect}`,
-              inVapT: fmt(e.incomingVapourTemp, 2),
-              brineT: fmt(e.brineTemp, 2),
-              bpe: fmt(e.bpe, 3),
-              nea: fmt(e.nea, 2),
-              demL: fmt(e.demisterLoss, 2),
-              dpL: fmt(e.pressureDropLoss, 2),
-              vapOutT: fmt(e.vapourOutTemp, 2),
-              workDT: fmt(e.workingDeltaT, 2),
-              press: fmt(e.pressure, 1),
-              hfg: fmt(e.hfg, 1),
-            }))}
+            rows={r.effects.map((e, i) => {
+              const prevBrineT = i > 0 ? r.effects[i - 1]!.brineTemp : 0;
+              const flashDT = i > 0 ? Math.max(0, prevBrineT - (e.brineTemp - e.bpe)) : 0;
+              const totalLoss = e.bpe + e.nea + e.demisterLoss + e.pressureDropLoss;
+              return {
+                effect: `E${e.effect}`,
+                inVapT: fmt(e.incomingVapourTemp, 2),
+                brineT: fmt(e.brineTemp, 2),
+                bpe: fmt(e.bpe, 3),
+                flashDT: i === 0 ? '—' : fmt(flashDT, 2),
+                nea: fmt(e.nea, 3),
+                demL: fmt(e.demisterLoss, 3),
+                dpL: fmt(e.pressureDropLoss, 3),
+                totalLoss: fmt(totalLoss, 3),
+                vapOutT: fmt(e.vapourOutTemp, 2),
+                workDT: fmt(e.workingDeltaT, 2),
+                press: fmt(e.pressure, 1),
+                hfg: fmt(e.hfg, 1),
+              };
+            })}
             striped
             fontSize={7}
           />
           <View style={{ marginTop: 4 }}>
             <Text style={{ fontSize: 6, color: REPORT_THEME.textMuted }}>
-              Temperature drop per effect: Incoming vapour → Brine (= working dT) | Brine → Vap out:
-              BPE + NEA + demister + duct dP | Vapour out of Effect N = incoming vapour to Effect
-              N+1
+              Working dT = Incoming vapour − Brine T | Total Loss = BPE + NEA + Demister + Duct dP |
+              Vap. Out = Effect saturation T − (NEA + Demister + Duct dP) | NEA ={' '}
+              {(Number(r.inputs.resolvedDefaults.NEA_FLASH_FRACTION ?? 0.1) * 100).toFixed(0)}% of
+              Flash ΔT (E1 = 0: no cascaded brine) | Vapour out of Effect N = incoming vapour to
+              Effect N+1
             </Text>
           </View>
         </ReportSection>
