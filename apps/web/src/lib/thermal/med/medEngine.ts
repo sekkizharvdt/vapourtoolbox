@@ -422,6 +422,9 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
       });
     }
 
+    // Track the entrained effect index for inline TVC coupling during cascade
+    const tvcEntrainedIdx = tvcResult ? (input.tvcEntrainedEffect ?? N) - 1 : -1;
+
     for (let i = 0; i < N; i++) {
       const effectNumber = i + 1;
       const phCond = phCondensateMap.get(effectNumber) ?? { flow: 0, temp: 0 };
@@ -462,8 +465,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         bpeSafetyFactor: input.bpeSafetyFactor,
       };
 
-      const result = calculateEffect(effectInput);
-      effects.push(result);
+      let result = calculateEffect(effectInput);
 
       // Flag per-effect energy balance errors > 0.5%
       if (result.energyBalanceError > 0.5) {
@@ -472,7 +474,39 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         );
       }
 
-      // Cascade outputs → next effect inputs
+      // ── TVC inline coupling ────────────────────────────────────────────
+      // If this is the entrained effect, subtract the entrained vapor BEFORE
+      // cascading to downstream effects. This is the correct physics: the
+      // TVC draws vapor from this effect, so only the remaining vapor flows
+      // to the next effect. Subtracting post-cascade (as was done before)
+      // gave wrong results when entraining from a middle effect.
+      if (tvcResult && i === tvcEntrainedIdx) {
+        const availableVapor = result.totalVaporOut.flow;
+        if (tvcResult.entrainedFlow > availableVapor * 1.05) {
+          warnings.push(
+            `TVC wants to entrain ${Math.round(tvcResult.entrainedFlow)} kg/hr but Effect ${i + 1} only produces ${Math.round(availableVapor)} kg/hr. Reduce motive steam or motive pressure.`
+          );
+        }
+        const actualEntrained = Math.min(tvcResult.entrainedFlow, availableVapor);
+        const remainingVapor = availableVapor - actualEntrained;
+        result = {
+          ...result,
+          totalVaporOut: {
+            ...result.totalVaporOut,
+            flow: remainingVapor,
+            energy: (remainingVapor * result.totalVaporOut.enthalpy) / 3600,
+          },
+          vaporOut: {
+            ...result.vaporOut,
+            flow: remainingVapor,
+            energy: (remainingVapor * result.vaporOut.enthalpy) / 3600,
+          },
+        };
+      }
+
+      effects.push(result);
+
+      // Cascade outputs → next effect inputs (using TVC-corrected values)
       prevVaporOut = result.totalVaporOut.flow;
       prevVaporTemp = result.totalVaporOut.temperature;
       distillateAccum = result.distillateOut.flow;
@@ -481,37 +515,6 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
       cascadedBrineTemp = result.totalBrineOut.temperature;
       cascadedBrineSalinity = result.totalBrineOut.salinity;
       ncgAccum = result.tubeSide.ncgVent + result.shellSprayZone.ncgReleased;
-    }
-
-    // ---- TVC: subtract entrained vapor from selected effect ----
-    // The TVC entrains a portion of the last effect's vapor. The remainder
-    // goes to the final condenser. If entrained > available, warn.
-    if (tvcResult) {
-      const entrainedIdx = (input.tvcEntrainedEffect ?? N) - 1;
-      const entrainedEffect = effects[entrainedIdx];
-      if (entrainedEffect) {
-        const availableVapor = entrainedEffect.totalVaporOut.flow;
-        if (tvcResult.entrainedFlow > availableVapor * 1.05) {
-          warnings.push(
-            `TVC wants to entrain ${Math.round(tvcResult.entrainedFlow)} kg/hr but Effect ${entrainedIdx + 1} only produces ${Math.round(availableVapor)} kg/hr. Reduce motive steam or motive pressure.`
-          );
-        }
-        const actualEntrained = Math.min(tvcResult.entrainedFlow, availableVapor);
-        const remainingVapor = availableVapor - actualEntrained;
-        effects[entrainedIdx] = {
-          ...entrainedEffect,
-          totalVaporOut: {
-            ...entrainedEffect.totalVaporOut,
-            flow: remainingVapor,
-            energy: (remainingVapor * entrainedEffect.totalVaporOut.enthalpy) / 3600,
-          },
-          vaporOut: {
-            ...entrainedEffect.vaporOut,
-            flow: remainingVapor,
-            energy: (remainingVapor * entrainedEffect.vaporOut.enthalpy) / 3600,
-          },
-        };
-      }
     }
 
     // ---- Final condenser ----
@@ -835,12 +838,16 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     let cascadedBrineSalinity = 0;
     let ncgAccum = ncgFromSeawater;
 
-    // TVC re-integration (if configured)
+    // TVC re-integration (if configured) — keep the result for inline coupling below
+    let tvcResultInLoop: TVCIntegrationResult | null = null;
     if (input.tvcMotivePressure && input.tvcMotivePressure > 0) {
       try {
         const entrainedIdx = (input.tvcEntrainedEffect ?? N) - 1;
-        const entrainedVaporTemp = effectTemps[Math.min(entrainedIdx, N - 1)]!;
-        const tvcR = solveTVCIntegration({
+        // Use converged effects' vapor temp if available
+        const entrainedVaporTemp =
+          effects[entrainedIdx]?.totalVaporOut.temperature ??
+          effectTemps[Math.min(entrainedIdx, N - 1)]!;
+        tvcResultInLoop = solveTVCIntegration({
           motivePressure: input.tvcMotivePressure,
           ...(input.tvcMotiveTemperature !== undefined && {
             motiveTemperature: input.tvcMotiveTemperature,
@@ -851,12 +858,13 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
           motiveFlow: input.steamFlow,
           sprayWaterTemp: sprayTemps[0]!,
         });
-        prevVaporOut = tvcR.dischargeFlow;
-        prevVaporTemp = tvcR.vaporToEffect1Temp;
+        prevVaporOut = tvcResultInLoop.dischargeFlow;
+        prevVaporTemp = tvcResultInLoop.vaporToEffect1Temp;
       } catch {
         // TVC failed — use plain steam
       }
     }
+    const loopTvcEntrainedIdx = tvcResultInLoop ? (input.tvcEntrainedEffect ?? N) - 1 : -1;
 
     // Build preheater condensate map from last converged preheater details
     const phCondMap = new Map<number, { flow: number; temp: number }>();
@@ -912,7 +920,30 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         ductDeltaTOverride: ductDeltaTOverrides[i],
       };
 
-      const result = calculateEffect(effectInput);
+      let result = calculateEffect(effectInput);
+
+      // Inline TVC coupling: subtract entrained vapor from the source effect
+      // so downstream effects see the reduced vapor (correct physics for
+      // TVC on a middle effect).
+      if (tvcResultInLoop && i === loopTvcEntrainedIdx) {
+        const availableVapor = result.totalVaporOut.flow;
+        const actualEntrained = Math.min(tvcResultInLoop.entrainedFlow, availableVapor);
+        const remainingVapor = availableVapor - actualEntrained;
+        result = {
+          ...result,
+          totalVaporOut: {
+            ...result.totalVaporOut,
+            flow: remainingVapor,
+            energy: (remainingVapor * result.totalVaporOut.enthalpy) / 3600,
+          },
+          vaporOut: {
+            ...result.vaporOut,
+            flow: remainingVapor,
+            energy: (remainingVapor * result.vaporOut.enthalpy) / 3600,
+          },
+        };
+      }
+
       effects.push(result);
 
       prevVaporOut = result.totalVaporOut.flow;
@@ -923,44 +954,6 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
       cascadedBrineTemp = result.totalBrineOut.temperature;
       cascadedBrineSalinity = result.totalBrineOut.salinity;
       ncgAccum = result.tubeSide.ncgVent + result.shellSprayZone.ncgReleased;
-    }
-
-    // Re-apply TVC entrainment subtraction (same logic as main loop)
-    if (input.tvcMotivePressure && input.tvcMotivePressure > 0) {
-      try {
-        const entrainedIdx = (input.tvcEntrainedEffect ?? N) - 1;
-        const entrainedEffect = effects[entrainedIdx];
-        if (entrainedEffect) {
-          const tvcR = solveTVCIntegration({
-            motivePressure: input.tvcMotivePressure,
-            ...(input.tvcMotiveTemperature !== undefined && {
-              motiveTemperature: input.tvcMotiveTemperature,
-            }),
-            entrainedEffectNumber: input.tvcEntrainedEffect ?? N,
-            entrainedVaporTemp: entrainedEffect.totalVaporOut.temperature,
-            dischargePressure: getSaturationPressure(steamTemp),
-            motiveFlow: input.steamFlow,
-            sprayWaterTemp: sprayTemps[0]!,
-          });
-          const actualEntrained = Math.min(tvcR.entrainedFlow, entrainedEffect.totalVaporOut.flow);
-          const remainingVapor = entrainedEffect.totalVaporOut.flow - actualEntrained;
-          effects[entrainedIdx] = {
-            ...entrainedEffect,
-            totalVaporOut: {
-              ...entrainedEffect.totalVaporOut,
-              flow: remainingVapor,
-              energy: (remainingVapor * entrainedEffect.totalVaporOut.enthalpy) / 3600,
-            },
-            vaporOut: {
-              ...entrainedEffect.vaporOut,
-              flow: remainingVapor,
-              energy: (remainingVapor * entrainedEffect.vaporOut.enthalpy) / 3600,
-            },
-          };
-        }
-      } catch {
-        // TVC re-application failed — proceed with uncorrected effects
-      }
     }
 
     // Re-compute final condenser with updated cascade
