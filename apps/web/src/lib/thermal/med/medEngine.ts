@@ -196,10 +196,18 @@ export interface MEDEngineResult {
     entrainmentRatio: number;
     /** Compression ratio */
     compressionRatio: number;
-    /** Vapor temperature to Effect 1 in °C (after desuperheating if needed) */
+    /** Vapor temperature to Effect 1 in °C (after desuperheating — saturated) */
     vaporToEffect1Temp: number;
-    /** Is the TVC discharge superheated? */
+    /** Is the TVC discharge superheated? (almost always true) */
     isSuperheated: boolean;
+    /** Raw discharge temperature from ejector before desuperheating in °C */
+    dischargeTemp: number;
+    /** Saturation temperature at discharge pressure in °C */
+    dischargeSatTemp: number;
+    /** Superheat above saturation (°C) = dischargeTemp − dischargeSatTemp */
+    superheat: number;
+    /** Spray water flow required to desuperheat discharge to saturation (kg/hr) */
+    sprayWaterFlow: number;
   } | null;
   /** Recirculation flows per effect in kg/hr (from last-effect brine) */
   recirculation: {
@@ -1044,6 +1052,10 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         motiveFlow: input.steamFlow,
         sprayWaterTemp: sprayTemps[0]!,
       });
+      // vaporToEffect1Temp is the saturation temperature at the discharge pressure
+      // (after desuperheating if needed). dischargeTemp is the raw ejector outlet.
+      const dischargeSatTemp = tvr.vaporToEffect1Temp;
+      const dischargeTemp = tvr.tvc.dischargeTemperature;
       return {
         motiveFlow: tvr.motiveFlow,
         entrainedFlow: tvr.entrainedFlow,
@@ -1052,6 +1064,10 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
         compressionRatio: tvr.tvc.compressionRatio,
         vaporToEffect1Temp: tvr.vaporToEffect1Temp,
         isSuperheated: tvr.isSuperheated,
+        dischargeTemp,
+        dischargeSatTemp,
+        superheat: Math.max(0, dischargeTemp - dischargeSatTemp),
+        sprayWaterFlow: tvr.sprayWaterFlow,
       };
     } catch (err) {
       warnings.push(`TVC output rebuild: ${err instanceof Error ? err.message : String(err)}`);

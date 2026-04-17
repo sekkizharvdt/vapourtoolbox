@@ -815,6 +815,31 @@ export function MEDVerificationReportPDF({
                   value: fmt(r.tvc.compressionRatio, 2),
                   units: '—',
                 },
+                {
+                  param: 'Discharge temperature (raw, from ejector)',
+                  value: fmt(r.tvc.dischargeTemp, 1),
+                  units: '°C',
+                },
+                {
+                  param: 'Saturation temp at discharge pressure',
+                  value: fmt(r.tvc.dischargeSatTemp, 1),
+                  units: '°C',
+                },
+                {
+                  param: 'Superheat above saturation',
+                  value: fmt(r.tvc.superheat, 1),
+                  units: '°C',
+                },
+                {
+                  param: 'Desuperheating spray water flow',
+                  value: fmt(r.tvc.sprayWaterFlow / 1000, 3),
+                  units: 'T/h',
+                },
+                {
+                  param: 'Vapour temperature entering Effect 1 (saturated)',
+                  value: fmt(r.tvc.vaporToEffect1Temp, 1),
+                  units: '°C',
+                },
               ]}
               striped
               fontSize={7}
@@ -823,7 +848,9 @@ export function MEDVerificationReportPDF({
             <Text style={{ fontSize: 7, color: REPORT_THEME.textMuted, marginTop: 4 }}>
               Correlation: GEA empirical curves for steam ejector entrainment ratio, validated
               against BARC and Adani MED-TVC reference plants. Motive steam is the plant input
-              (determines capacity); entrained vapour and Ra are computed results.
+              (determines capacity); entrained vapour and Ra are computed results. The ejector
+              discharge is always superheated due to the compression work; spray water desuperheats
+              it to saturation before entering Effect 1 tubes for efficient condensation.
             </Text>
           </ReportSection>
         )}

@@ -698,10 +698,42 @@ export function Step1Inputs({
                     {fmt(designResult.tvc.compressionRatio, 2)}
                   </Typography>
                 </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Discharge (raw)
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.dischargeTemp)}&deg;C
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Superheat
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.superheat)}&deg;C
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Spray Water
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.sprayWaterFlow / 1000, 3)} T/h
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    To E1 (saturated)
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmt(designResult.tvc.vaporToEffect1Temp)}&deg;C
+                  </Typography>
+                </Box>
               </Stack>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                Motive: HP steam input to ejector | Entrained: LP vapor drawn from selected effect |
-                Discharge: motive + entrained → Effect 1 tubes
+                Motive + Entrained → Ejector discharge (superheated) → Desuperheater sprays water to
+                reach saturation → Effect 1 tubes
               </Typography>
             </Box>
           )}

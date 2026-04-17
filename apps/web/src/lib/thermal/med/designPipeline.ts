@@ -532,6 +532,11 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
         dischargeFlow: engineResult.tvc.dischargeFlow,
         compressionRatio: engineResult.tvc.compressionRatio,
         entrainmentRatio: engineResult.tvc.entrainmentRatio,
+        dischargeTemp: engineResult.tvc.dischargeTemp,
+        dischargeSatTemp: engineResult.tvc.dischargeSatTemp,
+        superheat: engineResult.tvc.superheat,
+        sprayWaterFlow: engineResult.tvc.sprayWaterFlow,
+        vaporToEffect1Temp: engineResult.tvc.vaporToEffect1Temp,
       },
     }),
     overallDimensions: {

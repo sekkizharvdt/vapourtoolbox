@@ -677,6 +677,16 @@ export interface MEDDesignerResult {
     dischargeFlow: number; // kg/hr
     compressionRatio: number;
     entrainmentRatio: number;
+    /** Discharge temperature before desuperheating (°C) — typically superheated */
+    dischargeTemp: number;
+    /** Saturation temperature at discharge pressure (°C) */
+    dischargeSatTemp: number;
+    /** Superheat above saturation (°C) */
+    superheat: number;
+    /** Spray water flow required to desuperheat to saturation (kg/hr) */
+    sprayWaterFlow: number;
+    /** Vapor temperature entering Effect 1 after desuperheating (°C) */
+    vaporToEffect1Temp: number;
   };
 
   overallDimensions: {
