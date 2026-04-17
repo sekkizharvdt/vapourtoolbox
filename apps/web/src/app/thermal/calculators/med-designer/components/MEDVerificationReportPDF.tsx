@@ -1000,9 +1000,200 @@ export function MEDVerificationReportPDF({
           />
         </ReportSection>
 
-        {/* Section 13: Design Warnings & Notes */}
+        {/* Section 13: Operator Guidance — Fouling & Cleaning */}
+        <ReportSection title="13. Operator Guidance — Fouling &amp; Acid Cleaning">
+          <Text
+            style={{
+              fontSize: 8,
+              color: REPORT_THEME.text,
+              marginBottom: 6,
+              lineHeight: 1.4,
+            }}
+          >
+            The plant is designed with fouling resistance R_f ={' '}
+            {fmt(Number(rd.foulingFactor ?? 0.00015) * 1e6, 0)} × 10⁻⁶ m²·K/W (TEMA seawater
+            standard). Heat transfer degrades as scale builds up on tube surfaces. Acid cleaning is
+            required periodically to restore design capacity. Monitor the indicators below during
+            operation:
+          </Text>
+
+          <Text
+            style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 3, color: REPORT_THEME.text }}
+          >
+            Fouling progression over operating cycle
+          </Text>
+          <ReportTable
+            columns={[
+              { key: 'stage', header: 'Stage', width: '22%' },
+              { key: 'rf', header: 'R_f (m²·K/W)', width: '18%', align: 'right' },
+              { key: 'uRel', header: 'U vs design', width: '18%', align: 'right' },
+              { key: 'capacity', header: 'Capacity vs design', width: '20%', align: 'right' },
+              { key: 'when', header: 'Typical timing', width: '22%' },
+            ]}
+            rows={[
+              {
+                stage: 'Fresh (after clean)',
+                rf: '0.00005',
+                uRel: '+45%',
+                capacity: '+18%',
+                when: 'Day 0–7',
+              },
+              {
+                stage: 'Normal operation',
+                rf: '0.00010',
+                uRel: '+18%',
+                capacity: '+8%',
+                when: 'Day 30–90',
+              },
+              {
+                stage: 'Design basis',
+                rf: '0.00015',
+                uRel: 'baseline',
+                capacity: 'baseline',
+                when: 'Day 90–180',
+              },
+              {
+                stage: 'End of cycle',
+                rf: '0.00020',
+                uRel: '−13%',
+                capacity: '−8%',
+                when: 'Day 300–365',
+              },
+              {
+                stage: 'Cleaning overdue',
+                rf: '0.00025+',
+                uRel: '−24%',
+                capacity: '−15%',
+                when: 'Clean immediately',
+              },
+            ]}
+            striped
+            fontSize={7}
+          />
+
+          <Text
+            style={{
+              fontSize: 8,
+              fontWeight: 'bold',
+              marginTop: 8,
+              marginBottom: 3,
+              color: REPORT_THEME.text,
+            }}
+          >
+            Triggers for acid cleaning (clean when ANY triggers)
+          </Text>
+          <ReportTable
+            columns={[
+              { key: 'indicator', header: 'Indicator', width: '25%' },
+              { key: 'baseline', header: 'Clean-condition baseline', width: '30%' },
+              { key: 'trigger', header: 'Cleaning trigger', width: '45%' },
+            ]}
+            rows={[
+              {
+                indicator: 'GOR drop',
+                baseline: `Design GOR ${fmt(r.achievedGOR, 2)}`,
+                trigger: `GOR drops ≥ 15% below design (< ${fmt(r.achievedGOR * 0.85, 2)})`,
+              },
+              {
+                indicator: 'Distillate drop',
+                baseline: `Design ${fmt(r.totalDistillateM3Day, 0)} m³/day`,
+                trigger: `Production drops ≥ 10% below design (< ${fmt(r.totalDistillateM3Day * 0.9, 0)} m³/day)`,
+              },
+              {
+                indicator: 'Brine temperature rise',
+                baseline: `Design TBT ${fmt(r.effects[0]?.brineTemp)}°C`,
+                trigger: 'TBT rises ≥ 3°C above design at constant steam flow',
+              },
+              {
+                indicator: 'Effect pressure rise',
+                baseline: 'Design pressure per effect',
+                trigger: '≥ 10% above design at constant load',
+              },
+              {
+                indicator: 'Brine conductivity',
+                baseline: `Design ${fmt(Number(rd.maxBrineSalinity ?? 65000) / 1000, 1)} g/L`,
+                trigger: 'Brine TDS > 70 g/L (concentration factor drift)',
+              },
+              {
+                indicator: 'Days since last cleaning',
+                baseline: '—',
+                trigger: '300–365 days (annual preventive maintenance)',
+              },
+              {
+                indicator: 'Tube wall ΔT',
+                baseline: 'Design (if instrumented)',
+                trigger: '≥ 5°C above design at steady load',
+              },
+            ]}
+            striped
+            fontSize={7}
+          />
+
+          <Text
+            style={{
+              fontSize: 8,
+              fontWeight: 'bold',
+              marginTop: 8,
+              marginBottom: 3,
+              color: REPORT_THEME.text,
+            }}
+          >
+            Factors that accelerate fouling
+          </Text>
+          <Text style={ls.methodItem}>
+            • CaCO₃ deposition — sensitive to temperature; worst at hot effects (E1). Higher TBT
+            accelerates scaling.
+          </Text>
+          <Text style={ls.methodItem}>
+            • CaSO₄ deposition — sensitive to brine concentration. Risk above 60 g/L TDS (design
+            uses {fmt(Number(rd.maxBrineSalinity ?? 65000) / 1000, 1)} g/L).
+          </Text>
+          <Text style={ls.methodItem}>
+            • Insufficient antiscalant dosing — maintain design dose (typically 2 mg/L Belgard EV
+            2050 or equivalent).
+          </Text>
+          <Text style={ls.methodItem}>
+            • Seawater pre-treatment failures — allow biological or suspended solids fouling.
+          </Text>
+          <Text style={ls.methodItem}>
+            • Top Brine Temperature {'>'} 70°C — dramatically increases scaling rates.
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 8,
+              fontWeight: 'bold',
+              marginTop: 8,
+              marginBottom: 3,
+              color: REPORT_THEME.text,
+            }}
+          >
+            Acid cleaning procedure (typical)
+          </Text>
+          <Text style={ls.methodItem}>
+            1. Shut down MED train, drain effects, isolate from seawater intake.
+          </Text>
+          <Text style={ls.methodItem}>
+            2. Fill effects with demineralised water and inhibited HCl (3–5%) or sulfamic acid
+            (5–10%).
+          </Text>
+          <Text style={ls.methodItem}>
+            3. Circulate acid using the brine recirculation pump (sized for full spray flow) for 4–8
+            hours while monitoring pH and acid consumption.
+          </Text>
+          <Text style={ls.methodItem}>
+            4. Drain, neutralise with dilute NaOH (pH 7–8), rinse with demineralised water until
+            effluent is neutral.
+          </Text>
+          <Text style={ls.methodItem}>
+            5. Resume normal operation; record post-cleaning GOR and U-value as the clean baseline
+            for the next cycle.
+          </Text>
+        </ReportSection>
+
+        {/* Section 14: Design Warnings & Notes */}
         {r.warnings.length > 0 && (
-          <ReportSection title="13. Design Warnings">
+          <ReportSection title="14. Design Warnings">
             {r.warnings.map((w, i) => (
               <Text key={i} style={ls.warningItem}>
                 {i + 1}. {w}
@@ -1011,8 +1202,8 @@ export function MEDVerificationReportPDF({
           </ReportSection>
         )}
 
-        {/* Section 14: Nomenclature */}
-        <ReportSection title={r.warnings.length > 0 ? '14. Nomenclature' : '13. Nomenclature'}>
+        {/* Section 15: Nomenclature */}
+        <ReportSection title={r.warnings.length > 0 ? '15. Nomenclature' : '14. Nomenclature'}>
           {(
             [
               [
@@ -1069,10 +1260,10 @@ export function MEDVerificationReportPDF({
           ))}
         </ReportSection>
 
-        {/* Section 15: References & Standards */}
+        {/* Section 16: References & Standards */}
         <ReportSection
           title={
-            r.warnings.length > 0 ? '15. References & Standards' : '14. References & Standards'
+            r.warnings.length > 0 ? '16. References & Standards' : '15. References & Standards'
           }
         >
           {[
