@@ -143,6 +143,9 @@ export function MEDVerificationReportPDF({
   const salinity = Number(rd.seawaterSalinity ?? 35000);
   const lastEffect = r.effects[nEff - 1];
   const steamTemp = r.inputs.steamTemperature;
+
+  // Section numbering offset — TVC section is inserted at 11 if present
+  const tvcOffset = r.tvc ? 1 : 0;
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -748,8 +751,85 @@ export function MEDVerificationReportPDF({
           </ReportSection>
         )}
 
-        {/* Section 11: Auxiliary Equipment */}
-        <ReportSection title="11. Auxiliary Equipment Summary">
+        {/* Section 11: Thermo Vapour Compressor (TVC) */}
+        {r.tvc && (
+          <ReportSection title="11. Thermo Vapour Compressor (TVC)">
+            <Text
+              style={{
+                fontSize: 8,
+                color: REPORT_THEME.text,
+                marginBottom: 6,
+                lineHeight: 1.4,
+              }}
+            >
+              The TVC is a steam ejector that uses high-pressure motive steam to entrain
+              low-pressure vapour from a selected effect. The combined discharge feeds Effect 1
+              tubes, effectively recycling energy from a late effect and improving overall plant
+              GOR.
+            </Text>
+
+            <ReportTable
+              columns={[
+                { key: 'param', header: 'Parameter', width: '55%' },
+                { key: 'value', header: 'Value', width: '30%', align: 'right' },
+                { key: 'units', header: 'Units', width: '15%' },
+              ]}
+              rows={[
+                {
+                  param: 'Motive steam flow (HP input to ejector)',
+                  value: fmt(r.tvc.motiveFlow / 1000, 3),
+                  units: 'T/h',
+                },
+                {
+                  param: 'Motive steam pressure',
+                  value: fmt(Number(rd.tvcMotivePressure ?? 10), 2),
+                  units: 'bar abs',
+                },
+                {
+                  param: 'Motive steam superheat above saturation',
+                  value: fmt(Number(rd.tvcSuperheat ?? 0), 1),
+                  units: '°C',
+                },
+                {
+                  param: 'Entrained vapour flow (from selected effect)',
+                  value: fmt(r.tvc.entrainedFlow / 1000, 3),
+                  units: 'T/h',
+                },
+                {
+                  param: `Entrained from effect`,
+                  value: `E${rd.tvcEntrainedEffect ?? nEff}`,
+                  units: '',
+                },
+                {
+                  param: 'Discharge flow (to Effect 1 tubes)',
+                  value: fmt(r.tvc.dischargeFlow / 1000, 3),
+                  units: 'T/h',
+                },
+                {
+                  param: 'Entrainment ratio Ra = entrained / motive',
+                  value: fmt(r.tvc.entrainmentRatio, 3),
+                  units: '—',
+                },
+                {
+                  param: 'Compression ratio = P_discharge / P_suction',
+                  value: fmt(r.tvc.compressionRatio, 2),
+                  units: '—',
+                },
+              ]}
+              striped
+              fontSize={7}
+            />
+
+            <Text style={{ fontSize: 7, color: REPORT_THEME.textMuted, marginTop: 4 }}>
+              Correlation: GEA empirical curves for steam ejector entrainment ratio, validated
+              against BARC and Adani MED-TVC reference plants. Motive steam is the plant input
+              (determines capacity); entrained vapour and Ra are computed results.
+            </Text>
+          </ReportSection>
+        )}
+
+        {/* Section 12: Auxiliary Equipment */}
+        <ReportSection title={`${11 + tvcOffset}. Auxiliary Equipment Summary`}>
           {/* Demister & Steam Flow Area — from lateral shell geometry */}
           {r.vaporPathGeometry && r.vaporPathGeometry.length > 0 ? (
             <View style={{ marginBottom: 8 }}>
@@ -953,7 +1033,7 @@ export function MEDVerificationReportPDF({
         />
 
         {/* Section 12: Overall Mass & Energy Balance */}
-        <ReportSection title="12. Overall Mass & Energy Balance">
+        <ReportSection title={`${12 + tvcOffset}. Overall Mass & Energy Balance`}>
           <TwoColumnLayout
             left={
               <KeyValueTable
@@ -1001,7 +1081,7 @@ export function MEDVerificationReportPDF({
         </ReportSection>
 
         {/* Section 13: Operator Guidance — Fouling & Cleaning */}
-        <ReportSection title="13. Operator Guidance — Fouling &amp; Acid Cleaning">
+        <ReportSection title={`${13 + tvcOffset}. Operator Guidance — Fouling & Acid Cleaning`}>
           <Text
             style={{
               fontSize: 8,
@@ -1193,7 +1273,7 @@ export function MEDVerificationReportPDF({
 
         {/* Section 14: Design Warnings & Notes */}
         {r.warnings.length > 0 && (
-          <ReportSection title="14. Design Warnings">
+          <ReportSection title={`${14 + tvcOffset}. Design Warnings`}>
             {r.warnings.map((w, i) => (
               <Text key={i} style={ls.warningItem}>
                 {i + 1}. {w}
@@ -1203,7 +1283,7 @@ export function MEDVerificationReportPDF({
         )}
 
         {/* Section 15: Nomenclature */}
-        <ReportSection title={r.warnings.length > 0 ? '15. Nomenclature' : '14. Nomenclature'}>
+        <ReportSection title={`${(r.warnings.length > 0 ? 15 : 14) + tvcOffset}. Nomenclature`}>
           {(
             [
               [
@@ -1262,9 +1342,7 @@ export function MEDVerificationReportPDF({
 
         {/* Section 16: References & Standards */}
         <ReportSection
-          title={
-            r.warnings.length > 0 ? '16. References & Standards' : '15. References & Standards'
-          }
+          title={`${(r.warnings.length > 0 ? 16 : 15) + tvcOffset}. References & Standards`}
         >
           {[
             '1. El-Dessouky, H.T. & Ettouney, H.M. (2002) "Fundamentals of Salt Water Desalination," Elsevier',
