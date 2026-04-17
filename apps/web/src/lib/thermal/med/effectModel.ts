@@ -35,6 +35,7 @@ import {
   getDensityVapor,
   NEA_HOT_END,
   NEA_COLD_END,
+  NEA_FLASH_FRACTION,
   CARRIER_STEAM_FRACTION,
   TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
   DEMISTER_DP_MODEL,
@@ -228,7 +229,6 @@ export interface EffectInput {
 export function calculateEffect(input: EffectInput): MEDEffectResult {
   const {
     index,
-    totalEffects,
     effectTemp,
     steamTemp,
     vaporInFlow,
@@ -256,7 +256,10 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
   const brineSalinityForBPE = seawaterSalinity * brineConcentrationFactor;
   const bpeRaw = getBoilingPointElevation(Math.min(brineSalinityForBPE, 120000), effectTemp);
   const bpe = bpeRaw * (input.bpeSafetyFactor ?? 1.0);
-  const nea = getNEA(index, totalEffects);
+
+  // NEA from actual brine flash ΔT (E1 has no cascaded brine → NEA = 0)
+  const flashDeltaT = cascadedBrineFlow > 0 ? Math.max(0, cascadedBrineTemp - effectTemp) : 0;
+  const nea = NEA_FLASH_FRACTION * flashDeltaT;
 
   // Per-effect demister and duct pressure drops (computed from vapour conditions)
   // Use equipment-sizing overrides if available (coupled iteration)

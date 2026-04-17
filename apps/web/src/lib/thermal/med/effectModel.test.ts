@@ -340,8 +340,9 @@ describe('calculateEffect — thermodynamic properties', () => {
     expect(result.bpe).toBeLessThan(2); // typical range 0.3-1.5°C
   });
 
-  it('NEA is positive for first effect', () => {
-    expect(result.nea).toBeCloseTo(0.2, 1);
+  it('NEA is zero for first effect (no cascaded brine to flash)', () => {
+    // E1 receives steam from boiler — no brine flashing, so NEA = 0
+    expect(result.nea).toBe(0);
   });
 
   it('pressure is positive (bar abs)', () => {

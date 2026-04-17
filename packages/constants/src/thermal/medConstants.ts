@@ -47,18 +47,33 @@ export const MED_TUBE_MATERIAL_LABELS: Record<string, string> = {
 /**
  * Non-equilibrium allowance (NEA) in °C.
  *
- * NEA accounts for the temperature loss because the brine leaving an effect
- * is not at the equilibrium boiling point — it flashes but doesn't reach
- * full equilibrium. Increases towards the cold end of the plant.
+ * NEA accounts for the temperature loss because brine cascading from a
+ * higher-pressure effect doesn't reach full thermodynamic equilibrium
+ * when it flashes to the lower-pressure effect.
  *
- * Empirical correlation from El-Dessouky & Ettouney (2002), Chapter 6.
- * NEA ≈ 0.33 × (ΔT_per_effect / effect_temp_C) × correction
+ * Now computed as a fraction of the actual flash ΔT per effect:
+ *   NEA = NEA_FLASH_FRACTION × max(0, T_brine_in − T_effect)
  *
- * For simplicity in the solver, we use a linear interpolation:
- *   NEA = NEA_HOT + (NEA_COLD - NEA_HOT) × (effectIndex / (N - 1))
+ * Effect 1 has no cascaded brine (receives fresh feed only), so NEA = 0.
+ * Cold-end effects have larger flash ΔT, so NEA naturally increases.
+ *
+ * Legacy constants kept for backward compatibility with old linear interpolation.
  */
-export const NEA_HOT_END = 0.2; // °C — hot end (effect 1)
-export const NEA_COLD_END = 0.5; // °C — cold end (last effect)
+export const NEA_HOT_END = 0.2; // °C — legacy hot end value
+export const NEA_COLD_END = 0.5; // °C — legacy cold end value
+
+/**
+ * NEA as a fraction of the brine flash temperature drop.
+ *
+ * Calibrated against El-Dessouky & Ettouney (2002) correlation and
+ * typical MED falling-film evaporator performance:
+ *   - At flash ΔT ≈ 3.5°C: NEA ≈ 0.35°C (10% of flash ΔT)
+ *   - At flash ΔT ≈ 2.5°C: NEA ≈ 0.25°C
+ *
+ * Lower than El-Dessouky's MSF-derived values because falling-film
+ * evaporation is closer to equilibrium than violent flash boiling.
+ */
+export const NEA_FLASH_FRACTION = 0.1; // 10% of flash ΔT
 
 /**
  * Temperature loss due to pressure drop across demisters and vapour ducts
