@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Text, View, Link, StyleSheet } from '@react-pdf/renderer';
 import type { RFQPDFData } from '@vapour/types';
 import {
   ReportPage,
@@ -92,6 +92,38 @@ const local = StyleSheet.create({
   },
   emptyCell: {
     height: 16,
+  },
+  attachmentHint: {
+    fontSize: 8,
+    fontStyle: 'italic',
+    color: REPORT_THEME.textSecondary,
+    marginBottom: 4,
+  },
+  attachmentList: {
+    border: `1pt solid ${REPORT_THEME.border}`,
+    marginBottom: 8,
+  },
+  attachmentHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: REPORT_THEME.tableHeaderBg,
+    borderBottom: `1pt solid ${REPORT_THEME.border}`,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    borderBottom: `0.5pt solid ${REPORT_THEME.border}`,
+  },
+  attachmentCell: {
+    padding: 4,
+    fontSize: 8,
+  },
+  attachmentHeader: {
+    fontWeight: 'bold',
+    fontSize: 8,
+  },
+  attachmentLink: {
+    fontSize: 8,
+    color: REPORT_THEME.primary,
+    textDecoration: 'underline',
   },
 });
 
@@ -314,19 +346,40 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
         {rfq.attachments && rfq.attachments.length > 0 && (
           <>
             <Text style={local.sectionTitle}>SUPPORTING DOCUMENTS</Text>
-            <ReportTable
-              fontSize={8}
-              columns={[
-                { key: 'fileName', header: 'File Name', width: '40%' },
-                { key: 'type', header: 'Type', width: '25%' },
-                { key: 'description', header: 'Description', width: '35%' },
-              ]}
-              rows={rfq.attachments.map((a) => ({
-                fileName: a.fileName,
-                type: a.attachmentType,
-                description: a.description || '',
-              }))}
-            />
+            <Text style={local.attachmentHint}>
+              Click the file name to download. Links are valid for the duration of this RFQ.
+            </Text>
+            <View style={local.attachmentList}>
+              {/* Header row */}
+              <View style={local.attachmentHeaderRow}>
+                <Text style={[local.attachmentCell, local.attachmentHeader, { width: '45%' }]}>
+                  File
+                </Text>
+                <Text style={[local.attachmentCell, local.attachmentHeader, { width: '20%' }]}>
+                  Type
+                </Text>
+                <Text style={[local.attachmentCell, local.attachmentHeader, { width: '35%' }]}>
+                  Description
+                </Text>
+              </View>
+              {rfq.attachments.map((a, i) => (
+                <View key={i} style={local.attachmentRow}>
+                  <View style={[local.attachmentCell, { width: '45%' }]}>
+                    {a.publicUrl ? (
+                      <Link src={a.publicUrl} style={local.attachmentLink}>
+                        {a.fileName}
+                      </Link>
+                    ) : (
+                      <Text>{a.fileName}</Text>
+                    )}
+                  </View>
+                  <Text style={[local.attachmentCell, { width: '20%' }]}>{a.attachmentType}</Text>
+                  <Text style={[local.attachmentCell, { width: '35%' }]}>
+                    {a.description || ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </>
         )}
 

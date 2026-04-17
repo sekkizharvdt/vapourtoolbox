@@ -24,7 +24,7 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 | --- | ----------------------------------------------------------------------- | ------------- | ------------------- |
 | 6   | PO offer number is system-generated, should reflect vendor offer number | PO → New      | ✅ fixed 2026-04-17 |
 | 7   | PO commercial terms not auto-populated from selected offer              | PO → New      | ✅ fixed 2026-04-17 |
-| 8   | PR attachments not carried into RFQ PDF                                 | RFQ → Create  | ⬜                  |
+| 8   | PR attachments not carried into RFQ PDF                                 | RFQ → Create  | ✅ fixed 2026-04-17 |
 | 9   | PO Amendment — only single amendment type selectable                    | PO Amendment  | ⬜                  |
 | 10  | Service Order module — only dashboard, missing New/View/Edit            | Service Order | ⬜                  |
 
@@ -189,6 +189,21 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 - [`loadOffer()`](apps/web/src/app/procurement/pos/new/page.tsx#L119-L127) now applies these overrides on initial load; [`handleTemplateChange()`](apps/web/src/app/procurement/pos/new/page.tsx#L139-L152) re-applies them when the template changes so offer-derived values survive.
 - Added a **reference panel** in the Offer Summary showing the vendor's raw free-text terms (price basis, payment, delivery, warranty, P&F, transport, insurance, E&C) so the buyer can cross-check while filling the structured form.
 - **Scope boundary**: `paymentSchedule` (structured milestones) and `deliveryPeriod/Unit` can't be reliably parsed from free text like "50% advance / 50% balance" or "4–6 weeks" — users still set these manually, using the reference panel as context.
+
+### #8 Fix notes (2026-04-17)
+
+**Problem**: The RFQ PDF listed PR attachment filenames but included no download URLs. Vendors receiving the PDF externally had no way to open the technical specs, drawings, or datasheets — effectively making the attachments invisible.
+
+**Root cause**:
+
+- [rfqPdfService.ts:396](apps/web/src/lib/pdf/rfqPdfService.ts) fetched attachment metadata but explicitly left `publicUrl` empty with the comment _"no public URL needed for client-side PDF"_. That was wrong for the RFQ delivery flow — the PDF goes to external recipients who can't authenticate into Firebase Storage.
+- [RFQPDFDocument.tsx:314](apps/web/src/components/pdf/RFQPDFDocument.tsx) rendered a plain `ReportTable` of filenames with no clickable links.
+
+**Fix**:
+
+- Service now calls `getDownloadURL(ref(storage, storagePath))` per attachment to mint a token-bearing public URL, storing it on the `publicUrl` field that the PDF type already exposed. Failures are logged and non-fatal — the entry still renders (just without a link).
+- PDF component replaced the static table with a flex-layout list. File names render as `@react-pdf/renderer` `<Link>` components pointing at `publicUrl`, with a hint line telling vendors the links are clickable. Falls back to plain text when a URL couldn't be minted.
+- No change to Firestore rules or storage rules needed — `getDownloadURL()` tokens are designed for exactly this share-by-link case, and PR attachments were already explicitly authenticated-read.
 
 ### #4/#5 Investigation notes (2026-04-17)
 

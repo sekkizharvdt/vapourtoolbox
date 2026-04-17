@@ -132,6 +132,7 @@ async function createDocumentRecord(
     fileSize: number;
     rfqId: string;
     rfqNumber: string;
+    tenantId?: string;
     projectId?: string;
     projectName?: string;
     vendorId?: string;
@@ -165,6 +166,7 @@ async function createDocumentRecord(
     fileExtension: 'pdf',
     module: 'PROCUREMENT',
     documentType: 'RFQ_PDF',
+    ...(data.tenantId && { tenantId: data.tenantId }),
     ...(data.projectId !== undefined && { projectId: data.projectId }),
     ...(data.projectName !== undefined && { projectName: data.projectName }),
     entityType: 'RFQ',
@@ -345,6 +347,7 @@ export async function generateRFQPDFs(
       number: rfqData.number,
       title: rfqData.title,
       description: rfqData.description,
+      tenantId: rfqData.tenantId as string | undefined,
       projectNames: rfqData.projectNames || [],
       projectIds: rfqData.projectIds || [],
       purchaseRequestIds: rfqData.purchaseRequestIds || [],
@@ -393,7 +396,10 @@ export async function generateRFQPDFs(
       }
     }
 
-    // Fetch PR attachments (as text references — no public URL needed for client-side PDF)
+    // Fetch PR attachments and resolve a public download URL for each so vendors
+    // receiving the RFQ PDF can click through and download the technical specs,
+    // drawings, and datasheets that came with the source PR. Without the URL,
+    // the PDF only lists filenames — useless to external recipients.
     const prAttachments: PRAttachment[] = [];
     for (const prId of rfq.purchaseRequestIds) {
       const attachQ = query(
@@ -401,14 +407,26 @@ export async function generateRFQPDFs(
         where('purchaseRequestId', '==', prId)
       );
       const attachSnap = await getDocs(attachQ);
-      attachSnap.forEach((d) => {
+      for (const d of attachSnap.docs) {
         const data = d.data();
+        let publicUrl: string | undefined;
+        if (data.storagePath) {
+          try {
+            publicUrl = await getDownloadURL(ref(storage, data.storagePath));
+          } catch (err) {
+            console.warn(
+              `[rfqPdfService] Could not generate download URL for attachment ${d.id} (${data.fileName}):`,
+              err
+            );
+          }
+        }
         prAttachments.push({
           fileName: data.fileName || '',
           attachmentType: data.attachmentType || 'OTHER',
           description: data.description,
+          ...(publicUrl && { publicUrl }),
         });
-      });
+      }
     }
 
     // Fetch vendors
@@ -481,6 +499,7 @@ export async function generateRFQPDFs(
               fileSize: uploadResult.fileSize,
               rfqId: rfq.id,
               rfqNumber: rfq.number,
+              tenantId: rfq.tenantId,
               projectId: rfq.projectIds?.[0],
               projectName: rfq.projectNames?.[0],
               vendorId: vendor.id,
@@ -540,6 +559,7 @@ export async function generateRFQPDFs(
             fileSize: uploadResult.fileSize,
             rfqId: rfq.id,
             rfqNumber: rfq.number,
+            tenantId: rfq.tenantId,
             projectId: rfq.projectIds?.[0],
             projectName: rfq.projectNames?.[0],
             userId,
@@ -576,6 +596,7 @@ export async function generateRFQPDFs(
     await addDoc(collection(db, 'rfqPdfRecords'), {
       rfqId: options.rfqId,
       rfqNumber: rfq.number,
+      ...(rfq.tenantId && { tenantId: rfq.tenantId }),
       mode: options.mode,
       version: newPdfVersion,
       vendorPdfs: result.vendorPdfs || [],
