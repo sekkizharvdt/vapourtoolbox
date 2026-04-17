@@ -20,6 +20,7 @@ export {
   validatePaymentSchedule,
   // Terms creation
   createCommercialTermsFromTemplate,
+  deriveCommercialTermsFromOffer,
   getWarrantyText,
   // Billing address utility
   buildBillingAddressFromCompany,

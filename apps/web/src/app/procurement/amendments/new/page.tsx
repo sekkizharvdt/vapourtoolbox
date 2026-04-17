@@ -117,8 +117,12 @@ export default function NewAmendmentPage() {
     try {
       const { db } = getFirebase();
 
-      // Create a simple change object based on amendment type
-      const categoryMap: Record<string, 'FINANCIAL' | 'SCHEDULE' | 'SCOPE' | 'TERMS'> = {
+      // Documentation-only amendment: capture reason + description for audit.
+      // Field path is prefixed with `items[` so the approval step skips it without
+      // mutating any PO field (see amendment/crud.ts approveAmendment). Structural
+      // changes (price/terms/delivery) will be added with type-specific inputs —
+      // tracked as P1 in PROCUREMENT-REVIEW-2026-04-17.md.
+      const categoryMap: Record<AmendmentType, 'FINANCIAL' | 'SCHEDULE' | 'SCOPE' | 'TERMS'> = {
         QUANTITY_CHANGE: 'SCOPE',
         PRICE_CHANGE: 'FINANCIAL',
         TERMS_CHANGE: 'TERMS',
@@ -128,11 +132,11 @@ export default function NewAmendmentPage() {
 
       const changes = [
         {
-          field: 'general',
-          fieldLabel: changeDescription,
-          oldValue: 'See original PO',
-          newValue: 'As per amendment',
-          category: categoryMap[amendmentType] || 'SCOPE',
+          field: 'items[].amendmentNote',
+          fieldLabel: `${amendmentType.replace(/_/g, ' ')} — ${changeDescription.slice(0, 80)}`,
+          oldValue: null,
+          newValue: changeDescription,
+          category: categoryMap[amendmentType],
         },
       ];
 
@@ -319,8 +323,10 @@ export default function NewAmendmentPage() {
 
             {/* Info */}
             <Alert severity="info">
-              After creating the amendment, you can review it and submit it for approval. The
-              amendment will be applied to the PO only after it is approved.
+              After creating the amendment, you can review it and submit it for approval. This form
+              records the amendment type, reason, and change description for audit. Structural field
+              changes (new price, delivery date, terms, line-item quantities) will be captured via
+              type-specific inputs in an upcoming release.
             </Alert>
 
             {/* Actions */}

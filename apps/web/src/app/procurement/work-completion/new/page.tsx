@@ -139,7 +139,7 @@ export default function NewWorkCompletionPage() {
           allItemsAccepted,
           allPaymentsCompleted,
           certificateText,
-          remarks: remarks || undefined,
+          ...(remarks.trim() && { remarks: remarks.trim() }),
         },
         user.uid,
         user.displayName || 'Unknown'

@@ -542,6 +542,12 @@ async function parseWithGoogleDocumentAI(
       modelUsed: 'Google Document AI - Form Parser',
     };
   } catch (error) {
+    logger.error('[Document AI] Offer parsing failed', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      code: (error as { code?: string | number })?.code,
+      details: (error as { details?: unknown })?.details,
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

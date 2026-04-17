@@ -40,6 +40,7 @@ import {
   getDefaultTemplate,
   getActiveTemplates,
   createCommercialTermsFromTemplate,
+  deriveCommercialTermsFromOffer,
   validatePaymentSchedule,
   buildBillingAddressFromCompany,
 } from '@/lib/procurement/commercialTerms';
@@ -111,10 +112,13 @@ export default function NewPOPage() {
       const companySettings = companyDoc.exists() ? companyDoc.data() : null;
       const billingAddress = buildBillingAddressFromCompany(companySettings);
 
-      // Update commercial terms with offer currency and company billing address
+      // Seed commercial terms from the selected vendor offer so the buyer doesn't
+      // have to re-enter price basis / scope assignments the vendor already quoted.
+      const offerOverrides = deriveCommercialTermsFromOffer(offerData);
       setCommercialTerms((prev) => ({
         ...prev,
-        currency: offerData.currency || 'INR',
+        ...offerOverrides,
+        currency: offerData.currency || offerOverrides.currency || 'INR',
         billingAddress,
       }));
     } catch (err) {
@@ -129,9 +133,12 @@ export default function NewPOPage() {
     const template = availableTemplates.find((t) => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
-      // Reset commercial terms to new template defaults, preserving delivery and billing address
+      // Reset commercial terms to new template defaults, preserving delivery and billing address.
+      // Re-apply offer-derived overrides so vendor offer inputs survive template change.
+      const offerOverrides = offer ? deriveCommercialTermsFromOffer(offer) : {};
       setCommercialTerms(
         createCommercialTermsFromTemplate(template, commercialTerms.deliveryAddress, {
+          ...offerOverrides,
           currency: offer?.currency || 'INR',
           billingAddress: commercialTerms.billingAddress,
         })
@@ -339,9 +346,15 @@ export default function NewPOPage() {
                   </Box>
                   <Box flex={1}>
                     <Typography variant="subtitle2" color="text.secondary">
-                      Offer Number
+                      System Offer No.
                     </Typography>
                     <Typography variant="body1">{offer.number}</Typography>
+                  </Box>
+                  <Box flex={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Vendor Offer No.
+                    </Typography>
+                    <Typography variant="body1">{offer.vendorOfferNumber || <em>—</em>}</Typography>
                   </Box>
                   <Box flex={1}>
                     <Typography variant="subtitle2" color="text.secondary">
@@ -352,6 +365,65 @@ export default function NewPOPage() {
                     </Typography>
                   </Box>
                 </Stack>
+
+                {/* Vendor's free-text terms — reference for filling the structured form below */}
+                {(offer.paymentTerms ||
+                  offer.deliveryTerms ||
+                  offer.warrantyTerms ||
+                  offer.exWorks ||
+                  offer.packingForwarding ||
+                  offer.transportation ||
+                  offer.insurance ||
+                  offer.erectionAfterPurchase) && (
+                  <Alert severity="info" icon={false}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Terms quoted by the vendor — fields already pre-seeded below are editable.
+                    </Typography>
+                    <Stack spacing={0.5} sx={{ mt: 1 }}>
+                      {offer.exWorks && (
+                        <Typography variant="body2">
+                          <strong>Price basis:</strong> {offer.exWorks}
+                        </Typography>
+                      )}
+                      {offer.paymentTerms && (
+                        <Typography variant="body2">
+                          <strong>Payment:</strong> {offer.paymentTerms}
+                        </Typography>
+                      )}
+                      {offer.deliveryTerms && (
+                        <Typography variant="body2">
+                          <strong>Delivery:</strong> {offer.deliveryTerms}
+                        </Typography>
+                      )}
+                      {offer.warrantyTerms && (
+                        <Typography variant="body2">
+                          <strong>Warranty:</strong> {offer.warrantyTerms}
+                        </Typography>
+                      )}
+                      {offer.packingForwarding && (
+                        <Typography variant="body2">
+                          <strong>P&amp;F:</strong> {offer.packingForwarding}
+                        </Typography>
+                      )}
+                      {offer.transportation && (
+                        <Typography variant="body2">
+                          <strong>Transportation:</strong> {offer.transportation}
+                        </Typography>
+                      )}
+                      {offer.insurance && (
+                        <Typography variant="body2">
+                          <strong>Insurance:</strong> {offer.insurance}
+                        </Typography>
+                      )}
+                      {offer.erectionAfterPurchase && (
+                        <Typography variant="body2">
+                          <strong>Erection &amp; commissioning:</strong>{' '}
+                          {offer.erectionAfterPurchase}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Alert>
+                )}
               </Stack>
             </Paper>
 

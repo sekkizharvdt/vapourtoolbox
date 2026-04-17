@@ -5,7 +5,12 @@
  * These templates provide sensible defaults that can be overridden per-PO.
  */
 
-import type { CommercialTermsTemplate, POCommercialTerms, PaymentMilestone } from '@vapour/types';
+import type {
+  CommercialTermsTemplate,
+  POCommercialTerms,
+  PaymentMilestone,
+  POScopeAssignment,
+} from '@vapour/types';
 
 // ============================================================================
 // FIXED TEXT CLAUSES (Common across templates)
@@ -280,6 +285,87 @@ export function createCommercialTermsFromTemplate(
     buyerContactEmail: defaults.buyerContactEmail || DEFAULT_BUYER_CONTACT.buyerContactEmail,
     ...overrides,
   };
+}
+
+/**
+ * Derive commercial-terms overrides from a vendor offer.
+ *
+ * Offer fields are free text (e.g., "Ex-works Chennai", "Included in price"),
+ * so we do keyword matching to seed the structured form. Users can still edit
+ * every field before saving. Fields we can't confidently map are left undefined
+ * so the template defaults apply.
+ */
+export function deriveCommercialTermsFromOffer(offer: {
+  exWorks?: string;
+  packingForwarding?: string;
+  transportation?: string;
+  insurance?: string;
+  erectionAfterPurchase?: string;
+  currency?: string;
+}): Partial<POCommercialTerms> {
+  const overrides: Partial<POCommercialTerms> = {};
+
+  if (offer.currency) overrides.currency = offer.currency;
+
+  // Price basis — coarse keyword match on the ex-works/price-basis text.
+  if (offer.exWorks) {
+    const s = offer.exWorks.toLowerCase();
+    if (s.includes('ex-works') || s.includes('ex works') || s.includes('exw')) {
+      overrides.priceBasis = 'EX_WORKS';
+    } else if (s.includes('for site') || s.includes('f.o.r site') || s.includes('f.o.r. site')) {
+      overrides.priceBasis = 'FOR_SITE';
+    } else if (s.includes('for destination') || s.includes('ddp') || s.includes('delivered')) {
+      overrides.priceBasis = 'FOR_DESTINATION';
+    }
+  }
+
+  // Packing & forwarding — "included" keyword marks it as bundled in price
+  if (offer.packingForwarding) {
+    const s = offer.packingForwarding.toLowerCase();
+    if (s.includes('included') || s.includes('inclusive')) {
+      overrides.packingForwardingIncluded = true;
+    } else if (s.includes('extra') || s.includes('additional') || s.includes('not included')) {
+      overrides.packingForwardingIncluded = false;
+    }
+  }
+
+  // Scope assignments for freight / transit insurance — infer from keywords
+  const inferScope = (text?: string): POScopeAssignment | undefined => {
+    if (!text) return undefined;
+    const s = text.toLowerCase();
+    if (s.includes('vendor') || s.includes('supplier') || s.includes('included')) return 'VENDOR';
+    if (
+      s.includes('buyer') ||
+      s.includes('customer') ||
+      s.includes('extra') ||
+      s.includes('actual')
+    )
+      return 'CUSTOMER';
+    return undefined;
+  };
+
+  const freightScope = inferScope(offer.transportation);
+  if (freightScope) {
+    overrides.freightScope = freightScope;
+    overrides.transportScope = freightScope;
+  }
+  const insuranceScope = inferScope(offer.insurance);
+  if (insuranceScope) overrides.transitInsuranceScope = insuranceScope;
+
+  // Erection & commissioning — out-of-scope markers leave it as NA
+  if (offer.erectionAfterPurchase) {
+    const s = offer.erectionAfterPurchase.toLowerCase();
+    if (s.includes('not in scope') || s.includes('excluded') || s.includes('n/a')) {
+      overrides.erectionScope = 'NA';
+    } else if (s.includes('included') || s.includes('in scope')) {
+      overrides.erectionScope = 'VENDOR';
+    } else if (s.includes('extra') || s.includes('quoted separately')) {
+      overrides.erectionScope = 'VENDOR';
+      overrides.erectionCustomText = offer.erectionAfterPurchase;
+    }
+  }
+
+  return overrides;
 }
 
 /**

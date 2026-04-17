@@ -519,9 +519,9 @@ export default function UploadOfferDialog({
       return;
     }
 
-    const hasValidPrices = offerItems.every((item) => item.unitPrice > 0);
-    if (!hasValidPrices) {
-      setError('Please enter unit prices for all items');
+    const hasAnyPricedItem = offerItems.some((item) => item.unitPrice > 0);
+    if (!hasAnyPricedItem) {
+      setError('Please enter a unit price for at least one item');
       return;
     }
 
@@ -624,12 +624,12 @@ export default function UploadOfferDialog({
   const selectedVendorInfo = getSelectedVendorInfo();
   const canCompare = file && !!selectedVendorInfo && !parsing && !uploading;
 
-  // Check which items are missing prices
+  // Track items missing prices (shown as warning — partial quotations are allowed)
   const itemsMissingPrice = offerItems.filter((item) => item.unitPrice <= 0);
-  const allItemsHavePrice = itemsMissingPrice.length === 0;
+  const hasAnyPricedItem = offerItems.some((item) => item.unitPrice > 0);
 
   const canCreate =
-    !!selectedVendorInfo && fileUrl && offerItems.length > 0 && allItemsHavePrice && !creating;
+    !!selectedVendorInfo && fileUrl && offerItems.length > 0 && hasAnyPricedItem && !creating;
 
   // Build validation message for Create Offer button
   const getCreateButtonTooltip = (): string => {
@@ -637,8 +637,8 @@ export default function UploadOfferDialog({
     if (!selectedVendorInfo) return 'Please select a vendor';
     if (!fileUrl) return 'Please upload an offer document';
     if (offerItems.length === 0) return 'No items to create offer';
-    if (!allItemsHavePrice) {
-      return `Please enter unit price for ${itemsMissingPrice.length} item${itemsMissingPrice.length > 1 ? 's' : ''} (highlighted in red)`;
+    if (!hasAnyPricedItem) {
+      return 'Please enter a unit price for at least one item';
     }
     return '';
   };
@@ -1106,6 +1106,7 @@ export default function UploadOfferDialog({
               </Typography>
               <Typography variant="caption" color="text.secondary" gutterBottom display="block">
                 Enter quoted prices for each RFQ item. Items highlighted have AI-extracted data.
+                Leave unit price at 0 for items the vendor did not quote.
               </Typography>
               <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
                 <Table size="small" stickyHeader>
@@ -1243,6 +1244,13 @@ export default function UploadOfferDialog({
         {!canCreate && offerItems.length > 0 && !creating && (
           <Alert severity="warning" sx={{ width: '100%' }}>
             {getCreateButtonTooltip()}
+          </Alert>
+        )}
+        {/* Soft warning for partial quotations (creation still allowed) */}
+        {canCreate && itemsMissingPrice.length > 0 && (
+          <Alert severity="info" sx={{ width: '100%' }}>
+            {itemsMissingPrice.length} item{itemsMissingPrice.length > 1 ? 's' : ''} without a price
+            will be recorded as not quoted by the vendor.
           </Alert>
         )}
         <Stack direction="row" spacing={1} justifyContent="flex-end">

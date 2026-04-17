@@ -14,6 +14,9 @@ export interface WorkCompletionCertificate {
   id: string;
   number: string; // WCC/YYYY/MM/XXXX
 
+  // Multi-tenancy (inherited from PO)
+  tenantId?: string;
+
   // Purchase Order reference
   purchaseOrderId: string;
   poNumber: string; // Denormalized

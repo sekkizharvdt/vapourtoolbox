@@ -253,6 +253,11 @@ export async function createPOFromOffer(
       if (terms.expectedDeliveryDate) {
         poData.expectedDeliveryDate = Timestamp.fromDate(terms.expectedDeliveryDate);
       }
+
+      // Propagate vendor offer reference from the selected offer so the PO carries
+      // the vendor's own quotation number (distinct from our system-generated offer number).
+      if (offer.vendorOfferNumber) poData.vendorOfferNumber = offer.vendorOfferNumber;
+      if (offer.vendorOfferDate) poData.vendorOfferDate = offer.vendorOfferDate;
       if (terms.advancePercentage !== undefined) {
         poData.advancePercentage = terms.advancePercentage;
       }

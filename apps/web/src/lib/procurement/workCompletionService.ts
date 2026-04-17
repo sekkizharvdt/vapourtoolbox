@@ -62,9 +62,11 @@ export async function createWorkCompletionCertificate(
   const wccNumber = await generateProcurementNumber(PROCUREMENT_NUMBER_CONFIGS.WORK_COMPLETION);
   const now = Timestamp.now();
 
-  // Create WCC
+  // Create WCC — inherit tenantId from the PO so tenant-scoped queries and
+  // Firestore rules work correctly (CLAUDE.md rule 1).
   const wccData: Omit<WorkCompletionCertificate, 'id'> = {
     number: wccNumber,
+    ...(po.tenantId && { tenantId: po.tenantId }),
     purchaseOrderId: input.purchaseOrderId,
     poNumber: po.number,
     vendorId: po.vendorId,
@@ -77,7 +79,7 @@ export async function createWorkCompletionCertificate(
     allItemsAccepted: input.allItemsAccepted,
     allPaymentsCompleted: input.allPaymentsCompleted,
     certificateText: input.certificateText,
-    remarks: input.remarks,
+    ...(input.remarks !== undefined && { remarks: input.remarks }),
     issuedBy: userId,
     issuedByName: userName,
     issuedAt: now,

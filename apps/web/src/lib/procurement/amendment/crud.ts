@@ -273,11 +273,13 @@ export async function approveAmendment(
     batch.update(amendmentRef, {
       status: 'APPROVED',
       approvedBy: userId,
+      approvedByName: userName,
       approvedAt: serverTimestamp(),
       applied: true,
       appliedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedBy: userId,
+      ...(comments && { approvalComments: comments }),
     });
 
     // Apply changes to PO
@@ -393,7 +395,9 @@ export async function rejectAmendment(
     batch.update(amendmentRef, {
       status: 'REJECTED',
       rejectedBy: userId,
+      rejectedByName: userName,
       rejectedAt: serverTimestamp(),
+      rejectionReason: reason,
       updatedAt: serverTimestamp(),
       updatedBy: userId,
     });
