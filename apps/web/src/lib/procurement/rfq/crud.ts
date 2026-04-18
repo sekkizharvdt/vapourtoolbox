@@ -177,6 +177,24 @@ export async function createRFQ(
     })
   );
 
+  // Fetch PR numbers in parallel so the RFQ dashboard can show them without
+  // an N+1 lookup at render time.
+  const purchaseRequestNumbers: string[] = await Promise.all(
+    input.purchaseRequestIds.map(async (prId) => {
+      try {
+        const prDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId));
+        if (prDoc.exists()) {
+          const prData = prDoc.data();
+          return prData.number || '';
+        }
+        return '';
+      } catch (err) {
+        logger.warn('Failed to fetch PR number', { prId, error: err });
+        return '';
+      }
+    })
+  );
+
   const now = Timestamp.now();
 
   // Create RFQ document using sanitized input
@@ -184,6 +202,9 @@ export async function createRFQ(
     number: rfqNumber,
     ...(input.tenantId && { tenantId: input.tenantId }),
     purchaseRequestIds: input.purchaseRequestIds,
+    ...(purchaseRequestNumbers.some((n) => n) && {
+      purchaseRequestNumbers: purchaseRequestNumbers.filter((n) => n),
+    }),
     projectIds,
     projectNames,
     title: sanitizedInput.title,

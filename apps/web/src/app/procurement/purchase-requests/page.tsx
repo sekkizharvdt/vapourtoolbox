@@ -334,19 +334,53 @@ export default function PurchaseRequestsPage() {
                 {stats.total}
               </Typography>
             </Stack>
+            {/* Primary categories — Draft / Submitted / Converted to RFQ (per procurement review). */}
             <Stack direction="row" flexWrap="wrap" gap={1}>
               {[
                 { label: 'Draft', value: stats.draft, filter: 'DRAFT', color: 'default' as const },
                 {
                   label: 'Submitted',
-                  value: stats.submitted,
+                  // Umbrella count of every PR that has left Draft but not yet been
+                  // converted: pending + approved + rejected + any legacy under-review.
+                  value: stats.submitted + stats.underReview + stats.approved + stats.rejected,
                   filter: 'SUBMITTED',
                   color: 'info' as const,
                 },
                 {
-                  label: 'Under Review',
-                  value: stats.underReview,
-                  filter: 'UNDER_REVIEW',
+                  label: 'Converted to RFQ',
+                  value: stats.archived,
+                  filter: 'CONVERTED_TO_RFQ',
+                  color: 'primary' as const,
+                },
+              ].map((item) => (
+                <Chip
+                  key={item.filter}
+                  label={`${item.label}: ${item.value}`}
+                  color={item.color}
+                  variant={statusFilter === item.filter ? 'filled' : 'outlined'}
+                  onClick={() => setStatusFilter(item.filter)}
+                  sx={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Stack>
+            {/* Submitted breakdown: Pending Approval / Approved / Rejected. */}
+            <Stack
+              direction="row"
+              flexWrap="wrap"
+              gap={1}
+              alignItems="center"
+              sx={{ mt: 1, pl: 1 }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                Submitted breakdown:
+              </Typography>
+              {[
+                {
+                  label: 'Pending Approval',
+                  // SUBMITTED + legacy UNDER_REVIEW collapse into a single
+                  // "awaiting action" sub-bucket.
+                  value: stats.submitted + stats.underReview,
+                  filter: 'SUBMITTED',
                   color: 'warning' as const,
                 },
                 {
@@ -361,15 +395,10 @@ export default function PurchaseRequestsPage() {
                   filter: 'REJECTED',
                   color: 'error' as const,
                 },
-                {
-                  label: 'Converted to RFQ',
-                  value: stats.archived,
-                  filter: 'CONVERTED_TO_RFQ',
-                  color: 'primary' as const,
-                },
               ].map((item) => (
                 <Chip
-                  key={item.filter}
+                  key={item.filter + '-sub'}
+                  size="small"
                   label={`${item.label}: ${item.value}`}
                   color={item.color}
                   variant={statusFilter === item.filter ? 'filled' : 'outlined'}
@@ -420,8 +449,7 @@ export default function PurchaseRequestsPage() {
               >
                 <MenuItem value="ALL">All Status</MenuItem>
                 <MenuItem value="DRAFT">Draft</MenuItem>
-                <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
+                <MenuItem value="SUBMITTED">Submitted (Pending Approval)</MenuItem>
                 <MenuItem value="APPROVED">Approved</MenuItem>
                 <MenuItem value="REJECTED">Rejected</MenuItem>
                 <MenuItem value="CONVERTED_TO_RFQ">Converted to RFQ</MenuItem>

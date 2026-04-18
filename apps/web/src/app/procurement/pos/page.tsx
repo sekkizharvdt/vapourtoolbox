@@ -281,6 +281,7 @@ export default function PurchaseOrdersPage() {
             <TableHead>
               <TableRow>
                 <TableCell>PO Number</TableCell>
+                <TableCell>Source RFQ</TableCell>
                 <TableCell>Vendor</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Amount</TableCell>
@@ -292,9 +293,9 @@ export default function PurchaseOrdersPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading purchase orders..." variant="table" colSpan={8} />
+                <LoadingState message="Loading purchase orders..." variant="table" colSpan={9} />
               ) : filteredPOs.length === 0 ? (
-                <EmptyState message="No purchase orders found" variant="table" colSpan={8} />
+                <EmptyState message="No purchase orders found" variant="table" colSpan={9} />
               ) : (
                 paginatedPOs.map((po) => {
                   const deliveryStatus = getDeliveryStatus(po);
@@ -314,6 +315,15 @@ export default function PurchaseOrdersPage() {
                         {po.title && (
                           <Typography variant="caption" color="text.secondary">
                             {po.title}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {po.rfqNumber ? (
+                          <Typography variant="body2">{po.rfqNumber}</Typography>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            —
                           </Typography>
                         )}
                       </TableCell>

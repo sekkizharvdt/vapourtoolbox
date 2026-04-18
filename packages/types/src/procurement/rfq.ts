@@ -28,6 +28,7 @@ export interface RFQ {
 
   // Source PRs
   purchaseRequestIds: string[];
+  purchaseRequestNumbers?: string[]; // Denormalized for display/tracking
 
   // Project linkage (can span multiple projects)
   projectIds: string[];

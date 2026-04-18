@@ -217,6 +217,7 @@ export async function createPOFromOffer(
         // Required fields
         number: poNumber,
         rfqId: offer.rfqId,
+        ...(offer.rfqNumber && { rfqNumber: offer.rfqNumber }),
         offerId: offer.id,
         selectedOfferNumber: offer.number,
         vendorId: offer.vendorId,

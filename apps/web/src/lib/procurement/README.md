@@ -104,12 +104,16 @@ import { createPOFromOffer, approvePO, issuePO } from '@/lib/procurement';
 
 ## Document Numbering
 
-All documents follow the format: `TYPE/YYYY/MM/XXXX`
+Two formats depending on granularity:
 
-- PR: `PR/2025/01/0001`
-- RFQ: `RFQ/2025/01/0001`
-- PO: `PO/2025/01/0001`
-- GR: `GR/2025/01/0001`
+- **Yearly** (`TYPE/YYYY/XXX`, 3-digit sequence): RFQ, PO
+  - RFQ: `RFQ/2026/001`
+  - PO: `PO/2026/001`
+- **Monthly** (`TYPE/YYYY/MM/XXXX`, 4-digit sequence): PR, GR, WCC, PL
+  - PR: `PR/2026/04/0001`
+  - GR: `GR/2026/04/0001`
+  - WCC: `WCC/2026/04/0001`
+  - PL: `PL/2026/04/0001`
 
 ## Testing
 

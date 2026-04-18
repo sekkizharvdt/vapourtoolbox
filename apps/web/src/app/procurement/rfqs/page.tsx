@@ -313,6 +313,7 @@ export default function RFQsPage() {
             <TableHead>
               <TableRow>
                 <TableCell>RFQ Number</TableCell>
+                <TableCell>Source PR</TableCell>
                 <TableCell>Title</TableCell>
                 <TableCell>Vendors</TableCell>
                 <TableCell>Status</TableCell>
@@ -357,6 +358,20 @@ export default function RFQsPage() {
                         <Typography variant="body2" fontWeight="medium">
                           {rfq.number}
                         </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {rfq.purchaseRequestNumbers && rfq.purchaseRequestNumbers.length > 0 ? (
+                          <Typography variant="body2">
+                            {rfq.purchaseRequestNumbers.slice(0, 2).join(', ')}
+                            {rfq.purchaseRequestNumbers.length > 2
+                              ? ` +${rfq.purchaseRequestNumbers.length - 2}`
+                              : ''}
+                          </Typography>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            —
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{rfq.title}</Typography>

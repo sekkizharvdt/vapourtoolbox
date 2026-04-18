@@ -32,6 +32,7 @@ export interface PurchaseOrder {
 
   // Source
   rfqId: string;
+  rfqNumber?: string; // Denormalized — source RFQ reference
   offerId: string;
   selectedOfferNumber: string; // Denormalized — system-generated (e.g., OFFER/2026/04/0001)
   vendorOfferNumber?: string; // Denormalized — vendor's own quotation reference

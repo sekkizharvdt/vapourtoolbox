@@ -32,11 +32,11 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 
 | #   | Item                                                                        | Module               | Status |
 | --- | --------------------------------------------------------------------------- | -------------------- | ------ |
-| 11  | RFQ number format → yearly sequence `RFQ/2026/001`                          | RFQ                  | ⬜     |
-| 12  | PO number format → yearly sequence `PO/2026/001`                            | PO                   | ⬜     |
-| 13  | PR dashboard: split Draft/Submitted/Converted; sub-split Submitted          | PR Dashboard         | ⬜     |
-| 14  | RFQ dashboard: show linked PR number                                        | RFQ Dashboard        | ⬜     |
-| 15  | PO dashboard: show linked RFQ number                                        | PO Dashboard         | ⬜     |
+| 11  | RFQ number format → yearly sequence `RFQ/2026/001`                          | RFQ                  | ✅     |
+| 12  | PO number format → yearly sequence `PO/2026/001`                            | PO                   | ✅     |
+| 13  | PR dashboard: split Draft/Submitted/Converted; sub-split Submitted          | PR Dashboard         | ✅     |
+| 14  | RFQ dashboard: show linked PR number                                        | RFQ Dashboard        | ✅     |
+| 15  | PO dashboard: show linked RFQ number                                        | PO Dashboard         | ✅     |
 | 16  | RFQ title auto from Item Description / PR title                             | RFQ                  | ⬜     |
 | 17  | PO title auto from Item Description / RFQ title; visible during create/edit | PO                   | ⬜     |
 | 18  | Work Completion description auto from supplied items                        | Work Completion      | ⬜     |
