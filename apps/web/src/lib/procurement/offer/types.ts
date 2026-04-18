@@ -49,6 +49,7 @@ export interface CreateOfferInput {
   insurance?: string;
   erectionAfterPurchase?: string; // UI label "Erection & Commissioning" (review #29)
   inspection?: string; // Review #31
+  discount?: number; // Absolute discount amount in offer currency (review #28)
 }
 
 /**
@@ -108,6 +109,7 @@ export interface UpdateOfferInput {
   insurance?: string;
   erectionAfterPurchase?: string;
   inspection?: string;
+  discount?: number;
 }
 
 /**

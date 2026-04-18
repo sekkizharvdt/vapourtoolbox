@@ -200,6 +200,8 @@ export default function UploadOfferDialog({
   const [insurance, setInsurance] = useState('');
   const [erectionAfterPurchase, setErectionAfterPurchase] = useState('');
   const [inspection, setInspection] = useState('');
+  // Discount is stored as a string to preserve "" (blank) vs 0; parsed numerically on submit.
+  const [discount, setDiscount] = useState('');
 
   // Offer items
   const [offerItems, setOfferItems] = useState<OfferItemData[]>([]);
@@ -450,6 +452,9 @@ export default function UploadOfferDialog({
       if (result.header.erectionAfterPurchase)
         setErectionAfterPurchase(result.header.erectionAfterPurchase);
       if (result.header.inspection) setInspection(result.header.inspection);
+      if (typeof result.header.discount === 'number' && result.header.discount > 0) {
+        setDiscount(String(result.header.discount));
+      }
     }
 
     const updatedItems = [...offerItems];
@@ -553,6 +558,9 @@ export default function UploadOfferDialog({
         insurance: insurance || undefined,
         erectionAfterPurchase: erectionAfterPurchase || undefined,
         inspection: inspection || undefined,
+        ...(discount.trim() && Number.isFinite(Number(discount)) && Number(discount) > 0
+          ? { discount: Number(discount) }
+          : {}),
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
@@ -616,6 +624,7 @@ export default function UploadOfferDialog({
     setInsurance('');
     setErectionAfterPurchase('');
     setInspection('');
+    setDiscount('');
     setOfferItems([]);
     setCreating(false);
     onClose();
@@ -1109,6 +1118,17 @@ export default function UploadOfferDialog({
                       placeholder="e.g., TPI by buyer / At works by vendor"
                     />
                   </Stack>
+                  <TextField
+                    label="Discount (absolute ₹)"
+                    type="number"
+                    value={discount}
+                    onChange={(e) => setDiscount(e.target.value)}
+                    size="small"
+                    placeholder="e.g., 5000"
+                    inputProps={{ min: 0, step: 0.01 }}
+                    helperText="Auto-populated by Claude when the quotation shows a discount. Carried on to the PO for reference."
+                    sx={{ maxWidth: 280 }}
+                  />
                 </Stack>
               </AccordionDetails>
             </Accordion>

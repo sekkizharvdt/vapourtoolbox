@@ -454,6 +454,12 @@ export default function NewPOPage() {
                           <strong>Inspection:</strong> {offer.inspection}
                         </Typography>
                       )}
+                      {offer.discount !== undefined && offer.discount > 0 && (
+                        <Typography variant="body2">
+                          <strong>Discount:</strong>{' '}
+                          {formatCurrency(offer.discount, offer.currency)}
+                        </Typography>
+                      )}
                     </Stack>
                   </Alert>
                 )}

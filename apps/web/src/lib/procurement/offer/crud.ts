@@ -112,6 +112,9 @@ export async function createOffer(
   if (input.insurance) offerData.insurance = input.insurance;
   if (input.erectionAfterPurchase) offerData.erectionAfterPurchase = input.erectionAfterPurchase;
   if (input.inspection) offerData.inspection = input.inspection;
+  if (input.discount !== undefined && input.discount > 0) {
+    offerData.discount = input.discount;
+  }
   if (input.tenantId) offerData.tenantId = input.tenantId;
 
   const offerRef = await addDoc(collection(db, COLLECTIONS.OFFERS), offerData);
@@ -315,6 +318,7 @@ export async function updateOffer(
   if (input.erectionAfterPurchase !== undefined)
     updateData.erectionAfterPurchase = input.erectionAfterPurchase;
   if (input.inspection !== undefined) updateData.inspection = input.inspection;
+  if (input.discount !== undefined) updateData.discount = input.discount;
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), updateData);
 

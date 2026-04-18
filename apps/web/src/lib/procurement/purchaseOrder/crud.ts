@@ -290,6 +290,13 @@ export async function createPOFromOffer(
       // the vendor's own quotation number (distinct from our system-generated offer number).
       if (offer.vendorOfferNumber) poData.vendorOfferNumber = offer.vendorOfferNumber;
       if (offer.vendorOfferDate) poData.vendorOfferDate = offer.vendorOfferDate;
+
+      // Propagate the offer's discount so the PO PDF can show it as a separate
+      // line in the financial summary (review #28). Grand total stays at the
+      // vendor's quoted total for audit reconciliation.
+      if (offer.discount !== undefined && offer.discount > 0) {
+        poData.discount = offer.discount;
+      }
       if (terms.advancePercentage !== undefined) {
         poData.advancePercentage = terms.advancePercentage;
       }

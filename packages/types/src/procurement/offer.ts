@@ -52,6 +52,13 @@ export interface Offer {
   totalAmount: number;
   currency: string; // Default 'INR'
 
+  /**
+   * Absolute discount amount in `currency` applied before tax (per procurement
+   * review #28). Stored raw so audit code can still reconcile subtotal + tax
+   * with the total quoted by the vendor.
+   */
+  discount?: number;
+
   // Terms
   paymentTerms?: string;
   deliveryTerms?: string;

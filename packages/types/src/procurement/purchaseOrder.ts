@@ -56,6 +56,15 @@ export interface PurchaseOrder {
   // Financial
   subtotal: number;
 
+  /**
+   * Discount amount in `currency` (absolute), propagated from the selected
+   * offer on PO creation (procurement review #28). Shown as a separate row
+   * on the PO PDF financial summary; does NOT re-derive `grandTotal` —
+   * `grandTotal` remains the vendor's quoted final total so reconciliation
+   * with the offer is unambiguous.
+   */
+  discount?: number;
+
   // Tax breakdown
   cgst: number;
   sgst: number;

@@ -331,6 +331,14 @@ export function POPDFDocument({
             <Text style={local.summaryLabel}>Subtotal:</Text>
             <Text style={local.summaryValue}>{formatCurrency(po.subtotal, po.currency)}</Text>
           </View>
+          {po.discount !== undefined && po.discount > 0 && (
+            <View style={local.summaryRow}>
+              <Text style={local.summaryLabel}>Discount:</Text>
+              <Text style={local.summaryValue}>
+                {`- ${formatCurrency(po.discount, po.currency)}`}
+              </Text>
+            </View>
+          )}
           {po.cgst > 0 && (
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>CGST:</Text>
