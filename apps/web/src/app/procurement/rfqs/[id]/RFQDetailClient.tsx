@@ -41,6 +41,7 @@ import {
   Home as HomeIcon,
   Upload as UploadIcon,
   Compare as CompareIcon,
+  ShoppingCart as ShoppingCartIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ, RFQItem } from '@vapour/types';
@@ -277,6 +278,18 @@ export default function RFQDetailPage() {
                 onClick={() => router.push(`/procurement/rfqs/${rfq.id}/offers`)}
               >
                 Compare Offers ({rfq.offersReceived})
+              </Button>
+            )}
+            {/* Once a winning offer is selected, surface Create PO directly on the
+                RFQ page so users don't have to re-enter the comparison screen. */}
+            {rfq.selectedOfferId && rfq.status !== 'PO_PROCESSED' && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<ShoppingCartIcon />}
+                onClick={() => router.push(`/procurement/pos/new?offerId=${rfq.selectedOfferId}`)}
+              >
+                Create PO
               </Button>
             )}
             {canCompleteRFQ(rfq) && (

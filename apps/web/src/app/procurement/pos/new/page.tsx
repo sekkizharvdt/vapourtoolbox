@@ -72,6 +72,9 @@ export default function NewPOPage() {
   // Form validation errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // PO title — auto-seeded from RFQ title on offer load; user-editable
+  const [poTitle, setPOTitle] = useState('');
+
   // Expected delivery date (kept separate as it's a PO-level field, not part of commercial terms)
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
 
@@ -107,6 +110,29 @@ export default function NewPOPage() {
       }
 
       setOffer(offerData);
+
+      // Seed a default PO title from the source RFQ title (e.g. "RFQ for Valves"
+      // → "PO for Valves"). User can edit before saving.
+      if (offerData.rfqId) {
+        try {
+          const rfqSnap = await getDoc(doc(getFirebase().db, 'rfqs', offerData.rfqId));
+          if (rfqSnap.exists()) {
+            const rfqTitle = (rfqSnap.data() as { title?: string }).title?.trim();
+            if (rfqTitle) {
+              const match = rfqTitle.match(/^RFQ\s*(?:for|[-–])\s*(.+)$/i);
+              setPOTitle(match && match[1] ? `PO for ${match[1].trim()}` : `PO - ${rfqTitle}`);
+            } else {
+              setPOTitle(`PO for ${offerData.vendorName}`);
+            }
+          } else {
+            setPOTitle(`PO for ${offerData.vendorName}`);
+          }
+        } catch {
+          setPOTitle(`PO for ${offerData.vendorName}`);
+        }
+      } else {
+        setPOTitle(`PO for ${offerData.vendorName}`);
+      }
 
       // Build billing address from company profile
       const companySettings = companyDoc.exists() ? companyDoc.data() : null;
@@ -226,6 +252,7 @@ export default function NewPOPage() {
       const poId = await createPOFromOffer(
         offerId,
         {
+          ...(poTitle.trim() && { title: poTitle.trim() }),
           // Legacy text fields (for backward compatibility with existing code)
           paymentTerms: paymentTermsText,
           deliveryTerms: deliveryTermsText,
@@ -425,6 +452,24 @@ export default function NewPOPage() {
                   </Alert>
                 )}
               </Stack>
+            </Paper>
+
+            {/* PO Title */}
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Purchase Order Title
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Auto-seeded from the source RFQ. Edit to match the items being ordered (e.g.
+                &ldquo;PO for Valves&rdquo;).
+              </Typography>
+              <TextField
+                label="Title"
+                value={poTitle}
+                onChange={(e) => setPOTitle(e.target.value)}
+                fullWidth
+                placeholder="PO for Valves"
+              />
             </Paper>
 
             {/* Template Selection */}

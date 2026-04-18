@@ -103,6 +103,14 @@ export async function generatePONumber(): Promise<string> {
 // ============================================================================
 
 export interface CreatePOFromOfferTerms {
+  // Header
+  /**
+   * PO title shown on the detail page and PDF. If omitted, we derive one from
+   * the source RFQ title (e.g. "RFQ for Valves" → "PO for Valves") so the title
+   * stays item-oriented rather than vendor-oriented.
+   */
+  title?: string;
+
   // Legacy simple text fields (for backward compatibility)
   paymentTerms: string;
   deliveryTerms: string;
@@ -213,6 +221,29 @@ export async function createPOFromOffer(
 
       // Create PO - build with only defined fields to prevent Firestore errors
       // Firestore throws "Unsupported field value: undefined" if any field is undefined
+      // Derive a default title from the source RFQ so the PO is item-oriented
+      // rather than vendor-oriented. Example: "RFQ for Valves" → "PO for Valves".
+      // Users can override via the `terms.title` input.
+      let defaultTitle = `Purchase Order for ${offer.vendorName}`;
+      if (offer.rfqId) {
+        try {
+          const rfqSnap = await getDoc(doc(db, COLLECTIONS.RFQS, offer.rfqId));
+          if (rfqSnap.exists()) {
+            const rfqTitle = (rfqSnap.data() as { title?: string }).title?.trim();
+            if (rfqTitle) {
+              const match = rfqTitle.match(/^RFQ\s*(?:for|[-–])\s*(.+)$/i);
+              defaultTitle = match && match[1] ? `PO for ${match[1].trim()}` : `PO - ${rfqTitle}`;
+            }
+          }
+        } catch (err) {
+          logger.warn('Failed to fetch RFQ title for PO default', {
+            rfqId: offer.rfqId,
+            error: err,
+          });
+        }
+      }
+      const poTitle = terms.title?.trim() || defaultTitle;
+
       const poData: Record<string, unknown> = {
         // Required fields
         number: poNumber,
@@ -224,7 +255,7 @@ export async function createPOFromOffer(
         vendorName: offer.vendorName,
         projectIds: [], // Will be populated from items
         projectNames: [],
-        title: `Purchase Order for ${offer.vendorName}`,
+        title: poTitle,
         description: `PO created from offer ${offer.number}`,
         subtotal,
         cgst,

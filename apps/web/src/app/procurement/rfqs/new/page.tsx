@@ -221,15 +221,35 @@ export default function NewRFQPage() {
         const autoDescription = `Request for Quotation for items from ${prNumbers}.\n\nScope: ${prTitles}`;
         setDescription(autoDescription);
       }
-      // Auto-generate title if empty
+      // Auto-generate title from PR titles, preferring the user-friendly "RFQ for
+      // <subject>" form derived from the source PR titles (e.g. "PR for Valves"
+      // → "RFQ for Valves"). Falls back to PR numbers when titles are generic.
       if (!title.trim()) {
-        const projectNames = [
-          ...new Set(selectedPRDetails.map((pr) => pr.projectName).filter(Boolean)),
+        const deriveSubject = (prTitle: string | undefined): string | null => {
+          if (!prTitle) return null;
+          const trimmed = prTitle.trim();
+          if (!trimmed) return null;
+          // "PR for Valves" / "PR - Valves" → "Valves"
+          const match = trimmed.match(/^PR\s*(?:for|[-–])\s*(.+)$/i);
+          if (match && match[1]) return match[1].trim();
+          // "PR/2026/04/0001" — no usable subject
+          if (/^PR[\s/]/i.test(trimmed)) return null;
+          return trimmed;
+        };
+
+        const subjects = [
+          ...new Set(
+            selectedPRDetails.map((pr) => deriveSubject(pr.title)).filter((s): s is string => !!s)
+          ),
         ];
-        const autoTitle =
-          projectNames.length > 0
-            ? `RFQ - ${projectNames.join(', ')}`
-            : `RFQ - ${selectedPRDetails.map((pr) => pr.number).join(', ')}`;
+
+        let autoTitle: string;
+        if (subjects.length > 0) {
+          autoTitle = `RFQ for ${subjects.join(', ')}`;
+        } else {
+          // Fallback to PR numbers so the title still identifies the source
+          autoTitle = `RFQ for ${selectedPRDetails.map((pr) => pr.number).join(', ')}`;
+        }
         setTitle(autoTitle);
       }
     }

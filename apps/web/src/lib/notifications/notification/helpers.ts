@@ -23,7 +23,7 @@ export async function notifyPRSubmitted(
     message: `${submitterName} submitted a purchase request for your review`,
     entityType: 'PURCHASE_REQUEST',
     entityId: prId,
-    linkUrl: `/procurement/engineering-approval`,
+    linkUrl: `/procurement/purchase-requests/${prId}`,
     priority: 'MEDIUM',
     autoCompletable: true,
   });

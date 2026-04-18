@@ -46,9 +46,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   createPurchaseRequest,
   submitPurchaseRequestForApproval,
+  uploadPRAttachment,
   type CreatePurchaseRequestInput,
   type CreatePurchaseRequestItemInput,
 } from '@/lib/procurement/purchaseRequest';
+import type { PurchaseRequestAttachmentType } from '@vapour/types';
 import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
 import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -75,6 +77,11 @@ export default function NewPurchaseRequestPage() {
   const { user, claims } = useAuth();
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Staged attachments — queued locally during creation, uploaded after the PR doc exists
+  const [pendingAttachments, setPendingAttachments] = useState<
+    Array<{ file: File; type: PurchaseRequestAttachmentType; description: string }>
+  >([]);
   const [excelDialogOpen, setExcelDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
@@ -254,6 +261,34 @@ export default function NewPurchaseRequestPage() {
     };
   };
 
+  /**
+   * Upload each pending attachment sequentially after the PR document exists.
+   * A failure on one attachment is logged but doesn't abort the PR flow —
+   * the user can still retry from the detail page.
+   */
+  const uploadPendingAttachments = async (prId: string): Promise<void> => {
+    if (!user || pendingAttachments.length === 0) return;
+    const userName = user.displayName || user.email || 'Unknown';
+    for (const entry of pendingAttachments) {
+      try {
+        await uploadPRAttachment(
+          prId,
+          entry.file,
+          entry.type,
+          user.uid,
+          userName,
+          undefined,
+          entry.description || undefined
+        );
+      } catch (err) {
+        console.error('[NewPurchaseRequest] Failed to upload attachment', {
+          fileName: entry.file.name,
+          error: err,
+        });
+      }
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!user || !validateForm()) return;
 
@@ -266,7 +301,7 @@ export default function NewPurchaseRequestPage() {
         user.uid,
         user.displayName || user.email || 'Unknown'
       );
-      // Redirect to Edit page so user can add attachments immediately
+      await uploadPendingAttachments(result.prId);
       router.push('/procurement/purchase-requests/' + result.prId + '/edit');
     } catch (err) {
       console.error('[NewPurchaseRequest] Error saving draft:', err);
@@ -288,6 +323,8 @@ export default function NewPurchaseRequestPage() {
         user.uid,
         user.displayName || user.email || 'Unknown'
       );
+
+      await uploadPendingAttachments(result.prId);
 
       await submitPurchaseRequestForApproval(
         result.prId,
@@ -357,24 +394,6 @@ export default function NewPurchaseRequestPage() {
                 Create a new purchase request for approval
               </Typography>
             </Box>
-          </Stack>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
-              onClick={handleSaveDraft}
-              disabled={isProcessing}
-            >
-              Save Draft
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-              onClick={handleSubmit}
-              disabled={isProcessing}
-            >
-              Submit for Approval
-            </Button>
           </Stack>
         </Stack>
 
@@ -706,14 +725,122 @@ export default function NewPurchaseRequestPage() {
           </Box>
         </Paper>
 
-        {/* Attachments Info */}
-        <Alert severity="info" icon={<UploadIcon />}>
-          <Typography variant="body2">
-            <strong>Need to attach files?</strong> Click &ldquo;Save Draft&rdquo; and you will be
-            taken to the Edit page where you can add technical specs, datasheets, drawings, and
-            other attachments.
+        {/* Attachments — staged locally, uploaded after the PR is created */}
+        <Paper sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <UploadIcon color="primary" />
+            <Typography variant="h6">Attachments</Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Queue files here — technical specs, datasheets, drawings, and so on. They will be
+            uploaded against the PR as soon as it is created.
           </Typography>
-        </Alert>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems={{ sm: 'flex-end' }}
+            sx={{ mb: 2 }}
+          >
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<UploadIcon />}
+              disabled={isProcessing}
+            >
+              Choose Files
+              <input
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length === 0) return;
+                  setPendingAttachments((prev) => [
+                    ...prev,
+                    ...files.map((file) => ({
+                      file,
+                      type: 'TECHNICAL_SPEC' as PurchaseRequestAttachmentType,
+                      description: '',
+                    })),
+                  ]);
+                  e.target.value = '';
+                }}
+              />
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              Max 25 MB per file · PDF, Word, Excel, images, CAD
+            </Typography>
+          </Stack>
+          {pendingAttachments.length > 0 && (
+            <Stack spacing={1}>
+              {pendingAttachments.map((entry, idx) => (
+                <Paper
+                  key={idx}
+                  variant="outlined"
+                  sx={{
+                    p: 1.5,
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Box sx={{ flex: 1, minWidth: 200 }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      {entry.file.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {(entry.file.size / 1024).toFixed(1)} KB · {entry.file.type || 'unknown'}
+                    </Typography>
+                  </Box>
+                  <TextField
+                    select
+                    size="small"
+                    label="Type"
+                    value={entry.type}
+                    onChange={(e) =>
+                      setPendingAttachments((prev) =>
+                        prev.map((p, i) =>
+                          i === idx
+                            ? { ...p, type: e.target.value as PurchaseRequestAttachmentType }
+                            : p
+                        )
+                      )
+                    }
+                    sx={{ minWidth: 160 }}
+                  >
+                    <MenuItem value="TECHNICAL_SPEC">Technical Spec</MenuItem>
+                    <MenuItem value="DATA_SHEET">Data Sheet</MenuItem>
+                    <MenuItem value="DRAWING">Drawing</MenuItem>
+                    <MenuItem value="QUOTATION">Quotation</MenuItem>
+                    <MenuItem value="OTHER">Other</MenuItem>
+                  </TextField>
+                  <TextField
+                    size="small"
+                    label="Description"
+                    value={entry.description}
+                    onChange={(e) =>
+                      setPendingAttachments((prev) =>
+                        prev.map((p, i) => (i === idx ? { ...p, description: e.target.value } : p))
+                      )
+                    }
+                    sx={{ minWidth: 200 }}
+                  />
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() =>
+                      setPendingAttachments((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                    disabled={isProcessing}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Paper>
+              ))}
+            </Stack>
+          )}
+        </Paper>
 
         {/* Summary/Info Section */}
         <Alert severity="info" icon={<SendIcon />}>

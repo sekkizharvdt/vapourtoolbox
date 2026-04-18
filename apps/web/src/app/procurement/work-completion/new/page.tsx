@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseOrder } from '@vapour/types';
-import { listPOs } from '@/lib/procurement/purchaseOrderService';
+import { listPOs, getPOItems } from '@/lib/procurement/purchaseOrderService';
 import { createWorkCompletionCertificate } from '@/lib/procurement/workCompletionService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 
@@ -102,12 +102,39 @@ export default function NewWorkCompletionPage() {
     }
   };
 
-  const handlePOSelect = useCallback((po: PurchaseOrder | null) => {
+  const handlePOSelect = useCallback(async (po: PurchaseOrder | null) => {
     setSelectedPO(po);
-    if (po) {
-      // Pre-fill work description from PO description
-      setWorkDescription(po.description || `Work under ${po.number}`);
+    if (!po) {
+      setWorkDescription('');
+      return;
     }
+
+    // Prefer a description derived from the supplied items ("Supply of Valves").
+    // Falls back to the PO title-derived subject, then to the PO description,
+    // then to a generic marker. Uses the line-item descriptions directly so the
+    // WCC text reflects what was actually procured (per procurement review #18).
+    let derived = '';
+    try {
+      const items = await getPOItems(po.id);
+      const uniqueDescriptions = [
+        ...new Set(items.map((i) => i.description?.trim()).filter((d): d is string => !!d)),
+      ];
+      if (uniqueDescriptions.length > 0) {
+        const truncated = uniqueDescriptions.slice(0, 3).join(', ');
+        derived = `Supply of ${truncated}${uniqueDescriptions.length > 3 ? ', etc.' : ''}`;
+      }
+    } catch (err) {
+      console.warn('[NewWorkCompletionPage] Could not load PO items for description', err);
+    }
+
+    if (!derived) {
+      const titleMatch = po.title?.match(/^PO\s*(?:for|[-–])\s*(.+)$/i);
+      if (titleMatch && titleMatch[1]) {
+        derived = `Supply of ${titleMatch[1].trim()}`;
+      }
+    }
+
+    setWorkDescription(derived || po.description || `Work under ${po.number}`);
   }, []);
 
   const handleCreateWCC = async () => {
