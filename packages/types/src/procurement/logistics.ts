@@ -58,16 +58,26 @@ export interface PackingList {
   // Documents
   pdfUrl?: string;
 
+  /**
+   * Vendor-supplied attachments (vendor's own packing list PDF, shipping documents, etc.).
+   * Stored as parallel arrays so the Firestore doc stays flat — simpler than a
+   * separate collection given the small expected volume per PL.
+   */
+  attachmentUrls?: string[];
+  attachmentFileNames?: string[];
+
   // Workflow
   createdBy: string;
   createdByName: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  updatedBy?: string;
 }
 
 export interface PackingListItem {
   id: string;
   packingListId: string;
+  tenantId?: string;
 
   // PO item reference
   poItemId: string;

@@ -42,8 +42,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseOrder } from '@vapour/types';
 import { listPOs, getPOItems } from '@/lib/procurement/purchaseOrderService';
-import { createPackingList } from '@/lib/procurement/packingListService';
+import { createPackingList, uploadPLAttachment } from '@/lib/procurement/packingListService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
+import { Delete as DeleteIcon, Upload as UploadIcon } from '@mui/icons-material';
+import { IconButton } from '@mui/material';
 
 interface PackingItem {
   poItemId: string;
@@ -89,6 +91,9 @@ export default function NewPackingListPage() {
 
   // Items to pack
   const [packingItems, setPackingItems] = useState<PackingItem[]>([]);
+
+  // Staged vendor attachments — uploaded after the PL doc is created
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
 
   // Load available POs
   useEffect(() => {
@@ -230,6 +235,20 @@ export default function NewPackingListPage() {
         user.uid,
         user.displayName || 'Unknown'
       );
+
+      // Upload any staged vendor attachments against the new PL. Failures are
+      // logged but non-fatal so the PL still opens; users can re-upload from
+      // the detail/edit page.
+      for (const file of pendingAttachments) {
+        try {
+          await uploadPLAttachment(plId, file, user.uid);
+        } catch (attachErr) {
+          console.error('[NewPackingListPage] Failed to upload attachment', {
+            fileName: file.name,
+            error: attachErr,
+          });
+        }
+      }
 
       router.push(`/procurement/packing-lists/${plId}`);
     } catch (err) {
@@ -615,6 +634,72 @@ export default function NewPackingListPage() {
               </Grid>
             </Paper>
 
+            {/* Vendor attachments — queue files here; uploaded after the PL is saved */}
+            <Paper sx={{ p: 3 }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <UploadIcon color="primary" />
+                <Typography variant="h6">Vendor Attachments</Typography>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Attach the vendor&apos;s own packing list, shipping documents, or any related files.
+                They will be uploaded against the packing list as soon as it is saved.
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<UploadIcon />}
+                  disabled={creating}
+                >
+                  Choose Files
+                  <input
+                    type="file"
+                    multiple
+                    hidden
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      setPendingAttachments((prev) => [...prev, ...files]);
+                      e.target.value = '';
+                    }}
+                  />
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ pt: 1 }}>
+                  PDF, images, Word, Excel — stored alongside the packing list
+                </Typography>
+              </Stack>
+              {pendingAttachments.length > 0 && (
+                <Stack spacing={1} sx={{ mt: 2 }}>
+                  {pendingAttachments.map((file, idx) => (
+                    <Paper
+                      key={idx}
+                      variant="outlined"
+                      sx={{ p: 1.5, display: 'flex', gap: 2, alignItems: 'center' }}
+                    >
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {file.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {(file.size / 1024).toFixed(1)} KB · {file.type || 'unknown'}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() =>
+                          setPendingAttachments((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        disabled={creating}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Paper>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+
             {/* Actions */}
             <Stack direction="row" spacing={2} justifyContent="flex-end">
               <Button onClick={() => router.push('/procurement/packing-lists')} disabled={creating}>
@@ -626,7 +711,7 @@ export default function NewPackingListPage() {
                 onClick={handleCreatePL}
                 disabled={creating}
               >
-                {creating ? 'Creating...' : 'Create Packing List'}
+                {creating ? 'Saving...' : 'Save as Draft'}
               </Button>
             </Stack>
           </>

@@ -42,8 +42,8 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 | 18  | Work Completion description auto from supplied items                        | Work Completion      | ✅          |
 | 19  | PR: remove duplicate Save Draft / Submit buttons at top                     | PR                   | ✅          |
 | 20  | PR: allow attachments during creation (not just draft/view)                 | PR                   | ✅          |
-| 21  | Packing List: attachment option for vendor's PL                             | Packing List         | ⬜ deferred |
-| 22  | Packing List: Save as draft + Edit                                          | Packing List         | ⬜ deferred |
+| 21  | Packing List: attachment option for vendor's PL                             | Packing List         | ✅          |
+| 22  | Packing List: Save as draft + Edit                                          | Packing List         | ✅          |
 | 23  | Goods Receipt: Save as draft + Edit                                         | Goods Receipt        | ⬜ deferred |
 | 24  | Remove redundant Engineering Approval module                                | Engineering Approval | ✅          |
 | 25  | Add 'Create PO' button on RFQ page after offer finalization                 | RFQ/PO               | ✅          |

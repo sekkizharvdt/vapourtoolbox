@@ -469,6 +469,27 @@ export default function PLDetailClient() {
                 )}
               </Paper>
             )}
+
+            {/* Vendor Attachments */}
+            {pl.attachmentUrls && pl.attachmentUrls.length > 0 && (
+              <Paper sx={{ p: 3, mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Vendor Attachments
+                </Typography>
+                <Stack spacing={1}>
+                  {pl.attachmentUrls.map((url, idx) => (
+                    <Link
+                      key={`${url}-${idx}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {pl.attachmentFileNames?.[idx] || `Attachment ${idx + 1}`}
+                    </Link>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
           </Grid>
         </Grid>
       </Stack>

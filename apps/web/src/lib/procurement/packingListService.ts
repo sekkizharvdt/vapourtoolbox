@@ -17,6 +17,7 @@ import {
   Timestamp,
   writeBatch,
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type {
@@ -140,6 +141,7 @@ export async function createPackingList(
   const plData: Record<string, unknown> = {
     // Required fields
     number: plNumber,
+    ...(po.tenantId && { tenantId: po.tenantId }),
     purchaseOrderId: input.purchaseOrderId,
     poNumber: po.number,
     vendorId: po.vendorId,
@@ -185,6 +187,7 @@ export async function createPackingList(
     // Build packing list item with only defined fields to prevent Firestore errors
     const plItemData: Record<string, unknown> = {
       packingListId: plRef.id,
+      ...(po.tenantId && { tenantId: po.tenantId }),
       poItemId: item.poItemId,
       lineNumber: index + 1,
       description: poItem?.description || 'Unknown Item',
@@ -387,4 +390,165 @@ export async function listPackingLists(
 
 export async function getPackingListsByPO(purchaseOrderId: string): Promise<PackingList[]> {
   return listPackingLists({ purchaseOrderId });
+}
+
+// ============================================================================
+// UPDATE (editable fields on a draft packing list)
+// ============================================================================
+
+export interface UpdatePackingListInput {
+  numberOfPackages?: number;
+  totalWeight?: number;
+  totalVolume?: number;
+  shippingMethod?: 'AIR' | 'SEA' | 'ROAD' | 'COURIER' | null;
+  shippingCompany?: string;
+  trackingNumber?: string;
+  estimatedDeliveryDate?: Date | null;
+  deliveryAddress?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  packingInstructions?: string;
+  handlingInstructions?: string;
+}
+
+/**
+ * Update editable fields on a Draft packing list. Finalized / shipped / delivered
+ * PLs are locked — status transitions go through {@link updatePackingListStatus}.
+ */
+export async function updatePackingList(
+  plId: string,
+  input: UpdatePackingListInput,
+  userId: string
+): Promise<void> {
+  const { db } = getFirebase();
+
+  const existing = await getPLById(plId);
+  if (!existing) throw new Error('Packing List not found');
+  if (existing.status !== 'DRAFT') {
+    throw new Error(`Cannot edit a ${existing.status.toLowerCase()} packing list`);
+  }
+
+  const updateData: Record<string, unknown> = {
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  };
+
+  if (input.numberOfPackages !== undefined) updateData.numberOfPackages = input.numberOfPackages;
+  if (input.totalWeight !== undefined) updateData.totalWeight = input.totalWeight;
+  if (input.totalVolume !== undefined) updateData.totalVolume = input.totalVolume;
+  if (input.shippingMethod !== undefined) {
+    updateData.shippingMethod = input.shippingMethod || null;
+  }
+  if (input.shippingCompany !== undefined) updateData.shippingCompany = input.shippingCompany;
+  if (input.trackingNumber !== undefined) updateData.trackingNumber = input.trackingNumber;
+  if (input.estimatedDeliveryDate !== undefined) {
+    updateData.estimatedDeliveryDate = input.estimatedDeliveryDate
+      ? Timestamp.fromDate(input.estimatedDeliveryDate)
+      : null;
+  }
+  if (input.deliveryAddress !== undefined) updateData.deliveryAddress = input.deliveryAddress;
+  if (input.contactPerson !== undefined) updateData.contactPerson = input.contactPerson;
+  if (input.contactPhone !== undefined) updateData.contactPhone = input.contactPhone;
+  if (input.packingInstructions !== undefined) {
+    updateData.packingInstructions = input.packingInstructions;
+  }
+  if (input.handlingInstructions !== undefined) {
+    updateData.handlingInstructions = input.handlingInstructions;
+  }
+
+  await updateDoc(doc(db, COLLECTIONS.PACKING_LISTS, plId), updateData);
+  logger.info('Packing List updated', { plId });
+}
+
+// ============================================================================
+// VENDOR ATTACHMENTS (vendor's own packing list PDF, shipping docs, etc.)
+// ============================================================================
+
+/**
+ * Upload a vendor-supplied attachment against a Packing List. Writes to
+ * `procurement/packing-lists/{plId}/attachments/{timestamp}_{fileName}` and
+ * appends the resulting download URL to the PL document's `attachmentUrls`.
+ */
+export async function uploadPLAttachment(
+  plId: string,
+  file: File,
+  userId: string
+): Promise<{ url: string; fileName: string }> {
+  const { db, storage } = getFirebase();
+
+  const existing = await getPLById(plId);
+  if (!existing) throw new Error('Packing List not found');
+
+  const timestamp = Date.now();
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `procurement/packing-lists/${plId}/attachments/${timestamp}_${sanitizedName}`;
+  const storageRef = ref(storage, storagePath);
+
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  const url = await getDownloadURL(storageRef);
+
+  const nextUrls = [...(existing.attachmentUrls || []), url];
+  const nextNames = [...(existing.attachmentFileNames || []), file.name];
+
+  await updateDoc(doc(db, COLLECTIONS.PACKING_LISTS, plId), {
+    attachmentUrls: nextUrls,
+    attachmentFileNames: nextNames,
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  });
+
+  logger.info('PL attachment uploaded', { plId, fileName: file.name });
+  return { url, fileName: file.name };
+}
+
+/**
+ * Remove a vendor attachment from a Packing List by index. Deletes the storage
+ * object too; storage errors are logged but non-fatal so the doc stays clean.
+ */
+export async function removePLAttachment(
+  plId: string,
+  index: number,
+  userId: string
+): Promise<void> {
+  const { db, storage } = getFirebase();
+
+  const existing = await getPLById(plId);
+  if (!existing) throw new Error('Packing List not found');
+
+  const urls = [...(existing.attachmentUrls || [])];
+  const names = [...(existing.attachmentFileNames || [])];
+
+  if (index < 0 || index >= urls.length) {
+    throw new Error('Attachment index out of range');
+  }
+
+  const [removedUrl] = urls.splice(index, 1);
+  names.splice(index, 1);
+
+  // Best-effort storage cleanup — Firebase download URLs aren't valid paths, so
+  // we parse the /o/<path> segment to rebuild a storage ref.
+  if (removedUrl) {
+    try {
+      const match = removedUrl.match(/\/o\/([^?]+)/);
+      if (match && match[1]) {
+        const storagePath = decodeURIComponent(match[1]);
+        await deleteObject(ref(storage, storagePath));
+      }
+    } catch (err) {
+      logger.warn('Failed to delete storage object for removed PL attachment', {
+        plId,
+        index,
+        error: err,
+      });
+    }
+  }
+
+  await updateDoc(doc(db, COLLECTIONS.PACKING_LISTS, plId), {
+    attachmentUrls: urls,
+    attachmentFileNames: names,
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  });
+
+  logger.info('PL attachment removed', { plId, index });
 }
