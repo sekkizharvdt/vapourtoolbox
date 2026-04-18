@@ -150,6 +150,110 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 >
 > Meanwhile we're working on the P1/P2 items (RFQ/PO numbering, dashboard PR/RFQ cross-references, commercial-terms auto-population, etc.) and will have more updates today.
 
+---
+
+## 📧 Closing update to procurement user (end of session)
+
+**Send**: once you are ready to hand over for testing
+**To**: procurement user
+**Re**: Procurement review — progress update + 2 items needing your input
+
+> Hi — following your procurement toolbox review, we have worked through almost all of the items you raised. Summary below, with what's shipped, what's pending, and two small checks we need you to run on the live app.
+>
+> ### ✅ Shipped (33 of 37 items)
+>
+> **P0 — blocking bugs:**
+>
+> - Work Completion creation no longer errors out. The form accepted a blank Remarks but silently wrote `undefined` to Firestore, which it rejects. Fixed and verified.
+> - Upload Offer → Create Offer now works after Claude parsing. Previously, if Claude couldn't extract unit prices for every line, the form was blocked. It now accepts offers where only part of the line items are priced (useful when the vendor partially quoted).
+> - PO Amendment creation + approval now works. The old flow silently broke on approval; the form has also been redesigned so you can tick multiple change types (Price, Delivery, Terms, Quantity, General Note) in a single amendment with the right input fields for each.
+>
+> **P1 — core workflow gaps:**
+>
+> - PO now carries the vendor's own offer number alongside our internal offer number. The "Vendor Offer No." appears on the PO summary panel and on the PO PDF as "Vendor Offer Reference".
+> - PO commercial terms are now auto-seeded from the selected vendor offer (price basis, P&F included, freight/transport/insurance scope, erection scope). The vendor's free-text terms also show alongside the structured form as a reference panel.
+> - PR attachments (specs, drawings, datasheets) now flow into the RFQ PDF as clickable download links — external vendors can open them straight from the PDF.
+> - Service Order module now has a full New / View / Edit flow (previously only the dashboard existed and the "New" button 404'd).
+>
+> **P2 — UX improvements:**
+>
+> - RFQ and PO numbers switched to yearly sequences: `RFQ/2026/001`, `PO/2026/001`.
+> - RFQ dashboard shows the source PR, PO dashboard shows the source RFQ.
+> - PR dashboard split to match your model: Draft / Submitted (with Pending Approval / Approved / Rejected sub-breakdown) / Converted to RFQ. "Under Review" removed.
+> - RFQ title auto-derives from the source PR title (e.g. "PR for Valves" → "RFQ for Valves").
+> - PO title is now visible and editable on the New PO page, and auto-derives from the RFQ title (e.g. "RFQ for Valves" → "PO for Valves").
+> - Work Completion description auto-derives from the supplied line items (e.g. "Supply of Valves, Actuators") instead of "PO created from offer OFFER/…".
+> - PR creation: duplicate Save Draft / Submit buttons at the top removed. Attachments can now be staged and uploaded during creation — no need to save a draft first.
+> - Packing List: Save as Draft + Edit page; vendor's own packing list / shipping documents can be attached.
+> - Goods Receipt: Edit page for inspection metadata while status is not COMPLETED.
+> - Engineering Approval module removed — approvals already live on the PR detail page.
+> - RFQ page now has a direct "Create PO" button once a winning offer has been selected.
+>
+> **P3 — enhancements:**
+>
+> - Offer form labels updated: Ex-Works → **Price Basis**, Erection after Purchase → **Erection & Commissioning**. A new **Inspection** field is available.
+> - Claude offer parser updated to extract Validity Date (as an absolute date), Discount, and Inspection in addition to what it already captured.
+> - **Purchase Order PDF redesigned**:
+>   - Company logo and correct VDT legal name at the top, with GSTIN / PAN.
+>   - Separate blocks for Vendor (full address, contact, GSTIN), Billing Address, and Delivery Address.
+>   - "Vendor Offer Reference" replaces the generic Description row.
+>   - Commercial Terms section lists Price Basis, Currency, Payment Terms, Delivery Period, Expected Delivery Date.
+>   - Terms & Conditions section lists Freight, Transport, Transit Insurance, Warranty, E&C, Inspection, LD, Force Majeure, Rejection Clause, Buyer Contact.
+>   - New **Special Instructions** block carries VDT's standard clauses (payment timeline, signed copy, GST/PO on invoice, firm price, TDS).
+>   - Vendor acceptance / signature block at the bottom of page 2.
+> - Goods Receipt: "Payment Approval" relabelled to "Payment Status". The chip now shows Pending → Approved for Payment → Cleared as the PO moves through accounting.
+>
+> ### ⏸ Needs your input (2 quick checks — see next section)
+>
+> - PR Import PDF — AI parsing not working (review §1.2)
+> - RFQ Upload Offer — Google Document AI side returning no data (review §3.4)
+>
+> Both are pending a fresh log — please run the steps in the "Action needed" section below so we can capture the real error message and fix it.
+>
+> ### 🔜 Pending / deferred (4 items, smaller scope)
+>
+> These are all tracked and will be picked up after the above verification:
+>
+> 1. **Claude AI — compare vendor offer vs PR/RFQ attachments** (review §3.4). This is a larger enhancement where Claude reads both the PR specs and the vendor's quotation to flag mismatches (wrong grade, wrong quantity, missing items). It needs a multi-document prompt and a deviations surface in the UI. Scheduled for the next iteration.
+> 2. **Apply parsed discount to the PO total** (§3.4). Claude now extracts the discount but we're not yet subtracting it from the grand total — we'll wire it after you confirm how you want the discount shown on the PO (separate line, negative line item, or reduction applied to subtotal).
+> 3. **"Partly Cleared" payment status** (§7.3). The GR already flips to "Cleared" automatically when the accounting payment completes. "Partly Cleared" needs a Cloud Function that sums partial vendor payments against the PO total — next on the backend list.
+> 4. **Standalone "Payment Status" module** (§7.3). Your note suggested this as an alternative to the GR-level status. The GR-level rename+auto-update covers the same user need, so we're not planning a separate module unless you'd prefer one — let us know.
+>
+> ---
+>
+> ### 🛠 Action needed from you — 2-minute verification
+>
+> We cannot reproduce the AI parsing failures in our environment — the cloud logs only say "parsing failed" without the underlying reason. We've deployed an instrumented build that will now surface the exact Google Document AI error message. We just need you to trigger it once.
+>
+> **1. PR Import PDF (§1.2)**
+>
+> 1. Log in as you normally would.
+> 2. Go to **Procurement → Purchase Requests → New Purchase Request**.
+> 3. Click **Import PDF**.
+> 4. Upload one of the PDFs you tested before (ideally an engineering spec or PR document you know was rejected).
+> 5. Wait for the spinner to stop — if you see an error message, screenshot it.
+> 6. You can discard the form after; we only need the server log.
+>
+> **2. Upload Offer (§3.4)**
+>
+> 1. Open any RFQ that has at least one vendor on it (it doesn't need to be a live one; a test RFQ is fine).
+> 2. Click **Upload Offer** → choose a vendor → upload a vendor quotation PDF.
+> 3. Click **Compare AI Parsers** (this runs both Google Document AI and Claude side by side).
+> 4. Wait for the result. Expected outcome based on our tests: Claude side succeeds, Google side fails.
+> 5. You can close the dialog without creating the offer.
+>
+> **What to send back**
+>
+> After you have done both of the above, reply with:
+>
+> - The approximate time (IST) you ran each test.
+> - The PDF filename(s) you used (so we can cross-reference them in the logs if needed).
+> - Any error message you saw on screen — a screenshot is perfect.
+>
+> With that, we'll pull the fresh Firebase Function logs and target a fix. Our expectation is that the current Document AI processor (a "Form Parser") is the wrong tool for line-item quotations and PRs — we'll likely swap it for an Invoice Parser, or disable the Google side entirely and rely on Claude (which has been working reliably across your recent uploads).
+>
+> Please let us know when the above is done and if you'd like anything else prioritised.
+
 ### #2 Fix notes (2026-04-17)
 
 **Problem, as coded**:
