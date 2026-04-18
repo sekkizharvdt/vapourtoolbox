@@ -65,6 +65,8 @@ interface ParsedOfferHeader {
   packingForwarding?: string;
   insurance?: string;
   erectionAfterPurchase?: string;
+  inspection?: string;
+  discount?: number;
   confidence: number;
 }
 
@@ -106,10 +108,15 @@ interface ClaudeParseRequest {
 const OFFER_PARSING_PROMPT = `You are a document parsing assistant specialized in extracting structured data from vendor quotations and offers for EPC (Engineering, Procurement, Construction) projects.
 
 Your task is to analyze the provided document and extract:
-1. Header information (quotation number, dates, terms, totals)
-2. Commercial cost breakdown (ex-works, transportation, packing, insurance, erection)
+1. Header information (quotation number, dates, terms, totals, **validity date**, **discount**)
+2. Commercial cost breakdown (price basis, transportation, packing, insurance, erection, inspection)
 3. Line items with pricing details
 4. Any deviations or non-compliance notes per item
+
+Pay special attention to:
+- **Validity date** (sometimes labelled "Offer valid until", "Quote validity", "Valid up to"). Always return an absolute date in DD/MM/YYYY format — if the vendor wrote "30 days from offer date", compute the implied date using vendorOfferDate.
+- **Discount** (look for "Discount", "Less:", "Net of discount", "Special price"). Capture as a number; if the discount is percentage-based, prefer the percentage.
+- **Inspection** clause (separate from warranty and testing).
 
 Return ONLY valid JSON in exactly this format (no other text before or after):
 
@@ -125,11 +132,13 @@ Return ONLY valid JSON in exactly this format (no other text before or after):
     "paymentTerms": "string or null",
     "deliveryTerms": "string or null",
     "warrantyTerms": "string or null",
-    "exWorks": "string or null — e.g. 'Included', 'At buyer cost', price if separate",
+    "exWorks": "string or null — price basis (e.g. 'Ex-works Chennai', 'FOR Site', 'DDP Destination'); prefer the exact phrase the vendor used",
     "transportation": "string or null — e.g. 'Included in price', 'Extra @ actual', 'FOR destination'",
     "packingForwarding": "string or null — e.g. 'Included', 'At cost', 'Extra 2%'",
     "insurance": "string or null — e.g. 'Transit insurance by vendor', 'At buyer expense'",
-    "erectionAfterPurchase": "string or null — e.g. 'Not in scope', 'Available at extra cost', 'Included'"
+    "erectionAfterPurchase": "string or null — e.g. 'Not in scope', 'Available at extra cost', 'Included'",
+    "inspection": "string or null — e.g. 'TPI by buyer', 'At works by vendor', 'Not applicable'",
+    "discount": number or null (percentage or absolute amount; if absolute, include currency context in a separate remarks field)
   },
   "items": [
     {
@@ -280,6 +289,8 @@ Return the JSON with an additional "matchedRfqItemId" field for each item that m
         packingForwarding?: string;
         insurance?: string;
         erectionAfterPurchase?: string;
+        inspection?: string;
+        discount?: number;
       };
       items?: Array<{
         lineNumber?: number;
@@ -328,6 +339,9 @@ Return the JSON with an additional "matchedRfqItemId" field for each item that m
       packingForwarding: parsedData.header?.packingForwarding || undefined,
       insurance: parsedData.header?.insurance || undefined,
       erectionAfterPurchase: parsedData.header?.erectionAfterPurchase || undefined,
+      inspection: parsedData.header?.inspection || undefined,
+      discount:
+        typeof parsedData.header?.discount === 'number' ? parsedData.header.discount : undefined,
       confidence: 0.85, // Claude generally has good confidence
     };
 

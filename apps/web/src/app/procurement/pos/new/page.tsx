@@ -401,7 +401,8 @@ export default function NewPOPage() {
                   offer.packingForwarding ||
                   offer.transportation ||
                   offer.insurance ||
-                  offer.erectionAfterPurchase) && (
+                  offer.erectionAfterPurchase ||
+                  offer.inspection) && (
                   <Alert severity="info" icon={false}>
                     <Typography variant="subtitle2" gutterBottom>
                       Terms quoted by the vendor — fields already pre-seeded below are editable.
@@ -446,6 +447,11 @@ export default function NewPOPage() {
                         <Typography variant="body2">
                           <strong>Erection &amp; commissioning:</strong>{' '}
                           {offer.erectionAfterPurchase}
+                        </Typography>
+                      )}
+                      {offer.inspection && (
+                        <Typography variant="body2">
+                          <strong>Inspection:</strong> {offer.inspection}
                         </Typography>
                       )}
                     </Stack>

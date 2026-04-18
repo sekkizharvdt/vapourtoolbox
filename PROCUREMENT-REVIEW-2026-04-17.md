@@ -50,20 +50,20 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 
 ## P3 — Enhancements
 
-| #   | Item                                                                                        | Module            | Status |
-| --- | ------------------------------------------------------------------------------------------- | ----------------- | ------ |
-| 26  | Auto-populate offer validity date from parsed quotation                                     | Upload Offer      | ⬜     |
-| 27  | Compare vendor offer vs PR/RFQ attachments (technical validation)                           | Upload Offer      | ⬜     |
-| 28  | Parse discount and reflect in PO                                                            | Upload Offer → PO | ⬜     |
-| 29  | Rename Ex-works → Price Basis; Erection after purchase → E&C                                | Offer terms       | ⬜     |
-| 30  | P&F charges (AI-parsed) reflect in pricing                                                  | Offer → PO        | ⬜     |
-| 31  | Add Inspection field                                                                        | Offer terms       | ⬜     |
-| 32  | PO PDF: fix VDT name, add logo                                                              | PO PDF            | ⬜     |
-| 33  | PO PDF: add Special Instructions block                                                      | PO PDF            | ⬜     |
-| 34  | PO PDF: restructure Commercial Terms + T&C sections                                         | PO PDF            | ⬜     |
-| 35  | PO PDF: rename Description → Vendor offer reference; full vendor + billing/delivery address | PO PDF            | ⬜     |
-| 36  | Goods Receipt: rename Payment Approval → Payment Status; auto-update Cleared/Partly Cleared | Goods Receipt     | ⬜     |
-| 37  | (Alt) New Payment Status module for PO-wise tracking                                        | Payment Status    | ⬜     |
+| #   | Item                                                                                        | Module            | Status               |
+| --- | ------------------------------------------------------------------------------------------- | ----------------- | -------------------- |
+| 26  | Auto-populate offer validity date from parsed quotation                                     | Upload Offer      | ✅                   |
+| 27  | Compare vendor offer vs PR/RFQ attachments (technical validation)                           | Upload Offer      | ⬜ deferred          |
+| 28  | Parse discount and reflect in PO                                                            | Upload Offer → PO | 🟡 partial           |
+| 29  | Rename Ex-works → Price Basis; Erection after purchase → E&C                                | Offer terms       | ✅                   |
+| 30  | P&F charges (AI-parsed) reflect in pricing                                                  | Offer → PO        | ✅                   |
+| 31  | Add Inspection field                                                                        | Offer terms       | ✅                   |
+| 32  | PO PDF: fix VDT name, add logo                                                              | PO PDF            | ✅                   |
+| 33  | PO PDF: add Special Instructions block                                                      | PO PDF            | ✅                   |
+| 34  | PO PDF: restructure Commercial Terms + T&C sections                                         | PO PDF            | ✅                   |
+| 35  | PO PDF: rename Description → Vendor offer reference; full vendor + billing/delivery address | PO PDF            | ✅                   |
+| 36  | Goods Receipt: rename Payment Approval → Payment Status; auto-update Cleared/Partly Cleared | Goods Receipt     | 🟡 partial           |
+| 37  | (Alt) New Payment Status module for PO-wise tracking                                        | Payment Status    | ⬜ superseded by #36 |
 
 ---
 

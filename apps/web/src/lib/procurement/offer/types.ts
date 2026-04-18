@@ -43,11 +43,12 @@ export interface CreateOfferInput {
   warrantyTerms?: string;
 
   // Commercial cost components
-  exWorks?: string;
+  exWorks?: string; // UI label "Price Basis" (review #29)
   transportation?: string;
   packingForwarding?: string;
   insurance?: string;
-  erectionAfterPurchase?: string;
+  erectionAfterPurchase?: string; // UI label "Erection & Commissioning" (review #29)
+  inspection?: string; // Review #31
 }
 
 /**
@@ -106,6 +107,7 @@ export interface UpdateOfferInput {
   packingForwarding?: string;
   insurance?: string;
   erectionAfterPurchase?: string;
+  inspection?: string;
 }
 
 /**

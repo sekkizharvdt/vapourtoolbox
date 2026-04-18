@@ -519,10 +519,12 @@ export default function GRDetailClient() {
                 </Box>
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Payment Approval
+                    Payment Status
                   </Typography>
-                  {gr.approvedForPayment ? (
-                    <Chip label="Approved" color="success" size="small" />
+                  {gr.paymentRequestId ? (
+                    <Chip label="Cleared" color="success" size="small" />
+                  ) : gr.approvedForPayment ? (
+                    <Chip label="Approved for Payment" color="info" size="small" />
                   ) : (
                     <Chip label="Pending" color="default" size="small" />
                   )}
@@ -530,7 +532,7 @@ export default function GRDetailClient() {
                 {gr.paymentApprovedBy && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Payment Approved At
+                      Approved At
                     </Typography>
                     <Typography variant="body2">{formatDate(gr.paymentApprovedAt)}</Typography>
                   </Box>

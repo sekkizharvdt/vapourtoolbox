@@ -345,7 +345,7 @@ export default function GoodsReceiptsPage() {
                     <TableCell>Status</TableCell>
                     <TableCell>Condition</TableCell>
                     <TableCell>Issues</TableCell>
-                    <TableCell>Payment</TableCell>
+                    <TableCell>Payment Status</TableCell>
                     <TableCell>Inspection Date</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -394,8 +394,10 @@ export default function GoodsReceiptsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {gr.approvedForPayment ? (
-                          <Chip label="Approved" color="success" size="small" variant="outlined" />
+                        {gr.paymentRequestId ? (
+                          <Chip label="Cleared" color="success" size="small" variant="outlined" />
+                        ) : gr.approvedForPayment ? (
+                          <Chip label="Approved" color="info" size="small" variant="outlined" />
                         ) : gr.status === 'COMPLETED' ? (
                           <Chip label="Pending" color="warning" size="small" variant="outlined" />
                         ) : (

@@ -59,11 +59,16 @@ export interface Offer {
   warrantyTerms?: string;
 
   // Commercial cost components (for comparison)
-  exWorks?: string; // e.g., "Included", "At buyer's expense"
+  // Historic field name kept for Firestore compatibility; surfaced to users as
+  // "Price Basis" (per procurement review #29).
+  exWorks?: string; // UI label: "Price Basis" — e.g., "Ex-works Chennai", "FOR Site"
   transportation?: string; // e.g., "Included in price", "Extra @ actual"
   packingForwarding?: string; // e.g., "Included", "At cost"
   insurance?: string; // e.g., "Transit insurance by vendor", "At buyer's expense"
-  erectionAfterPurchase?: string; // e.g., "Not in scope", "Available at extra cost"
+  // Historic field name kept for Firestore compatibility; surfaced to users as
+  // "Erection & Commissioning" (per procurement review #29).
+  erectionAfterPurchase?: string; // UI label: "Erection & Commissioning"
+  inspection?: string; // e.g., "TPI by Buyer", "At works by Vendor" (review #31)
 
   // Evaluation
   status: OfferStatus;

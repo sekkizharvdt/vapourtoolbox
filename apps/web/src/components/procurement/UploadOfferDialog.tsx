@@ -131,6 +131,8 @@ interface SingleParserResult {
     packingForwarding?: string;
     insurance?: string;
     erectionAfterPurchase?: string;
+    inspection?: string;
+    discount?: number;
   };
   items: ParsedOfferItem[];
   totalItemsFound: number;
@@ -197,6 +199,7 @@ export default function UploadOfferDialog({
   const [packingForwarding, setPackingForwarding] = useState('');
   const [insurance, setInsurance] = useState('');
   const [erectionAfterPurchase, setErectionAfterPurchase] = useState('');
+  const [inspection, setInspection] = useState('');
 
   // Offer items
   const [offerItems, setOfferItems] = useState<OfferItemData[]>([]);
@@ -446,6 +449,7 @@ export default function UploadOfferDialog({
       if (result.header.insurance) setInsurance(result.header.insurance);
       if (result.header.erectionAfterPurchase)
         setErectionAfterPurchase(result.header.erectionAfterPurchase);
+      if (result.header.inspection) setInspection(result.header.inspection);
     }
 
     const updatedItems = [...offerItems];
@@ -548,6 +552,7 @@ export default function UploadOfferDialog({
         packingForwarding: packingForwarding || undefined,
         insurance: insurance || undefined,
         erectionAfterPurchase: erectionAfterPurchase || undefined,
+        inspection: inspection || undefined,
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
@@ -610,6 +615,7 @@ export default function UploadOfferDialog({
     setPackingForwarding('');
     setInsurance('');
     setErectionAfterPurchase('');
+    setInspection('');
     setOfferItems([]);
     setCreating(false);
     onClose();
@@ -1051,12 +1057,12 @@ export default function UploadOfferDialog({
                   </Typography>
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                     <TextField
-                      label="Ex-Works"
+                      label="Price Basis"
                       value={exWorks}
                       onChange={(e) => setExWorks(e.target.value)}
                       fullWidth
                       size="small"
-                      placeholder="e.g., Included in price"
+                      placeholder="e.g., Ex-works Chennai / FOR Site"
                     />
                     <TextField
                       label="Transportation"
@@ -1074,7 +1080,7 @@ export default function UploadOfferDialog({
                       onChange={(e) => setPackingForwarding(e.target.value)}
                       fullWidth
                       size="small"
-                      placeholder="e.g., Included"
+                      placeholder="e.g., Included / 2% extra"
                     />
                     <TextField
                       label="Insurance"
@@ -1085,14 +1091,24 @@ export default function UploadOfferDialog({
                       placeholder="e.g., Transit insurance by vendor"
                     />
                   </Stack>
-                  <TextField
-                    label="Erection after Purchase"
-                    value={erectionAfterPurchase}
-                    onChange={(e) => setErectionAfterPurchase(e.target.value)}
-                    fullWidth
-                    size="small"
-                    placeholder="e.g., Not in scope / Available at extra cost"
-                  />
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                    <TextField
+                      label="Erection & Commissioning"
+                      value={erectionAfterPurchase}
+                      onChange={(e) => setErectionAfterPurchase(e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g., Not in scope / Available at extra cost"
+                    />
+                    <TextField
+                      label="Inspection"
+                      value={inspection}
+                      onChange={(e) => setInspection(e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g., TPI by buyer / At works by vendor"
+                    />
+                  </Stack>
                 </Stack>
               </AccordionDetails>
             </Accordion>
