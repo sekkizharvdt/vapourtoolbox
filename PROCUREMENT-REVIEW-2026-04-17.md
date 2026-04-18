@@ -26,7 +26,7 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 | 7   | PO commercial terms not auto-populated from selected offer              | PO → New      | ✅ fixed 2026-04-17 |
 | 8   | PR attachments not carried into RFQ PDF                                 | RFQ → Create  | ✅ fixed 2026-04-17 |
 | 9   | PO Amendment — only single amendment type selectable                    | PO Amendment  | ✅ fixed 2026-04-17 |
-| 10  | Service Order module — only dashboard, missing New/View/Edit            | Service Order | ⬜                  |
+| 10  | Service Order module — only dashboard, missing New/View/Edit            | Service Order | ✅ fixed 2026-04-17 |
 
 ## P2 — UX Improvements
 
@@ -189,6 +189,25 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 - [`loadOffer()`](apps/web/src/app/procurement/pos/new/page.tsx#L119-L127) now applies these overrides on initial load; [`handleTemplateChange()`](apps/web/src/app/procurement/pos/new/page.tsx#L139-L152) re-applies them when the template changes so offer-derived values survive.
 - Added a **reference panel** in the Offer Summary showing the vendor's raw free-text terms (price basis, payment, delivery, warranty, P&F, transport, insurance, E&C) so the buyer can cross-check while filling the structured form.
 - **Scope boundary**: `paymentSchedule` (structured milestones) and `deliveryPeriod/Unit` can't be reliably parsed from free text like "50% advance / 50% balance" or "4–6 weeks" — users still set these manually, using the reference panel as context.
+
+### #10 Fix notes (2026-04-17)
+
+**Problem**: Service Orders had a dashboard and a detail page, but no New Service Order page — the dashboard's "New Service Order" button linked to a route that 404'd.
+
+**What was already in place**:
+
+- Type: [serviceOrder.ts](packages/types/src/procurement/serviceOrder.ts) — ServiceOrder, status enum, labels, colors.
+- Service: [serviceOrder/crud.ts](apps/web/src/lib/procurement/serviceOrder/crud.ts) — `createServiceOrder`, `listServiceOrders`, `getServiceOrderById`, `updateServiceOrderStatus`, `updateServiceOrder`.
+- Dashboard: [service-orders/page.tsx](apps/web/src/app/procurement/service-orders/page.tsx) — list + filter.
+- Detail: [[id]/ServiceOrderDetailClient.tsx](apps/web/src/app/procurement/service-orders/[id]/ServiceOrderDetailClient.tsx) — status stepper and transitions.
+
+**Fix**: Built [service-orders/new/page.tsx](apps/web/src/app/procurement/service-orders/new/page.tsx) modelled on the Work Completion new page:
+
+- PO picker (filtered to APPROVED / ISSUED / ACKNOWLEDGED / IN_PROGRESS / AMENDED).
+- Optional PO line-item linkage — preferring items with `itemType === 'SERVICE'`, fallback to all items for older POs; selecting a line seeds service catalog fields (`serviceId`, `serviceCode`, `serviceName`, `serviceCategory`).
+- Service details: name (required), category, description, estimated turnaround days, expected completion date.
+- Submits via `createServiceOrder()` using conditional spreads for every optional field (CLAUDE.md rule 12).
+- Navigates to the detail page on success. Dashboard's "New Service Order" button now lands on a working page.
 
 ### #8 Fix notes (2026-04-17)
 
