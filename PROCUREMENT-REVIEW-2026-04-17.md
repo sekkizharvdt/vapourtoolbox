@@ -25,7 +25,7 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 | 6   | PO offer number is system-generated, should reflect vendor offer number | PO → New      | ✅ fixed 2026-04-17 |
 | 7   | PO commercial terms not auto-populated from selected offer              | PO → New      | ✅ fixed 2026-04-17 |
 | 8   | PR attachments not carried into RFQ PDF                                 | RFQ → Create  | ✅ fixed 2026-04-17 |
-| 9   | PO Amendment — only single amendment type selectable                    | PO Amendment  | ⬜                  |
+| 9   | PO Amendment — only single amendment type selectable                    | PO Amendment  | ✅ fixed 2026-04-17 |
 | 10  | Service Order module — only dashboard, missing New/View/Edit            | Service Order | ⬜                  |
 
 ## P2 — UX Improvements
