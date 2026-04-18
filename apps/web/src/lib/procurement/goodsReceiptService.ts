@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  updateDoc,
   query,
   where,
   orderBy,
@@ -745,4 +746,54 @@ export async function listGoodsReceipts(
 
 export async function getGoodsReceiptsByPO(purchaseOrderId: string): Promise<GoodsReceipt[]> {
   return listGoodsReceipts({ purchaseOrderId });
+}
+
+// ============================================================================
+// UPDATE GR METADATA (editable while GR is not COMPLETED)
+// ============================================================================
+
+export interface UpdateGoodsReceiptMetadataInput {
+  inspectionType?: 'VENDOR_SITE' | 'DELIVERY_SITE' | 'THIRD_PARTY';
+  inspectionLocation?: string;
+  inspectionDate?: Date;
+  overallNotes?: string;
+  issuesSummary?: string;
+}
+
+/**
+ * Update overall inspection metadata on a GR that hasn't been finalised yet
+ * (status PENDING, IN_PROGRESS, or ISSUES_FOUND). Per-item quantities and PO
+ * delivery counts are NOT touched — those stay locked once the GR is created
+ * to keep the PO → GR chain consistent. Users edit line-item details before
+ * finalisation by deleting the GR and re-creating, or through the existing
+ * completeGR workflow.
+ */
+export async function updateGoodsReceiptMetadata(
+  grId: string,
+  input: UpdateGoodsReceiptMetadataInput,
+  userId: string
+): Promise<void> {
+  const { db } = getFirebase();
+
+  const gr = await getGRById(grId);
+  if (!gr) throw new Error('Goods Receipt not found');
+  if (gr.status === 'COMPLETED') {
+    throw new Error('Cannot edit a completed Goods Receipt');
+  }
+
+  const updateData: Record<string, unknown> = {
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  };
+
+  if (input.inspectionType !== undefined) updateData.inspectionType = input.inspectionType;
+  if (input.inspectionLocation !== undefined)
+    updateData.inspectionLocation = input.inspectionLocation;
+  if (input.inspectionDate !== undefined) {
+    updateData.inspectionDate = Timestamp.fromDate(input.inspectionDate);
+  }
+  if (input.overallNotes !== undefined) updateData.overallNotes = input.overallNotes;
+  if (input.issuesSummary !== undefined) updateData.issuesSummary = input.issuesSummary;
+
+  await updateDoc(doc(db, COLLECTIONS.GOODS_RECEIPTS, grId), updateData);
 }

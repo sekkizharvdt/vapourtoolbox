@@ -38,6 +38,7 @@ import {
   Warning as WarningIcon,
   Receipt as ReceiptIcon,
   Send as SendIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
@@ -304,6 +305,16 @@ export default function GRDetailClient() {
             </Box>
 
             <Stack direction="row" spacing={1}>
+              {/* Edit inspection metadata while the GR is still in progress. */}
+              {gr.status !== 'COMPLETED' && (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => router.push(`/procurement/goods-receipts/${grId}/edit`)}
+                >
+                  Edit
+                </Button>
+              )}
               {actions.canComplete && (
                 <Button
                   variant="contained"

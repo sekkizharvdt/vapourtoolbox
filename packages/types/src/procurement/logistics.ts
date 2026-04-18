@@ -173,6 +173,7 @@ export interface GoodsReceipt {
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  updatedBy?: string;
 }
 
 export interface GoodsReceiptItem {
