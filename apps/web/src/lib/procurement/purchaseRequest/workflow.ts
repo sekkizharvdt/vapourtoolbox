@@ -83,8 +83,10 @@ export async function submitPurchaseRequestForApproval(
         `Submitted purchase request ${pr.number} for approval`,
         {
           entityName: pr.number,
-          parentEntityType: pr.projectId ? 'PROJECT' : undefined,
-          parentEntityId: pr.projectId || undefined,
+          ...(pr.projectId && {
+            parentEntityType: 'PROJECT' as const,
+            parentEntityId: pr.projectId,
+          }),
           metadata: {
             title: pr.title,
             itemCount: pr.itemCount,
@@ -251,8 +253,10 @@ export async function approvePurchaseRequest(
         `Approved purchase request ${pr.number}`,
         {
           entityName: pr.number,
-          parentEntityType: pr.projectId ? 'PROJECT' : undefined,
-          parentEntityId: pr.projectId || undefined,
+          ...(pr.projectId && {
+            parentEntityType: 'PROJECT' as const,
+            parentEntityId: pr.projectId,
+          }),
           metadata: {
             title: pr.title,
             itemCount: items.length,
@@ -390,8 +394,10 @@ export async function rejectPurchaseRequest(
         {
           entityName: pr.number,
           severity: 'WARNING',
-          parentEntityType: pr.projectId ? 'PROJECT' : undefined,
-          parentEntityId: pr.projectId || undefined,
+          ...(pr.projectId && {
+            parentEntityType: 'PROJECT' as const,
+            parentEntityId: pr.projectId,
+          }),
           metadata: {
             title: pr.title,
             projectId: pr.projectId,

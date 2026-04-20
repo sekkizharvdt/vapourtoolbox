@@ -99,11 +99,13 @@ export async function createVersionSnapshot(
       }
     }
 
-    // Create version snapshot
+    // Create version snapshot. Inherit tenantId from the source PO so
+    // tenant-scoped queries / rules see the snapshot (CLAUDE.md rule 1).
     const versionData = {
       purchaseOrderId,
       versionNumber,
-      createdByAmendmentId: amendmentId || undefined,
+      ...(po.tenantId && { tenantId: po.tenantId }),
+      ...(amendmentId && { createdByAmendmentId: amendmentId }),
       amendmentNumber,
       snapshot: po,
       snapshotItems: items,

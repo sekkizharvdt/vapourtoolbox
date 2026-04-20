@@ -49,10 +49,11 @@ async function loadCompanyProfile(): Promise<POPDFCompanyProfile | undefined> {
       phone?: string;
       website?: string;
     };
+    const address = formatAddress(data.address);
     return {
       name: data.companyName || 'Vapour Desal Technologies Private Limited',
       legalName: data.legalName,
-      address: formatAddress(data.address) || undefined,
+      ...(address && { address }),
       gstin: data.taxIds?.gstin,
       pan: data.taxIds?.pan,
       email: data.email,
@@ -82,9 +83,10 @@ async function loadVendorProfile(
       mobile?: string;
       taxIds?: { gstin?: string };
     };
+    const address = formatAddress(data.billingAddress);
     return {
       name: data.name || fallbackName,
-      address: formatAddress(data.billingAddress) || undefined,
+      ...(address && { address }),
       contactPerson: data.contactPerson,
       email: data.email,
       phone: data.phone || data.mobile,

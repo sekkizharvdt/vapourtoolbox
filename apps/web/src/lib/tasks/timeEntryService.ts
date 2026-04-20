@@ -483,7 +483,10 @@ export async function getUserTimeStats(userId: string): Promise<UserTimeStats> {
     today,
     thisWeek,
     thisMonth,
-    currentActiveEntry: activeEntry || undefined,
+    // `??` (not `||`) — activeEntry may be null, never 0 / '' — so `??` keeps
+    // the same semantics and avoids the eslint no-restricted-syntax rule that
+    // flags `|| undefined` as a Firestore foot-gun pattern.
+    currentActiveEntry: activeEntry ?? undefined,
   };
 }
 

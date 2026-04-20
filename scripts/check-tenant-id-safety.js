@@ -285,6 +285,9 @@ function checkDocCreationHasTenantId() {
     'onDutyRecords',
     'periodLockAudit',
     'amendmentApprovalHistory',
+    'timeEntries',
+    'time_entries', // scoped by userId, not tenantId (see firestore.rules:300)
+    'TIME_ENTRIES', // matches `COLLECTIONS.TIME_ENTRIES` literal in source
   ];
 
   // Get staged .ts/.tsx files (only check what's being committed)
@@ -362,14 +365,23 @@ function checkDocCreationHasTenantId() {
       const preambleStart = Math.max(0, i - 10);
       const preamble = lines.slice(preambleStart, i).join('\n');
 
-      // Check if this targets a non-tenant-scoped collection
+      // Check if this targets a non-tenant-scoped collection.
+      // Matches either a literal string ('time_entries' / "time_entries")
+      // OR a COLLECTIONS.KEY reference (SCREAMING_SNAKE_CASE with word boundary),
+      // so files that reference collections via `COLLECTIONS.TIME_ENTRIES` are
+      // recognised too.
       const fullContext = preamble + '\n' + statement;
       const isNonTenant = nonTenantCollections.some((col) => {
-        return (
+        const stringMatch =
           fullContext.includes(`'${col}'`) ||
           fullContext.includes(`"${col}"`) ||
-          fullContext.includes(`\`${col}\``)
-        );
+          fullContext.includes(`\`${col}\``);
+        if (stringMatch) return true;
+        // Bare identifier match for SCREAMING_SNAKE_CASE collection keys.
+        if (/^[A-Z][A-Z0-9_]*$/.test(col)) {
+          return new RegExp(`\\b${col}\\b`).test(fullContext);
+        }
+        return false;
       });
 
       if (isNonTenant) continue;

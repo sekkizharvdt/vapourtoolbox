@@ -17,8 +17,24 @@
         "objectLiteralTypeAssertions": "allow-as-parameter"
       }
     ],
-    "no-console": ["warn", { "allow": ["warn", "error"] }]
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-empty": ["error", { "allowEmptyCatch": true }]
   },
+  "overrides": [
+    {
+      "files": ["apps/web/src/lib/**/*.ts", "functions/src/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts", "**/*.spec.ts"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "Property > LogicalExpression[operator='||'][right.type='Identifier'][right.name='undefined']",
+            "message": "Using `value || undefined` in an object property is a Firestore foot-gun — the property becomes `undefined` and Firestore rejects it. Use a conditional spread instead: `...(value && { key: value })`. See CLAUDE.md rule 12."
+          }
+        ]
+      }
+    }
+  ],
   "env": {
     "node": true,
     "browser": true,
