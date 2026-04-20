@@ -46,6 +46,7 @@ import {
   createPRFromCharterItem,
 } from '@/lib/projects/charterProcurementService';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 
 interface ProcurementTabProps {
   project: Project;
@@ -84,6 +85,7 @@ const EMPTY_FORM: ProcurementItemFormData = {
 export function ProcurementTab({ project }: ProcurementTabProps) {
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ProcurementItem | null>(null);
   const [formData, setFormData] = useState<ProcurementItemFormData>(EMPTY_FORM);
@@ -259,7 +261,7 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
         userName
       );
 
-      alert(`Purchase Request ${result.prNumber} created successfully!`);
+      toast.success(`Purchase Request ${result.prNumber} created successfully`);
     } catch (err) {
       console.error('[ProcurementTab] Error creating PR:', err);
       setError(err instanceof Error ? err.message : 'Failed to create purchase request');

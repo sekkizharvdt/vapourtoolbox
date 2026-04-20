@@ -26,6 +26,7 @@ import CalculationResults from '@/components/shapes/CalculationResults';
 import FormulaTester from '@/components/shapes/FormulaTester';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
 import type { Shape, Material } from '@vapour/types';
+import { useToast } from '@/components/common/Toast';
 
 // Flattened calculation result for display (not the database structure)
 type CalculationResult = Record<string, unknown>;
@@ -33,6 +34,7 @@ type CalculationResult = Record<string, unknown>;
 export default function ShapeCalculatorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
 
   // State management
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -188,9 +190,10 @@ export default function ShapeCalculatorPage() {
     // Copy current URL to clipboard
     try {
       await navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
+      toast.success('Link copied to clipboard');
     } catch (err) {
       console.error('Failed to copy link:', err);
+      toast.error('Failed to copy link');
     }
   };
 

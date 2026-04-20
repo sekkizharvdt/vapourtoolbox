@@ -12,6 +12,7 @@ import { useEditableList } from './scope/useEditableList';
 import { EditableListSection } from './scope/EditableListSection';
 import { DeliveryPeriodSection } from './scope/DeliveryPeriodSection';
 import { ConstraintsSection } from './scope/ConstraintsSection';
+import { useToast } from '@/components/common/Toast';
 
 interface ScopeTabProps {
   project: Project;
@@ -19,6 +20,7 @@ interface ScopeTabProps {
 
 export function ScopeTab({ project }: ScopeTabProps) {
   const { claims, user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +77,7 @@ export function ScopeTab({ project }: ScopeTabProps) {
       });
 
       setDeliveryData(data);
-      alert('Delivery period updated successfully');
+      toast.success('Delivery period updated successfully');
     } catch (err) {
       console.error('[ScopeTab] Error saving delivery period:', err);
       setError(err instanceof Error ? err.message : 'Failed to save delivery period');
@@ -102,7 +104,7 @@ export function ScopeTab({ project }: ScopeTabProps) {
         updatedBy: userId,
       });
 
-      alert('Scope updated successfully');
+      toast.success('Scope updated successfully');
     } catch (err) {
       console.error('[ScopeTab] Error saving scope:', err);
       setError(err instanceof Error ? err.message : 'Failed to save scope');

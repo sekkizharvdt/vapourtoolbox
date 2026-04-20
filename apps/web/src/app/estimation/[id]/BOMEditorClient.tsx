@@ -29,6 +29,7 @@ import { createLogger } from '@vapour/logger';
 import type { BOM, BOMItem, BOMStatus } from '@vapour/types';
 import AddBOMItemDialog, { type AddItemData } from '@/components/bom/AddBOMItemDialog';
 import GeneratePDFDialog from '@/components/bom/GeneratePDFDialog';
+import { useToast } from '@/components/common/Toast';
 
 const logger = createLogger({ context: 'BOMEditorPage' });
 
@@ -46,6 +47,7 @@ export default function BOMEditorClient() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
+  const { toast } = useToast();
 
   const [bom, setBOM] = useState<BOM | null>(null);
   const [items, setItems] = useState<BOMItem[]>([]);
@@ -118,7 +120,7 @@ export default function BOMEditorClient() {
 
       // Reload BOM to get updated summary
       await loadBOM();
-      alert('Cost calculation completed successfully!');
+      toast.success('Cost calculation completed');
     } catch (err) {
       logger.error('Error calculating costs', { error: err });
       setError('Failed to calculate costs. Please try again.');

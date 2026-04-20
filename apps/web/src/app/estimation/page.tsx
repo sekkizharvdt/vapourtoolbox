@@ -24,6 +24,7 @@ import { listBOMs, deleteBOM } from '@/lib/bom/bomService';
 import { createLogger } from '@vapour/logger';
 import type { BOM, BOMCategory } from '@vapour/types';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 
 const logger = createLogger({ context: 'EstimationPage' });
 
@@ -47,6 +48,7 @@ export default function EstimationPage() {
   const { user, claims } = useAuth();
   const { db } = getFirebase();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
 
   const tenantId = claims?.tenantId || 'default-entity';
 
@@ -106,7 +108,7 @@ export default function EstimationPage() {
       loadBOMs(); // Reload list
     } catch (err) {
       logger.error('Error deleting BOM', { error: err });
-      alert('Failed to delete BOM. Please try again.');
+      toast.error('Failed to delete BOM. Please try again.');
     }
   };
 

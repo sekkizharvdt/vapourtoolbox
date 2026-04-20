@@ -12,6 +12,8 @@ import {
   markStatementAsReconciled,
 } from '@/lib/accounting/bankReconciliation';
 import { ReconciliationReport } from './ReconciliationReport';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { useReconciliationData } from './workspace/useReconciliationData';
 import { ReconciliationHeader } from './workspace/ReconciliationHeader';
 import { UnmatchedBankTable } from './workspace/UnmatchedBankTable';
@@ -26,6 +28,8 @@ interface ReconciliationWorkspaceProps {
 
 export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationWorkspaceProps) {
   const { user } = useAuth();
+  const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const {
     statement,
     bankTransactions,
@@ -76,7 +80,14 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
   };
 
   const handleUnmatch = async (bankTxnId: string) => {
-    if (!confirm('Are you sure you want to unmatch this transaction?')) return;
+    const ok = await confirm({
+      title: 'Unmatch Transaction',
+      message: 'Are you sure you want to unmatch this transaction?',
+      confirmText: 'Unmatch',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
 
     try {
       const { db } = getFirebase();
@@ -89,7 +100,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
 
   const handleAutoMatch = async () => {
     if (suggestions.length === 0) {
-      alert('No suggested matches found');
+      toast.info('No suggested matches found');
       return;
     }
 
@@ -111,7 +122,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
         );
       }
 
-      alert('Auto-matched ' + highConfidenceSuggestions.length + ' transactions');
+      toast.success(`Auto-matched ${highConfidenceSuggestions.length} transactions`);
     } catch (err) {
       console.error('[ReconciliationWorkspace] Error auto-matching:', err);
       setActionError('Failed to auto-match transactions');
@@ -120,10 +131,8 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
 
   const handleMarkAsReconciled = async () => {
     if (stats.reconciledCount < stats.totalCount) {
-      alert(
-        'Cannot mark as reconciled: ' +
-          (stats.totalCount - stats.reconciledCount) +
-          ' transactions are still unmatched'
+      toast.warning(
+        `Cannot mark as reconciled: ${stats.totalCount - stats.reconciledCount} transactions still unmatched`
       );
       return;
     }
@@ -131,7 +140,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
     try {
       const { db } = getFirebase();
       await markStatementAsReconciled(db, statementId, user?.uid || 'system');
-      alert('Statement marked as reconciled');
+      toast.success('Statement marked as reconciled');
       onBack();
     } catch (err) {
       console.error('[ReconciliationWorkspace] Error marking as reconciled:', err);

@@ -28,14 +28,7 @@ Violates UI-STANDARDS rule 6.1–6.2. Scope wider than initial estimate — **~4
 
 **1.2b — Accounting list pages** ☑ **DONE 2026-04-20** — 15 alert() sites across 6 files (journal-entries ×2, bills ×3, invoices ×2, payments ×2, trash ×4, gst-summary ×2) migrated to `toast.error()`. GST summary's long multi-line missing-accounts alert condensed to a single-line actionable toast pointing at the COA. Type-check passes.
 
-**1.2c — Success / info toasts**
-
-- ☐ [ProcurementTab.tsx:262](apps/web/src/app/projects/[id]/charter/components/ProcurementTab.tsx#L262) — PR created → `toast.success`
-- ☐ [ScopeTab.tsx:78,105](apps/web/src/app/projects/[id]/charter/components/ScopeTab.tsx#L78) — 2 success → `toast.success`
-- ☐ [ReconciliationWorkspace.tsx:92,114,123,134](apps/web/src/app/accounting/reconciliation/components/ReconciliationWorkspace.tsx#L92) — 4 sites
-- ☐ [BOMEditorClient.tsx:121](apps/web/src/app/estimation/[id]/BOMEditorClient.tsx#L121) — cost calc done → `toast.success`
-- ☐ [shapes/calculator/page.tsx:191](apps/web/src/app/dashboard/shapes/calculator/page.tsx#L191) — link copied → `toast.success`
-- ☐ [estimation/page.tsx:109](apps/web/src/app/estimation/page.tsx#L109) — BOM delete error → `toast.error`
+**1.2c — Success / info toasts** ☑ **DONE 2026-04-20** — 10 alert() sites across 6 files migrated to `toast.success` / `toast.info` / `toast.warning` / `toast.error` as appropriate. Also fixed a bare `confirm('…')` (global `window.confirm`) in ReconciliationWorkspace — converted to `useConfirmDialog()`.
 
 **1.2d — Placeholder / unavailable stubs**
 
@@ -139,4 +132,5 @@ One dedicated pass per module against the full UI-STANDARDS checklist (§10). Or
 
 - **1.1 `window.confirm()` → `useConfirmDialog()`** — 2026-04-20 — commit `41d69280` — 11 call sites across 9 files (ProcurementTab, EnquiryDetailClient, vendors/index, DocumentsTab, TDSChallanTracking, ObjectivesPageClient ×2, DocumentWorkList, DocumentSupplyList, DocumentLinks).
 - **1.2a procurement `alert()` → `toast.error()`** — 2026-04-20 — commit `66ee8338` — 8 call sites across 7 files (amendments, packing-lists, rfqs, goods-receipts, purchase-requests, pos, trash).
-- **1.2b accounting list `alert()` → `toast.error()`** — 2026-04-20 — 15 call sites across 6 files (journal-entries, bills, invoices, payments, trash, gst-summary).
+- **1.2b accounting list `alert()` → `toast.error()`** — 2026-04-20 — commit `94211c55` — 15 call sites across 6 files (journal-entries, bills, invoices, payments, trash, gst-summary).
+- **1.2c success/info toasts** — 2026-04-20 — 10 alert() sites across 6 files (ProcurementTab, ScopeTab, ReconciliationWorkspace ×4, BOMEditorClient, shapes/calculator, estimation). Also migrated one bare `confirm('…')` in ReconciliationWorkspace.
