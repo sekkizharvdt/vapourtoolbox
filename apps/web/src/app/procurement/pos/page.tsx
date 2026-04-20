@@ -56,6 +56,7 @@ import type { PurchaseOrder, PurchaseOrderStatus } from '@vapour/types';
 import { listPOs } from '@/lib/procurement/purchaseOrderService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { getFirebase } from '@/lib/firebase';
 import { softDeletePurchaseOrder } from '@/lib/procurement/procurementDeleteService';
 import { downloadPOListCSV } from '@/lib/procurement/purchaseOrder/exportPOList';
@@ -75,6 +76,7 @@ export default function PurchaseOrdersPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const { db } = getFirebase();
 
   const [loading, setLoading] = useState(true);
@@ -132,7 +134,7 @@ export default function PurchaseOrdersPage() {
     if (result.success) {
       setPOs((prev) => prev.filter((p) => p.id !== po.id));
     } else {
-      alert(result.error || 'Failed to delete purchase order');
+      toast.error(result.error || 'Failed to delete purchase order');
     }
   };
 

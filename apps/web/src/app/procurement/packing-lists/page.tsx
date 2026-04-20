@@ -58,6 +58,7 @@ import { downloadPLListCSV } from '@/lib/procurement/packingList/exportPLList';
 import { downloadPLListPDF } from '@/lib/procurement/packingList/plListPDF';
 import { softDeletePackingList } from '@/lib/procurement/procurementDeleteService';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 
@@ -65,6 +66,7 @@ export default function PackingListsPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const { db } = getFirebase();
 
   const [loading, setLoading] = useState(true);
@@ -127,7 +129,7 @@ export default function PackingListsPage() {
     if (result.success) {
       setPackingLists((prev) => prev.filter((p) => p.id !== pl.id));
     } else {
-      alert(result.error || 'Failed to delete packing list');
+      toast.error(result.error || 'Failed to delete packing list');
     }
   };
 

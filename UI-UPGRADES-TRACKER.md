@@ -12,22 +12,49 @@ Living punch list of UI/UX work derived from the 2026-04-20 audit and [UI-STANDA
 
 All 11 call sites across 9 files migrated to `useConfirmDialog()`. Destructive variants use `confirmColor: 'error'` + `focusConfirm: false` so Enter does not trigger delete. Also replaced one stray `alert('Failed…')` inside `TDSChallanTracking` with the page's existing `setError` surface. Type-check passes.
 
-### 1.2 🟠 Replace `alert()` with `Toast` / `<Alert>`
+### 1.2 🟠 Replace `alert()` with `Toast` (`useToast()`) / inline validation
 
-Violates UI-STANDARDS rule 6.1–6.2. 12 call sites across 10 files:
+Violates UI-STANDARDS rule 6.1–6.2. Scope wider than initial estimate — **~42 call sites** across ~20 files. Executed in batches to keep commits reviewable:
+
+**1.2a — Procurement list pages** (7 files, delete-error alerts, same pattern)
 
 - ☐ [procurement/amendments/page.tsx:130](apps/web/src/app/procurement/amendments/page.tsx#L130)
 - ☐ [procurement/packing-lists/page.tsx:130](apps/web/src/app/procurement/packing-lists/page.tsx#L130)
 - ☐ [procurement/rfqs/page.tsx:135](apps/web/src/app/procurement/rfqs/page.tsx#L135)
 - ☐ [procurement/goods-receipts/page.tsx:142](apps/web/src/app/procurement/goods-receipts/page.tsx#L142)
 - ☐ [procurement/purchase-requests/page.tsx:171](apps/web/src/app/procurement/purchase-requests/page.tsx#L171)
-- ☐ [procurement/trash/page.tsx:190,194](apps/web/src/app/procurement/trash/page.tsx#L190)
 - ☐ [procurement/pos/page.tsx:135](apps/web/src/app/procurement/pos/page.tsx#L135)
-- ☐ [ProcurementTab.tsx:251](apps/web/src/app/projects/[id]/charter/components/ProcurementTab.tsx#L251) — success toast, not alert
-- ☐ [ConstraintsSection.tsx:91](apps/web/src/app/projects/[id]/charter/components/scope/ConstraintsSection.tsx#L91) — validation → field-level error
-- ☐ [ScopeTab.tsx:78,105](apps/web/src/app/projects/[id]/charter/components/ScopeTab.tsx#L78) — success → Toast
+- ☐ [procurement/trash/page.tsx:190,194](apps/web/src/app/procurement/trash/page.tsx#L190) — 2 sites
 
-**Pattern:** Errors → `<Alert severity="error">` on the page; successes → `Toast`; validation messages → `TextField error + helperText`.
+**1.2b — Accounting list pages** (same pattern)
+
+- ☐ [accounting/journal-entries/page.tsx:138,142](apps/web/src/app/accounting/journal-entries/page.tsx#L138)
+- ☐ [accounting/bills/page.tsx:271,275,326](apps/web/src/app/accounting/bills/page.tsx#L271)
+- ☐ [accounting/invoices/page.tsx:224,228](apps/web/src/app/accounting/invoices/page.tsx#L224)
+- ☐ [accounting/payments/page.tsx:194,198](apps/web/src/app/accounting/payments/page.tsx#L194)
+- ☐ [accounting/trash/page.tsx:121,125,146,150](apps/web/src/app/accounting/trash/page.tsx#L121)
+- ☐ [accounting/reports/gst-summary/page.tsx:96,159](apps/web/src/app/accounting/reports/gst-summary/page.tsx#L96)
+
+**1.2c — Success / info toasts**
+
+- ☐ [ProcurementTab.tsx:262](apps/web/src/app/projects/[id]/charter/components/ProcurementTab.tsx#L262) — PR created → `toast.success`
+- ☐ [ScopeTab.tsx:78,105](apps/web/src/app/projects/[id]/charter/components/ScopeTab.tsx#L78) — 2 success → `toast.success`
+- ☐ [ReconciliationWorkspace.tsx:92,114,123,134](apps/web/src/app/accounting/reconciliation/components/ReconciliationWorkspace.tsx#L92) — 4 sites
+- ☐ [BOMEditorClient.tsx:121](apps/web/src/app/estimation/[id]/BOMEditorClient.tsx#L121) — cost calc done → `toast.success`
+- ☐ [shapes/calculator/page.tsx:191](apps/web/src/app/dashboard/shapes/calculator/page.tsx#L191) — link copied → `toast.success`
+- ☐ [estimation/page.tsx:109](apps/web/src/app/estimation/page.tsx#L109) — BOM delete error → `toast.error`
+
+**1.2d — Placeholder / unavailable stubs**
+
+- ☐ [ssot/page.tsx:115](apps/web/src/app/ssot/page.tsx#L115) — "Excel export coming soon" → `toast.info`
+- ☐ [DocumentSupplyList.tsx:119](apps/web/src/app/documents/components/DocumentSupplyList.tsx#L119) — not-yet-implemented → `toast.info`
+- ☐ [TransmittalsList.tsx:150,155,177,186,191,213](apps/web/src/app/documents/components/transmittals/TransmittalsList.tsx#L150) — 6 sites (file unavailable, download errors) → `toast.error` / `toast.info`
+
+**1.2e — Inline validation (not a toast)**
+
+- ☐ [ConstraintsSection.tsx:91](apps/web/src/app/projects/[id]/charter/components/scope/ConstraintsSection.tsx#L91) — "Description is required" → `TextField error + helperText`
+
+**Pattern:** errors → `toast.error(...)`; successes/info → `toast.success` / `toast.info`; validation → field-level `error + helperText` (rule 3.6). `useToast()` already wired via `ToastProvider` in `ClientProviders.tsx`.
 
 ### 1.3 🟠 Required-field asterisks on custom selectors
 

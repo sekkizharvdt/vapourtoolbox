@@ -36,6 +36,7 @@ import { hasPermission, PERMISSION_FLAGS, canViewProcurement } from '@vapour/con
 import { formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { restoreProcurementDocument } from '@/lib/procurement/procurementDeleteService';
 
 type ProcurementDocType =
@@ -80,6 +81,7 @@ export default function ProcurementTrashPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
@@ -187,11 +189,11 @@ export default function ProcurementTrashPage() {
         // Remove from local state
         setDeletedDocs((prev) => prev.filter((d) => d.id !== doc.id));
       } else {
-        alert(result.error || 'Failed to restore document');
+        toast.error(result.error || 'Failed to restore document');
       }
     } catch (error) {
       console.error('[ProcurementTrash] Error restoring document:', error);
-      alert('Failed to restore document');
+      toast.error('Failed to restore document');
     }
   };
 

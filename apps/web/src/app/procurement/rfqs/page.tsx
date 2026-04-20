@@ -63,6 +63,7 @@ import {
 } from '@/lib/procurement/rfqHelpers';
 import { formatDate } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { getFirebase } from '@/lib/firebase';
 import { softDeleteRFQ } from '@/lib/procurement/procurementDeleteService';
 import { downloadRFQListCSV } from '@/lib/procurement/rfq/exportRFQList';
@@ -73,6 +74,7 @@ export default function RFQsPage() {
   const searchParams = useSearchParams();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const { db } = getFirebase();
   const [loading, setLoading] = useState(true);
   const [rfqs, setRfqs] = useState<RFQ[]>([]);
@@ -132,7 +134,7 @@ export default function RFQsPage() {
     if (result.success) {
       setRfqs((prev) => prev.filter((r) => r.id !== rfq.id));
     } else {
-      alert(result.error || 'Failed to delete RFQ');
+      toast.error(result.error || 'Failed to delete RFQ');
     }
   };
 

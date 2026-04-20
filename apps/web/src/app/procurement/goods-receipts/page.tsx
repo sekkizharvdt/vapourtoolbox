@@ -62,12 +62,14 @@ import { downloadGRListCSV } from '@/lib/procurement/goodsReceipt/exportGRList';
 import { downloadGRListPDF } from '@/lib/procurement/goodsReceipt/grListPDF';
 import { softDeleteGoodsReceipt } from '@/lib/procurement/procurementDeleteService';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { getFirebase } from '@/lib/firebase';
 
 export default function GoodsReceiptsPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const { db } = getFirebase();
 
   const [loading, setLoading] = useState(true);
@@ -139,7 +141,7 @@ export default function GoodsReceiptsPage() {
     if (result.success) {
       setGoodsReceipts((prev) => prev.filter((g) => g.id !== gr.id));
     } else {
-      alert(result.error || 'Failed to delete goods receipt');
+      toast.error(result.error || 'Failed to delete goods receipt');
     }
   };
 

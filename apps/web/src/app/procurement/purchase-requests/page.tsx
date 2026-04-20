@@ -52,6 +52,7 @@ import type { PurchaseRequest } from '@vapour/types';
 import { listPurchaseRequests } from '@/lib/procurement/purchaseRequest';
 import { formatDate } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { getFirebase } from '@/lib/firebase';
 import { softDeletePurchaseRequest } from '@/lib/procurement/procurementDeleteService';
 import { downloadPRListCSV } from '@/lib/procurement/purchaseRequest/exportPRList';
@@ -61,6 +62,7 @@ export default function PurchaseRequestsPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const { db } = getFirebase();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
@@ -168,7 +170,7 @@ export default function PurchaseRequestsPage() {
     if (result.success) {
       setRequests((prev) => prev.filter((r) => r.id !== pr.id));
     } else {
-      alert(result.error || 'Failed to delete purchase request');
+      toast.error(result.error || 'Failed to delete purchase request');
     }
   };
 

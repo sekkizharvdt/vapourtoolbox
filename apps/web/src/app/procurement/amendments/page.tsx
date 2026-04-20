@@ -66,6 +66,7 @@ import { downloadAmendmentListCSV } from '@/lib/procurement/amendment/exportAmen
 import { downloadAmendmentListPDF } from '@/lib/procurement/amendment/amendmentListPDF';
 import { softDeleteAmendment } from '@/lib/procurement/procurementDeleteService';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 type AmendmentStatus = PurchaseOrderAmendment['status'];
@@ -74,6 +75,7 @@ export default function AmendmentsListPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -127,7 +129,7 @@ export default function AmendmentsListPage() {
     if (result.success) {
       setAmendments((prev) => prev.filter((a) => a.id !== amendment.id));
     } else {
-      alert(result.error || 'Failed to delete amendment');
+      toast.error(result.error || 'Failed to delete amendment');
     }
   };
 
