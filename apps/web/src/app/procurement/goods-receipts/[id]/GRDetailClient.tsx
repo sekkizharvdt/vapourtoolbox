@@ -521,8 +521,17 @@ export default function GRDetailClient() {
                   <Typography variant="body2" color="text.secondary">
                     Payment Status
                   </Typography>
-                  {gr.paymentRequestId ? (
+                  {/* Prefer the denormalised `paymentStatus` written by
+                      syncPOPaymentStatusOnVendorPayment. Fall back to the
+                      pre-payment signals so older GRs still render a chip. */}
+                  {gr.paymentStatus === 'CLEARED' ? (
                     <Chip label="Cleared" color="success" size="small" />
+                  ) : gr.paymentStatus === 'PARTLY_CLEARED' ? (
+                    <Chip label="Partly Cleared" color="warning" size="small" />
+                  ) : gr.paymentStatus === 'APPROVED' ? (
+                    <Chip label="Approved for Payment" color="info" size="small" />
+                  ) : gr.paymentRequestId ? (
+                    <Chip label="Bill Created" color="info" size="small" />
                   ) : gr.approvedForPayment ? (
                     <Chip label="Approved for Payment" color="info" size="small" />
                   ) : (

@@ -394,10 +394,19 @@ export default function GoodsReceiptsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {gr.paymentRequestId ? (
+                        {gr.paymentStatus === 'CLEARED' ? (
                           <Chip label="Cleared" color="success" size="small" variant="outlined" />
-                        ) : gr.approvedForPayment ? (
+                        ) : gr.paymentStatus === 'PARTLY_CLEARED' ? (
+                          <Chip
+                            label="Partly Cleared"
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                          />
+                        ) : gr.paymentStatus === 'APPROVED' || gr.approvedForPayment ? (
                           <Chip label="Approved" color="info" size="small" variant="outlined" />
+                        ) : gr.paymentRequestId ? (
+                          <Chip label="Bill Created" color="info" size="small" variant="outlined" />
                         ) : gr.status === 'COMPLETED' ? (
                           <Chip label="Pending" color="warning" size="small" variant="outlined" />
                         ) : (

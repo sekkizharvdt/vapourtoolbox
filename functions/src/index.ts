@@ -63,6 +63,9 @@ export {
   onGoodsReceiptSyncToProject,
 } from './procurementProjectSync';
 
+// Import procurement payment status sync (keeps GR paymentStatus in sync with vendor payments)
+export { syncPOPaymentStatusOnVendorPayment } from './procurementPaymentStatus';
+
 // Import feedback functions
 export { onFeedbackResolved } from './feedback';
 

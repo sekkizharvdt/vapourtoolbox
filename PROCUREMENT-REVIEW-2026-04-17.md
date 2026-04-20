@@ -62,7 +62,7 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 | 33  | PO PDF: add Special Instructions block                                                      | PO PDF            | ✅                   |
 | 34  | PO PDF: restructure Commercial Terms + T&C sections                                         | PO PDF            | ✅                   |
 | 35  | PO PDF: rename Description → Vendor offer reference; full vendor + billing/delivery address | PO PDF            | ✅                   |
-| 36  | Goods Receipt: rename Payment Approval → Payment Status; auto-update Cleared/Partly Cleared | Goods Receipt     | 🟡 partial           |
+| 36  | Goods Receipt: rename Payment Approval → Payment Status; auto-update Cleared/Partly Cleared | Goods Receipt     | ✅                   |
 | 37  | (Alt) New Payment Status module for PO-wise tracking                                        | Payment Status    | ⬜ superseded by #36 |
 
 ---

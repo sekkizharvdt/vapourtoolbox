@@ -155,6 +155,18 @@ export interface GoodsReceipt {
   paymentApprovedAt?: Timestamp;
   paymentRequestId?: string; // Link to accounting
 
+  /**
+   * Rolled-up payment state against the whole source PO, maintained by the
+   * `syncPOPaymentStatusOnVendorPayment` Cloud Function. Denormalised onto
+   * the GR so dashboards can render the chip without fetching bills /
+   * payments live (review #36).
+   */
+  paymentStatus?: 'PENDING' | 'APPROVED' | 'PARTLY_CLEARED' | 'CLEARED';
+  /** Sum of `paidAmount` across all vendor bills for the GR's PO. */
+  totalPaidAgainstPO?: number;
+  /** Timestamp of the most recent paymentStatus recomputation. */
+  paymentStatusUpdatedAt?: Timestamp;
+
   // Sent to accounting for bill creation
   sentToAccountingAt?: Timestamp;
   accountingAssigneeId?: string;
