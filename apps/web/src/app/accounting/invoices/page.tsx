@@ -546,7 +546,13 @@ export default function InvoicesPage() {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={invoice.status}
+                        label={
+                          invoice.status === 'PENDING_APPROVAL'
+                            ? 'Pending Approval'
+                            : invoice.status
+                                .replace(/_/g, ' ')
+                                .replace(/\b\w/g, (c) => c.toUpperCase())
+                        }
                         size="small"
                         color={getStatusColor(invoice.status, 'invoice')}
                       />

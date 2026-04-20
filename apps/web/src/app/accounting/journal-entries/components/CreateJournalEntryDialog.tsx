@@ -532,6 +532,11 @@ export function CreateJournalEntryDialog({
       }
     >
       <Grid container spacing={2}>
+        {/* Section: Entry Details */}
+        <Grid size={{ xs: 12 }}>
+          <Typography variant="h6">Entry Details</Typography>
+        </Grid>
+
         <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth

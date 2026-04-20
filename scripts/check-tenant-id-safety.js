@@ -288,6 +288,12 @@ function checkDocCreationHasTenantId() {
     'timeEntries',
     'time_entries', // scoped by userId, not tenantId (see firestore.rules:300)
     'TIME_ENTRIES', // matches `COLLECTIONS.TIME_ENTRIES` literal in source
+    // Transactions are explicitly single-tenant per CLAUDE.md rule 1
+    // ("Transaction queries should NOT filter by tenant"). BaseTransaction
+    // has no tenantId field — entityId on transactions refers to the
+    // counterparty (vendor/customer), not the business tenant.
+    'transactions',
+    'TRANSACTIONS',
   ];
 
   // Get staged .ts/.tsx files (only check what's being committed)

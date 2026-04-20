@@ -366,6 +366,11 @@ export function CreateBillDialog({
       }
     >
       <Grid container spacing={2}>
+        {/* Section: Bill Details */}
+        <Grid size={{ xs: 12 }}>
+          <Typography variant="h6">Bill Details</Typography>
+        </Grid>
+
         {/* Vendor Bill/Invoice Number (editable) */}
         <TransactionNumberDisplay
           value={vendorBillNumber}

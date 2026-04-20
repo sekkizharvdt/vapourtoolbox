@@ -60,28 +60,36 @@ All 5 tables (PO list, bill list, invoice list, TransactionAllocationTable ×2, 
 
 ## Phase 2 — Structural Upgrades (larger, per-surface)
 
-### 2.1 🟠 Multi-step Transmittal dialog → MUI Stepper
+### 2.1 ☑ Multi-step Transmittal dialog — **DONE 2026-04-20**
 
-[GenerateTransmittalDialog.tsx](apps/web/src/app/documents/components/transmittals/GenerateTransmittalDialog.tsx) — 4 steps, no progress indicator, no per-step validation. Migrate to `<Stepper>`, disable Next until valid, add step-complete states.
+Reality check: the dialog **already had** an MUI `<Stepper>`, 3 steps (not 4), and per-step validation on step 0 (selected-docs guard). The original audit finding was partially incorrect.
 
-### 2.2 🟡 Section dense forms with dividers
+Improvements made:
 
-Violates UI-STANDARDS rule 2.6. Forms with 8+ inputs need "Basic Info / Line Items / Tax" groupings.
+- Added `completed={index < activeStep}` to each `<Step>` so users see a green tick as they advance.
+- Added a small helper-text line next to the Next button that explains _why_ it's disabled ("Select at least one document to continue"). Previously the disabled state was unexplained.
+- Restructured `DialogActions` to a column so the helper sits above the button row.
+- Fixed a stale doc comment that claimed 4 steps (actual: 3).
 
-- ☐ [CreateBillDialog.tsx](apps/web/src/app/accounting/bills/components/CreateBillDialog.tsx)
-- ☐ [CreateInvoiceDialog.tsx](apps/web/src/app/accounting/invoices/components/CreateInvoiceDialog.tsx)
-- ☐ [CreateJournalEntryDialog.tsx](apps/web/src/app/accounting/journal-entries/components/CreateJournalEntryDialog.tsx)
-- ☐ Purchase order create/edit form
-- ☐ Vendor bill create/edit form
+### 2.2 ◐ Section dense forms with dividers — **IN PROGRESS 2026-04-20**
 
-### 2.3 🟡 Status chips must carry text labels
+- ☑ [CreateBillDialog.tsx](apps/web/src/app/accounting/bills/components/CreateBillDialog.tsx) — added "Bill Details" h6 heading above the top fields block. Peers with the existing "Line Items" h6 and the "TDSSection" component that follows.
+- ☑ [CreateInvoiceDialog.tsx](apps/web/src/app/accounting/invoices/components/CreateInvoiceDialog.tsx) — added "Invoice Details" h6 heading.
+- ☑ [CreateJournalEntryDialog.tsx](apps/web/src/app/accounting/journal-entries/components/CreateJournalEntryDialog.tsx) — added "Entry Details" h6 heading.
+- ☐ Purchase order create/edit form — already has multiple h6 section headings; no change needed (verified).
+- ☐ Vendor bill create/edit form — same as CreateBillDialog (the "bill" in procurement terminology maps to the accounting vendor bill dialog). Covered by the item above.
 
-Violates UI-STANDARDS rule 6.3. Audit every `<Chip>` used for status — ensure `label` names the status, not just a color.
+### 2.3 ☑ Status chips must carry text labels — **DONE 2026-04-20**
 
-- ☐ Payment status chips (bills, invoices)
-- ☐ PO status chips
-- ☐ Task status chips (Flow)
-- ☐ Approval status chips
+Audited all four priority surfaces plus a broader sweep:
+
+- ☑ **Bills page** — `label={bill.status === 'PENDING_APPROVAL' ? 'Pending Approval' : ...}` ✓
+- ☑ **POs page** — `label={getPOStatusText(po.status)}`, delivery/payment via `.text` ✓
+- ☑ **Tasks** — hardcoded human labels ("Completed", "In Progress", "Info") ✓
+- ☑ **Task notifications** — `label={getStatusText(...)}` ✓
+- ☑ **Invoices page** — was rendering raw enum values (`label={invoice.status}` → "DRAFT", "PENDING_APPROVAL"). **Fixed** to match the bills-page pattern with snake_case-to-Title-Case conversion.
+
+Audit also checked for Chips without any `label` prop (color-only) — none found; all such matches in a regex sweep were false positives where the `label` sat on a subsequent line of a multi-line Chip JSX.
 
 ### 2.4 ◐ Extract `PageBreadcrumbs` primitive — **IN PROGRESS 2026-04-20**
 

@@ -3,12 +3,13 @@
 /**
  * Generate Transmittal Dialog
  *
- * Multi-step dialog for creating document transmittals
- * Steps:
- * 1. Select documents (with filters for ready documents)
- * 2. Add transmittal details (subject, notes, purpose)
- * 3. Preview transmittal PDF
- * 4. Generate and download ZIP
+ * Multi-step dialog for creating document transmittals. Three steps:
+ *   0. Select Documents    — at least one must be selected to advance
+ *   1. Transmittal Details — all fields optional
+ *   2. Preview & Generate  — generates PDF + ZIP, updates status
+ *
+ * UI-STANDARDS rule 2.5: Stepper shows completed states; Next button is
+ * gated per step; a helper line explains why Next is blocked.
  */
 
 import { useState } from 'react';
@@ -216,7 +217,19 @@ export default function GenerateTransmittalDialog({
   };
 
   const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
-  const canProceed = activeStep === 0 ? selectedDocIds.length > 0 : true;
+
+  // Per-step validation — returns empty string if the step can advance, else the blocker reason.
+  const stepBlocker = (() => {
+    if (activeStep === 0 && selectedDocIds.length === 0) {
+      return 'Select at least one document to continue';
+    }
+    return '';
+  })();
+  const canProceed = !stepBlocker;
+
+  // A step is visually "completed" once the user has advanced past it.
+  // This drives the green tick marker on the Stepper.
+  const isStepCompleted = (index: number) => index < activeStep;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
@@ -246,8 +259,8 @@ export default function GenerateTransmittalDialog({
 
           {/* Stepper */}
           <Stepper activeStep={activeStep}>
-            {STEPS.map((label) => (
-              <Step key={label}>
+            {STEPS.map((label, index) => (
+              <Step key={label} completed={isStepCompleted(index)}>
                 <StepLabel>{label}</StepLabel>
               </Step>
             ))}
@@ -289,30 +302,42 @@ export default function GenerateTransmittalDialog({
         </Stack>
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={handleClose} disabled={generating}>
-          Cancel
-        </Button>
-        {activeStep > 0 && (
-          <Button onClick={handleBack} disabled={generating}>
-            Back
-          </Button>
-        )}
-        {activeStep < STEPS.length - 1 && (
-          <Button variant="contained" onClick={handleNext} disabled={!canProceed}>
-            Next
-          </Button>
-        )}
-        {activeStep === STEPS.length - 1 && (
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleGenerate}
-            disabled={generating || selectedDocIds.length === 0}
+      <DialogActions sx={{ flexDirection: 'column', alignItems: 'stretch', px: 3, pb: 2 }}>
+        {/* Blocker helper — tells the user why Next is disabled */}
+        {stepBlocker && activeStep < STEPS.length - 1 && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ alignSelf: 'flex-end', mb: 0.5 }}
           >
-            {generating ? 'Generating...' : 'Generate & Download'}
-          </Button>
+            {stepBlocker}
+          </Typography>
         )}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button onClick={handleClose} disabled={generating}>
+            Cancel
+          </Button>
+          {activeStep > 0 && (
+            <Button onClick={handleBack} disabled={generating}>
+              Back
+            </Button>
+          )}
+          {activeStep < STEPS.length - 1 && (
+            <Button variant="contained" onClick={handleNext} disabled={!canProceed}>
+              Next
+            </Button>
+          )}
+          {activeStep === STEPS.length - 1 && (
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handleGenerate}
+              disabled={generating || selectedDocIds.length === 0}
+            >
+              {generating ? 'Generating...' : 'Generate & Download'}
+            </Button>
+          )}
+        </Box>
       </DialogActions>
     </Dialog>
   );

@@ -362,6 +362,11 @@ export function CreateInvoiceDialog({
       }
     >
       <Grid container spacing={2}>
+        {/* Section: Invoice Details */}
+        <Grid size={{ xs: 12 }}>
+          <Typography variant="h6">Invoice Details</Typography>
+        </Grid>
+
         {/* Invoice Number */}
         <TransactionNumberDisplay
           transactionNumber={editingInvoice?.transactionNumber}
