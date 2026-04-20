@@ -20,7 +20,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
-import { docToTyped } from '@/lib/firebase/typeHelpers';
+import { docToTyped, removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
 import type {
   Proposal,
   CreateProposalInput,
@@ -471,35 +471,6 @@ export async function listProposals(
 }
 
 /**
- * Recursively strip undefined values from an object.
- * Firestore rejects undefined at any nesting level.
- * Preserves Firestore Timestamps and other non-plain objects.
- */
-function stripUndefinedDeep(obj: Record<string, unknown>): Record<string, unknown> {
-  const clean = (value: unknown): unknown => {
-    if (value === undefined) return undefined;
-    if (value === null) return null;
-    // Duck-type check for Firestore Timestamp (instanceof fails in Jest mocks)
-    if (value != null && typeof value === 'object' && 'toDate' in value) return value;
-    if (Array.isArray(value)) return value.map(clean);
-    if (typeof value === 'object' && value.constructor === Object) {
-      return Object.fromEntries(
-        Object.entries(value as Record<string, unknown>)
-          .filter(([, v]) => v !== undefined)
-          .map(([k, v]) => [k, clean(v)])
-      );
-    }
-    return value;
-  };
-
-  return Object.fromEntries(
-    Object.entries(obj)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, clean(v)])
-  );
-}
-
-/**
  * Update proposal
  */
 export async function updateProposal(
@@ -525,7 +496,7 @@ export async function updateProposal(
 
     // Deep-strip undefined values before sending to Firestore (Firestore doesn't accept undefined)
     // Must be recursive because nested objects (e.g. scope items) may have optional fields
-    const cleanedUpdates = stripUndefinedDeep(updates);
+    const cleanedUpdates = removeUndefinedDeep(updates);
 
     await updateDoc(doc(db, COLLECTIONS.PROPOSALS, proposalId), cleanedUpdates);
 

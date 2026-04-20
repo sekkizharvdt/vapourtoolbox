@@ -85,6 +85,27 @@ jest.mock('@/lib/firebase/typeHelpers', () => ({
     const result = { id, ...data };
     return result as T;
   },
+  removeUndefinedDeep: <T extends Record<string, unknown>>(obj: T): T => {
+    const clean = (value: unknown): unknown => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      if (value != null && typeof value === 'object' && 'toDate' in value) return value;
+      if (Array.isArray(value)) return value.filter((v) => v !== undefined).map(clean);
+      if (typeof value === 'object' && (value as object).constructor === Object) {
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>)
+            .filter(([, v]) => v !== undefined)
+            .map(([k, v]) => [k, clean(v)])
+        );
+      }
+      return value;
+    };
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, clean(v)])
+    ) as T;
+  },
 }));
 
 import type { CreateProposalInput } from '@vapour/types';

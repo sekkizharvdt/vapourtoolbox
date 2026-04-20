@@ -118,15 +118,15 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 | accounting (payment batches)        | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | BatchPayment lacks sourcePaymentBatchId on created payments |
 | accounting (payment planning)       | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      |                                                             |
 | accounting (recurring transactions) | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | generated txns lack sourceRecurringTransactionId            |
-| hr (employees)                      | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| hr (leave)                          | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| hr (travel expenses)                | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| hr (time tracking)                  | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | time_entries allowlisted in tenant check                    |
-| hr (on-duty records)                | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| projects (core)                     | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| projects (proposals)                | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | `stripUndefinedDeep` local copy — migrate to shared         |
-| projects (BOMs)                     | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | cost estimation, materials linkage                          |
-| projects (cost configurations)      | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
+| hr (employees)                      | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/employees/new` — admin-gated?                          |
+| hr (leave)                          | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | LeaveRequest.department not denormalised                    |
+| hr (travel expenses)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | denorm complete; labels drift                               |
+| hr (time tracking)                  | ✅        | ✅           | 🟡         | N/A    | N/A          | 🟡      | TimeEntry link indirect via taskNotificationId              |
+| hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/on-duty/page.tsx` list route                           |
+| projects (core)                     | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | charter → PR carries project refs                           |
+| projects (proposals)                | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | stripUndefinedDeep migrated ✅ 2026-04-20                   |
+| projects (BOMs)                     | ✅        | ✅           | 🟡         | ✅     | ❌           | 🟡      | no standalone BOM UI — inline in proposals                  |
+| projects (cost configurations)      | ✅        | ✅           | ✅         | ✅     | ✅           | ✅      | enums already in constants                                  |
 | documents                           | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | document submissions, revisions, transmittals               |
 | enquiries                           | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
 | materials                           | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | shared reference data — writes via admin                    |
@@ -146,7 +146,7 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 2. **Form-from-schema pattern** (react-hook-form + zod). Not started. Best introduced on the next new create page as a reference implementation, then migrate existing forms opportunistically.
 3. **Playwright smoke test per Create flow**. Playwright is configured (`apps/web/e2e/`); procurement doesn't have a dedicated create-flow suite yet. Two-hour slot — covers "New button goes somewhere valid" and "Create → View round-trip" per module.
 4. **Quarterly domain review cadence**. Process, not code. Calendar reminder per module lead.
-5. **Migrate remaining `stripUndefinedDeep` / `removeUndefinedValues` local copies** to the shared `removeUndefinedDeep` helper. Known sites: `lib/proposals/proposalService.ts`.
+5. **Migrate remaining `stripUndefinedDeep` / `removeUndefinedValues` local copies** to the shared `removeUndefinedDeep` helper. `lib/proposals/proposalService.ts` migrated 2026-04-20 (session 858535e6+). No other known duplicates at time of writing — re-scan during each module sweep.
 6. **Label migration** from inline strings to `@vapour/constants/labels.ts`. Do as components are touched, not one-shot.
 
 ---
@@ -252,3 +252,109 @@ Composite indexes: all existing `where + orderBy` queries in accounting services
 #### shipped
 
 - `transactionNumberGenerator.ts` — `loadFYStartMonth` now logs warn on Firebase failure.
+
+### hr
+
+**Swept**: 2026-04-20 by sekkizhar (via explore agents)
+**Files audited**: 12 services in `apps/web/src/lib/hr/{employees,leaves,onDuty,travelExpenses,holidays}/`, `apps/web/src/lib/tasks/timeEntryService.ts`, HR pages in `apps/web/src/app/hr/`, types in `packages/types/src/hr/`, Cloud Function triggers in `functions/src/hr/`.
+
+#### undefined leaks
+
+Clean. ESLint rule holds. No local `removeUndefinedDeep` duplicates in HR services.
+
+#### silent catches
+
+Clean. All catches log via `logger.error` / `logger.warn` before throwing or returning a fallback. Verified samples: [leaveRequestService.ts:227-235](apps/web/src/lib/hr/leaves/leaveRequestService.ts#L227-L235), [pdfMergeUtils.ts:90-92](apps/web/src/lib/hr/travelExpenses/pdfMergeUtils.ts#L90-L92), [timeEntryService.ts:91-94](apps/web/src/lib/tasks/timeEntryService.ts#L91-L94), [leaveBalanceReset.ts:182](functions/src/hr/leaveBalanceReset.ts#L182).
+
+#### reference denorm
+
+- **Employee → LeaveRequest**: `department?` is on the type but **not denormalised at creation** ([leaveRequestService.ts:281+](apps/web/src/lib/hr/leaves/leaveRequestService.ts)). Leave dashboards filtered by department require client-side joins. Fix: accept `department` in create input, write at creation.
+- **Employee → TravelExpense**: complete ✅ — stores `employeeId`, `employeeName`, `department`, `projectId`, `projectName` at create.
+- **Employee → OnDutyRequest**: complete ✅ — stores `userId`, `userName`, `userEmail`, `department`.
+- **Project → TimeEntry**: TimeEntry ([packages/types/src/task.ts:184-209](packages/types/src/task.ts#L184-L209)) has only `userId` + `taskNotificationId`; no `projectId`/`projectNumber`/`projectName`. Link is transitive through the task notification. **Accept for now**: user has previously signalled time tracking is low-priority; denorm can wait until a project-level time report is actually built.
+
+#### labels
+
+No HR entries in `packages/constants/src/labels.ts`. Drift candidates (opportunistic migration):
+
+- Status chips `"Drafts"`, `"Pending"`, `"Approved"`, `"Rejected"`, `"Cancelled"` — appear inline across [travel-expenses/page.tsx:114-115](apps/web/src/app/hr/travel-expenses/page.tsx#L114), [on-duty/my-requests/page.tsx:48-53](apps/web/src/app/hr/on-duty/my-requests/page.tsx#L48-L53), [on-duty/[id]/OnDutyDetailClient.tsx:63-68](apps/web/src/app/hr/on-duty/[id]/OnDutyDetailClient.tsx#L63-L68), [leaves/[id]/LeaveDetailClient.tsx:451](apps/web/src/app/hr/leaves/[id]/LeaveDetailClient.tsx#L451). Suggest `LEAVE_STATUS_LABELS`, `ON_DUTY_STATUS_LABELS`, `TRAVEL_EXPENSE_STATUS_LABELS`.
+- Duplicate local status objects (OnDuty has one in `my-requests/page.tsx` and another in `OnDutyDetailClient.tsx`) — consolidate first.
+
+#### completeness
+
+| Submodule       | Pattern        | List                | Create               | View        | Edit                |
+| --------------- | -------------- | ------------------- | -------------------- | ----------- | ------------------- |
+| employees       | multi-route    | ✅                  | ❌ **no /new route** | ✅          | ✅ (dialog in [id]) |
+| leaves          | multi-route    | ✅                  | ✅                   | ✅          | ✅                  |
+| leave-calendar  | calendar view  | ✅                  | N/A                  | N/A         | N/A                 |
+| my-leaves       | personal list  | ✅                  | N/A                  | ✅ via [id] | N/A                 |
+| travel-expenses | multi-route    | ✅                  | ✅                   | ✅          | ✅                  |
+| on-duty         | partial        | ❌ **no /page.tsx** | ✅                   | ✅          | ✅ (dialog)         |
+| on-duty/my-req  | personal list  | ✅                  | N/A                  | ✅ via [id] | N/A                 |
+| holidays        | dialog-in-list | ✅                  | ✅                   | N/A         | ✅ (dialog)         |
+| time-tracking   | library-only   | N/A                 | N/A                  | N/A         | N/A                 |
+
+**Flags**:
+
+- `/hr/employees/new` missing. Employee creation appears to be admin-gated but no visible entry point from HR dashboard. Confirm with user — is this intentional (create via Admin/Users only) or should HR get a proper flow?
+- `/hr/on-duty/page.tsx` missing. Only a per-user `/my-requests` view exists. HR managers can't see a team-wide on-duty list.
+
+Composite indexes: verified for `leaveRequestService` (`userId+status+endDate+orderBy(startDate)`), `travelExpenseService` (`tenantId+employeeId+status+tripStartDate+orderBy(createdAt)` and `status+approverIds+orderBy(submittedAt)`), `onDutyRequestService`. All matching indexes present in `firestore.indexes.json`.
+
+#### shipped
+
+- (none — findings are all discoverable design questions or multi-file refactors; no one-line fixes surfaced)
+
+---
+
+### projects
+
+**Swept**: 2026-04-20 by sekkizhar (via explore agents)
+**Files audited**: `apps/web/src/lib/{projects,proposals,bom}/**/*.ts` (~18 service files), `apps/web/src/app/{projects,proposals}/**/*.tsx`, types in `packages/types/src/{project*,proposal*,bom}.ts`, related Cloud Functions.
+
+#### undefined leaks
+
+- [proposalService.ts:478-500](apps/web/src/lib/proposals/proposalService.ts) — local `stripUndefinedDeep` copy (flagged on tracker). **Fixed this session**: migrated to the shared `removeUndefinedDeep` helper. Same recursive semantics, Timestamp-preserving.
+
+No other local duplicates in projects / bom. BOM service uses correct filtering pattern at [bomService.ts:192-195](apps/web/src/lib/bom/bomService.ts#L192-L195); charter procurement uses shared helper at [charterProcurementService.ts:10](apps/web/src/lib/projects/charterProcurementService.ts#L10).
+
+#### silent catches
+
+Clean. All catches log and throw / return typed fallback with rationale. Verified: [charterProcurementService.ts:73](apps/web/src/lib/projects/charterProcurementService.ts#L73), [projectService.ts:49](apps/web/src/lib/projects/projectService.ts#L49), [approvalWorkflow.ts:93](apps/web/src/lib/proposals/approvalWorkflow.ts#L93), [bomCalculations.ts:126](apps/web/src/lib/bom/bomCalculations.ts#L126), [bomService.ts:71](apps/web/src/lib/bom/bomService.ts#L71).
+
+#### reference denorm
+
+- **Project → Proposal**: ✅ proposal stores `enquiryId`, `enquiryNumber`, `clientId`, `clientName`, `clientContactPerson`, `clientEmail` at create ([proposalService.ts:131-167](apps/web/src/lib/proposals/proposalService.ts#L131-L167)).
+- **Project → BOM**: ✅ BOM stores `projectId`, `projectName`, `proposalId`, `proposalNumber`, `enquiryId`, `enquiryNumber` ([bomService.ts:164-170](apps/web/src/lib/bom/bomService.ts#L164-L170)).
+- **Proposal → Revision**: 🟡 new revision inherits fields via copy ([proposalService.ts:566-585](apps/web/src/lib/proposals/proposalService.ts#L566-L585)) — `proposalNumber` is carried implicitly but not explicit in the payload. Low-risk but makes the intent less clear. Consider explicit spread at revision-creation.
+- **BOM → PR**: 🟡 PR header carries `charterItemId`, `projectId`, `projectName` ([charterProcurementService.ts:190-199](apps/web/src/lib/projects/charterProcurementService.ts#L190-L199)) but PR items don't carry `bomId` / `bomCode` for reverse traceability. When the user asks "which BOM did this PR item come from?" they can't answer without re-fetching the charter.
+- **Charter Item → PR**: ✅ carries project refs.
+
+#### labels
+
+No `PROPOSAL_STATUS_LABELS` / `PROJECT_STATUS_LABELS` in `packages/constants/src/labels.ts`. Drift:
+
+- `'Draft' / 'DRAFT'` — spread across [StatusBadge.tsx:17](apps/web/src/app/proposals/[id]/components/StatusBadge.tsx#L17), [proposals/list/page.tsx:50](apps/web/src/app/proposals/list/page.tsx#L50), [ProposalDetailClient.tsx:797](apps/web/src/app/proposals/[id]/ProposalDetailClient.tsx#L797), [MasterDocumentListTab.tsx:105](apps/web/src/app/projects/[id]/documents/components/MasterDocumentListTab.tsx#L105).
+- `'Pending Approval'`, `'Approved'`, `'Rejected'` — generic approval statuses across proposal workflow UI.
+- PR status `'DRAFT'` in [charterProcurementService.ts:227](apps/web/src/lib/projects/charterProcurementService.ts#L227) should align with the existing `PR_STATUS_CATEGORY_LABELS` already in `@vapour/constants`.
+
+BOM categories (`'Equipment'`, `'Material'`, `'Service'`, `'Bought Out'`) and project phase labels are already in enum constants — no drift there. ✅
+
+#### completeness
+
+| Submodule | Pattern         | List                      | Create                  | View                 | Edit                       |
+| --------- | --------------- | ------------------------- | ----------------------- | -------------------- | -------------------------- |
+| projects  | multi-route     | ✅ `/projects/list`       | ✅                      | ✅ `/projects/[id]`  | ✅ inline/dialog           |
+| charter   | nested tab      | ✅                        | ✅                      | ✅                   | ✅ (dialog)                |
+| proposals | multi-route     | ✅ `/proposals/list`      | ✅ dialog               | ✅ `/proposals/[id]` | ✅ `/proposals/[id]/scope` |
+| revisions | inline          | ✅ version list           | ✅ button               | ✅ inline            | inherited                  |
+| templates | multi-route     | ✅ `/proposals/templates` | ✅                      | ✅                   | N/A (Phase 2)              |
+| BOMs      | **inline-only** | ❌ no dedicated list      | only inline in proposal | only inline          | only inline                |
+
+**Flag**: BOM has no standalone UI routes. BOMs are only managed inline inside the proposal scope editor. If the user ever needs "show me all BOMs for project X" or "export BOM by BOM number across proposals", the current UX can't do it. Confirm with user whether this is intentional or an outstanding Phase 2 item.
+
+Composite indexes: all where+orderBy queries in projects, proposals, boms have matching indexes in `firestore.indexes.json`. No gaps.
+
+#### shipped
+
+- [proposalService.ts](apps/web/src/lib/proposals/proposalService.ts) — migrated `stripUndefinedDeep` local copy to shared `removeUndefinedDeep` from `lib/firebase/typeHelpers`. Removes ~28 lines of duplication. Same Timestamp-preserving semantics.
