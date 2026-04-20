@@ -13,3 +13,4 @@ export * from './thermal';
 export * from './indianStates';
 export * from './transactions';
 export * from './fields';
+export * from './labels';

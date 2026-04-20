@@ -297,6 +297,65 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
 25. **Cross-boundary field names MUST use shared constants** — fields written by Cloud Functions and read by the client (e.g., account balances) are defined in `packages/constants/src/fields.ts`. If renaming a Firestore field, update the constant and fix all compile errors.
 
+## Parent → Child Reference Denormalization
+
+26. **Every child document MUST denormalize its parent's identifying fields at creation** — drop the references once on write so downstream queries don't need to re-fetch the chain. Canonical chains in this repo:
+    - **Procurement**: PR → RFQ → Offer → PO → GR → WCC / VendorBill → VendorPayment
+    - **Accounting**: Invoice → Payment (allocation); Bill → Payment (allocation)
+    - **Projects**: Project → BOM → PR (via items)
+
+    Minimum fields every child carries for each parent in its chain:
+    - Parent's **document number** (human-readable, e.g. `RFQ/2026/001`)
+    - Parent's **date** (when the parent was created/issued)
+    - Parent's **key display fields** (vendor name, project name, title)
+
+    Example: when creating a PO from an offer, the PO must write `offerId`, `selectedOfferNumber` (system), `vendorOfferNumber` (vendor's own), `vendorOfferDate`, `rfqId`, `rfqNumber`, `vendorId`, `vendorName`, `projectIds`, `projectNames`. Dashboards and the PO PDF read these denormalized fields directly.
+
+## Error Handling
+
+27. **No silent catches** — every `catch` block MUST either call `logger.error(context, err)` with a meaningful context string and rethrow, OR call `logger.warn(...)` and gracefully degrade with a documented reason. Empty catches (`catch {}`, `catch (e) {}` with no logging) are prohibited. If the error is expected and safely ignorable, add a one-line comment explaining why before the catch returns.
+
+    ```typescript
+    // Good — surfaces the root cause
+    try {
+      await processDocument(...);
+    } catch (error) {
+      logger.error('[compareOfferParsers] Document AI failed', {
+        error: error instanceof Error ? error.message : String(error),
+        code: (error as { code?: string | number })?.code,
+      });
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+
+    // Bad — swallows the real error
+    try {
+      await processDocument(...);
+    } catch (error) {
+      return { success: false, error: 'Parsing failed' };
+    }
+    ```
+
+## Module Completeness
+
+28. **A new module ships with List + New + View + Edit, or not at all** — no more "dashboard first, the rest later." If the New button on a dashboard links to a route that doesn't exist, the module is incomplete. Checklist for every new entity in procurement / accounting / HR:
+    - List page with filters, pagination, and search
+    - New page with Create + Save-as-Draft where applicable
+    - View / detail page with status and workflow actions
+    - Edit page for fields that remain editable in non-terminal states
+    - Cloud Function triggers for status propagation (if applicable)
+    - Firestore security rules matching the permission model
+    - Composite indexes for every `where + orderBy` query (rule 2)
+
+## User-Visible Labels
+
+29. **User-visible strings MUST come from `@vapour/constants/labels.ts`** — not inline in components. This keeps a single source of truth for domain labels that change over time (e.g. "Ex-Works" → "Price Basis", "Payment Approval" → "Payment Status"). Any PR that introduces a new user-visible string adds a label constant first, then references it.
+
+    Applies to: form field labels, table column headers, status chips, enum values shown in dropdowns, dashboard cards, PDF section headings, email subject lines.
+
+    Does NOT apply to: code comments, error messages from server-side validation (kept close to the throw), dev-only console logs.
+
+    The constants file is reviewed quarterly with the domain user — suggest updates via a PR against `labels.ts`, not by changing strings in individual components.
+
 ## Data Dictionary — Key Collections
 
 | Collection                      | Entity-scoped              | Key Fields                                                                                                                                     | Written By                                             | Read By                                            |

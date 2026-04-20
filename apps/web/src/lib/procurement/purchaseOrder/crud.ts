@@ -46,44 +46,9 @@ import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
 import { rfqStateMachine } from '@/lib/workflow/stateMachines';
+import { removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Recursively remove undefined values from an object
- * Firestore doesn't accept undefined values, so we need to strip them
- */
-function removeUndefinedDeep<T extends Record<string, unknown>>(obj: T): T {
-  const result: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined) {
-      continue; // Skip undefined values
-    }
-
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      // Recursively clean nested objects
-      result[key] = removeUndefinedDeep(value as Record<string, unknown>);
-    } else if (Array.isArray(value)) {
-      // Clean arrays - remove undefined elements and clean objects within
-      result[key] = value
-        .filter((item) => item !== undefined)
-        .map((item) =>
-          item !== null && typeof item === 'object'
-            ? removeUndefinedDeep(item as Record<string, unknown>)
-            : item
-        );
-    } else {
-      result[key] = value;
-    }
-  }
-
-  return result as T;
-}
 
 // ============================================================================
 // PO NUMBER GENERATION (ATOMIC)

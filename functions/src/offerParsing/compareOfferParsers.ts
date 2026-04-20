@@ -617,9 +617,36 @@ export const compareOfferParsers = onCall(
     const [fileContent] = await file.download();
     logger.info('File downloaded', { size: fileContent.length });
 
-    // Run both parsers in parallel
+    // Claude is the primary parser; Google Document AI is opt-in via
+    // ENABLE_DOCUMENT_AI_COMPARISON env flag. Form Parser (the processor we
+    // currently have) is not suited to line-item quotations and has been
+    // returning empty results for every recent offer — running it by default
+    // just wastes the user's time. Flip the flag back on once Document AI is
+    // pointed at an Invoice Parser processor (review #4/#5).
+    const runDocumentAI = process.env.ENABLE_DOCUMENT_AI_COMPARISON === 'true';
+
+    const googleResultPromise: Promise<SingleParserResult> = runDocumentAI
+      ? parseWithGoogleDocumentAI(fileContent, data.mimeType, data.rfqItems)
+      : Promise.resolve<SingleParserResult>({
+          success: false,
+          error:
+            'Google Document AI comparison is disabled. Set ENABLE_DOCUMENT_AI_COMPARISON=true ' +
+            'on the function to re-enable once the processor is tuned (see procurement review #4/#5).',
+          items: [],
+          totalItemsFound: 0,
+          matchedItems: 0,
+          unmatchedItems: 0,
+          highConfidenceItems: 0,
+          lowConfidenceItems: 0,
+          calculatedSubtotal: 0,
+          calculatedTax: 0,
+          calculatedTotal: 0,
+          processingTimeMs: 0,
+          modelUsed: 'Google Document AI - Form Parser (disabled)',
+        });
+
     const [googleResult, claudeResult] = await Promise.all([
-      parseWithGoogleDocumentAI(fileContent, data.mimeType, data.rfqItems),
+      googleResultPromise,
       parseOfferWithClaude({
         fileName: data.fileName,
         storagePath: data.storagePath,
