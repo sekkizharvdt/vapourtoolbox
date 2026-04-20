@@ -278,8 +278,8 @@ export default function PurchaseOrdersPage() {
         </FilterBar>
 
         {/* PO Table */}
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 960 }}>
             <TableHead>
               <TableRow>
                 <TableCell>PO Number</TableCell>

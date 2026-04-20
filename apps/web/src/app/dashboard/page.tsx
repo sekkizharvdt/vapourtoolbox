@@ -69,7 +69,7 @@ export default function DashboardPage() {
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Welcome back, {user?.displayName || 'User'}
+          Welcome back, {user?.displayName || user?.email?.split('@')[0] || 'User'}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 0.5 }}>
           Here&apos;s what needs your attention today
@@ -139,28 +139,31 @@ export default function DashboardPage() {
         </Box>
       )}
 
-      {/* Coming Soon Modules */}
+      {/* Coming Soon Modules — compact strip instead of full-size card grid */}
       {!isLoadingStats && comingSoonModules.length > 0 && (
-        <Box>
-          <Typography variant="h6" component="h2" gutterBottom sx={{ mb: 2 }}>
-            Coming Soon
+        <Box
+          sx={{
+            mt: 2,
+            px: 2,
+            py: 1.5,
+            borderRadius: 1,
+            bgcolor: 'action.hover',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" fontWeight={600}>
+            Coming Soon:
           </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                md: 'repeat(2, 1fr)',
-                lg: 'repeat(3, 1fr)',
-                xl: 'repeat(4, 1fr)',
-              },
-              gap: 3,
-            }}
-          >
-            {comingSoonModules.map((module) => (
-              <ModuleCard key={module.id} module={module} />
-            ))}
-          </Box>
+          {comingSoonModules.map((module, i) => (
+            <Typography key={module.id} variant="body2" color="text.secondary">
+              {module.name}
+              {module.estimatedRelease ? ` (${module.estimatedRelease})` : ''}
+              {i < comingSoonModules.length - 1 ? ', ' : ''}
+            </Typography>
+          ))}
         </Box>
       )}
 

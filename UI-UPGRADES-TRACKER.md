@@ -36,27 +36,25 @@ Reality check: 5 of 6 selectors (AccountSelector, EntitySelector, ProjectSelecto
 
 All six selectors are now compliant with UI-STANDARDS rule 3.1.
 
-### 1.4 🟡 Wrap dense tables in horizontal scroll container
+### 1.4 ☑ Wrap dense tables in horizontal scroll container — **DONE 2026-04-20**
 
-Violates UI-STANDARDS rule 4.1. Ellipsis-only cells break on mobile.
+All 5 tables (PO list, bill list, invoice list, TransactionAllocationTable ×2, LineItemsTable) wrapped in `<TableContainer sx={{ overflowX: 'auto' }}>` with `<Table sx={{ minWidth: N }}>` — 960px for PO/invoice, 1100px for bills, 720px for the smaller allocation/line-items. At `xs` breakpoint the tables now scroll horizontally instead of truncating via ellipsis. UI-STANDARDS rule 4.1.
 
-- ☐ PO list table ([procurement/pos/page.tsx](apps/web/src/app/procurement/pos/page.tsx))
-- ☐ Bill list table ([accounting/bills/page.tsx](apps/web/src/app/accounting/bills/page.tsx))
-- ☐ Invoice list table ([accounting/invoices/page.tsx](apps/web/src/app/accounting/invoices/page.tsx))
-- ☐ Transaction allocation table ([components/accounting/TransactionAllocationTable.tsx](apps/web/src/components/accounting/TransactionAllocationTable.tsx))
-- ☐ Line items table ([components/accounting/shared/LineItemsTable.tsx](apps/web/src/components/accounting/shared/LineItemsTable.tsx))
+### 1.5 ☑ Sidebar polish (quick wins) — **DONE 2026-04-20**
 
-Wrap in `<TableContainer sx={{ overflowX: 'auto' }}>` with `<Table sx={{ minWidth: 720 }}>`.
+- ☑ **Coming-Soon affordance** — added `cursor: 'not-allowed'` on the `ListItem` wrapper (MUI sets `pointer-events: none` on the disabled `ListItemButton`, so the cursor comes from the parent) and a small primary-color dot badge on the icon in collapsed mode, mirroring the release-date chip shown in expanded mode.
+- ☑ **Collapsed-mode label collisions** — added optional `collapsedLabel` field to `ModuleDefinition` type ([modules.ts](packages/constants/src/modules.ts)), populated on `THERMAL_DESAL` (→ "Desal") and `THERMAL_CALCS` (→ "Calcs"). Sidebar falls back to first word of name when not set.
+- ☑ **Mobile close button** — added a close (`X`) IconButton in the sidebar Toolbar, shown only at `xs` breakpoint when not collapsed. `aria-label="Close navigation menu"`.
+- ☑ **⌘K discovery hint in sidebar** — added a small `Press ⌘K to search` line in the sidebar footer (above the collapse toggle). Desktop-only, hidden when collapsed.
+- ☑ **Parent highlight when admin sub-item is active** — verified already working. `isSelected = pathname.startsWith(module.path)` matches `/admin/users` against `/admin`. No change required.
 
-### 1.5 🟡 Sidebar polish (quick wins)
+### 1.6 ☑ Dashboard polish (quick wins) — **DONE 2026-04-20**
 
-Grouped sidebar improvements. [Sidebar.tsx](apps/web/src/components/dashboard/Sidebar.tsx) is 620 lines — these are all surface-level fixes that don't require splitting the file. Structural work lives in §2.5.
-
-- ☐ **Coming-Soon affordance** — MUI `disabled` already blocks clicks, but visual is only reduced opacity. Add `cursor: 'not-allowed'` and a small "Soon" dot/chip in collapsed mode (currently only expanded mode shows the release-date chip). UI-STANDARDS rule 5.3.
-- ☐ **Collapsed-mode label collisions** — [Sidebar.tsx:453](apps/web/src/components/dashboard/Sidebar.tsx#L453) uses `module.name.split(' ')[0]`, so "Thermal Calcs" and "Thermal Desal" both render as "Thermal". Fix: add a `shortLabel` field on each module (e.g. "Calcs" / "Desal") and fall back to first-word.
-- ☐ **Mobile close button** — mobile drawer ([Sidebar.tsx:575](apps/web/src/components/dashboard/Sidebar.tsx#L575)) only closes via backdrop tap. Add a visible close (`X`) icon in the drawer header on `xs`. UI-STANDARDS rule 8.3.
-- ☐ **⌘K discovery hint** — [CommandPalette.tsx](apps/web/src/components/common/CommandPalette.tsx) exists but isn't advertised. Add a small "⌘K" or "Ctrl K" hint pill in the sidebar header/footer so users discover the faster nav. For 15+ top-level items, this is the highest-impact change.
-- ☐ **Parent highlight when admin sub-item is active** — selecting an admin sub-item should keep the Admin parent visually selected; currently only the sub-item highlights.
+- ☑ **Permission-gate Quick Actions** — wired `useAuth` into `ActivityDashboard` and gate `View Enquiries` (`VIEW_PROPOSALS`), `New PR` (`MANAGE_PROCUREMENT`), and `Upload Document` (`MANAGE_DOCUMENTS` OR `SUBMIT_DOCUMENTS`). `Log Time` remains visible for all (the Flow module is open to all users).
+- ☑ **Drop redundant `View Details` button on ModuleCard** — replaced the hover-swap between `View Details` (non-hover) and `Open` (hover) with a single `Open` button that switches between `outlined` and `contained` on hover. Preserves height (no layout flicker) while removing the second CTA. Removed now-unused `Stack` import.
+- ☑ **"Overdue" zero-state color** — switched `#9CA3AF` → `#FCA5A5` (lighter red). Zero-state now reads as informative-but-empty rather than disabled.
+- ☑ **Welcome message email fallback** — `user?.displayName || user?.email?.split('@')[0] || 'User'` in dashboard header.
+- ☑ **Collapse "Coming Soon" grid** — replaced the 4-col grid of disabled cards with a single horizontal strip: "Coming Soon: Module Name (release), …" on `action.hover` background.
 
 ---
 
@@ -103,6 +101,18 @@ Two divergent implementations today (Data Health vs one-off procurement). Extrac
 
 For lists that cannot reasonably horizontal-scroll (too many columns), render a card view at `xs`. Candidates: PO list, bill list, invoice list.
 
+### 2.7 🟡 Dashboard — personalization & smart surfacing
+
+[dashboard/page.tsx](apps/web/src/app/dashboard/page.tsx) + [ActivityDashboard.tsx](apps/web/src/components/dashboard/ActivityDashboard.tsx). The bones are good; these are bigger bets that change what the dashboard _means_.
+
+- ☐ **"Available Modules" grid should show personalized activity, not duplicate the sidebar** — today cards mostly show `totalCount`, which is not actionable. Make every card display role-specific open-work counts ("3 POs awaiting your approval", "5 overdue tasks"), or compress the grid to a smaller strip since the sidebar already lists every module.
+- ☐ **Role-based module priority / user pinning** — different roles care about different modules. Simplest first step: honour per-role `module.priority` overrides. Second step: `localStorage` pinning ("⭐ pin to top") persisted per user.
+- ☐ **Cap + overflow for "Today's Focus"** — each group (Urgent / Tasks / Approvals / Other) currently renders every item inline. Cap at 5 per group and add a "Show N more →" link that jumps to the relevant module's filtered view.
+- ☐ **Unify refresh across cards and focus list** — [ActivityDashboard.tsx:302-309](apps/web/src/components/dashboard/ActivityDashboard.tsx#L302-L309) only refreshes focus items, not the 4 summary cards. Have one refresh that pulls everything.
+- ☐ **"Last updated" timestamp** — show the fetch time (e.g. "Updated 2 min ago") so users know how fresh the numbers are.
+- ☐ **Keyboard navigation across dashboard cards** — arrow keys should move focus between summary cards and module cards. A11y gap.
+- ☐ **Item aging in focus list** — approvals pending 3 weeks should look more urgent than approvals pending yesterday. Show relative age via chip color or a subtle "3w old" tag.
+
 ---
 
 ## Phase 3 — Module Deep Passes (after Phase 1–2)
@@ -131,3 +141,8 @@ One dedicated pass per module against the full UI-STANDARDS checklist (§10). Or
 With 1.2a–e complete, the app has **zero `alert()` or `window.confirm()` / `confirm()` calls in production code**.
 
 - **1.3 required-field asterisks on selectors** — 2026-04-20 — audit finding was largely incorrect; 5 of 6 selectors already rendered the asterisk correctly via `<TextField required>`. Added `required` + `error` props to `PurchaseOrderSelector` which was the only genuine gap.
+- **1.4 dense tables → horizontal-scroll containers** — 2026-04-20 — 5 tables (PO, bill, invoice, transaction allocation ×2, line items) wrapped with `overflowX: 'auto'` + `minWidth` (720-1100 depending on column count).
+- **1.5 sidebar polish** — 2026-04-20 — 5 items: coming-soon cursor + dot badge in collapsed mode, `collapsedLabel` for Thermal Desal/Calcs collision, mobile close button, ⌘K hint pill, admin-parent-highlight verified already working.
+- **1.6 dashboard polish** — 2026-04-20 — 5 items: permission-gated Quick Actions, single-button ModuleCard CTA (no more View Details vs Open swap), lighter-red overdue zero-state, email-local fallback in welcome, compact Coming Soon strip.
+
+**Phase 1 of the UI-UPGRADES-TRACKER is complete.** 64 individual fixes across 40+ files. App has zero `alert()` / `window.confirm()` / bare `confirm()` in production code, consistent dialog confirmations, typed toasts for all feedback, mobile-friendly tables, required-field support across all selectors, polished sidebar, and permission-aware dashboard. Phase 2 (structural upgrades) is the next lift.

@@ -58,6 +58,7 @@ import {
   Timeline as TimelineIcon,
   EventNote as EventNoteIcon,
   MiscellaneousServices as ServicesIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 // NOTE: Using <img> instead of next/image because app uses output: 'export'
@@ -291,8 +292,9 @@ function SidebarComponent({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
+          justifyContent: collapsed ? 'center' : 'space-between',
           px: collapsed ? 0 : 2,
+          gap: 1,
         }}
       >
         {collapsed ? (
@@ -318,7 +320,8 @@ function SidebarComponent({
         ) : (
           <Box
             sx={{
-              width: '100%',
+              flex: 1,
+              minWidth: 0,
               height: 48,
               position: 'relative',
               display: 'flex',
@@ -334,6 +337,17 @@ function SidebarComponent({
               style={{ objectFit: 'contain' }}
             />
           </Box>
+        )}
+        {/* Mobile-only close button — on desktop the drawer doesn't close */}
+        {!collapsed && isMobile && (
+          <IconButton
+            aria-label="Close navigation menu"
+            onClick={onMobileClose}
+            size="small"
+            sx={{ flexShrink: 0 }}
+          >
+            <CloseIcon />
+          </IconButton>
         )}
       </Toolbar>
       <Divider />
@@ -378,7 +392,11 @@ function SidebarComponent({
                 const showBadge = module.id === 'admin' && feedbackCount > 0 && !collapsed;
 
                 return (
-                  <ListItem key={module.id} disablePadding>
+                  <ListItem
+                    key={module.id}
+                    disablePadding
+                    sx={module.status === 'coming_soon' ? { cursor: 'not-allowed' } : undefined}
+                  >
                     <Tooltip
                       title={
                         collapsed
@@ -428,6 +446,15 @@ function SidebarComponent({
                               <Badge badgeContent={feedbackCount} color="error" max={99}>
                                 {moduleIcons[module.id]}
                               </Badge>
+                            ) : collapsed && module.status === 'coming_soon' ? (
+                              <Badge
+                                variant="dot"
+                                color="primary"
+                                overlap="circular"
+                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                              >
+                                {moduleIcons[module.id]}
+                              </Badge>
                             ) : (
                               moduleIcons[module.id]
                             )}
@@ -449,8 +476,8 @@ function SidebarComponent({
                                 color: category.isAdmin ? 'primary.main' : 'text.secondary',
                               }}
                             >
-                              {/* Use first word or short name */}
-                              {module.name.split(' ')[0]}
+                              {/* Prefer explicit collapsedLabel; fall back to first word of name */}
+                              {module.collapsedLabel || module.name.split(' ')[0]}
                             </Typography>
                           )}
                         </Box>
@@ -547,6 +574,40 @@ function SidebarComponent({
           </Box>
         ))}
       </Box>
+
+      {/* ⌘K discovery hint — only when expanded (desktop only; mobile users don't have a keyboard) */}
+      {!collapsed && (
+        <Box sx={{ px: 2, py: 1, display: { xs: 'none', md: 'block' } }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              fontSize: '0.7rem',
+            }}
+          >
+            Press
+            <Box
+              component="kbd"
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: '0.7rem',
+                px: 0.75,
+                py: 0.1,
+                borderRadius: 0.5,
+                bgcolor: 'action.hover',
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              ⌘K
+            </Box>
+            to search
+          </Typography>
+        </Box>
+      )}
 
       {/* Toggle Button */}
       <Divider />

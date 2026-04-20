@@ -634,8 +634,8 @@ export default function BillsPage() {
         </Paper>
       )}
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+        <Table sx={{ minWidth: 1100 }}>
           <TableHead>
             <TableRow>
               <TableCell>Date</TableCell>

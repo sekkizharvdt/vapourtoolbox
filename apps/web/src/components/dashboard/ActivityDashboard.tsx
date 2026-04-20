@@ -32,6 +32,8 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import PeopleIcon from '@mui/icons-material/People';
 import { useActivityDashboard, type ActionItem } from '@/lib/hooks/useActivityDashboard';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 
 /**
  * Get icon for action item type
@@ -180,6 +182,13 @@ function ActionItemSkeleton() {
  */
 export function ActivityDashboard() {
   const router = useRouter();
+  const { claims } = useAuth();
+  const perms = claims?.permissions || 0;
+  const canViewEnquiries = hasPermission(perms, PERMISSION_FLAGS.VIEW_PROPOSALS);
+  const canCreatePR = hasPermission(perms, PERMISSION_FLAGS.MANAGE_PROCUREMENT);
+  const canUploadDocument =
+    hasPermission(perms, PERMISSION_FLAGS.MANAGE_DOCUMENTS) ||
+    hasPermission(perms, PERMISSION_FLAGS.SUBMIT_DOCUMENTS);
   const { actionItems, summary, isLoading, refetch } = useActivityDashboard();
 
   const handleActionClick = (item: ActionItem) => {
@@ -277,7 +286,8 @@ export function ActivityDashboard() {
               title="Overdue"
               count={summary.data?.overdueItems || 0}
               icon={<WarningIcon />}
-              color={summary.data?.overdueItems ? '#EF4444' : '#9CA3AF'}
+              // Always red; lighter shade when zero so the card still reads as informative, not disabled
+              color={summary.data?.overdueItems ? '#EF4444' : '#FCA5A5'}
               onClick={() => router.push('/flow?filter=overdue')}
             />
           </>
@@ -428,22 +438,26 @@ export function ActivityDashboard() {
             Quick Actions
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button
-              variant="outlined"
-              size="small"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => router.push('/proposals/enquiries')}
-            >
-              View Enquiries
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => router.push('/procurement/purchase-requests/new')}
-            >
-              New PR
-            </Button>
+            {canViewEnquiries && (
+              <Button
+                variant="outlined"
+                size="small"
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => router.push('/proposals/enquiries')}
+              >
+                View Enquiries
+              </Button>
+            )}
+            {canCreatePR && (
+              <Button
+                variant="outlined"
+                size="small"
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => router.push('/procurement/purchase-requests/new')}
+              >
+                New PR
+              </Button>
+            )}
             <Button
               variant="outlined"
               size="small"
@@ -452,14 +466,16 @@ export function ActivityDashboard() {
             >
               Log Time
             </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => router.push('/documents')}
-            >
-              Upload Document
-            </Button>
+            {canUploadDocument && (
+              <Button
+                variant="outlined"
+                size="small"
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => router.push('/documents')}
+              >
+                Upload Document
+              </Button>
+            )}
           </Stack>
         </CardContent>
       </Card>

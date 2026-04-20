@@ -114,8 +114,8 @@ export function TransactionAllocationTable({
         </Grid>
 
         <Grid size={{ xs: 12 }}>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
+          <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>{entityLabel} Number</TableCell>
@@ -233,8 +233,8 @@ export function TransactionAllocationTable({
 
   // Compact variant (used by vendor payments)
   return (
-    <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-      <Table size="small">
+    <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, overflowX: 'auto' }}>
+      <Table size="small" sx={{ minWidth: 720 }}>
         <TableHead>
           <TableRow sx={{ bgcolor: 'action.hover' }}>
             <TableCell>

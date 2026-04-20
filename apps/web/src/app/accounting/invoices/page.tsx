@@ -485,8 +485,8 @@ export default function InvoicesPage() {
         </FormControl>
       </FilterBar>
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+        <Table sx={{ minWidth: 960 }}>
           <TableHead>
             <TableRow>
               <TableCell>Date</TableCell>

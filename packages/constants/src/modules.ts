@@ -8,6 +8,8 @@ export interface ModuleDefinition {
   id: string;
   name: string;
   shortName?: string;
+  /** Single-word label for the collapsed sidebar. Falls back to the first word of `name`. Set explicitly when the first word collides (e.g. Thermal Desal / Thermal Calcs both render "Thermal" without this). */
+  collapsedLabel?: string;
   description: string;
   icon: string; // Material UI icon name
   color: string;
@@ -214,6 +216,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     id: 'thermal-desal',
     name: 'Thermal Desalination Design',
     shortName: 'Thermal Desal',
+    collapsedLabel: 'Desal',
     description: 'Design calculations for thermal desalination processes (MED/MSF)',
     icon: 'Thermostat',
     color: '#EF4444', // Red
@@ -228,6 +231,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     id: 'thermal-calcs',
     name: 'Thermal Calculators',
     shortName: 'Thermal Calcs',
+    collapsedLabel: 'Calcs',
     description:
       'Engineering calculators for thermal processes (steam tables, seawater properties, pipe sizing)',
     icon: 'Calculate',

@@ -17,7 +17,6 @@ import {
   Box,
   Chip,
   Badge,
-  Stack,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -168,33 +167,24 @@ function ModuleCardComponent({ module, stats }: ModuleCardProps) {
         )}
       </CardContent>
 
-      {/* Quick Actions (visible on hover) */}
-      {!isComingSoon && isHovered && (
+      {/* Static "Open" CTA — whole card is clickable, this is just a visual affordance. Intensifies on hover via the module color. */}
+      {!isComingSoon && (
         <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              variant="contained"
-              endIcon={<ArrowForwardIcon />}
-              sx={{
+          <Button
+            size="small"
+            variant={isHovered ? 'contained' : 'outlined'}
+            endIcon={<ArrowForwardIcon />}
+            sx={{
+              ...(isHovered && {
                 backgroundColor: config.color,
                 '&:hover': {
                   backgroundColor: config.color,
                   filter: 'brightness(0.9)',
                 },
-              }}
-            >
-              Open
-            </Button>
-          </Stack>
-        </CardActions>
-      )}
-
-      {/* Default Action (not hovered) */}
-      {!isComingSoon && !isHovered && (
-        <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <Button size="small" endIcon={<ArrowForwardIcon />}>
-            View Details
+              }),
+            }}
+          >
+            Open
           </Button>
         </CardActions>
       )}

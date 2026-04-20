@@ -121,8 +121,8 @@ export function LineItemsTable({
   const baseColCount = showAccountSelector ? 7 : 6;
   return (
     <Box>
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
+      <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 720 }}>
           <TableHead>
             <TableRow>
               <TableCell width={showAccountSelector ? '20%' : '30%'}>Description</TableCell>
