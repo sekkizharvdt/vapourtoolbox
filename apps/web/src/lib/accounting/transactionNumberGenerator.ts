@@ -76,8 +76,11 @@ async function loadFYStartMonth(): Promise<number> {
     if (settingsDoc.exists()) {
       return settingsDoc.data().fiscalYearStartMonth || DEFAULT_FY_START_MONTH;
     }
-  } catch {
-    // Fall back to default
+  } catch (error) {
+    logger.warn('loadFYStartMonth failed, falling back to default', {
+      error: error instanceof Error ? error.message : String(error),
+      defaultMonth: DEFAULT_FY_START_MONTH,
+    });
   }
   return DEFAULT_FY_START_MONTH;
 }
