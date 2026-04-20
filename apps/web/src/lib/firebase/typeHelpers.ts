@@ -156,7 +156,7 @@ export function conditionalProps<T extends Record<string, unknown>>(props: T): P
  *   description: description || undefined,  // Will be removed if undefined
  *   projectId: projectId || undefined        // Will be removed if undefined
  * });
- * await addDoc(collection, data);
+ * // `data` is now safe to pass into the caller's Firestore write.
  */
 export function removeUndefinedValues<T extends object>(obj: T): T {
   const result: Record<string, unknown> = {};
@@ -166,6 +166,115 @@ export function removeUndefinedValues<T extends object>(obj: T): T {
     }
   }
   return result as T;
+}
+
+/**
+ * Recursively removes undefined values from an object, including nested
+ * objects and arrays. Use this when a payload has nested optional fields
+ * (e.g. structured commercial terms, nested address blocks) where a top-level
+ * strip would leave `undefined` values inside sub-objects that Firestore also
+ * rejects.
+ *
+ * @example
+ * const clean = removeUndefinedDeep({
+ *   name: 'Example',
+ *   commercialTerms: {
+ *     priceBasis: 'FOR_SITE',
+ *     pfChargeValue: undefined,   // stripped
+ *     paymentSchedule: [
+ *       { percentage: 30, notes: undefined }, // `notes` stripped
+ *     ],
+ *   },
+ * });
+ * // Pass `clean` into your own Firestore write.
+ */
+export function removeUndefinedDeep<T extends Record<string, unknown>>(obj: T): T {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) continue;
+    if (value === null) {
+      result[key] = null;
+      continue;
+    }
+    // Preserve opaque objects (Firestore Timestamps, Dates, FieldValues).
+    // Duck-typing `toDate` catches mocked Timestamps in Jest alongside the real ones.
+    if (
+      value instanceof Date ||
+      value instanceof Timestamp ||
+      (typeof value === 'object' && 'toDate' in (value as object))
+    ) {
+      result[key] = value;
+      continue;
+    }
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      result[key] = removeUndefinedDeep(value as Record<string, unknown>);
+    } else if (Array.isArray(value)) {
+      result[key] = value
+        .filter((item) => item !== undefined)
+        .map((item) =>
+          item !== null &&
+          typeof item === 'object' &&
+          !(item instanceof Date) &&
+          !(item instanceof Timestamp) &&
+          !('toDate' in (item as object))
+            ? removeUndefinedDeep(item as Record<string, unknown>)
+            : item
+        );
+    } else {
+      result[key] = value;
+    }
+  }
+  return result as T;
+}
+
+/**
+ * Throws a descriptive error if any field in the payload is `undefined`
+ * (top-level or nested). Use as a belt-and-braces guard at the start of a
+ * service function's write path — paired with `removeUndefinedDeep` or
+ * conditional spreads, it catches the class of bugs where a component
+ * quietly passes `undefined` into a Firestore write (CLAUDE.md rule 12).
+ *
+ * @example
+ * const data = {
+ *   vendorId,
+ *   remarks: remarks || undefined, // bug — will throw
+ * };
+ * assertNoUndefinedValues(data, 'createVendorBill');
+ * // Error: [createVendorBill] Field "remarks" is undefined (Firestore rejects
+ * //   undefined values). Use a conditional spread instead.
+ */
+export function assertNoUndefinedValues(
+  data: Record<string, unknown>,
+  context: string,
+  path: string = ''
+): void {
+  for (const [key, value] of Object.entries(data)) {
+    const fieldPath = path ? `${path}.${key}` : key;
+    if (value === undefined) {
+      throw new Error(
+        `[${context}] Field "${fieldPath}" is undefined (Firestore rejects undefined values). ` +
+          `Use a conditional spread (\`...(value !== undefined && { ${key}: value })\`) or ` +
+          `omit the key. See CLAUDE.md rule 12.`
+      );
+    }
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // Firestore Timestamps / Dates are opaque; don't descend into their internals.
+      if (value instanceof Timestamp || value instanceof Date) continue;
+      assertNoUndefinedValues(value as Record<string, unknown>, context, fieldPath);
+    } else if (Array.isArray(value)) {
+      value.forEach((item, idx) => {
+        if (item === undefined) {
+          throw new Error(
+            `[${context}] Field "${fieldPath}[${idx}]" is undefined — arrays cannot contain ` +
+              `undefined. Filter the array before writing.`
+          );
+        }
+        if (item !== null && typeof item === 'object' && !(item instanceof Date)) {
+          assertNoUndefinedValues(item as Record<string, unknown>, context, `${fieldPath}[${idx}]`);
+        }
+      });
+    }
+  }
 }
 
 /**
