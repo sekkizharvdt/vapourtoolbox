@@ -26,14 +26,7 @@ Violates UI-STANDARDS rule 6.1–6.2. Scope wider than initial estimate — **~4
 - ☐ [procurement/pos/page.tsx:135](apps/web/src/app/procurement/pos/page.tsx#L135)
 - ☐ [procurement/trash/page.tsx:190,194](apps/web/src/app/procurement/trash/page.tsx#L190) — 2 sites
 
-**1.2b — Accounting list pages** (same pattern)
-
-- ☐ [accounting/journal-entries/page.tsx:138,142](apps/web/src/app/accounting/journal-entries/page.tsx#L138)
-- ☐ [accounting/bills/page.tsx:271,275,326](apps/web/src/app/accounting/bills/page.tsx#L271)
-- ☐ [accounting/invoices/page.tsx:224,228](apps/web/src/app/accounting/invoices/page.tsx#L224)
-- ☐ [accounting/payments/page.tsx:194,198](apps/web/src/app/accounting/payments/page.tsx#L194)
-- ☐ [accounting/trash/page.tsx:121,125,146,150](apps/web/src/app/accounting/trash/page.tsx#L121)
-- ☐ [accounting/reports/gst-summary/page.tsx:96,159](apps/web/src/app/accounting/reports/gst-summary/page.tsx#L96)
+**1.2b — Accounting list pages** ☑ **DONE 2026-04-20** — 15 alert() sites across 6 files (journal-entries ×2, bills ×3, invoices ×2, payments ×2, trash ×4, gst-summary ×2) migrated to `toast.error()`. GST summary's long multi-line missing-accounts alert condensed to a single-line actionable toast pointing at the COA. Type-check passes.
 
 **1.2c — Success / info toasts**
 
@@ -144,4 +137,6 @@ One dedicated pass per module against the full UI-STANDARDS checklist (§10). Or
 
 ## Completed
 
-- **1.1 `window.confirm()` → `useConfirmDialog()`** — 2026-04-20 — 11 call sites across 9 files (ProcurementTab, EnquiryDetailClient, vendors/index, DocumentsTab, TDSChallanTracking, ObjectivesPageClient ×2, DocumentWorkList, DocumentSupplyList, DocumentLinks).
+- **1.1 `window.confirm()` → `useConfirmDialog()`** — 2026-04-20 — commit `41d69280` — 11 call sites across 9 files (ProcurementTab, EnquiryDetailClient, vendors/index, DocumentsTab, TDSChallanTracking, ObjectivesPageClient ×2, DocumentWorkList, DocumentSupplyList, DocumentLinks).
+- **1.2a procurement `alert()` → `toast.error()`** — 2026-04-20 — commit `66ee8338` — 8 call sites across 7 files (amendments, packing-lists, rfqs, goods-receipts, purchase-requests, pos, trash).
+- **1.2b accounting list `alert()` → `toast.error()`** — 2026-04-20 — 15 call sites across 6 files (journal-entries, bills, invoices, payments, trash, gst-summary).

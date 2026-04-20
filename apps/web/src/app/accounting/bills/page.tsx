@@ -73,6 +73,7 @@ import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 
 // Lazy load heavy dialog components
@@ -120,6 +121,7 @@ export default function BillsPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
   const [viewMode, setViewMode] = useState(false);
@@ -268,11 +270,11 @@ export default function BillsPage() {
         userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
-        alert(result.error || 'Failed to move bill to trash');
+        toast.error(result.error || 'Failed to move bill to trash');
       }
     } catch (error) {
       console.error('[BillsPage] Error moving bill to trash:', error);
-      alert('Failed to move bill to trash');
+      toast.error('Failed to move bill to trash');
     }
   };
 
@@ -323,7 +325,7 @@ export default function BillsPage() {
       handleCloseUpdateBillNumber();
     } catch (error) {
       console.error('[BillsPage] Error updating bill number:', error);
-      alert('Failed to update bill number');
+      toast.error('Failed to update bill number');
     } finally {
       setUpdatingBillNumber(false);
     }

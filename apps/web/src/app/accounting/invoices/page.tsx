@@ -67,6 +67,7 @@ import {
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
@@ -112,6 +113,7 @@ export default function InvoicesPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
   const [viewMode, setViewMode] = useState(false);
@@ -221,11 +223,11 @@ export default function InvoicesPage() {
         userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
-        alert(result.error || 'Failed to move invoice to trash');
+        toast.error(result.error || 'Failed to move invoice to trash');
       }
     } catch (error) {
       console.error('[InvoicesPage] Error moving invoice to trash:', error);
-      alert('Failed to move invoice to trash');
+      toast.error('Failed to move invoice to trash');
     }
   };
 

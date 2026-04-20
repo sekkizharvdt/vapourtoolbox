@@ -50,6 +50,7 @@ import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog'
 import { formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 
 // Generate month options for the filter (current month and 11 previous months)
@@ -71,6 +72,7 @@ export default function JournalEntriesPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -135,11 +137,11 @@ export default function JournalEntriesPage() {
         userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
-        alert(result.error || 'Failed to move journal entry to trash');
+        toast.error(result.error || 'Failed to move journal entry to trash');
       }
     } catch (error) {
       console.error('[JournalEntriesPage] Error moving entry to trash:', error);
-      alert('Failed to move journal entry to trash');
+      toast.error('Failed to move journal entry to trash');
     }
   };
 

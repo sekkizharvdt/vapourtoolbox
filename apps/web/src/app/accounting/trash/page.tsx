@@ -46,6 +46,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import {
   restoreTransaction,
   hardDeleteTransaction,
@@ -65,6 +66,7 @@ export default function TrashPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
@@ -118,11 +120,11 @@ export default function TrashPage() {
         userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
-        alert(result.error || 'Failed to restore transaction');
+        toast.error(result.error || 'Failed to restore transaction');
       }
     } catch (error) {
       console.error('[TrashPage] Error restoring transaction:', error);
-      alert('Failed to restore transaction');
+      toast.error('Failed to restore transaction');
     }
   };
 
@@ -143,11 +145,11 @@ export default function TrashPage() {
         userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
-        alert(result.error || 'Failed to permanently delete transaction');
+        toast.error(result.error || 'Failed to permanently delete transaction');
       }
     } catch (error) {
       console.error('[TrashPage] Error permanently deleting transaction:', error);
-      alert('Failed to permanently delete transaction');
+      toast.error('Failed to permanently delete transaction');
     }
   };
 

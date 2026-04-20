@@ -56,6 +56,7 @@ import {
 } from '@/lib/accounting/reports/exportReport';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 
 // Lazy load heavy dialog components
@@ -104,6 +105,7 @@ export default function PaymentsPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
   const [paymentType, setPaymentType] = useState<PaymentType>('all');
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
   const [vendorPaymentDialogOpen, setVendorPaymentDialogOpen] = useState(false);
@@ -191,11 +193,11 @@ export default function PaymentsPage() {
         userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
-        alert(result.error || 'Failed to move payment to trash');
+        toast.error(result.error || 'Failed to move payment to trash');
       }
     } catch (error) {
       console.error('[PaymentsPage] Error moving payment to trash:', error);
-      alert('Failed to move payment to trash');
+      toast.error('Failed to move payment to trash');
     }
   };
 

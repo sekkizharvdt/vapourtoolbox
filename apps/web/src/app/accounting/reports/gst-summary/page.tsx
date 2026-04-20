@@ -34,6 +34,7 @@ import { getFirebase } from '@/lib/firebase';
 import { getSystemAccountIds } from '@/lib/accounting/systemAccountResolver';
 import { fetchAccountGLEntries, type GLDrilldownEntry } from '@/lib/accounting/reports/glDrilldown';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { useToast } from '@/components/common/Toast';
 import {
   downloadReportCSV,
   downloadReportExcel,
@@ -58,6 +59,7 @@ interface GSTAccountData {
 }
 
 export default function GSTSummaryPage() {
+  const { toast } = useToast();
   const router = useRouter();
   const { claims } = useAuth();
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
@@ -93,8 +95,9 @@ export default function GSTSummaryPage() {
       if (!accounts.sgstPayable) missingAccounts.push('SGST Output (2202)');
       if (!accounts.igstPayable) missingAccounts.push('IGST Output (2203)');
       if (missingAccounts.length === 6) {
-        alert(
-          `Cannot generate GST summary: No GST accounts found in Chart of Accounts. Please ensure the following accounts exist with correct gstType and gstDirection properties:\n\n${missingAccounts.join('\n')}`
+        toast.error(
+          'No GST accounts found in Chart of Accounts. Set up CGST/SGST/IGST input (1301-1303) and output (2201-2203) accounts with gstType and gstDirection properties before generating the GST summary.',
+          { duration: 12000 }
         );
         return;
       }
@@ -156,11 +159,11 @@ export default function GSTSummaryPage() {
       setData(results);
     } catch (error) {
       console.error('[GSTSummary] Error generating report:', error);
-      alert('Failed to generate GST summary. Please try again.');
+      toast.error('Failed to generate GST summary. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, claims?.tenantId]);
+  }, [startDate, endDate, claims?.tenantId, toast]);
 
   const handleToggleExpand = (gstType: string, side: 'input' | 'output') => {
     if (expandedRow === gstType && expandedSide === side) {
