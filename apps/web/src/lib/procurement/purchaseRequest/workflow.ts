@@ -61,6 +61,22 @@ export async function submitPurchaseRequestForApproval(
       throw new Error('Cannot submit purchase request with no items');
     }
 
+    // Approver selection is mandatory. Enforce it here (not only in the UI)
+    // so API / script submissions can't bypass it.
+    if (!pr.approverId) {
+      throw new Error('Cannot submit purchase request without selecting an approver');
+    }
+
+    // Separation of duties: submitter must not pick themselves as the approver
+    // (CLAUDE.md rule 6). Catches it at submit time rather than at approve time
+    // so the PR never sits in SUBMITTED with an invalid approver pointing at
+    // the submitter.
+    preventSelfApproval(
+      pr.approverId,
+      userId,
+      'submit a purchase request with yourself as the approver'
+    );
+
     // Update status
     await updateDoc(docRef, {
       status: 'SUBMITTED',
@@ -100,14 +116,10 @@ export async function submitPurchaseRequestForApproval(
       logger.warn('Failed to write audit log for PR submission', { auditError, prId });
     }
 
-    // Create task notification for the designated approver
-    // IMPORTANT: Approver selection is mandatory - PR cannot be submitted without one
-    if (!pr.approverId) {
-      // This should not happen as validation happens in the UI, but handle it as a safeguard
-      throw new Error('Cannot submit purchase request without selecting an approver');
-    }
-
-    // Non-blocking - notification failure should not block PR submission
+    // Create task notification for the designated approver.
+    // Approver presence + self-approval guards have already fired above this
+    // point — reaching here means pr.approverId is set and distinct from userId.
+    // Non-blocking — notification failure should not block PR submission.
     try {
       await createTaskNotification({
         type: 'actionable',
