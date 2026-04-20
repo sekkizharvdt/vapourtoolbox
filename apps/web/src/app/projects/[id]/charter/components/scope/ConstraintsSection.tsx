@@ -64,8 +64,10 @@ export function ConstraintsSection({
     severity: 'MEDIUM' as ProjectConstraint['severity'],
     impact: '',
   });
+  const [descriptionError, setDescriptionError] = useState('');
 
   const handleOpenDialog = (constraint?: ProjectConstraint) => {
+    setDescriptionError('');
     if (constraint) {
       setEditing(constraint);
       setForm({
@@ -88,9 +90,10 @@ export function ConstraintsSection({
 
   const handleSaveConstraint = () => {
     if (!form.description.trim()) {
-      alert('Description is required');
+      setDescriptionError('Description is required');
       return;
     }
+    setDescriptionError('');
 
     if (editing) {
       // Update existing
@@ -217,8 +220,13 @@ export function ConstraintsSection({
                 multiline
                 rows={3}
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, description: e.target.value });
+                  if (descriptionError) setDescriptionError('');
+                }}
                 required
+                error={!!descriptionError}
+                helperText={descriptionError}
               />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>

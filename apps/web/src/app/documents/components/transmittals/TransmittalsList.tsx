@@ -43,6 +43,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { COLLECTIONS } from '@vapour/firebase';
+import { useToast } from '@/components/common/Toast';
 import TransmittalsTable from './TransmittalsTable';
 import TransmittalDetailDialog from './TransmittalDetailDialog';
 import {
@@ -69,6 +70,7 @@ export default function TransmittalsList({
   onRefresh: _onRefresh,
 }: TransmittalsListProps) {
   const { db, functions } = getFirebase();
+  const { toast } = useToast();
 
   const [transmittals, setTransmittals] = useState<DocumentTransmittal[]>([]);
   const [filteredTransmittals, setFilteredTransmittals] = useState<DocumentTransmittal[]>([]);
@@ -147,12 +149,12 @@ export default function TransmittalsList({
   const handleDownloadZip = async (transmittal: DocumentTransmittal) => {
     try {
       if (!transmittal.zipFileUrl) {
-        alert('ZIP file not available for this transmittal');
+        toast.error('ZIP file not available for this transmittal');
         return;
       }
 
       if (!functions) {
-        alert('Firebase Functions not initialized');
+        toast.error('Firebase Functions not initialized');
         return;
       }
 
@@ -174,8 +176,8 @@ export default function TransmittalsList({
       console.warn('[TransmittalsList] ZIP download triggered');
     } catch (err) {
       console.error('Failed to download ZIP:', err);
-      alert(
-        'Failed to download ZIP file: ' + (err instanceof Error ? err.message : 'Unknown error')
+      toast.error(
+        `Failed to download ZIP file: ${err instanceof Error ? err.message : 'Unknown error'}`
       );
     }
   };
@@ -183,12 +185,12 @@ export default function TransmittalsList({
   const handleDownloadPdf = async (transmittal: DocumentTransmittal) => {
     try {
       if (!transmittal.transmittalPdfUrl) {
-        alert('PDF not available for this transmittal');
+        toast.error('PDF not available for this transmittal');
         return;
       }
 
       if (!functions) {
-        alert('Firebase Functions not initialized');
+        toast.error('Firebase Functions not initialized');
         return;
       }
 
@@ -210,8 +212,8 @@ export default function TransmittalsList({
       console.warn('[TransmittalsList] PDF download triggered');
     } catch (err) {
       console.error('Failed to download PDF:', err);
-      alert(
-        'Failed to download PDF file: ' + (err instanceof Error ? err.message : 'Unknown error')
+      toast.error(
+        `Failed to download PDF file: ${err instanceof Error ? err.message : 'Unknown error'}`
       );
     }
   };

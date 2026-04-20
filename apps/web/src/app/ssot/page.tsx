@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getProjectsForUser } from '@/lib/projects/projectService';
 import type { Project } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { useToast } from '@/components/common/Toast';
 import StreamsTab from './components/StreamsTab';
 import EquipmentTab from './components/EquipmentTab';
 import LinesTab from './components/LinesTab';
@@ -67,6 +68,7 @@ function a11yProps(index: number) {
 
 export default function SSOTPage() {
   const { user, claims } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -112,8 +114,8 @@ export default function SSOTPage() {
     if (!selectedProjectId) return;
     // Excel export (future enhancement)
     logger.info('Export Excel requested', { projectId: selectedProjectId });
-    alert('Excel export coming soon!');
-  }, [selectedProjectId]);
+    toast.info('Excel export coming soon');
+  }, [selectedProjectId, toast]);
 
   if (loading && projects.length === 0) {
     return <LoadingState message="Loading projects..." />;

@@ -30,15 +30,9 @@ Violates UI-STANDARDS rule 6.1–6.2. Scope wider than initial estimate — **~4
 
 **1.2c — Success / info toasts** ☑ **DONE 2026-04-20** — 10 alert() sites across 6 files migrated to `toast.success` / `toast.info` / `toast.warning` / `toast.error` as appropriate. Also fixed a bare `confirm('…')` (global `window.confirm`) in ReconciliationWorkspace — converted to `useConfirmDialog()`.
 
-**1.2d — Placeholder / unavailable stubs**
+**1.2d — Placeholder / unavailable stubs** ☑ **DONE 2026-04-20** — 8 alert() sites across 3 files (ssot, DocumentSupplyList, TransmittalsList ×6) migrated to `toast.info` (coming-soon messaging) / `toast.error` (download failures, unavailable files).
 
-- ☐ [ssot/page.tsx:115](apps/web/src/app/ssot/page.tsx#L115) — "Excel export coming soon" → `toast.info`
-- ☐ [DocumentSupplyList.tsx:119](apps/web/src/app/documents/components/DocumentSupplyList.tsx#L119) — not-yet-implemented → `toast.info`
-- ☐ [TransmittalsList.tsx:150,155,177,186,191,213](apps/web/src/app/documents/components/transmittals/TransmittalsList.tsx#L150) — 6 sites (file unavailable, download errors) → `toast.error` / `toast.info`
-
-**1.2e — Inline validation (not a toast)**
-
-- ☐ [ConstraintsSection.tsx:91](apps/web/src/app/projects/[id]/charter/components/scope/ConstraintsSection.tsx#L91) — "Description is required" → `TextField error + helperText`
+**1.2e — Inline validation (not a toast)** ☑ **DONE 2026-04-20** — ConstraintsSection's "Description is required" alert replaced with field-level `error + helperText` on the Description TextField. Error clears when the user types and is reset when the dialog opens. UI-STANDARDS rule 3.6.
 
 **Pattern:** errors → `toast.error(...)`; successes/info → `toast.success` / `toast.info`; validation → field-level `error + helperText` (rule 3.6). `useToast()` already wired via `ToastProvider` in `ClientProviders.tsx`.
 
@@ -133,4 +127,8 @@ One dedicated pass per module against the full UI-STANDARDS checklist (§10). Or
 - **1.1 `window.confirm()` → `useConfirmDialog()`** — 2026-04-20 — commit `41d69280` — 11 call sites across 9 files (ProcurementTab, EnquiryDetailClient, vendors/index, DocumentsTab, TDSChallanTracking, ObjectivesPageClient ×2, DocumentWorkList, DocumentSupplyList, DocumentLinks).
 - **1.2a procurement `alert()` → `toast.error()`** — 2026-04-20 — commit `66ee8338` — 8 call sites across 7 files (amendments, packing-lists, rfqs, goods-receipts, purchase-requests, pos, trash).
 - **1.2b accounting list `alert()` → `toast.error()`** — 2026-04-20 — commit `94211c55` — 15 call sites across 6 files (journal-entries, bills, invoices, payments, trash, gst-summary).
-- **1.2c success/info toasts** — 2026-04-20 — 10 alert() sites across 6 files (ProcurementTab, ScopeTab, ReconciliationWorkspace ×4, BOMEditorClient, shapes/calculator, estimation). Also migrated one bare `confirm('…')` in ReconciliationWorkspace.
+- **1.2c success/info toasts** — 2026-04-20 — commit `f1f3a5b8` — 10 alert() sites across 6 files (ProcurementTab, ScopeTab, ReconciliationWorkspace ×4, BOMEditorClient, shapes/calculator, estimation). Also migrated one bare `confirm('…')` in ReconciliationWorkspace.
+- **1.2d placeholder / download-error alerts** — 2026-04-20 — 8 alert() sites across 3 files (ssot, DocumentSupplyList, TransmittalsList ×6) → `toast.info` / `toast.error`.
+- **1.2e inline validation** — 2026-04-20 — ConstraintsSection's description-required alert replaced with field-level `error + helperText`.
+
+With 1.2a–e complete, the app has **zero `alert()` or `window.confirm()` / `confirm()` calls in production code**.

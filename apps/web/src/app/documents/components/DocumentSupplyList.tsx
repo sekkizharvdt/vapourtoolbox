@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AddSupplyItemDialog, { type SupplyItemData } from './supply/AddSupplyItemDialog';
 import SupplyItemsTable from './supply/SupplyItemsTable';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
 
 interface DocumentSupplyListProps {
   document: MasterDocumentEntry;
@@ -33,6 +34,7 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
   const { db } = getFirebase();
   const { user } = useAuth();
   const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
 
   const [items, setItems] = useState<SupplyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +118,7 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
   const handleViewItem = (item: SupplyItem) => {
     // View/edit dialog placeholder (future enhancement)
     console.warn('Viewing supply item:', item);
-    alert('Supply item details view will be implemented');
+    toast.info('Supply item details view — coming soon');
   };
 
   const handleDeleteItem = async (item: SupplyItem) => {
