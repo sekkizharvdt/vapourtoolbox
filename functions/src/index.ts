@@ -79,6 +79,7 @@ export { parseDocumentForPR } from './documentParsing';
 // Import offer parsing functions
 export { parseOfferDocument } from './offerParsing/parseOfferDocument';
 export { compareOfferParsers } from './offerParsing/compareOfferParsers';
+export { compareOfferWithSpecs } from './offerParsing/compareOfferWithSpecs';
 
 // Import denormalization sync functions (keeps denormalized data fresh)
 export {

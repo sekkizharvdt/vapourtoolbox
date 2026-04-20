@@ -53,7 +53,7 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 | #   | Item                                                                                        | Module            | Status               |
 | --- | ------------------------------------------------------------------------------------------- | ----------------- | -------------------- |
 | 26  | Auto-populate offer validity date from parsed quotation                                     | Upload Offer      | ✅                   |
-| 27  | Compare vendor offer vs PR/RFQ attachments (technical validation)                           | Upload Offer      | ⬜ deferred          |
+| 27  | Compare vendor offer vs PR/RFQ attachments (technical validation)                           | Upload Offer      | ✅                   |
 | 28  | Parse discount and reflect in PO                                                            | Upload Offer → PO | ✅                   |
 | 29  | Rename Ex-works → Price Basis; Erection after purchase → E&C                                | Offer terms       | ✅                   |
 | 30  | P&F charges (AI-parsed) reflect in pricing                                                  | Offer → PO        | ✅                   |

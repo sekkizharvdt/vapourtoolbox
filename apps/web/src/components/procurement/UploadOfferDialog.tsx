@@ -20,6 +20,7 @@ import {
   Box,
   Typography,
   Alert,
+  CircularProgress,
   LinearProgress,
   Table,
   TableBody,
@@ -64,8 +65,14 @@ import {
   type CreateOfferInput,
   type CreateOfferItemInput,
 } from '@/lib/procurement/offer';
-import type { RFQ, RFQItem } from '@vapour/types';
+import type { RFQ, RFQItem, OfferDeviation } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
+import {
+  collection as fsCollection,
+  query as fsQuery,
+  where as fsWhere,
+  getDocs as fsGetDocs,
+} from 'firebase/firestore';
 import { formatCurrency } from '@/lib/utils/formatters';
 
 /**
@@ -202,6 +209,15 @@ export default function UploadOfferDialog({
   const [inspection, setInspection] = useState('');
   // Discount is stored as a string to preserve "" (blank) vs 0; parsed numerically on submit.
   const [discount, setDiscount] = useState('');
+
+  // Technical deviations from comparing the offer against PR/RFQ attachments
+  const [deviations, setDeviations] = useState<OfferDeviation[]>([]);
+  const [deviationLoading, setDeviationLoading] = useState(false);
+  const [deviationDocsConsidered, setDeviationDocsConsidered] = useState<string[]>([]);
+  const [deviationDocsSkipped, setDeviationDocsSkipped] = useState<
+    Array<{ fileName: string; reason: string }>
+  >([]);
+  const [deviationChecked, setDeviationChecked] = useState(false);
 
   // Offer items
   const [offerItems, setOfferItems] = useState<OfferItemData[]>([]);
@@ -416,6 +432,146 @@ export default function UploadOfferDialog({
     }
   };
 
+  /**
+   * Send the current offer + every PR attachment on the source RFQ to Claude
+   * for a technical validation pass. Result is a deviations list that the
+   * dialog surfaces in a dedicated accordion and persists on offer creation
+   * (procurement review #27).
+   */
+  const handleCheckAgainstSpecs = async () => {
+    if (!file || !fileUrl || !user) {
+      setError('Upload and parse the offer document before running the spec check');
+      return;
+    }
+    if (!rfq.purchaseRequestIds || rfq.purchaseRequestIds.length === 0) {
+      setError('This RFQ has no source PRs, so there are no specification documents to compare');
+      return;
+    }
+
+    setDeviationLoading(true);
+    setError(null);
+
+    try {
+      const { db, storage, app } = getFirebase();
+
+      // Fetch every attachment for every source PR. Filter to PDFs (Claude's
+      // document input is PDF-only) but also pass along the metadata so the
+      // Cloud Function can record what it skipped.
+      const allAttachments: Array<{
+        storagePath: string;
+        fileName: string;
+        attachmentType?: string;
+        mimeType?: string;
+      }> = [];
+      for (const prId of rfq.purchaseRequestIds) {
+        const q = fsQuery(
+          fsCollection(db, 'purchaseRequestAttachments'),
+          fsWhere('purchaseRequestId', '==', prId)
+        );
+        const snap = await fsGetDocs(q);
+        snap.forEach((d) => {
+          const data = d.data() as {
+            fileName?: string;
+            storagePath?: string;
+            attachmentType?: string;
+            mimeType?: string;
+          };
+          if (data.storagePath && data.fileName) {
+            allAttachments.push({
+              storagePath: data.storagePath,
+              fileName: data.fileName,
+              attachmentType: data.attachmentType,
+              mimeType: data.mimeType,
+            });
+          }
+        });
+      }
+
+      if (allAttachments.length === 0) {
+        setDeviations([]);
+        setDeviationDocsConsidered([]);
+        setDeviationDocsSkipped([]);
+        setDeviationChecked(true);
+        setError(
+          'No PR attachments found for this RFQ. Add specs / datasheets to the source PR first.'
+        );
+        return;
+      }
+
+      // The offer may still be referenced by its http download URL. Pull the
+      // storage path back out of the gs:// that was set at upload time; if
+      // only the http URL is on hand we upload the file once more into the
+      // canonical location.
+      let offerStoragePath = '';
+      if (fileUrl) {
+        const urlObj = new URL(fileUrl);
+        offerStoragePath = decodeURIComponent(urlObj.pathname.split('/o/')[1]?.split('?')[0] || '');
+      }
+      if (!offerStoragePath) {
+        const timestamp = Date.now();
+        offerStoragePath = `offers/${rfq.id}/${timestamp}_${file.name}`;
+        const storageRef = ref(storage, offerStoragePath);
+        await uploadBytes(storageRef, file);
+      }
+
+      const functionsAsiaSouth1 = getFunctions(app, 'asia-south1');
+      const compareFn = httpsCallable<
+        {
+          offerStoragePath: string;
+          offerFileName: string;
+          offerMimeType: string;
+          specAttachments: typeof allAttachments;
+          rfqNumber: string;
+          vendorName: string;
+          rfqItems: Array<{
+            id: string;
+            lineNumber: number;
+            description: string;
+            quantity: number;
+            unit: string;
+          }>;
+        },
+        {
+          success: boolean;
+          error?: string;
+          deviations: OfferDeviation[];
+          documentsConsidered: string[];
+          documentsSkipped: Array<{ fileName: string; reason: string }>;
+        }
+      >(functionsAsiaSouth1, 'compareOfferWithSpecs');
+
+      const vendor = getSelectedVendorInfo();
+      const result = await compareFn({
+        offerStoragePath,
+        offerFileName: file.name,
+        offerMimeType: file.type,
+        specAttachments: allAttachments,
+        rfqNumber: rfq.number,
+        vendorName: vendor?.vendorName || 'Unknown',
+        rfqItems: rfqItems.map((i) => ({
+          id: i.id,
+          lineNumber: i.lineNumber,
+          description: i.description,
+          quantity: i.quantity,
+          unit: i.unit,
+        })),
+      });
+
+      setDeviations(result.data.deviations || []);
+      setDeviationDocsConsidered(result.data.documentsConsidered || []);
+      setDeviationDocsSkipped(result.data.documentsSkipped || []);
+      setDeviationChecked(true);
+      if (!result.data.success && result.data.error) {
+        setError(`Spec check failed: ${result.data.error}`);
+      }
+    } catch (err) {
+      console.error('[UploadOfferDialog] Spec check error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to run spec check');
+    } finally {
+      setDeviationLoading(false);
+    }
+  };
+
   const handleSelectParser = (parser: 'google' | 'claude') => {
     if (!compareResult) return;
 
@@ -561,6 +717,7 @@ export default function UploadOfferDialog({
         ...(discount.trim() && Number.isFinite(Number(discount)) && Number(discount) > 0
           ? { discount: Number(discount) }
           : {}),
+        ...(deviations.length > 0 ? { deviations } : {}),
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
@@ -625,6 +782,10 @@ export default function UploadOfferDialog({
     setErectionAfterPurchase('');
     setInspection('');
     setDiscount('');
+    setDeviations([]);
+    setDeviationDocsConsidered([]);
+    setDeviationDocsSkipped([]);
+    setDeviationChecked(false);
     setOfferItems([]);
     setCreating(false);
     onClose();
@@ -996,6 +1157,143 @@ export default function UploadOfferDialog({
                   </Alert>
                 )}
               </Stack>
+            </Paper>
+          )}
+
+          {/* Technical Spec Check (review #27) */}
+          {parseResult && !showComparison && (
+            <Paper sx={{ p: 2 }}>
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={2}
+                alignItems={{ md: 'center' }}
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Typography variant="subtitle2">Technical Spec Check</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Ask Claude to compare the offer against the PR/RFQ specifications and flag
+                    deviations (material grade, missing items, quantity mismatches, etc.).
+                  </Typography>
+                </Box>
+                <Button
+                  variant={deviationChecked ? 'outlined' : 'contained'}
+                  size="small"
+                  onClick={handleCheckAgainstSpecs}
+                  disabled={deviationLoading}
+                  startIcon={deviationLoading ? <CircularProgress size={16} /> : undefined}
+                >
+                  {deviationLoading
+                    ? 'Checking…'
+                    : deviationChecked
+                      ? 'Re-run Check'
+                      : 'Check Against Specs'}
+                </Button>
+              </Stack>
+              {deviationChecked && (
+                <Box sx={{ mt: 2 }}>
+                  {deviationDocsConsidered.length > 0 && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Compared against: {deviationDocsConsidered.join(', ')}
+                    </Typography>
+                  )}
+                  {deviationDocsSkipped.length > 0 && (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      <Typography variant="caption" fontWeight={600}>
+                        Skipped {deviationDocsSkipped.length} attachment
+                        {deviationDocsSkipped.length > 1 ? 's' : ''}:
+                      </Typography>
+                      <ul style={{ margin: 0, paddingLeft: 16 }}>
+                        {deviationDocsSkipped.map((d, i) => (
+                          <li key={i}>
+                            {d.fileName} — {d.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </Alert>
+                  )}
+                  {deviations.length === 0 ? (
+                    <Alert severity="success" sx={{ mt: 1 }}>
+                      No technical deviations detected by Claude.
+                    </Alert>
+                  ) : (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        {deviations.length} deviation{deviations.length > 1 ? 's' : ''} flagged
+                      </Typography>
+                      <Stack spacing={1}>
+                        {deviations.map((d, i) => (
+                          <Paper
+                            key={i}
+                            variant="outlined"
+                            sx={{
+                              p: 1.5,
+                              borderLeft: '4px solid',
+                              borderLeftColor:
+                                d.severity === 'HIGH'
+                                  ? 'error.main'
+                                  : d.severity === 'MEDIUM'
+                                    ? 'warning.main'
+                                    : 'info.main',
+                            }}
+                          >
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                              <Chip
+                                size="small"
+                                label={d.severity}
+                                color={
+                                  d.severity === 'HIGH'
+                                    ? 'error'
+                                    : d.severity === 'MEDIUM'
+                                      ? 'warning'
+                                      : 'info'
+                                }
+                              />
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                label={d.category.replace(/_/g, ' ')}
+                              />
+                              {d.rfqItemLineNumber !== undefined &&
+                                d.rfqItemLineNumber !== null && (
+                                  <Chip
+                                    size="small"
+                                    variant="outlined"
+                                    label={`Line ${d.rfqItemLineNumber}`}
+                                  />
+                                )}
+                              <Typography variant="body2" fontWeight={600}>
+                                {d.field}
+                              </Typography>
+                            </Stack>
+                            <Typography variant="body2">{d.message}</Typography>
+                            {(d.specValue || d.offerValue) && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                                sx={{ mt: 0.5 }}
+                              >
+                                Spec: {d.specValue || '—'} · Offer: {d.offerValue || '—'}
+                              </Typography>
+                            )}
+                            {d.recommendation && (
+                              <Typography
+                                variant="caption"
+                                color="primary"
+                                display="block"
+                                sx={{ mt: 0.5 }}
+                              >
+                                → {d.recommendation}
+                              </Typography>
+                            )}
+                          </Paper>
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+                </Box>
+              )}
             </Paper>
           )}
 

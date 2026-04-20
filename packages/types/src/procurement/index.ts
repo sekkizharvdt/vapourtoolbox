@@ -42,6 +42,9 @@ export {
   type ItemOfferComparison,
   type ItemComparison,
   type OfferComparisonData,
+  type OfferDeviation,
+  type OfferDeviationCategory,
+  type OfferDeviationSeverity,
 } from './offer';
 
 // Purchase Order types

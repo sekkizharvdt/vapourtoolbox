@@ -5,7 +5,15 @@
  */
 
 // Re-export from @vapour/types
-export type { Offer, OfferItem, OfferStatus, OfferComparisonData } from '@vapour/types';
+export type {
+  Offer,
+  OfferItem,
+  OfferStatus,
+  OfferComparisonData,
+  OfferDeviation,
+} from '@vapour/types';
+
+import type { OfferDeviation as _OfferDeviation } from '@vapour/types';
 
 /**
  * Input for creating a new offer
@@ -50,6 +58,7 @@ export interface CreateOfferInput {
   erectionAfterPurchase?: string; // UI label "Erection & Commissioning" (review #29)
   inspection?: string; // Review #31
   discount?: number; // Absolute discount amount in offer currency (review #28)
+  deviations?: _OfferDeviation[]; // Technical validation findings (review #27)
 }
 
 /**

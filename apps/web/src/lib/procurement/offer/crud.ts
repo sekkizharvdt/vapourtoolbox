@@ -115,6 +115,10 @@ export async function createOffer(
   if (input.discount !== undefined && input.discount > 0) {
     offerData.discount = input.discount;
   }
+  if (input.deviations && input.deviations.length > 0) {
+    offerData.deviations = input.deviations;
+    offerData.deviationsCheckedAt = Timestamp.now();
+  }
   if (input.tenantId) offerData.tenantId = input.tenantId;
 
   const offerRef = await addDoc(collection(db, COLLECTIONS.OFFERS), offerData);
