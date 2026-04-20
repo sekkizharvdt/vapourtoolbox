@@ -20,6 +20,7 @@ import { getFirebase } from '@/lib/firebase';
 import { createDocumentLink, removeDocumentLink } from '@/lib/documents/linkService';
 import AddLinkDialog from './links/AddLinkDialog';
 import LinksSection from './links/LinksSection';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface DocumentLinksProps {
   document: MasterDocumentEntry;
@@ -30,6 +31,7 @@ type LinkDialogType = 'PREREQUISITE' | 'SUCCESSOR' | 'RELATED' | null;
 
 export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps) {
   const { db } = getFirebase();
+  const { confirm } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<LinkDialogType>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,9 +82,14 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
     try {
       setError(null);
 
-      if (!window.confirm(`Remove link to ${link.documentNumber}?`)) {
-        return;
-      }
+      const ok = await confirm({
+        title: 'Remove Link',
+        message: `Remove link to ${link.documentNumber}?`,
+        confirmText: 'Remove',
+        confirmColor: 'error',
+        focusConfirm: false,
+      });
+      if (!ok) return;
 
       // Determine link type based on which array it's in
       let linkType: 'PREREQUISITE' | 'SUCCESSOR' | 'RELATED';

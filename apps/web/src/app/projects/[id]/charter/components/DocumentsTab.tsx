@@ -47,6 +47,7 @@ import {
   deleteDocumentRequirement,
 } from '@/lib/projects/documentRequirementService';
 import { formatDate } from '@/lib/utils/formatters';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface DocumentsTabProps {
   project: Project;
@@ -74,6 +75,7 @@ const EMPTY_FORM: DocumentRequirementFormData = {
 
 export function DocumentsTab({ project }: DocumentsTabProps) {
   const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<DocumentRequirement | null>(null);
   const [formData, setFormData] = useState<DocumentRequirementFormData>(EMPTY_FORM);
@@ -186,9 +188,14 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
   };
 
   const handleDelete = async (requirement: DocumentRequirement) => {
-    if (!window.confirm(`Delete document requirement "${requirement.documentType}"?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete Document Requirement',
+      message: `Delete document requirement "${requirement.documentType}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
 
     try {
       await deleteDocumentRequirement(project.id, requirement.id, userId);
@@ -391,9 +398,7 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
-                      {formatDate(requirement.dueDate)}
-                    </Typography>
+                    <Typography variant="body2">{formatDate(requirement.dueDate)}</Typography>
                   </TableCell>
                   <TableCell>
                     <Chip

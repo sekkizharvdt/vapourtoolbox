@@ -56,12 +56,14 @@ import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
 import { BidDecisionDialog } from '../components/BidDecisionDialog';
 import { CreateProposalDialog } from '../components/CreateProposalDialog';
 import { formatDate, formatCurrency } from '@/lib/utils/formatters';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 export default function EnquiryDetailClient() {
   const pathname = usePathname();
   const router = useRouter();
   const db = useFirestore();
   const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
 
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -130,7 +132,14 @@ export default function EnquiryDetailClient() {
 
   const handleDelete = async () => {
     if (!db || !enquiry || !user?.uid || !claims) return;
-    if (!window.confirm('Are you sure you want to delete this enquiry?')) return;
+    const ok = await confirm({
+      title: 'Delete Enquiry',
+      message: 'Are you sure you want to delete this enquiry? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
 
     try {
       await deleteEnquiry(db, enquiry.id, user.uid, claims.permissions);

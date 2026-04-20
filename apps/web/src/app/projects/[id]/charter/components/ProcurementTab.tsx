@@ -45,6 +45,7 @@ import {
   deleteProcurementItem,
   createPRFromCharterItem,
 } from '@/lib/projects/charterProcurementService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface ProcurementTabProps {
   project: Project;
@@ -82,6 +83,7 @@ const EMPTY_FORM: ProcurementItemFormData = {
 
 export function ProcurementTab({ project }: ProcurementTabProps) {
   const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ProcurementItem | null>(null);
   const [formData, setFormData] = useState<ProcurementItemFormData>(EMPTY_FORM);
@@ -219,9 +221,14 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
   };
 
   const handleDelete = async (item: ProcurementItem) => {
-    if (!window.confirm(`Delete procurement item "${item.itemName}"?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete Procurement Item',
+      message: `Delete procurement item "${item.itemName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
 
     try {
       await deleteProcurementItem(project.id, item.id, userId);
@@ -232,9 +239,13 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
   };
 
   const handleCreatePR = async (item: ProcurementItem) => {
-    if (!window.confirm(`Create Purchase Request for "${item.itemName}"?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Create Purchase Request',
+      message: `Create Purchase Request for "${item.itemName}"?`,
+      confirmText: 'Create',
+      focusConfirm: true,
+    });
+    if (!ok) return;
 
     setLoading(true);
     setError(null);

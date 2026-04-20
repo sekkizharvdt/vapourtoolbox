@@ -24,6 +24,7 @@ import { VendorStatsCards } from './VendorStatsCards';
 import { VendorTable } from './VendorTable';
 import { VendorFormDialog } from './VendorFormDialog';
 import { EMPTY_FORM, type VendorFormData } from './types';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface VendorsTabProps {
   project: Project;
@@ -31,6 +32,7 @@ interface VendorsTabProps {
 
 export function VendorsTab({ project }: VendorsTabProps) {
   const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<OutsourcingVendor | null>(null);
   const [formData, setFormData] = useState<VendorFormData>(EMPTY_FORM);
@@ -267,9 +269,14 @@ export function VendorsTab({ project }: VendorsTabProps) {
   };
 
   const handleDelete = async (vendor: OutsourcingVendor) => {
-    if (!window.confirm(`Delete vendor "${vendor.vendorName}"?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete Vendor',
+      message: `Delete vendor "${vendor.vendorName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
 
     try {
       const { db } = getFirebase();

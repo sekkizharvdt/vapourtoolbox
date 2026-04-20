@@ -22,6 +22,7 @@ import { createSupplyItem, deleteSupplyItem } from '@/lib/documents/supplyItemSe
 import { useAuth } from '@/contexts/AuthContext';
 import AddSupplyItemDialog, { type SupplyItemData } from './supply/AddSupplyItemDialog';
 import SupplyItemsTable from './supply/SupplyItemsTable';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface DocumentSupplyListProps {
   document: MasterDocumentEntry;
@@ -31,6 +32,7 @@ interface DocumentSupplyListProps {
 export default function DocumentSupplyList({ document, onUpdate }: DocumentSupplyListProps) {
   const { db } = getFirebase();
   const { user } = useAuth();
+  const { confirm } = useConfirmDialog();
 
   const [items, setItems] = useState<SupplyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,12 +125,18 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
       return;
     }
 
+    const ok = await confirm({
+      title: 'Delete Supply Item',
+      message: `Delete supply item "${item.itemName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
     try {
-      if (window.confirm(`Delete supply item "${item.itemName}"?`)) {
-        await deleteSupplyItem(db, document.projectId, item.id);
-        await loadSupplyItems();
-        onUpdate();
-      }
+      await deleteSupplyItem(db, document.projectId, item.id);
+      await loadSupplyItems();
+      onUpdate();
     } catch (err) {
       console.error('Failed to delete supply item:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete supply item');

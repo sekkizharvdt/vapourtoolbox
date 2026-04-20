@@ -36,6 +36,7 @@ import { getStatusColor, getPriorityColor } from '@vapour/ui';
 import { useProjectPage } from '../components/useProjectPage';
 import { ProjectSubPageWrapper } from '../components/ProjectSubPageWrapper';
 import { formatDate } from '@/lib/utils/formatters';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 // Lazy load dialog components
 const ObjectiveFormDialog = lazy(() =>
@@ -57,6 +58,7 @@ function DialogLoader() {
 // Objectives Content Component
 function ObjectivesContent({ project }: { project: Project }) {
   const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,7 +119,14 @@ function ObjectivesContent({ project }: { project: Project }) {
   };
 
   const handleDeleteObjective = async (objectiveId: string) => {
-    if (!window.confirm('Delete this objective?')) return;
+    const ok = await confirm({
+      title: 'Delete Objective',
+      message: 'Delete this objective? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
 
     setLoading(true);
     setError(null);
@@ -188,7 +197,14 @@ function ObjectivesContent({ project }: { project: Project }) {
   };
 
   const handleDeleteDeliverable = async (deliverableId: string) => {
-    if (!window.confirm('Delete this deliverable?')) return;
+    const ok = await confirm({
+      title: 'Delete Deliverable',
+      message: 'Delete this deliverable? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
 
     setLoading(true);
     setError(null);

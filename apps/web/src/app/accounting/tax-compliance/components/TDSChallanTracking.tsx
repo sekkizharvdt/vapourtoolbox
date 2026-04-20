@@ -33,6 +33,7 @@ import {
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import type { TDSChallan, TDSSection } from '@/lib/accounting/tdsReportGenerator';
 import { TDS_SECTIONS } from '@/lib/accounting/tdsReportGenerator';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface TDSChallanTrackingProps {
   challans: TDSChallan[];
@@ -47,6 +48,7 @@ export function TDSChallanTracking({
   onUpdateChallan,
   onDeleteChallan,
 }: TDSChallanTrackingProps) {
+  const { confirm } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<TDSChallan>>({
@@ -153,13 +155,19 @@ export function TDSChallanTracking({
   };
 
   const handleDelete = async (index: number) => {
-    if (window.confirm('Are you sure you want to delete this challan?')) {
-      try {
-        await onDeleteChallan(index);
-      } catch (err) {
-        console.error('[TDSChallan] Error deleting challan:', err);
-        alert('Failed to delete challan. Please try again.');
-      }
+    const ok = await confirm({
+      title: 'Delete Challan',
+      message: 'Are you sure you want to delete this TDS challan? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
+    try {
+      await onDeleteChallan(index);
+    } catch (err) {
+      console.error('[TDSChallan] Error deleting challan:', err);
+      setError('Failed to delete challan. Please try again.');
     }
   };
 

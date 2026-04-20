@@ -10,6 +10,7 @@ import { createWorkItem, deleteWorkItem } from '@/lib/documents/workItemService'
 import { useAuth } from '@/contexts/AuthContext';
 import AddWorkItemDialog, { type WorkItemData } from './work/AddWorkItemDialog';
 import WorkItemsTable from './work/WorkItemsTable';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface DocumentWorkListProps {
   document: MasterDocumentEntry;
@@ -19,6 +20,7 @@ interface DocumentWorkListProps {
 export default function DocumentWorkList({ document, onUpdate }: DocumentWorkListProps) {
   const { db } = getFirebase();
   const { user } = useAuth();
+  const { confirm } = useConfirmDialog();
 
   const [items, setItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,12 +97,18 @@ export default function DocumentWorkList({ document, onUpdate }: DocumentWorkLis
       return;
     }
 
+    const ok = await confirm({
+      title: 'Delete Work Item',
+      message: `Delete work item "${item.activityName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      focusConfirm: false,
+    });
+    if (!ok) return;
     try {
-      if (window.confirm(`Delete work item "${item.activityName}"?`)) {
-        await deleteWorkItem(db, document.projectId, item.id);
-        await loadWorkItems();
-        onUpdate();
-      }
+      await deleteWorkItem(db, document.projectId, item.id);
+      await loadWorkItems();
+      onUpdate();
     } catch (err) {
       console.error('Failed to delete work item:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete work item');
