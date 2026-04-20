@@ -42,7 +42,9 @@ interface PurchaseOrderSelectorProps {
   vendorId?: string | null;
   label?: string;
   placeholder?: string;
+  required?: boolean;
   disabled?: boolean;
+  error?: boolean;
   size?: 'small' | 'medium';
   helperText?: string;
 }
@@ -64,7 +66,9 @@ function PurchaseOrderSelectorComponent({
   vendorId,
   label = 'Purchase Order',
   placeholder = 'Search POs...',
+  required = false,
   disabled = false,
+  error = false,
   size = 'small',
   helperText,
 }: PurchaseOrderSelectorProps) {
@@ -182,6 +186,8 @@ function PurchaseOrderSelectorComponent({
           {...params}
           label={label}
           placeholder={placeholder}
+          required={required}
+          error={error}
           size={size}
           helperText={helperText}
           slotProps={{
