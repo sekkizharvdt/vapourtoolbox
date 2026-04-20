@@ -47,4 +47,11 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Breadcrumb duplication check (blocking — prevents "two breadcrumb bars" bug)
+node scripts/check-breadcrumb-duplication.js
+if [ $? -ne 0 ]; then
+  echo "❌ Breadcrumb safety check failed! See output above."
+  exit 1
+fi
+
 echo "✅ Pre-commit checks passed!"

@@ -83,9 +83,20 @@ Violates UI-STANDARDS rule 6.3. Audit every `<Chip>` used for status — ensure 
 - ☐ Task status chips (Flow)
 - ☐ Approval status chips
 
-### 2.4 🟡 Extract `PageBreadcrumbs` primitive
+### 2.4 ◐ Extract `PageBreadcrumbs` primitive — **IN PROGRESS 2026-04-20**
 
-Two divergent implementations today (Data Health vs one-off procurement). Extract shared component, migrate both, then apply to deep pages per UI-STANDARDS rule 5.4.
+**Done:**
+
+- Created [PageBreadcrumbs.tsx](apps/web/src/components/common/PageBreadcrumbs.tsx) primitive taking `{ label, href?, icon? }[]`.
+- Migrated [admin/layout.tsx](apps/web/src/app/admin/layout.tsx) to use it (was rendering raw `<Breadcrumbs>` directly).
+- Migrated [ProjectSubPageWrapper.tsx](apps/web/src/app/projects/[id]/components/ProjectSubPageWrapper.tsx) to use it.
+- Updated UI-STANDARDS rule 5.4: breadcrumbs are layout-owned; pages inside auto-breadcrumb route trees MUST NOT render their own.
+- Added [scripts/check-breadcrumb-duplication.js](scripts/check-breadcrumb-duplication.js) pre-commit guard that fails if any page inside `/admin/*` imports `Breadcrumbs` from `@mui/material` or uses `<PageBreadcrumbs>`. The guard also informationally counts remaining direct `@mui/material` Breadcrumbs imports (~139 at start).
+
+**Remaining (incremental):**
+
+- Migrate the ~139 hand-rolled `<Breadcrumbs>` usages to `<PageBreadcrumbs>` as each page is touched. These are not duplication bugs (they're single-source on routes without auto-breadcrumb layouts), just cosmetic inconsistency.
+- Audit `ProjectDetailClient.tsx` and `ProjectCharterClient.tsx` — they render their own Breadcrumbs but don't use the wrapper, so they're single-source but should migrate to the primitive.
 
 ### 2.5 🟡 Sidebar structural refactor
 

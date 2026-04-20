@@ -1,18 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import {
-  Container,
-  Typography,
-  Box,
-  CircularProgress,
-  Alert,
-  Breadcrumbs,
-  Link,
-  Button,
-} from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Alert, Button } from '@mui/material';
 import { Home as HomeIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 import type { Project } from '@vapour/types';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 
 interface ProjectSubPageWrapperProps {
   project: Project | null;
@@ -73,42 +65,14 @@ export function ProjectSubPageWrapper({
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            underline="hover"
-            color="inherit"
-            href="/dashboard"
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Home
-          </Link>
-          <Link
-            underline="hover"
-            color="inherit"
-            href="/projects"
-            sx={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.preventDefault();
-              router.push('/projects');
-            }}
-          >
-            Projects
-          </Link>
-          <Link
-            underline="hover"
-            color="inherit"
-            href={`/projects/${projectId}`}
-            sx={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.preventDefault();
-              router.push(`/projects/${projectId}`);
-            }}
-          >
-            {project.code}
-          </Link>
-          <Typography color="text.primary">{title}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Home', href: '/dashboard', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Projects', href: '/projects' },
+            { label: project.code, href: `/projects/${projectId}` },
+            { label: title },
+          ]}
+        />
 
         {/* Back Button and Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>

@@ -114,7 +114,11 @@ Ellipsis-truncated cells without a scroll container are forbidden — the user h
 
 **Rule 5.3 — "Coming Soon" items MUST be non-clickable.** Apply `pointerEvents: 'none'`, `cursor: 'not-allowed'`, and a "Coming Soon" badge. Opacity alone is not sufficient feedback (current offender: `Sidebar.tsx:395-402`).
 
-**Rule 5.4 — Deep pages (≥3 levels from the module root) MUST render breadcrumbs.** Until a `PageBreadcrumbs` primitive is extracted, follow the pattern in `accounting/data-health/unapplied-payments/page.tsx` — do not copy the one-off pattern from procurement.
+**Rule 5.4 — Breadcrumbs are layout-owned.** Use the shared `<PageBreadcrumbs>` primitive ([components/common/PageBreadcrumbs.tsx](apps/web/src/components/common/PageBreadcrumbs.tsx)) everywhere; never import `Breadcrumbs` from `@mui/material` in feature code.
+
+- If a route tree has a parent layout that already renders breadcrumbs (currently `/admin/*` via `admin/layout.tsx`, and any project sub-page wrapped in `ProjectSubPageWrapper`), the page itself MUST NOT render its own breadcrumbs. Adding a second set on those pages is the cause of the "two breadcrumb bars" bug.
+- If a page sits in a route tree _without_ auto-breadcrumbs and is ≥3 levels from the module root, render a single `<PageBreadcrumbs>` at the top of the page.
+- Items take `{ label, href?, icon? }`. Omit `href` on the last (current) item. First crumb usually carries a `HomeIcon`.
 
 **Rule 5.5 — Primary page action lives in the top-right of the page header.** "Create New X" is always top-right; inline "+" buttons inside tables are secondary, not primary.
 

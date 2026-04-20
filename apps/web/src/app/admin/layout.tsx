@@ -8,27 +8,31 @@
  */
 
 import { ReactNode } from 'react';
-import { Box, Alert, AlertTitle, Typography, Container, Breadcrumbs, Link } from '@mui/material';
+import { Box, Alert, AlertTitle, Typography, Container } from '@mui/material';
 import { AdminPanelSettings as AdminIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
-import NextLink from 'next/link';
 import { usePathname } from 'next/navigation';
+import { PageBreadcrumbs, type BreadcrumbItem } from '@/components/common/PageBreadcrumbs';
 
 interface AdminLayoutProps {
   children: ReactNode;
 }
 
 /**
- * Get breadcrumb items from pathname
+ * Get breadcrumb items from pathname for /admin/* routes.
  */
-function getBreadcrumbs(pathname: string) {
+function getAdminBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const segments = pathname.split('/').filter(Boolean);
-  const items: { label: string; href: string }[] = [];
+  const items: BreadcrumbItem[] = [];
 
-  // Always start with Admin
-  items.push({ label: 'Administration', href: '/admin' });
+  // Always start with Admin (icon on the root crumb)
+  items.push({
+    label: 'Administration',
+    href: '/admin',
+    icon: <AdminIcon fontSize="small" />,
+  });
 
   // Map known paths to friendly names
   const pathNames: Record<string, string> = {
@@ -69,7 +73,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const canAccessAdmin = hasPermission(userPermissions, PERMISSION_FLAGS.MANAGE_USERS);
 
   // Get breadcrumbs
-  const breadcrumbs = getBreadcrumbs(pathname);
+  const breadcrumbs = getAdminBreadcrumbs(pathname);
   const isAdminRoot = pathname === '/admin';
 
   if (!canAccessAdmin) {
@@ -100,30 +104,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <Container maxWidth="xl">
         <Box sx={{ py: 2 }}>
           {/* Breadcrumbs - only show if not on admin root */}
-          {!isAdminRoot && breadcrumbs.length > 1 && (
-            <Breadcrumbs sx={{ mb: 2 }}>
-              {breadcrumbs.map((item, index) => {
-                const isLast = index === breadcrumbs.length - 1;
-                return isLast ? (
-                  <Typography key={item.href} color="text.primary" fontWeight="medium">
-                    {item.label}
-                  </Typography>
-                ) : (
-                  <Link
-                    key={item.href}
-                    component={NextLink}
-                    href={item.href}
-                    underline="hover"
-                    color="inherit"
-                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                  >
-                    {index === 0 && <AdminIcon fontSize="small" />}
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </Breadcrumbs>
-          )}
+          {!isAdminRoot && breadcrumbs.length > 1 && <PageBreadcrumbs items={breadcrumbs} />}
 
           {children}
         </Box>
