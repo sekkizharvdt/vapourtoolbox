@@ -75,6 +75,8 @@ export interface CreateCommentRequest {
   projectId: string;
   masterDocumentId: string;
   submissionId: string;
+  documentNumber?: string;
+  documentTitle?: string;
   commentText: string;
   severity: CommentSeverity;
   category: CommentCategory;
@@ -97,6 +99,8 @@ export async function createComment(db: Firestore, request: CreateCommentRequest
     projectId: request.projectId,
     submissionId: request.submissionId,
     masterDocumentId: request.masterDocumentId,
+    documentNumber: request.documentNumber,
+    documentTitle: request.documentTitle,
 
     // Comment Identification
     commentNumber,

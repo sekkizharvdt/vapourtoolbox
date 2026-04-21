@@ -32,6 +32,7 @@ export interface CreateSupplyItemRequest {
   projectId: string;
   masterDocumentId: string;
   documentNumber: string;
+  documentTitle?: string;
   itemName: string;
   description: string;
   itemType: SupplyItemType;
@@ -80,6 +81,7 @@ export async function createSupplyItem(
     projectId: request.projectId,
     masterDocumentId: request.masterDocumentId,
     documentNumber: request.documentNumber,
+    documentTitle: request.documentTitle,
 
     // Item Details
     itemName: request.itemName,

@@ -76,6 +76,7 @@ export default function DocumentWorkList({ document, onUpdate }: DocumentWorkLis
         projectId: document.projectId,
         masterDocumentId: document.id,
         documentNumber: document.documentNumber,
+        documentTitle: document.documentTitle,
         activityName: data.activityName,
         activityType: data.activityType,
         description: data.description,

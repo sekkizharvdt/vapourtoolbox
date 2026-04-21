@@ -93,6 +93,7 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
         projectId: document.projectId,
         masterDocumentId: document.id,
         documentNumber: document.documentNumber,
+        documentTitle: document.documentTitle,
         itemName: data.itemName,
         description: data.description,
         itemType: data.itemType,

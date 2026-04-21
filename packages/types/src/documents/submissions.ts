@@ -54,6 +54,7 @@ export interface SubmissionFile {
 export interface DocumentSubmission {
   id: string;
   projectId: string;
+  projectCode?: string; // Denormalized from MasterDocumentEntry — optional for backward compat
   masterDocumentId: string;
   documentNumber: string; // Denormalized
   documentTitle: string;
@@ -142,6 +143,10 @@ export interface DocumentComment {
   projectId: string;
   submissionId: string;
   masterDocumentId: string;
+
+  // Denormalized document context (optional for backward compat)
+  documentNumber?: string;
+  documentTitle?: string;
 
   // Comment Identification
   commentNumber: string; // "C-001", "C-002", etc.

@@ -192,6 +192,8 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
         projectId: document.projectId,
         masterDocumentId: document.id,
         submissionId: latestSubmissionId,
+        documentNumber: document.documentNumber,
+        documentTitle: document.documentTitle,
         commentText: data.commentText,
         severity: data.severity,
         category: data.category,

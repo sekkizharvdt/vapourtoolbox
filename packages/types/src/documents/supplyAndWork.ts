@@ -37,6 +37,7 @@ export interface SupplyItem {
   projectId: string;
   masterDocumentId: string;
   documentNumber: string; // Denormalized
+  documentTitle?: string; // Denormalized — optional for backward compat with pre-denorm docs
 
   // Item Details
   itemName: string;
@@ -123,6 +124,7 @@ export interface WorkItem {
   projectId: string;
   masterDocumentId: string;
   documentNumber: string; // Denormalized
+  documentTitle?: string; // Denormalized — optional for backward compat with pre-denorm docs
 
   // Activity Details
   activityName: string;

@@ -105,36 +105,36 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 
 `⬜` not started · `🔍` in progress · `🟡` partial findings · `✅` clean
 
-| Module                              | undefined | silent catch | ref denorm | labels | completeness | status  | notes                                                       |
-| ----------------------------------- | --------- | ------------ | ---------- | ------ | ------------ | ------- | ----------------------------------------------------------- |
-| procurement                         | ✅        | ✅           | ✅         | 🟡     | ✅           | ✅ done | april review, session 2026-04-20                            |
-| accounting (bills)                  | ✅        | 🟡           | 🟡         | 🟡     | 🟡           | 🟡      | see findings 2026-04-20                                     |
-| accounting (invoices)               | ✅        | 🟡           | 🟡         | 🟡     | 🟡           | 🟡      | see findings 2026-04-20                                     |
-| accounting (payments)               | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | PaymentAllocation missing invoiceDate/dueDate               |
-| accounting (journal entries)        | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | dialog-only pattern                                         |
-| accounting (bank transfers)         | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | parser has defensive empty catches (documented)             |
-| accounting (expense claims)         | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | reimbursement payment lacks source claim ref                |
-| accounting (fixed assets)           | ✅        | 🟡           | ⬜         | 🟡     | ✅           | 🟡      | depreciation not yet implemented (Phase 2)                  |
-| accounting (payment batches)        | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | BatchPayment lacks sourcePaymentBatchId on created payments |
-| accounting (payment planning)       | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      |                                                             |
-| accounting (recurring transactions) | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | generated txns lack sourceRecurringTransactionId            |
-| hr (employees)                      | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/employees/new` — admin-gated?                          |
-| hr (leave)                          | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | LeaveRequest.department not denormalised                    |
-| hr (travel expenses)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | denorm complete; labels drift                               |
-| hr (time tracking)                  | ✅        | ✅           | 🟡         | N/A    | N/A          | 🟡      | TimeEntry link indirect via taskNotificationId              |
-| hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/on-duty/page.tsx` list route                           |
-| projects (core)                     | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | charter → PR carries project refs                           |
-| projects (proposals)                | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | stripUndefinedDeep migrated ✅ 2026-04-20                   |
-| projects (BOMs)                     | ✅        | ✅           | 🟡         | ✅     | ❌           | 🟡      | no standalone BOM UI — inline in proposals                  |
-| projects (cost configurations)      | ✅        | ✅           | ✅         | ✅     | ✅           | ✅      | enums already in constants                                  |
-| documents                           | ✅        | ✅           | ❌         | 🟡     | ✅           | 🟡      | 6 denorm gaps — child docs lack parent number/title/date    |
-| enquiries                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | proposal carries enquiry refs; status labels inline         |
-| materials                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | variants nested; availability labels inline                 |
-| thermal (calculators)               | N/A       | ✅           | N/A        | N/A    | ✅           | ✅      | all empty catches documented with rationale                 |
-| flow (tasks + meetings)             | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | meeting→task denorm shipped 2026-04-21; labels drift        |
-| feedback                            | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | feedback→task carries title+reporter; no admin dashboard    |
-| auth / users                        | ✅        | ✅           | N/A        | ✅     | ✅           | ✅      | uses PERMISSION_FLAGS constants; /admin/users exists        |
-| entities                            | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | no dedicated entity master UI — via /admin/entities?        |
+| Module                              | undefined | silent catch | ref denorm | labels | completeness | status  | notes                                                                |
+| ----------------------------------- | --------- | ------------ | ---------- | ------ | ------------ | ------- | -------------------------------------------------------------------- |
+| procurement                         | ✅        | ✅           | ✅         | 🟡     | ✅           | ✅ done | april review, session 2026-04-20                                     |
+| accounting (bills)                  | ✅        | 🟡           | 🟡         | 🟡     | 🟡           | 🟡      | see findings 2026-04-20                                              |
+| accounting (invoices)               | ✅        | 🟡           | 🟡         | 🟡     | 🟡           | 🟡      | see findings 2026-04-20                                              |
+| accounting (payments)               | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | PaymentAllocation missing invoiceDate/dueDate                        |
+| accounting (journal entries)        | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | dialog-only pattern                                                  |
+| accounting (bank transfers)         | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | parser has defensive empty catches (documented)                      |
+| accounting (expense claims)         | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | reimbursement payment lacks source claim ref                         |
+| accounting (fixed assets)           | ✅        | 🟡           | ⬜         | 🟡     | ✅           | 🟡      | depreciation not yet implemented (Phase 2)                           |
+| accounting (payment batches)        | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | BatchPayment lacks sourcePaymentBatchId on created payments          |
+| accounting (payment planning)       | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      |                                                                      |
+| accounting (recurring transactions) | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | generated txns lack sourceRecurringTransactionId                     |
+| hr (employees)                      | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/employees/new` — admin-gated?                                   |
+| hr (leave)                          | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | LeaveRequest.department not denormalised                             |
+| hr (travel expenses)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | denorm complete; labels drift                                        |
+| hr (time tracking)                  | ✅        | ✅           | 🟡         | N/A    | N/A          | 🟡      | TimeEntry link indirect via taskNotificationId                       |
+| hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/on-duty/page.tsx` list route                                    |
+| projects (core)                     | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | charter → PR carries project refs                                    |
+| projects (proposals)                | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | stripUndefinedDeep migrated ✅ 2026-04-20                            |
+| projects (BOMs)                     | ✅        | ✅           | 🟡         | ✅     | ❌           | 🟡      | no standalone BOM UI — inline in proposals                           |
+| projects (cost configurations)      | ✅        | ✅           | ✅         | ✅     | ✅           | ✅      | enums already in constants                                           |
+| documents                           | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | denorm pass 2026-04-21 — 4 of 6 gaps closed, transmittal+link remain |
+| enquiries                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | proposal carries enquiry refs; status labels inline                  |
+| materials                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | variants nested; availability labels inline                          |
+| thermal (calculators)               | N/A       | ✅           | N/A        | N/A    | ✅           | ✅      | all empty catches documented with rationale                          |
+| flow (tasks + meetings)             | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | meeting→task denorm shipped 2026-04-21; labels drift                 |
+| feedback                            | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | feedback→task carries title+reporter; no admin dashboard             |
+| auth / users                        | ✅        | ✅           | N/A        | ✅     | ✅           | ✅      | uses PERMISSION_FLAGS constants; /admin/users exists                 |
+| entities                            | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | no dedicated entity master UI — via /admin/entities?                 |
 
 **Priority order (recommended)**: accounting → hr → projects → documents → everything else. Accounting is the highest-risk because it's double-entry and the `undefined` class of bugs there can corrupt the GL silently.
 
@@ -376,14 +376,19 @@ Clean. All catches log via `logger.error` before throwing; `transmittalZipServic
 
 #### reference denorm
 
-**Six gaps** — child documents are missing parent metadata at write time, forcing N+1 joins on dashboards. Highest-value sweep target in this module:
+**Fixed 2026-04-21** (partial pass):
 
-- **DocumentSubmission**: carries `documentNumber`, `documentTitle`, `projectId` but missing `projectName`, `projectNumber`, `documentDate` ([submissionService.ts:253-255](apps/web/src/lib/documents/submissionService.ts#L253-L255)).
-- **DocumentComment**: carries `projectId`, `masterDocumentId`, `submissionId` but missing `documentNumber`, `documentTitle`, `submissionDate`, `submitterName` ([commentService.ts:97-99](apps/web/src/lib/documents/commentService.ts#L97-L99)).
-- **WorkItem**: carries `masterDocumentId`, `documentNumber` but missing `documentTitle`, `dueDate`, `assignedToNames` ([workItemService.ts:50-54](apps/web/src/lib/documents/workItemService.ts#L50-L54)).
-- **SupplyItem**: carries `masterDocumentId`, `documentNumber` but missing `documentTitle`, `projectCode`, `requiredByDate` ([supplyItemService.ts:80-82](apps/web/src/lib/documents/supplyItemService.ts#L80-L82)).
-- **Transmittal → doc refs**: carries `projectId`, `projectName`, `documentIds[]` but the per-document entries don't include `documentNumber`, `documentTitle`, `disciplineCode`, `status`. Transmittal PDF/ZIP generation must fetch each document separately ([transmittalService.ts:94-104](apps/web/src/lib/documents/transmittalService.ts#L94-L104), [transmittalPdfService.ts](apps/web/src/lib/documents/transmittalPdfService.ts)).
-- **DocumentLink**: stores linked-doc snapshot well except `status` — predecessor/successor filters still require re-fetch.
+- **DocumentSubmission**: now also carries `projectCode` (from `MasterDocumentEntry`) when a submission is created. `projectName` deferred (needs project fetch).
+- **DocumentComment**: now carries `documentNumber` + `documentTitle` (caller passes). `submissionDate` + `submitterName` deferred — `latestSubmissionId` is in scope on the UI but the full submission isn't; revisit when submission fetch is consolidated.
+- **WorkItem**: now carries `documentTitle`.
+- **SupplyItem**: now carries `documentTitle`.
+
+All fields added as **optional** on the types for backward compat with existing Firestore docs; new writes populate them. A backfill script is the cleaner long-term fix — not needed until a dashboard feature actually depends on the fields for historical rows.
+
+**Still open**:
+
+- **Transmittal → doc refs**: transmittal stores just `documentIds: string[]`. The `TransmittalDocumentEntry` type is fully denormalised but is only constructed at PDF/ZIP render time. Embedding `TransmittalDocumentEntry[]` on the transmittal doc at create time would avoid per-document fetches in `transmittalPdfService.ts` + `transmittalZipService.ts`. Touches read path — dedicated follow-up.
+- **DocumentLink `status` sync**: the type has `status` already (I was wrong in the earlier sweep). What's missing is a _sync_ strategy — `status` on the link snapshot goes stale when the linked document's status changes. Needs a Cloud Function trigger, not a one-shot write change.
 
 #### labels
 
@@ -418,7 +423,7 @@ Composite indexes: all `where + orderBy` queries have matching indexes (`masterD
 
 #### shipped
 
-- (none this session — denorm fixes require 5+ service-file changes + backfill. Label migration is one-shot PR. Both candidates for a dedicated follow-up session.)
+- **2026-04-21 denorm pass** (partial): `documentTitle` added to `WorkItem` and `SupplyItem`; `documentNumber` + `documentTitle` added to `DocumentComment`; `projectCode` added to `DocumentSubmission`. All fields optional on the types for backward compat. Callers (`DocumentWorkList`, `DocumentSupplyList`, `DocumentComments`) updated to pass the new fields. 4 of 6 originally-flagged gaps closed; transmittal embed + DocumentLink status sync remain as separate follow-ups (see notes above).
 
 ---
 

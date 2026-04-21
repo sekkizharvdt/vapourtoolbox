@@ -31,6 +31,7 @@ export interface CreateWorkItemRequest {
   projectId: string;
   masterDocumentId: string;
   documentNumber: string;
+  documentTitle?: string;
   activityName: string;
   activityType: WorkActivityType;
   description: string;
@@ -51,6 +52,7 @@ export async function createWorkItem(
     projectId: request.projectId,
     masterDocumentId: request.masterDocumentId,
     documentNumber: request.documentNumber,
+    documentTitle: request.documentTitle,
 
     // Activity Details
     activityName: request.activityName,

@@ -233,6 +233,7 @@ async function createDocumentSubmission(
   db: Firestore,
   data: {
     projectId: string;
+    projectCode?: string;
     masterDocumentId: string;
     documentNumber: string;
     documentTitle: string;
@@ -250,6 +251,7 @@ async function createDocumentSubmission(
   // Build submission with only defined fields to prevent Firestore errors
   const submission: Record<string, unknown> = {
     projectId: data.projectId,
+    ...(data.projectCode !== undefined && { projectCode: data.projectCode }),
     masterDocumentId: data.masterDocumentId,
     documentNumber: data.documentNumber,
     documentTitle: data.documentTitle,
@@ -435,6 +437,7 @@ export async function submitDocument(
     // 4. Create DocumentSubmission
     const submissionId = await createDocumentSubmission(db, {
       projectId: request.projectId,
+      projectCode: request.masterDocument.projectCode,
       masterDocumentId: request.masterDocumentId,
       documentNumber: request.masterDocument.documentNumber,
       documentTitle: request.masterDocument.documentTitle,
