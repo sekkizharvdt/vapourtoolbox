@@ -127,14 +127,14 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 | projects (proposals)                | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | stripUndefinedDeep migrated ✅ 2026-04-20                   |
 | projects (BOMs)                     | ✅        | ✅           | 🟡         | ✅     | ❌           | 🟡      | no standalone BOM UI — inline in proposals                  |
 | projects (cost configurations)      | ✅        | ✅           | ✅         | ✅     | ✅           | ✅      | enums already in constants                                  |
-| documents                           | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | document submissions, revisions, transmittals               |
-| enquiries                           | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| materials                           | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | shared reference data — writes via admin                    |
-| thermal (calculators)               | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | client-side only; some intentional empty catches            |
-| flow (tasks + meetings)             | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| feedback                            | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      |                                                             |
-| auth / users                        | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | users carry tenantId via claims                             |
-| entities                            | ⬜        | ⬜           | ⬜         | ⬜     | ⬜           | ⬜      | vendor / customer master                                    |
+| documents                           | ✅        | ✅           | ❌         | 🟡     | ✅           | 🟡      | 6 denorm gaps — child docs lack parent number/title/date    |
+| enquiries                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | proposal carries enquiry refs; status labels inline         |
+| materials                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | variants nested; availability labels inline                 |
+| thermal (calculators)               | N/A       | ✅           | N/A        | N/A    | ✅           | ✅      | all empty catches documented with rationale                 |
+| flow (tasks + meetings)             | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | meeting → task lacks meetingTitle/meetingDate denorm        |
+| feedback                            | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | feedback→task carries title+reporter; no admin dashboard    |
+| auth / users                        | ✅        | ✅           | N/A        | ✅     | ✅           | ✅      | uses PERMISSION_FLAGS constants; /admin/users exists        |
+| entities                            | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | no dedicated entity master UI — via /admin/entities?        |
 
 **Priority order (recommended)**: accounting → hr → projects → documents → everything else. Accounting is the highest-risk because it's double-entry and the `undefined` class of bugs there can corrupt the GL silently.
 
@@ -358,3 +358,155 @@ Composite indexes: all where+orderBy queries in projects, proposals, boms have m
 #### shipped
 
 - [proposalService.ts](apps/web/src/lib/proposals/proposalService.ts) — migrated `stripUndefinedDeep` local copy to shared `removeUndefinedDeep` from `lib/firebase/typeHelpers`. Removes ~28 lines of duplication. Same Timestamp-preserving semantics.
+
+---
+
+### documents
+
+**Swept**: 2026-04-21 by sekkizhar (via explore agent)
+**Files audited**: 22 services in `apps/web/src/lib/documents/`, project-nested views under `apps/web/src/app/projects/[id]/documents/` and `/documents/`.
+
+#### undefined leaks
+
+Clean. Conditional spreads applied throughout ([transmittalService.ts:101-108](apps/web/src/lib/documents/transmittalService.ts#L101-L108), [commentService.ts:88-146](apps/web/src/lib/documents/commentService.ts#L88-L146), [workItemService.ts:94-96](apps/web/src/lib/documents/workItemService.ts#L94-L96)). No local `removeUndefinedDeep` copies.
+
+#### silent catches
+
+Clean. All catches log via `logger.error` before throwing; `transmittalZipService.ts:113-119` logs `console.warn` with context before returning null (graceful fetch failure).
+
+#### reference denorm
+
+**Six gaps** — child documents are missing parent metadata at write time, forcing N+1 joins on dashboards. Highest-value sweep target in this module:
+
+- **DocumentSubmission**: carries `documentNumber`, `documentTitle`, `projectId` but missing `projectName`, `projectNumber`, `documentDate` ([submissionService.ts:253-255](apps/web/src/lib/documents/submissionService.ts#L253-L255)).
+- **DocumentComment**: carries `projectId`, `masterDocumentId`, `submissionId` but missing `documentNumber`, `documentTitle`, `submissionDate`, `submitterName` ([commentService.ts:97-99](apps/web/src/lib/documents/commentService.ts#L97-L99)).
+- **WorkItem**: carries `masterDocumentId`, `documentNumber` but missing `documentTitle`, `dueDate`, `assignedToNames` ([workItemService.ts:50-54](apps/web/src/lib/documents/workItemService.ts#L50-L54)).
+- **SupplyItem**: carries `masterDocumentId`, `documentNumber` but missing `documentTitle`, `projectCode`, `requiredByDate` ([supplyItemService.ts:80-82](apps/web/src/lib/documents/supplyItemService.ts#L80-L82)).
+- **Transmittal → doc refs**: carries `projectId`, `projectName`, `documentIds[]` but the per-document entries don't include `documentNumber`, `documentTitle`, `disciplineCode`, `status`. Transmittal PDF/ZIP generation must fetch each document separately ([transmittalService.ts:94-104](apps/web/src/lib/documents/transmittalService.ts#L94-L104), [transmittalPdfService.ts](apps/web/src/lib/documents/transmittalPdfService.ts)).
+- **DocumentLink**: stores linked-doc snapshot well except `status` — predecessor/successor filters still require re-fetch.
+
+#### labels
+
+No documents entries in `@vapour/constants/labels.ts`. Drift candidates — best addressed together since labels appear across many files:
+
+- Master document status (8 values: `DRAFT`, `IN_PROGRESS`, `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `ACCEPTED`, `ON_HOLD`, `CANCELLED`) — scattered across dialogs, tables, chips.
+- Comment status (4) + severity (4) + category (7) — mostly in service case statements.
+- Submission status (6) — in submission workflow.
+- Transmittal status (4), work-item status (3), supply-item status (6).
+- Delivery method (`HARD_COPY`, `SOFT_COPY`, `BOTH`), file types (`NATIVE`, `PDF`, `SUPPORTING`).
+
+Suggest: `DOCUMENT_STATUS_LABELS`, `COMMENT_STATUS_LABELS`, `COMMENT_SEVERITY_LABELS`, `COMMENT_CATEGORY_LABELS`, `SUBMISSION_STATUS_LABELS`, `TRANSMITTAL_STATUS_LABELS`, `WORK_ITEM_STATUS_LABELS`, `SUPPLY_ITEM_STATUS_LABELS` in a single PR.
+
+#### completeness
+
+| Area                         | Pattern        | List         | Create        | View | Edit                        |
+| ---------------------------- | -------------- | ------------ | ------------- | ---- | --------------------------- |
+| Master Documents             | multi-route    | ✅           | ✅ dialog     | ✅   | ✅ inline dialog            |
+| Submissions                  | dialog-in-list | ✅ (tab)     | ✅            | ✅   | ❌ no edit (design choice)  |
+| Transmittals                 | multi-route    | ✅           | ✅ multi-step | ✅   | ❌ read-only post-send (ok) |
+| Comments                     | inline         | ✅           | ✅            | ✅   | ✅ resolution inline        |
+| Work Items                   | inline         | ✅ (per doc) | ✅            | ✅   | ✅ status dropdown          |
+| Supply Items                 | inline         | ✅ (per doc) | ✅            | ✅   | ✅                          |
+| CRT / CRS / Approval letters | upload-only    | ✅           | ✅            | ✅   | ❌                          |
+
+Soft flags:
+
+- **No org-wide Work Item / Supply Item list**: useful for a PM who wants "all pending work for project X"; currently visible only inside each document.
+- **CRS reupload UX**: no way to replace a submitted comment resolution sheet — must delete and re-upload.
+
+Composite indexes: all `where + orderBy` queries have matching indexes (`masterDocuments`, `documentComments`, `documentSubmissions`). No gaps.
+
+#### shipped
+
+- (none this session — denorm fixes require 5+ service-file changes + backfill. Label migration is one-shot PR. Both candidates for a dedicated follow-up session.)
+
+---
+
+### enquiries
+
+**Swept**: 2026-04-21 by sekkizhar
+**Files audited**: enquiry routes under `apps/web/src/app/proposals/enquiries/**`, enquiry-touching logic in [proposalService.ts](apps/web/src/lib/proposals/proposalService.ts).
+
+Clean on undefined + silent-catch. Enquiry → Proposal denorm is complete (proposal carries `enquiryId`, `enquiryNumber`, client refs). Enquiry `bidDecision` data isn't copied onto proposal — acceptable; enquiry stays the source.
+
+Labels drift: enquiry status values (`'NEW'`, `'PROPOSAL_IN_PROGRESS'`, `'PROPOSAL_REJECTED'`) are inline. Suggest `ENQUIRY_STATUS_LABELS`.
+
+Completeness: list / `[id]` / `[id]/edit` routes all present. No 404s. Composite indexes ok.
+
+---
+
+### materials
+
+**Swept**: 2026-04-21 by sekkizhar
+**Files audited**: 10 files in `apps/web/src/lib/materials/`, 10+ routes under `apps/web/src/app/materials/**`.
+
+Clean on undefined + silent-catch. Variants are nested inside Material docs (not separate collection) so denorm doesn't apply. `VendorOffer` creation should be verified to carry `materialCode` + `materialName` at write — not re-verified here, deferred.
+
+Labels drift: availability labels in [variantUtils.ts:97-104](apps/web/src/lib/materials/variantUtils.ts#L97-L104) are hardcoded strings — move to constants. `MaterialCategory` enum is already imported from `@vapour/types` ✅.
+
+Completeness: full hub + 10 per-category lists + new / edit / detail routes. Composite indexes ok.
+
+---
+
+### thermal (calculators)
+
+**Swept**: 2026-04-21 by sekkizhar
+**Files audited**: ~30 calculator files in `apps/web/src/lib/thermal/med/` + `medBOMGenerator.ts`.
+
+N/A for undefined leaks and denorm — no Firestore persistence (client-side calculations only).
+
+Silent catches: all empty catches in MED designer / engine / BOM generator are **intentionally documented** (e.g., "Bundle geometry refinement failed", "TVC failed — use plain steam", "Material not found in database", "Weight estimation is non-critical"). Verified: [designPipeline.ts:459,583,601,609](apps/web/src/lib/thermal/med/designPipeline.ts), [medEngine.ts:871](apps/web/src/lib/thermal/med/medEngine.ts#L871), [costEstimation.ts:54](apps/web/src/lib/thermal/med/costEstimation.ts#L54), [equipmentSizing.ts:401](apps/web/src/lib/thermal/med/equipmentSizing.ts#L401), [medBOMGenerator.ts:1079](apps/web/src/lib/thermal/medBOMGenerator.ts#L1079). All meet CLAUDE.md rule 27's "documented reason" clause.
+
+Labels / completeness: library-only; no UI routes — correct by design. ✅ clean.
+
+---
+
+### flow (tasks + meetings)
+
+**Swept**: 2026-04-21 by sekkizhar
+**Files audited**: 6 services in `apps/web/src/lib/tasks/`, 6 pages under `apps/web/src/app/flow/`.
+
+Clean on undefined + silent-catch. All 20+ catches in `taskNotificationService.ts` and `channelService.ts` log before throwing or returning fallback.
+
+Reference denorm:
+
+- **Meeting → ManualTask**: when a meeting is finalised and creates action-item tasks, the task stores `meetingId` only — missing `meetingTitle`, `meetingDate`. Reverse lookup needed on any task dashboard. Small fix, high value. ([meetingService.ts](apps/web/src/lib/tasks/meetingService.ts))
+- **TaskNotification → TimeEntry**: already flagged (and accepted) in HR sweep.
+- Task → Comment / Thread: thread is the intermediate parent; no extra denorm needed.
+
+Labels drift: meeting status `'draft'`, `'finalized'` and task priority `Low/Medium/High/Urgent` hardcoded in UI. Suggest `MEETING_STATUS_LABELS`, `MANUAL_TASK_PRIORITY_LABELS`.
+
+Completeness: hub + tasks + inbox + team + meetings + meeting-detail + meeting-new all routed. Indexes ok.
+
+---
+
+### feedback
+
+**Swept**: 2026-04-21 by sekkizhar
+**Files audited**: 2 services in `apps/web/src/lib/feedback/`, 2 routes under `apps/web/src/app/feedback/`.
+
+Clean on undefined + silent-catch. Feedback → Task denorm complete: resolution task carries `entityId`, `entityType`, `feedbackTitle`, `reporterName`, `resolvedByName` ([feedbackTaskService.ts:71-72](apps/web/src/lib/feedback/feedbackTaskService.ts#L71-L72)).
+
+Labels drift: feedback type (`'bug'`, `'feature'`, `'general'`) and status (`'new'`, `'in_progress'`, `'resolved'`, `'closed'`, `'wont_fix'`) — consider `FEEDBACK_TYPE_LABELS`, `FEEDBACK_STATUS_LABELS`.
+
+Completeness: `/feedback` (form + list), `/feedback/[id]` (detail). No separate `/feedback/new` route — form lives on main page (acceptable for this low-volume flow). No user-facing admin dashboard — admin lives under `/admin/feedback`.
+
+---
+
+### auth / users
+
+**Swept**: 2026-04-21 by sekkizhar
+**Files audited**: `apps/web/src/lib/auth/`, `apps/web/src/contexts/AuthContext.tsx`, `apps/web/src/app/admin/users/**`, Cloud Function auth triggers.
+
+Clean across all five checks. No persistence from the auth service beyond user-bound data; permission flags read through `PERMISSION_FLAGS` / `PERMISSION_FLAGS_2` constants (no inline literals). `AuthorizationError` thrown for missing users; no silent paths. `/admin/users` route present for user management. ✅
+
+---
+
+### entities
+
+**Swept**: 2026-04-21 by sekkizhar
+**Files audited**: `apps/web/src/lib/entities/businessEntityService.ts`, admin routes.
+
+Clean on undefined + silent-catch. No parent-child — entities are themselves master data. Entity roles (`VENDOR`, `CUSTOMER`, `SUPPLIER`) come from type definitions; consider surfacing `ENTITY_ROLE_LABELS` for consistency.
+
+Completeness flag: no dedicated `/admin/entities` list in the routes audited. If an entity master list / edit UX exists, it may be embedded inside another admin page — worth confirming with the user. If none exists, this is an outstanding admin feature.
