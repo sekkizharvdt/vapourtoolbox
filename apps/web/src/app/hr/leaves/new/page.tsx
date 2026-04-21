@@ -211,6 +211,7 @@ export default function NewLeaveRequestPage() {
           isHalfDay,
           halfDayType: isHalfDay ? halfDayType : undefined,
           reason,
+          ...(claims?.department && { department: claims.department }),
         },
         user.uid,
         user.displayName || 'User',

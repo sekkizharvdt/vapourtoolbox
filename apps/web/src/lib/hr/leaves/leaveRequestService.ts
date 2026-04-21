@@ -45,6 +45,7 @@ export interface CreateLeaveRequestInput {
   halfDayType?: 'FIRST_HALF' | 'SECOND_HALF';
   reason: string;
   attachmentUrls?: string[];
+  department?: string;
 }
 
 /**
@@ -354,6 +355,7 @@ export async function createLeaveRequest(
       userId,
       userName,
       userEmail,
+      ...(input.department && { department: input.department }),
       leaveTypeId: leaveType.id,
       leaveTypeCode: input.leaveTypeCode,
       leaveTypeName: leaveType.name,

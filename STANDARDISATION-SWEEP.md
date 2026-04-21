@@ -119,7 +119,7 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 | accounting (payment planning)       | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      |                                                                      |
 | accounting (recurring transactions) | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | generated txns lack sourceRecurringTransactionId                     |
 | hr (employees)                      | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/employees/new` — admin-gated?                                   |
-| hr (leave)                          | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | LeaveRequest.department not denormalised                             |
+| hr (leave)                          | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | department denorm shipped 2026-04-21; labels drift only              |
 | hr (travel expenses)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | denorm complete; labels drift                                        |
 | hr (time tracking)                  | ✅        | ✅           | 🟡         | N/A    | N/A          | 🟡      | TimeEntry link indirect via taskNotificationId                       |
 | hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/on-duty/page.tsx` list route                                    |
@@ -268,7 +268,7 @@ Clean. All catches log via `logger.error` / `logger.warn` before throwing or ret
 
 #### reference denorm
 
-- **Employee → LeaveRequest**: `department?` is on the type but **not denormalised at creation** ([leaveRequestService.ts:281+](apps/web/src/lib/hr/leaves/leaveRequestService.ts)). Leave dashboards filtered by department require client-side joins. Fix: accept `department` in create input, write at creation.
+- **Employee → LeaveRequest**: ~~`department?` on the type but not written at creation~~ **Fixed 2026-04-21**: local `CreateLeaveRequestInput` now accepts `department`; `createLeaveRequest` writes it with a conditional spread; UI caller (`hr/leaves/new/page.tsx`) passes `claims?.department`. 17 leave-service tests still green.
 - **Employee → TravelExpense**: complete ✅ — stores `employeeId`, `employeeName`, `department`, `projectId`, `projectName` at create.
 - **Employee → OnDutyRequest**: complete ✅ — stores `userId`, `userName`, `userEmail`, `department`.
 - **Project → TimeEntry**: TimeEntry ([packages/types/src/task.ts:184-209](packages/types/src/task.ts#L184-L209)) has only `userId` + `taskNotificationId`; no `projectId`/`projectNumber`/`projectName`. Link is transitive through the task notification. **Accept for now**: user has previously signalled time tracking is low-priority; denorm can wait until a project-level time report is actually built.
@@ -303,7 +303,7 @@ Composite indexes: verified for `leaveRequestService` (`userId+status+endDate+or
 
 #### shipped
 
-- (none — findings are all discoverable design questions or multi-file refactors; no one-line fixes surfaced)
+- **2026-04-21**: Employee → LeaveRequest `department` denorm (see above). Single-session, low-risk; pattern mirrors `travelExpenseService`.
 
 ---
 
