@@ -434,6 +434,8 @@ export async function finalizeMeeting(
         priority: item.priority || ('MEDIUM' as ManualTaskPriority),
         ...(item.dueDate && { dueDate: item.dueDate }),
         meetingId,
+        meetingTitle: meeting.title,
+        meetingDate: meeting.date,
         tenantId,
         createdAt: now,
       };

@@ -637,6 +637,8 @@ export interface ManualTask {
   projectName?: string;
   proposalId?: string;
   meetingId?: string;
+  meetingTitle?: string;
+  meetingDate?: Timestamp;
   tags?: string[];
   tenantId: string;
   createdAt: Timestamp;
@@ -657,6 +659,8 @@ export interface CreateManualTaskInput {
   projectName?: string;
   proposalId?: string;
   meetingId?: string;
+  meetingTitle?: string;
+  meetingDate?: Timestamp;
   tags?: string[];
 }
 
