@@ -264,6 +264,7 @@ export default function PackingListsPage() {
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton
+                aria-label="Export CSV"
                 onClick={() => downloadPLListCSV(filteredPLs)}
                 disabled={filteredPLs.length === 0}
               >
@@ -272,6 +273,7 @@ export default function PackingListsPage() {
             </Tooltip>
             <Tooltip title="Export PDF">
               <IconButton
+                aria-label="Export PDF"
                 onClick={async () => {
                   setExportingPDF(true);
                   try {
@@ -378,6 +380,7 @@ export default function PackingListsPage() {
                             color="error"
                             onClick={() => handleDelete(pl)}
                             title="Move to Trash"
+                            aria-label="Move to Trash"
                           >
                             <DeleteIcon />
                           </IconButton>

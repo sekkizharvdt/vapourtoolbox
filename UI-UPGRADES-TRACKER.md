@@ -136,7 +136,7 @@ Audit also checked for Chips without any `label` prop (color-only) — none foun
 
 One dedicated pass per module against the full UI-STANDARDS checklist (§10). Order by user-facing volume:
 
-- ☐ **Procurement** — POs, PRs, RFQs, Goods Receipts, Packing Lists, Amendments, Trash
+- ◐ **Procurement** — POs, PRs, RFQs, Goods Receipts, Packing Lists, Amendments, Trash. **IconButton a11y swept 2026-04-20**: all 34 `<IconButton>` instances across 15+ files now have `aria-label` (rule 7.1). Remaining: 8 detail-dialog files still use raw `Dialog + DialogActions` (not `FormDialog`); migration deferred per-file as they're touched.
 - ☐ **Accounting** — Invoices, Bills, Payments, Journal Entries, COA, Entity Ledger, Data Health
 - ☐ **Flow** — Tasks, Inbox, Team Board, Meetings
 - ☐ **Projects** — Charter tabs, Objectives, Procurement tab, Documents tab

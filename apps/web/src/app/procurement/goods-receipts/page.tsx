@@ -291,6 +291,7 @@ export default function GoodsReceiptsPage() {
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton
+                aria-label="Export CSV"
                 onClick={() => downloadGRListCSV(filteredGRs)}
                 disabled={filteredGRs.length === 0}
               >
@@ -299,6 +300,7 @@ export default function GoodsReceiptsPage() {
             </Tooltip>
             <Tooltip title="Export PDF">
               <IconButton
+                aria-label="Export PDF"
                 onClick={async () => {
                   setExportingPDF(true);
                   try {
@@ -423,6 +425,7 @@ export default function GoodsReceiptsPage() {
                             color="error"
                             onClick={() => handleDelete(gr)}
                             title="Move to Trash"
+                            aria-label="Move to Trash"
                           >
                             <DeleteIcon />
                           </IconButton>

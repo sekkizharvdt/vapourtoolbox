@@ -588,6 +588,7 @@ export default function PurchaseRequestsPage() {
                       <IconButton
                         size="small"
                         onClick={() => router.push(`/procurement/purchase-requests/${request.id}`)}
+                        aria-label="View details"
                       >
                         <VisibilityIcon />
                       </IconButton>
@@ -599,6 +600,7 @@ export default function PurchaseRequestsPage() {
                           color="error"
                           onClick={() => handleDelete(request)}
                           title="Move to Trash"
+                          aria-label="Move to Trash"
                         >
                           <DeleteIcon />
                         </IconButton>

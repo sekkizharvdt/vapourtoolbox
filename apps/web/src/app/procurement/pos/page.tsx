@@ -257,6 +257,7 @@ export default function PurchaseOrdersPage() {
           <Box sx={{ flexGrow: 1 }} />
           <Tooltip title="Export CSV">
             <IconButton
+              aria-label="Export CSV"
               onClick={() => downloadPOListCSV(filteredPOs)}
               disabled={filteredPOs.length === 0}
             >
@@ -265,6 +266,7 @@ export default function PurchaseOrdersPage() {
           </Tooltip>
           <Tooltip title="Export PDF">
             <IconButton
+              aria-label="Export PDF"
               onClick={async () => {
                 setExportingPDF(true);
                 try {

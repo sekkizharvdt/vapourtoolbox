@@ -503,6 +503,7 @@ export default function EditPackingListClient() {
                       size="small"
                       color="error"
                       onClick={() => handleRemoveAttachment(idx)}
+                      aria-label="Remove"
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>

@@ -691,6 +691,7 @@ export default function NewPackingListPage() {
                           setPendingAttachments((prev) => prev.filter((_, i) => i !== idx))
                         }
                         disabled={creating}
+                        aria-label="Remove"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>

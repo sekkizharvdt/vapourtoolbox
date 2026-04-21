@@ -139,7 +139,12 @@ export function LineItemsStep({
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton size="small" onClick={() => onRemoveLineItem(index)} color="error">
+                    <IconButton
+                      size="small"
+                      onClick={() => onRemoveLineItem(index)}
+                      color="error"
+                      aria-label="Remove"
+                    >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>

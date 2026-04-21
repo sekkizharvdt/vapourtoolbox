@@ -169,7 +169,7 @@ export default function ServiceOrderDetailClient() {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <IconButton onClick={() => router.push('/procurement/service-orders')}>
+        <IconButton onClick={() => router.push('/procurement/service-orders')} aria-label="Go back">
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flex: 1 }}>

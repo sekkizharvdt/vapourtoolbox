@@ -737,6 +737,7 @@ export default function EditPRPage() {
                                   }
                                 }}
                                 sx={{ mt: 0.25 }}
+                                aria-label="Search"
                               >
                                 <SearchIcon fontSize="small" />
                               </IconButton>
@@ -820,6 +821,7 @@ export default function EditPRPage() {
                             size="small"
                             color="error"
                             onClick={() => handleRemoveLineItem(index)}
+                            aria-label="Remove"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>

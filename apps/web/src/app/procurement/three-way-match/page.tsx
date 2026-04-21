@@ -271,6 +271,7 @@ export default function ThreeWayMatchListPage() {
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton
+                aria-label="Export CSV"
                 onClick={() => downloadMatchListCSV(filteredMatches)}
                 disabled={filteredMatches.length === 0}
               >
@@ -279,6 +280,7 @@ export default function ThreeWayMatchListPage() {
             </Tooltip>
             <Tooltip title="Export PDF">
               <IconButton
+                aria-label="Export PDF"
                 onClick={async () => {
                   setExportingPDF(true);
                   try {

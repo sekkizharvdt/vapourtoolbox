@@ -303,6 +303,7 @@ export default function AmendmentsListPage() {
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton
+                aria-label="Export CSV"
                 onClick={() => downloadAmendmentListCSV(filteredAmendments)}
                 disabled={filteredAmendments.length === 0}
               >
@@ -311,6 +312,7 @@ export default function AmendmentsListPage() {
             </Tooltip>
             <Tooltip title="Export PDF">
               <IconButton
+                aria-label="Export PDF"
                 onClick={async () => {
                   setExportingPDF(true);
                   try {
@@ -397,6 +399,7 @@ export default function AmendmentsListPage() {
                           color="error"
                           onClick={() => handleDelete(amendment)}
                           title="Move to Trash"
+                          aria-label="Move to Trash"
                         >
                           <DeleteIcon />
                         </IconButton>

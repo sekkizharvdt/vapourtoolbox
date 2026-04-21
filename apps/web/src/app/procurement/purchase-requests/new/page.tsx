@@ -385,7 +385,7 @@ export default function NewPurchaseRequestPage() {
           gap={2}
         >
           <Stack direction="row" alignItems="center" spacing={2}>
-            <IconButton onClick={() => router.back()}>
+            <IconButton onClick={() => router.back()} aria-label="Go back">
               <ArrowBackIcon />
             </IconButton>
             <Box>
@@ -606,6 +606,7 @@ export default function NewPurchaseRequestPage() {
                                 }
                               }}
                               sx={{ mt: 0.25 }}
+                              aria-label="Search"
                             >
                               <SearchIcon fontSize="small" />
                             </IconButton>
@@ -706,6 +707,7 @@ export default function NewPurchaseRequestPage() {
                           onClick={() => handleRemoveLineItem(index)}
                           color="error"
                           disabled={lineItems.length === 1}
+                          aria-label="Remove"
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -833,6 +835,7 @@ export default function NewPurchaseRequestPage() {
                       setPendingAttachments((prev) => prev.filter((_, i) => i !== idx))
                     }
                     disabled={isProcessing}
+                    aria-label="Remove"
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>

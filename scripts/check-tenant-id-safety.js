@@ -298,6 +298,32 @@ function checkDocCreationHasTenantId() {
     // single-tenant — firestore.rules allows any internal user to create
     // without a tenantId guard. Matches the `transactions` pattern.
     'documents',
+    // Child-item collections that inherit tenant scope from their parent
+    // document (PR, RFQ, offer, PO, goods receipt, etc.). Each child
+    // carries a parent-id reference; firestore.rules gate them on
+    // MANAGE_* permissions, not tenantId.
+    'purchaseRequestItems',
+    'PURCHASE_REQUEST_ITEMS',
+    'purchaseRequestAttachments',
+    'PURCHASE_REQUEST_ATTACHMENTS',
+    'rfqItems',
+    'RFQ_ITEMS',
+    'offerItems',
+    'OFFER_ITEMS',
+    'purchaseOrderItems',
+    'PURCHASE_ORDER_ITEMS',
+    'packingListItems',
+    'PACKING_LIST_ITEMS',
+    'goodsReceiptItems',
+    'GOODS_RECEIPT_ITEMS',
+    'matchLineItems',
+    'MATCH_LINE_ITEMS',
+    'meetingActionItems',
+    'MEETING_ACTION_ITEMS',
+    'vendorOfferItems',
+    'VENDOR_OFFER_ITEMS',
+    'manualCashFlowItems',
+    'MANUAL_CASH_FLOW_ITEMS',
   ];
 
   // Get staged .ts/.tsx files (only check what's being committed)
