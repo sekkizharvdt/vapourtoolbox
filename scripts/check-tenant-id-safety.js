@@ -294,6 +294,10 @@ function checkDocCreationHasTenantId() {
     // counterparty (vendor/customer), not the business tenant.
     'transactions',
     'TRANSACTIONS',
+    // `documents` (top-level DocumentRecord file-registry) is effectively
+    // single-tenant — firestore.rules allows any internal user to create
+    // without a tenantId guard. Matches the `transactions` pattern.
+    'documents',
   ];
 
   // Get staged .ts/.tsx files (only check what's being committed)
@@ -401,6 +405,20 @@ function checkDocCreationHasTenantId() {
       ) {
         continue;
       }
+
+      // Nested writes under a tenant-scoped root collection inherit tenant
+      // scope from the parent. Detect `collection(db, '<root>', <var>, '<sub>'...)`
+      // or `doc(db, '<root>', <var>, '<sub>', ...)` patterns where <root> is a
+      // tenant-scoped parent (e.g. `projects`, `boms`). Firestore rules for
+      // these subcollections check parent access, not a tenantId field on
+      // the child doc.
+      const tenantScopedParents = ['projects', 'boms', 'proposals'];
+      const inheritsTenantViaParent = tenantScopedParents.some((parent) =>
+        new RegExp(`(?:collection|doc)\\s*\\(\\s*[^,]+,\\s*['"\`]${parent}['"\`]\\s*,`).test(
+          fullContext
+        )
+      );
+      if (inheritsTenantViaParent) continue;
 
       // Check if this is writing to a utility/system collection (counters, idempotency, aggregations)
       if (
