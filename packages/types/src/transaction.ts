@@ -402,6 +402,12 @@ export interface PaymentAllocation {
   originalAmount: number;
   allocatedAmount: number;
   remainingAmount: number;
+  // Denormalised parent dates (optional for backward compat with
+  // pre-denorm allocations). Source: CustomerInvoice.invoiceDate /
+  // VendorBill.billDate and .dueDate. Allows aging / overdue reports
+  // to render without re-fetching the parent invoice/bill.
+  invoiceDate?: Date;
+  dueDate?: Date;
 }
 
 /**

@@ -245,6 +245,8 @@ export function RecordVendorPaymentDialog({
             originalAmount: outstanding,
             allocatedAmount: 0,
             remainingAmount: outstanding,
+            ...(bill.billDate && { invoiceDate: bill.billDate }),
+            ...(bill.dueDate && { dueDate: bill.dueDate }),
           });
         }
 

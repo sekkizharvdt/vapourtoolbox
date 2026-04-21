@@ -230,6 +230,8 @@ export function useOutstandingInvoices({
             originalAmount: outstandingInINR,
             allocatedAmount: 0,
             remainingAmount: outstandingInINR,
+            ...(invoice.invoiceDate && { invoiceDate: invoice.invoiceDate }),
+            ...(invoice.dueDate && { dueDate: invoice.dueDate }),
           });
         }
 

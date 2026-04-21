@@ -1231,6 +1231,10 @@ export async function bulkAutoAllocatePayments(
         originalAmount: totalAmountINR,
         allocatedAmount: allocAmount,
         remainingAmount: Math.round((billOutstanding - allocAmount) * 100) / 100,
+        // Denormalise parent bill/invoice dates onto the allocation (rule 26)
+        ...(data.billDate && { invoiceDate: data.billDate }),
+        ...(data.invoiceDate && { invoiceDate: data.invoiceDate }),
+        ...(data.dueDate && { dueDate: data.dueDate }),
       });
 
       const newPaid = Math.round((previouslyPaid + allocAmount) * 100) / 100;
