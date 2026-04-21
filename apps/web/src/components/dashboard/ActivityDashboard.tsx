@@ -161,6 +161,32 @@ function ActionItemRow({ item, onClick }: { item: ActionItem; onClick: () => voi
 }
 
 /**
+ * Max items shown per group in "Today's Focus" before collapsing into a
+ * "Show N more" link. Keeps the dashboard scannable even with long queues.
+ */
+const MAX_PER_GROUP = 5;
+
+/**
+ * "Show N more" row — links into the relevant module's filtered view so the
+ * user can see the full group.
+ */
+function ShowMoreRow({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <ListItem disablePadding>
+      <ListItemButton onClick={onClick} sx={{ borderRadius: 1, pl: 7 }}>
+        <ListItemText
+          primary={
+            <Typography variant="caption" color="primary" fontWeight={500}>
+              Show {count} more →
+            </Typography>
+          }
+        />
+      </ListItemButton>
+    </ListItem>
+  );
+}
+
+/**
  * Loading skeleton for action items
  */
 function ActionItemSkeleton() {
@@ -189,7 +215,7 @@ export function ActivityDashboard() {
   const canUploadDocument =
     hasPermission(perms, PERMISSION_FLAGS.MANAGE_DOCUMENTS) ||
     hasPermission(perms, PERMISSION_FLAGS.SUBMIT_DOCUMENTS);
-  const { actionItems, summary, isLoading, refetch } = useActivityDashboard();
+  const { actionItems, summary, isLoading, lastUpdated, refetch } = useActivityDashboard();
 
   const handleActionClick = (item: ActionItem) => {
     router.push(item.link);
@@ -309,14 +335,21 @@ export function ActivityDashboard() {
               <ScheduleIcon color="primary" />
               <Typography variant="h6">Today&apos;s Focus</Typography>
             </Box>
-            <Button
-              size="small"
-              startIcon={<RefreshIcon />}
-              onClick={() => refetch()}
-              disabled={isLoading}
-            >
-              Refresh
-            </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {lastUpdated && !isLoading && (
+                <Typography variant="caption" color="text.secondary">
+                  Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
+                </Typography>
+              )}
+              <Button
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={() => refetch()}
+                disabled={isLoading}
+              >
+                Refresh
+              </Button>
+            </Box>
           </Box>
 
           {isLoading ? (
@@ -344,6 +377,9 @@ export function ActivityDashboard() {
             </Box>
           ) : (
             <List dense>
+              {/* Each group caps at MAX_PER_GROUP items. Extra items are not
+                  hidden — there's a "Show N more" link that deep-links into the
+                  relevant module so the user can see the full queue. */}
               {/* Urgent Items */}
               {groupedItems.urgent.length > 0 && (
                 <>
@@ -354,13 +390,19 @@ export function ActivityDashboard() {
                   >
                     URGENT
                   </Typography>
-                  {groupedItems.urgent.map((item) => (
+                  {groupedItems.urgent.slice(0, MAX_PER_GROUP).map((item) => (
                     <ActionItemRow
                       key={item.id}
                       item={item}
                       onClick={() => handleActionClick(item)}
                     />
                   ))}
+                  {groupedItems.urgent.length > MAX_PER_GROUP && (
+                    <ShowMoreRow
+                      count={groupedItems.urgent.length - MAX_PER_GROUP}
+                      onClick={() => router.push('/flow?filter=urgent')}
+                    />
+                  )}
                   <Divider sx={{ my: 1 }} />
                 </>
               )}
@@ -375,13 +417,19 @@ export function ActivityDashboard() {
                   >
                     TASKS
                   </Typography>
-                  {groupedItems.tasks.map((item) => (
+                  {groupedItems.tasks.slice(0, MAX_PER_GROUP).map((item) => (
                     <ActionItemRow
                       key={item.id}
                       item={item}
                       onClick={() => handleActionClick(item)}
                     />
                   ))}
+                  {groupedItems.tasks.length > MAX_PER_GROUP && (
+                    <ShowMoreRow
+                      count={groupedItems.tasks.length - MAX_PER_GROUP}
+                      onClick={() => router.push('/flow')}
+                    />
+                  )}
                   <Divider sx={{ my: 1 }} />
                 </>
               )}
@@ -396,13 +444,19 @@ export function ActivityDashboard() {
                   >
                     AWAITING APPROVAL
                   </Typography>
-                  {groupedItems.approvals.map((item) => (
+                  {groupedItems.approvals.slice(0, MAX_PER_GROUP).map((item) => (
                     <ActionItemRow
                       key={item.id}
                       item={item}
                       onClick={() => handleActionClick(item)}
                     />
                   ))}
+                  {groupedItems.approvals.length > MAX_PER_GROUP && (
+                    <ShowMoreRow
+                      count={groupedItems.approvals.length - MAX_PER_GROUP}
+                      onClick={() => router.push('/pending-approval')}
+                    />
+                  )}
                   <Divider sx={{ my: 1 }} />
                 </>
               )}
@@ -417,13 +471,19 @@ export function ActivityDashboard() {
                   >
                     OTHER ITEMS
                   </Typography>
-                  {groupedItems.other.map((item) => (
+                  {groupedItems.other.slice(0, MAX_PER_GROUP).map((item) => (
                     <ActionItemRow
                       key={item.id}
                       item={item}
                       onClick={() => handleActionClick(item)}
                     />
                   ))}
+                  {groupedItems.other.length > MAX_PER_GROUP && (
+                    <ShowMoreRow
+                      count={groupedItems.other.length - MAX_PER_GROUP}
+                      onClick={() => router.push('/flow')}
+                    />
+                  )}
                 </>
               )}
             </List>

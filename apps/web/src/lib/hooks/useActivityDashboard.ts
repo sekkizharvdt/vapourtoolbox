@@ -74,6 +74,10 @@ export function useActivityDashboard() {
   const summary = useDashboardSummary();
   const recentActivity = useRecentActivity();
 
+  // Most recent successful fetch across the two primary queries — used by
+  // the dashboard's "Updated X ago" timestamp next to the refresh button.
+  const lastUpdated = Math.max(actionItems.dataUpdatedAt, summary.dataUpdatedAt) || null;
+
   return {
     actionItems: {
       data: actionItems.data || [],
@@ -91,6 +95,9 @@ export function useActivityDashboard() {
       error: recentActivity.error,
     },
     isLoading: actionItems.isLoading || summary.isLoading,
+    /** Epoch ms of the most recent successful fetch, or null if never fetched. */
+    lastUpdated,
+    /** Refetch every dashboard query in one call. */
     refetch: () => {
       actionItems.refetch();
       summary.refetch();

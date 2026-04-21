@@ -206,6 +206,33 @@ function SidebarComponent({
   const isAdminPath = pathname.startsWith('/admin');
   const [adminExpanded, setAdminExpanded] = useState(isAdminPath);
 
+  // Per-category collapse state, persisted to localStorage. A category id in
+  // the set means that category is collapsed. Users with narrow module access
+  // can tuck away categories they don't use.
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = window.localStorage.getItem('sidebar-collapsed-categories');
+      return new Set(stored ? (JSON.parse(stored) as string[]) : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleCategory = useCallback((id: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        window.localStorage.setItem('sidebar-collapsed-categories', JSON.stringify([...next]));
+      } catch {
+        // localStorage unavailable (private mode etc) — persistence is best-effort
+      }
+      return next;
+    });
+  }, []);
+
   // Auto-expand admin sub-menu when navigating to admin paths
   useEffect(() => {
     if (pathname.startsWith('/admin') && !collapsed) {
@@ -354,225 +381,250 @@ function SidebarComponent({
 
       {/* Categorized Module List */}
       <Box ref={scrollContainerRef} sx={{ flexGrow: 1, overflowY: 'auto' }}>
-        {modulesByCategory.map((category, index) => (
-          <Box
-            key={category.id}
-            sx={
-              category.isAdmin
-                ? {
-                    bgcolor: 'action.hover',
-                    borderTop: '2px solid',
-                    borderColor: 'primary.main',
-                  }
-                : {}
-            }
-          >
-            <List disablePadding sx={{ py: 1 }}>
-              {/* Category Header */}
-              {!collapsed && (
-                <ListItem disablePadding>
-                  <Typography
-                    variant="caption"
-                    color={category.isAdmin ? 'primary.main' : 'text.secondary'}
-                    sx={{
-                      px: 2,
-                      py: 1,
-                      fontWeight: 600,
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    {category.label}
-                  </Typography>
-                </ListItem>
-              )}
-
-              {/* Module Items */}
-              {category.modules.map((module) => {
-                const isSelected = pathname.startsWith(module.path);
-                const showBadge = module.id === 'admin' && feedbackCount > 0 && !collapsed;
-
-                return (
-                  <ListItem
-                    key={module.id}
-                    disablePadding
-                    sx={module.status === 'coming_soon' ? { cursor: 'not-allowed' } : undefined}
-                  >
-                    <Tooltip
-                      title={
-                        collapsed
-                          ? module.status === 'coming_soon'
-                            ? `${module.name} (${module.estimatedRelease})`
-                            : module.name
-                          : ''
-                      }
-                      placement="right"
+        {modulesByCategory.map((category, index) => {
+          const isCategoryCollapsed = collapsedCategories.has(category.id);
+          return (
+            <Box
+              key={category.id}
+              sx={
+                category.isAdmin
+                  ? {
+                      bgcolor: 'action.hover',
+                      borderTop: '2px solid',
+                      borderColor: 'primary.main',
+                    }
+                  : {}
+              }
+            >
+              <List disablePadding sx={{ py: 1 }}>
+                {/* Category Header — clickable to collapse/expand the group */}
+                {!collapsed && (
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={() => toggleCategory(category.id)}
+                      sx={{ py: 0.5, px: 2 }}
+                      aria-expanded={!isCategoryCollapsed}
+                      aria-label={`${isCategoryCollapsed ? 'Expand' : 'Collapse'} ${category.label} group`}
                     >
-                      <ListItemButton
-                        selected={isSelected}
-                        onClick={() => {
-                          if (module.id === 'admin' && !collapsed) {
-                            setAdminExpanded((prev) => !prev);
-                            handleNavigation(module.path);
-                          } else if (module.status === 'active') {
-                            handleNavigation(module.path);
-                          }
-                        }}
-                        disabled={module.status === 'coming_soon'}
+                      <Typography
+                        variant="caption"
+                        color={category.isAdmin ? 'primary.main' : 'text.secondary'}
                         sx={{
-                          justifyContent: collapsed ? 'center' : 'initial',
-                          px: collapsed ? 0 : 2,
-                          py: collapsed ? 0.5 : 0,
-                          minHeight: collapsed ? 56 : 48, // Taller when collapsed to fit label
+                          flex: 1,
+                          py: 0.5,
+                          fontWeight: 600,
+                          letterSpacing: '0.5px',
                         }}
                       >
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            minWidth: collapsed ? 'auto' : 0,
-                            mr: collapsed ? 0 : 3,
-                          }}
+                        {category.label}
+                      </Typography>
+                      {isCategoryCollapsed ? (
+                        <ExpandMoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                      ) : (
+                        <ExpandLessIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                      )}
+                    </ListItemButton>
+                  </ListItem>
+                )}
+
+                {/* Module Items — wrapped in Collapse. When the sidebar is in
+                  icon-only collapsed mode, ignore category collapse (icons are
+                  always shown so users can still find modules). */}
+                <Collapse in={collapsed || !isCategoryCollapsed} timeout="auto" unmountOnExit>
+                  {category.modules.map((module) => {
+                    const isSelected = pathname.startsWith(module.path);
+                    const showBadge = module.id === 'admin' && feedbackCount > 0 && !collapsed;
+
+                    return (
+                      <ListItem
+                        key={module.id}
+                        disablePadding
+                        sx={module.status === 'coming_soon' ? { cursor: 'not-allowed' } : undefined}
+                      >
+                        <Tooltip
+                          title={
+                            collapsed
+                              ? module.status === 'coming_soon'
+                                ? `${module.name} (${module.estimatedRelease})`
+                                : module.name
+                              : ''
+                          }
+                          placement="right"
                         >
-                          <ListItemIcon
+                          <ListItemButton
+                            selected={isSelected}
+                            onClick={() => {
+                              if (module.id === 'admin' && !collapsed) {
+                                setAdminExpanded((prev) => !prev);
+                                handleNavigation(module.path);
+                              } else if (module.status === 'active') {
+                                handleNavigation(module.path);
+                              }
+                            }}
+                            disabled={module.status === 'coming_soon'}
                             sx={{
-                              minWidth: 0,
-                              justifyContent: 'center',
-                              opacity: module.status === 'coming_soon' ? 0.5 : 1,
-                              color: category.isAdmin ? 'primary.main' : undefined,
+                              justifyContent: collapsed ? 'center' : 'initial',
+                              px: collapsed ? 0 : 2,
+                              py: collapsed ? 0.5 : 0,
+                              minHeight: collapsed ? 56 : 48, // Taller when collapsed to fit label
                             }}
                           >
-                            {collapsed && feedbackCount > 0 && module.id === 'admin' ? (
-                              <Badge badgeContent={feedbackCount} color="error" max={99}>
-                                {moduleIcons[module.id]}
-                              </Badge>
-                            ) : collapsed && module.status === 'coming_soon' ? (
-                              <Badge
-                                variant="dot"
-                                color="primary"
-                                overlap="circular"
-                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                              >
-                                {moduleIcons[module.id]}
-                              </Badge>
-                            ) : (
-                              moduleIcons[module.id]
-                            )}
-                          </ListItemIcon>
-                          {/* Show small label below icon when collapsed */}
-                          {collapsed && (
-                            <Typography
-                              variant="caption"
+                            <Box
                               sx={{
-                                fontSize: '0.6rem',
-                                textAlign: 'center',
-                                lineHeight: 1.1,
-                                mt: 0.25,
-                                maxWidth: 70,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                opacity: module.status === 'coming_soon' ? 0.5 : 0.85,
-                                color: category.isAdmin ? 'primary.main' : 'text.secondary',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                minWidth: collapsed ? 'auto' : 0,
+                                mr: collapsed ? 0 : 3,
                               }}
                             >
-                              {/* Prefer explicit collapsedLabel; fall back to first word of name */}
-                              {module.collapsedLabel || module.name.split(' ')[0]}
-                            </Typography>
-                          )}
-                        </Box>
-                        {!collapsed && (
-                          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <ListItemText
-                              primary={module.name}
-                              primaryTypographyProps={{
-                                fontSize: '0.875rem',
-                              }}
-                            />
-                            {module.status === 'coming_soon' && (
-                              <Chip
-                                label={module.estimatedRelease}
-                                size="small"
+                              <ListItemIcon
                                 sx={{
-                                  height: 20,
-                                  fontSize: '0.65rem',
-                                  fontWeight: 600,
-                                  backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                                  color: 'primary.main',
-                                  borderColor: 'primary.main',
-                                  '& .MuiChip-label': {
-                                    px: 0.75,
-                                  },
+                                  minWidth: 0,
+                                  justifyContent: 'center',
+                                  opacity: module.status === 'coming_soon' ? 0.5 : 1,
+                                  color: category.isAdmin ? 'primary.main' : undefined,
                                 }}
-                              />
+                              >
+                                {collapsed && feedbackCount > 0 && module.id === 'admin' ? (
+                                  <Badge badgeContent={feedbackCount} color="error" max={99}>
+                                    {moduleIcons[module.id]}
+                                  </Badge>
+                                ) : collapsed && module.status === 'coming_soon' ? (
+                                  <Badge
+                                    variant="dot"
+                                    color="primary"
+                                    overlap="circular"
+                                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                  >
+                                    {moduleIcons[module.id]}
+                                  </Badge>
+                                ) : (
+                                  moduleIcons[module.id]
+                                )}
+                              </ListItemIcon>
+                              {/* Show small label below icon when collapsed */}
+                              {collapsed && (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    fontSize: '0.6rem',
+                                    textAlign: 'center',
+                                    lineHeight: 1.1,
+                                    mt: 0.25,
+                                    maxWidth: 70,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    opacity: module.status === 'coming_soon' ? 0.5 : 0.85,
+                                    color: category.isAdmin ? 'primary.main' : 'text.secondary',
+                                  }}
+                                >
+                                  {/* Prefer explicit collapsedLabel; fall back to first word of name */}
+                                  {module.collapsedLabel || module.name.split(' ')[0]}
+                                </Typography>
+                              )}
+                            </Box>
+                            {!collapsed && (
+                              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <ListItemText
+                                  primary={module.name}
+                                  primaryTypographyProps={{
+                                    fontSize: '0.875rem',
+                                  }}
+                                />
+                                {module.status === 'coming_soon' && (
+                                  <Chip
+                                    label={module.estimatedRelease}
+                                    size="small"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.65rem',
+                                      fontWeight: 600,
+                                      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                      color: 'primary.main',
+                                      borderColor: 'primary.main',
+                                      '& .MuiChip-label': {
+                                        px: 0.75,
+                                      },
+                                    }}
+                                  />
+                                )}
+                                {showBadge && (
+                                  <Chip
+                                    label={feedbackCount}
+                                    size="small"
+                                    color="error"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.7rem',
+                                      fontWeight: 600,
+                                      '& .MuiChip-label': {
+                                        px: 0.5,
+                                      },
+                                    }}
+                                  />
+                                )}
+                                {module.id === 'admin' &&
+                                  (adminExpanded ? (
+                                    <ExpandLessIcon
+                                      fontSize="small"
+                                      sx={{ color: 'text.secondary' }}
+                                    />
+                                  ) : (
+                                    <ExpandMoreIcon
+                                      fontSize="small"
+                                      sx={{ color: 'text.secondary' }}
+                                    />
+                                  ))}
+                              </Box>
                             )}
-                            {showBadge && (
-                              <Chip
-                                label={feedbackCount}
-                                size="small"
-                                color="error"
-                                sx={{
-                                  height: 20,
-                                  fontSize: '0.7rem',
-                                  fontWeight: 600,
-                                  '& .MuiChip-label': {
-                                    px: 0.5,
-                                  },
-                                }}
-                              />
-                            )}
-                            {module.id === 'admin' &&
-                              (adminExpanded ? (
-                                <ExpandLessIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                          </ListItemButton>
+                        </Tooltip>
+                      </ListItem>
+                    );
+                  })}
+
+                  {/* Admin sub-navigation */}
+                  {category.isAdmin && !collapsed && (
+                    <Collapse in={adminExpanded} timeout="auto" unmountOnExit>
+                      {ADMIN_SUB_ITEMS.map((subItem) => (
+                        <ListItem key={subItem.id} disablePadding>
+                          <ListItemButton
+                            selected={
+                              pathname === subItem.path || pathname.startsWith(subItem.path + '/')
+                            }
+                            onClick={() => handleNavigation(subItem.path)}
+                            sx={{ pl: 4, py: 0.5, minHeight: 36 }}
+                          >
+                            <ListItemIcon sx={{ minWidth: 28, color: 'primary.main' }}>
+                              {subItem.id === 'feedback' && feedbackCount > 0 ? (
+                                <Badge badgeContent={feedbackCount} color="error" max={99}>
+                                  {subItem.icon}
+                                </Badge>
                               ) : (
-                                <ExpandMoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                              ))}
-                          </Box>
-                        )}
-                      </ListItemButton>
-                    </Tooltip>
-                  </ListItem>
-                );
-              })}
-
-              {/* Admin sub-navigation */}
-              {category.isAdmin && !collapsed && (
-                <Collapse in={adminExpanded} timeout="auto" unmountOnExit>
-                  {ADMIN_SUB_ITEMS.map((subItem) => (
-                    <ListItem key={subItem.id} disablePadding>
-                      <ListItemButton
-                        selected={
-                          pathname === subItem.path || pathname.startsWith(subItem.path + '/')
-                        }
-                        onClick={() => handleNavigation(subItem.path)}
-                        sx={{ pl: 4, py: 0.5, minHeight: 36 }}
-                      >
-                        <ListItemIcon sx={{ minWidth: 28, color: 'primary.main' }}>
-                          {subItem.id === 'feedback' && feedbackCount > 0 ? (
-                            <Badge badgeContent={feedbackCount} color="error" max={99}>
-                              {subItem.icon}
-                            </Badge>
-                          ) : (
-                            subItem.icon
-                          )}
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={subItem.label}
-                          primaryTypographyProps={{ fontSize: '0.8rem' }}
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  ))}
+                                subItem.icon
+                              )}
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={subItem.label}
+                              primaryTypographyProps={{ fontSize: '0.8rem' }}
+                            />
+                          </ListItemButton>
+                        </ListItem>
+                      ))}
+                    </Collapse>
+                  )}
                 </Collapse>
-              )}
-            </List>
+              </List>
 
-            {/* Add divider between categories except after the last one and before admin */}
-            {index < modulesByCategory.length - 1 && !modulesByCategory[index + 1]?.isAdmin && (
-              <Divider sx={{ my: 0 }} />
-            )}
-          </Box>
-        ))}
+              {/* Add divider between categories except after the last one and before admin */}
+              {index < modulesByCategory.length - 1 && !modulesByCategory[index + 1]?.isAdmin && (
+                <Divider sx={{ my: 0 }} />
+              )}
+            </Box>
+          );
+        })}
       </Box>
 
       {/* ⌘K discovery hint — only when expanded (desktop only; mobile users don't have a keyboard) */}

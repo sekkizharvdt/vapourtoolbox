@@ -106,31 +106,29 @@ Audit also checked for Chips without any `label` prop (color-only) — none foun
 - Migrate the ~139 hand-rolled `<Breadcrumbs>` usages to `<PageBreadcrumbs>` as each page is touched. These are not duplication bugs (they're single-source on routes without auto-breadcrumb layouts), just cosmetic inconsistency.
 - Audit `ProjectDetailClient.tsx` and `ProjectCharterClient.tsx` — they render their own Breadcrumbs but don't use the wrapper, so they're single-source but should migrate to the primitive.
 
-### 2.5 🟡 Sidebar structural refactor
+### 2.5 ◐ Sidebar structural refactor — **PARTIALLY DONE 2026-04-20**
 
-[Sidebar.tsx](apps/web/src/components/dashboard/Sidebar.tsx) is a 620-line single file — mixes icon map, category rendering, admin sub-nav, both drawer variants, and the collapse toggle. Hard to touch without regression risk. Structural improvements:
+- ☑ **Per-category collapse + persist** — click a category header to toggle, persisted to `localStorage` under `sidebar-collapsed-categories`. Click collapses the modules Collapse (and admin sub-nav for the admin category). `aria-expanded` + `aria-label` set on the header button. When the sidebar is in icon-only collapsed mode, category collapse is ignored (icons are always visible so users can find modules).
+- ☐ **Split into sub-components** — deferred. Sidebar.tsx is now ~650 lines. Pure refactor with no user-visible benefit; safer to do as a dedicated task when no user-facing changes are in flight.
+- ☐ **Generalized badge system** — deferred. Currently only admin shows a feedback badge. Generalising to per-module `badgeCount` needs a per-module stats source (related to §2.7 item 1).
+- ☐ **Swipe-to-close on mobile drawer** — deferred.
+- ☐ **Keyboard navigation** — deferred.
 
-- ☐ **Split into sub-components** — `SidebarCategory`, `SidebarItem`, `SidebarAdminSection`, `SidebarFooter`. Keep `Sidebar.tsx` as the composition root. Makes every subsequent change cheaper.
-- ☐ **Per-category collapse + persist** — click a category header to collapse/expand just that group, persisted in `localStorage`. Users with narrow module access stop scrolling past irrelevant categories.
-- ☐ **Generalized badge system** — today only `feedbackCount` drives an admin badge. Let each module declare a `badgeCount` (overdue approvals, unread tasks, unreconciled statements). Currently hard-coded at [Sidebar.tsx:427-432](apps/web/src/components/dashboard/Sidebar.tsx#L427-L432).
-- ☐ **Swipe-to-close on mobile drawer** — optional; complements the close button from §1.5.
-- ☐ **Keyboard navigation** — arrow keys between items, Enter to activate, `aria-expanded` on the Admin collapse trigger. A11y gap.
+### 2.6 ◐ Mobile table → card fallback — **EXEMPLAR DONE 2026-04-20**
 
-### 2.6 🟢 Mobile table → card fallback
+- ☑ **PO list** — the 9-col Table is now hidden at `xs` (`display: { xs: 'none', md: 'block' }`) and replaced with a Card stack showing the same fields (number, title, vendor, status/delivery/payment chips, amount, date, actions). Whole-card click navigates; action menu stops propagation. Pagination is rendered in both views. UI-STANDARDS rule 8.2.
+- ☐ **Bill list** — deferred. Apply the same pattern as PO list when the accounting module is touched.
+- ☐ **Invoice list** — deferred. Same pattern.
 
-For lists that cannot reasonably horizontal-scroll (too many columns), render a card view at `xs`. Candidates: PO list, bill list, invoice list.
+### 2.7 ◐ Dashboard — personalization & smart surfacing — **PARTIALLY DONE 2026-04-20**
 
-### 2.7 🟡 Dashboard — personalization & smart surfacing
-
-[dashboard/page.tsx](apps/web/src/app/dashboard/page.tsx) + [ActivityDashboard.tsx](apps/web/src/components/dashboard/ActivityDashboard.tsx). The bones are good; these are bigger bets that change what the dashboard _means_.
-
-- ☐ **"Available Modules" grid should show personalized activity, not duplicate the sidebar** — today cards mostly show `totalCount`, which is not actionable. Make every card display role-specific open-work counts ("3 POs awaiting your approval", "5 overdue tasks"), or compress the grid to a smaller strip since the sidebar already lists every module.
-- ☐ **Role-based module priority / user pinning** — different roles care about different modules. Simplest first step: honour per-role `module.priority` overrides. Second step: `localStorage` pinning ("⭐ pin to top") persisted per user.
-- ☐ **Cap + overflow for "Today's Focus"** — each group (Urgent / Tasks / Approvals / Other) currently renders every item inline. Cap at 5 per group and add a "Show N more →" link that jumps to the relevant module's filtered view.
-- ☐ **Unify refresh across cards and focus list** — [ActivityDashboard.tsx:302-309](apps/web/src/components/dashboard/ActivityDashboard.tsx#L302-L309) only refreshes focus items, not the 4 summary cards. Have one refresh that pulls everything.
-- ☐ **"Last updated" timestamp** — show the fetch time (e.g. "Updated 2 min ago") so users know how fresh the numbers are.
-- ☐ **Keyboard navigation across dashboard cards** — arrow keys should move focus between summary cards and module cards. A11y gap.
-- ☐ **Item aging in focus list** — approvals pending 3 weeks should look more urgent than approvals pending yesterday. Show relative age via chip color or a subtle "3w old" tag.
+- ☑ **Cap + overflow for "Today's Focus"** — each group caps at 5 items (`MAX_PER_GROUP`) with a "Show N more →" row that deep-links (Urgent → `/flow?filter=urgent`, Tasks → `/flow`, Approvals → `/pending-approval`, Other → `/flow`).
+- ☑ **Unified refresh across cards and focus list** — reality check: `useActivityDashboard().refetch()` already covers all three queries (actionItems, summary, recentActivity). Verified; no code change needed.
+- ☑ **"Last updated" timestamp** — exposed `lastUpdated` (epoch ms of the most recent successful fetch across summary + action items) from `useActivityDashboard()`. ActivityDashboard renders "Updated X ago" next to the Refresh button.
+- ☐ **Item aging in focus list** — deferred. `ActionItem` has `dueDate` but no `createdAt` — needs service-layer changes.
+- ☐ **"Available Modules" grid shows personalized activity** — deferred. Needs per-module stats source (related to §2.5 generalized badges).
+- ☐ **Role-based priority / user pinning** — deferred.
+- ☐ **Keyboard navigation across dashboard cards** — deferred.
 
 ---
 
@@ -165,3 +163,14 @@ With 1.2a–e complete, the app has **zero `alert()` or `window.confirm()` / `co
 - **1.6 dashboard polish** — 2026-04-20 — 5 items: permission-gated Quick Actions, single-button ModuleCard CTA (no more View Details vs Open swap), lighter-red overdue zero-state, email-local fallback in welcome, compact Coming Soon strip.
 
 **Phase 1 of the UI-UPGRADES-TRACKER is complete.** 64 individual fixes across 40+ files. App has zero `alert()` / `window.confirm()` / bare `confirm()` in production code, consistent dialog confirmations, typed toasts for all feedback, mobile-friendly tables, required-field support across all selectors, polished sidebar, and permission-aware dashboard. Phase 2 (structural upgrades) is the next lift.
+
+---
+
+- **2.1 Transmittal Stepper feedback** — 2026-04-20 — commit `70797818`
+- **2.2 Dense-form section headings** — 2026-04-20 — commit `70797818`
+- **2.3 Status chip text labels** — 2026-04-20 — commit `70797818`
+- **2.5 Sidebar per-category collapse + persist** — 2026-04-20 — MVP shipped; file split, generalized badges, swipe, keyboard nav deferred.
+- **2.6 Mobile card fallback — PO list** — 2026-04-20 — PO list gets card view at `xs`; bill/invoice pattern is the same, deferred.
+- **2.7 Dashboard polish (cap+overflow, last-updated)** — 2026-04-20 — high-value subset; personalization + pinning + item aging deferred (need service-layer work).
+
+**Phase 2 status: core work shipped.** Remaining deferred items all require bigger infra (service-layer changes for per-module stats / item aging) or are pure refactors with no user-visible benefit (sidebar file split). They're documented where they live and can be picked up when relevant.

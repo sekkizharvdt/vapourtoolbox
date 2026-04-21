@@ -33,6 +33,9 @@ import {
   Link,
   IconButton,
   Tooltip,
+  Card,
+  CardContent,
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -277,8 +280,13 @@ export default function PurchaseOrdersPage() {
           </Tooltip>
         </FilterBar>
 
-        {/* PO Table */}
-        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+        {/* PO Table (desktop / tablet) — UI-STANDARDS rule 8.2: this table
+            has 9 columns which would break at xs; we render a card stack
+            below for that breakpoint instead. */}
+        <TableContainer
+          component={Paper}
+          sx={{ overflowX: 'auto', display: { xs: 'none', md: 'block' } }}
+        >
           <Table sx={{ minWidth: 960 }}>
             <TableHead>
               <TableRow>
@@ -393,6 +401,124 @@ export default function PurchaseOrdersPage() {
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
         </TableContainer>
+
+        {/* PO Card stack (mobile only) — same data, same click behaviour */}
+        <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+          {loading ? (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Loading purchase orders...
+              </Typography>
+            </Paper>
+          ) : filteredPOs.length === 0 ? (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                No purchase orders found
+              </Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={1.5}>
+              {paginatedPOs.map((po) => {
+                const deliveryStatus = getDeliveryStatus(po);
+                const paymentStatus = getPaymentStatus(po);
+                return (
+                  <Card
+                    key={po.id}
+                    onClick={() => router.push(`/procurement/pos/${po.id}`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <CardContent>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="flex-start"
+                        sx={{ mb: 1 }}
+                      >
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="body1" fontWeight="medium" noWrap>
+                            {po.number}
+                          </Typography>
+                          {po.title && (
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {po.title}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Box onClick={(e) => e.stopPropagation()}>
+                          <TableActionCell
+                            actions={[
+                              {
+                                icon: <VisibilityIcon fontSize="small" />,
+                                label: 'View Details',
+                                onClick: () => router.push(`/procurement/pos/${po.id}`),
+                              },
+                              {
+                                icon: <DeleteIcon fontSize="small" />,
+                                label: 'Move to Trash',
+                                onClick: () => handleDelete(po),
+                                show: ['DRAFT', 'PENDING_APPROVAL'].includes(po.status),
+                                color: 'error',
+                              },
+                            ]}
+                          />
+                        </Box>
+                      </Stack>
+
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {po.vendorName}
+                      </Typography>
+
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        flexWrap="wrap"
+                        useFlexGap
+                        sx={{ mb: 1 }}
+                      >
+                        <Chip
+                          label={getPOStatusText(po.status)}
+                          color={getPOStatusColor(po.status)}
+                          size="small"
+                        />
+                        <Chip
+                          label={deliveryStatus.text}
+                          color={deliveryStatus.color}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip
+                          label={paymentStatus.text}
+                          color={paymentStatus.color}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Stack>
+
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="caption" color="text.secondary">
+                          {po.rfqNumber ? `From ${po.rfqNumber} · ` : ''}
+                          {formatDate(po.createdAt)}
+                        </Typography>
+                        <Typography variant="body2" fontWeight="medium">
+                          {formatCurrency(po.grandTotal, po.currency)}
+                        </Typography>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              <TablePagination
+                rowsPerPageOptions={[25, 50, 100]}
+                component="div"
+                count={filteredPOs.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+              />
+            </Stack>
+          )}
+        </Box>
       </Box>
     </>
   );
