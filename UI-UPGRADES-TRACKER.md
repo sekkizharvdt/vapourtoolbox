@@ -125,7 +125,7 @@ Audit also checked for Chips without any `label` prop (color-only) — none foun
 - ☑ **Cap + overflow for "Today's Focus"** — each group caps at 5 items (`MAX_PER_GROUP`) with a "Show N more →" row that deep-links (Urgent → `/flow?filter=urgent`, Tasks → `/flow`, Approvals → `/pending-approval`, Other → `/flow`).
 - ☑ **Unified refresh across cards and focus list** — reality check: `useActivityDashboard().refetch()` already covers all three queries (actionItems, summary, recentActivity). Verified; no code change needed.
 - ☑ **"Last updated" timestamp** — exposed `lastUpdated` (epoch ms of the most recent successful fetch across summary + action items) from `useActivityDashboard()`. ActivityDashboard renders "Updated X ago" next to the Refresh button.
-- ☐ **Item aging in focus list** — deferred. `ActionItem` has `dueDate` but no `createdAt` — needs service-layer changes.
+- ☑ **Item aging in focus list** — added `createdAt?: Date` to `ActionItem`, populated from each of the 7 Firestore queries in `getActionItems()`. `ActivityDashboard` renders "Nd in queue" when the item is ≥1 day old, colouring the caption warning (≥3d) or error (≥7d) so stale approvals surface visually without new badges.
 - ☐ **"Available Modules" grid shows personalized activity** — deferred. Needs per-module stats source (related to §2.5 generalized badges).
 - ☐ **Role-based priority / user pinning** — deferred.
 - ☐ **Keyboard navigation across dashboard cards** — deferred.

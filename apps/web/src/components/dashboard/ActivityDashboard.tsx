@@ -31,7 +31,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import PeopleIcon from '@mui/icons-material/People';
 import { useActivityDashboard, type ActionItem } from '@/lib/hooks/useActivityDashboard';
-import { formatDistanceToNow } from 'date-fns';
+import { differenceInDays, formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 
@@ -126,6 +126,17 @@ function SummaryCard({
  * Action Item Component
  */
 function ActionItemRow({ item, onClick }: { item: ActionItem; onClick: () => void }) {
+  const ageDays = item.createdAt ? differenceInDays(new Date(), item.createdAt) : null;
+  // Only surface age on items that have been sitting for more than a day.
+  // >7d = stale (error), 3-7d = warning, 1-3d = informational.
+  const showAge = ageDays !== null && ageDays >= 1;
+  const ageColor =
+    ageDays !== null && ageDays >= 7
+      ? 'error.main'
+      : ageDays !== null && ageDays >= 3
+        ? 'warning.main'
+        : 'text.secondary';
+
   return (
     <ListItem disablePadding>
       <ListItemButton onClick={onClick} sx={{ borderRadius: 1 }}>
@@ -142,6 +153,11 @@ function ActionItemRow({ item, onClick }: { item: ActionItem; onClick: () => voi
               {item.dueDate && (
                 <Typography variant="caption" color="text.secondary">
                   Due {formatDistanceToNow(item.dueDate, { addSuffix: true })}
+                </Typography>
+              )}
+              {showAge && (
+                <Typography variant="caption" sx={{ color: ageColor, fontWeight: 500 }}>
+                  {ageDays}d in queue
                 </Typography>
               )}
             </Box>

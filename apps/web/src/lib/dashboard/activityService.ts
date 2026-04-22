@@ -40,6 +40,9 @@ export interface ActionItem {
   description?: string;
   priority: 'urgent' | 'high' | 'medium' | 'low';
   dueDate?: Date;
+  /** When the underlying document was created. Used to surface item age
+   *  (e.g. "3d in queue") so reviewers notice stale approvals. */
+  createdAt?: Date;
   link: string;
   metadata?: Record<string, unknown>;
 }
@@ -96,6 +99,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
           description: data.description,
           priority: mapPriority(data.priority),
           dueDate: data.dueDate?.toDate(),
+          createdAt: data.createdAt?.toDate(),
           link: `/flow?task=${doc.id}`,
           metadata: { projectId: data.projectId },
         });
@@ -123,6 +127,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
           title: `${data.mentionedByName || 'Someone'} mentioned you`,
           description: data.messagePreview,
           priority: 'high',
+          createdAt: data.createdAt?.toDate(),
           link: `/flow?channel=${data.channelId}&message=${data.messageId}`,
           metadata: { channelId: data.channelId },
         });
@@ -149,6 +154,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
           title: `Approve PO ${data.poNumber}`,
           description: `${data.vendorName} - ${data.totalAmount?.toLocaleString() || ''}`,
           priority: 'high',
+          createdAt: data.createdAt?.toDate(),
           link: `/procurement/pos/${doc.id}`,
           metadata: { poNumber: data.poNumber },
         });
@@ -175,6 +181,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
           title: `Approve PR ${data.prNumber}`,
           description: data.description,
           priority: 'medium',
+          createdAt: data.createdAt?.toDate(),
           link: `/procurement/purchase-requests/${doc.id}`,
           metadata: { prNumber: data.prNumber },
         });
@@ -201,6 +208,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
           title: `Complete proposal: ${data.title || data.proposalNumber}`,
           description: data.customerName,
           priority: 'medium',
+          createdAt: data.createdAt?.toDate(),
           link: `/proposals/${doc.id}`,
           metadata: { proposalNumber: data.proposalNumber },
         });
@@ -228,6 +236,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
           description: `${data.entityName} - ₹${data.total?.toLocaleString('en-IN') || ''}`,
           priority: 'high',
           dueDate: data.dueDate?.toDate(),
+          createdAt: data.createdAt?.toDate(),
           link: `/accounting/bills/${doc.id}`,
           metadata: { billNumber: data.billNumber },
         });
@@ -254,6 +263,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
           title: `Approve Leave: ${data.employeeName || 'Employee'}`,
           description: `${data.leaveType} - ${data.days} day(s)`,
           priority: 'medium',
+          createdAt: data.createdAt?.toDate(),
           link: `/hr/leaves/${doc.id}`,
           metadata: { leaveType: data.leaveType },
         });
