@@ -247,6 +247,12 @@ export interface VendorBill extends BaseTransaction {
   sourceDocumentId?: string; // ID of source document (e.g., vendor invoice from procurement)
   sourceDocumentType?: 'vendorInvoice' | 'projectExpense' | null; // Type of source document
   sourcePoNumber?: string; // PO number from procurement (denormalized for display)
+  // Additional denormalised procurement refs (rule 26) — optional for backward
+  // compat with bills created before this denorm landed.
+  purchaseOrderId?: string;
+  goodsReceiptId?: string;
+  goodsReceiptNumber?: string;
+  matchNumber?: string;
 }
 
 /**

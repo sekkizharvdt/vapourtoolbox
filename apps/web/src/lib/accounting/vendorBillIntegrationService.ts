@@ -97,7 +97,9 @@ export async function createVendorBillFromMatch(
       status: 'POSTED',
       attachments: [],
       entityId: match.vendorId || '',
+      ...(match.vendorName && { entityName: match.vendorName }),
       costCentreId: match.costCentreId,
+      ...(match.projectId && { projectId: match.projectId }),
       reference: 'Match: ' + match.matchNumber,
 
       // VendorBill specific fields
@@ -116,6 +118,11 @@ export async function createVendorBillFromMatch(
       sourceDocumentId: threeWayMatchId,
       sourceDocumentType: 'vendorInvoice',
       ...(match.poNumber && { sourcePoNumber: match.poNumber }),
+      // Denormalised procurement refs (rule 26)
+      ...(match.purchaseOrderId && { purchaseOrderId: match.purchaseOrderId }),
+      ...(match.goodsReceiptId && { goodsReceiptId: match.goodsReceiptId }),
+      ...(match.grNumber && { goodsReceiptNumber: match.grNumber }),
+      ...(match.matchNumber && { matchNumber: match.matchNumber }),
 
       // Tenant scoping
       ...(tenantId && { tenantId }),
