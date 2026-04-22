@@ -321,6 +321,30 @@ async function getProposalStats(tenantId: string): Promise<ModuleStats> {
 }
 
 /**
+ * Get stats for Admin module — pending (new + in_progress) feedback count.
+ */
+async function getAdminStats(): Promise<ModuleStats> {
+  const { db } = getFirebase();
+
+  try {
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
+    const [newSnap, inProgressSnap] = await Promise.all([
+      getCountFromServer(query(feedbackRef, where('status', '==', 'new'))),
+      getCountFromServer(query(feedbackRef, where('status', '==', 'in_progress'))),
+    ]);
+
+    return {
+      moduleId: 'admin',
+      pendingCount: (newSnap.data().count || 0) + (inProgressSnap.data().count || 0),
+      label: 'Open Feedback',
+    };
+  } catch (error) {
+    logger.error('Failed to fetch admin stats', error);
+    return { moduleId: 'admin', pendingCount: 0 };
+  }
+}
+
+/**
  * Get stats for all modules
  * Returns stats for modules the user has access to
  */
@@ -361,6 +385,9 @@ export async function getAllModuleStats(
         break;
       case 'proposal-management':
         statsPromises.push(getProposalStats(tenantId));
+        break;
+      case 'admin':
+        statsPromises.push(getAdminStats());
         break;
       // Modules without stats (reference data / calculators)
       case 'material-database':
@@ -412,6 +439,8 @@ export async function getModuleStats(
       return getHRStats(tenantId);
     case 'proposal-management':
       return getProposalStats(tenantId);
+    case 'admin':
+      return getAdminStats();
     default:
       return null;
   }

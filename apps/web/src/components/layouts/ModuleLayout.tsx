@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { Box, Toolbar, Typography, Container, CircularProgress } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/dashboard/Sidebar';
@@ -10,6 +10,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAIHelp } from '@/components/common/AIHelpWidget/useAIHelp';
 import { useCommandPalette } from '@/components/common/useCommandPalette';
 import { KeyboardShortcutsProvider } from '@/hooks/useKeyboardShortcuts';
+import { useAllModuleStats } from '@/lib/hooks/useModuleStats';
+import { MODULES, hasPermission, hasPermission2 } from '@vapour/constants';
 
 // Lazy load modal components - only loaded when user triggers them
 const AIHelpWidget = dynamic(
@@ -109,6 +111,41 @@ export function ModuleLayout({
 
   // AI Help dialog
   const aiHelp = useAIHelp();
+
+  // Module-stats query for sidebar badges. Must live above any early returns
+  // to preserve hook call order. Uses safe defaults before claims are loaded;
+  // the query is disabled until we have a tenant + accessible modules.
+  const userPermissionsForStats = claims?.permissions || 0;
+  const userPermissions2ForStats = claims?.permissions2 || 0;
+  const tenantIdForStats = claims?.tenantId || '';
+  const accessibleModuleIds = useMemo(() => {
+    if (!claims) return [];
+    return Object.values(MODULES)
+      .filter((m) => m.status === 'active')
+      .filter(
+        (m) =>
+          m.requiredPermissions === undefined ||
+          hasPermission(userPermissionsForStats, m.requiredPermissions)
+      )
+      .filter(
+        (m) =>
+          m.requiredPermissions2 === undefined ||
+          hasPermission2(userPermissions2ForStats, m.requiredPermissions2)
+      )
+      .map((m) => m.id);
+  }, [claims, userPermissionsForStats, userPermissions2ForStats]);
+
+  const { data: moduleStatsList } = useAllModuleStats(accessibleModuleIds, tenantIdForStats);
+  const moduleBadges = useMemo<Record<string, number>>(() => {
+    if (!moduleStatsList) return {};
+    const map: Record<string, number> = {};
+    for (const s of moduleStatsList) {
+      if (s.pendingCount && s.pendingCount > 0) {
+        map[s.moduleId] = s.pendingCount;
+      }
+    }
+    return map;
+  }, [moduleStatsList]);
 
   // Persist sidebar collapsed state
   useEffect(() => {
@@ -272,6 +309,7 @@ export function ModuleLayout({
           userPermissions2={userPermissions2}
           collapsed={sidebarCollapsed}
           onToggleCollapse={handleSidebarToggle}
+          moduleBadges={moduleBadges}
         />
 
         <Box

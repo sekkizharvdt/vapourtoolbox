@@ -73,7 +73,8 @@ interface SidebarProps {
   userPermissions2?: number;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  feedbackCount?: number; // Optional: for showing pending feedback badge
+  /** Per-module pending-count map keyed by module id. Zero or missing = no badge. */
+  moduleBadges?: Record<string, number>;
 }
 
 const SIDEBAR_WIDTH = 240;
@@ -196,7 +197,7 @@ function SidebarComponent({
   userPermissions2 = 0,
   collapsed,
   onToggleCollapse,
-  feedbackCount = 0,
+  moduleBadges = {},
 }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -465,7 +466,8 @@ function SidebarComponent({
                 <Collapse in={collapsed || !isCategoryCollapsed} timeout="auto" unmountOnExit>
                   {category.modules.map((module) => {
                     const isSelected = pathname.startsWith(module.path);
-                    const showBadge = module.id === 'admin' && feedbackCount > 0 && !collapsed;
+                    const badgeCount = moduleBadges[module.id] ?? 0;
+                    const showBadge = badgeCount > 0 && !collapsed;
 
                     return (
                       <ListItem
@@ -518,8 +520,8 @@ function SidebarComponent({
                                   color: category.isAdmin ? 'primary.main' : undefined,
                                 }}
                               >
-                                {collapsed && feedbackCount > 0 && module.id === 'admin' ? (
-                                  <Badge badgeContent={feedbackCount} color="error" max={99}>
+                                {collapsed && badgeCount > 0 ? (
+                                  <Badge badgeContent={badgeCount} color="error" max={99}>
                                     {moduleIcons[module.id]}
                                   </Badge>
                                 ) : collapsed && module.status === 'coming_soon' ? (
@@ -584,7 +586,7 @@ function SidebarComponent({
                                 )}
                                 {showBadge && (
                                   <Chip
-                                    label={feedbackCount}
+                                    label={badgeCount}
                                     size="small"
                                     color="error"
                                     sx={{
@@ -630,8 +632,8 @@ function SidebarComponent({
                             sx={{ pl: 4, py: 0.5, minHeight: 36 }}
                           >
                             <ListItemIcon sx={{ minWidth: 28, color: 'primary.main' }}>
-                              {subItem.id === 'feedback' && feedbackCount > 0 ? (
-                                <Badge badgeContent={feedbackCount} color="error" max={99}>
+                              {subItem.id === 'feedback' && (moduleBadges.admin ?? 0) > 0 ? (
+                                <Badge badgeContent={moduleBadges.admin} color="error" max={99}>
                                   {subItem.icon}
                                 </Badge>
                               ) : (

@@ -110,7 +110,7 @@ Audit also checked for Chips without any `label` prop (color-only) — none foun
 
 - ☑ **Per-category collapse + persist** — click a category header to toggle, persisted to `localStorage` under `sidebar-collapsed-categories`. Click collapses the modules Collapse (and admin sub-nav for the admin category). `aria-expanded` + `aria-label` set on the header button. When the sidebar is in icon-only collapsed mode, category collapse is ignored (icons are always visible so users can find modules).
 - ☐ **Split into sub-components** — deferred. Sidebar.tsx is now ~650 lines. Pure refactor with no user-visible benefit; safer to do as a dedicated task when no user-facing changes are in flight.
-- ☐ **Generalized badge system** — deferred. Currently only admin shows a feedback badge. Generalising to per-module `badgeCount` needs a per-module stats source (related to §2.7 item 1).
+- ☑ **Generalized badge system** — ModuleLayout now runs `useAllModuleStats` for every module the user can access and passes a `moduleBadges: Record<string, number>` map into `<Sidebar>`. Sidebar renders a Badge when count > 0, in both collapsed and expanded modes; also propagates to the admin sub-nav feedback row. Added `getAdminStats()` (pending feedback) to `moduleStatsService`. The old dead-code `feedbackCount` prop is gone.
 - ☐ **Swipe-to-close on mobile drawer** — deferred.
 - ☑ **Keyboard navigation** — ArrowUp/ArrowDown move focus between the sidebar's `ListItemButton` items, Home/End jump to first/last. Tab/Enter/Space/Escape left to MUI defaults (Drawer already closes on Escape via `onClose`). Scroll container declared `role="navigation"` with `aria-label="Primary"`.
 
