@@ -112,7 +112,7 @@ Audit also checked for Chips without any `label` prop (color-only) — none foun
 - ☐ **Split into sub-components** — deferred. Sidebar.tsx is now ~650 lines. Pure refactor with no user-visible benefit; safer to do as a dedicated task when no user-facing changes are in flight.
 - ☐ **Generalized badge system** — deferred. Currently only admin shows a feedback badge. Generalising to per-module `badgeCount` needs a per-module stats source (related to §2.7 item 1).
 - ☐ **Swipe-to-close on mobile drawer** — deferred.
-- ☐ **Keyboard navigation** — deferred.
+- ☑ **Keyboard navigation** — ArrowUp/ArrowDown move focus between the sidebar's `ListItemButton` items, Home/End jump to first/last. Tab/Enter/Space/Escape left to MUI defaults (Drawer already closes on Escape via `onClose`). Scroll container declared `role="navigation"` with `aria-label="Primary"`.
 
 ### 2.6 ◐ Mobile table → card fallback — **EXEMPLAR DONE 2026-04-20**
 

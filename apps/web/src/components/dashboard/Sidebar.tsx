@@ -240,6 +240,32 @@ function SidebarComponent({
     }
   }, [pathname, collapsed]);
 
+  // Arrow-key navigation among focusable items (ListItemButton elements).
+  // Home/End jump to first/last. Leaves Tab/Enter/Space/Escape to MUI defaults.
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const { key } = event;
+    if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Home' && key !== 'End') return;
+    const items = Array.from(
+      container.querySelectorAll<HTMLElement>('button.MuiListItemButton-root:not(.Mui-disabled)')
+    );
+    if (items.length === 0) return;
+    const active = document.activeElement as HTMLElement | null;
+    const currentIndex = active ? items.indexOf(active) : -1;
+    let nextIndex = currentIndex;
+    if (key === 'ArrowDown') nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
+    else if (key === 'ArrowUp')
+      nextIndex =
+        currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
+    else if (key === 'Home') nextIndex = 0;
+    else if (key === 'End') nextIndex = items.length - 1;
+    if (nextIndex !== currentIndex) {
+      event.preventDefault();
+      items[nextIndex]?.focus();
+    }
+  }, []);
+
   // Persist sidebar scroll position across navigation
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -380,7 +406,13 @@ function SidebarComponent({
       <Divider />
 
       {/* Categorized Module List */}
-      <Box ref={scrollContainerRef} sx={{ flexGrow: 1, overflowY: 'auto' }}>
+      <Box
+        ref={scrollContainerRef}
+        onKeyDown={handleKeyDown}
+        role="navigation"
+        aria-label="Primary"
+        sx={{ flexGrow: 1, overflowY: 'auto' }}
+      >
         {modulesByCategory.map((category, index) => {
           const isCategoryCollapsed = collapsedCategories.has(category.id);
           return (
