@@ -27,10 +27,9 @@ import {
   Divider,
   Stack,
   Grid,
-  Breadcrumbs,
-  Link,
   InputLabel,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -629,21 +628,12 @@ export default function NewMaterialPage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/materials"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/materials');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Materials
-        </Link>
-        <Typography color="text.primary">New Material</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
+          { label: 'New Material' },
+        ]}
+      />
 
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/materials')}>

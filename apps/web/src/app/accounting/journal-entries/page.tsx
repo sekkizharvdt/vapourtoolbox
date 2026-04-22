@@ -17,14 +17,13 @@ import {
   IconButton,
   Tooltip,
   TablePagination,
-  Breadcrumbs,
-  Link,
   TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { FilterBar } from '@vapour/ui';
 import {
   Add as AddIcon,
@@ -48,7 +47,7 @@ import {
 } from '@/lib/accounting/reports/exportReport';
 import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
 import { formatDate } from '@/lib/utils/formatters';
-import { useRouter } from 'next/navigation';
+
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
@@ -69,7 +68,6 @@ function getMonthOptions() {
 }
 
 export default function JournalEntriesPage() {
-  const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const { toast } = useToast();
@@ -250,21 +248,12 @@ export default function JournalEntriesPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Journal Entries</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Journal Entries' },
+        ]}
+      />
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Journal Entries</Typography>

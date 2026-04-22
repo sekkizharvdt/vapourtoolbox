@@ -12,9 +12,8 @@ import {
   Stack,
   Skeleton,
   Tooltip,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ChevronLeft as PrevIcon,
   ChevronRight as NextIcon,
@@ -22,7 +21,7 @@ import {
   Refresh as RefreshIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { getTeamCalendar, getAllHolidaysInRange, type HolidayInfo } from '@/lib/hr';
 import { useAuth } from '@/contexts/AuthContext';
 import type { LeaveRequest } from '@vapour/types';
@@ -53,7 +52,6 @@ interface CalendarDay {
 }
 
 export default function LeaveCalendarPage() {
-  const router = useRouter();
   const { claims } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
@@ -156,21 +154,12 @@ export default function LeaveCalendarPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Typography color="text.primary">Team Calendar</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Team Calendar' },
+        ]}
+      />
 
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>

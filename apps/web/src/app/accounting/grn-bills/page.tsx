@@ -24,7 +24,6 @@ import {
   Chip,
   CircularProgress,
   Alert,
-  Breadcrumbs,
   Link,
   Stack,
   Dialog,
@@ -34,6 +33,7 @@ import {
   TextField,
   InputAdornment,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Receipt as ReceiptIcon,
@@ -198,21 +198,12 @@ export default function GRNBillsPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs>
-          <Link
-            color="inherit"
-            href="/accounting"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Accounting
-          </Link>
-          <Typography color="text.primary">GRN Bills</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+            { label: 'GRN Bills' },
+          ]}
+        />
 
         {/* Header */}
         <Box>

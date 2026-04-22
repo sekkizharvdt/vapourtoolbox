@@ -9,8 +9,6 @@ import {
   Grid,
   TextField,
   Typography,
-  Breadcrumbs,
-  Link,
   FormControl,
   InputLabel,
   Select,
@@ -19,6 +17,7 @@ import {
   FormControlLabel,
   LinearProgress,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { PageHeader } from '@vapour/ui';
 import { Home as HomeIcon, Save as SaveIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -137,32 +136,13 @@ export default function NewVendorOfferPage() {
   return (
     <>
       <Box sx={{ mb: 2 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/materials"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/materials');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Materials
-          </Link>
-          <Link
-            color="inherit"
-            href="/materials/vendor-offers"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/materials/vendor-offers');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Vendor Offers
-          </Link>
-          <Typography color="text.primary">New Offer</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Vendor Offers', href: '/materials/vendor-offers' },
+            { label: 'New Offer' },
+          ]}
+        />
 
         <PageHeader
           title="New Vendor Offer"

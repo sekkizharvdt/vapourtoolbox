@@ -32,9 +32,8 @@ import {
   TablePagination,
   Tabs,
   Tab,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
@@ -289,21 +288,12 @@ export default function PurchaseRequestsPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Typography color="text.primary">Purchase Requests</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Purchase Requests' },
+          ]}
+        />
 
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="center">

@@ -19,9 +19,8 @@ import {
   TableContainer,
   Paper,
   Chip,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   TrendingUp as UpIcon,
   TrendingDown as DownIcon,
@@ -30,7 +29,7 @@ import {
   ShowChart as ProfitIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
@@ -53,7 +52,6 @@ interface ProjectFinancials {
 }
 
 export default function ProjectFinancialReportPage() {
-  const router = useRouter();
   const { claims } = useAuth();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>('');
@@ -217,32 +215,13 @@ export default function ProjectFinancialReportPage() {
 
   return (
     <Container maxWidth="xl">
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/reports"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/reports');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Reports
-        </Link>
-        <Typography color="text.primary">Project Financial</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Reports', href: '/accounting/reports' },
+          { label: 'Project Financial' },
+        ]}
+      />
 
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>

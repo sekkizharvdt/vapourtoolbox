@@ -19,9 +19,8 @@ import {
   Select,
   MenuItem,
   InputAdornment,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
@@ -34,7 +33,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS, canViewProcurement } from '@vapour/constants';
 import { formatDate } from '@/lib/utils/formatters';
-import { useRouter } from 'next/navigation';
+
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
 import { restoreProcurementDocument } from '@/lib/procurement/procurementDeleteService';
@@ -78,7 +77,6 @@ const PROCUREMENT_COLLECTIONS: { type: ProcurementDocType; collection: string }[
 ];
 
 export default function ProcurementTrashPage() {
-  const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const { toast } = useToast();
@@ -225,21 +223,12 @@ export default function ProcurementTrashPage() {
 
   return (
     <Box sx={{ py: 4 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/procurement"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/procurement');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Procurement
-        </Link>
-        <Typography color="text.primary">Trash</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Trash' },
+        ]}
+      />
 
       <PageHeader title="Trash" subtitle="Deleted procurement documents can be restored here" />
 

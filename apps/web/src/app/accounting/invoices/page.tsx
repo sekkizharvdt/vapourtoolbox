@@ -20,8 +20,6 @@ import {
   Select,
   MenuItem,
   InputAdornment,
-  Breadcrumbs,
-  Link,
   Typography,
   IconButton,
   Tooltip,
@@ -29,6 +27,7 @@ import {
   CardContent,
   Stack,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Visibility as ViewIcon,
@@ -74,7 +73,6 @@ import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
-import { useRouter } from 'next/navigation';
 
 // Lazy load heavy dialog components
 const CreateInvoiceDialog = dynamic(
@@ -113,7 +111,6 @@ function toDate(value: Date | Timestamp | unknown): Date | null {
 }
 
 export default function InvoicesPage() {
-  const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const { toast } = useToast();
@@ -378,21 +375,12 @@ export default function InvoicesPage() {
 
   return (
     <Box sx={{ py: 4 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Customer Invoices</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Customer Invoices' },
+        ]}
+      />
 
       <PageHeader
         title="Customer Invoices"

@@ -18,9 +18,8 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -135,21 +134,12 @@ export default function CostCentresPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/accounting"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Accounting
-          </Link>
-          <Typography color="text.primary">Cost Centres</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Cost Centres' },
+          ]}
+        />
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>

@@ -8,18 +8,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import {
-  Box,
-  Stack,
-  CircularProgress,
-  Alert,
-  Button,
-  Typography,
-  Chip,
-  Grid,
-  Breadcrumbs,
-  Link,
-} from '@mui/material';
+import { Box, Stack, CircularProgress, Alert, Button, Typography, Chip, Grid } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
@@ -272,32 +262,13 @@ export default function ThreeWayMatchDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/procurement"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Procurement
-            </Link>
-            <Link
-              color="inherit"
-              href="/procurement/three-way-match"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement/three-way-match');
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              Three-Way Match
-            </Link>
-            <Typography color="text.primary">{match.matchNumber}</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+              { label: 'Three-Way Match', href: '/procurement/three-way-match' },
+              { label: match.matchNumber },
+            ]}
+          />
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

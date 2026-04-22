@@ -13,6 +13,7 @@ import {
   Alert,
   Skeleton,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
@@ -31,7 +32,6 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@vapour/ui';
-import { Breadcrumbs, Link } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
@@ -499,21 +499,12 @@ export default function DataHealthPage() {
 
   return (
     <>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Data Health</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Data Health' },
+        ]}
+      />
 
       <PageHeader
         title="Data Health"

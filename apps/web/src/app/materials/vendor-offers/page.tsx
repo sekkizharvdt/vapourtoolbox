@@ -15,10 +15,8 @@ import {
   Chip,
   TextField,
   InputAdornment,
-  Breadcrumbs,
-  Link,
-  Typography,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { Add as AddIcon, Search as SearchIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -79,21 +77,12 @@ export default function VendorOffersPage() {
   return (
     <>
       <Box sx={{ mb: 2 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/materials"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/materials');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Materials
-          </Link>
-          <Typography color="text.primary">Vendor Offers</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Vendor Offers' },
+          ]}
+        />
 
         <PageHeader
           title="Vendor Offers"

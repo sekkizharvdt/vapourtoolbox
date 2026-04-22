@@ -25,10 +25,9 @@ import {
   Select,
   MenuItem,
   TextField,
-  Breadcrumbs,
-  Link,
   InputAdornment,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Visibility as ViewIcon,
   Edit as EditIcon,
@@ -54,7 +53,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
-import { useRouter } from 'next/navigation';
+
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
@@ -102,7 +101,6 @@ function getMonthOptions() {
 }
 
 export default function PaymentsPage() {
-  const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const { toast } = useToast();
@@ -346,21 +344,12 @@ export default function PaymentsPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Payments</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Payments' },
+        ]}
+      />
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Payments</Typography>

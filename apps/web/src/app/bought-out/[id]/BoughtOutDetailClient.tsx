@@ -14,9 +14,8 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Home as HomeIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -169,21 +168,12 @@ export default function BoughtOutItemDetailPage() {
 
   return (
     <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/bought-out"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/bought-out');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Bought Out Items
-        </Link>
-        <Typography color="text.primary">{item.itemCode}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Bought Out Items', href: '/bought-out', icon: <HomeIcon fontSize="small" /> },
+          { label: item.itemCode },
+        ]}
+      />
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
           <Typography variant="h4" component="h1">

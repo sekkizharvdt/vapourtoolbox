@@ -24,14 +24,13 @@ import {
   TableRow,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Edit as EditIcon,
@@ -270,21 +269,16 @@ export default function PRDetailPage() {
       <Stack spacing={3}>
         {/* Header */}
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/procurement/purchase-requests"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/purchase-requests');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Purchase Requests
-          </Link>
-          <Typography color="text.primary">{pr.number}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            {
+              label: 'Purchase Requests',
+              href: '/procurement/purchase-requests',
+              icon: <HomeIcon fontSize="small" />,
+            },
+            { label: pr.number },
+          ]}
+        />
 
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>

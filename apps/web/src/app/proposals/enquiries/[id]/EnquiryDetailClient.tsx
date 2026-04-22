@@ -16,9 +16,8 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Edit as EditIcon,
   Home as HomeIcon,
@@ -166,21 +165,12 @@ export default function EnquiryDetailClient() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/proposals/enquiries"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals/enquiries');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Enquiries
-        </Link>
-        <Typography color="text.primary">{enquiry.enquiryNumber}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Enquiries', href: '/proposals/enquiries', icon: <HomeIcon fontSize="small" /> },
+          { label: enquiry.enquiryNumber },
+        ]}
+      />
 
       <PageHeader
         title={enquiry.enquiryNumber}

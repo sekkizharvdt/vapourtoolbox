@@ -15,12 +15,11 @@ import {
   Chip,
   Alert,
   TextField,
-  Breadcrumbs,
-  Link,
   Paper,
   Collapse,
   IconButton,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as BackIcon,
   Home as HomeIcon,
@@ -292,32 +291,13 @@ export default function DuplicateNumbersPage() {
 
   return (
     <Box sx={{ py: 4 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/data-health"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/data-health');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Data Health
-        </Link>
-        <Typography color="text.primary">Duplicate Transaction Numbers</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Data Health', href: '/accounting/data-health' },
+          { label: 'Duplicate Transaction Numbers' },
+        ]}
+      />
 
       <PageHeader
         title="Duplicate Transaction Numbers"

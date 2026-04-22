@@ -17,15 +17,14 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Print as PrintIcon,
   FileDownload as DownloadIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
@@ -36,7 +35,6 @@ import {
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 
 export default function CashFlowStatementPage() {
-  const router = useRouter();
   const { claims } = useAuth();
   const [startDate, setStartDate] = useState<string>(() => {
     const date = new Date();
@@ -103,32 +101,13 @@ export default function CashFlowStatementPage() {
 
   return (
     <Container maxWidth="xl">
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/reports"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/reports');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Reports
-        </Link>
-        <Typography color="text.primary">Cash Flow</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Reports', href: '/accounting/reports' },
+          { label: 'Cash Flow' },
+        ]}
+      />
 
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>

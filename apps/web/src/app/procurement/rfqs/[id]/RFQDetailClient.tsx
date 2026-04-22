@@ -29,9 +29,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Edit as EditIcon,
   Send as SendIcon,
@@ -212,21 +211,12 @@ export default function RFQDetailPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs>
-          <Link
-            color="inherit"
-            href="/procurement/rfqs"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/rfqs');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            RFQs
-          </Link>
-          <Typography color="text.primary">{rfq.number}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'RFQs', href: '/procurement/rfqs', icon: <HomeIcon fontSize="small" /> },
+            { label: rfq.number },
+          ]}
+        />
 
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">

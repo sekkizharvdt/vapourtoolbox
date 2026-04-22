@@ -15,14 +15,13 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Card,
   CardContent,
   CardActionArea,
   Chip,
   Stack,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Add as AddIcon,
@@ -75,21 +74,12 @@ export default function MeetingsPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/flow"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/flow');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Flow
-        </Link>
-        <Typography color="text.primary">Meeting Minutes</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Flow', href: '/flow', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Meeting Minutes' },
+        ]}
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">

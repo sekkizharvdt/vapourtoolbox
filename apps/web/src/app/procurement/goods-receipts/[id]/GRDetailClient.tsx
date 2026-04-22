@@ -28,9 +28,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
@@ -253,32 +252,13 @@ export default function GRDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/procurement"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Procurement
-            </Link>
-            <Link
-              color="inherit"
-              href="/procurement/goods-receipts"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement/goods-receipts');
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              Goods Receipts
-            </Link>
-            <Typography color="text.primary">{gr.number}</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+              { label: 'Goods Receipts', href: '/procurement/goods-receipts' },
+              { label: gr.number },
+            ]}
+          />
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

@@ -1,18 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  Button,
-  Grid,
-  Alert,
-  TextField,
-  Breadcrumbs,
-  Link,
-} from '@mui/material';
+import { Typography, Box, Card, CardContent, Button, Grid, Alert, TextField } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Save as SaveIcon, Send as SubmitIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -140,21 +130,13 @@ export default function NewOnDutyRequestPage() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ p: 3 }}>
-        <Breadcrumbs sx={{ mb: 3 }}>
-          <Link
-            href="/hr"
-            underline="hover"
-            color="inherit"
-            sx={{ display: 'flex', alignItems: 'center' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            HR
-          </Link>
-          <Link href="/hr/on-duty/my-requests" underline="hover" color="inherit">
-            On-Duty Requests
-          </Link>
-          <Typography color="text.primary">New Request</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+            { label: 'On-Duty Requests', href: '/hr/on-duty/my-requests' },
+            { label: 'New Request' },
+          ]}
+        />
 
         <Typography variant="h4" gutterBottom>
           New On-Duty Request

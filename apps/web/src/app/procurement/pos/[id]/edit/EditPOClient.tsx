@@ -18,13 +18,12 @@ import {
   CircularProgress,
   Alert,
   Divider,
-  Breadcrumbs,
-  Link,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -287,43 +286,14 @@ export default function EditPOClient() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Link
-            color="inherit"
-            href="/procurement/pos"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/pos');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Purchase Orders
-          </Link>
-          <Link
-            color="inherit"
-            href={`/procurement/pos/${poId}`}
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push(`/procurement/pos/${poId}`);
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            {po?.number}
-          </Link>
-          <Typography color="text.primary">Edit</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Purchase Orders', href: '/procurement/pos' },
+            { label: po?.number ?? '', href: `/procurement/pos/${poId}` },
+            { label: 'Edit' },
+          ]}
+        />
 
         {/* Header */}
         <Box>

@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
@@ -17,11 +17,10 @@ import {
   CircularProgress,
   Alert,
   Stack,
-  Breadcrumbs,
-  Link,
   TextField,
   InputAdornment,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Inbox as InboxIcon,
@@ -64,7 +63,6 @@ const FILTER_CHIPS: { id: FilterCategory; label: string; icon: React.ReactElemen
 ];
 
 export default function InboxPage() {
-  const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -168,21 +166,12 @@ export default function InboxPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/flow"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/flow');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Flow
-        </Link>
-        <Typography color="text.primary">Inbox</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Flow', href: '/flow', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Inbox' },
+        ]}
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" component="h1">

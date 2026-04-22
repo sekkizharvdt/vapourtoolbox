@@ -10,18 +10,16 @@ import {
   Chip,
   LinearProgress,
   Paper,
-  Breadcrumbs,
-  Link,
   Card,
   CardContent,
   Grid,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Home as HomeIcon,
-  Payments as PaymentsIcon,
   CheckCircle as ApprovedIcon,
   HourglassEmpty as PendingIcon,
   Edit as DraftIcon,
@@ -125,21 +123,12 @@ export default function PaymentBatchesPage() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          href="/accounting"
-          underline="hover"
-          color="inherit"
-          sx={{ display: 'flex', alignItems: 'center' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
-          <PaymentsIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Payment Batches
-        </Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Payment Batches' },
+        ]}
+      />
 
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>

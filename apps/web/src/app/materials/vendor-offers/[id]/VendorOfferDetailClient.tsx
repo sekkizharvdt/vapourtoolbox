@@ -8,8 +8,6 @@ import {
   CardContent,
   Grid,
   Typography,
-  Breadcrumbs,
-  Link,
   Chip,
   Table,
   TableBody,
@@ -26,6 +24,7 @@ import {
   MenuItem,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { PageHeader, LoadingState } from '@vapour/ui';
 import {
   Home as HomeIcon,
@@ -36,7 +35,7 @@ import {
   CheckCircle as AcceptedIcon,
   PriceCheck as AcceptPriceIcon,
 } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { PdfViewer } from '@/components/common/PdfViewer';
@@ -70,7 +69,6 @@ function formatDate(ts: unknown): string {
 }
 
 export default function VendorOfferDetailClient() {
-  const router = useRouter();
   const params = useParams();
   const offerId = params.id as string;
   const { user, claims } = useAuth();
@@ -255,32 +253,13 @@ export default function VendorOfferDetailClient() {
   return (
     <>
       <Box sx={{ mb: 2 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/materials"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/materials');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Materials
-          </Link>
-          <Link
-            color="inherit"
-            href="/materials/vendor-offers"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/materials/vendor-offers');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Vendor Offers
-          </Link>
-          <Typography color="text.primary">{offer.offerNumber}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Vendor Offers', href: '/materials/vendor-offers' },
+            { label: offer.offerNumber },
+          ]}
+        />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <PageHeader title={offer.offerNumber} subtitle={`From ${offer.vendorName}`} />

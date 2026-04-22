@@ -18,8 +18,6 @@ import {
   TableRow,
   TablePagination,
   Paper,
-  Breadcrumbs,
-  Link,
   Card,
   CardContent,
   Grid,
@@ -28,6 +26,7 @@ import {
   Menu,
   MenuItem,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -229,21 +228,12 @@ export default function RecurringTransactionsPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/accounting"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Accounting
-          </Link>
-          <Typography color="text.primary">Recurring Transactions</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Recurring Transactions' },
+          ]}
+        />
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>

@@ -11,10 +11,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
-  Breadcrumbs,
   Button,
   Container,
-  Link,
   Paper,
   Table,
   TableBody,
@@ -34,6 +32,7 @@ import {
   ListItemText,
   Alert,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Home as HomeIcon } from '@mui/icons-material';
 import EditIcon from '@mui/icons-material/Edit';
 import ViewIcon from '@mui/icons-material/Visibility';
@@ -157,21 +156,12 @@ export default function ProposalListPage() {
 
   return (
     <Container maxWidth="xl">
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/proposals"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Proposals
-        </Link>
-        <Typography color="text.primary">All Proposals</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Proposals', href: '/proposals', icon: <HomeIcon fontSize="small" /> },
+          { label: 'All Proposals' },
+        ]}
+      />
       <Box sx={{ mb: 4 }}>
         <PageHeader
           title="All Proposals"

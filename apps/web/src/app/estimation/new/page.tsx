@@ -11,11 +11,10 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Paper,
   Chip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as BackIcon,
   Save as SaveIcon,
@@ -153,21 +152,12 @@ function NewBOMPageContent() {
 
   return (
     <Container maxWidth="md">
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/estimation"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/estimation');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Estimation
-        </Link>
-        <Typography color="text.primary">New BOM</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Estimation', href: '/estimation', icon: <HomeIcon fontSize="small" /> },
+          { label: 'New BOM' },
+        ]}
+      />
       <Box sx={{ mb: 4 }}>
         <Button startIcon={<BackIcon />} onClick={handleCancel} sx={{ mb: 2 }}>
           Back to BOMs

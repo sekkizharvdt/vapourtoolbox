@@ -10,8 +10,6 @@ import {
   Card,
   CardContent,
   Button,
-  Breadcrumbs,
-  Link,
   Tabs,
   Tab,
   CircularProgress,
@@ -20,6 +18,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   TrendingUp as TrendingUpIcon,
@@ -141,21 +140,12 @@ export default function PaymentPlanningPage() {
   return (
     <Container maxWidth="xl">
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Payment Planning</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Payment Planning' },
+        ]}
+      />
 
       {/* Header */}
       <Box

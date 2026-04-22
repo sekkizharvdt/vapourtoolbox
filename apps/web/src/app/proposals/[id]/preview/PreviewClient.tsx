@@ -24,8 +24,6 @@ import {
   TableContainer,
   TableRow,
   Chip,
-  Breadcrumbs,
-  Link,
   List,
   ListItem,
   ListItemText,
@@ -35,6 +33,7 @@ import {
   DialogContentText,
   DialogActions,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as BackIcon,
   PictureAsPdf as PdfIcon,
@@ -221,32 +220,13 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
     <Wrapper {...wrapperProps}>
       {!embedded && (
         <>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/proposals"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/proposals');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Proposals
-            </Link>
-            <Link
-              color="inherit"
-              href={`/proposals/${proposalId}`}
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push(`/proposals/${proposalId}`);
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              {proposal.proposalNumber}
-            </Link>
-            <Typography color="text.primary">Preview</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Proposals', href: '/proposals', icon: <HomeIcon fontSize="small" /> },
+              { label: proposal.proposalNumber, href: `/proposals/${proposalId}` },
+              { label: 'Preview' },
+            ]}
+          />
 
           <Box sx={{ mb: 4 }}>
             <Button

@@ -13,12 +13,11 @@ import {
   Box,
   CircularProgress,
   Chip,
-  Breadcrumbs,
-  Link,
   Collapse,
   IconButton,
   Button,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   KeyboardArrowDown as ExpandIcon,
@@ -283,32 +282,13 @@ export default function AccountLedgerPage() {
 
   return (
     <Box p={3}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/reports"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/reports');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Reports
-        </Link>
-        <Typography color="text.primary">Account Ledger</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Reports', href: '/accounting/reports' },
+          { label: 'Account Ledger' },
+        ]}
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h4" gutterBottom>

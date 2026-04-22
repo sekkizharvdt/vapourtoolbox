@@ -30,11 +30,10 @@ import {
   InputLabel,
   type SelectChangeEvent,
   TablePagination,
-  Breadcrumbs,
-  Link,
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -155,21 +154,12 @@ export default function PackingListsPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Typography color="text.primary">Packing Lists</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Packing Lists' },
+          ]}
+        />
 
         {/* Header */}
         <Box>

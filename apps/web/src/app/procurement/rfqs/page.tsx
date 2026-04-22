@@ -27,11 +27,10 @@ import {
   TablePagination,
   Grid,
   Typography,
-  Breadcrumbs,
-  Link,
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
@@ -173,21 +172,12 @@ export default function RFQsPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Typography color="text.primary">RFQs</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'RFQs' },
+          ]}
+        />
 
         <PageHeader
           title="RFQs (Requests for Quotation)"

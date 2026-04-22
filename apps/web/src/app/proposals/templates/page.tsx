@@ -7,7 +7,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -25,9 +24,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   BookmarkAdd as TemplateIcon,
   Delete as DeleteIcon,
@@ -45,7 +43,6 @@ import type { ProposalTemplate } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function ProposalTemplatesPage() {
-  const router = useRouter();
   const db = useFirestore();
   const { claims } = useAuth();
   const { toast } = useToast();
@@ -110,21 +107,12 @@ export default function ProposalTemplatesPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/proposals"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Proposals
-        </Link>
-        <Typography color="text.primary">Templates</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Proposals', href: '/proposals', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Templates' },
+        ]}
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>

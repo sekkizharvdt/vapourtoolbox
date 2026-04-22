@@ -16,8 +16,6 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Chip,
   Stack,
   Paper,
@@ -35,6 +33,7 @@ import {
   DialogContentText,
   DialogActions,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CheckCircle as FinalizeIcon,
@@ -187,32 +186,13 @@ export default function MeetingDetailClient() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/flow"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/flow');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Flow
-        </Link>
-        <Link
-          color="inherit"
-          href="/flow/meetings"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/flow/meetings');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Meeting Minutes
-        </Link>
-        <Typography color="text.primary">{meeting.title}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Flow', href: '/flow', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Meeting Minutes', href: '/flow/meetings' },
+          { label: meeting.title },
+        ]}
+      />
 
       {/* Header */}
       <Stack direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ mb: 3 }}>

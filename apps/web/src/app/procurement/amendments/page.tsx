@@ -32,11 +32,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Breadcrumbs,
-  Link,
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Search as SearchIcon,
   Add as AddIcon,
@@ -171,21 +170,12 @@ export default function AmendmentsListPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Typography color="text.primary">PO Amendments</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'PO Amendments' },
+          ]}
+        />
 
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

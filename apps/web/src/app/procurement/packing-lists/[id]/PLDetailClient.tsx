@@ -30,9 +30,9 @@ import {
   DialogActions,
   TextField,
   Divider,
-  Breadcrumbs,
   Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
@@ -190,32 +190,13 @@ export default function PLDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/procurement"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Procurement
-            </Link>
-            <Link
-              color="inherit"
-              href="/procurement/packing-lists"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement/packing-lists');
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              Packing Lists
-            </Link>
-            <Typography color="text.primary">{pl.number}</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+              { label: 'Packing Lists', href: '/procurement/packing-lists' },
+              { label: pl.number },
+            ]}
+          />
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

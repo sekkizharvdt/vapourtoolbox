@@ -19,10 +19,9 @@ import {
   Divider,
   Stack,
   Grid,
-  Breadcrumbs,
-  Link,
   InputLabel,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -292,43 +291,14 @@ export default function EditMaterialClient() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/materials"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/materials');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Materials
-        </Link>
-        <Link
-          color="inherit"
-          href={categoryInfo.path}
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push(categoryInfo.path);
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          {categoryInfo.label}
-        </Link>
-        <Link
-          color="inherit"
-          href={`/materials/${materialId}`}
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push(`/materials/${materialId}`);
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          {material.materialCode}
-        </Link>
-        <Typography color="text.primary">Edit</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
+          { label: categoryInfo.label, href: categoryInfo.path },
+          { label: material.materialCode, href: `/materials/${materialId}` },
+          { label: 'Edit' },
+        ]}
+      />
 
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>

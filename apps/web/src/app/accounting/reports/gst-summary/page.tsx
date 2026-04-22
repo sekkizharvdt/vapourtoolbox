@@ -11,7 +11,6 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Breadcrumbs,
   Link,
   Button,
   TextField,
@@ -20,6 +19,7 @@ import {
   Chip,
   CircularProgress,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   KeyboardArrowDown as ExpandIcon,
@@ -27,7 +27,7 @@ import {
   FileDownload as ExportIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
-import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
@@ -60,7 +60,7 @@ interface GSTAccountData {
 
 export default function GSTSummaryPage() {
   const { toast } = useToast();
-  const router = useRouter();
+
   const { claims } = useAuth();
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
 
@@ -245,32 +245,13 @@ export default function GSTSummaryPage() {
 
   return (
     <Box sx={{ py: 4 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/reports"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/reports');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Reports
-        </Link>
-        <Typography color="text.primary">GST Summary</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Reports', href: '/accounting/reports' },
+          { label: 'GST Summary' },
+        ]}
+      />
 
       <PageHeader
         title="GST Summary"

@@ -12,9 +12,8 @@ import {
   TextField,
   Autocomplete,
   Chip,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Save as SaveIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -114,32 +113,13 @@ export default function NewTravelExpensePage() {
 
   return (
     <Box sx={{ maxWidth: 'md', mx: 'auto' }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Link
-          color="inherit"
-          href="/hr/travel-expenses"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr/travel-expenses');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Travel Expenses
-        </Link>
-        <Typography color="text.primary">New Report</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Travel Expenses', href: '/hr/travel-expenses' },
+          { label: 'New Report' },
+        ]}
+      />
 
       <Box sx={{ mb: 4 }}>
         <Typography variant="h5" component="h1">

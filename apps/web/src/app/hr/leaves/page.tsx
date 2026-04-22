@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Typography, Box, Tabs, Tab, IconButton, Breadcrumbs, Link } from '@mui/material';
+import { Typography, Box, Tabs, Tab, IconButton } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Refresh as RefreshIcon, Home as HomeIcon } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { canApproveLeaves } from '@vapour/constants';
 import MyLeavesTab from '@/components/hr/leaves/MyLeavesTab';
@@ -13,7 +14,6 @@ import LeaveSummaryTab from '@/components/hr/leaves/LeaveSummaryTab';
 type MainTabValue = 'my-leaves' | 'team-requests' | 'summary';
 
 export default function LeavesPage() {
-  const router = useRouter();
   const { claims } = useAuth();
   const [tab, setTab] = useState<MainTabValue>('my-leaves');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -27,21 +27,12 @@ export default function LeavesPage() {
 
   return (
     <>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Typography color="text.primary">Leaves</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Leaves' },
+        ]}
+      />
 
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>

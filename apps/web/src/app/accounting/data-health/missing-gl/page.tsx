@@ -21,10 +21,9 @@ import {
   MenuItem,
   CircularProgress,
   Snackbar,
-  Breadcrumbs,
-  Link,
   Paper,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Refresh as RefreshIcon,
   ArrowBack as BackIcon,
@@ -337,32 +336,13 @@ export default function MissingGLEntriesPage() {
 
   return (
     <Box sx={{ py: 4 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/data-health"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/data-health');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Data Health
-        </Link>
-        <Typography color="text.primary">Missing GL Entries</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Data Health', href: '/accounting/data-health' },
+          { label: 'Missing GL Entries' },
+        ]}
+      />
 
       <PageHeader
         title="Missing GL Entries"

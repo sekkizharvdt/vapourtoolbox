@@ -26,9 +26,8 @@ import {
   CardContent,
   Tooltip,
   MenuItem,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -38,7 +37,7 @@ import {
   Home as HomeIcon,
   WorkOutline as ConvertIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageHRSettings } from '@vapour/constants';
@@ -100,7 +99,6 @@ const defaultFormData: FormData = {
 };
 
 export default function HolidaySettingsPage() {
-  const router = useRouter();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -345,21 +343,12 @@ export default function HolidaySettingsPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Typography color="text.primary">Holidays</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Holidays' },
+        ]}
+      />
 
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>

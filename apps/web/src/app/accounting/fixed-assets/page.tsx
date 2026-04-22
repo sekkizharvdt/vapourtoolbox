@@ -19,11 +19,10 @@ import {
   Select,
   MenuItem,
   InputAdornment,
-  Breadcrumbs,
-  Link,
   Typography,
   Button,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -139,18 +138,12 @@ export default function FixedAssetsPage() {
   return (
     <Box>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          underline="hover"
-          color="inherit"
-          href="/accounting"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-        >
-          <HomeIcon fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Fixed Assets</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Fixed Assets' },
+        ]}
+      />
 
       <PageHeader
         title="Fixed Asset Register"

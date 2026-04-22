@@ -29,14 +29,13 @@ import {
   TablePagination,
   Grid,
   Typography,
-  Breadcrumbs,
-  Link,
   IconButton,
   Tooltip,
   Card,
   CardContent,
   Stack,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -172,21 +171,12 @@ export default function PurchaseOrdersPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Typography color="text.primary">Purchase Orders</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Purchase Orders' },
+          ]}
+        />
 
         <PageHeader
           title="Purchase Orders"

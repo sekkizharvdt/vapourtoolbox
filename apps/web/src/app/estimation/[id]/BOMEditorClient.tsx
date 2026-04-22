@@ -10,9 +10,8 @@ import {
   CircularProgress,
   Alert,
   Divider,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Add as AddIcon,
@@ -182,21 +181,12 @@ export default function BOMEditorClient() {
     <Box>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/estimation"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/estimation');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Estimation
-          </Link>
-          <Typography color="text.primary">{bom.bomCode}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Estimation', href: '/estimation', icon: <HomeIcon fontSize="small" /> },
+            { label: bom.bomCode },
+          ]}
+        />
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
           <Box>

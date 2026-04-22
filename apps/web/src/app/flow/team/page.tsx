@@ -8,14 +8,12 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Card,
   CardContent,
   Avatar,
@@ -24,6 +22,7 @@ import {
   TextField,
   InputAdornment,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import Grid from '@mui/material/Grid';
 import {
   Home as HomeIcon,
@@ -54,7 +53,6 @@ const PRIORITY_COLORS: Record<string, 'default' | 'info' | 'warning' | 'error'> 
 };
 
 export default function TeamBoardPage() {
-  const router = useRouter();
   const db = useFirestore();
   const { claims } = useAuth();
 
@@ -170,21 +168,12 @@ export default function TeamBoardPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/flow"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/flow');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Flow
-        </Link>
-        <Typography color="text.primary">Team Board</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Flow', href: '/flow', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Team Board' },
+        ]}
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" component="h1">

@@ -23,9 +23,8 @@ import {
   Select,
   MenuItem,
   FormHelperText,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { DatePicker } from '@mui/x-date-pickers';
 import { Home as HomeIcon, Save as SaveIcon } from '@mui/icons-material';
 import { Controller, useForm } from 'react-hook-form';
@@ -245,43 +244,17 @@ export default function EditEnquiryClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/proposals"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/proposals');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Proposals
-            </Link>
-            <Link
-              color="inherit"
-              href="/proposals/enquiries"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/proposals/enquiries');
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              Enquiries
-            </Link>
-            <Link
-              color="inherit"
-              href={`/proposals/enquiries/${enquiryId}`}
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push(`/proposals/enquiries/${enquiryId}`);
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              {enquiry?.enquiryNumber || enquiryId}
-            </Link>
-            <Typography color="text.primary">Edit</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Proposals', href: '/proposals', icon: <HomeIcon fontSize="small" /> },
+              { label: 'Enquiries', href: '/proposals/enquiries' },
+              {
+                label: enquiry?.enquiryNumber ?? enquiryId ?? '',
+                href: `/proposals/enquiries/${enquiryId ?? ''}`,
+              },
+              { label: 'Edit' },
+            ]}
+          />
           <Typography variant="h4" gutterBottom>
             Edit Enquiry
           </Typography>

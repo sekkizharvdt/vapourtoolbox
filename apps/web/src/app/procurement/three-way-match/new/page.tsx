@@ -20,9 +20,8 @@ import {
   Grid,
   Autocomplete,
   TextField,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   CompareArrows as CompareArrowsIcon,
@@ -149,32 +148,13 @@ export default function NewThreeWayMatchPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Link
-            color="inherit"
-            href="/procurement/three-way-match"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/three-way-match');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Three-Way Match
-          </Link>
-          <Typography color="text.primary">New</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Three-Way Match', href: '/procurement/three-way-match' },
+            { label: 'New' },
+          ]}
+        />
 
         {/* Header */}
         <Box>

@@ -26,10 +26,9 @@ import {
   Select,
   MenuItem,
   Checkbox,
-  Breadcrumbs,
-  Link,
   InputAdornment,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -338,32 +337,13 @@ export default function NewAmendmentPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Link
-            color="inherit"
-            href="/procurement/amendments"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/amendments');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            PO Amendments
-          </Link>
-          <Typography color="text.primary">New</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'PO Amendments', href: '/procurement/amendments' },
+            { label: 'New' },
+          ]}
+        />
 
         {/* Header */}
         <Box>

@@ -19,9 +19,8 @@ import {
   Chip,
   Grid,
   Divider,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
@@ -107,32 +106,13 @@ export default function WCCDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/procurement"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Procurement
-            </Link>
-            <Link
-              color="inherit"
-              href="/procurement/work-completion"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement/work-completion');
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              Work Completion
-            </Link>
-            <Typography color="text.primary">{wcc.number}</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+              { label: 'Work Completion', href: '/procurement/work-completion' },
+              { label: wcc.number },
+            ]}
+          />
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

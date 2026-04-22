@@ -9,18 +9,8 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  Box,
-  Typography,
-  Tabs,
-  Tab,
-  Button,
-  CircularProgress,
-  Alert,
-  Breadcrumbs,
-  Link,
-  Chip,
-} from '@mui/material';
+import { Box, Typography, Tabs, Tab, Button, CircularProgress, Alert, Chip } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Add as AddIcon, Home as HomeIcon, CheckCircle as DoneIcon } from '@mui/icons-material';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -132,21 +122,12 @@ function TaskListInner() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/flow"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/flow');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Flow
-        </Link>
-        <Typography color="text.primary">My Tasks</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Flow', href: '/flow', icon: <HomeIcon fontSize="small" /> },
+          { label: 'My Tasks' },
+        ]}
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" component="h1">

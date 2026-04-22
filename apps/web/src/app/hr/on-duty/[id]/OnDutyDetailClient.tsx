@@ -16,9 +16,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Timeline,
   TimelineItem,
@@ -232,32 +231,13 @@ export default function OnDutyDetailClient() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Link
-          color="inherit"
-          href="/hr/on-duty/my-requests"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr/on-duty/my-requests');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          On-Duty Requests
-        </Link>
-        <Typography color="text.primary">{request.requestNumber}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+          { label: 'On-Duty Requests', href: '/hr/on-duty/my-requests' },
+          { label: request.requestNumber },
+        ]}
+      />
 
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h4" component="h1">

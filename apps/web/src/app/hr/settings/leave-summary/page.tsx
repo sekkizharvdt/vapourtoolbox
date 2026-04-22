@@ -21,15 +21,14 @@ import {
   CardContent,
   Grid,
   InputAdornment,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageHRSettings, canApproveLeaves } from '@vapour/constants';
 import { getAllLeaveBalances, getCurrentFiscalYear } from '@/lib/hr/leaves';
@@ -53,7 +52,6 @@ interface UserSummary {
 }
 
 export default function LeaveSummaryPage() {
-  const router = useRouter();
   const { claims } = useAuth();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,21 +168,12 @@ export default function LeaveSummaryPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Typography color="text.primary">Leave Summary</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Leave Summary' },
+        ]}
+      />
 
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>

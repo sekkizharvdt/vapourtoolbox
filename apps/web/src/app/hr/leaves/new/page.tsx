@@ -13,9 +13,8 @@ import {
   FormControlLabel,
   Switch,
   MenuItem,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Save as SaveIcon, Send as SubmitIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -240,32 +239,13 @@ export default function NewLeaveRequestPage() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ maxWidth: 'md', mx: 'auto' }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/hr"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/hr');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            HR
-          </Link>
-          <Link
-            color="inherit"
-            href="/hr/leaves/my-leaves"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/hr/leaves/my-leaves');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            My Leaves
-          </Link>
-          <Typography color="text.primary">New Leave Request</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+            { label: 'My Leaves', href: '/hr/leaves/my-leaves' },
+            { label: 'New Leave Request' },
+          ]}
+        />
 
         <Box sx={{ mb: 4 }}>
           <Typography variant="h5" component="h1">

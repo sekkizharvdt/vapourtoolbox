@@ -33,9 +33,8 @@ import {
   Checkbox,
   FormControlLabel,
   Chip,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -282,32 +281,13 @@ export default function NewGoodsReceiptPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Link
-            color="inherit"
-            href="/procurement/goods-receipts"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/goods-receipts');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Goods Receipts
-          </Link>
-          <Typography color="text.primary">New</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Goods Receipts', href: '/procurement/goods-receipts' },
+            { label: 'New' },
+          ]}
+        />
 
         {/* Header */}
         <Box>

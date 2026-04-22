@@ -28,9 +28,8 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as BackIcon,
   Save as SaveIcon,
@@ -369,32 +368,13 @@ export default function PricingEditorClient({
     <Wrapper {...wrapperProps}>
       {!embedded && (
         <>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/proposals"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/proposals');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Proposals
-            </Link>
-            <Link
-              color="inherit"
-              href={`/proposals/${proposalId}`}
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push(`/proposals/${proposalId}`);
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              {proposal.proposalNumber}
-            </Link>
-            <Typography color="text.primary">Pricing</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Proposals', href: '/proposals', icon: <HomeIcon fontSize="small" /> },
+              { label: proposal.proposalNumber, href: `/proposals/${proposalId}` },
+              { label: 'Pricing' },
+            ]}
+          />
 
           <Box sx={{ mb: 4 }}>
             <Button

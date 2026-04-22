@@ -28,9 +28,8 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -173,43 +172,14 @@ export default function EditGoodsReceiptClient() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Link
-            color="inherit"
-            href="/procurement/goods-receipts"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/goods-receipts');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Goods Receipts
-          </Link>
-          <Link
-            color="inherit"
-            href={`/procurement/goods-receipts/${grId}`}
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push(`/procurement/goods-receipts/${grId}`);
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            {gr.number}
-          </Link>
-          <Typography color="text.primary">Edit</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Goods Receipts', href: '/procurement/goods-receipts' },
+            { label: gr.number, href: `/procurement/goods-receipts/${grId}` },
+            { label: 'Edit' },
+          ]}
+        />
 
         <Box>
           <Button

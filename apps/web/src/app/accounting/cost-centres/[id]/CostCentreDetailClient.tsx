@@ -16,9 +16,8 @@ import {
   Tabs,
   Tab,
   CircularProgress,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Edit as EditIcon,
@@ -391,32 +390,13 @@ export default function CostCentreDetailClient() {
     <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/accounting"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Accounting
-          </Link>
-          <Link
-            color="inherit"
-            href="/accounting/cost-centres"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting/cost-centres');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Cost Centres
-          </Link>
-          <Typography color="text.primary">{costCentre.code}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Cost Centres', href: '/accounting/cost-centres' },
+            { label: costCentre.code },
+          ]}
+        />
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>

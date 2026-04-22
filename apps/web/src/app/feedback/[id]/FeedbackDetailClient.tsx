@@ -27,9 +27,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   BugReport as BugReportIcon,
   Lightbulb as LightbulbIcon,
@@ -277,21 +276,12 @@ export default function FeedbackDetailClient() {
   return (
     <AuthenticatedLayout>
       <Box sx={{ maxWidth: 'md', mx: 'auto', py: 2 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/feedback"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/feedback');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Feedback
-          </Link>
-          <Typography color="text.primary">{feedback.title}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Feedback', href: '/feedback', icon: <HomeIcon fontSize="small" /> },
+            { label: feedback.title },
+          ]}
+        />
         <PageHeader title={feedback.title} />
 
         {/* Status and Type */}

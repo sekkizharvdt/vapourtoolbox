@@ -30,9 +30,8 @@ import {
   TextField,
   Rating,
   Divider,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
@@ -177,43 +176,14 @@ export default function OfferComparisonPage() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/procurement"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Procurement
-            </Link>
-            <Link
-              color="inherit"
-              href="/procurement/rfqs"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement/rfqs');
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              RFQs
-            </Link>
-            <Link
-              color="inherit"
-              href={`/procurement/rfqs/${rfqId}`}
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push(`/procurement/rfqs/${rfqId}`);
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              {rfq?.number || rfqId}
-            </Link>
-            <Typography color="text.primary">Offer Comparison</Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+              { label: 'RFQs', href: '/procurement/rfqs' },
+              { label: rfq?.number ?? rfqId ?? '', href: `/procurement/rfqs/${rfqId ?? ''}` },
+              { label: 'Offer Comparison' },
+            ]}
+          />
           <Typography variant="h4" gutterBottom>
             Offer Comparison - {rfq?.number || 'N/A'}
           </Typography>

@@ -30,9 +30,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
@@ -218,34 +217,13 @@ export default function AmendmentDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              color="inherit"
-              href="/procurement"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement');
-              }}
-              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-            >
-              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Procurement
-            </Link>
-            <Link
-              color="inherit"
-              href="/procurement/amendments"
-              onClick={(e: React.MouseEvent) => {
-                e.preventDefault();
-                router.push('/procurement/amendments');
-              }}
-              sx={{ cursor: 'pointer' }}
-            >
-              Amendments
-            </Link>
-            <Typography color="text.primary">
-              {amendment.purchaseOrderNumber} - #{amendment.amendmentNumber}
-            </Typography>
-          </Breadcrumbs>
+          <PageBreadcrumbs
+            items={[
+              { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+              { label: 'Amendments', href: '/procurement/amendments' },
+              { label: `${amendment.purchaseOrderNumber} - #${amendment.amendmentNumber}` },
+            ]}
+          />
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

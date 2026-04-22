@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -11,10 +11,9 @@ import {
   Tab,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Chip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Description as DescriptionIcon,
@@ -62,7 +61,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 
 export default function ProjectCharterPage() {
   const pathname = usePathname();
-  const router = useRouter();
+
   const { claims } = useAuth();
 
   const [activeTab, setActiveTab] = useState(0);
@@ -186,30 +185,13 @@ export default function ProjectCharterPage() {
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            underline="hover"
-            color="inherit"
-            href="/dashboard"
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Home
-          </Link>
-          <Link
-            underline="hover"
-            color="inherit"
-            href="/projects"
-            sx={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.preventDefault();
-              router.push('/projects');
-            }}
-          >
-            Projects
-          </Link>
-          <Typography color="text.primary">{project.code}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Home', href: '/dashboard', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Projects', href: '/projects' },
+            { label: project.code },
+          ]}
+        />
 
         {/* Project Header */}
         <Box sx={{ mb: 3 }}>

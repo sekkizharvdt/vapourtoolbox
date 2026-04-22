@@ -16,8 +16,6 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Card,
   CardContent,
   FormControl,
@@ -28,6 +26,7 @@ import {
   IconButton,
   Divider,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Print as PrintIcon,
   FileDownload as DownloadIcon,
@@ -40,7 +39,7 @@ import {
   ArrowDownward as ReceiptIcon,
   ArrowUpward as PaymentIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
@@ -78,7 +77,6 @@ const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i).reverse();
 
 export default function ReceiptsPaymentsPage() {
-  const router = useRouter();
   const { claims } = useAuth();
 
   // Date selection
@@ -221,32 +219,13 @@ export default function ReceiptsPaymentsPage() {
   return (
     <Container maxWidth="xl">
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/reports"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/reports');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Financial Reports
-        </Link>
-        <Typography color="text.primary">Receipts & Payments</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Financial Reports', href: '/accounting/reports' },
+          { label: 'Receipts & Payments' },
+        ]}
+      />
 
       {/* Header */}
       <Box sx={{ mb: 4 }}>

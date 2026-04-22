@@ -8,10 +8,10 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Box, Breadcrumbs, Link, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProjects } from '@vapour/constants';
 import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
@@ -19,7 +19,6 @@ import type { DocumentRecord } from '@vapour/types';
 
 export default function ProjectsFilesPage() {
   const { claims } = useAuth();
-  const router = useRouter();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -70,21 +69,12 @@ export default function ProjectsFilesPage() {
 
   return (
     <>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/projects"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/projects');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Projects
-        </Link>
-        <Typography color="text.primary">Files</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Projects', href: '/projects', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Files' },
+        ]}
+      />
       <Box sx={{ mb: 2 }}>
         <PageHeader
           title="Projects Files"

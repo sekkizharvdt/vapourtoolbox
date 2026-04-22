@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Typography, Box, Breadcrumbs, Link, Alert } from '@mui/material';
+import { Typography, Box, Alert } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageAccounting } from '@vapour/constants';
@@ -59,32 +60,13 @@ export default function NewRecurringTransactionPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/accounting"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Accounting
-          </Link>
-          <Link
-            color="inherit"
-            href="/accounting/recurring"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting/recurring');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Recurring Transactions
-          </Link>
-          <Typography color="text.primary">New</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Recurring Transactions', href: '/accounting/recurring' },
+            { label: 'New' },
+          ]}
+        />
 
         <Typography variant="h4" component="h1" gutterBottom>
           Create Recurring Transaction

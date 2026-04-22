@@ -5,8 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import {
   Typography,
   Box,
-  Breadcrumbs,
-  Link,
   Alert,
   Paper,
   Grid,
@@ -27,6 +25,7 @@ import {
   DialogActions,
   TextField,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Pause as PauseIcon,
@@ -233,32 +232,13 @@ export default function RecurringDetailClient() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/accounting"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Accounting
-          </Link>
-          <Link
-            color="inherit"
-            href="/accounting/recurring"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting/recurring');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Recurring Transactions
-          </Link>
-          <Typography color="text.primary">{transaction.name}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Recurring Transactions', href: '/accounting/recurring' },
+            { label: transaction.name },
+          ]}
+        />
 
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

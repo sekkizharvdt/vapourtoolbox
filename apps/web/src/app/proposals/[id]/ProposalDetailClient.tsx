@@ -22,11 +22,10 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Breadcrumbs,
-  Link,
   Tab,
   Tabs,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   MoreVert as MoreIcon,
@@ -334,21 +333,12 @@ export default function ProposalDetailClient() {
   return (
     <Box>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/proposals"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Proposals
-        </Link>
-        <Typography color="text.primary">{proposal.proposalNumber}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Proposals', href: '/proposals', icon: <HomeIcon fontSize="small" /> },
+          { label: proposal.proposalNumber },
+        ]}
+      />
 
       {error && (
         <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>

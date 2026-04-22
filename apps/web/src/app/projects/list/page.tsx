@@ -11,7 +11,6 @@ import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Box,
-  Breadcrumbs,
   Paper,
   Button,
   TextField,
@@ -24,7 +23,6 @@ import {
   IconButton,
   Tooltip,
   Alert,
-  Link,
   Table,
   TableBody,
   TableCell,
@@ -35,6 +33,7 @@ import {
   TablePagination,
   Typography,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   PageHeader,
   LoadingState,
@@ -225,21 +224,12 @@ export default function ProjectsListPage() {
 
   return (
     <>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/projects"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/projects');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Projects
-        </Link>
-        <Typography color="text.primary">All Projects</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Projects', href: '/projects', icon: <HomeIcon fontSize="small" /> },
+          { label: 'All Projects' },
+        ]}
+      />
       <Box sx={{ mb: 4 }}>
         {/* Header */}
         <PageHeader

@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   Typography,
   Box,
-  Breadcrumbs,
-  Link,
   Alert,
   Paper,
   Grid,
@@ -23,6 +21,7 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   CalendarMonth as CalendarIcon,
@@ -139,32 +138,13 @@ export default function UpcomingOccurrencesPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/accounting"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Accounting
-          </Link>
-          <Link
-            color="inherit"
-            href="/accounting/recurring"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/accounting/recurring');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Recurring Transactions
-          </Link>
-          <Typography color="text.primary">Upcoming</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Recurring Transactions', href: '/accounting/recurring' },
+            { label: 'Upcoming' },
+          ]}
+        />
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>

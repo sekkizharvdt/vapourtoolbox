@@ -26,11 +26,10 @@ import {
   IconButton,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Chip,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Save as SaveIcon,
@@ -490,43 +489,17 @@ export default function EditPRPage() {
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
-            <Breadcrumbs sx={{ mb: 2 }}>
-              <Link
-                color="inherit"
-                href="/procurement"
-                onClick={(e: React.MouseEvent) => {
-                  e.preventDefault();
-                  router.push('/procurement');
-                }}
-                sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-              >
-                <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-                Procurement
-              </Link>
-              <Link
-                color="inherit"
-                href="/procurement/purchase-requests"
-                onClick={(e: React.MouseEvent) => {
-                  e.preventDefault();
-                  router.push('/procurement/purchase-requests');
-                }}
-                sx={{ cursor: 'pointer' }}
-              >
-                Purchase Requests
-              </Link>
-              <Link
-                color="inherit"
-                href={`/procurement/purchase-requests/${prId}`}
-                onClick={(e: React.MouseEvent) => {
-                  e.preventDefault();
-                  router.push(`/procurement/purchase-requests/${prId}`);
-                }}
-                sx={{ cursor: 'pointer' }}
-              >
-                {pr?.number || prId}
-              </Link>
-              <Typography color="text.primary">Edit</Typography>
-            </Breadcrumbs>
+            <PageBreadcrumbs
+              items={[
+                { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+                { label: 'Purchase Requests', href: '/procurement/purchase-requests' },
+                {
+                  label: pr?.number ?? prId ?? '',
+                  href: `/procurement/purchase-requests/${prId ?? ''}`,
+                },
+                { label: 'Edit' },
+              ]}
+            />
             <Typography variant="h4" gutterBottom>
               Edit {pr?.number}
             </Typography>

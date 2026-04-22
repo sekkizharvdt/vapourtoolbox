@@ -17,12 +17,11 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  Breadcrumbs,
-  Link,
   Collapse,
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
@@ -34,7 +33,7 @@ import {
   UnfoldLess as UnfoldLessIcon,
   FileDownload as DownloadIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
@@ -228,7 +227,6 @@ function ExpandableRow({ label, amount, accounts, expanded, onToggle }: Expandab
 }
 
 export default function ProfitLossPage() {
-  const router = useRouter();
   const { claims } = useAuth();
   const [startDate, setStartDate] = useState<string>(() => {
     // Default to first day of current month
@@ -381,32 +379,13 @@ export default function ProfitLossPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          color="inherit"
-          href="/accounting/reports"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting/reports');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Reports
-        </Link>
-        <Typography color="text.primary">Profit & Loss</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Reports', href: '/accounting/reports' },
+          { label: 'Profit & Loss' },
+        ]}
+      />
 
       <Stack spacing={3}>
         {/* Header */}

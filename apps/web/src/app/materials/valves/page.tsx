@@ -21,13 +21,12 @@ import {
   Stack,
   Card,
   CardContent,
-  Breadcrumbs,
-  Link,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Search as SearchIcon,
   Add as AddIcon,
@@ -187,21 +186,12 @@ export default function ValvesPage() {
   return (
     <>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/materials"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/materials');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Materials
-        </Link>
-        <Typography color="text.primary">Valves</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Valves' },
+        ]}
+      />
 
       <PageHeader
         title="Valves"

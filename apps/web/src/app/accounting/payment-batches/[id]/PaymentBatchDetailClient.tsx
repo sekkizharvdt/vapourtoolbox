@@ -10,8 +10,6 @@ import {
   Chip,
   LinearProgress,
   Paper,
-  Breadcrumbs,
-  Link,
   Card,
   CardContent,
   Grid,
@@ -23,6 +21,7 @@ import {
   DialogActions,
   TextField,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Payments as PaymentsIcon,
@@ -396,27 +395,17 @@ export default function PaymentBatchDetailClient() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          href="/accounting"
-          underline="hover"
-          color="inherit"
-          sx={{ display: 'flex', alignItems: 'center' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Link
-          href="/accounting/payment-batches"
-          underline="hover"
-          color="inherit"
-          sx={{ display: 'flex', alignItems: 'center' }}
-        >
-          <PaymentsIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Payment Batches
-        </Link>
-        <Typography color="text.primary">{batch.batchNumber}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          {
+            label: 'Payment Batches',
+            href: '/accounting/payment-batches',
+            icon: <PaymentsIcon fontSize="small" />,
+          },
+          { label: batch.batchNumber },
+        ]}
+      />
 
       {/* Header */}
       <Box

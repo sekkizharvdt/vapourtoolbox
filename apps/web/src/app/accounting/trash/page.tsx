@@ -19,9 +19,8 @@ import {
   Select,
   MenuItem,
   InputAdornment,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   RestoreFromTrash as RestoreIcon,
   DeleteForever as DeleteForeverIcon,
@@ -44,7 +43,7 @@ import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { BaseTransaction, TransactionType } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
-import { useRouter } from 'next/navigation';
+
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
 import {
@@ -63,7 +62,6 @@ interface DeletedTransaction extends BaseTransaction {
 }
 
 export default function TrashPage() {
-  const router = useRouter();
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const { toast } = useToast();
@@ -198,21 +196,12 @@ export default function TrashPage() {
 
   return (
     <Box sx={{ py: 4 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/accounting"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/accounting');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Trash</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Trash' },
+        ]}
+      />
 
       <PageHeader
         title="Trash"

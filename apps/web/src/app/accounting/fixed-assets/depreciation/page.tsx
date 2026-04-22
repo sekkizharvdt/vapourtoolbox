@@ -17,12 +17,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Breadcrumbs,
-  Link,
   Card,
   CardContent,
   Chip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   PlayArrow as RunIcon,
@@ -130,21 +129,13 @@ export default function DepreciationRunPage() {
   return (
     <Box>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          underline="hover"
-          color="inherit"
-          href="/accounting"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-        >
-          <HomeIcon fontSize="small" />
-          Accounting
-        </Link>
-        <Link underline="hover" color="inherit" href="/accounting/fixed-assets">
-          Fixed Assets
-        </Link>
-        <Typography color="text.primary">Run Depreciation</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Fixed Assets', href: '/accounting/fixed-assets' },
+          { label: 'Run Depreciation' },
+        ]}
+      />
 
       <PageHeader
         title="Run Depreciation"

@@ -26,10 +26,9 @@ import {
   Divider,
   Chip,
   CircularProgress,
-  Breadcrumbs,
-  Link,
   Tooltip,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
@@ -349,32 +348,13 @@ export default function NewPurchaseRequestPage() {
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 0 }}>
-          <Link
-            color="inherit"
-            href="/procurement"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Procurement
-          </Link>
-          <Link
-            color="inherit"
-            href="/procurement/purchase-requests"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/procurement/purchase-requests');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Purchase Requests
-          </Link>
-          <Typography color="text.primary">New</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Purchase Requests', href: '/procurement/purchase-requests' },
+            { label: 'New' },
+          ]}
+        />
 
         {/* Header */}
         <Stack
