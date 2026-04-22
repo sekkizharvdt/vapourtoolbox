@@ -122,12 +122,18 @@ export default function LinksSection({
                       onClick={() =>
                         router.push(`/documents/${link.masterDocumentId}?projectId=${projectId}`)
                       }
+                      aria-label="View Document"
                     >
                       <ViewIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Remove Link">
-                    <IconButton size="small" onClick={() => onRemove(link)} color="error">
+                    <IconButton
+                      size="small"
+                      onClick={() => onRemove(link)}
+                      color="error"
+                      aria-label="Remove Link"
+                    >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

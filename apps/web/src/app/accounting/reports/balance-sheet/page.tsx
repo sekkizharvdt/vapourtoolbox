@@ -83,7 +83,7 @@ function AccountRow({
     <>
       <TableRow hover sx={{ cursor: 'pointer' }} onClick={() => onToggle(account)}>
         <TableCell padding="none" sx={{ pl: 1, width: 40 }}>
-          <IconButton size="small">
+          <IconButton size="small" aria-label="Expand">
             {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
           </IconButton>
         </TableCell>
@@ -165,6 +165,7 @@ function AccountRow({
                                 e.stopPropagation();
                                 onNavigate(entry.route);
                               }}
+                              aria-label="Action"
                             >
                               <OpenInNewIcon fontSize="small" />
                             </IconButton>
@@ -369,12 +370,17 @@ export default function BalanceSheetPage() {
           {report && (
             <Box sx={{ display: 'flex', gap: 0.5 }}>
               <Tooltip title="Export CSV">
-                <IconButton onClick={handleExportCSV} size="small">
+                <IconButton onClick={handleExportCSV} size="small" aria-label="Export CSV">
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export Excel">
-                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                <IconButton
+                  onClick={handleExportExcel}
+                  size="small"
+                  color="primary"
+                  aria-label="Export Excel"
+                >
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>

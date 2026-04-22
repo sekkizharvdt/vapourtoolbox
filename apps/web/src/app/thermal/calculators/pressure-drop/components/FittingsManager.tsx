@@ -88,7 +88,7 @@ export function FittingsManager({
             ))}
           </Select>
         </FormControl>
-        <IconButton color="primary" onClick={handleAddFitting}>
+        <IconButton color="primary" onClick={handleAddFitting} aria-label="Add">
           <AddIcon />
         </IconButton>
       </Stack>
@@ -127,7 +127,11 @@ export function FittingsManager({
                     ).toFixed(2)}
                   </TableCell>
                   <TableCell>
-                    <IconButton size="small" onClick={() => handleRemoveFitting(fitting.type)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveFitting(fitting.type)}
+                      aria-label="Remove"
+                    >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>

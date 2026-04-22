@@ -286,6 +286,7 @@ export default function ProposalAttachments({
                         href={attachment.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        aria-label="Open"
                       >
                         <OpenIcon fontSize="small" />
                       </IconButton>
@@ -296,6 +297,7 @@ export default function ProposalAttachments({
                         component="a"
                         href={attachment.fileUrl}
                         download={attachment.fileName}
+                        aria-label="Download"
                       >
                         <DownloadIcon fontSize="small" />
                       </IconButton>
@@ -306,6 +308,7 @@ export default function ProposalAttachments({
                           size="small"
                           color="error"
                           onClick={() => setDeleteConfirm(attachment)}
+                          aria-label="Delete"
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -370,7 +373,11 @@ export default function ProposalAttachments({
                           secondary={formatFileSize(fileData.file.size)}
                         />
                         {!uploading && (
-                          <IconButton size="small" onClick={() => handleRemoveSelectedFile(index)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveSelectedFile(index)}
+                            aria-label="Remove"
+                          >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         )}

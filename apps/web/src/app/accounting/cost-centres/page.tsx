@@ -322,6 +322,7 @@ export default function CostCentresPage() {
                                 e.stopPropagation();
                                 handleEdit(costCentre);
                               }}
+                              aria-label="Edit Cost Centre"
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>

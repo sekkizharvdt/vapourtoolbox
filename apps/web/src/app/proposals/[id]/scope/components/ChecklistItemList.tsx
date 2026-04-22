@@ -139,10 +139,10 @@ function ChecklistItemCard({
             rows={2}
           />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <IconButton onClick={handleCancel} size="small" color="inherit">
+            <IconButton onClick={handleCancel} size="small" color="inherit" aria-label="Close">
               <CancelIcon />
             </IconButton>
-            <IconButton onClick={handleSave} size="small" color="primary">
+            <IconButton onClick={handleSave} size="small" color="primary" aria-label="Action">
               <SaveIcon />
             </IconButton>
           </Box>
@@ -203,10 +203,15 @@ function ChecklistItemCard({
         )}
       </Box>
       <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <IconButton onClick={() => setEditing(true)} size="small">
+        <IconButton onClick={() => setEditing(true)} size="small" aria-label="Remove">
           <EditIcon fontSize="small" />
         </IconButton>
-        <IconButton onClick={() => onDelete(item.id)} size="small" color="error">
+        <IconButton
+          onClick={() => onDelete(item.id)}
+          size="small"
+          color="error"
+          aria-label="Remove"
+        >
           <DeleteIcon fontSize="small" />
         </IconButton>
       </Box>

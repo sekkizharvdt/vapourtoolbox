@@ -413,11 +413,19 @@ export default function CompanyDocumentsPage() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => handleDownload(doc)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDownload(doc)}
+                      aria-label="More options"
+                    >
                       <DownloadIcon />
                     </IconButton>
                     {isAdmin && (
-                      <IconButton size="small" onClick={(e) => handleMenuOpen(e, doc)}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, doc)}
+                        aria-label="More options"
+                      >
                         <MoreIcon />
                       </IconButton>
                     )}
@@ -522,6 +530,7 @@ export default function CompanyDocumentsPage() {
           <IconButton
             onClick={() => setVersionHistoryOpen(false)}
             sx={{ position: 'absolute', right: 8, top: 8 }}
+            aria-label="Close"
           >
             <CloseIcon />
           </IconButton>
@@ -554,7 +563,11 @@ export default function CompanyDocumentsPage() {
                     <TableCell>{formatDate(ver.uploadedAt as { seconds: number })}</TableCell>
                     <TableCell>{ver.revisionNotes || '-'}</TableCell>
                     <TableCell>
-                      <IconButton size="small" onClick={() => window.open(ver.fileUrl, '_blank')}>
+                      <IconButton
+                        size="small"
+                        onClick={() => window.open(ver.fileUrl, '_blank')}
+                        aria-label="Download"
+                      >
                         <DownloadIcon />
                       </IconButton>
                     </TableCell>

@@ -337,12 +337,13 @@ export default function BankReconciliationPage() {
                             <IconButton
                               size="small"
                               onClick={() => handleViewReconciliation(statement.id!)}
+                              aria-label="View & Reconcile"
                             >
                               <ViewIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Generate Report">
-                            <IconButton size="small">
+                            <IconButton size="small" aria-label="Generate Report">
                               <AssessmentIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>

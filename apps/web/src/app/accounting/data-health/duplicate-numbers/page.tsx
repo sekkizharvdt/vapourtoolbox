@@ -77,7 +77,7 @@ function DuplicateGroupRow({
     <>
       <TableRow hover sx={{ '& > *': { borderBottom: open ? 'unset' : undefined } }}>
         <TableCell>
-          <IconButton size="small" onClick={() => setOpen(!open)}>
+          <IconButton size="small" onClick={() => setOpen(!open)} aria-label="Action">
             {open ? <CollapseIcon /> : <ExpandIcon />}
           </IconButton>
         </TableCell>

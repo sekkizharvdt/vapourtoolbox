@@ -424,6 +424,7 @@ export default function InterprojectLoansPage() {
                             setSelectedLoan(loan);
                             setIsRepaymentDialogOpen(true);
                           }}
+                          aria-label="Record Payment"
                         >
                           <PaymentIcon />
                         </IconButton>

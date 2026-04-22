@@ -297,6 +297,7 @@ export default function DeliveryEditor({ proposalId }: DeliveryEditorProps) {
                       size="small"
                       color="error"
                       onClick={() => handleRemoveMilestone(index)}
+                      aria-label="Remove"
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>

@@ -360,7 +360,7 @@ export default function ChartOfAccountsPage() {
           </FormControl>
 
           <Tooltip title="Refresh">
-            <IconButton onClick={handleRefresh} disabled={loading}>
+            <IconButton onClick={handleRefresh} disabled={loading} aria-label="Refresh">
               <RefreshIcon />
             </IconButton>
           </Tooltip>

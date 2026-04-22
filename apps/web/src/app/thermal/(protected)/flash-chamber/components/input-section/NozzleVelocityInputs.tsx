@@ -77,7 +77,7 @@ export function NozzleVelocityInputs({ inputs, onChange }: NozzleVelocityInputsP
               <Tooltip
                 title={`At ${vaporVelocityLimits.saturationTemp.toFixed(1)}°C saturation: Sonic velocity = ${vaporVelocityLimits.sonicVelocity.toFixed(0)} m/s, Max recommended (35% sonic) = ${vaporVelocityLimits.maxRecommendedVelocity.toFixed(0)} m/s`}
               >
-                <IconButton size="small">
+                <IconButton size="small" aria-label="Action">
                   <InfoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>

@@ -75,7 +75,11 @@ export function PurchaseOrdersTable({ purchaseOrders, formatCurrency }: Purchase
               </TableCell>
               <TableCell align="center">
                 <Tooltip title="View PO">
-                  <IconButton size="small" onClick={() => router.push(`/procurement/pos/${po.id}`)}>
+                  <IconButton
+                    size="small"
+                    onClick={() => router.push(`/procurement/pos/${po.id}`)}
+                    aria-label="View PO"
+                  >
                     <OpenIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>

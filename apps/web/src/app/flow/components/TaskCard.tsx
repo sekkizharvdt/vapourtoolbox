@@ -253,6 +253,7 @@ export const TaskCard = memo(function TaskCard({
                         e.stopPropagation();
                         window.open(task.linkUrl, '_blank');
                       }}
+                      aria-label="Open in new tab"
                     >
                       <ViewIcon fontSize="small" />
                     </IconButton>

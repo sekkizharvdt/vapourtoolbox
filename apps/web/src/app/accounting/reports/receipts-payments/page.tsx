@@ -414,7 +414,7 @@ export default function ReceiptsPaymentsPage() {
                 <ReceiptIcon sx={{ mr: 1, color: 'success.main' }} />
                 Receipts (Income)
               </Typography>
-              <IconButton size="small">
+              <IconButton size="small" aria-label="Expand">
                 {expandedReceipts ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
             </Box>
@@ -446,7 +446,7 @@ export default function ReceiptsPaymentsPage() {
                               >
                                 <TableCell>
                                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <IconButton size="small">
+                                    <IconButton size="small" aria-label="Expand">
                                       {expandedProjects[project.projectId] ? (
                                         <ExpandLessIcon fontSize="small" />
                                       ) : (
@@ -569,7 +569,7 @@ export default function ReceiptsPaymentsPage() {
                 <PaymentIcon sx={{ mr: 1, color: 'error.main' }} />
                 Payments (Expenses)
               </Typography>
-              <IconButton size="small">
+              <IconButton size="small" aria-label="Expand">
                 {expandedPayments ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
             </Box>
@@ -607,7 +607,7 @@ export default function ReceiptsPaymentsPage() {
                         <Typography variant="subtitle1" sx={{ mr: 1 }}>
                           <strong>{formatCurrency(data.total)}</strong>
                         </Typography>
-                        <IconButton size="small">
+                        <IconButton size="small" aria-label="Expand">
                           {expandedCategories[key] ? (
                             <ExpandLessIcon fontSize="small" />
                           ) : (

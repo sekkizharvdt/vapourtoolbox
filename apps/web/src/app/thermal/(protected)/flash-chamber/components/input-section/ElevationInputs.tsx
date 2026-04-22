@@ -30,7 +30,10 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
             <>
               <InputAdornment position="end">m</InputAdornment>
               <Tooltip title="Elevation of pump centerline above Finished Floor Level (FFL = 0.000m)">
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  aria-label="Elevation of pump centerline above Finished Floor Level (FFL = 0.000m)"
+                >
                   <InfoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -58,7 +61,10 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
             <>
               <InputAdornment position="end">m</InputAdornment>
               <Tooltip title="Height of normal operating liquid level above pump centerline. Determines NPSHa.">
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  aria-label="Height of normal operating liquid level above pump centerline. Determines NPSHa."
+                >
                   <InfoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -86,7 +92,10 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
             <>
               <InputAdornment position="end">-</InputAdornment>
               <Tooltip title="Where operating level sits between LG-L and LG-H. 0.5 = midpoint, lower values = operating level closer to LG-L">
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  aria-label="Where operating level sits between LG-L and LG-H. 0.5 = midpoint, lower values = operating level closer to LG-L"
+                >
                   <InfoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -114,7 +123,10 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
             <>
               <InputAdornment position="end">m</InputAdornment>
               <Tooltip title="Gap between Level Gauge Low tapping and Bottom Tangent Line">
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  aria-label="Gap between Level Gauge Low tapping and Bottom Tangent Line"
+                >
                   <InfoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>

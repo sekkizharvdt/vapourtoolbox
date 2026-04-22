@@ -156,6 +156,7 @@ export function BatchResultsTable({
                         <IconButton
                           size="small"
                           onClick={() => onGenerateReport({ fromEffect, toEffect, result })}
+                          aria-label="Download PDF Report"
                         >
                           <DownloadIcon fontSize="small" />
                         </IconButton>

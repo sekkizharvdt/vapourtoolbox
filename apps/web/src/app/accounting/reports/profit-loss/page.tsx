@@ -75,7 +75,7 @@ function AccountRow({ account }: { account: AccountLineItem }) {
         <TableCell sx={{ pl: 8, py: 0.5 }}>
           <Stack direction="row" spacing={1} alignItems="center">
             {hasTransactions && (
-              <IconButton size="small" sx={{ p: 0 }}>
+              <IconButton size="small" sx={{ p: 0 }} aria-label="Expand">
                 {open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </IconButton>
             )}
@@ -186,7 +186,7 @@ function ExpandableRow({ label, amount, accounts, expanded, onToggle }: Expandab
         <TableCell sx={{ pl: 4 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             {hasAccounts && (
-              <IconButton size="small" sx={{ p: 0 }}>
+              <IconButton size="small" sx={{ p: 0 }} aria-label="Expand">
                 {expanded ? (
                   <ExpandLessIcon fontSize="small" />
                 ) : (
@@ -423,12 +423,17 @@ export default function ProfitLossPage() {
           {report && (
             <Box sx={{ display: 'flex', gap: 0.5 }}>
               <Tooltip title="Export CSV">
-                <IconButton onClick={handleExportCSV} size="small">
+                <IconButton onClick={handleExportCSV} size="small" aria-label="Export CSV">
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export Excel">
-                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                <IconButton
+                  onClick={handleExportExcel}
+                  size="small"
+                  color="primary"
+                  aria-label="Export Excel"
+                >
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -564,14 +569,24 @@ export default function ProfitLossPage() {
                       >
                         <Tooltip title={allExpanded ? 'All expanded' : 'Expand All'}>
                           <span>
-                            <IconButton size="small" onClick={expandAll} disabled={allExpanded}>
+                            <IconButton
+                              size="small"
+                              onClick={expandAll}
+                              disabled={allExpanded}
+                              aria-label="Action"
+                            >
                               <UnfoldMoreIcon fontSize="small" />
                             </IconButton>
                           </span>
                         </Tooltip>
                         <Tooltip title={allCollapsed ? 'All collapsed' : 'Collapse All'}>
                           <span>
-                            <IconButton size="small" onClick={collapseAll} disabled={allCollapsed}>
+                            <IconButton
+                              size="small"
+                              onClick={collapseAll}
+                              disabled={allCollapsed}
+                              aria-label="Action"
+                            >
                               <UnfoldLessIcon fontSize="small" />
                             </IconButton>
                           </span>

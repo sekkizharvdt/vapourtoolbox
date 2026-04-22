@@ -256,6 +256,7 @@ export default function ProposalTemplatesPage() {
                       color="error"
                       onClick={() => setDeleteConfirm(template)}
                       title="Delete template"
+                      aria-label="Delete template"
                     >
                       <DeleteIcon />
                     </IconButton>

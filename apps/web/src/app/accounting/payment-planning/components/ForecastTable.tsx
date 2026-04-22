@@ -27,7 +27,12 @@ import {
   Loop as RecurringIcon,
   Edit as ManualIcon,
 } from '@mui/icons-material';
-import type { CashFlowForecast, ForecastItem, ForecastItemSource, CashFlowDirection } from '@vapour/types';
+import type {
+  CashFlowForecast,
+  ForecastItem,
+  ForecastItemSource,
+  CashFlowDirection,
+} from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 
 interface ForecastTableProps {
@@ -170,7 +175,7 @@ export function ForecastTable({ forecast }: ForecastTableProps) {
                     >
                       <TableCell>
                         {hasItems && (
-                          <IconButton size="small">
+                          <IconButton size="small" aria-label="Expand">
                             {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
                         )}
@@ -210,7 +215,9 @@ export function ForecastTable({ forecast }: ForecastTableProps) {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography fontWeight="bold">{formatCurrency(day.closingBalance)}</Typography>
+                        <Typography fontWeight="bold">
+                          {formatCurrency(day.closingBalance)}
+                        </Typography>
                       </TableCell>
                     </TableRow>
 
@@ -228,7 +235,9 @@ export function ForecastTable({ forecast }: ForecastTableProps) {
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         {getSourceIcon(item.source)}
                                         <Box>
-                                          <Typography variant="body2">{item.sourceReference}</Typography>
+                                          <Typography variant="body2">
+                                            {item.sourceReference}
+                                          </Typography>
                                           {item.entityName && (
                                             <Typography variant="caption" color="text.secondary">
                                               {item.entityName}
@@ -259,7 +268,11 @@ export function ForecastTable({ forecast }: ForecastTableProps) {
                                     </TableCell>
                                     <TableCell align="right">
                                       <Typography
-                                        color={item.direction === 'INFLOW' ? 'success.main' : 'error.main'}
+                                        color={
+                                          item.direction === 'INFLOW'
+                                            ? 'success.main'
+                                            : 'error.main'
+                                        }
                                       >
                                         {item.direction === 'INFLOW' ? '+' : '-'}
                                         {formatCurrency(item.amount)}

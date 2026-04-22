@@ -501,7 +501,11 @@ export default function RecurringDetailClient() {
                       <TableCell align="center">
                         {occ.status === 'PENDING' && hasManageAccess && (
                           <Tooltip title="Skip this occurrence">
-                            <IconButton size="small" onClick={() => handleSkipOccurrence(occ.id)}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleSkipOccurrence(occ.id)}
+                              aria-label="Skip this occurrence"
+                            >
                               <SkipIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>

@@ -180,7 +180,7 @@ export const GroupedDocumentsTable = memo(function GroupedDocumentsTable({
                     onClick={() => toggleGroup(group.discipline)}
                   >
                     <TableCell>
-                      <IconButton size="small">
+                      <IconButton size="small" aria-label="Expand">
                         {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                       </IconButton>
                     </TableCell>
@@ -254,6 +254,7 @@ export const GroupedDocumentsTable = memo(function GroupedDocumentsTable({
                               onClick={() =>
                                 router.push(`/documents/${doc.id}?projectId=${doc.projectId}`)
                               }
+                              aria-label="View Details"
                             >
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
@@ -266,6 +267,7 @@ export const GroupedDocumentsTable = memo(function GroupedDocumentsTable({
                                   `/documents/${doc.id}?projectId=${doc.projectId}&tab=submit`
                                 )
                               }
+                              aria-label="Submit"
                             >
                               <SendIcon fontSize="small" />
                             </IconButton>
@@ -278,6 +280,7 @@ export const GroupedDocumentsTable = memo(function GroupedDocumentsTable({
                                   `/documents/${doc.id}?projectId=${doc.projectId}&tab=links`
                                 )
                               }
+                              aria-label="Links"
                             >
                               <LinkIcon fontSize="small" />
                             </IconButton>

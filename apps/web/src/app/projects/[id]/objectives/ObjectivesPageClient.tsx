@@ -399,12 +399,14 @@ function ObjectivesContent({ project }: { project: Project }) {
                               setEditingObjective(objective);
                               setObjectiveDialogOpen(true);
                             }}
+                            aria-label="Edit"
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
                           <IconButton
                             size="small"
                             onClick={() => handleDeleteObjective(objective.id)}
+                            aria-label="Remove"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -501,12 +503,14 @@ function ObjectivesContent({ project }: { project: Project }) {
                               setEditingDeliverable(deliverable);
                               setDeliverableDialogOpen(true);
                             }}
+                            aria-label="Edit"
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
                           <IconButton
                             size="small"
                             onClick={() => handleDeleteDeliverable(deliverable.id)}
+                            aria-label="Remove"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>

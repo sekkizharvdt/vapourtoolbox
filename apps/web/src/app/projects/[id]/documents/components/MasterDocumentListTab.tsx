@@ -442,6 +442,7 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
             <IconButton
               onClick={() => downloadMDLAsCSV(filteredDocuments, project.code)}
               disabled={filteredDocuments.length === 0}
+              aria-label="Download"
             >
               <DownloadIcon />
             </IconButton>

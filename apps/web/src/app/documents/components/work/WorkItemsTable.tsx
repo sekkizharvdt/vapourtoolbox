@@ -103,7 +103,12 @@ export default function WorkItemsTable({ items, onDeleteItem }: WorkItemsTablePr
                 <TableCell align="right">
                   <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                     <Tooltip title="Delete">
-                      <IconButton size="small" onClick={() => onDeleteItem(item)} color="error">
+                      <IconButton
+                        size="small"
+                        onClick={() => onDeleteItem(item)}
+                        color="error"
+                        aria-label="Delete"
+                      >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

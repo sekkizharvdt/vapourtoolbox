@@ -179,7 +179,7 @@ export default function CommentThreadDialog({
               />
             </Stack>
           </Box>
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={onClose} size="small" aria-label="Close">
             <CloseIcon />
           </IconButton>
         </Stack>

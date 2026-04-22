@@ -736,6 +736,7 @@ export function CreateJournalEntryDialog({
                           onClick={() => removeEntry(index)}
                           disabled={entries.length <= 2}
                           color="error"
+                          aria-label="Remove"
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

@@ -316,7 +316,12 @@ export default function AccountLedgerPage() {
         </Typography>
         {ledgerLines.length > 0 && (
           <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <IconButton onClick={handleExportCSV} size="small" title="Export CSV">
+            <IconButton
+              onClick={handleExportCSV}
+              size="small"
+              title="Export CSV"
+              aria-label="Export CSV"
+            >
               <DownloadIcon fontSize="small" />
             </IconButton>
             <IconButton
@@ -324,6 +329,7 @@ export default function AccountLedgerPage() {
               size="small"
               color="primary"
               title="Export Excel"
+              aria-label="Export Excel"
             >
               <DownloadIcon fontSize="small" />
             </IconButton>
@@ -396,7 +402,7 @@ export default function AccountLedgerPage() {
                           onClick={() => toggleExpand(index)}
                         >
                           <TableCell sx={{ p: 0.5 }}>
-                            <IconButton size="small">
+                            <IconButton size="small" aria-label="Action">
                               {expandedRow === index ? (
                                 <CollapseIcon fontSize="small" />
                               ) : (

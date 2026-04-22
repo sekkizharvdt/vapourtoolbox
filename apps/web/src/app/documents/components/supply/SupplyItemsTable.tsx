@@ -163,12 +163,21 @@ export default function SupplyItemsTable({
                 <TableCell align="right">
                   <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                     <Tooltip title="View Details">
-                      <IconButton size="small" onClick={() => onViewItem(item)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onViewItem(item)}
+                        aria-label="View Details"
+                      >
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" onClick={() => onDeleteItem(item)} color="error">
+                      <IconButton
+                        size="small"
+                        onClick={() => onDeleteItem(item)}
+                        color="error"
+                        aria-label="Delete"
+                      >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

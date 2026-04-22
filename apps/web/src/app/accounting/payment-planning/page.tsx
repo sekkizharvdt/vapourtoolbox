@@ -194,7 +194,7 @@ export default function PaymentPlanningPage() {
             Add Payment
           </Button>
           <Tooltip title="Refresh data">
-            <IconButton onClick={loadData} disabled={loading}>
+            <IconButton onClick={loadData} disabled={loading} aria-label="Refresh data">
               <RefreshIcon />
             </IconButton>
           </Tooltip>

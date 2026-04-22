@@ -151,7 +151,12 @@ export function ObjectiveFormDialog({
               <ListItem key={index}>
                 <ListItemText primary={criterion} />
                 <ListItemSecondaryAction>
-                  <IconButton edge="end" size="small" onClick={() => handleRemoveCriterion(index)}>
+                  <IconButton
+                    edge="end"
+                    size="small"
+                    onClick={() => handleRemoveCriterion(index)}
+                    aria-label="Remove"
+                  >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </ListItemSecondaryAction>

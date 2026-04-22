@@ -238,12 +238,17 @@ export default function TransactionsPage() {
           filteredTransactions.length > 0 && (
             <Box sx={{ display: 'flex', gap: 0.5 }}>
               <Tooltip title="Export CSV">
-                <IconButton onClick={handleExportCSV} size="small">
+                <IconButton onClick={handleExportCSV} size="small" aria-label="Export CSV">
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export Excel">
-                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                <IconButton
+                  onClick={handleExportExcel}
+                  size="small"
+                  color="primary"
+                  aria-label="Export Excel"
+                >
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>

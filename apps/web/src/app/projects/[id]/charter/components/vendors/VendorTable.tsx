@@ -163,12 +163,17 @@ export const VendorTable = memo(function VendorTable({
                 <TableCell align="right">
                   <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                     <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => onEdit(vendor)}>
+                      <IconButton size="small" onClick={() => onEdit(vendor)} aria-label="Edit">
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" onClick={() => onDelete(vendor)} color="error">
+                      <IconButton
+                        size="small"
+                        onClick={() => onDelete(vendor)}
+                        color="error"
+                        aria-label="Delete"
+                      >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

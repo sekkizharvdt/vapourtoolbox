@@ -410,7 +410,7 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
                   <TableCell>
                     {requirement.linkedDocumentId ? (
                       <Tooltip title="View Document">
-                        <IconButton size="small">
+                        <IconButton size="small" aria-label="View Document">
                           <LinkIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -424,7 +424,11 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                         <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEdit(requirement)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(requirement)}
+                            aria-label="Edit"
+                          >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -433,6 +437,7 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
                             size="small"
                             onClick={() => handleDelete(requirement)}
                             color="error"
+                            aria-label="Delete"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>

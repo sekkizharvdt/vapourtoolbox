@@ -337,10 +337,19 @@ export function MatrixTable({
                         />
                       </Tooltip>
                     )}
-                    <IconButton size="small" onClick={() => setEditingItem(item)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => setEditingItem(item)}
+                      aria-label="Remove"
+                    >
                       <EditIcon sx={{ fontSize: 16 }} />
                     </IconButton>
-                    <IconButton size="small" color="error" onClick={() => onDeleteItem(item.id)}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => onDeleteItem(item.id)}
+                      aria-label="Remove"
+                    >
                       <DeleteIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </TableCell>

@@ -55,7 +55,7 @@ export function ScopeCategorySection({
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        <IconButton size="small" sx={{ mr: 1 }}>
+        <IconButton size="small" sx={{ mr: 1 }} aria-label="Expand">
           {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
         </IconButton>
         <Typography variant="subtitle2" sx={{ flexGrow: 1, fontWeight: 600 }}>

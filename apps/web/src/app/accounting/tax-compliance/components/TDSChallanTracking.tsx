@@ -268,12 +268,18 @@ export function TDSChallanTracking({
                           size="small"
                           onClick={() => handleOpenDialog(challan, index)}
                           color="primary"
+                          aria-label="Edit"
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">
-                        <IconButton size="small" onClick={() => handleDelete(index)} color="error">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(index)}
+                          color="error"
+                          aria-label="Delete"
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

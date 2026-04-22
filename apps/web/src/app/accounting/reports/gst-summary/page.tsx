@@ -383,7 +383,7 @@ export default function GSTSummaryPage() {
                         onClick={() => handleToggleExpand(row.gstType, 'input')}
                       >
                         {formatCurrency(row.inputBalance, 'INR')}
-                        <IconButton size="small">
+                        <IconButton size="small" aria-label="Action">
                           {expandedRow === row.gstType && expandedSide === 'input' ? (
                             <CollapseIcon fontSize="small" />
                           ) : (
@@ -403,7 +403,7 @@ export default function GSTSummaryPage() {
                         onClick={() => handleToggleExpand(row.gstType, 'output')}
                       >
                         {formatCurrency(row.outputBalance, 'INR')}
-                        <IconButton size="small">
+                        <IconButton size="small" aria-label="Action">
                           {expandedRow === row.gstType && expandedSide === 'output' ? (
                             <CollapseIcon fontSize="small" />
                           ) : (

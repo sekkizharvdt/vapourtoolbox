@@ -632,7 +632,12 @@ function EntityLedgerInner() {
         />
         {filteredTransactions.length > 0 && (
           <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
-            <IconButton onClick={handleExportCSV} size="small" title="Export CSV">
+            <IconButton
+              onClick={handleExportCSV}
+              size="small"
+              title="Export CSV"
+              aria-label="Export CSV"
+            >
               <DownloadIcon fontSize="small" />
             </IconButton>
             <IconButton
@@ -640,6 +645,7 @@ function EntityLedgerInner() {
               size="small"
               color="primary"
               title="Export Excel"
+              aria-label="Export Excel"
             >
               <DownloadIcon fontSize="small" />
             </IconButton>

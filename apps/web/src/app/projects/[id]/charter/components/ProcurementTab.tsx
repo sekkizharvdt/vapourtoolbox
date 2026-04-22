@@ -452,18 +452,31 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                         {!item.linkedPurchaseRequestId && item.status === 'PLANNING' && (
                           <Tooltip title="Create PR">
-                            <IconButton size="small" onClick={() => handleCreatePR(item)}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleCreatePR(item)}
+                              aria-label="Create PR"
+                            >
                               <CartIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
                         <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEdit(item)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(item)}
+                            aria-label="Edit"
+                          >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Delete">
-                          <IconButton size="small" onClick={() => handleDelete(item)} color="error">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDelete(item)}
+                            color="error"
+                            aria-label="Delete"
+                          >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>

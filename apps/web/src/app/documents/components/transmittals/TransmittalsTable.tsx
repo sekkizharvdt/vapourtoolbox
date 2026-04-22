@@ -154,7 +154,11 @@ export default function TransmittalsTable({
                 <TableCell align="right">
                   <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                     <Tooltip title="View Details">
-                      <IconButton size="small" onClick={() => onViewTransmittal(transmittal)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onViewTransmittal(transmittal)}
+                        aria-label="View Details"
+                      >
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -164,6 +168,7 @@ export default function TransmittalsTable({
                           size="small"
                           onClick={() => onDownloadZip(transmittal)}
                           color="primary"
+                          aria-label="Download ZIP"
                         >
                           <DownloadIcon fontSize="small" />
                         </IconButton>
@@ -171,7 +176,11 @@ export default function TransmittalsTable({
                     )}
                     {onRegenerate && (
                       <Tooltip title="Regenerate">
-                        <IconButton size="small" onClick={() => onRegenerate(transmittal)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => onRegenerate(transmittal)}
+                          aria-label="Regenerate"
+                        >
                           <RegenerateIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -182,6 +191,7 @@ export default function TransmittalsTable({
                           size="small"
                           onClick={() => onDelete(transmittal)}
                           color="error"
+                          aria-label="Delete"
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

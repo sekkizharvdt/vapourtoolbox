@@ -109,6 +109,7 @@ export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCar
                 disabled={isTerminal}
                 onClick={() => onStatusChange(task.id, getNextStatus(task.status))}
                 sx={{ mt: -0.25 }}
+                aria-label="Action"
               >
                 <StatusIcon status={task.status} />
               </IconButton>
@@ -185,7 +186,12 @@ export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCar
 
           {/* Delete */}
           {onDelete && task.status !== 'done' && (
-            <IconButton size="small" onClick={() => onDelete(task.id)} sx={{ mt: -0.25 }}>
+            <IconButton
+              size="small"
+              onClick={() => onDelete(task.id)}
+              sx={{ mt: -0.25 }}
+              aria-label="Remove"
+            >
               <DeleteIcon fontSize="small" color="action" />
             </IconButton>
           )}

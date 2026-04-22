@@ -125,6 +125,7 @@ export function LoadCalculationDialog({
                       e.stopPropagation();
                       handleDelete(calc.id);
                     }}
+                    aria-label="Remove"
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>

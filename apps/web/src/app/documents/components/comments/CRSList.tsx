@@ -125,13 +125,20 @@ export default function CRSList({ crsList }: CRSListProps) {
                     href={crs.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="Open File"
                   >
                     <OpenIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
 
                 <Tooltip title="Download">
-                  <IconButton size="small" component="a" href={crs.fileUrl} download={crs.fileName}>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href={crs.fileUrl}
+                    download={crs.fileName}
+                    aria-label="Download"
+                  >
                     <DownloadIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>

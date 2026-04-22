@@ -219,7 +219,11 @@ export function TransactionsTable({
                   >
                     <TableCell sx={{ p: 0.5 }}>
                       {expandable && (
-                        <IconButton size="small" onClick={() => toggleExpand(txnId)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleExpand(txnId)}
+                          aria-label="Action"
+                        >
                           {isExpanded ? (
                             <CollapseIcon fontSize="small" />
                           ) : (

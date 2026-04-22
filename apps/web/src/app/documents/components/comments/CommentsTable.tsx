@@ -65,7 +65,6 @@ export default function CommentsTable({
     return colors[status] || 'default';
   };
 
-
   const getLocationString = (comment: DocumentComment): string => {
     const parts: string[] = [];
     if (comment.pageNumber) parts.push(`Page ${comment.pageNumber}`);
@@ -201,13 +200,21 @@ export default function CommentsTable({
                 <TableCell align="right">
                   <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                     <Tooltip title="View Thread">
-                      <IconButton size="small" onClick={() => onViewComment(comment)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onViewComment(comment)}
+                        aria-label="View Thread"
+                      >
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     {comment.status !== 'CLOSED' && onRespondToComment && (
                       <Tooltip title="Respond">
-                        <IconButton size="small" onClick={() => onRespondToComment(comment)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => onRespondToComment(comment)}
+                          aria-label="Respond"
+                        >
                           <ReplyIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

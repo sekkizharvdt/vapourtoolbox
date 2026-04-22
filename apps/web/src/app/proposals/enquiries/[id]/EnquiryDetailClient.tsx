@@ -220,7 +220,7 @@ export default function EnquiryDetailClient() {
                   Create Proposal
                 </Button>
               )}
-            <IconButton onClick={handleMenuOpen}>
+            <IconButton onClick={handleMenuOpen} aria-label="More options">
               <MoreIcon />
             </IconButton>
             <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>

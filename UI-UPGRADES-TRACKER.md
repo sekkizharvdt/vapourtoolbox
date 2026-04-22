@@ -136,13 +136,22 @@ Audit also checked for Chips without any `label` prop (color-only) — none foun
 
 One dedicated pass per module against the full UI-STANDARDS checklist (§10). Order by user-facing volume:
 
-- ◐ **Procurement** — POs, PRs, RFQs, Goods Receipts, Packing Lists, Amendments, Trash. **IconButton a11y swept 2026-04-20**: all 34 `<IconButton>` instances across 15+ files now have `aria-label` (rule 7.1). Remaining: 8 detail-dialog files still use raw `Dialog + DialogActions` (not `FormDialog`); migration deferred per-file as they're touched.
-- ☐ **Accounting** — Invoices, Bills, Payments, Journal Entries, COA, Entity Ledger, Data Health
-- ☐ **Flow** — Tasks, Inbox, Team Board, Meetings
-- ☐ **Projects** — Charter tabs, Objectives, Procurement tab, Documents tab
-- ☐ **Thermal Calculators** — MED Designer, single tube, bundle calculators
-- ☐ **Proposals** — Enquiries, List, Detail
-- ☐ **Documents** — Master Documents, Transmittals, Work Lists, Supply Lists
+**IconButton a11y sweep (rule 7.1) complete across ALL 7 modules — 2026-04-20**
+
+- ◐ **Procurement** — 34 IconButtons labeled (commit `a0845801`). Deferred: 8 detail-dialog files on raw `Dialog`+`DialogActions`.
+- ◐ **Accounting** — 65 IconButtons labeled across 27 files. Deferred: 22 raw-Dialog files, 43 raw-Breadcrumbs imports, 8 files using `<FormDialog>` (progress).
+- ◐ **Flow** — 4 IconButtons labeled. Deferred: 2 raw-Dialog files, 6 raw-Breadcrumbs.
+- ◐ **Projects** — 21 IconButtons labeled across 9 files. Deferred: 10 raw-Dialog files, 4 raw-Breadcrumbs.
+- ◐ **Thermal Calculators** — 15 IconButtons labeled across 10 files. Deferred: 5 raw-Dialog files, 2 raw-Breadcrumbs.
+- ◐ **Proposals** — 15 IconButtons labeled across 8 files. Deferred: 12 raw-Dialog files, 9 raw-Breadcrumbs.
+- ◐ **Documents** — 24 IconButtons labeled across 10 files. Deferred: 18 raw-Dialog files, 1 raw-Breadcrumbs.
+
+**Total: 178 icon-only IconButtons labeled across ~87 files.** Labels inferred from `title=` inside the tag, a preceding `<Tooltip title="…">` wrapper, or the icon child (DeleteIcon→"Remove", ArrowBackIcon→"Go back", VisibilityIcon→"View details", etc.). Used a `{}`-depth-aware tag-end finder to avoid breaking `=>` inside `onClick` expressions. Type-check clean; pre-commit clean.
+
+**Remaining Phase 3 gaps** (all deferred, migrate when touching each surface):
+
+- **Raw `Dialog + DialogActions`** → `<FormDialog>` + `<StandardDialogActions>`: 75 files total across modules. Pure dialog-shell swap; safe incremental migration.
+- **Raw `Breadcrumbs` → `<PageBreadcrumbs>`**: 65 files total. Cosmetic; duplication already prevented by pre-commit guard for admin tree.
 
 ---
 

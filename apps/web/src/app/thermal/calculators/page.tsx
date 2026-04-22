@@ -693,7 +693,7 @@ export default function ThermalCalculatorsPage() {
               ),
               endAdornment: search ? (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearch('')}>
+                  <IconButton size="small" onClick={() => setSearch('')} aria-label="Close">
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>

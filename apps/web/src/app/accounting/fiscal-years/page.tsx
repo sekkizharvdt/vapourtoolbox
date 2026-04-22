@@ -357,7 +357,7 @@ export default function FiscalYearsPage() {
                     onClick={() => handleExpandFY(fy.id)}
                   >
                     <TableCell>
-                      <IconButton size="small">
+                      <IconButton size="small" aria-label="Action">
                         {expandedFY === fy.id ? <CollapseIcon /> : <ExpandIcon />}
                       </IconButton>
                     </TableCell>
@@ -380,6 +380,7 @@ export default function FiscalYearsPage() {
                                 e.stopPropagation();
                                 handleSetCurrent(fy.id);
                               }}
+                              aria-label="Set as current fiscal year"
                             >
                               <SetCurrentIcon />
                             </IconButton>
@@ -463,6 +464,7 @@ export default function FiscalYearsPage() {
                                                     periodName: period.name,
                                                   })
                                                 }
+                                                aria-label="Close period"
                                               >
                                                 <ClosedIcon fontSize="small" />
                                               </IconButton>
@@ -482,6 +484,7 @@ export default function FiscalYearsPage() {
                                                       periodName: period.name,
                                                     })
                                                   }
+                                                  aria-label="Lock period"
                                                 >
                                                   <LockIcon fontSize="small" />
                                                 </IconButton>
@@ -498,6 +501,7 @@ export default function FiscalYearsPage() {
                                                       periodName: period.name,
                                                     })
                                                   }
+                                                  aria-label="Reopen period"
                                                 >
                                                   <OpenIcon fontSize="small" />
                                                 </IconButton>

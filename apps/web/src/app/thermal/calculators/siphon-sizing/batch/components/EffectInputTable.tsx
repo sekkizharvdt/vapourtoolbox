@@ -126,6 +126,7 @@ export function EffectInputTable({
                     size="small"
                     onClick={() => removeEffect(i)}
                     disabled={effects.length <= 2}
+                    aria-label="Remove"
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>

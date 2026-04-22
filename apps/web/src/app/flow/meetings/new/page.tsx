@@ -560,6 +560,7 @@ export default function NewMeetingPage() {
                           size="small"
                           onClick={() => handleRemoveRow(row.key)}
                           disabled={rows.length <= 1 || saving}
+                          aria-label="Remove"
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

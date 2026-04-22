@@ -368,12 +368,17 @@ export default function PaymentsPage() {
           {filteredPayments.length > 0 && (
             <>
               <Tooltip title="Export CSV">
-                <IconButton onClick={handleExportCSV} size="small">
+                <IconButton onClick={handleExportCSV} size="small" aria-label="Export CSV">
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export Excel">
-                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                <IconButton
+                  onClick={handleExportExcel}
+                  size="small"
+                  color="primary"
+                  aria-label="Export Excel"
+                >
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -578,7 +583,11 @@ export default function PaymentsPage() {
                     {canManage ? (
                       <>
                         <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEdit(payment)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(payment)}
+                            aria-label="Edit"
+                          >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -587,6 +596,7 @@ export default function PaymentsPage() {
                             size="small"
                             onClick={() => handleDelete(payment.id!)}
                             color="error"
+                            aria-label="Move to Trash"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -594,7 +604,11 @@ export default function PaymentsPage() {
                       </>
                     ) : (
                       <Tooltip title="View">
-                        <IconButton size="small" onClick={() => handleEdit(payment)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEdit(payment)}
+                          aria-label="View"
+                        >
                           <ViewIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

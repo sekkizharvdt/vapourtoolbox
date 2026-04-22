@@ -614,6 +614,7 @@ export default function PaymentBatchDetailClient() {
                       size="small"
                       color="primary"
                       onClick={() => handleEditReceipt(receipt)}
+                      aria-label="Edit"
                     >
                       <EditIcon fontSize="small" />
                     </IconButton>
@@ -621,6 +622,7 @@ export default function PaymentBatchDetailClient() {
                       size="small"
                       color="error"
                       onClick={() => handleRemoveReceipt(receipt.id)}
+                      aria-label="Remove"
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -712,6 +714,7 @@ export default function PaymentBatchDetailClient() {
                           size="small"
                           color="primary"
                           onClick={() => handleEditPayment(payment)}
+                          aria-label="Edit"
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
@@ -719,6 +722,7 @@ export default function PaymentBatchDetailClient() {
                           size="small"
                           color="error"
                           onClick={() => handleRemovePayment(payment.id)}
+                          aria-label="Remove"
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

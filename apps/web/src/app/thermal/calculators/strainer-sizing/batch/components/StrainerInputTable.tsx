@@ -163,6 +163,7 @@ export function StrainerInputTable({ rows, onChange }: StrainerInputTableProps) 
                         size="small"
                         onClick={() => deleteRow(i)}
                         disabled={rows.length <= 1}
+                        aria-label="Remove"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>

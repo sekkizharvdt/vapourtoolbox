@@ -92,7 +92,11 @@ export function ChamberDesignInputs({
         <Typography variant="body2" gutterBottom>
           Mist Eliminator / Demister
           <Tooltip title="Controls the Souders-Brown K factor used for the vapour-velocity diameter criterion. K: None=0.05, Wire Mesh=0.09, Vane=0.15 m/s (Perry's; El-Dessouky & Ettouney).">
-            <IconButton size="small" sx={{ ml: 0.5 }}>
+            <IconButton
+              size="small"
+              sx={{ ml: 0.5 }}
+              aria-label="Controls the Souders-Brown K factor used for the vapour-velocity diameter criterion. K: None=0.05, Wire Mesh=0.09, Vane=0.15 m/s (Perry's; El-Dessouky & Ettouney)."
+            >
               <InfoIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -394,7 +398,10 @@ export function ChamberDesignInputs({
             <>
               <InputAdornment position="end">degrees</InputAdornment>
               <Tooltip title="Cone angle of spray nozzle. Wider angle = shorter spray zone height.">
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  aria-label="Cone angle of spray nozzle. Wider angle = shorter spray zone height."
+                >
                   <InfoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>

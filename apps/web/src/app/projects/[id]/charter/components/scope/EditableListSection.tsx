@@ -100,10 +100,10 @@ export function EditableListSection({
                     onChange={(e) => setEditText(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit()}
                   />
-                  <IconButton onClick={handleSaveEdit} color="primary">
+                  <IconButton onClick={handleSaveEdit} color="primary" aria-label="Close">
                     <SaveIcon />
                   </IconButton>
-                  <IconButton onClick={handleCancelEdit}>
+                  <IconButton onClick={handleCancelEdit} aria-label="Close">
                     <CancelIcon />
                   </IconButton>
                 </Box>
@@ -112,10 +112,19 @@ export function EditableListSection({
                   <ListItemText primary={item} />
                   {hasManageAccess && (
                     <ListItemSecondaryAction>
-                      <IconButton edge="end" onClick={() => handleEdit(index)} sx={{ mr: 1 }}>
+                      <IconButton
+                        edge="end"
+                        onClick={() => handleEdit(index)}
+                        sx={{ mr: 1 }}
+                        aria-label="Remove"
+                      >
                         <EditIcon />
                       </IconButton>
-                      <IconButton edge="end" onClick={() => handleDelete(index)}>
+                      <IconButton
+                        edge="end"
+                        onClick={() => handleDelete(index)}
+                        aria-label="Remove"
+                      >
                         <DeleteIcon />
                       </IconButton>
                     </ListItemSecondaryAction>

@@ -237,12 +237,17 @@ export default function TrialBalancePage() {
         {accounts.length > 0 && (
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Tooltip title="Export CSV">
-              <IconButton onClick={handleExportCSV} size="small">
+              <IconButton onClick={handleExportCSV} size="small" aria-label="Export CSV">
                 <DownloadIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Export Excel">
-              <IconButton onClick={handleExportExcel} size="small" color="primary">
+              <IconButton
+                onClick={handleExportExcel}
+                size="small"
+                color="primary"
+                aria-label="Export Excel"
+              >
                 <DownloadIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -281,7 +286,7 @@ export default function TrialBalancePage() {
                       onClick={() => handleToggleExpand(account)}
                     >
                       <TableCell padding="none" sx={{ pl: 1 }}>
-                        <IconButton size="small">
+                        <IconButton size="small" aria-label="Expand">
                           {isExpanded ? (
                             <ExpandLessIcon fontSize="small" />
                           ) : (
@@ -375,6 +380,7 @@ export default function TrialBalancePage() {
                                               e.stopPropagation();
                                               router.push(entry.route);
                                             }}
+                                            aria-label="Action"
                                           >
                                             <OpenInNewIcon fontSize="small" />
                                           </IconButton>

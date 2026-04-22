@@ -272,12 +272,17 @@ export default function JournalEntriesPage() {
           {filteredEntries.length > 0 && (
             <>
               <Tooltip title="Export CSV">
-                <IconButton onClick={handleExportCSV} size="small">
+                <IconButton onClick={handleExportCSV} size="small" aria-label="Export CSV">
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export Excel">
-                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                <IconButton
+                  onClick={handleExportExcel}
+                  size="small"
+                  color="primary"
+                  aria-label="Export Excel"
+                >
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -372,14 +377,18 @@ export default function JournalEntriesPage() {
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="View">
-                      <IconButton size="small" onClick={() => handleEdit(entry)}>
+                      <IconButton size="small" onClick={() => handleEdit(entry)} aria-label="View">
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     {canManage && (
                       <>
                         <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEdit(entry)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(entry)}
+                            aria-label="Edit"
+                          >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -388,6 +397,7 @@ export default function JournalEntriesPage() {
                             size="small"
                             onClick={() => handleDelete(entry.id!)}
                             color="error"
+                            aria-label="Move to Trash"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>

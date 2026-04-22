@@ -307,7 +307,7 @@ export default function DocumentRegisterUploadDialog({
       <DialogTitle>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Import Document Register</Typography>
-          <IconButton size="small" onClick={handleClose}>
+          <IconButton size="small" onClick={handleClose} aria-label="Close">
             <CloseIcon />
           </IconButton>
         </Stack>
@@ -524,7 +524,11 @@ export default function DocumentRegisterUploadDialog({
                           )}
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small" onClick={() => handleRemoveRow(index)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveRow(index)}
+                            aria-label="Remove"
+                          >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </TableCell>

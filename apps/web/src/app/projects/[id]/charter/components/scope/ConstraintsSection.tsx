@@ -185,10 +185,15 @@ export function ConstraintsSection({
                         size="small"
                         onClick={() => handleOpenDialog(constraint)}
                         sx={{ mr: 1 }}
+                        aria-label="Remove"
                       >
                         <EditIcon />
                       </IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(constraint.id)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(constraint.id)}
+                        aria-label="Remove"
+                      >
                         <DeleteIcon />
                       </IconButton>
                     </Box>

@@ -61,7 +61,11 @@ export function MatchedTransactionsTable({
                 </TableCell>
                 <TableCell align="right">
                   <Tooltip title="Unmatch">
-                    <IconButton size="small" onClick={() => onUnmatch(txn.id!)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onUnmatch(txn.id!)}
+                      aria-label="Unmatch"
+                    >
                       <LinkOffIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
