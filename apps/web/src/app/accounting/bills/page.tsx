@@ -30,6 +30,9 @@ import {
   Typography,
   IconButton,
   Tooltip,
+  Card,
+  CardContent,
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -639,7 +642,12 @@ export default function BillsPage() {
         </Paper>
       )}
 
-      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+      {/* Desktop / tablet — table. UI-STANDARDS rule 8.2: mobile card
+          fallback rendered below. */}
+      <TableContainer
+        component={Paper}
+        sx={{ overflowX: 'auto', display: { xs: 'none', md: 'block' } }}
+      >
         <Table sx={{ minWidth: 1100 }}>
           <TableHead>
             <TableRow>
@@ -798,6 +806,122 @@ export default function BillsPage() {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </TableContainer>
+
+      {/* Mobile — card stack with the same data and actions */}
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        {paginatedBills.length === 0 ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              {searchTerm || filterStatus !== 'ALL' || filterMonth !== 'ALL'
+                ? 'No bills match the selected filters.'
+                : 'No bills found.'}
+            </Typography>
+          </Paper>
+        ) : (
+          <Stack spacing={1.5}>
+            {paginatedBills.map((bill) => (
+              <Card key={bill.id}>
+                <CardContent>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="flex-start"
+                    sx={{ mb: 1 }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography variant="body1" fontWeight="medium" noWrap>
+                        {bill.vendorInvoiceNumber || bill.transactionNumber}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {bill.entityName || '-'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <ViewIcon />,
+                            label: 'View Bill',
+                            onClick: () => handleView(bill),
+                          },
+                          {
+                            icon: <EditIcon />,
+                            label: 'Edit Bill',
+                            onClick: () => handleEdit(bill),
+                            show:
+                              canManage &&
+                              bill.status !== 'VOID' &&
+                              bill.paymentStatus !== 'PAID' &&
+                              bill.paymentStatus !== 'PARTIALLY_PAID',
+                          },
+                          {
+                            icon: <SendIcon />,
+                            label: 'Submit for Approval',
+                            onClick: () => handleSubmitForApproval(bill),
+                            show: canManage && bill.status === 'DRAFT',
+                            color: 'primary',
+                          },
+                          {
+                            icon: <CheckIcon />,
+                            label: 'Review & Approve',
+                            onClick: () => handleApproveBill(bill),
+                            color: 'success',
+                            show:
+                              bill.status === 'PENDING_APPROVAL' &&
+                              (canManage || bill.assignedApproverId === user?.uid),
+                          },
+                          {
+                            icon: <DeleteIcon />,
+                            label: 'Move to Trash',
+                            onClick: () => handleDelete(bill.id!),
+                            color: 'error',
+                            show: canManage && bill.status !== 'VOID',
+                          },
+                        ]}
+                      />
+                    </Box>
+                  </Stack>
+
+                  <Stack direction="row" spacing={0.75} sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
+                    <Chip
+                      label={
+                        bill.status === 'PENDING_APPROVAL'
+                          ? 'Pending Approval'
+                          : bill.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                      }
+                      size="small"
+                      color={getStatusColor(bill.status, 'bill')}
+                    />
+                  </Stack>
+
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDate(bill.date)}
+                      {bill.sourcePoNumber ? ` · PO ${bill.sourcePoNumber}` : ''}
+                    </Typography>
+                    <DualCurrencyAmount
+                      foreignAmount={bill.totalAmount || 0}
+                      foreignCurrency={bill.currency || 'INR'}
+                      baseAmount={bill.baseAmount || bill.totalAmount || 0}
+                      exchangeRate={bill.exchangeRate}
+                      size="small"
+                    />
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+            <TablePagination
+              rowsPerPageOptions={[25, 50, 100]}
+              component="div"
+              count={filteredBills.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </Stack>
+        )}
+      </Box>
 
       <CreateBillDialog
         open={createDialogOpen}

@@ -25,6 +25,9 @@ import {
   Typography,
   IconButton,
   Tooltip,
+  Card,
+  CardContent,
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -490,7 +493,12 @@ export default function InvoicesPage() {
         </FormControl>
       </FilterBar>
 
-      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+      {/* Desktop / tablet — table. UI-STANDARDS rule 8.2: mobile card
+          fallback rendered below. */}
+      <TableContainer
+        component={Paper}
+        sx={{ overflowX: 'auto', display: { xs: 'none', md: 'block' } }}
+      >
         <Table sx={{ minWidth: 960 }}>
           <TableHead>
             <TableRow>
@@ -636,6 +644,119 @@ export default function InvoicesPage() {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </TableContainer>
+
+      {/* Mobile — card stack with the same data and actions */}
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        {paginatedInvoices.length === 0 ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              {searchTerm || filterStatus !== 'ALL'
+                ? 'No invoices match the selected filters.'
+                : 'No invoices found.'}
+            </Typography>
+          </Paper>
+        ) : (
+          <Stack spacing={1.5}>
+            {paginatedInvoices.map((invoice) => (
+              <Card key={invoice.id}>
+                <CardContent>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="flex-start"
+                    sx={{ mb: 1 }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography variant="body1" fontWeight="medium" noWrap>
+                        {invoice.transactionNumber}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {invoice.entityName || '-'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <ViewIcon />,
+                            label: 'View Invoice',
+                            onClick: () => handleView(invoice),
+                          },
+                          {
+                            icon: <EditIcon />,
+                            label: 'Edit Invoice',
+                            onClick: () => handleEdit(invoice),
+                            show: canManage && invoice.status === 'DRAFT',
+                          },
+                          {
+                            icon: <SubmitIcon />,
+                            label: 'Submit for Approval',
+                            onClick: () => handleSubmitForApproval(invoice),
+                            show: canManage && invoice.status === 'DRAFT',
+                            color: 'primary',
+                          },
+                          {
+                            icon: <ApproveIcon />,
+                            label: 'Review & Approve',
+                            onClick: () => handleApprove(invoice),
+                            show:
+                              invoice.status === 'PENDING_APPROVAL' &&
+                              (canApprove || isAssignedApprover(invoice)),
+                            color: 'success',
+                          },
+                          {
+                            icon: <DeleteIcon />,
+                            label: 'Move to Trash',
+                            onClick: () => handleDelete(invoice.id!),
+                            color: 'error',
+                            show: canManage && invoice.status !== 'VOID',
+                          },
+                        ]}
+                      />
+                    </Box>
+                  </Stack>
+
+                  <Stack direction="row" spacing={0.75} sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
+                    <Chip
+                      label={
+                        invoice.status === 'PENDING_APPROVAL'
+                          ? 'Pending Approval'
+                          : invoice.status
+                              .replace(/_/g, ' ')
+                              .replace(/\b\w/g, (c) => c.toUpperCase())
+                      }
+                      size="small"
+                      color={getStatusColor(invoice.status, 'invoice')}
+                    />
+                  </Stack>
+
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDate(invoice.date)}
+                    </Typography>
+                    <DualCurrencyAmount
+                      foreignAmount={invoice.totalAmount || 0}
+                      foreignCurrency={invoice.currency || 'INR'}
+                      baseAmount={invoice.baseAmount || invoice.totalAmount || 0}
+                      exchangeRate={invoice.exchangeRate}
+                      size="small"
+                    />
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+            <TablePagination
+              rowsPerPageOptions={[25, 50, 100]}
+              component="div"
+              count={filteredInvoices.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </Stack>
+        )}
+      </Box>
 
       <CreateInvoiceDialog
         open={createDialogOpen}
