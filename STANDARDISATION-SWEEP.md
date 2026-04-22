@@ -105,36 +105,36 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 
 `⬜` not started · `🔍` in progress · `🟡` partial findings · `✅` clean
 
-| Module                              | undefined | silent catch | ref denorm | labels | completeness | status  | notes                                                                |
-| ----------------------------------- | --------- | ------------ | ---------- | ------ | ------------ | ------- | -------------------------------------------------------------------- |
-| procurement                         | ✅        | ✅           | ✅         | 🟡     | ✅           | ✅ done | april review, session 2026-04-20                                     |
-| accounting (bills)                  | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | GR→bill denorm shipped 2026-04-21; silent-catch notes remain         |
-| accounting (invoices)               | ✅        | 🟡           | 🟡         | 🟡     | 🟡           | 🟡      | see findings 2026-04-20                                              |
-| accounting (payments)               | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | PaymentAllocation invoiceDate/dueDate denorm shipped 2026-04-21      |
-| accounting (journal entries)        | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | dialog-only pattern                                                  |
-| accounting (bank transfers)         | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | parser has defensive empty catches (documented)                      |
-| accounting (expense claims)         | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | reimbursement payment lacks source claim ref                         |
-| accounting (fixed assets)           | ✅        | 🟡           | ⬜         | 🟡     | ✅           | 🟡      | depreciation not yet implemented (Phase 2)                           |
-| accounting (payment batches)        | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | BatchPayment lacks sourcePaymentBatchId on created payments          |
-| accounting (payment planning)       | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      |                                                                      |
-| accounting (recurring transactions) | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | generated txns lack sourceRecurringTransactionId                     |
-| hr (employees)                      | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/employees/new` — admin-gated?                                   |
-| hr (leave)                          | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | department denorm shipped 2026-04-21; labels drift only              |
-| hr (travel expenses)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | denorm complete; labels drift                                        |
-| hr (time tracking)                  | ✅        | ✅           | 🟡         | N/A    | N/A          | 🟡      | TimeEntry link indirect via taskNotificationId                       |
-| hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/on-duty/page.tsx` list route                                    |
-| projects (core)                     | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | charter → PR carries project refs                                    |
-| projects (proposals)                | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | stripUndefinedDeep migrated ✅ 2026-04-20                            |
-| projects (BOMs)                     | ✅        | ✅           | 🟡         | ✅     | ❌           | 🟡      | no standalone BOM UI — inline in proposals                           |
-| projects (cost configurations)      | ✅        | ✅           | ✅         | ✅     | ✅           | ✅      | enums already in constants                                           |
-| documents                           | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | denorm pass 2026-04-21 — 4 of 6 gaps closed, transmittal+link remain |
-| enquiries                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | proposal carries enquiry refs; status labels inline                  |
-| materials                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | variants nested; availability labels inline                          |
-| thermal (calculators)               | N/A       | ✅           | N/A        | N/A    | ✅           | ✅      | all empty catches documented with rationale                          |
-| flow (tasks + meetings)             | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | meeting→task denorm shipped 2026-04-21; labels drift                 |
-| feedback                            | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | feedback→task carries title+reporter; no admin dashboard             |
-| auth / users                        | ✅        | ✅           | N/A        | ✅     | ✅           | ✅      | uses PERMISSION_FLAGS constants; /admin/users exists                 |
-| entities                            | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | no dedicated entity master UI — via /admin/entities?                 |
+| Module                              | undefined | silent catch | ref denorm | labels | completeness | status  | notes                                                                   |
+| ----------------------------------- | --------- | ------------ | ---------- | ------ | ------------ | ------- | ----------------------------------------------------------------------- |
+| procurement                         | ✅        | ✅           | ✅         | 🟡     | ✅           | ✅ done | april review, session 2026-04-20                                        |
+| accounting (bills)                  | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | GR→bill denorm shipped 2026-04-21; silent-catch notes remain            |
+| accounting (invoices)               | ✅        | 🟡           | 🟡         | 🟡     | 🟡           | 🟡      | see findings 2026-04-20                                                 |
+| accounting (payments)               | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | PaymentAllocation invoiceDate/dueDate denorm shipped 2026-04-21         |
+| accounting (journal entries)        | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | dialog-only pattern                                                     |
+| accounting (bank transfers)         | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | parser has defensive empty catches (documented)                         |
+| accounting (expense claims)         | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | reimbursement payment lacks source claim ref                            |
+| accounting (fixed assets)           | ✅        | 🟡           | ⬜         | 🟡     | ✅           | 🟡      | depreciation not yet implemented (Phase 2)                              |
+| accounting (payment batches)        | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | batch→payment execution flow not implemented yet (Phase 2)              |
+| accounting (payment planning)       | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      |                                                                         |
+| accounting (recurring transactions) | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | post-occurrence → transaction flow not implemented yet (Phase 2)        |
+| hr (employees)                      | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/employees/new` — admin-gated?                                      |
+| hr (leave)                          | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | department denorm shipped 2026-04-21; labels drift only                 |
+| hr (travel expenses)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | denorm complete; labels drift                                           |
+| hr (time tracking)                  | ✅        | ✅           | 🟡         | N/A    | N/A          | 🟡      | TimeEntry link indirect via taskNotificationId                          |
+| hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/on-duty/page.tsx` list route                                       |
+| projects (core)                     | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | charter → PR carries project refs                                       |
+| projects (proposals)                | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | stripUndefinedDeep migrated ✅ 2026-04-20                               |
+| projects (BOMs)                     | ✅        | ✅           | N/A        | ✅     | ❌           | 🟡      | BOM→PR flow not implemented; no standalone BOM UI — inline in proposals |
+| projects (cost configurations)      | ✅        | ✅           | ✅         | ✅     | ✅           | ✅      | enums already in constants                                              |
+| documents                           | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | denorm pass 2026-04-21 — 4 of 6 gaps closed, transmittal+link remain    |
+| enquiries                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | proposal carries enquiry refs; status labels inline                     |
+| materials                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | variants nested; availability labels inline                             |
+| thermal (calculators)               | N/A       | ✅           | N/A        | N/A    | ✅           | ✅      | all empty catches documented with rationale                             |
+| flow (tasks + meetings)             | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | meeting→task denorm shipped 2026-04-21; labels drift                    |
+| feedback                            | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | feedback→task carries title+reporter; no admin dashboard                |
+| auth / users                        | ✅        | ✅           | N/A        | ✅     | ✅           | ✅      | uses PERMISSION_FLAGS constants; /admin/users exists                    |
+| entities                            | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | no dedicated entity master UI — via /admin/entities?                    |
 
 **Priority order (recommended)**: accounting → hr → projects → documents → everything else. Accounting is the highest-risk because it's double-entry and the `undefined` class of bugs there can corrupt the GL silently.
 
@@ -216,9 +216,9 @@ Agent initially flagged [auditLogger.ts:171/182](apps/web/src/lib/accounting/aud
 Gaps to address in a dedicated denorm pass (schema changes + backfill — not in this sweep's scope):
 
 - **Invoice/Bill → Payment**: ~~`PaymentAllocation` missing `invoiceDate`, `dueDate`~~ **Fixed 2026-04-21**: added both as optional fields on `PaymentAllocation` ([transaction.ts:399-412](packages/types/src/transaction.ts#L399-L412)); 3 write sites populate them — customer-payment dialog ([useOutstandingInvoices.ts](apps/web/src/app/accounting/payments/components/customer-payment/useOutstandingInvoices.ts)), vendor-payment dialog ([RecordVendorPaymentDialog.tsx](apps/web/src/app/accounting/payments/components/RecordVendorPaymentDialog.tsx)), and the reconcile/auto-matcher helper ([paymentHelpers.ts](apps/web/src/lib/accounting/paymentHelpers.ts)). 88 payment/procurement tests still green.
-- **PaymentBatch → created VENDOR_PAYMENT**: `BatchPayment` in [packages/types/src/paymentBatch.ts:108-163](packages/types/src/paymentBatch.ts#L108-L163) has `linkedReference` but no `sourcePaymentBatchId` / `sourcePaymentBatchNumber` / `sourceBatchDate` on the child payment. Reverse-lookup required to trace batch origin. (Note: batch execution that creates payments may not be implemented yet — verify before adding.)
+- **PaymentBatch → created VENDOR_PAYMENT**: verified 2026-04-21 — `paymentBatchService` has create/submit/approve/reject/cancel flows, but **no execute path that creates VENDOR_PAYMENT transactions** from the approved batch. Nothing to denorm until that flow is built. When it lands, the new VENDOR_PAYMENT must carry `sourcePaymentBatchId` / `sourcePaymentBatchNumber` / `sourceBatchDate`.
 - **GR → Bill**: ~~missing `goodsReceiptId`, `goodsReceiptNumber`, `matchNumber`, `vendorName`~~ **Fixed 2026-04-21**: `VendorBill` now carries `purchaseOrderId`, `goodsReceiptId`, `goodsReceiptNumber`, `matchNumber` as optional fields, and `entityName` (the existing BaseTransaction denorm slot) is populated from `match.vendorName`. All populated in [vendorBillIntegrationService.ts](apps/web/src/lib/accounting/vendorBillIntegrationService.ts) with conditional spreads. 14 bill-integration + 3-way-match tests still green.
-- **Recurring → generated txn**: [recurringTransactionService.ts:46-114](apps/web/src/lib/accounting/recurringTransactionService.ts#L46-L114) doesn't write `sourceRecurringTransactionId` / `sourceRecurringTransactionNumber` onto the generated child. "Is this txn from a template?" requires joining `recurringTransactions` by search.
+- **Recurring → generated txn**: verified 2026-04-21 — `createOccurrence` writes the occurrence record with `recurringTransactionId` + `recurringTransactionName` (denorm present on occurrence), and `markOccurrenceGenerated` exists to back-link the actual transaction to the occurrence once posted. **But no caller invokes `markOccurrenceGenerated`** — the post-occurrence → real-transaction flow isn't implemented yet. When it lands, the created CUSTOMER_INVOICE / VENDOR_BILL / JOURNAL_ENTRY / SALARY_PAYMENT must also carry `sourceRecurringTransactionId` + `sourceRecurringTransactionNumber` so reports can filter without a reverse join.
 - **ExpenseClaim → reimbursement**: when the reimbursement payment is created, no `sourceExpenseClaimId` / `claimantName` link-back.
 - **FixedAsset → depreciation**: phase-2 todo in [fixedAssetService.ts:351-388](apps/web/src/lib/accounting/fixedAssetService.ts#L351-L388). When depreciation entries are posted, they must carry `sourceAssetId` + `sourceAssetNumber` + `sourceAssetName`.
 
@@ -327,7 +327,7 @@ Clean. All catches log and throw / return typed fallback with rationale. Verifie
 - **Project → Proposal**: ✅ proposal stores `enquiryId`, `enquiryNumber`, `clientId`, `clientName`, `clientContactPerson`, `clientEmail` at create ([proposalService.ts:131-167](apps/web/src/lib/proposals/proposalService.ts#L131-L167)).
 - **Project → BOM**: ✅ BOM stores `projectId`, `projectName`, `proposalId`, `proposalNumber`, `enquiryId`, `enquiryNumber` ([bomService.ts:164-170](apps/web/src/lib/bom/bomService.ts#L164-L170)).
 - **Proposal → Revision**: 🟡 new revision inherits fields via copy ([proposalService.ts:566-585](apps/web/src/lib/proposals/proposalService.ts#L566-L585)) — `proposalNumber` is carried implicitly but not explicit in the payload. Low-risk but makes the intent less clear. Consider explicit spread at revision-creation.
-- **BOM → PR**: 🟡 PR header carries `charterItemId`, `projectId`, `projectName` ([charterProcurementService.ts:190-199](apps/web/src/lib/projects/charterProcurementService.ts#L190-L199)) but PR items don't carry `bomId` / `bomCode` for reverse traceability. When the user asks "which BOM did this PR item come from?" they can't answer without re-fetching the charter.
+- **BOM → PR**: verified 2026-04-21 — there is no direct BOM → PR flow in the codebase. Charter `ProcurementItem`s are entered manually via `ProcurementTab.tsx` and carry no `bomId` reference; `createPRFromCharterItem` copies charter-item fields onto the PR. If an auto-generate "PR from BOM" flow is added later, the new PR + items must carry `bomId` + `bomCode` at write time (rule 26).
 - **Charter Item → PR**: ✅ carries project refs.
 
 #### labels
