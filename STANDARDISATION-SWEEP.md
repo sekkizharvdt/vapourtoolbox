@@ -122,7 +122,7 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 | hr (leave)                          | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | department denorm shipped 2026-04-21; labels drift only                 |
 | hr (travel expenses)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | denorm complete; labels drift                                           |
 | hr (time tracking)                  | ✅        | ✅           | 🟡         | N/A    | N/A          | 🟡      | TimeEntry link indirect via taskNotificationId                          |
-| hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | no `/on-duty/page.tsx` list route                                       |
+| hr (on-duty records)                | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | personal-only by design 2026-04-23; labels only                         |
 | projects (core)                     | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | charter → PR carries project refs                                       |
 | projects (proposals)                | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | stripUndefinedDeep migrated ✅ 2026-04-20                               |
 | projects (BOMs)                     | ✅        | ✅           | N/A        | ✅     | ❌           | 🟡      | BOM→PR flow not implemented; no standalone BOM UI — inline in proposals |
@@ -283,22 +283,22 @@ No HR entries in `packages/constants/src/labels.ts`. Drift candidates (opportuni
 
 #### completeness
 
-| Submodule       | Pattern        | List                | Create            | View        | Edit                |
-| --------------- | -------------- | ------------------- | ----------------- | ----------- | ------------------- |
-| employees       | multi-route    | ✅                  | N/A (admin-gated) | ✅          | ✅ (dialog in [id]) |
-| leaves          | multi-route    | ✅                  | ✅                | ✅          | ✅                  |
-| leave-calendar  | calendar view  | ✅                  | N/A               | N/A         | N/A                 |
-| my-leaves       | personal list  | ✅                  | N/A               | ✅ via [id] | N/A                 |
-| travel-expenses | multi-route    | ✅                  | ✅                | ✅          | ✅                  |
-| on-duty         | partial        | ❌ **no /page.tsx** | ✅                | ✅          | ✅ (dialog)         |
-| on-duty/my-req  | personal list  | ✅                  | N/A               | ✅ via [id] | N/A                 |
-| holidays        | dialog-in-list | ✅                  | ✅                | N/A         | ✅ (dialog)         |
-| time-tracking   | library-only   | N/A                 | N/A               | N/A         | N/A                 |
+| Submodule       | Pattern        | List            | Create            | View        | Edit                |
+| --------------- | -------------- | --------------- | ----------------- | ----------- | ------------------- |
+| employees       | multi-route    | ✅              | N/A (admin-gated) | ✅          | ✅ (dialog in [id]) |
+| leaves          | multi-route    | ✅              | ✅                | ✅          | ✅                  |
+| leave-calendar  | calendar view  | ✅              | N/A               | N/A         | N/A                 |
+| my-leaves       | personal list  | ✅              | N/A               | ✅ via [id] | N/A                 |
+| travel-expenses | multi-route    | ✅              | ✅                | ✅          | ✅                  |
+| on-duty         | personal-only  | N/A (by design) | ✅                | ✅          | ✅ (dialog)         |
+| on-duty/my-req  | personal list  | ✅              | N/A               | ✅ via [id] | N/A                 |
+| holidays        | dialog-in-list | ✅              | ✅                | N/A         | ✅ (dialog)         |
+| time-tracking   | library-only   | N/A             | N/A               | N/A         | N/A                 |
 
 **Flags**:
 
 - ~~`/hr/employees/new` missing~~ **Confirmed intentional 2026-04-23**: employee creation is admin-gated via Admin → Users → Invite User (the invite flow creates the user record; HR then edits department/role/employment details via the `[id]` dialog). No HR-side `/new` route is needed.
-- `/hr/on-duty/page.tsx` missing. Only a per-user `/my-requests` view exists. HR managers can't see a team-wide on-duty list. **Open** — needs user decision on scope.
+- ~~`/hr/on-duty/page.tsx` missing~~ **Confirmed intentional 2026-04-23**: on-duty stays personal-only by design. Managers approve via task notifications in the Flow inbox rather than a team-wide list page. If a team view is needed later, mirror the leaves pattern (`My Requests / Team Requests` tabs in a top-level `page.tsx`); service layer and indexes are already in place.
 
 Composite indexes: verified for `leaveRequestService` (`userId+status+endDate+orderBy(startDate)`), `travelExpenseService` (`tenantId+employeeId+status+tripStartDate+orderBy(createdAt)` and `status+approverIds+orderBy(submittedAt)`), `onDutyRequestService`. All matching indexes present in `firestore.indexes.json`.
 
