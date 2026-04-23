@@ -72,6 +72,11 @@ import {
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
+import {
+  FiscalYearFilter,
+  useFiscalYearFilter,
+  matchesFiscalYear,
+} from '@/components/accounting/FiscalYearFilter';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -132,6 +137,7 @@ export default function BillsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterMonth, setFilterMonth] = useState<string>('ALL');
 
+  const fy = useFiscalYearFilter();
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
   // Update Bill Number Dialog state
@@ -201,21 +207,27 @@ export default function BillsPage() {
 
       const matchesStatus = filterStatus === 'ALL' || bill.status === filterStatus;
 
-      // Month filter - compare year-month of bill date
-      let matchesMonth = true;
-      if (filterMonth !== 'ALL' && bill.date) {
-        // Handle both Firestore Timestamp and Date objects
-        const billDate =
+      // Resolve bill date once for both date filters
+      let billDate: Date | null = null;
+      if (bill.date) {
+        billDate =
           typeof (bill.date as unknown as { toDate?: () => Date }).toDate === 'function'
             ? (bill.date as unknown as { toDate: () => Date }).toDate()
             : new Date(bill.date as unknown as string | number);
+      }
+
+      const matchesFY = matchesFiscalYear(billDate, fy.range);
+
+      // Month filter - compare year-month of bill date
+      let matchesMonth = true;
+      if (filterMonth !== 'ALL' && billDate) {
         const billYearMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`;
         matchesMonth = billYearMonth === filterMonth;
       }
 
-      return matchesSearch && matchesStatus && matchesMonth;
+      return matchesSearch && matchesStatus && matchesFY && matchesMonth;
     });
-  }, [bills, searchTerm, filterStatus, filterMonth]);
+  }, [bills, searchTerm, filterStatus, filterMonth, fy.range]);
 
   // Calculate month-wise totals for filtered bills (Basic Amount and GST)
   const monthTotals = useMemo(() => {
@@ -298,6 +310,7 @@ export default function BillsPage() {
     setSearchTerm('');
     setFilterStatus('ALL');
     setFilterMonth('ALL');
+    fy.setSelectedId('CURRENT');
   };
 
   // Update Bill Number handlers
@@ -556,6 +569,11 @@ export default function BillsPage() {
             <MenuItem value="VOID">Voided</MenuItem>
           </Select>
         </FormControl>
+        <FiscalYearFilter
+          options={fy.options}
+          selectedId={fy.selectedId}
+          onChange={fy.setSelectedId}
+        />
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>Month</InputLabel>
           <Select

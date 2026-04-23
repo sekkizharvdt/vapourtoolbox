@@ -49,6 +49,11 @@ import {
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
+import {
+  FiscalYearFilter,
+  useFiscalYearFilter,
+  matchesFiscalYear,
+} from '@/components/accounting/FiscalYearFilter';
 import { useRouter } from 'next/navigation';
 
 export default function TransactionsPage() {
@@ -61,6 +66,7 @@ export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const fy = useFiscalYearFilter();
 
   // Real-time listener for transactions
   useEffect(() => {
@@ -93,6 +99,20 @@ export default function TransactionsPage() {
     // Filter by status
     if (filterStatus !== 'ALL' && txn.status !== filterStatus) {
       return false;
+    }
+
+    // Fiscal year filter
+    if (fy.range) {
+      let txnDate: Date | null = null;
+      if (txn.date) {
+        txnDate =
+          typeof (txn.date as unknown as { toDate?: () => Date }).toDate === 'function'
+            ? (txn.date as unknown as { toDate: () => Date }).toDate()
+            : new Date(txn.date as unknown as string | number);
+      }
+      if (!matchesFiscalYear(txnDate, fy.range)) {
+        return false;
+      }
     }
 
     // Search filter
@@ -145,6 +165,7 @@ export default function TransactionsPage() {
     setSearchTerm('');
     setFilterType('ALL');
     setFilterStatus('ALL');
+    fy.setSelectedId('CURRENT');
   };
 
   const buildExportSections = (): ExportSection[] => {
@@ -296,6 +317,11 @@ export default function TransactionsPage() {
             <MenuItem value="OVERDUE">Overdue</MenuItem>
           </Select>
         </FormControl>
+        <FiscalYearFilter
+          options={fy.options}
+          selectedId={fy.selectedId}
+          onChange={fy.setSelectedId}
+        />
       </FilterBar>
 
       <TableContainer component={Paper}>

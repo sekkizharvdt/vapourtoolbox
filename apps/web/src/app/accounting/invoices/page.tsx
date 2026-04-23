@@ -67,6 +67,11 @@ import {
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
+import {
+  FiscalYearFilter,
+  useFiscalYearFilter,
+  matchesFiscalYear,
+} from '@/components/accounting/FiscalYearFilter';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
@@ -121,6 +126,8 @@ export default function InvoicesPage() {
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+
+  const fy = useFiscalYearFilter();
 
   // Approval dialog states
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
@@ -182,9 +189,18 @@ export default function InvoicesPage() {
 
       const matchesStatus = filterStatus === 'ALL' || invoice.status === filterStatus;
 
-      return matchesSearch && matchesStatus;
+      let invoiceDate: Date | null = null;
+      if (invoice.date) {
+        invoiceDate =
+          typeof (invoice.date as unknown as { toDate?: () => Date }).toDate === 'function'
+            ? (invoice.date as unknown as { toDate: () => Date }).toDate()
+            : new Date(invoice.date as unknown as string | number);
+      }
+      const matchesFY = matchesFiscalYear(invoiceDate, fy.range);
+
+      return matchesSearch && matchesStatus && matchesFY;
     });
-  }, [invoices, searchTerm, filterStatus]);
+  }, [invoices, searchTerm, filterStatus, fy.range]);
 
   const handleCreate = () => {
     setEditingInvoice(null);
@@ -282,6 +298,7 @@ export default function InvoicesPage() {
   const handleClearFilters = () => {
     setSearchTerm('');
     setFilterStatus('ALL');
+    fy.setSelectedId('CURRENT');
   };
 
   // Paginate filtered invoices
@@ -479,6 +496,11 @@ export default function InvoicesPage() {
             <MenuItem value="OVERDUE">Overdue</MenuItem>
           </Select>
         </FormControl>
+        <FiscalYearFilter
+          options={fy.options}
+          selectedId={fy.selectedId}
+          onChange={fy.setSelectedId}
+        />
       </FilterBar>
 
       {/* Desktop / tablet — table. UI-STANDARDS rule 8.2: mobile card

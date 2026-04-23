@@ -38,6 +38,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { FiscalYearFilter, useFiscalYearFilter } from '@/components/accounting/FiscalYearFilter';
 
 interface LedgerEntry {
   accountId: string;
@@ -112,6 +113,7 @@ export default function AccountLedgerPage() {
   const [openingBalanceType, setOpeningBalanceType] = useState<'Dr' | 'Cr'>('Dr');
   const [closingBalance, setClosingBalance] = useState(0);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const fy = useFiscalYearFilter();
 
   // Sync preselected account from URL
   useEffect(() => {
@@ -128,7 +130,10 @@ export default function AccountLedgerPage() {
       setOpeningBalance(0);
       setClosingBalance(0);
     }
-  }, [selectedAccountId]);
+    // Reload when the FY selection changes so the running-balance opening
+    // reflects the balance at FY start (not the account's all-time opening).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId, fy.range]);
 
   const loadAccountLedger = async (accountId: string) => {
     setLoadingLedger(true);
@@ -170,36 +175,57 @@ export default function AccountLedgerPage() {
         return dateA.getTime() - dateB.getTime();
       });
 
-      // Build ledger lines with running balance
+      // Build ledger lines with running balance. When a fiscal-year filter
+      // is active, transactions dated before FY start roll into the opening
+      // balance so the visible running balance remains correct.
+      const fyRange = fy.range;
       relevantTransactions.forEach((transaction) => {
+        const txnDate =
+          toDate(transaction.date) || toDate(transaction.transactionDate) || new Date();
+        const beforeRange = fyRange !== null && txnDate.getTime() < fyRange.startDate.getTime();
+        const afterRange = fyRange !== null && txnDate.getTime() > fyRange.endDate.getTime();
+
         transaction.entries.forEach((entry) => {
-          if (entry.accountId === accountId) {
-            const debit = entry.debit || 0;
-            const credit = entry.credit || 0;
-            runningBalance += debit - credit;
+          if (entry.accountId !== accountId) return;
+          const debit = entry.debit || 0;
+          const credit = entry.credit || 0;
+          runningBalance += debit - credit;
 
-            const txnDate =
-              toDate(transaction.date) || toDate(transaction.transactionDate) || new Date();
+          if (beforeRange || afterRange) return; // skip rows outside the FY window
 
-            lines.push({
-              date: txnDate,
-              description: entry.description || transaction.description || '',
-              typeLabel: getTransactionTypeLabel(transaction.type),
-              type: transaction.type,
-              reference:
-                transaction.transactionNumber || transaction.referenceNumber || transaction.id,
-              vendorRef: transaction.vendorInvoiceNumber,
-              debit,
-              credit,
-              balance: runningBalance,
-              transactionId: transaction.id,
-              allEntries: transaction.entries,
-              entityName: transaction.entityName,
-              status: transaction.status,
-            });
-          }
+          lines.push({
+            date: txnDate,
+            description: entry.description || transaction.description || '',
+            typeLabel: getTransactionTypeLabel(transaction.type),
+            type: transaction.type,
+            reference:
+              transaction.transactionNumber || transaction.referenceNumber || transaction.id,
+            vendorRef: transaction.vendorInvoiceNumber,
+            debit,
+            credit,
+            balance: runningBalance,
+            transactionId: transaction.id,
+            allEntries: transaction.entries,
+            entityName: transaction.entityName,
+            status: transaction.status,
+          });
         });
       });
+
+      // If a FY is active, update the shown opening balance to be the balance
+      // at FY start (= balance right before the first in-range line).
+      if (fyRange) {
+        const firstInRange = lines[0];
+        if (firstInRange) {
+          const displayOpening = firstInRange.balance - firstInRange.debit + firstInRange.credit;
+          setOpeningBalance(Math.abs(displayOpening));
+          setOpeningBalanceType(displayOpening >= 0 ? 'Dr' : 'Cr');
+        } else {
+          // No transactions in FY — show the running balance at FY start as opening
+          setOpeningBalance(Math.abs(runningBalance));
+          setOpeningBalanceType(runningBalance >= 0 ? 'Dr' : 'Cr');
+        }
+      }
 
       setClosingBalance(runningBalance);
       setLedgerLines(lines);
@@ -317,13 +343,29 @@ export default function AccountLedgerPage() {
         )}
       </Box>
 
-      <Box sx={{ mt: 3, mb: 3 }}>
-        <AccountSelector
-          value={selectedAccountId}
-          onChange={setSelectedAccountId}
-          label="Select Account"
-          placeholder="Search by code or name..."
-          size="medium"
+      <Box
+        sx={{
+          mt: 3,
+          mb: 3,
+          display: 'flex',
+          gap: 2,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 280 }}>
+          <AccountSelector
+            value={selectedAccountId}
+            onChange={setSelectedAccountId}
+            label="Select Account"
+            placeholder="Search by code or name..."
+            size="medium"
+          />
+        </Box>
+        <FiscalYearFilter
+          options={fy.options}
+          selectedId={fy.selectedId}
+          onChange={fy.setSelectedId}
         />
       </Box>
 

@@ -22,3 +22,6 @@ export type {
   CostCentreTransaction,
   CostCentreTransactionType,
 } from './CostCentreTransactionTable';
+
+export { FiscalYearFilter, useFiscalYearFilter, matchesFiscalYear } from './FiscalYearFilter';
+export type { FiscalYearRange, FiscalYearFilterProps } from './FiscalYearFilter';

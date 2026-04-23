@@ -47,6 +47,11 @@ import {
 } from '@/lib/accounting/reports/exportReport';
 import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
 import { formatDate } from '@/lib/utils/formatters';
+import {
+  FiscalYearFilter,
+  useFiscalYearFilter,
+  matchesFiscalYear,
+} from '@/components/accounting/FiscalYearFilter';
 
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
@@ -82,6 +87,7 @@ export default function JournalEntriesPage() {
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
+  const fy = useFiscalYearFilter();
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
   // Real-time listener for journal entries
@@ -165,21 +171,28 @@ export default function JournalEntriesPage() {
         entry.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         entry.reference?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      // Month filter - compare year-month of entry date
-      let matchesMonth = true;
-      if (filterMonth !== 'ALL' && entry.date) {
-        // Handle both Firestore Timestamp and Date objects
-        const entryDate =
+      // Resolve the entry date once for both filters
+      let entryDate: Date | null = null;
+      if (entry.date) {
+        entryDate =
           typeof (entry.date as unknown as { toDate?: () => Date }).toDate === 'function'
             ? (entry.date as unknown as { toDate: () => Date }).toDate()
             : new Date(entry.date as unknown as string | number);
+      }
+
+      // Fiscal year filter
+      const matchesFY = matchesFiscalYear(entryDate, fy.range);
+
+      // Month filter - compare year-month of entry date
+      let matchesMonth = true;
+      if (filterMonth !== 'ALL' && entryDate) {
         const entryYearMonth = `${entryDate.getFullYear()}-${String(entryDate.getMonth() + 1).padStart(2, '0')}`;
         matchesMonth = entryYearMonth === filterMonth;
       }
 
-      return matchesSearch && matchesMonth;
+      return matchesSearch && matchesFY && matchesMonth;
     });
-  }, [journalEntries, searchTerm, filterMonth]);
+  }, [journalEntries, searchTerm, filterMonth, fy.range]);
 
   // Paginate journal entries in memory
   const paginatedEntries = filteredEntries.slice(
@@ -289,6 +302,7 @@ export default function JournalEntriesPage() {
         onClear={() => {
           setSearchTerm('');
           setFilterMonth('ALL');
+          fy.setSelectedId('CURRENT');
         }}
       >
         <TextField
@@ -300,6 +314,14 @@ export default function JournalEntriesPage() {
           }}
           size="small"
           sx={{ minWidth: 340 }}
+        />
+        <FiscalYearFilter
+          options={fy.options}
+          selectedId={fy.selectedId}
+          onChange={(id) => {
+            fy.setSelectedId(id);
+            setPage(0);
+          }}
         />
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>Month</InputLabel>

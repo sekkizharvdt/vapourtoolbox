@@ -47,6 +47,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { FiscalYearFilter, useFiscalYearFilter } from '@/components/accounting/FiscalYearFilter';
 
 // Helper to get fiscal year start based on configured start month
 function getFiscalYearStart(startMonth: number = 4, date: Date = new Date()): Date {
@@ -88,6 +89,17 @@ function EntityLedgerInner() {
   const [startDate, setStartDate] = useState<Date | null>(getFiscalYearStart());
   const [endDate, setEndDate] = useState<Date | null>(new Date());
   const [fyStartMonth, setFyStartMonth] = useState(4);
+  const fy = useFiscalYearFilter();
+
+  // When the FY dropdown changes, snap the date pickers to the selected FY
+  // window. A 'CURRENT'/'ALL' selection leaves the pickers under user control.
+  useEffect(() => {
+    if (fy.range) {
+      setStartDate(fy.range.startDate);
+      setEndDate(fy.range.endDate);
+      setPage(0);
+    }
+  }, [fy.range]);
 
   // Load fiscal year start month from company settings
   useEffect(() => {
@@ -678,6 +690,14 @@ function EntityLedgerInner() {
                 </li>
               )}
               isOptionEqualToValue={(option, value) => option.id === value.id}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+            <FiscalYearFilter
+              options={fy.options}
+              selectedId={fy.selectedId}
+              onChange={fy.setSelectedId}
+              fullWidth
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>

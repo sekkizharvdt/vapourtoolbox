@@ -49,6 +49,11 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { formatDate } from '@/lib/utils/formatters';
 import {
+  FiscalYearFilter,
+  useFiscalYearFilter,
+  matchesFiscalYear,
+} from '@/components/accounting/FiscalYearFilter';
+import {
   downloadReportCSV,
   downloadReportExcel,
   type ExportSection,
@@ -114,6 +119,7 @@ export default function PaymentsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [filterMonth, setFilterMonth] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const fy = useFiscalYearFilter();
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
@@ -230,13 +236,20 @@ export default function PaymentsPage() {
     else if (paymentType === 'direct-receipt')
       matchesType = (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT';
 
-    // Filter by month
-    let matchesMonth = true;
-    if (filterMonth !== 'ALL' && payment.paymentDate) {
-      const paymentDate =
+    // Resolve payment date for both FY and month filters
+    let paymentDate: Date | null = null;
+    if (payment.paymentDate) {
+      paymentDate =
         typeof (payment.paymentDate as unknown as { toDate?: () => Date }).toDate === 'function'
           ? (payment.paymentDate as unknown as { toDate: () => Date }).toDate()
           : new Date(payment.paymentDate as unknown as string | number);
+    }
+
+    const matchesFY = matchesFiscalYear(paymentDate, fy.range);
+
+    // Filter by month
+    let matchesMonth = true;
+    if (filterMonth !== 'ALL' && paymentDate) {
       const paymentYearMonth = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
       matchesMonth = paymentYearMonth === filterMonth;
     }
@@ -250,7 +263,7 @@ export default function PaymentsPage() {
       payment.chequeNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.upiTransactionId?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesType && matchesMonth && matchesSearch;
+    return matchesType && matchesFY && matchesMonth && matchesSearch;
   });
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -442,6 +455,15 @@ export default function PaymentsPage() {
                 <SearchIcon fontSize="small" />
               </InputAdornment>
             ),
+          }}
+        />
+
+        <FiscalYearFilter
+          options={fy.options}
+          selectedId={fy.selectedId}
+          onChange={(id) => {
+            fy.setSelectedId(id);
+            setPage(0);
           }}
         />
 

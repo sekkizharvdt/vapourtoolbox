@@ -18,6 +18,7 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
 import { getProjectId } from '../utils/getProjectId';
+import { parseDocumentWithClaude, anthropicApiKey } from './parseDocumentWithClaude';
 
 // Types for document parsing
 interface DocumentParsingRequest {
@@ -505,6 +506,7 @@ export const parseDocumentForPR = onCall(
     memory: '1GiB',
     timeoutSeconds: 300,
     maxInstances: 10,
+    secrets: [anthropicApiKey],
   },
   async (request): Promise<DocumentParsingResult> => {
     const startTime = Date.now();
@@ -555,6 +557,58 @@ export const parseDocumentForPR = onCall(
         'invalid-argument',
         `File too large: ${data.fileSize} bytes. Maximum size: 20MB`
       );
+    }
+
+    // Claude is the primary parser because Google Document AI Form Parser
+    // (the processor currently provisioned) has been returning INVALID_ARGUMENT
+    // or empty results on real-world PR line-item documents. Document AI can
+    // be re-enabled by setting PARSE_PR_WITH_DOCUMENT_AI=true once a better
+    // processor (e.g. Invoice Parser) is configured.
+    const useDocumentAI = process.env.PARSE_PR_WITH_DOCUMENT_AI === 'true';
+
+    if (!useDocumentAI) {
+      if (data.mimeType !== 'application/pdf') {
+        throw new HttpsError(
+          'invalid-argument',
+          `AI parser currently supports PDF only. Received: ${data.mimeType}. Please save the document as a PDF and try again.`
+        );
+      }
+
+      try {
+        const claudeResult = await parseDocumentWithClaude({
+          fileName: data.fileName,
+          storagePath: data.storagePath,
+          mimeType: data.mimeType,
+          fileSize: data.fileSize,
+          context: data.context,
+          userId: request.auth.uid,
+        });
+
+        const processingTimeMs = Date.now() - startTime;
+        return {
+          success: claudeResult.success,
+          header: claudeResult.header,
+          items: claudeResult.items,
+          totalItemsFound: claudeResult.totalItemsFound,
+          highConfidenceItems: claudeResult.highConfidenceItems,
+          lowConfidenceItems: claudeResult.lowConfidenceItems,
+          warnings: claudeResult.warnings,
+          errors: claudeResult.errors,
+          processingTimeMs,
+          modelUsed: claudeResult.modelUsed,
+          sourceFileName: data.fileName,
+          sourceFileSize: data.fileSize,
+          pageCount: claudeResult.pageCount,
+        };
+      } catch (claudeError) {
+        logger.error('[parseDocumentForPR] Claude parsing failed', {
+          error: claudeError instanceof Error ? claudeError.message : String(claudeError),
+        });
+        throw new HttpsError(
+          'internal',
+          `Document parsing failed: ${claudeError instanceof Error ? claudeError.message : 'Unknown error'}`
+        );
+      }
     }
 
     try {
