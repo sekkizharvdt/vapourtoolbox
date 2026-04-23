@@ -20,19 +20,16 @@ import {
   Paper,
   Tabs,
   Tab,
-  Breadcrumbs,
-  Link as MuiLink,
   Divider,
   Alert,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   Home as HomeIcon,
-  NavigateNext as NavigateNextIcon,
   Factory as FactoryIcon,
   CompareArrows as CompareIcon,
 } from '@mui/icons-material';
-import Link from 'next/link';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   REFERENCE_PROJECTS,
   crossProjectComparison,
@@ -293,21 +290,12 @@ export default function ReferenceProjectsClient() {
   return (
     <>
       {/* Breadcrumb */}
-      <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
-        <MuiLink
-          component={Link}
-          href="/thermal"
-          underline="hover"
-          color="inherit"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-        >
-          <HomeIcon fontSize="small" />
-          Thermal
-        </MuiLink>
-        <Typography color="text.primary" variant="body2">
-          Reference Projects
-        </Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Thermal', href: '/thermal', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Reference Projects' },
+        ]}
+      />
 
       {/* Header */}
       <Box sx={{ mb: 1 }}>

@@ -23,8 +23,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Breadcrumbs,
-  Link,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -40,6 +38,7 @@ import {
   Home as HomeIcon,
   AccountBalance as LoanIcon,
 } from '@mui/icons-material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { getDocs, collection, query, where } from 'firebase/firestore';
@@ -55,11 +54,9 @@ import {
   type CreateInterprojectLoanInput,
   type RecordRepaymentInput,
 } from '@/lib/accounting/interprojectLoanService';
-import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/common/Toast';
 
 export default function InterprojectLoansPage() {
-  const router = useRouter();
   const { claims, user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -269,19 +266,12 @@ export default function InterprojectLoansPage() {
   return (
     <Box>
       {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          component="button"
-          underline="hover"
-          color="inherit"
-          onClick={() => router.push('/accounting')}
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-        >
-          <HomeIcon fontSize="small" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Interproject Loans</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Interproject Loans' },
+        ]}
+      />
 
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>

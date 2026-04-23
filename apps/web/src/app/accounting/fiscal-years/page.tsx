@@ -25,8 +25,6 @@ import {
   DialogActions,
   TextField,
   Collapse,
-  Breadcrumbs,
-  Link,
   Skeleton,
   MenuItem,
 } from '@mui/material';
@@ -41,8 +39,8 @@ import {
   CheckCircle as ClosedIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
 import { PageHeader } from '@vapour/ui';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
@@ -102,7 +100,6 @@ const MONTHS = [
 ];
 
 export default function FiscalYearsPage() {
-  const router = useRouter();
   const { user, claims } = useAuth();
   const hasManageAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
 
@@ -268,18 +265,12 @@ export default function FiscalYearsPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          underline="hover"
-          color="inherit"
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          onClick={() => router.push('/accounting')}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-          Accounting
-        </Link>
-        <Typography color="text.primary">Fiscal Years</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Fiscal Years' },
+        ]}
+      />
 
       <PageHeader
         title="Fiscal Years"

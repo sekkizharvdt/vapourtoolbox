@@ -8,8 +8,8 @@
 
 import { Suspense } from 'react';
 import { useParams } from 'next/navigation';
-import { Box, Typography, Breadcrumbs, Link as MuiLink, CircularProgress } from '@mui/material';
-import Link from 'next/link';
+import { Box, Typography, CircularProgress } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import dynamic from 'next/dynamic';
 
 // Dynamically import the editor to avoid SSR issues
@@ -32,15 +32,14 @@ export default function ScopeEditorClient() {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ mb: 3 }}>
-        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 1 }}>
-          <MuiLink component={Link} href="/proposals" color="inherit">
-            Proposals
-          </MuiLink>
-          <MuiLink component={Link} href="/proposals/list" color="inherit">
-            All Proposals
-          </MuiLink>
-          <Typography color="text.primary">Edit Scope</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Proposals', href: '/proposals' },
+            { label: 'All Proposals', href: '/proposals/list' },
+            { label: 'Edit Scope' },
+          ]}
+          sx={{ mb: 1 }}
+        />
         <Typography variant="h4" component="h1" fontWeight="bold">
           Edit Scope Matrix
         </Typography>

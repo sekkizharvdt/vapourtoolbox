@@ -22,12 +22,11 @@ import {
   Tabs,
   Tab,
   CircularProgress,
-  Breadcrumbs,
-  Link as MuiLink,
   Chip,
   Button,
   Divider,
 } from '@mui/material';
+import { PageBreadcrumbs, type BreadcrumbItem } from '@/components/common/PageBreadcrumbs';
 import { Edit as EditIcon } from '@mui/icons-material';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
@@ -185,22 +184,20 @@ export default function DocumentDetailClient() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
-        <Breadcrumbs>
-          {projectId ? (
-            <MuiLink
-              component={Link}
-              href={`/projects/${projectId}`}
-              underline="hover"
-              color="inherit"
-            >
-              {projectName || 'Project'}
-            </MuiLink>
-          ) : null}
-          <MuiLink component={Link} href={backHref} underline="hover" color="inherit">
-            Documents
-          </MuiLink>
-          <Typography color="text.primary">{document.documentNumber}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            ...(projectId
+              ? [
+                  {
+                    label: projectName || 'Project',
+                    href: `/projects/${projectId}`,
+                  } satisfies BreadcrumbItem,
+                ]
+              : []),
+            { label: 'Documents', href: backHref },
+            { label: document.documentNumber },
+          ]}
+        />
 
         {/* Header */}
         <Paper sx={{ p: 3 }}>

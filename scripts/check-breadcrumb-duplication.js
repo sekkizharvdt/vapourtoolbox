@@ -114,7 +114,11 @@ function checkRawMuiBreadcrumbsOutsidePrimitive() {
   );
   const allowed = new Set([
     primitivePath,
-    path.resolve(repoRoot, 'apps/web/src/app/admin/layout.tsx'), // pre-migration; will move to primitive
+    // BreadcrumbNav is a folder-path navigator inside the doc browser (JS
+    // onNavigate callbacks, custom separator, bordered container). It is a
+    // different semantic to the route-level PageBreadcrumbs primitive and is
+    // intentionally kept on raw MUI Breadcrumbs.
+    path.resolve(repoRoot, 'apps/web/src/components/documents/browser/BreadcrumbNav.tsx'),
   ]);
 
   const appDir = path.resolve(repoRoot, 'apps/web/src');

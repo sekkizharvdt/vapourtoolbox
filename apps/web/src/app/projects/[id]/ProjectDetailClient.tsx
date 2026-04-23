@@ -22,10 +22,9 @@ import {
   Chip,
   Alert,
   CircularProgress,
-  Breadcrumbs,
-  Link,
   Divider,
 } from '@mui/material';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Home as HomeIcon,
   Assignment as CharterIcon,
@@ -287,29 +286,13 @@ export default function ProjectDetailPage() {
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            underline="hover"
-            color="inherit"
-            href="/dashboard"
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            Home
-          </Link>
-          <Link
-            underline="hover"
-            color="inherit"
-            sx={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.preventDefault();
-              router.push('/projects');
-            }}
-          >
-            Projects
-          </Link>
-          <Typography color="text.primary">{project.code}</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Home', href: '/dashboard', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Projects', href: '/projects' },
+            { label: project.code },
+          ]}
+        />
 
         {/* Project Header */}
         <Box sx={{ mb: 3 }}>

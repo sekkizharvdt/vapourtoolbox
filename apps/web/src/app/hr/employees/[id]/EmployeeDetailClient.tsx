@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   Typography,
   Box,
@@ -15,8 +15,6 @@ import {
   IconButton,
   Divider,
   Button,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
 import {
   Phone as PhoneIcon,
@@ -35,6 +33,7 @@ import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import { getEmployeeById } from '@/lib/hr';
 import type { EmployeeDetail } from '@vapour/types';
 import { EditEmployeeDialog } from './components/EditEmployeeDialog';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 
 const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success' | 'default'> = {
   'A+': 'error',
@@ -48,7 +47,6 @@ const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success
 };
 
 export default function EmployeeDetailClient() {
-  const router = useRouter();
   const pathname = usePathname();
   const { claims } = useAuth();
   const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
@@ -158,32 +156,13 @@ export default function EmployeeDetailClient() {
   if (error || !employee) {
     return (
       <Box>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/hr"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/hr');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            HR
-          </Link>
-          <Link
-            color="inherit"
-            href="/hr/employees"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/hr/employees');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Employee Directory
-          </Link>
-          <Typography color="text.primary">Not Found</Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Employee Directory', href: '/hr/employees' },
+            { label: 'Not Found' },
+          ]}
+        />
         <Typography variant="h4" sx={{ mb: 2 }}>
           Employee Profile
         </Typography>
@@ -196,32 +175,13 @@ export default function EmployeeDetailClient() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Link
-          color="inherit"
-          href="/hr/employees"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr/employees');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Employee Directory
-        </Link>
-        <Typography color="text.primary">{employee.displayName}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        items={[
+          { label: 'HR', href: '/hr', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Employee Directory', href: '/hr/employees' },
+          { label: employee.displayName },
+        ]}
+      />
 
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
