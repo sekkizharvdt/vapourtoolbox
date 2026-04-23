@@ -80,3 +80,101 @@ export const PR_STATUS_CATEGORY_LABELS = {
   approved: 'Approved',
   rejected: 'Rejected',
 } as const;
+
+// ============================================================================
+// ACCOUNTING — transaction workflow status (sweep 2026-04-21)
+// ============================================================================
+
+/**
+ * Labels for `TransactionStatus` enum (packages/types/src/transaction.ts).
+ * Used by accounting dialogs (bills, invoices, journal entries, payments)
+ * for chips, filter menus, and table columns.
+ */
+export const TRANSACTION_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  POSTED: 'Posted',
+  VOID: 'Voided',
+} as const;
+
+/**
+ * Labels for accounting `PaymentStatus` (UNPAID / PARTIALLY_PAID / PAID /
+ * OVERDUE). Distinct from the procurement-side `PAYMENT_STATUS_LABELS`
+ * above which tracks GR payment lifecycle.
+ */
+export const ACCOUNTING_PAYMENT_STATUS_LABELS = {
+  UNPAID: 'Unpaid',
+  PARTIALLY_PAID: 'Partially Paid',
+  PAID: 'Paid',
+  OVERDUE: 'Overdue',
+} as const;
+
+// ============================================================================
+// HR — leave / on-duty / travel expense status (sweep 2026-04-21)
+// ============================================================================
+
+/** Labels for `LeaveRequestStatus`. */
+export const LEAVE_REQUEST_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  PARTIALLY_APPROVED: 'Partially Approved',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+} as const;
+
+/** Labels for `OnDutyRequestStatus` (same shape as leave). */
+export const ON_DUTY_REQUEST_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  PARTIALLY_APPROVED: 'Partially Approved',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+} as const;
+
+/** Labels for `TravelExpenseStatus`. */
+export const TRAVEL_EXPENSE_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  SUBMITTED: 'Submitted',
+  UNDER_REVIEW: 'Under Review',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  REIMBURSED: 'Reimbursed',
+} as const;
+
+// ============================================================================
+// PROJECTS — proposal status (sweep 2026-04-21)
+// ============================================================================
+
+/** Labels for `ProposalStatus`. */
+export const PROPOSAL_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  APPROVED: 'Approved',
+  SUBMITTED: 'Submitted',
+  UNDER_NEGOTIATION: 'Under Negotiation',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+  EXPIRED: 'Expired',
+} as const;
+
+// ============================================================================
+// FLOW — meeting + task labels (sweep 2026-04-21)
+// ============================================================================
+
+/** Labels for `MeetingStatus`. Lowercase enum values match existing type. */
+export const MEETING_STATUS_LABELS = {
+  draft: 'Draft',
+  finalized: 'Finalized',
+} as const;
+
+/** Labels for `ManualTaskPriority`. */
+export const MANUAL_TASK_PRIORITY_LABELS = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+  URGENT: 'Urgent',
+} as const;

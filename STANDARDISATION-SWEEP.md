@@ -147,7 +147,7 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 3. **Playwright smoke test per Create flow**. Playwright is configured (`apps/web/e2e/`); procurement doesn't have a dedicated create-flow suite yet. Two-hour slot — covers "New button goes somewhere valid" and "Create → View round-trip" per module.
 4. **Quarterly domain review cadence**. Process, not code. Calendar reminder per module lead.
 5. **Migrate remaining `stripUndefinedDeep` / `removeUndefinedValues` local copies** to the shared `removeUndefinedDeep` helper. `lib/proposals/proposalService.ts` migrated 2026-04-20 (session 858535e6+). No other known duplicates at time of writing — re-scan during each module sweep.
-6. **Label migration** from inline strings to `@vapour/constants/labels.ts`. Do as components are touched, not one-shot.
+6. **Label migration** from inline strings to `@vapour/constants/labels.ts`. Scaffold expanded 2026-04-21 with `TRANSACTION_STATUS_LABELS`, `ACCOUNTING_PAYMENT_STATUS_LABELS`, `LEAVE_REQUEST_STATUS_LABELS`, `ON_DUTY_REQUEST_STATUS_LABELS`, `TRAVEL_EXPENSE_STATUS_LABELS`, `PROPOSAL_STATUS_LABELS`, `MEETING_STATUS_LABELS`, `MANUAL_TASK_PRIORITY_LABELS`. UI sites now have a target to reference — migration is opportunistic as components are touched.
 
 ---
 
