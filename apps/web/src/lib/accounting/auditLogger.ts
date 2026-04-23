@@ -61,6 +61,7 @@ export interface AuditUserContext {
   userEmail: string;
   userName: string;
   userPermissions?: number; // Bitwise permission flags
+  tenantId: string; // Required — audit rows are tenant-scoped (CLAUDE.md rule #1)
 }
 
 /**
@@ -92,6 +93,9 @@ export async function logFinancialTransactionEvent(
     const severity: AuditSeverity = getSeverityForAction(action);
 
     const auditLog: Omit<AuditLog, 'id'> = {
+      // Tenant scoping
+      tenantId: user.tenantId,
+
       // Actor information
       actorId: user.userId,
       actorEmail: user.userEmail,
@@ -145,6 +149,7 @@ export async function logFinancialTransactionEvent(
     try {
       // Retry the write operation once
       const retryAuditLog: Omit<AuditLog, 'id'> = {
+        tenantId: user.tenantId,
         actorId: user.userId,
         actorEmail: user.userEmail,
         actorName: user.userName,
@@ -185,6 +190,7 @@ export async function logFinancialTransactionEvent(
         entityType,
         entityId,
         entityName,
+        tenantId: user.tenantId,
         user: user.userEmail,
         description,
         timestamp: new Date().toISOString(),
@@ -203,6 +209,7 @@ interface FallbackAuditEntry {
   entityType: AuditEntityType;
   entityId: string;
   entityName?: string;
+  tenantId: string;
   user: string;
   description: string;
   timestamp: string;
@@ -470,6 +477,9 @@ export async function syncFallbackAuditLogs(
   for (const entry of entries) {
     try {
       const recoveredLog: Omit<AuditLog, 'id'> = {
+        // Prefer the entry's original tenantId; fall back to the current
+        // user's tenant for entries written before this field was added.
+        tenantId: entry.tenantId ?? user.tenantId,
         actorId: user.userId,
         actorEmail: entry.user,
         actorName: user.userName,
@@ -495,8 +505,16 @@ export async function syncFallbackAuditLogs(
 
       await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), cleanedRecoveredLog);
       synced++;
-    } catch {
-      // Keep for next sync attempt
+    } catch (error) {
+      // Keep for next sync attempt; entry stays in localStorage so the retry is
+      // self-healing across sessions. Log at debug level per-entry — the
+      // post-loop warn (below) surfaces the aggregate count to operators.
+      logger.debug('Failed to recover fallback audit entry', {
+        entryAction: entry.action,
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       failed.push(entry);
     }
   }
@@ -508,7 +526,15 @@ export async function syncFallbackAuditLogs(
     localStorage.removeItem(FALLBACK_KEY);
   }
 
-  logger.info('Fallback audit log sync complete', { synced, remaining: failed.length });
+  if (failed.length > 0) {
+    logger.warn('Fallback audit log sync had failures', {
+      synced,
+      failed: failed.length,
+      total: entries.length,
+    });
+  } else {
+    logger.info('Fallback audit log sync complete', { synced });
+  }
   return synced;
 }
 

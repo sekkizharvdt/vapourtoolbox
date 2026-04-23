@@ -58,6 +58,7 @@ describe('auditLogger', () => {
     userEmail: 'test@example.com',
     userName: 'Test User',
     userPermissions: 255,
+    tenantId: 'tenant-test',
   };
 
   beforeEach(() => {

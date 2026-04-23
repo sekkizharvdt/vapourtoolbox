@@ -276,6 +276,13 @@ export interface AuditFieldChange {
 export interface AuditLog {
   id: string;
 
+  // Tenant scoping (CLAUDE.md rule #1). Optional for now so the partially-
+  // migrated `createAuditContext` call graph keeps compiling; the `auditLogger`
+  // path at apps/web/src/lib/accounting/auditLogger.ts writes it on every
+  // row. Flip to required once all callers of `createAuditContext` thread
+  // `claims?.tenantId` through.
+  tenantId?: string;
+
   // Actor information (who performed the action)
   actorId: string;
   actorEmail: string;

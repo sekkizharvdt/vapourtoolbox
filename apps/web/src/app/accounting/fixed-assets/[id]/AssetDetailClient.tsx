@@ -33,6 +33,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'AssetDetailClient' });
 import { COLLECTIONS } from '@vapour/firebase';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { FixedAsset, AssetStatus } from '@vapour/types';
@@ -136,8 +139,11 @@ export default function AssetDetailClient() {
       if (docSnap.exists()) {
         setAsset(docToTyped<FixedAsset>(docSnap.id, docSnap.data()));
       }
-    } catch {
-      // Silently fail on refresh
+    } catch (error) {
+      logger.warn('Failed to refresh asset', {
+        assetId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 

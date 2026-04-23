@@ -222,6 +222,8 @@ function parseDate(dateStr: string, format: string = 'DD/MM/YYYY'): Date | null 
 
     return date;
   } catch {
+    // Defensive parse — bank statement formats vary wildly, caller aggregates
+    // row-level errors. Returning null signals "skip this row" to the importer.
     return null;
   }
 }
@@ -257,6 +259,9 @@ function parseAmount(amountStr: string | undefined, config: ImportConfig): numbe
 
     return isNegative ? -amount : amount;
   } catch {
+    // Defensive parse — bank statement formats vary wildly, caller aggregates
+    // row-level errors. Returning 0 means "no movement on this row for this column"
+    // (the importer rejects rows where both debit and credit amount to 0).
     return 0;
   }
 }

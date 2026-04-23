@@ -108,13 +108,13 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 | Module                              | undefined | silent catch | ref denorm | labels | completeness | status  | notes                                                                   |
 | ----------------------------------- | --------- | ------------ | ---------- | ------ | ------------ | ------- | ----------------------------------------------------------------------- |
 | procurement                         | ✅        | ✅           | ✅         | 🟡     | ✅           | ✅ done | april review, session 2026-04-20                                        |
-| accounting (bills)                  | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | GR→bill denorm shipped 2026-04-21; silent-catch notes remain            |
-| accounting (invoices)               | ✅        | 🟡           | 🟡         | 🟡     | 🟡           | 🟡      | see findings 2026-04-20                                                 |
+| accounting (bills)                  | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | silent-catch trio closed 2026-04-23; labels only                        |
+| accounting (invoices)               | ✅        | ✅           | 🟡         | 🟡     | 🟡           | 🟡      | toDate helper deferred by design; labels only                           |
 | accounting (payments)               | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | PaymentAllocation invoiceDate/dueDate denorm shipped 2026-04-21         |
 | accounting (journal entries)        | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | dialog-only pattern                                                     |
-| accounting (bank transfers)         | ✅        | 🟡           | ✅         | 🟡     | 🟡           | 🟡      | parser has defensive empty catches (documented)                         |
+| accounting (bank transfers)         | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | parser defensive catches now documented 2026-04-23                      |
 | accounting (expense claims)         | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | reimbursement-payment flow not implemented yet (Phase 2)                |
-| accounting (fixed assets)           | ✅        | 🟡           | N/A        | 🟡     | ✅           | 🟡      | depreciation posting not implemented yet (Phase 2)                      |
+| accounting (fixed assets)           | ✅        | ✅           | N/A        | 🟡     | ✅           | 🟡      | refresh-warn closed 2026-04-23; depreciation posting is Phase 2         |
 | accounting (payment batches)        | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | batch→payment execution flow not implemented yet (Phase 2)              |
 | accounting (payment planning)       | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      |                                                                         |
 | accounting (recurring transactions) | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | post-occurrence → transaction flow not implemented yet (Phase 2)        |
@@ -129,12 +129,12 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 | projects (cost configurations)      | ✅        | ✅           | ✅         | ✅     | ✅           | ✅      | enums already in constants                                              |
 | documents                           | ✅        | ✅           | 🟡         | 🟡     | ✅           | 🟡      | denorm pass 2026-04-21 — 4 of 6 gaps closed, transmittal+link remain    |
 | enquiries                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | proposal carries enquiry refs; status labels inline                     |
-| materials                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | variants nested; availability labels inline                             |
+| materials                           | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | VendorOffer denorm verified 2026-04-23 (linkedItemName/Code)            |
 | thermal (calculators)               | N/A       | ✅           | N/A        | N/A    | ✅           | ✅      | all empty catches documented with rationale                             |
 | flow (tasks + meetings)             | ✅        | ✅           | ✅         | 🟡     | ✅           | 🟡      | meeting→task denorm shipped 2026-04-21; labels drift                    |
 | feedback                            | ✅        | ✅           | ✅         | 🟡     | 🟡           | 🟡      | feedback→task carries title+reporter; no admin dashboard                |
 | auth / users                        | ✅        | ✅           | N/A        | ✅     | ✅           | ✅      | uses PERMISSION_FLAGS constants; /admin/users exists                    |
-| entities                            | ✅        | ✅           | N/A        | 🟡     | 🟡           | 🟡      | no dedicated entity master UI — via /admin/entities?                    |
+| entities                            | ✅        | ✅           | N/A        | 🟡     | ✅           | 🟡      | /entities page confirmed (list + CRUD dialogs); labels only             |
 
 **Priority order (recommended)**: accounting → hr → projects → documents → everything else. Accounting is the highest-risk because it's double-entry and the `undefined` class of bugs there can corrupt the GL silently.
 
@@ -142,6 +142,7 @@ Check against: List + New + View + Edit + composite indexes for each `where + or
 
 ## Open standardisation items (not started, deliberately deferred)
 
+0. **Audit-log tenantId plumbing** (discovered 2026-04-23). `AuditLog` now has an optional `tenantId` field; the [`auditLogger`](apps/web/src/lib/accounting/auditLogger.ts) path writes it on every row via [`AuditUserContext.tenantId`](apps/web/src/lib/accounting/auditLogger.ts) (closed system, 1 caller: `RecordCustomerPaymentDialog`). The broader [`clientAuditService`](apps/web/src/lib/audit/clientAuditService.ts) + [`createAuditContext`](apps/web/src/lib/audit/clientAuditService.ts) call graph has **97 call sites across 33 files** that still create contexts without `tenantId`; those writes land without the field. Flip `tenantId` from optional → required on `AuditLog` once every `createAuditContext(...)` caller threads `claims?.tenantId`. Dedicated ~1-day refactor — mostly mechanical, but each call site needs `claims` in scope (services already accept it, dialogs already read `useAuth`). Pre-commit `tenantId` guard will start passing on audit-log writes once this lands.
 1. **UI-layer `|| undefined` retrofit** (~200 sites). Rule is scoped to `lib/**` for now. Dedicated refactor session — touch files one module at a time and migrate to conditional spreads, then broaden the ESLint rule.
 2. **Form-from-schema pattern** (react-hook-form + zod). Not started. Best introduced on the next new create page as a reference implementation, then migrate existing forms opportunistically.
 3. **Playwright smoke test per Create flow**. Playwright is configured (`apps/web/e2e/`); procurement doesn't have a dedicated create-flow suite yet. Two-hour slot — covers "New button goes somewhere valid" and "Create → View round-trip" per module.
@@ -202,12 +203,12 @@ Clean. No `|| undefined` violations slipped past the lib/\*\* ESLint rule. No lo
 #### silent catches
 
 - [transactionNumberGenerator.ts:79](apps/web/src/lib/accounting/transactionNumberGenerator.ts#L79) — `loadFYStartMonth()` swallowed Firebase errors. **Fixed** this session: now logs `logger.warn` with error + fallback month.
-- [bankStatementParser.ts:224](apps/web/src/lib/accounting/bankStatementParser.ts#L224), [bankStatementParser.ts:259](apps/web/src/lib/accounting/bankStatementParser.ts#L259) — `parseDate()` and `parseAmount()` return null / 0. **Deferred**: defensive parse helpers for arbitrary user-supplied bank statement formats; caller surfaces row-level errors. Add one-line `// defensive parse — caller aggregates row errors` comment before the `return` in a follow-up.
-- [auditLogger.ts:498](apps/web/src/lib/accounting/auditLogger.ts#L498) — inner retry loop silently puts failed entries back on `failed[]` for next sync. **Deferred**: design is self-healing; entries persist across sessions. A post-loop warn with failure count would be an improvement.
+- [bankStatementParser.ts:224](apps/web/src/lib/accounting/bankStatementParser.ts#L224), [bankStatementParser.ts:259](apps/web/src/lib/accounting/bankStatementParser.ts#L259) — `parseDate()` and `parseAmount()` return null / 0. **Closed 2026-04-23**: added explanatory comments documenting the defensive-parse contract; caller (row importer) aggregates row-level errors and rejects rows where both debit and credit parse to 0.
+- [auditLogger.ts:498](apps/web/src/lib/accounting/auditLogger.ts#L498) — inner retry loop silently put failed entries back on `failed[]` for next sync. **Closed 2026-04-23**: per-entry failures now log at `debug` level with action + entity context; post-loop log escalates to `warn` with aggregate counts when any entries failed, stays `info` on clean syncs. Design remains self-healing — failed entries persist in localStorage across sessions.
 - [auditLogger.ts:534](apps/web/src/lib/accounting/auditLogger.ts#L534) — `getPendingAuditLogCount()` JSON.parse returns 0. **Accept**: UI indicator falls back safely; corrupt localStorage is recoverable.
 - [entity-ledger/page.tsx:107](apps/web/src/app/accounting/reports/entity-ledger/page.tsx#L107) — same FY start-month pattern as #1, UI copy. **Deferred**: no logger imported; comment documents the fallback.
 - [invoices/page.tsx:107](apps/web/src/app/accounting/invoices/page.tsx#L107) — local `toDate()` helper returns null on parse failure. **Accept**: caller handles null. Belongs in a shared helper long-term (duplicate of `AssetDetailClient` pattern).
-- [fixed-assets/[id]/AssetDetailClient.tsx:140](apps/web/src/app/accounting/fixed-assets/[id]/AssetDetailClient.tsx#L140) — "Silently fail on refresh". **Flag**: user-initiated refresh; should at least `console.warn` so a stuck asset page surfaces a real error. One-liner fix.
+- [fixed-assets/[id]/AssetDetailClient.tsx:140](apps/web/src/app/accounting/fixed-assets/[id]/AssetDetailClient.tsx#L140) — "Silently fail on refresh". **Closed 2026-04-23**: now logs `logger.warn` with assetId + error message so stuck refreshes surface in the console.
 
 Agent initially flagged [auditLogger.ts:171/182](apps/web/src/lib/accounting/auditLogger.ts) and [procurementPaymentStatus.ts:165](functions/src/procurementPaymentStatus.ts#L165) — verified as false positives (both log via `logger.error`).
 
@@ -445,7 +446,7 @@ Completeness: list / `[id]` / `[id]/edit` routes all present. No 404s. Composite
 **Swept**: 2026-04-21 by sekkizhar
 **Files audited**: 10 files in `apps/web/src/lib/materials/`, 10+ routes under `apps/web/src/app/materials/**`.
 
-Clean on undefined + silent-catch. Variants are nested inside Material docs (not separate collection) so denorm doesn't apply. `VendorOffer` creation should be verified to carry `materialCode` + `materialName` at write — not re-verified here, deferred.
+Clean on undefined + silent-catch. Variants are nested inside Material docs (not separate collection) so denorm doesn't apply. `VendorOfferItem` denorm verified 2026-04-23: items carry `linkedItemName` + `linkedItemCode` (generic fields covering material/service/bought-out); populated at write in [VendorOfferDetailClient.tsx:208-209](apps/web/src/app/materials/vendor-offers/[id]/VendorOfferDetailClient.tsx#L208-L209). ✅
 
 Labels drift: availability labels in [variantUtils.ts:97-104](apps/web/src/lib/materials/variantUtils.ts#L97-L104) are hardcoded strings — move to constants. `MaterialCategory` enum is already imported from `@vapour/types` ✅.
 
@@ -514,4 +515,4 @@ Clean across all five checks. No persistence from the auth service beyond user-b
 
 Clean on undefined + silent-catch. No parent-child — entities are themselves master data. Entity roles (`VENDOR`, `CUSTOMER`, `SUPPLIER`) come from type definitions; consider surfacing `ENTITY_ROLE_LABELS` for consistency.
 
-Completeness flag: no dedicated `/admin/entities` list in the routes audited. If an entity master list / edit UX exists, it may be embedded inside another admin page — worth confirming with the user. If none exists, this is an outstanding admin feature.
+Completeness: verified 2026-04-23 — full list + filter + Create/Edit dialogs live at [/entities/page.tsx](apps/web/src/app/entities/page.tsx) (the entity master UI sits outside `/admin/*`, which is why the earlier audit of admin routes missed it). ✅

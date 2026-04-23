@@ -266,6 +266,7 @@ export function RecordCustomerPaymentDialog({
         userEmail: user?.email || 'unknown',
         userName: user?.displayName || user?.email || 'Unknown User',
         userPermissions: claims?.permissions || 0,
+        tenantId: claims?.tenantId || 'default-entity',
       };
 
       if (editingPayment?.id) {

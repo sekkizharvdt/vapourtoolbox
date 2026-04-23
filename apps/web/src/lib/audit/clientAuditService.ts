@@ -41,6 +41,10 @@ export interface AuditContext {
   userEmail: string;
   userName: string;
   permissions?: number;
+  // TODO: Required once the 97 `createAuditContext` call sites thread
+  // `claims?.tenantId`. Currently optional so the broader call graph
+  // compiles while the properly-plumbed `auditLogger` path lands.
+  tenantId?: string;
 }
 
 /**
@@ -138,6 +142,10 @@ export async function logAuditEvent(
     const severity = options?.severity ?? getSeverityForAction(action);
 
     const auditLog: Omit<AuditLog, 'id'> = {
+      // Tenant scoping — written when the caller has threaded tenantId
+      // through. See the TODO on AuditContext above for the migration path.
+      ...(context.tenantId !== undefined && { tenantId: context.tenantId }),
+
       // Actor information
       actorId: context.userId,
       actorEmail: context.userEmail,
