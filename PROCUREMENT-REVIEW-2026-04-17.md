@@ -8,6 +8,21 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 
 ---
 
+## Closing status (2026-04-23)
+
+**Thread effectively closed.** 35 of 37 items shipped. The four items previously listed as "🔜 pending / deferred" in the closing email have all landed:
+
+- Compare offer vs PR/RFQ specs → [compareOfferWithSpecs.ts](functions/src/offerParsing/compareOfferWithSpecs.ts) + [UploadOfferDialog.tsx:541](apps/web/src/components/procurement/UploadOfferDialog.tsx#L541) (deviations panel live)
+- Discount on PO → shipped as a separate PDF line ([POPDFDocument.tsx:334-338](apps/web/src/components/pdf/POPDFDocument.tsx#L334-L338)); `grandTotal` intentionally kept = vendor's quoted total for audit reconciliation (design choice documented in [purchaseOrder.ts:59-66](packages/types/src/procurement/purchaseOrder.ts#L59-L66))
+- "Partly Cleared" GR payment status → [procurementPaymentStatus.ts](functions/src/procurementPaymentStatus.ts) (`syncPOPaymentStatusOnVendorPayment` + `PARTLY_CLEARED` bucket)
+- Standalone Payment Status module → superseded by #36 (GR-level rename + auto-update)
+
+**Still pending**: #4 (PR Import PDF parsing) and #5 (Document AI Upload Offer) — both instrumented and deployed 2026-04-17, blocked on user retry to capture a fresh log. The two-minute verification steps are in the "Action needed" block below.
+
+A related accounting-side cleanup — `scripts/migrate-reconcile-payment-statuses.js` (commit `b78609e2`) — reconciles bill/invoice `amountPaid` / `outstandingAmount` / `paymentStatus` across all historical transactions. Needs a dry-run review then a live run against production; separate from this review's scope but gates similar data-trust concerns.
+
+---
+
 ## P0 — Blocking Bugs (users can't complete tasks)
 
 | #   | Item                                   | Module                | Status               | Root cause                                                                                                                                                                                                                                                                                                                                                                                                                         | Notes                                                                                                                                                                                                                                                                             |
@@ -128,8 +143,9 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 
 1. ~~**#3 Work Completion**~~ ✅ fixed 2026-04-17
 2. ~~**#1 Upload Offer**~~ ✅ fixed 2026-04-17
-3. ~~**#2 PO Amendment**~~ ✅ partially fixed 2026-04-17 (code bug); redesign → P1 item #9
+3. ~~**#2 PO Amendment**~~ ✅ fixed 2026-04-17 (code bug + multi-type redesign via P1 #9)
 4. **#4/#5 PDF parsing** ⏸ **pending user retry** — instrumented + deployed 2026-04-17; need user to trigger a fresh invocation
+5. ~~**Compare offer vs specs / discount on PO / Partly Cleared / standalone payment-status module**~~ ✅ all shipped (see "Closing status" above)
 
 ---
 
@@ -210,14 +226,14 @@ Status legend: 🔴 blocking · 🟠 data-integrity · 🟡 UX · 🟢 enhanceme
 >
 > Both are pending a fresh log — please run the steps in the "Action needed" section below so we can capture the real error message and fix it.
 >
-> ### 🔜 Pending / deferred (4 items, smaller scope)
+> ### ✅ Previously deferred — now shipped (as of 2026-04-23)
 >
-> These are all tracked and will be picked up after the above verification:
+> All four items that were listed as pending in the original closing email have landed:
 >
-> 1. **Claude AI — compare vendor offer vs PR/RFQ attachments** (review §3.4). This is a larger enhancement where Claude reads both the PR specs and the vendor's quotation to flag mismatches (wrong grade, wrong quantity, missing items). It needs a multi-document prompt and a deviations surface in the UI. Scheduled for the next iteration.
-> 2. **Apply parsed discount to the PO total** (§3.4). Claude now extracts the discount but we're not yet subtracting it from the grand total — we'll wire it after you confirm how you want the discount shown on the PO (separate line, negative line item, or reduction applied to subtotal).
-> 3. **"Partly Cleared" payment status** (§7.3). The GR already flips to "Cleared" automatically when the accounting payment completes. "Partly Cleared" needs a Cloud Function that sums partial vendor payments against the PO total — next on the backend list.
-> 4. **Standalone "Payment Status" module** (§7.3). Your note suggested this as an alternative to the GR-level status. The GR-level rename+auto-update covers the same user need, so we're not planning a separate module unless you'd prefer one — let us know.
+> 1. **Claude AI — compare vendor offer vs PR/RFQ attachments** — live. A "Check against PR specs" action in the Upload Offer dialog now feeds the offer plus every PR/RFQ attachment into Claude and renders a deviations panel (wrong grade / wrong quantity / missing items / make-model substitutions).
+> 2. **Discount on the PO** — shipped on the PO PDF as a separate "Discount" row beneath the subtotal with a negative sign. Grand Total is intentionally left equal to the vendor's quoted total so the PO reconciles one-for-one with the offer; any discount the vendor has already netted into their total is shown informationally rather than re-subtracted (which would double-count). Let us know if you'd prefer a different treatment.
+> 3. **"Partly Cleared" payment status** — live. A Cloud Function now watches each Vendor Payment and rolls the per-PO payment state through Pending → Approved → Partly Cleared → Cleared based on how much of the PO total the approved vendor payments cover.
+> 4. **Standalone "Payment Status" module** — closed as superseded by the GR-level rename+auto-update (#36). Happy to revisit if the per-PO status in the GR view isn't enough day-to-day.
 >
 > ---
 >
