@@ -660,7 +660,9 @@ export interface MaterialPrice {
 
   // Context
   remarks?: string; // e.g., "Annual contract rate", "Spot market"
-  documentReference?: string; // Quote reference, PO number
+  documentReference?: string; // Human-readable number — quote number, PO number
+  /** Firestore doc id of the source — lets the UI link back to the quote / PO. */
+  sourceQuoteId?: string;
 
   // Status
   isActive: boolean; // Current price?

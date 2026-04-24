@@ -28,11 +28,22 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { getFirebase } from '@/lib/firebase';
-import type { Material } from '@vapour/types';
+import type { Material, MaterialPrice } from '@vapour/types';
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory } from '@vapour/types';
 import { getMaterialById } from '@/lib/materials/materialService';
+import { getMaterialPriceHistory } from '@/lib/materials/pricing';
 import { formatMoney, formatDate } from '@/lib/utils/formatters';
+
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  VENDOR_QUOTE: 'Vendor Quote',
+  VENDOR_INVOICE: 'Vendor Bill',
+  MARKET_RATE: 'Market Rate',
+  HISTORICAL: 'Historical',
+  ESTIMATED: 'Estimated',
+  CONTRACT_RATE: 'Contract',
+};
 
 export default function MaterialDetailClient() {
   const router = useRouter();
@@ -40,6 +51,7 @@ export default function MaterialDetailClient() {
   const { db } = getFirebase();
 
   const [material, setMaterial] = useState<Material | null>(null);
+  const [priceHistory, setPriceHistory] = useState<MaterialPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [materialId, setMaterialId] = useState<string | null>(null);
@@ -88,6 +100,13 @@ export default function MaterialDetailClient() {
       }
 
       setMaterial(data);
+
+      // Load price history in the background — non-blocking.
+      getMaterialPriceHistory(db, materialId, { limitResults: 20 })
+        .then(setPriceHistory)
+        .catch((err) => {
+          console.warn('Failed to load price history', err);
+        });
     } catch (err) {
       console.error('Error loading material:', err);
       setError(err instanceof Error ? err.message : 'Failed to load material');
@@ -308,6 +327,78 @@ export default function MaterialDetailClient() {
                 <Typography variant="body2" color="text.secondary">
                   No preferred vendors
                 </Typography>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Price History — quotes, invoices, and market rates that have been
+              captured for this material. Each row links back to its source. */}
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Price History
+              </Typography>
+              {priceHistory.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No prices recorded yet. Quotes and vendor invoices automatically appear here when
+                  their item prices are accepted.
+                </Typography>
+              ) : (
+                <Table size="small">
+                  <TableBody>
+                    {priceHistory.map((price) => {
+                      const dateVal =
+                        price.effectiveDate &&
+                        typeof (price.effectiveDate as { toDate?: () => Date }).toDate ===
+                          'function'
+                          ? (price.effectiveDate as { toDate: () => Date }).toDate()
+                          : null;
+                      const quoteHref = price.sourceQuoteId
+                        ? `/materials/vendor-offers/${price.sourceQuoteId}`
+                        : null;
+                      return (
+                        <TableRow key={price.id}>
+                          <TableCell sx={{ py: 1 }}>
+                            <Typography variant="body2" fontWeight={500}>
+                              {formatMoney(price.pricePerUnit)} / {price.unit}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {price.vendorName || '—'}
+                              {dateVal ? ` · ${formatDate(dateVal)}` : ''}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ py: 1 }}>
+                            <Chip
+                              label={SOURCE_TYPE_LABELS[price.sourceType] || price.sourceType}
+                              size="small"
+                              variant="outlined"
+                            />
+                            {quoteHref && price.documentReference && (
+                              <Typography
+                                variant="caption"
+                                component={Link}
+                                href={quoteHref}
+                                sx={{ display: 'block', mt: 0.5 }}
+                              >
+                                {price.documentReference}
+                              </Typography>
+                            )}
+                            {!quoteHref && price.documentReference && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                                sx={{ mt: 0.5 }}
+                              >
+                                {price.documentReference}
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

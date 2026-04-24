@@ -9,6 +9,7 @@
 import {
   Description as DescriptionIcon,
   RequestQuote as RequestQuoteIcon,
+  FormatQuote as FormatQuoteIcon,
   ShoppingCart as ShoppingCartIcon,
   Assignment as AssignmentIcon,
   LocalShipping as LocalShippingIcon,
@@ -55,6 +56,14 @@ export default function ProcurementPage() {
           description: 'Issue RFQs to vendors, receive and compare quotations',
           icon: <RequestQuoteIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/rfqs',
+        },
+        {
+          id: 'log-quote',
+          title: 'Log Vendor Quote',
+          description:
+            'Record a vendor quote received offline (phone, email, WhatsApp) — link to an RFQ or leave unsolicited',
+          icon: <FormatQuoteIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+          path: '/procurement/quotes/new',
         },
         {
           id: 'pos',

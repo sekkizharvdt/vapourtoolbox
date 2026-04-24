@@ -674,6 +674,7 @@ export async function acceptQuoteItemPrice(
         isActive: true,
         isForecast: false,
         documentReference: quote.number,
+        sourceQuoteId: quote.id,
         remarks: `Accepted from vendor quote ${quote.number}`,
       },
       userId

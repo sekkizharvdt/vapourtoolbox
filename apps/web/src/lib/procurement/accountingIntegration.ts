@@ -384,6 +384,7 @@ export async function createBillFromGoodsReceipt(
             isActive: true,
             isForecast: false,
             documentReference: transactionNumber,
+            sourceQuoteId: billId,
             remarks: `Landed cost from bill ${transactionNumber} (GR ${goodsReceipt.number || goodsReceipt.id})`,
           },
           userId
