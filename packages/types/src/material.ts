@@ -675,6 +675,7 @@ export interface MaterialPrice {
 
 export type PriceSourceType =
   | 'VENDOR_QUOTE'
+  | 'VENDOR_INVOICE' // Landed cost captured when a vendor bill is posted
   | 'MARKET_RATE'
   | 'HISTORICAL'
   | 'ESTIMATED'

@@ -44,6 +44,7 @@ import {
   findTaskNotificationByEntity,
   completeActionableTask,
 } from '../tasks/taskNotificationService';
+import { addMaterialPrice } from '../materials/pricing';
 
 /**
  * Error types for integration failures
@@ -357,6 +358,44 @@ export async function createBillFromGoodsReceipt(
       paymentRequestId: billId,
       updatedAt: Timestamp.now(),
     });
+
+    // Write actual landed cost to materialPrices for every line item backed by a
+    // material-master reference. See PROCUREMENT-MATERIALS-AUDIT-2026-04-24.md #2.
+    // Non-fatal: bill creation has already succeeded; don't roll back on write failure.
+    const billDate = Timestamp.now();
+    const currency = (purchaseOrder.currency as CurrencyCode) || 'INR';
+    for (const grItem of goodsReceiptItems) {
+      const acceptedQty = grItem.acceptedQuantity || 0;
+      if (acceptedQty <= 0) continue;
+      const poItem = purchaseOrderItems.find((p) => p.id === grItem.poItemId);
+      if (!poItem || !poItem.materialId) continue;
+      try {
+        await addMaterialPrice(
+          db,
+          {
+            materialId: poItem.materialId,
+            pricePerUnit: { amount: poItem.unitPrice, currency },
+            unit: poItem.unit || 'NOS',
+            currency,
+            vendorId: purchaseOrder.vendorId,
+            vendorName: purchaseOrder.vendorName || '',
+            sourceType: 'VENDOR_INVOICE',
+            effectiveDate: billDate,
+            isActive: true,
+            isForecast: false,
+            documentReference: transactionNumber,
+            remarks: `Landed cost from bill ${transactionNumber} (GR ${goodsReceipt.number || goodsReceipt.id})`,
+          },
+          userId
+        );
+      } catch (priceErr) {
+        logger.warn('Failed to capture material price from bill', {
+          materialId: poItem.materialId,
+          billId,
+          priceErr,
+        });
+      }
+    }
 
     // Auto-complete the GR_BILL_REQUIRED task notification if one exists
     try {

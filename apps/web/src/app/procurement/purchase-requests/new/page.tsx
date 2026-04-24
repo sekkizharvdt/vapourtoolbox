@@ -224,8 +224,26 @@ export default function NewPurchaseRequestPage() {
     for (let i = 0; i < lineItems.length; i++) {
       const item = lineItems[i];
       if (!item) continue;
-      if (item.description.trim() && item.quantity <= 0) {
+      if (!item.description.trim()) continue; // empty rows are dropped in buildInput
+
+      if (item.quantity <= 0) {
         setError(`Line ${i + 1}: Quantity must be greater than 0`);
+        return false;
+      }
+
+      // Require a master-data reference so downstream cost/stock/pricing
+      // feedback loops can attach to the item. See PROCUREMENT-MATERIALS-AUDIT-2026-04-24.md #4.
+      if (isServiceCategory) {
+        if (!item.serviceId) {
+          setError(
+            `Line ${i + 1}: Please pick a service from the services catalog (search icon next to the description).`
+          );
+          return false;
+        }
+      } else if (!item.materialId) {
+        setError(
+          `Line ${i + 1}: Please pick a material from the materials database (search icon next to the description).`
+        );
         return false;
       }
     }
@@ -607,6 +625,19 @@ export default function NewPurchaseRequestPage() {
                             size="small"
                             variant="outlined"
                             color="secondary"
+                            sx={{ mt: 0.5 }}
+                          />
+                        )}
+                        {item.description.trim() && !item.materialCode && !item.serviceCode && (
+                          <Chip
+                            label={
+                              isServiceCategory
+                                ? 'Pick service from catalog'
+                                : 'Pick material from master'
+                            }
+                            size="small"
+                            color="warning"
+                            variant="outlined"
                             sx={{ mt: 0.5 }}
                           />
                         )}
