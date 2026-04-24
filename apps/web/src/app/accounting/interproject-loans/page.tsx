@@ -55,6 +55,17 @@ import {
   type RecordRepaymentInput,
 } from '@/lib/accounting/interprojectLoanService';
 import { useToast } from '@/components/common/Toast';
+import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
+
+function toJsDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'object' && 'toDate' in val) {
+    return (val as { toDate: () => Date }).toDate();
+  }
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return null;
+}
 
 export default function InterprojectLoansPage() {
   const { claims, user } = useAuth();
@@ -110,7 +121,7 @@ export default function InterprojectLoansPage() {
 
   // Fetch loans
   const {
-    data: loans = [],
+    data: loansRaw = [],
     isLoading,
     error,
   } = useQuery({
@@ -123,6 +134,13 @@ export default function InterprojectLoansPage() {
     },
     enabled: !!db,
   });
+
+  const fy = useFiscalYearFilter();
+
+  const loans = useMemo(
+    () => loansRaw.filter((l) => matchesFiscalYear(toJsDate(l.startDate), fy.range)),
+    [loansRaw, fy.range]
+  );
 
   // Calculate summary
   const summary = useMemo(

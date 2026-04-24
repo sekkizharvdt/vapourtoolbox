@@ -45,11 +45,23 @@ import { CreateBankStatementDialog } from './components/CreateBankStatementDialo
 import { ImportBankStatementDialog } from './components/ImportBankStatementDialog';
 import { ReconciliationWorkspace } from './components/ReconciliationWorkspace';
 import { formatDate } from '@/lib/utils/formatters';
+import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
+
+function toJsDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'object' && 'toDate' in val) {
+    return (val as { toDate: () => Date }).toDate();
+  }
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return null;
+}
 
 type TabValue = 'statements' | 'reconcile';
 
 export default function BankReconciliationPage() {
   const { claims } = useAuth();
+  const fy = useFiscalYearFilter();
   const [statements, setStatements] = useState<BankStatement[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -70,10 +82,14 @@ export default function BankReconciliationPage() {
     setPage(0);
   };
 
+  const visibleStatements = statements.filter((s) =>
+    matchesFiscalYear(toJsDate(s.statementDate), fy.range)
+  );
+
   // Paginated statements
   const paginatedStatements =
-    statements.length > 0
-      ? statements.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+    visibleStatements.length > 0
+      ? visibleStatements.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
       : [];
 
   // Real-time listener for bank statements
@@ -199,7 +215,7 @@ export default function BankReconciliationPage() {
                   <Typography color="textSecondary" gutterBottom variant="body2">
                     Total Statements
                   </Typography>
-                  <Typography variant="h4">{statements.length}</Typography>
+                  <Typography variant="h4">{visibleStatements.length}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -211,8 +227,9 @@ export default function BankReconciliationPage() {
                   </Typography>
                   <Typography variant="h4" color="success.main">
                     {
-                      statements.filter((s) => s.status === 'RECONCILED' || s.status === 'REVIEWED')
-                        .length
+                      visibleStatements.filter(
+                        (s) => s.status === 'RECONCILED' || s.status === 'REVIEWED'
+                      ).length
                     }
                   </Typography>
                 </CardContent>
@@ -225,7 +242,7 @@ export default function BankReconciliationPage() {
                     In Progress
                   </Typography>
                   <Typography variant="h4" color="warning.main">
-                    {statements.filter((s) => s.status === 'IN_PROGRESS').length}
+                    {visibleStatements.filter((s) => s.status === 'IN_PROGRESS').length}
                   </Typography>
                 </CardContent>
               </Card>
@@ -237,7 +254,7 @@ export default function BankReconciliationPage() {
                     Pending
                   </Typography>
                   <Typography variant="h4" color="text.secondary">
-                    {statements.filter((s) => s.status === 'DRAFT').length}
+                    {visibleStatements.filter((s) => s.status === 'DRAFT').length}
                   </Typography>
                 </CardContent>
               </Card>
@@ -260,12 +277,11 @@ export default function BankReconciliationPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {statements.length === 0 ? (
+                {visibleStatements.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                        No bank statements found. Click &quot;New Bank Statement&quot; to upload
-                        your first statement.
+                        No bank statements found for the selected fiscal year.
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -345,7 +361,7 @@ export default function BankReconciliationPage() {
             <TablePagination
               rowsPerPageOptions={[5, 10, 25, 50]}
               component="div"
-              count={statements.length}
+              count={visibleStatements.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}

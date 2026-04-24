@@ -44,6 +44,17 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useRouter } from 'next/navigation';
 import { useFirestore } from '@/lib/firebase/hooks';
+import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
+
+function toJsDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'object' && 'toDate' in val) {
+    return (val as { toDate: () => Date }).toDate();
+  }
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return null;
+}
 
 const CreateAssetDialog = dynamic(
   () => import('./components/CreateAssetDialog').then((mod) => mod.CreateAssetDialog),
@@ -100,9 +111,14 @@ export default function FixedAssetsPage() {
 
   const { data: assets, loading } = useFirestoreQuery<FixedAsset>(firestoreQuery);
 
+  const fy = useFiscalYearFilter();
+
   // Client-side filtering
   const filteredAssets = useMemo(() => {
-    let result = assets?.filter((a) => !a.isDeleted) ?? [];
+    let result =
+      assets?.filter(
+        (a) => !a.isDeleted && matchesFiscalYear(toJsDate(a.purchaseDate), fy.range)
+      ) ?? [];
     if (search) {
       const term = search.toLowerCase();
       result = result.filter(
@@ -115,7 +131,7 @@ export default function FixedAssetsPage() {
       );
     }
     return result;
-  }, [assets, search]);
+  }, [assets, search, fy.range]);
 
   // Stats
   const stats = useMemo(() => {

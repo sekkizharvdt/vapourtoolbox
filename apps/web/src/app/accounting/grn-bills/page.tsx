@@ -50,6 +50,17 @@ import {
   type GRNPendingBill,
 } from '@/lib/procurement/accountingIntegration';
 import { formatDate } from '@/lib/utils/formatters';
+import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
+
+function toJsDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'object' && 'toDate' in val) {
+    return (val as { toDate: () => Date }).toDate();
+  }
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return null;
+}
 
 type SortField = 'grNumber' | 'poNumber' | 'vendor' | 'project' | 'amount' | 'dateSent';
 type SortDirection = 'asc' | 'desc';
@@ -111,9 +122,13 @@ export default function GRNBillsPage() {
     }
   };
 
+  const fy = useFiscalYearFilter();
+
   // Phase0#10: Filtered and sorted data
   const filteredAndSorted = useMemo(() => {
-    let result = pendingGRs;
+    let result = pendingGRs.filter((item) =>
+      matchesFiscalYear(toJsDate(item.gr.sentToAccountingAt), fy.range)
+    );
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -140,7 +155,7 @@ export default function GRNBillsPage() {
     });
 
     return result;
-  }, [pendingGRs, searchQuery, sortField, sortDirection]);
+  }, [pendingGRs, searchQuery, sortField, sortDirection, fy.range]);
 
   const paginatedData = useMemo(
     () => filteredAndSorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),

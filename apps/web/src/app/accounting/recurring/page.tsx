@@ -55,6 +55,17 @@ import type {
   RecurringTransactionSummary,
 } from '@vapour/types';
 import { getStatusColor } from '@vapour/ui';
+import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
+
+function toJsDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'object' && 'toDate' in val) {
+    return (val as { toDate: () => Date }).toDate();
+  }
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return null;
+}
 
 const TYPE_LABELS: Record<RecurringTransactionType, string> = {
   SALARY: 'Salary',
@@ -83,6 +94,7 @@ const FREQUENCY_LABELS: Record<string, string> = {
 export default function RecurringTransactionsPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
+  const fy = useFiscalYearFilter();
   const [transactions, setTransactions] = useState<RecurringTransaction[]>([]);
   const [summary, setSummary] = useState<RecurringTransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -225,6 +237,10 @@ export default function RecurringTransactionsPage() {
     );
   }
 
+  const visibleTransactions = transactions.filter((t) =>
+    matchesFiscalYear(toJsDate(t.createdAt), fy.range)
+  );
+
   return (
     <>
       <Box sx={{ mb: 4 }}>
@@ -351,10 +367,9 @@ export default function RecurringTransactionsPage() {
             </Typography>
             <LinearProgress />
           </Box>
-        ) : transactions.length === 0 ? (
+        ) : visibleTransactions.length === 0 ? (
           <Alert severity="info" sx={{ mt: 2 }}>
-            No recurring transactions found. Create your first recurring transaction to automate
-            regular invoices, bills, or salary payments.
+            No recurring transactions found for the selected fiscal year.
           </Alert>
         ) : (
           <TableContainer component={Paper}>
@@ -372,7 +387,7 @@ export default function RecurringTransactionsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {transactions
+                {visibleTransactions
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((tx) => (
                     <TableRow
@@ -453,7 +468,7 @@ export default function RecurringTransactionsPage() {
             <TablePagination
               rowsPerPageOptions={[10, 25, 50]}
               component="div"
-              count={transactions.length}
+              count={visibleTransactions.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={(_e, newPage) => setPage(newPage)}

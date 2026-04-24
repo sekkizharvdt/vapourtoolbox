@@ -31,6 +31,17 @@ import { listPaymentBatches, getPaymentBatchStats } from '@/lib/accounting/payme
 import type { PaymentBatch, PaymentBatchStatus, PaymentBatchStats } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { getStatusColor } from '@vapour/ui';
+import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
+
+function toJsDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'object' && 'toDate' in val) {
+    return (val as { toDate: () => Date }).toDate();
+  }
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return null;
+}
 
 const STATUS_LABELS: Record<PaymentBatchStatus, string> = {
   DRAFT: 'Draft',
@@ -47,6 +58,7 @@ type FilterStatus = 'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'COMPLET
 export default function PaymentBatchesPage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const fy = useFiscalYearFilter();
   const [batches, setBatches] = useState<PaymentBatch[]>([]);
   const [stats, setStats] = useState<PaymentBatchStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +131,8 @@ export default function PaymentBatchesPage() {
       </Box>
     );
   }
+
+  const visibleBatches = batches.filter((b) => matchesFiscalYear(toJsDate(b.createdAt), fy.range));
 
   return (
     <Box sx={{ p: 3 }}>
@@ -229,15 +243,15 @@ export default function PaymentBatchesPage() {
       </Box>
 
       {/* Batches List - Vertical Layout */}
-      {batches.length === 0 && !loading ? (
+      {visibleBatches.length === 0 && !loading ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            No payment batches found. Create your first batch to get started.
+            No payment batches found for the selected fiscal year.
           </Typography>
         </Paper>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {batches.map((batch) => (
+          {visibleBatches.map((batch) => (
             <Paper
               key={batch.id}
               sx={{
