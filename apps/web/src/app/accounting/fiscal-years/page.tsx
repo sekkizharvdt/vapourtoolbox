@@ -6,7 +6,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Button,
   Alert,
   Chip,
@@ -26,12 +25,9 @@ import {
   TextField,
   Collapse,
   Skeleton,
-  MenuItem,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Star as CurrentIcon,
-  StarBorder as SetCurrentIcon,
   ExpandMore as ExpandIcon,
   ExpandLess as CollapseIcon,
   Lock as LockIcon,
@@ -45,9 +41,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import {
-  getAllFiscalYears,
-  createFiscalYear,
-  setCurrentFiscalYear,
+  getAvailableFiscalYears,
   getAccountingPeriods,
   closePeriod,
   lockPeriod,
@@ -55,7 +49,6 @@ import {
 } from '@/lib/accounting/fiscalYearService';
 import type { FiscalYear, AccountingPeriod } from '@vapour/types';
 
-/** Convert Firestore Timestamp or Date to JS Date */
 function toDate(val: unknown): Date {
   if (val && typeof val === 'object' && 'toDate' in val) {
     return (val as { toDate: () => Date }).toDate();
@@ -84,21 +77,6 @@ function getStatusChip(status: string) {
   }
 }
 
-const MONTHS = [
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' },
-];
-
 export default function FiscalYearsPage() {
   const { user, claims } = useAuth();
   const hasManageAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
@@ -108,28 +86,16 @@ export default function FiscalYearsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Create dialog
-  const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newFYStartMonth, setNewFYStartMonth] = useState(4); // April default
-  const [newFYYear, setNewFYYear] = useState(() => {
-    const now = new Date();
-    // If we're past the start month, use current year; otherwise previous year
-    return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-  });
-  const [newFYIsCurrent] = useState(true);
-
-  // Expanded FY periods
   const [expandedFY, setExpandedFY] = useState<string | null>(null);
   const [periods, setPeriods] = useState<AccountingPeriod[]>([]);
   const [loadingPeriods, setLoadingPeriods] = useState(false);
 
-  // Period action state
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [periodNotes, setPeriodNotes] = useState('');
   const [periodActionDialog, setPeriodActionDialog] = useState<{
     type: 'close' | 'lock' | 'reopen';
-    periodId: string;
+    fiscalYearId: string;
+    periodNumber: number;
     periodName: string;
   } | null>(null);
 
@@ -137,8 +103,7 @@ export default function FiscalYearsPage() {
     try {
       setLoading(true);
       const { db } = getFirebase();
-      const fys = await getAllFiscalYears(db);
-      setFiscalYears(fys);
+      setFiscalYears(await getAvailableFiscalYears(db));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load fiscal years');
     } finally {
@@ -150,19 +115,21 @@ export default function FiscalYearsPage() {
     loadFiscalYears();
   }, [loadFiscalYears]);
 
+  const reloadPeriods = useCallback(async (fyId: string) => {
+    const { db } = getFirebase();
+    setPeriods(await getAccountingPeriods(db, fyId));
+  }, []);
+
   const handleExpandFY = async (fyId: string) => {
     if (expandedFY === fyId) {
       setExpandedFY(null);
       setPeriods([]);
       return;
     }
-
     setExpandedFY(fyId);
     setLoadingPeriods(true);
     try {
-      const { db } = getFirebase();
-      const p = await getAccountingPeriods(db, fyId);
-      setPeriods(p);
+      await reloadPeriods(fyId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load periods');
     } finally {
@@ -170,75 +137,37 @@ export default function FiscalYearsPage() {
     }
   };
 
-  const handleCreateFY = async () => {
-    if (!user) return;
-    setCreating(true);
-    setError(null);
-
-    try {
-      const { db } = getFirebase();
-      const startDate = new Date(newFYYear, newFYStartMonth - 1, 1);
-      const endYear = newFYStartMonth === 1 ? newFYYear : newFYYear + 1;
-      const endMonth = newFYStartMonth === 1 ? 12 : newFYStartMonth - 1;
-      const endDate = new Date(endYear, endMonth, 0); // last day of the month before start month next year
-
-      const name =
-        newFYStartMonth === 1 ? `FY ${newFYYear}` : `FY ${newFYYear}-${String(endYear).slice(2)}`;
-
-      await createFiscalYear(db, {
-        name,
-        startDate,
-        endDate,
-        isCurrent: newFYIsCurrent,
-        userId: user.uid,
-      });
-
-      setCreateOpen(false);
-      setSuccess(`Fiscal year "${name}" created with 12 accounting periods`);
-      await loadFiscalYears();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create fiscal year');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleSetCurrent = async (fyId: string) => {
-    if (!user) return;
-    try {
-      const { db } = getFirebase();
-      await setCurrentFiscalYear(db, fyId, user.uid);
-      setSuccess('Fiscal year set as current');
-      await loadFiscalYears();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to set current fiscal year');
-    }
-  };
-
   const handlePeriodAction = async () => {
     if (!user || !periodActionDialog) return;
-    setActionLoading(periodActionDialog.periodId);
+    const actionKey = `${periodActionDialog.fiscalYearId}-${periodActionDialog.periodNumber}`;
+    setActionLoading(actionKey);
     setError(null);
 
     try {
       const { db } = getFirebase();
-      switch (periodActionDialog.type) {
+      const { fiscalYearId, periodNumber, type } = periodActionDialog;
+      const tenantId = claims?.tenantId || 'default-entity';
+      switch (type) {
         case 'close':
-          await closePeriod(db, periodActionDialog.periodId, user.uid, periodNotes);
+          await closePeriod(db, fiscalYearId, periodNumber, user.uid, tenantId, periodNotes);
           break;
         case 'lock':
           await lockPeriod(
             db,
-            periodActionDialog.periodId,
+            fiscalYearId,
+            periodNumber,
             user.uid,
+            tenantId,
             periodNotes || 'Period locked'
           );
           break;
         case 'reopen':
           await reopenPeriod(
             db,
-            periodActionDialog.periodId,
+            fiscalYearId,
+            periodNumber,
             user.uid,
+            tenantId,
             periodNotes || 'Period reopened'
           );
           break;
@@ -247,15 +176,10 @@ export default function FiscalYearsPage() {
       setPeriodActionDialog(null);
       setPeriodNotes('');
       setSuccess(
-        `Period "${periodActionDialog.periodName}" ${periodActionDialog.type === 'close' ? 'closed' : periodActionDialog.type === 'lock' ? 'locked' : 'reopened'} successfully`
+        `Period "${periodActionDialog.periodName}" ${type === 'close' ? 'closed' : type === 'lock' ? 'locked' : 'reopened'} successfully`
       );
 
-      // Reload periods
-      if (expandedFY) {
-        const { db: db2 } = getFirebase();
-        const p = await getAccountingPeriods(db2, expandedFY);
-        setPeriods(p);
-      }
+      if (expandedFY) await reloadPeriods(expandedFY);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${periodActionDialog.type} period`);
     } finally {
@@ -274,14 +198,7 @@ export default function FiscalYearsPage() {
 
       <PageHeader
         title="Fiscal Years"
-        subtitle="Manage fiscal years, accounting periods, and year-end closing"
-        action={
-          hasManageAccess ? (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-              Create Fiscal Year
-            </Button>
-          ) : undefined
-        }
+        subtitle="Indian fiscal years (Apr–Mar) are derived from your transaction dates. Close or lock individual months here."
       />
 
       {error && (
@@ -306,20 +223,11 @@ export default function FiscalYearsPage() {
           <CardContent>
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography variant="h6" color="text.secondary" gutterBottom>
-                No Fiscal Years Created
+                No fiscal years yet
               </Typography>
-              <Typography color="text.secondary" sx={{ mb: 2 }}>
-                Create your first fiscal year to start managing accounting periods.
+              <Typography color="text.secondary">
+                Fiscal years will appear here once you post transactions.
               </Typography>
-              {hasManageAccess && (
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setCreateOpen(true)}
-                >
-                  Create Fiscal Year
-                </Button>
-              )}
             </Box>
           </CardContent>
         </Card>
@@ -332,10 +240,7 @@ export default function FiscalYearsPage() {
                 <TableCell>Name</TableCell>
                 <TableCell>Start Date</TableCell>
                 <TableCell>End Date</TableCell>
-                <TableCell>Status</TableCell>
                 <TableCell>Current</TableCell>
-                <TableCell>Closing Stage</TableCell>
-                {hasManageAccess && <TableCell align="right">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -348,7 +253,7 @@ export default function FiscalYearsPage() {
                     onClick={() => handleExpandFY(fy.id)}
                   >
                     <TableCell>
-                      <IconButton size="small" aria-label="Action">
+                      <IconButton size="small" aria-label="Expand periods">
                         {expandedFY === fy.id ? <CollapseIcon /> : <ExpandIcon />}
                       </IconButton>
                     </TableCell>
@@ -357,47 +262,19 @@ export default function FiscalYearsPage() {
                     </TableCell>
                     <TableCell>{formatDate(fy.startDate)}</TableCell>
                     <TableCell>{formatDate(fy.endDate)}</TableCell>
-                    <TableCell>{getStatusChip(fy.status)}</TableCell>
                     <TableCell>
                       {fy.isCurrent ? (
                         <Chip label="Current" color="primary" size="small" icon={<CurrentIcon />} />
-                      ) : (
-                        hasManageAccess &&
-                        fy.status === 'OPEN' && (
-                          <Tooltip title="Set as current fiscal year">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSetCurrent(fy.id);
-                              }}
-                              aria-label="Set as current fiscal year"
-                            >
-                              <SetCurrentIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {fy.closingStage ? (
-                        <Chip
-                          label={fy.closingStage === 'PROVISIONAL' ? 'Provisional' : 'Final'}
-                          color={fy.closingStage === 'FINAL' ? 'error' : 'warning'}
-                          size="small"
-                          variant="outlined"
-                        />
                       ) : (
                         <Typography variant="body2" color="text.secondary">
                           &mdash;
                         </Typography>
                       )}
                     </TableCell>
-                    {hasManageAccess && <TableCell align="right" />}
                   </TableRow>
                   {expandedFY === fy.id && (
                     <TableRow key={`${fy.id}-periods`}>
-                      <TableCell colSpan={hasManageAccess ? 8 : 7} sx={{ py: 0 }}>
+                      <TableCell colSpan={5} sx={{ py: 0 }}>
                         <Collapse in={expandedFY === fy.id} timeout="auto" unmountOnExit>
                           <Box sx={{ py: 2, px: 2 }}>
                             <Typography variant="subtitle2" gutterBottom>
@@ -411,7 +288,6 @@ export default function FiscalYearsPage() {
                                   <TableRow>
                                     <TableCell>#</TableCell>
                                     <TableCell>Period</TableCell>
-                                    <TableCell>Type</TableCell>
                                     <TableCell>Start</TableCell>
                                     <TableCell>End</TableCell>
                                     <TableCell>Status</TableCell>
@@ -421,93 +297,88 @@ export default function FiscalYearsPage() {
                                   </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                  {periods.map((period) => (
-                                    <TableRow key={period.id}>
-                                      <TableCell>{period.periodNumber}</TableCell>
-                                      <TableCell>{period.name}</TableCell>
-                                      <TableCell>
-                                        <Chip
-                                          label={period.periodType}
-                                          size="small"
-                                          variant="outlined"
-                                          color={
-                                            period.periodType === 'ADJUSTMENT'
-                                              ? 'warning'
-                                              : 'default'
-                                          }
-                                        />
-                                      </TableCell>
-                                      <TableCell>{formatDate(period.startDate)}</TableCell>
-                                      <TableCell>{formatDate(period.endDate)}</TableCell>
-                                      <TableCell>{getStatusChip(period.status)}</TableCell>
-                                      {hasManageAccess && (
-                                        <TableCell align="right">
-                                          {period.status === 'OPEN' && (
-                                            <Tooltip title="Close period">
-                                              <IconButton
-                                                size="small"
-                                                color="warning"
-                                                disabled={actionLoading === period.id}
-                                                onClick={() =>
-                                                  setPeriodActionDialog({
-                                                    type: 'close',
-                                                    periodId: period.id,
-                                                    periodName: period.name,
-                                                  })
-                                                }
-                                                aria-label="Close period"
-                                              >
-                                                <ClosedIcon fontSize="small" />
-                                              </IconButton>
-                                            </Tooltip>
-                                          )}
-                                          {period.status === 'CLOSED' && (
-                                            <>
-                                              <Tooltip title="Lock period">
+                                  {periods.map((period) => {
+                                    const actionKey = `${fy.id}-${period.periodNumber}`;
+                                    const isBusy = actionLoading === actionKey;
+                                    return (
+                                      <TableRow key={period.id}>
+                                        <TableCell>{period.periodNumber}</TableCell>
+                                        <TableCell>{period.name}</TableCell>
+                                        <TableCell>{formatDate(period.startDate)}</TableCell>
+                                        <TableCell>{formatDate(period.endDate)}</TableCell>
+                                        <TableCell>{getStatusChip(period.status)}</TableCell>
+                                        {hasManageAccess && (
+                                          <TableCell align="right">
+                                            {period.status === 'OPEN' && (
+                                              <Tooltip title="Close period">
                                                 <IconButton
                                                   size="small"
-                                                  color="error"
-                                                  disabled={actionLoading === period.id}
+                                                  color="warning"
+                                                  disabled={isBusy}
                                                   onClick={() =>
                                                     setPeriodActionDialog({
-                                                      type: 'lock',
-                                                      periodId: period.id,
+                                                      type: 'close',
+                                                      fiscalYearId: fy.id,
+                                                      periodNumber: period.periodNumber,
                                                       periodName: period.name,
                                                     })
                                                   }
-                                                  aria-label="Lock period"
+                                                  aria-label="Close period"
                                                 >
-                                                  <LockIcon fontSize="small" />
+                                                  <ClosedIcon fontSize="small" />
                                                 </IconButton>
                                               </Tooltip>
-                                              <Tooltip title="Reopen period">
-                                                <IconButton
-                                                  size="small"
-                                                  color="success"
-                                                  disabled={actionLoading === period.id}
-                                                  onClick={() =>
-                                                    setPeriodActionDialog({
-                                                      type: 'reopen',
-                                                      periodId: period.id,
-                                                      periodName: period.name,
-                                                    })
-                                                  }
-                                                  aria-label="Reopen period"
-                                                >
-                                                  <OpenIcon fontSize="small" />
-                                                </IconButton>
-                                              </Tooltip>
-                                            </>
-                                          )}
-                                          {period.status === 'LOCKED' && (
-                                            <Typography variant="caption" color="text.secondary">
-                                              Locked
-                                            </Typography>
-                                          )}
-                                        </TableCell>
-                                      )}
-                                    </TableRow>
-                                  ))}
+                                            )}
+                                            {period.status === 'CLOSED' && (
+                                              <>
+                                                <Tooltip title="Lock period">
+                                                  <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    disabled={isBusy}
+                                                    onClick={() =>
+                                                      setPeriodActionDialog({
+                                                        type: 'lock',
+                                                        fiscalYearId: fy.id,
+                                                        periodNumber: period.periodNumber,
+                                                        periodName: period.name,
+                                                      })
+                                                    }
+                                                    aria-label="Lock period"
+                                                  >
+                                                    <LockIcon fontSize="small" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                                <Tooltip title="Reopen period">
+                                                  <IconButton
+                                                    size="small"
+                                                    color="success"
+                                                    disabled={isBusy}
+                                                    onClick={() =>
+                                                      setPeriodActionDialog({
+                                                        type: 'reopen',
+                                                        fiscalYearId: fy.id,
+                                                        periodNumber: period.periodNumber,
+                                                        periodName: period.name,
+                                                      })
+                                                    }
+                                                    aria-label="Reopen period"
+                                                  >
+                                                    <OpenIcon fontSize="small" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              </>
+                                            )}
+                                            {period.status === 'LOCKED' && (
+                                              <Typography variant="caption" color="text.secondary">
+                                                Locked
+                                              </Typography>
+                                            )}
+                                          </TableCell>
+                                        )}
+                                      </TableRow>
+                                    );
+                                  })}
                                 </TableBody>
                               </Table>
                             )}
@@ -523,56 +394,6 @@ export default function FiscalYearsPage() {
         </TableContainer>
       )}
 
-      {/* Create Fiscal Year Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Fiscal Year</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                select
-                label="Start Month"
-                value={newFYStartMonth}
-                onChange={(e) => setNewFYStartMonth(Number(e.target.value))}
-                helperText="The month your fiscal year begins"
-              >
-                {MONTHS.map((m) => (
-                  <MenuItem key={m.value} value={m.value}>
-                    {m.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Start Year"
-                value={newFYYear}
-                onChange={(e) => setNewFYYear(Number(e.target.value))}
-                helperText="Calendar year the FY starts in"
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <Alert severity="info">
-                {newFYStartMonth === 1
-                  ? `This will create FY ${newFYYear} (Jan ${newFYYear} \u2013 Dec ${newFYYear})`
-                  : `This will create FY ${newFYYear}-${String(newFYStartMonth === 1 ? newFYYear : newFYYear + 1).slice(2)} (${MONTHS[newFYStartMonth - 1]?.label} ${newFYYear} \u2013 ${MONTHS[(newFYStartMonth - 2 + 12) % 12]?.label} ${newFYStartMonth === 1 ? newFYYear : newFYYear + 1})`}{' '}
-                with 12 monthly accounting periods, all set to Open.
-              </Alert>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateFY} disabled={creating}>
-            {creating ? 'Creating...' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Period Action Dialog */}
       <Dialog
         open={!!periodActionDialog}
         onClose={() => {

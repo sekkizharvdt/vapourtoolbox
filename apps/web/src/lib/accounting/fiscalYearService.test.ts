@@ -1,7 +1,10 @@
 /**
  * Fiscal Year Service Tests
  *
- * Tests for fiscal year and accounting period operations
+ * Fiscal years are now derived from dates — these tests cover:
+ * - Derived helpers (pure functions)
+ * - Lazy period creation on close / lock
+ * - Period validation on transaction dates
  */
 
 // Mock Firebase before imports
@@ -11,619 +14,320 @@ jest.mock('@vapour/firebase', () => ({
     ACCOUNTING_PERIODS: 'accountingPeriods',
     PERIOD_LOCK_AUDIT: 'periodLockAudit',
     ACCOUNTS: 'accounts',
+    TRANSACTIONS: 'transactions',
   },
 }));
 
 // Mock Firebase Firestore
-const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
 const mockUpdateDoc = jest.fn().mockResolvedValue(undefined);
-const mockAddDoc = jest.fn().mockResolvedValue({ id: 'new-audit-id' });
+const mockAddDoc = jest.fn().mockResolvedValue({ id: 'new-doc-id' });
 
 jest.mock('firebase/firestore', () => ({
-  collection: jest.fn((_db, collectionName) => ({ path: collectionName })),
-  doc: jest.fn((_db, _collection, id) => ({ id, path: `${_collection}/${id}` })),
+  collection: jest.fn((_db, name) => ({ path: name })),
+  doc: jest.fn((_db, _col, id) => ({ id, path: `${_col}/${id}` })),
   query: jest.fn((...args) => args),
   where: jest.fn((field, op, value) => ({ field, op, value })),
-  getDoc: (...args: unknown[]) => mockGetDoc(...args),
+  orderBy: jest.fn((field, dir) => ({ field, dir })),
+  limit: jest.fn((n) => ({ limit: n })),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
   updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
   addDoc: (...args: unknown[]) => mockAddDoc(...args),
   serverTimestamp: jest.fn(() => ({ _serverTimestamp: true })),
   Timestamp: {
     fromDate: jest.fn((date: Date) => ({ seconds: date.getTime() / 1000, toDate: () => date })),
+    now: jest.fn(() => ({ toDate: () => new Date() })),
   },
 }));
 
-// Mock logger
 jest.mock('@vapour/logger', () => ({
-  createLogger: () => ({
-    error: jest.fn(),
-    warn: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-  }),
-}));
-
-// Mock type helpers
-jest.mock('@/lib/firebase/typeHelpers', () => ({
-  docToTyped: <T>(id: string, data: Record<string, unknown>): T => {
-    const result: T = { id, ...data } as unknown as T;
-    return result;
-  },
+  createLogger: () => ({ error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() }),
 }));
 
 import {
+  computeFiscalYearForDate,
+  getAvailableFiscalYears,
   getCurrentFiscalYear,
-  getFiscalYear,
   getAccountingPeriods,
-  isPeriodOpen,
-  validateTransactionDate,
   closePeriod,
   lockPeriod,
   reopenPeriod,
-  calculateYearEndBalances,
-  getPeriodLockAudit,
+  isPeriodOpen,
+  validateTransactionDate,
 } from './fiscalYearService';
 import type { Firestore } from 'firebase/firestore';
 
-describe('fiscalYearService', () => {
-  const mockDb = {} as unknown as Firestore;
+const mockDb = {} as unknown as Firestore;
 
+function snapWithDocs(
+  docs: Array<{ id: string; data: () => Record<string, unknown>; ref?: unknown }>
+) {
+  const ensuredDocs = docs.map((d) => ({ ref: { id: d.id }, ...d }));
+  return { empty: ensuredDocs.length === 0, size: ensuredDocs.length, docs: ensuredDocs };
+}
+
+describe('fiscalYearService (derived model)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetDocs.mockReset();
+    mockAddDoc.mockResolvedValue({ id: 'new-doc-id' });
+  });
+
+  describe('computeFiscalYearForDate', () => {
+    it('April 2025 → FY 2025-26', () => {
+      const fy = computeFiscalYearForDate(new Date(2025, 3, 1));
+      expect(fy.id).toBe('FY-2025-26');
+      expect(fy.name).toBe('FY 2025-26');
+      expect(fy.fyStartYear).toBe(2025);
+      expect(fy.startDate.getMonth()).toBe(3); // April
+      expect(fy.endDate.getMonth()).toBe(2); // March
+      expect(fy.endDate.getFullYear()).toBe(2026);
+    });
+
+    it('March 2026 → FY 2025-26 (same FY)', () => {
+      const fy = computeFiscalYearForDate(new Date(2026, 2, 31));
+      expect(fy.id).toBe('FY-2025-26');
+    });
+
+    it('April 2026 → FY 2026-27 (next FY)', () => {
+      const fy = computeFiscalYearForDate(new Date(2026, 3, 1));
+      expect(fy.id).toBe('FY-2026-27');
+    });
+
+    it('January 2025 → FY 2024-25 (pre-April dates belong to prior FY)', () => {
+      const fy = computeFiscalYearForDate(new Date(2025, 0, 15));
+      expect(fy.id).toBe('FY-2024-25');
+    });
   });
 
   describe('getCurrentFiscalYear', () => {
-    it('returns current fiscal year when found', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: false,
-        docs: [
-          {
-            id: 'fy-2025-26',
-            data: () => ({
-              name: 'FY 2025-26',
-              isCurrent: true,
-              status: 'OPEN',
-            }),
-          },
-        ],
-      });
-
-      const result = await getCurrentFiscalYear(mockDb);
-
-      expect(result).not.toBeNull();
-      expect(result?.id).toBe('fy-2025-26');
-      expect(result?.name).toBe('FY 2025-26');
-      expect(result?.isCurrent).toBe(true);
-    });
-
-    it('returns null when no current fiscal year exists', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: true,
-        docs: [],
-      });
-
-      const result = await getCurrentFiscalYear(mockDb);
-
-      expect(result).toBeNull();
-    });
-
-    it('throws error when Firestore operation fails', async () => {
-      mockGetDocs.mockRejectedValue(new Error('Firestore error'));
-
-      await expect(getCurrentFiscalYear(mockDb)).rejects.toThrow(
-        'Failed to get current fiscal year'
-      );
+    it('returns the FY containing today, marked current', () => {
+      const fy = getCurrentFiscalYear();
+      expect(fy.isCurrent).toBe(true);
+      expect(fy.id).toMatch(/^FY-\d{4}-\d{2}$/);
     });
   });
 
-  describe('getFiscalYear', () => {
-    it('returns fiscal year when found', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        id: 'fy-2025-26',
-        data: () => ({
-          name: 'FY 2025-26',
-          status: 'OPEN',
-        }),
-      });
-
-      const result = await getFiscalYear(mockDb, 'fy-2025-26');
-
-      expect(result).not.toBeNull();
-      expect(result?.id).toBe('fy-2025-26');
+  describe('getAvailableFiscalYears', () => {
+    it('returns current + next when no transactions exist', async () => {
+      mockGetDocs.mockResolvedValueOnce(snapWithDocs([])); // empty transactions query
+      const years = await getAvailableFiscalYears(mockDb);
+      expect(years.length).toBeGreaterThanOrEqual(2);
+      expect(years.some((y) => y.isCurrent)).toBe(true);
     });
 
-    it('returns null when fiscal year not found', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => false,
-      });
-
-      const result = await getFiscalYear(mockDb, 'non-existent');
-
-      expect(result).toBeNull();
+    it('extends back to the earliest transaction date', async () => {
+      const earliest = new Date(2023, 5, 1); // Jun 2023 → FY 2023-24
+      mockGetDocs.mockResolvedValueOnce(
+        snapWithDocs([{ id: 't1', data: () => ({ date: { toDate: () => earliest } }) }])
+      );
+      const years = await getAvailableFiscalYears(mockDb);
+      expect(years.some((y) => y.id === 'FY-2023-24')).toBe(true);
     });
   });
 
   describe('getAccountingPeriods', () => {
-    it('returns periods sorted by period number', async () => {
-      mockGetDocs.mockResolvedValue({
-        docs: [
-          { id: 'p3', data: () => ({ periodNumber: 3, name: 'Jun 2025' }) },
-          { id: 'p1', data: () => ({ periodNumber: 1, name: 'Apr 2025' }) },
-          { id: 'p2', data: () => ({ periodNumber: 2, name: 'May 2025' }) },
-        ],
-      });
-
-      const result = await getAccountingPeriods(mockDb, 'fy-2025-26');
-
-      expect(result).toHaveLength(3);
-      expect(result[0]?.periodNumber).toBe(1);
-      expect(result[1]?.periodNumber).toBe(2);
-      expect(result[2]?.periodNumber).toBe(3);
+    it('returns 12 OPEN periods by default when no docs exist', async () => {
+      mockGetDocs.mockResolvedValueOnce(snapWithDocs([]));
+      const periods = await getAccountingPeriods(mockDb, 'FY-2025-26');
+      expect(periods).toHaveLength(12);
+      expect(periods[0]?.periodNumber).toBe(1);
+      expect(periods[0]?.name).toContain('Apr');
+      expect(periods.every((p) => p.status === 'OPEN')).toBe(true);
     });
 
-    it('returns empty array when no periods exist', async () => {
-      mockGetDocs.mockResolvedValue({
-        docs: [],
-      });
-
-      const result = await getAccountingPeriods(mockDb, 'fy-2025-26');
-
-      expect(result).toHaveLength(0);
-    });
-  });
-
-  describe('isPeriodOpen', () => {
-    it('returns true when period is open', async () => {
-      // First query for fiscal year
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [
+    it('overlays persisted close/lock state on derived periods', async () => {
+      mockGetDocs.mockResolvedValueOnce(
+        snapWithDocs([
           {
-            id: 'fy-2025-26',
+            id: 'persisted-apr',
             data: () => ({
-              name: 'FY 2025-26',
-              status: 'OPEN',
-            }),
-          },
-        ],
-      });
-
-      // Second query for accounting period
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [
-          {
-            id: 'period-1',
-            data: () => ({
+              fiscalYearId: 'FY-2025-26',
+              periodNumber: 1,
               name: 'Apr 2025',
-              status: 'OPEN',
-            }),
-          },
-        ],
-      });
-
-      const result = await isPeriodOpen(mockDb, new Date('2025-04-15'));
-
-      expect(result).toBe(true);
-    });
-
-    it('returns false when fiscal year is closed', async () => {
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [
-          {
-            id: 'fy-2024-25',
-            data: () => ({
-              name: 'FY 2024-25',
+              periodType: 'MONTH',
               status: 'CLOSED',
+              startDate: new Date(2025, 3, 1),
+              endDate: new Date(2025, 3, 30),
+              year: 2025,
+              createdAt: new Date(),
+              createdBy: 'u1',
+              updatedAt: new Date(),
             }),
           },
-        ],
-      });
-
-      const result = await isPeriodOpen(mockDb, new Date('2024-04-15'));
-
-      expect(result).toBe(false);
-    });
-
-    it('returns false when fiscal year is locked', async () => {
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [
-          {
-            id: 'fy-2024-25',
-            data: () => ({
-              name: 'FY 2024-25',
-              status: 'LOCKED',
-            }),
-          },
-        ],
-      });
-
-      const result = await isPeriodOpen(mockDb, new Date('2024-04-15'));
-
-      expect(result).toBe(false);
-    });
-
-    it('returns false when period is closed', async () => {
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [
-          {
-            id: 'fy-2025-26',
-            data: () => ({
-              name: 'FY 2025-26',
-              status: 'OPEN',
-            }),
-          },
-        ],
-      });
-
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [
-          {
-            id: 'period-1',
-            data: () => ({
-              name: 'Apr 2025',
-              status: 'CLOSED',
-            }),
-          },
-        ],
-      });
-
-      const result = await isPeriodOpen(mockDb, new Date('2025-04-15'));
-
-      expect(result).toBe(false);
-    });
-
-    it('returns false when no fiscal year found for date', async () => {
-      mockGetDocs.mockResolvedValueOnce({
-        empty: true,
-        docs: [],
-      });
-
-      const result = await isPeriodOpen(mockDb, new Date('2020-01-01'));
-
-      expect(result).toBe(false);
-    });
-
-    it('returns false when no period found for date', async () => {
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [
-          {
-            id: 'fy-2025-26',
-            data: () => ({
-              name: 'FY 2025-26',
-              status: 'OPEN',
-            }),
-          },
-        ],
-      });
-
-      mockGetDocs.mockResolvedValueOnce({
-        empty: true,
-        docs: [],
-      });
-
-      const result = await isPeriodOpen(mockDb, new Date('2025-04-15'));
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('validateTransactionDate', () => {
-    it('does not throw when period is open', async () => {
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [{ id: 'fy', data: () => ({ status: 'OPEN' }) }],
-      });
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [{ id: 'period', data: () => ({ status: 'OPEN' }) }],
-      });
-
-      await expect(validateTransactionDate(mockDb, new Date('2025-04-15'))).resolves.not.toThrow();
-    });
-
-    it('throws error when period is closed', async () => {
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [{ id: 'fy', data: () => ({ status: 'OPEN' }) }],
-      });
-      mockGetDocs.mockResolvedValueOnce({
-        empty: false,
-        docs: [{ id: 'period', data: () => ({ status: 'CLOSED' }) }],
-      });
-
-      await expect(validateTransactionDate(mockDb, new Date('2025-04-15'))).rejects.toThrow(
-        'Cannot post transaction'
+        ])
       );
+      const periods = await getAccountingPeriods(mockDb, 'FY-2025-26');
+      expect(periods[0]?.status).toBe('CLOSED');
+      expect(periods[0]?.id).toBe('persisted-apr');
+      expect(periods[1]?.status).toBe('OPEN'); // rest still default
     });
   });
 
   describe('closePeriod', () => {
-    it('closes an open period', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Apr 2025',
-          status: 'OPEN',
-          fiscalYearId: 'fy-2025-26',
-        }),
-      });
-
-      await closePeriod(mockDb, 'period-1', 'user-123', 'Month-end closing');
-
-      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
-      expect(mockUpdateDoc.mock.calls[0][1]).toMatchObject({
-        status: 'CLOSED',
-        closedBy: 'user-123',
-        closingNotes: 'Month-end closing',
-      });
-
-      expect(mockAddDoc).toHaveBeenCalledTimes(1);
-      expect(mockAddDoc.mock.calls[0][1]).toMatchObject({
-        periodId: 'period-1',
-        action: 'CLOSE',
-        previousStatus: 'OPEN',
-        newStatus: 'CLOSED',
-      });
+    it('creates a new period doc if one does not exist', async () => {
+      mockGetDocs.mockResolvedValueOnce(snapWithDocs([])); // findPeriodDoc returns empty
+      await closePeriod(mockDb, 'FY-2025-26', 1, 'user-1', 'tenant-1', 'End of month');
+      expect(mockAddDoc).toHaveBeenCalledTimes(2); // period + audit log
+      const periodCall = mockAddDoc.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(periodCall.status).toBe('CLOSED');
+      expect(periodCall.periodNumber).toBe(1);
     });
 
-    it('throws error when period not found', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => false,
-      });
-
-      await expect(closePeriod(mockDb, 'non-existent', 'user-123')).rejects.toThrow(
-        'Accounting period not found'
+    it('updates an existing period doc with status OPEN', async () => {
+      mockGetDocs.mockResolvedValueOnce(
+        snapWithDocs([
+          {
+            id: 'p-apr',
+            data: () => ({
+              fiscalYearId: 'FY-2025-26',
+              periodNumber: 1,
+              status: 'OPEN',
+              periodType: 'MONTH',
+            }),
+          },
+        ])
       );
+      await closePeriod(mockDb, 'FY-2025-26', 1, 'user-1', 'tenant-1');
+      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
+      expect(mockAddDoc).toHaveBeenCalledTimes(1); // audit log only
     });
 
-    it('throws error when period is not open', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Apr 2025',
-          status: 'CLOSED',
-        }),
-      });
-
-      await expect(closePeriod(mockDb, 'period-1', 'user-123')).rejects.toThrow(
-        'Period cannot be closed: current status is CLOSED'
+    it('rejects closing an already-CLOSED period', async () => {
+      mockGetDocs.mockResolvedValueOnce(
+        snapWithDocs([
+          {
+            id: 'p-apr',
+            data: () => ({
+              fiscalYearId: 'FY-2025-26',
+              periodNumber: 1,
+              status: 'CLOSED',
+              periodType: 'MONTH',
+            }),
+          },
+        ])
+      );
+      await expect(closePeriod(mockDb, 'FY-2025-26', 1, 'user-1', 'tenant-1')).rejects.toThrow(
+        /current status is CLOSED/
       );
     });
   });
 
   describe('lockPeriod', () => {
-    it('locks a closed period', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Apr 2025',
-          status: 'CLOSED',
-          fiscalYearId: 'fy-2025-26',
-        }),
-      });
-
-      await lockPeriod(mockDb, 'period-1', 'user-123', 'Audit completed');
-
-      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
-      expect(mockUpdateDoc.mock.calls[0][1]).toMatchObject({
-        status: 'LOCKED',
-        lockedBy: 'user-123',
-        lockReason: 'Audit completed',
-      });
-
-      expect(mockAddDoc).toHaveBeenCalledTimes(1);
-      expect(mockAddDoc.mock.calls[0][1]).toMatchObject({
-        action: 'LOCK',
-        previousStatus: 'CLOSED',
-        newStatus: 'LOCKED',
-      });
+    it('requires the period to already be CLOSED', async () => {
+      mockGetDocs.mockResolvedValueOnce(snapWithDocs([])); // no doc yet ⇒ still OPEN
+      await expect(
+        lockPeriod(mockDb, 'FY-2025-26', 1, 'user-1', 'tenant-1', 'reason')
+      ).rejects.toThrow(/close the period first/);
     });
 
-    it('throws error when period is not closed', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Apr 2025',
-          status: 'OPEN',
-        }),
-      });
-
-      await expect(lockPeriod(mockDb, 'period-1', 'user-123', 'Audit')).rejects.toThrow(
-        'Only closed periods can be locked'
+    it('locks a closed period', async () => {
+      mockGetDocs.mockResolvedValueOnce(
+        snapWithDocs([
+          {
+            id: 'p-apr',
+            data: () => ({
+              fiscalYearId: 'FY-2025-26',
+              periodNumber: 1,
+              status: 'CLOSED',
+              periodType: 'MONTH',
+            }),
+          },
+        ])
       );
+      await lockPeriod(mockDb, 'FY-2025-26', 1, 'user-1', 'tenant-1', 'Year-end lock');
+      expect(mockUpdateDoc).toHaveBeenCalled();
+      const [, payload] = mockUpdateDoc.mock.calls[0] as unknown[];
+      expect((payload as Record<string, unknown>).status).toBe('LOCKED');
     });
   });
 
   describe('reopenPeriod', () => {
-    it('reopens a closed period', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Apr 2025',
-          status: 'CLOSED',
-          fiscalYearId: 'fy-2025-26',
-        }),
-      });
-
-      await reopenPeriod(mockDb, 'period-1', 'user-123', 'Need to post adjustment');
-
-      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
-      expect(mockUpdateDoc.mock.calls[0][1]).toMatchObject({
-        status: 'OPEN',
-      });
-
-      expect(mockAddDoc).toHaveBeenCalledTimes(1);
-      expect(mockAddDoc.mock.calls[0][1]).toMatchObject({
-        action: 'UNLOCK',
-        reason: 'Need to post adjustment',
-        previousStatus: 'CLOSED',
-        newStatus: 'OPEN',
-      });
+    it('refuses to reopen a LOCKED period', async () => {
+      mockGetDocs.mockResolvedValueOnce(
+        snapWithDocs([
+          {
+            id: 'p-apr',
+            data: () => ({
+              fiscalYearId: 'FY-2025-26',
+              periodNumber: 1,
+              status: 'LOCKED',
+              periodType: 'MONTH',
+            }),
+          },
+        ])
+      );
+      await expect(
+        reopenPeriod(mockDb, 'FY-2025-26', 1, 'user-1', 'tenant-1', 'oops')
+      ).rejects.toThrow(/locked period/);
     });
 
-    it('throws error when period is locked', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Apr 2025',
-          status: 'LOCKED',
-        }),
-      });
-
-      await expect(reopenPeriod(mockDb, 'period-1', 'user-123', 'Need access')).rejects.toThrow(
-        'Cannot reopen a locked period'
+    it('reopens a CLOSED period', async () => {
+      mockGetDocs.mockResolvedValueOnce(
+        snapWithDocs([
+          {
+            id: 'p-apr',
+            data: () => ({
+              fiscalYearId: 'FY-2025-26',
+              periodNumber: 1,
+              status: 'CLOSED',
+              periodType: 'MONTH',
+            }),
+          },
+        ])
       );
-    });
-
-    it('throws error when period is not closed', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          name: 'Apr 2025',
-          status: 'OPEN',
-        }),
-      });
-
-      await expect(reopenPeriod(mockDb, 'period-1', 'user-123', 'Need access')).rejects.toThrow(
-        'Only closed periods can be reopened'
-      );
+      await reopenPeriod(mockDb, 'FY-2025-26', 1, 'user-1', 'tenant-1', 'need correction');
+      const [, payload] = mockUpdateDoc.mock.calls[0] as unknown[];
+      expect((payload as Record<string, unknown>).status).toBe('OPEN');
     });
   });
 
-  describe('calculateYearEndBalances', () => {
-    it('calculates revenue and expense balances correctly', async () => {
-      mockGetDocs.mockResolvedValue({
-        docs: [
-          {
-            id: 'acc-1',
-            data: () => ({
-              code: '4000',
-              name: 'Sales Revenue',
-              accountType: 'INCOME',
-              currentBalance: 500000,
-            }),
-          },
-          {
-            id: 'acc-2',
-            data: () => ({
-              code: '4100',
-              name: 'Service Revenue',
-              accountType: 'INCOME',
-              currentBalance: 200000,
-            }),
-          },
-          {
-            id: 'acc-3',
-            data: () => ({
-              code: '5000',
-              name: 'Cost of Goods Sold',
-              accountType: 'EXPENSE',
-              currentBalance: 300000,
-            }),
-          },
-          {
-            id: 'acc-4',
-            data: () => ({
-              code: '6000',
-              name: 'Salaries',
-              accountType: 'EXPENSE',
-              currentBalance: 150000,
-            }),
-          },
-          {
-            id: 'acc-5',
-            data: () => ({
-              code: '1000',
-              name: 'Cash',
-              accountType: 'ASSET',
-              currentBalance: 100000,
-            }),
-          },
-        ],
-      });
-
-      const result = await calculateYearEndBalances(mockDb, 'fy-2025-26');
-
-      expect(result.revenueAccounts).toHaveLength(2);
-      expect(result.expenseAccounts).toHaveLength(2);
-      expect(result.totalRevenue).toBe(700000);
-      expect(result.totalExpenses).toBe(450000);
-      expect(result.netIncome).toBe(250000);
+  describe('isPeriodOpen', () => {
+    it('returns true when no period doc exists (default OPEN)', async () => {
+      mockGetDocs.mockResolvedValueOnce(snapWithDocs([]));
+      expect(await isPeriodOpen(mockDb, new Date(2025, 5, 15))).toBe(true);
     });
 
-    it('excludes accounts with zero balance', async () => {
-      mockGetDocs.mockResolvedValue({
-        docs: [
-          {
-            id: 'acc-1',
-            data: () => ({
-              code: '4000',
-              name: 'Sales Revenue',
-              accountType: 'INCOME',
-              currentBalance: 0,
-            }),
-          },
-          {
-            id: 'acc-2',
-            data: () => ({
-              code: '5000',
-              name: 'COGS',
-              accountType: 'EXPENSE',
-              currentBalance: 100000,
-            }),
-          },
-        ],
-      });
+    it('returns false when the period is CLOSED and no adjustment period covers the date', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(
+          snapWithDocs([
+            {
+              id: 'p-jun',
+              data: () => ({
+                fiscalYearId: 'FY-2025-26',
+                periodNumber: 3,
+                status: 'CLOSED',
+                periodType: 'MONTH',
+              }),
+            },
+          ])
+        )
+        .mockResolvedValueOnce(snapWithDocs([])); // no adjustment periods
 
-      const result = await calculateYearEndBalances(mockDb, 'fy-2025-26');
-
-      expect(result.revenueAccounts).toHaveLength(0);
-      expect(result.expenseAccounts).toHaveLength(1);
-      expect(result.totalRevenue).toBe(0);
-      expect(result.totalExpenses).toBe(100000);
-      expect(result.netIncome).toBe(-100000);
+      expect(await isPeriodOpen(mockDb, new Date(2025, 5, 15))).toBe(false);
     });
-  });
 
-  describe('getPeriodLockAudit', () => {
-    it('returns audit entries for period', async () => {
-      mockGetDocs.mockResolvedValue({
-        docs: [
-          {
-            id: 'audit-1',
-            data: () => ({
-              periodId: 'period-1',
-              action: 'CLOSE',
-              previousStatus: 'OPEN',
-              newStatus: 'CLOSED',
-            }),
-          },
-          {
-            id: 'audit-2',
-            data: () => ({
-              periodId: 'period-1',
-              action: 'UNLOCK',
-              previousStatus: 'CLOSED',
-              newStatus: 'OPEN',
-            }),
-          },
-        ],
-      });
+    it('validateTransactionDate throws if period is closed', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce(
+          snapWithDocs([
+            {
+              id: 'p-jun',
+              data: () => ({
+                fiscalYearId: 'FY-2025-26',
+                periodNumber: 3,
+                status: 'CLOSED',
+                periodType: 'MONTH',
+              }),
+            },
+          ])
+        )
+        .mockResolvedValueOnce(snapWithDocs([]));
 
-      const result = await getPeriodLockAudit(mockDb, 'period-1');
-
-      expect(result).toHaveLength(2);
-      expect(result[0]?.action).toBe('CLOSE');
-      expect(result[1]?.action).toBe('UNLOCK');
+      await expect(validateTransactionDate(mockDb, new Date(2025, 5, 15))).rejects.toThrow(
+        /accounting period.+is closed/
+      );
     });
   });
 });

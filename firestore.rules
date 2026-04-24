@@ -432,6 +432,27 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Accounting Periods & Period Lock Audit
+    // ============================================
+    // Fiscal years are derived from transaction dates (Apr–Mar), not stored.
+    // accountingPeriods docs are lazily created when a user closes or locks a month.
+
+    match /accountingPeriods/{periodId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /periodLockAudit/{auditId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      allow update, delete: if false; // immutable audit log
+    }
+
+    // ============================================
     // Recurring Transactions (Accounting Module)
     // ============================================
 

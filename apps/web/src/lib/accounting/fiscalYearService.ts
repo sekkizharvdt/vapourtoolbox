@@ -1,8 +1,12 @@
 /**
  * Fiscal Year Service
  *
- * Manages fiscal years, accounting periods, and year-end closing processes.
- * Ensures transactions are posted in open periods and prevents backdated entries.
+ * Fiscal years are DERIVED from dates (April–March, fixed by statute in India)
+ * and are not stored as Firestore documents. See `fiscalYearHelpers.ts`.
+ *
+ * Accounting periods (monthly) ARE stored — but lazily. A period document is
+ * only created when a user closes or locks that month. Any month without a
+ * document is treated as OPEN.
  */
 
 import {
@@ -10,425 +14,222 @@ import {
   query,
   where,
   getDocs,
-  getDoc,
   doc,
   addDoc,
   updateDoc,
   serverTimestamp,
-  type Firestore,
   Timestamp,
+  type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import { docToTyped } from '@/lib/firebase/typeHelpers';
-import type {
-  FiscalYear,
-  AccountingPeriod,
-  ClosedAccountBalance,
-  PeriodLockAudit,
-  Account,
-} from '@vapour/types';
+import type { AccountingPeriod, FiscalYear } from '@vapour/types';
+import {
+  computeFiscalYearForDate,
+  derivePeriodsForFiscalYear,
+  getAvailableFiscalYears,
+  getCurrentFiscalYearDerived,
+} from './fiscalYearHelpers';
 
 const logger = createLogger({ context: 'fiscalYearService' });
 
-/**
- * Month names for period naming
- */
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+// ---------------------------------------------------------------------------
+// Fiscal year listing (derived — no Firestore reads for FY documents)
+// ---------------------------------------------------------------------------
+
+export { computeFiscalYearForDate, getAvailableFiscalYears, getCurrentFiscalYearDerived };
+
+/** Backwards-compatible name used by existing callers. */
+export const getAllFiscalYears = getAvailableFiscalYears;
+
+/** Returns the FY that contains today. */
+export function getCurrentFiscalYear(): FiscalYear {
+  return getCurrentFiscalYearDerived();
+}
 
 /**
- * Create a new fiscal year with 12 monthly accounting periods.
- *
- * If `isCurrent` is true, any existing current fiscal year is unset first.
- * Periods are auto-generated as monthly intervals spanning the FY range.
+ * Stub for dormant year-end closing code.
+ * Returns a derived FY from its id string — never reads Firestore.
  */
-export async function createFiscalYear(
-  db: Firestore,
-  input: {
-    name: string;
-    startDate: Date;
-    endDate: Date;
-    isCurrent: boolean;
-    userId: string;
-  }
-): Promise<string> {
-  const { name, startDate, endDate, isCurrent, userId } = input;
-
-  if (endDate <= startDate) {
-    throw new Error('End date must be after start date');
-  }
-
-  // If setting as current, unset any existing current FY
-  if (isCurrent) {
-    const existing = await getCurrentFiscalYear(db);
-    if (existing) {
-      await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, existing.id), {
-        isCurrent: false,
-        updatedAt: serverTimestamp(),
-        updatedBy: userId,
-      });
-    }
-  }
-
-  // Create the fiscal year document
-  const fyData = {
-    name,
-    startDate: Timestamp.fromDate(startDate),
-    endDate: Timestamp.fromDate(endDate),
-    status: 'OPEN' as const,
-    isCurrent,
-    periods: [] as string[],
+export function getFiscalYear(_db: Firestore, fiscalYearId: string): FiscalYear | null {
+  const m = fiscalYearId.match(/^FY-(\d{4})-\d{2}$/);
+  if (!m) return null;
+  const start = new Date(Number(m[1]), 3, 1);
+  const fy = computeFiscalYearForDate(start);
+  return {
+    id: fy.id,
+    name: fy.name,
+    startDate: fy.startDate,
+    endDate: fy.endDate,
+    status: 'OPEN',
+    isCurrent: false,
+    periods: [],
     isYearEndClosed: false,
-    createdAt: serverTimestamp(),
-    createdBy: userId,
-    updatedAt: serverTimestamp(),
-    updatedBy: userId,
+    createdAt: fy.startDate,
+    createdBy: 'system',
+    updatedAt: fy.startDate,
   };
-
-  const fyRef = await addDoc(collection(db, COLLECTIONS.FISCAL_YEARS), fyData);
-  const periodIds: string[] = [];
-
-  // Generate 12 monthly periods
-  let periodStart = new Date(startDate);
-  for (let i = 0; i < 12; i++) {
-    const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0); // last day of month
-    const monthName = MONTH_NAMES[periodStart.getMonth()];
-    const periodName = `${monthName} ${periodStart.getFullYear()}`;
-
-    const periodRef = await addDoc(collection(db, COLLECTIONS.ACCOUNTING_PERIODS), {
-      fiscalYearId: fyRef.id,
-      name: periodName,
-      periodType: 'MONTH' as const,
-      startDate: Timestamp.fromDate(periodStart),
-      endDate: Timestamp.fromDate(periodEnd),
-      status: 'OPEN' as const,
-      periodNumber: i + 1,
-      year: periodStart.getFullYear(),
-      createdAt: serverTimestamp(),
-      createdBy: userId,
-      updatedAt: serverTimestamp(),
-    });
-
-    periodIds.push(periodRef.id);
-
-    // Move to next month
-    periodStart = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 1);
-  }
-
-  // Update FY with period IDs
-  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fyRef.id), {
-    periods: periodIds,
-  });
-
-  logger.info('Fiscal year created', {
-    id: fyRef.id,
-    name,
-    startDate,
-    endDate,
-    periodCount: periodIds.length,
-  });
-
-  return fyRef.id;
 }
 
-/**
- * Get all fiscal years
- */
-export async function getAllFiscalYears(db: Firestore): Promise<FiscalYear[]> {
-  try {
-    const fiscalYearsRef = collection(db, COLLECTIONS.FISCAL_YEARS);
-    const snapshot = await getDocs(fiscalYearsRef);
-    const years = snapshot.docs.map((d) => docToTyped<FiscalYear>(d.id, d.data()));
-    // Sort by start date descending (newest first)
-    return years.sort((a, b) => {
-      const aDate =
-        a.startDate instanceof Date
-          ? a.startDate
-          : (a.startDate as unknown as { toDate: () => Date }).toDate();
-      const bDate =
-        b.startDate instanceof Date
-          ? b.startDate
-          : (b.startDate as unknown as { toDate: () => Date }).toDate();
-      return bDate.getTime() - aDate.getTime();
-    });
-  } catch (error) {
-    logger.error('Failed to get all fiscal years', { error });
-    throw new Error('Failed to get all fiscal years');
-  }
-}
+// ---------------------------------------------------------------------------
+// Accounting periods (12 per FY, Firestore-backed on close/lock)
+// ---------------------------------------------------------------------------
 
 /**
- * Set a fiscal year as current (unsets all others)
- */
-export async function setCurrentFiscalYear(
-  db: Firestore,
-  fiscalYearId: string,
-  userId: string
-): Promise<void> {
-  // Unset current on all existing FYs
-  const allFYs = await getAllFiscalYears(db);
-  for (const fy of allFYs) {
-    if (fy.isCurrent) {
-      await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fy.id), {
-        isCurrent: false,
-        updatedAt: serverTimestamp(),
-        updatedBy: userId,
-      });
-    }
-  }
-
-  // Set the target FY as current
-  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
-    isCurrent: true,
-    updatedAt: serverTimestamp(),
-    updatedBy: userId,
-  });
-
-  logger.info('Fiscal year set as current', { fiscalYearId });
-}
-
-/**
- * Get current fiscal year
- */
-export async function getCurrentFiscalYear(db: Firestore): Promise<FiscalYear | null> {
-  try {
-    const fiscalYearsRef = collection(db, COLLECTIONS.FISCAL_YEARS);
-    const q = query(fiscalYearsRef, where('isCurrent', '==', true));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-      logger.warn('No current fiscal year found');
-      return null;
-    }
-
-    // AC-15: Detect multiple current fiscal years (data integrity issue)
-    if (snapshot.size > 1) {
-      logger.error('Data integrity issue: multiple fiscal years marked as current', {
-        count: snapshot.size,
-        ids: snapshot.docs.map((d) => d.id),
-      });
-    }
-
-    const firstDoc = snapshot.docs[0];
-    if (!firstDoc) {
-      logger.warn('No current fiscal year document');
-      return null;
-    }
-
-    return docToTyped<FiscalYear>(firstDoc.id, firstDoc.data());
-  } catch (error) {
-    logger.error('Failed to get current fiscal year', { error });
-    throw new Error('Failed to get current fiscal year');
-  }
-}
-
-/**
- * Get fiscal year by ID
- */
-export async function getFiscalYear(
-  db: Firestore,
-  fiscalYearId: string
-): Promise<FiscalYear | null> {
-  try {
-    const fiscalYearDoc = await getDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId));
-
-    if (!fiscalYearDoc.exists()) {
-      return null;
-    }
-
-    return docToTyped<FiscalYear>(fiscalYearDoc.id, fiscalYearDoc.data());
-  } catch (error) {
-    logger.error('Failed to get fiscal year', { error, fiscalYearId });
-    throw new Error('Failed to get fiscal year');
-  }
-}
-
-/**
- * Get all accounting periods for a fiscal year
+ * Returns the 12 monthly periods for a fiscal year, merging persisted
+ * close/lock state with the derived template. Adjustment periods (periodType
+ * === 'ADJUSTMENT') are appended if they exist.
  */
 export async function getAccountingPeriods(
   db: Firestore,
   fiscalYearId: string
 ): Promise<AccountingPeriod[]> {
-  try {
-    const periodsRef = collection(db, COLLECTIONS.ACCOUNTING_PERIODS);
-    const q = query(periodsRef, where('fiscalYearId', '==', fiscalYearId));
-    const snapshot = await getDocs(q);
+  const derived = derivePeriodsForFiscalYear(fiscalYearId);
 
-    const periods = snapshot.docs.map((d) => docToTyped<AccountingPeriod>(d.id, d.data()));
+  const snap = await getDocs(
+    query(collection(db, COLLECTIONS.ACCOUNTING_PERIODS), where('fiscalYearId', '==', fiscalYearId))
+  );
+  const persistedByNumber = new Map<number, AccountingPeriod>();
+  const adjustmentPeriods: AccountingPeriod[] = [];
+  snap.docs.forEach((d) => {
+    const data: AccountingPeriod = { id: d.id, ...(d.data() as Omit<AccountingPeriod, 'id'>) };
+    if (data.periodType === 'ADJUSTMENT') {
+      adjustmentPeriods.push(data);
+    } else {
+      persistedByNumber.set(data.periodNumber, data);
+    }
+  });
 
-    // Sort by period number
-    return periods.sort((a, b) => a.periodNumber - b.periodNumber);
-  } catch (error) {
-    logger.error('Failed to get accounting periods', { error, fiscalYearId });
-    throw new Error('Failed to get accounting periods');
+  const merged: AccountingPeriod[] = derived.map((p) => {
+    const existing = persistedByNumber.get(p.periodNumber);
+    if (existing) return existing;
+    return {
+      id: `${fiscalYearId}-${String(p.periodNumber).padStart(2, '0')}`,
+      fiscalYearId: p.fiscalYearId,
+      name: p.name,
+      periodType: 'MONTH',
+      startDate: p.startDate,
+      endDate: p.endDate,
+      status: 'OPEN',
+      periodNumber: p.periodNumber,
+      year: p.year,
+      createdAt: p.startDate,
+      createdBy: 'system',
+      updatedAt: p.startDate,
+    };
+  });
+
+  return [...merged, ...adjustmentPeriods.sort((a, b) => a.periodNumber - b.periodNumber)];
+}
+
+function toJsDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (value && typeof value === 'object' && 'toDate' in value) {
+    return (value as { toDate: () => Date }).toDate();
   }
+  return new Date(value as string);
 }
 
 /**
- * Check if a transaction date falls in an open period
- *
- * @param db - Firestore instance
- * @param transactionDate - Date of the transaction
- * @returns true if period is open, false otherwise
+ * Returns the existing period document for (fiscalYearId, periodNumber), or
+ * null if none has been created yet.
  */
-export async function isPeriodOpen(db: Firestore, transactionDate: Date): Promise<boolean> {
-  try {
-    // Get the fiscal year for this date
-    const fiscalYearsRef = collection(db, COLLECTIONS.FISCAL_YEARS);
-    const q = query(
-      fiscalYearsRef,
-      where('startDate', '<=', Timestamp.fromDate(transactionDate)),
-      where('endDate', '>=', Timestamp.fromDate(transactionDate))
-    );
-    const fiscalYearSnapshot = await getDocs(q);
-
-    if (fiscalYearSnapshot.empty) {
-      logger.warn('No fiscal year found for transaction date', { transactionDate });
-      return false;
-    }
-
-    const fiscalYearDoc = fiscalYearSnapshot.docs[0];
-    if (!fiscalYearDoc) {
-      logger.warn('No fiscal year document found');
-      return false;
-    }
-
-    const fiscalYear = fiscalYearDoc.data() as FiscalYear;
-
-    // Check if fiscal year is closed
-    if (fiscalYear.status === 'CLOSED' || fiscalYear.status === 'LOCKED') {
-      logger.info('Fiscal year is closed/locked', { fiscalYear: fiscalYear.name });
-      return false;
-    }
-
-    // Get the accounting period for this date
-    const periodsRef = collection(db, COLLECTIONS.ACCOUNTING_PERIODS);
-    const periodQuery = query(
-      periodsRef,
-      where('fiscalYearId', '==', fiscalYearDoc.id),
-      where('startDate', '<=', Timestamp.fromDate(transactionDate)),
-      where('endDate', '>=', Timestamp.fromDate(transactionDate))
-    );
-    const periodSnapshot = await getDocs(periodQuery);
-
-    if (periodSnapshot.empty) {
-      logger.warn('No accounting period found for transaction date', { transactionDate });
-      return false;
-    }
-
-    const periodDoc = periodSnapshot.docs[0];
-    if (!periodDoc) {
-      logger.warn('No accounting period document found');
-      return false;
-    }
-
-    const period = periodDoc.data() as AccountingPeriod;
-
-    // Check if period is open
-    if (period.status === 'OPEN') {
-      return true;
-    }
-
-    // If normal period is closed, check for an open adjustment period in this FY
-    // (allows April spillover transactions to be posted to the prior year's adjustment period)
-    const adjQuery = query(
-      periodsRef,
-      where('fiscalYearId', '==', fiscalYearDoc.id),
-      where('periodType', '==', 'ADJUSTMENT'),
-      where('startDate', '<=', Timestamp.fromDate(transactionDate)),
-      where('endDate', '>=', Timestamp.fromDate(transactionDate))
-    );
-    const adjSnapshot = await getDocs(adjQuery);
-
-    if (!adjSnapshot.empty && adjSnapshot.docs[0]) {
-      const adjPeriod = adjSnapshot.docs[0].data() as AccountingPeriod;
-      if (adjPeriod.status === 'OPEN') {
-        logger.info('Transaction falls in open adjustment period', {
-          period: adjPeriod.name,
-          transactionDate,
-        });
-        return true;
-      }
-    }
-
-    logger.info('Accounting period is not open', {
-      period: period.name,
-      status: period.status,
-    });
-
-    return false;
-  } catch (error) {
-    logger.error('Failed to check if period is open', { error, transactionDate });
-    throw new Error('Failed to check period status');
-  }
+async function findPeriodDoc(
+  db: Firestore,
+  fiscalYearId: string,
+  periodNumber: number
+): Promise<{ ref: ReturnType<typeof doc>; data: AccountingPeriod } | null> {
+  const snap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.ACCOUNTING_PERIODS),
+      where('fiscalYearId', '==', fiscalYearId),
+      where('periodNumber', '==', periodNumber)
+    )
+  );
+  const d = snap.docs[0];
+  if (!d) return null;
+  const data: AccountingPeriod = { id: d.id, ...(d.data() as Omit<AccountingPeriod, 'id'>) };
+  return { ref: d.ref, data };
 }
 
 /**
- * Validate transaction date against period rules
- *
- * @throws Error if period is closed or invalid
+ * Create a period document from the derived template. Called when the user
+ * first closes or locks a month.
  */
-export async function validateTransactionDate(db: Firestore, transactionDate: Date): Promise<void> {
-  const isOpen = await isPeriodOpen(db, transactionDate);
+async function createPeriodDoc(
+  db: Firestore,
+  fiscalYearId: string,
+  periodNumber: number,
+  userId: string,
+  tenantId: string,
+  initialStatus: 'CLOSED' | 'LOCKED',
+  payload: Partial<AccountingPeriod>
+): Promise<{ id: string; data: AccountingPeriod }> {
+  const derived = derivePeriodsForFiscalYear(fiscalYearId).find(
+    (p) => p.periodNumber === periodNumber
+  );
+  if (!derived) throw new Error(`Invalid period: ${fiscalYearId} #${periodNumber}`);
 
-  if (!isOpen) {
-    throw new Error(
-      `Cannot post transaction: The accounting period for ${transactionDate.toLocaleDateString()} is closed. Please contact your accountant to reopen the period.`
-    );
-  }
+  const baseData = {
+    tenantId,
+    fiscalYearId,
+    name: derived.name,
+    periodType: 'MONTH' as const,
+    startDate: Timestamp.fromDate(derived.startDate),
+    endDate: Timestamp.fromDate(derived.endDate),
+    status: initialStatus,
+    periodNumber: derived.periodNumber,
+    year: derived.year,
+    createdAt: serverTimestamp(),
+    createdBy: userId,
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+    ...payload,
+  };
+
+  const ref = await addDoc(collection(db, COLLECTIONS.ACCOUNTING_PERIODS), baseData);
+  return {
+    id: ref.id,
+    data: { ...baseData, id: ref.id } as unknown as AccountingPeriod,
+  };
 }
 
+// ---------------------------------------------------------------------------
+// Close / lock / reopen
+// ---------------------------------------------------------------------------
+
 /**
- * Close an accounting period
+ * Close an accounting period. Creates the Firestore doc if this is the first
+ * action on the period.
  */
 export async function closePeriod(
   db: Firestore,
-  periodId: string,
+  fiscalYearId: string,
+  periodNumber: number,
   userId: string,
+  tenantId: string,
   notes?: string
 ): Promise<void> {
-  try {
-    const periodRef = doc(db, COLLECTIONS.ACCOUNTING_PERIODS, periodId);
-    const periodDoc = await getDoc(periodRef);
+  const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
-    if (!periodDoc.exists()) {
-      throw new Error('Accounting period not found');
-    }
-
-    const period = periodDoc.data() as AccountingPeriod;
-
-    if (period.status !== 'OPEN') {
-      throw new Error(`Period cannot be closed: current status is ${period.status}`);
-    }
-
-    // Update period status
-    await updateDoc(periodRef, {
-      status: 'CLOSED',
-      closedDate: serverTimestamp(),
-      closedBy: userId,
-      closingNotes: notes || '',
-      updatedAt: serverTimestamp(),
-      updatedBy: userId,
-    });
-
-    // Create audit log
+  if (!existing) {
+    const { id } = await createPeriodDoc(
+      db,
+      fiscalYearId,
+      periodNumber,
+      userId,
+      tenantId,
+      'CLOSED',
+      {
+        closedDate: Timestamp.now() as unknown as Date,
+        closedBy: userId,
+        closingNotes: notes || '',
+      }
+    );
     await addDoc(collection(db, COLLECTIONS.PERIOD_LOCK_AUDIT), {
-      periodId,
-      fiscalYearId: period.fiscalYearId,
+      tenantId,
+      periodId: id,
+      fiscalYearId,
       action: 'CLOSE',
       actionDate: serverTimestamp(),
       actionBy: userId,
@@ -436,416 +237,206 @@ export async function closePeriod(
       previousStatus: 'OPEN',
       newStatus: 'CLOSED',
     });
-
-    logger.info('Accounting period closed', { periodId, periodName: period.name });
-  } catch (error) {
-    logger.error('Failed to close period', { error, periodId });
-    throw error;
+    logger.info('Accounting period closed (new doc)', { fiscalYearId, periodNumber });
+    return;
   }
+
+  if (existing.data.status !== 'OPEN') {
+    throw new Error(`Period cannot be closed: current status is ${existing.data.status}`);
+  }
+
+  await updateDoc(existing.ref, {
+    status: 'CLOSED',
+    closedDate: serverTimestamp(),
+    closedBy: userId,
+    closingNotes: notes || '',
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+  });
+
+  await addDoc(collection(db, COLLECTIONS.PERIOD_LOCK_AUDIT), {
+    tenantId,
+    periodId: existing.data.id,
+    fiscalYearId,
+    action: 'CLOSE',
+    actionDate: serverTimestamp(),
+    actionBy: userId,
+    reason: notes || 'Period closed',
+    previousStatus: 'OPEN',
+    newStatus: 'CLOSED',
+  });
+
+  logger.info('Accounting period closed', { fiscalYearId, periodNumber });
 }
 
-/**
- * Lock an accounting period (prevents reopening)
- */
+/** Lock an accounting period. Must be CLOSED first. */
 export async function lockPeriod(
   db: Firestore,
-  periodId: string,
+  fiscalYearId: string,
+  periodNumber: number,
   userId: string,
+  tenantId: string,
   reason: string
 ): Promise<void> {
-  try {
-    const periodRef = doc(db, COLLECTIONS.ACCOUNTING_PERIODS, periodId);
-    const periodDoc = await getDoc(periodRef);
+  const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
-    if (!periodDoc.exists()) {
-      throw new Error('Accounting period not found');
-    }
-
-    const period = periodDoc.data() as AccountingPeriod;
-
-    if (period.status !== 'CLOSED') {
-      throw new Error('Only closed periods can be locked. Please close the period first.');
-    }
-
-    // Update period status
-    await updateDoc(periodRef, {
-      status: 'LOCKED',
-      lockedDate: serverTimestamp(),
-      lockedBy: userId,
-      lockReason: reason,
-      updatedAt: serverTimestamp(),
-      updatedBy: userId,
-    });
-
-    // Create audit log
-    await addDoc(collection(db, COLLECTIONS.PERIOD_LOCK_AUDIT), {
-      periodId,
-      fiscalYearId: period.fiscalYearId,
-      action: 'LOCK',
-      actionDate: serverTimestamp(),
-      actionBy: userId,
-      reason,
-      previousStatus: 'CLOSED',
-      newStatus: 'LOCKED',
-    });
-
-    logger.info('Accounting period locked', { periodId, periodName: period.name });
-  } catch (error) {
-    logger.error('Failed to lock period', { error, periodId });
-    throw error;
+  if (!existing) {
+    throw new Error('Only closed periods can be locked. Please close the period first.');
   }
+
+  if (existing.data.status !== 'CLOSED') {
+    throw new Error(
+      `Only closed periods can be locked. Current status: ${existing.data.status}. Please close the period first.`
+    );
+  }
+
+  await updateDoc(existing.ref, {
+    status: 'LOCKED',
+    lockedDate: serverTimestamp(),
+    lockedBy: userId,
+    lockReason: reason,
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+  });
+
+  await addDoc(collection(db, COLLECTIONS.PERIOD_LOCK_AUDIT), {
+    tenantId,
+    periodId: existing.data.id,
+    fiscalYearId,
+    action: 'LOCK',
+    actionDate: serverTimestamp(),
+    actionBy: userId,
+    reason,
+    previousStatus: 'CLOSED',
+    newStatus: 'LOCKED',
+  });
+
+  logger.info('Accounting period locked', { fiscalYearId, periodNumber });
 }
 
-/**
- * Reopen a closed period
- * (Only for CLOSED periods, not LOCKED)
- */
+/** Reopen a closed period. LOCKED periods cannot be reopened. */
 export async function reopenPeriod(
   db: Firestore,
-  periodId: string,
+  fiscalYearId: string,
+  periodNumber: number,
   userId: string,
+  tenantId: string,
   reason: string
 ): Promise<void> {
-  try {
-    const periodRef = doc(db, COLLECTIONS.ACCOUNTING_PERIODS, periodId);
-    const periodDoc = await getDoc(periodRef);
+  const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
-    if (!periodDoc.exists()) {
-      throw new Error('Accounting period not found');
-    }
-
-    const period = periodDoc.data() as AccountingPeriod;
-
-    if (period.status === 'LOCKED') {
-      throw new Error('Cannot reopen a locked period. Please contact system administrator.');
-    }
-
-    if (period.status !== 'CLOSED') {
-      throw new Error('Only closed periods can be reopened');
-    }
-
-    // Update period status
-    await updateDoc(periodRef, {
-      status: 'OPEN',
-      updatedAt: serverTimestamp(),
-      updatedBy: userId,
-    });
-
-    // Create audit log
-    await addDoc(collection(db, COLLECTIONS.PERIOD_LOCK_AUDIT), {
-      periodId,
-      fiscalYearId: period.fiscalYearId,
-      action: 'UNLOCK',
-      actionDate: serverTimestamp(),
-      actionBy: userId,
-      reason,
-      previousStatus: 'CLOSED',
-      newStatus: 'OPEN',
-    });
-
-    logger.info('Accounting period reopened', { periodId, periodName: period.name });
-  } catch (error) {
-    logger.error('Failed to reopen period', { error, periodId });
-    throw error;
-  }
-}
-
-/**
- * Calculate account balances for year-end closing
- *
- * @param db - Firestore instance
- * @param fiscalYearId - Fiscal year to close
- * @returns Revenue and expense account balances
- */
-export async function calculateYearEndBalances(
-  db: Firestore,
-  fiscalYearId: string
-): Promise<{
-  revenueAccounts: ClosedAccountBalance[];
-  expenseAccounts: ClosedAccountBalance[];
-  totalRevenue: number;
-  totalExpenses: number;
-  netIncome: number;
-}> {
-  try {
-    // Get all INCOME and EXPENSE accounts
-    const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-    const accountsSnapshot = await getDocs(accountsRef);
-
-    const revenueAccounts: ClosedAccountBalance[] = [];
-    const expenseAccounts: ClosedAccountBalance[] = [];
-    let totalRevenue = 0;
-    let totalExpenses = 0;
-
-    accountsSnapshot.docs.forEach((docSnapshot) => {
-      const account = docSnapshot.data() as Account;
-
-      // Only close accounts with balances
-      if (account.currentBalance === 0) return;
-
-      if (account.accountType === 'INCOME') {
-        const balance: ClosedAccountBalance = {
-          accountId: docSnapshot.id,
-          accountCode: account.code,
-          accountName: account.name,
-          accountType: 'INCOME',
-          closingBalance: account.currentBalance,
-        };
-        revenueAccounts.push(balance);
-        totalRevenue += account.currentBalance;
-      } else if (account.accountType === 'EXPENSE') {
-        const balance: ClosedAccountBalance = {
-          accountId: docSnapshot.id,
-          accountCode: account.code,
-          accountName: account.name,
-          accountType: 'EXPENSE',
-          closingBalance: account.currentBalance,
-        };
-        expenseAccounts.push(balance);
-        totalExpenses += account.currentBalance;
-      }
-    });
-
-    const netIncome = totalRevenue - totalExpenses;
-
-    logger.info('Calculated year-end balances', {
-      revenueAccountCount: revenueAccounts.length,
-      expenseAccountCount: expenseAccounts.length,
-      totalRevenue,
-      totalExpenses,
-      netIncome,
-    });
-
-    return {
-      revenueAccounts,
-      expenseAccounts,
-      totalRevenue,
-      totalExpenses,
-      netIncome,
-    };
-  } catch (error) {
-    logger.error('Failed to calculate year-end balances', { error, fiscalYearId });
-    throw new Error('Failed to calculate year-end balances');
-  }
-}
-
-/**
- * Create an adjustment period for April spillover
- *
- * Indian companies close books on March 31, but vendor bills, receipts, and
- * adjustments continue into April that belong to the prior fiscal year.
- * This creates a 13th "ADJUSTMENT" period (April 1-30) tied to the prior FY.
- *
- * Transactions posted to this period are included in the prior year's closing.
- */
-export async function createAdjustmentPeriod(
-  db: Firestore,
-  fiscalYearId: string,
-  userId: string
-): Promise<string> {
-  const fiscalYear = await getFiscalYear(db, fiscalYearId);
-  if (!fiscalYear) throw new Error('Fiscal year not found');
-
-  if (fiscalYear.adjustmentPeriodId) {
-    throw new Error('Adjustment period already exists for this fiscal year');
+  if (!existing) {
+    throw new Error('This period has no close/lock history. It is already open.');
   }
 
-  if (fiscalYear.closingStage === 'FINAL') {
-    throw new Error('Cannot create adjustment period after final close');
+  if (existing.data.status === 'LOCKED') {
+    throw new Error('Cannot reopen a locked period. Please contact a super admin.');
   }
 
-  // Adjustment period: April 1 to April 30 (the month after FY end)
-  const fyEndDate =
-    fiscalYear.endDate instanceof Date
-      ? fiscalYear.endDate
-      : (fiscalYear.endDate as unknown as { toDate: () => Date }).toDate();
-  const adjStart = new Date(fyEndDate.getFullYear(), fyEndDate.getMonth() + 1, 1);
-  const adjEnd = new Date(fyEndDate.getFullYear(), fyEndDate.getMonth() + 2, 0); // last day of April
+  if (existing.data.status !== 'CLOSED') {
+    throw new Error(`Only closed periods can be reopened. Current status: ${existing.data.status}`);
+  }
 
-  const periodRef = await addDoc(collection(db, COLLECTIONS.ACCOUNTING_PERIODS), {
-    fiscalYearId,
-    name: `Adjustment Period (${adjStart.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`,
-    periodType: 'ADJUSTMENT',
-    startDate: Timestamp.fromDate(adjStart),
-    endDate: Timestamp.fromDate(adjEnd),
+  await updateDoc(existing.ref, {
     status: 'OPEN',
-    periodNumber: 13,
-    year: adjStart.getFullYear(),
-    createdAt: serverTimestamp(),
-    createdBy: userId,
-    updatedAt: serverTimestamp(),
-  });
-
-  // Update fiscal year to reference the adjustment period
-  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
-    adjustmentPeriodId: periodRef.id,
     updatedAt: serverTimestamp(),
     updatedBy: userId,
   });
 
-  logger.info('Adjustment period created', {
+  await addDoc(collection(db, COLLECTIONS.PERIOD_LOCK_AUDIT), {
+    tenantId,
+    periodId: existing.data.id,
     fiscalYearId,
-    periodId: periodRef.id,
-    startDate: adjStart,
-    endDate: adjEnd,
+    action: 'UNLOCK',
+    actionDate: serverTimestamp(),
+    actionBy: userId,
+    reason,
+    previousStatus: 'CLOSED',
+    newStatus: 'OPEN',
   });
 
-  return periodRef.id;
+  logger.info('Accounting period reopened', { fiscalYearId, periodNumber });
 }
 
+// ---------------------------------------------------------------------------
+// Transaction date validation
+// ---------------------------------------------------------------------------
+
 /**
- * Provisional close — closes all 12 monthly periods but keeps adjustment period open.
- * Generates a provisional closing JE that can be regenerated after spillover entries.
+ * Returns true if the period containing `transactionDate` is OPEN (either the
+ * monthly period itself, or an adjustment period covering the same date).
+ *
+ * Missing period docs are treated as OPEN — we only persist state when the
+ * user explicitly closes or locks a month.
  */
-export async function provisionalClose(
-  db: Firestore,
-  fiscalYearId: string,
-  userId: string,
-  retainedEarningsAccountId: string,
-  entityId: string
-): Promise<{ journalId: string; adjustmentPeriodId: string }> {
-  const fiscalYear = await getFiscalYear(db, fiscalYearId);
-  if (!fiscalYear) throw new Error('Fiscal year not found');
+export async function isPeriodOpen(db: Firestore, transactionDate: Date): Promise<boolean> {
+  const fy = computeFiscalYearForDate(transactionDate);
+  // Months are derived: period 1 = April (index 3), 2 = May (4), …, 10 = Jan, 11 = Feb, 12 = Mar.
+  const monthIndex = transactionDate.getMonth();
+  const periodNumber = ((monthIndex - 3 + 12) % 12) + 1;
 
-  if (fiscalYear.closingStage === 'FINAL') {
-    throw new Error('Fiscal year already has a final close');
+  const existing = await findPeriodDoc(db, fy.id, periodNumber);
+  if (!existing) return true; // no doc ⇒ OPEN by default
+
+  if (existing.data.status === 'OPEN') return true;
+
+  // If the monthly period is closed/locked, check for an open adjustment period.
+  const adjSnap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.ACCOUNTING_PERIODS),
+      where('fiscalYearId', '==', fy.id),
+      where('periodType', '==', 'ADJUSTMENT'),
+      where('status', '==', 'OPEN')
+    )
+  );
+  for (const d of adjSnap.docs) {
+    const data = d.data() as AccountingPeriod;
+    const start = toJsDate(data.startDate);
+    const end = toJsDate(data.endDate);
+    if (transactionDate >= start && transactionDate <= end) return true;
   }
 
-  // Close all OPEN monthly periods
-  const periods = await getAccountingPeriods(db, fiscalYearId);
-  for (const period of periods) {
-    if (period.periodType !== 'ADJUSTMENT' && period.status === 'OPEN') {
-      await closePeriod(db, period.id, userId, 'Provisional year-end close');
-    }
-  }
-
-  // Create adjustment period if it doesn't exist
-  let adjustmentPeriodId = fiscalYear.adjustmentPeriodId;
-  if (!adjustmentPeriodId) {
-    adjustmentPeriodId = await createAdjustmentPeriod(db, fiscalYearId, userId);
-  }
-
-  // Calculate and create provisional closing JE
-  const balances = await calculateYearEndBalances(db, fiscalYearId);
-
-  // Import yearEndClosingService inline to avoid circular deps
-  const { createClosingJournalEntry } = await import('./yearEndClosingService');
-  const journalId = await createClosingJournalEntry(db, {
-    fiscalYearId,
-    fiscalYearName: fiscalYear.name,
-    retainedEarningsAccountId,
-    balances,
-    userId,
-    isProvisional: true,
-    entityId,
-  });
-
-  // Update fiscal year
-  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
-    closingStage: 'PROVISIONAL',
-    provisionalClosingDate: serverTimestamp(),
-    provisionalClosingJournalId: journalId,
-    updatedAt: serverTimestamp(),
-    updatedBy: userId,
-  });
-
-  logger.info('Provisional close completed', { fiscalYearId, journalId, adjustmentPeriodId });
-
-  return { journalId, adjustmentPeriodId };
+  return false;
 }
 
-/**
- * Final close — locks adjustment period, regenerates closing JE with adjustments, locks FY.
- */
-export async function finalClose(
-  db: Firestore,
-  fiscalYearId: string,
-  userId: string,
-  retainedEarningsAccountId: string,
-  entityId: string
-): Promise<string> {
-  const fiscalYear = await getFiscalYear(db, fiscalYearId);
-  if (!fiscalYear) throw new Error('Fiscal year not found');
-
-  if (fiscalYear.closingStage !== 'PROVISIONAL') {
-    throw new Error('Fiscal year must be provisionally closed before final close');
-  }
-
-  // Close and lock the adjustment period
-  if (fiscalYear.adjustmentPeriodId) {
-    const adjPeriod = await getDoc(
-      doc(db, COLLECTIONS.ACCOUNTING_PERIODS, fiscalYear.adjustmentPeriodId)
+/** Throws if the period containing `transactionDate` is closed or locked. */
+export async function validateTransactionDate(db: Firestore, transactionDate: Date): Promise<void> {
+  const isOpen = await isPeriodOpen(db, transactionDate);
+  if (!isOpen) {
+    throw new Error(
+      `Cannot post transaction: the accounting period for ${transactionDate.toLocaleDateString()} is closed. Ask an accountant to reopen the period.`
     );
-    if (adjPeriod.exists()) {
-      const adjData = adjPeriod.data();
-      if (adjData?.status === 'OPEN') {
-        await closePeriod(db, fiscalYear.adjustmentPeriodId, userId, 'Final year-end close');
-      }
-      if (adjData?.status !== 'LOCKED') {
-        await lockPeriod(db, fiscalYear.adjustmentPeriodId, userId, 'Final year-end close');
-      }
-    }
   }
-
-  // Lock all monthly periods
-  const periods = await getAccountingPeriods(db, fiscalYearId);
-  for (const period of periods) {
-    if (period.status === 'CLOSED') {
-      await lockPeriod(db, period.id, userId, 'Final year-end close');
-    }
-  }
-
-  // Void provisional closing JE if exists
-  if (fiscalYear.provisionalClosingJournalId) {
-    const { voidClosingJournalEntry } = await import('./yearEndClosingService');
-    await voidClosingJournalEntry(db, fiscalYear.provisionalClosingJournalId, userId);
-  }
-
-  // Recalculate and create final closing JE (now includes adjustment period transactions)
-  const balances = await calculateYearEndBalances(db, fiscalYearId);
-  const { createClosingJournalEntry } = await import('./yearEndClosingService');
-  const journalId = await createClosingJournalEntry(db, {
-    fiscalYearId,
-    fiscalYearName: fiscalYear.name,
-    retainedEarningsAccountId,
-    balances,
-    userId,
-    isProvisional: false,
-    entityId,
-  });
-
-  // Update fiscal year to CLOSED + FINAL
-  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
-    status: 'CLOSED',
-    isYearEndClosed: true,
-    yearEndClosingDate: serverTimestamp(),
-    yearEndClosingJournalId: journalId,
-    closingStage: 'FINAL',
-    closedBy: userId,
-    updatedAt: serverTimestamp(),
-    updatedBy: userId,
-  });
-
-  logger.info('Final close completed', { fiscalYearId, journalId });
-
-  return journalId;
 }
 
-/**
- * Get period lock audit history
- */
-export async function getPeriodLockAudit(
-  db: Firestore,
-  periodId: string
-): Promise<PeriodLockAudit[]> {
-  try {
-    const auditRef = collection(db, COLLECTIONS.PERIOD_LOCK_AUDIT);
-    const q = query(auditRef, where('periodId', '==', periodId));
-    const snapshot = await getDocs(q);
+// ---------------------------------------------------------------------------
+// Deprecated stubs — kept only so dormant year-end code compiles.
+// Invoke them and they will throw; they have no UI surface yet.
+// ---------------------------------------------------------------------------
 
-    return snapshot.docs.map((d) => docToTyped<PeriodLockAudit>(d.id, d.data()));
-  } catch (error) {
-    logger.error('Failed to get period lock audit', { error, periodId });
-    throw new Error('Failed to get period lock audit');
-  }
+/** @deprecated Year-end UI is not wired; this throws. */
+export async function calculateYearEndBalances(
+  _db: Firestore,
+  _fiscalYearId: string
+): Promise<never> {
+  throw new Error('Year-end closing is not available yet.');
+}
+
+/** @deprecated See above. */
+export async function createAdjustmentPeriod(
+  _db: Firestore,
+  _fiscalYearId: string,
+  _userId: string
+): Promise<string> {
+  throw new Error('Year-end closing is not available yet.');
+}
+
+/** @deprecated See above. */
+export async function provisionalClose(): Promise<never> {
+  throw new Error('Year-end closing is not available yet.');
+}
+
+/** @deprecated See above. */
+export async function finalClose(): Promise<never> {
+  throw new Error('Year-end closing is not available yet.');
 }
