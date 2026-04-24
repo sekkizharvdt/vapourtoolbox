@@ -639,6 +639,28 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ============================================
+    // Vendor Quotes — unified quote collection
+    // ============================================
+    // Replaces `offers` + `vendorOffers` after migration. Quotes may be tied
+    // to an RFQ (sourceType=RFQ_RESPONSE) or standalone (STANDING_QUOTE,
+    // OFFLINE_RFQ, UNSOLICITED). Material price acceptance writes to
+    // materialPrices via the service.
+
+    match /vendorQuotes/{quoteId} {
+      allow read: if isInternalUser();
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
+      allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /vendorQuoteItems/{itemId} {
+      allow read: if isInternalUser();
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+    }
+
     match /goodsReceipts/{grId} {
       // Goods Receipts - linked to Purchase Orders
       // Read: Internal users OR external CLIENT_PM for their projects

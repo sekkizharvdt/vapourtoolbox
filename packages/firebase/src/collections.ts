@@ -88,6 +88,10 @@ export const COLLECTIONS = {
   OFFERS: 'offers',
   OFFER_ITEMS: 'offerItems',
   OFFER_COMPARISONS: 'offerComparisons',
+  // Unified quote collection — replaces OFFERS + VENDOR_OFFERS after migration.
+  // Stage 1 additive; reads still go to OFFERS and VENDOR_OFFERS until Stages 2–3.
+  VENDOR_QUOTES: 'vendorQuotes',
+  VENDOR_QUOTE_ITEMS: 'vendorQuoteItems',
   PURCHASE_ORDERS: 'purchaseOrders',
   PURCHASE_ORDER_ITEMS: 'purchaseOrderItems',
   PURCHASE_ORDER_AMENDMENTS: 'purchaseOrderAmendments',
