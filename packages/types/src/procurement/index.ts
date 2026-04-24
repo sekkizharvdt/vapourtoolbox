@@ -32,16 +32,9 @@ export {
 // RFQ types
 export { type RFQStatus, type RFQ, type RFQItem } from './rfq';
 
-// Offer types
+// Offer-deviation types (Offer / OfferItem / OfferStatus / comparison types
+// were unified under VendorQuote — see packages/types/src/vendorQuote.ts).
 export {
-  type OfferStatus,
-  type Offer,
-  type OfferItem,
-  type OfferComparison,
-  type OfferComparisonStat,
-  type ItemOfferComparison,
-  type ItemComparison,
-  type OfferComparisonData,
   type OfferDeviation,
   type OfferDeviationCategory,
   type OfferDeviationSeverity,

@@ -25,7 +25,7 @@ import {
 } from '@/lib/utils/stateMachine';
 import type {
   PurchaseOrderStatus,
-  OfferStatus,
+  QuoteStatus as OfferStatus,
   GoodsReceiptStatus,
   PackingListStatus,
   PurchaseRequestStatus,
@@ -142,15 +142,17 @@ export const goodsReceiptStateMachine: StateMachine<GoodsReceiptStatus> =
  */
 const offerConfig: StateTransitionConfig<OfferStatus> = {
   transitions: {
-    UPLOADED: ['UNDER_REVIEW', 'SELECTED', 'REJECTED', 'WITHDRAWN'],
+    DRAFT: ['UPLOADED', 'REJECTED', 'WITHDRAWN'],
+    UPLOADED: ['UNDER_REVIEW', 'EVALUATED', 'SELECTED', 'REJECTED', 'WITHDRAWN'],
     UNDER_REVIEW: ['EVALUATED', 'SELECTED', 'REJECTED', 'WITHDRAWN'],
     EVALUATED: ['SELECTED', 'REJECTED', 'WITHDRAWN'],
     SELECTED: ['PO_CREATED'], // PO creation transitions to PO_CREATED
-    PO_CREATED: [], // Terminal - PO has been created
-    REJECTED: [], // Terminal
-    WITHDRAWN: [], // Terminal
+    PO_CREATED: ['ARCHIVED'],
+    REJECTED: ['ARCHIVED'],
+    WITHDRAWN: ['ARCHIVED'],
+    ARCHIVED: [],
   },
-  terminalStates: ['PO_CREATED', 'REJECTED', 'WITHDRAWN'],
+  terminalStates: ['ARCHIVED'],
 };
 export const offerStateMachine: StateMachine<OfferStatus> = createStateMachine(offerConfig);
 

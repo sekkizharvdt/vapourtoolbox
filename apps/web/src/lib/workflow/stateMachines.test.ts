@@ -219,10 +219,14 @@ describe('offerStateMachine', () => {
   });
 
   describe('terminal states', () => {
-    it('should identify all final states as terminal', () => {
-      expect(offerStateMachine.isTerminal('PO_CREATED')).toBe(true);
-      expect(offerStateMachine.isTerminal('REJECTED')).toBe(true);
-      expect(offerStateMachine.isTerminal('WITHDRAWN')).toBe(true);
+    it('should identify ARCHIVED as the sole terminal state', () => {
+      expect(offerStateMachine.isTerminal('ARCHIVED')).toBe(true);
+      // PO_CREATED / REJECTED / WITHDRAWN are now non-terminal because they
+      // can transition to ARCHIVED for lifecycle cleanup.
+      expect(offerStateMachine.isTerminal('PO_CREATED')).toBe(false);
+      expect(offerStateMachine.isTerminal('REJECTED')).toBe(false);
+      expect(offerStateMachine.isTerminal('WITHDRAWN')).toBe(false);
+      expect(offerStateMachine.canTransitionTo('PO_CREATED', 'ARCHIVED')).toBe(true);
     });
 
     it('should not consider SELECTED as terminal (can transition to PO_CREATED)', () => {
@@ -305,7 +309,7 @@ describe('isTerminalStatus', () => {
   it('should return true for terminal statuses', () => {
     expect(isTerminalStatus(purchaseOrderStateMachine, 'COMPLETED')).toBe(true);
     expect(isTerminalStatus(proposalStateMachine, 'ACCEPTED')).toBe(true);
-    expect(isTerminalStatus(offerStateMachine, 'PO_CREATED')).toBe(true);
+    expect(isTerminalStatus(offerStateMachine, 'ARCHIVED')).toBe(true);
   });
 
   it('should return false for non-terminal statuses', () => {

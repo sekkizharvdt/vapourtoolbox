@@ -9,9 +9,10 @@
  */
 
 // Submodule exports (preferred imports)
+// Note: vendor offers / quotations live in @/lib/vendorQuotes — the procurement
+// `offer` submodule was retired when the collection was unified.
 export * from './purchaseRequest';
 export * from './rfq';
-export * from './offer';
 export * from './amendment';
 export * from './threeWayMatch';
 

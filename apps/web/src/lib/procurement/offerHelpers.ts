@@ -4,7 +4,11 @@
  * Utility functions for offer display, formatting, validation, and comparisons
  */
 
-import type { Offer, OfferStatus, OfferItem } from '@vapour/types';
+import type {
+  VendorQuote as Offer,
+  QuoteStatus as OfferStatus,
+  VendorQuoteItem as OfferItem,
+} from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 
 // ============================================================================
@@ -48,6 +52,7 @@ export function canRejectOffer(offer: Offer): boolean {
  */
 export function getOfferStatusText(status: OfferStatus): string {
   const statusMap: Record<OfferStatus, string> = {
+    DRAFT: 'Draft',
     UPLOADED: 'Uploaded',
     UNDER_REVIEW: 'Under Review',
     EVALUATED: 'Evaluated',
@@ -55,6 +60,7 @@ export function getOfferStatusText(status: OfferStatus): string {
     PO_CREATED: 'PO Created',
     REJECTED: 'Rejected',
     WITHDRAWN: 'Withdrawn',
+    ARCHIVED: 'Archived',
   };
 
   return statusMap[status];
@@ -70,6 +76,7 @@ export function getOfferStatusColor(
     OfferStatus,
     'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success'
   > = {
+    DRAFT: 'default',
     UPLOADED: 'info',
     UNDER_REVIEW: 'warning',
     EVALUATED: 'primary',
@@ -77,6 +84,7 @@ export function getOfferStatusColor(
     PO_CREATED: 'info',
     REJECTED: 'error',
     WITHDRAWN: 'default',
+    ARCHIVED: 'default',
   };
 
   return colorMap[status];
@@ -256,7 +264,7 @@ export function filterOffersBySearch(offers: Offer[], searchQuery: string): Offe
       offer.number.toLowerCase().includes(query) ||
       offer.vendorName.toLowerCase().includes(query) ||
       offer.vendorOfferNumber?.toLowerCase().includes(query) ||
-      offer.rfqNumber.toLowerCase().includes(query)
+      !!offer.rfqNumber?.toLowerCase().includes(query)
     );
   });
 }
@@ -430,8 +438,8 @@ export function compareItemWithRequirement(
   quantityDiff: number;
   percentDiff: number;
 } {
-  const quantityMatch = offerItem.quotedQuantity === requiredQuantity;
-  const quantityDiff = offerItem.quotedQuantity - requiredQuantity;
+  const quantityMatch = offerItem.quantity === requiredQuantity;
+  const quantityDiff = offerItem.quantity - requiredQuantity;
   const percentDiff = requiredQuantity > 0 ? (quantityDiff / requiredQuantity) * 100 : 0;
 
   return {

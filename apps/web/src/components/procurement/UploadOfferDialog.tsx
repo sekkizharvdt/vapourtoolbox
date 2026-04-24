@@ -61,10 +61,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  useCreateOffer,
-  type CreateOfferInput,
-  type CreateOfferItemInput,
-} from '@/lib/procurement/offer';
+  createVendorQuote,
+  type CreateVendorQuoteInput,
+  type CreateVendorQuoteItemInput,
+} from '@/lib/vendorQuotes';
 import type { RFQ, RFQItem, OfferDeviation } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
 import {
@@ -171,8 +171,7 @@ export default function UploadOfferDialog({
   rfqItems,
   onSuccess,
 }: UploadOfferDialogProps) {
-  const { user } = useAuth();
-  const createOfferMutation = useCreateOffer();
+  const { user, claims } = useAuth();
 
   // Form state
   const [selectedVendorIndex, setSelectedVendorIndex] = useState<VendorSelection>('');
@@ -696,12 +695,15 @@ export default function UploadOfferDialog({
     try {
       const { vendorId, vendorName } = vendor;
 
-      const offerInput: CreateOfferInput = {
+      const offerInput: CreateVendorQuoteInput = {
+        sourceType: 'RFQ_RESPONSE',
+        rfqMode: 'ONLINE',
         rfqId: rfq.id,
         rfqNumber: rfq.number,
+        tenantId: claims?.tenantId || 'default-entity',
         vendorId,
         vendorName,
-        offerFileUrl: fileUrl,
+        fileUrl,
         ...(vendorOfferNumber && { vendorOfferNumber }),
         ...(vendorOfferDate && { vendorOfferDate: new Date(vendorOfferDate) }),
         ...(validityDate && { validityDate: new Date(validityDate) }),
@@ -724,10 +726,11 @@ export default function UploadOfferDialog({
         currency: 'INR',
       };
 
-      const itemInputs: CreateOfferItemInput[] = offerItems.map((item) => ({
+      const itemInputs: CreateVendorQuoteItemInput[] = offerItems.map((item) => ({
+        itemType: 'MATERIAL',
         rfqItemId: item.rfqItemId,
         description: item.description,
-        quotedQuantity: item.quotedQuantity,
+        quantity: item.quotedQuantity,
         unit: item.unit,
         unitPrice: item.unitPrice,
         gstRate: item.gstRate,
@@ -738,12 +741,14 @@ export default function UploadOfferDialog({
         ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
       }));
 
-      const offerId = await createOfferMutation.mutateAsync({
-        input: offerInput,
-        items: itemInputs,
-        userId: user.uid,
-        userName: user.displayName || user.email || 'Unknown',
-      });
+      const offerId = await createVendorQuote(
+        getFirebase().db,
+        offerInput,
+        itemInputs,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        claims?.permissions ?? 0
+      );
 
       onSuccess?.(offerId);
       handleClose();

@@ -39,20 +39,18 @@ import {
   ShoppingCart as ShoppingCartIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import { getFirebase } from '@/lib/firebase';
 import {
-  getOfferComparison,
-  evaluateOffer,
-  markOfferAsRecommended,
-  selectOffer,
-} from '@/lib/procurement/offer';
+  getVendorQuoteComparison,
+  evaluateVendorQuote,
+  markVendorQuoteAsRecommended,
+  selectVendorQuote,
+  type VendorQuoteComparisonData,
+  type VendorQuoteItemComparison,
+  type VendorQuoteComparisonStat,
+} from '@/lib/vendorQuotes';
 import { formatCurrency, calculatePriceScore } from '@/lib/procurement/offerHelpers';
-import type {
-  OfferComparisonData,
-  ItemComparison,
-  ItemOfferComparison,
-  OfferComparisonStat,
-  Offer,
-} from '@vapour/types';
+import type { VendorQuote } from '@vapour/types';
 
 export default function OfferComparisonPage() {
   const pathname = usePathname();
@@ -61,7 +59,7 @@ export default function OfferComparisonPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [comparisonData, setComparisonData] = useState<OfferComparisonData | null>(null);
+  const [comparisonData, setComparisonData] = useState<VendorQuoteComparisonData | null>(null);
   const [rfqId, setRfqId] = useState<string | null>(null);
 
   // Evaluation dialog
@@ -94,7 +92,7 @@ export default function OfferComparisonPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await getOfferComparison(rfqId);
+      const data = await getVendorQuoteComparison(getFirebase().db, rfqId);
       setComparisonData(data);
     } catch (err) {
       console.error('[OfferComparisonPage] Error loading comparison:', err);
@@ -108,7 +106,8 @@ export default function OfferComparisonPage() {
     if (!user || !selectedOfferId) return;
 
     try {
-      await evaluateOffer(
+      await evaluateVendorQuote(
+        getFirebase().db,
         selectedOfferId,
         {
           evaluationScore,
@@ -130,7 +129,12 @@ export default function OfferComparisonPage() {
     if (!user) return;
 
     try {
-      await markOfferAsRecommended(offerId, 'Best value for money', user.uid);
+      await markVendorQuoteAsRecommended(
+        getFirebase().db,
+        offerId,
+        'Best value for money',
+        user.uid
+      );
       await loadComparison();
     } catch (err) {
       console.error('[OfferComparisonPage] Error recommending offer:', err);
@@ -142,7 +146,7 @@ export default function OfferComparisonPage() {
     if (!user || !claims) return;
 
     try {
-      await selectOffer(offerId, user.uid, claims.permissions);
+      await selectVendorQuote(getFirebase().db, offerId, user.uid, claims.permissions);
       router.push(`/procurement/rfqs/${rfqId}`);
     } catch (err) {
       console.error('[OfferComparisonPage] Error selecting offer:', err);
@@ -169,7 +173,7 @@ export default function OfferComparisonPage() {
     );
   }
 
-  const { rfq, offers, itemComparisons, offerStats, lowestTotal } = comparisonData;
+  const { rfq, quotes, itemComparisons, quoteStats, lowestTotal } = comparisonData;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -188,7 +192,7 @@ export default function OfferComparisonPage() {
             Offer Comparison - {rfq?.number || 'N/A'}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {offers.length} offer(s) received from vendors
+            {quotes.length} offer(s) received from vendors
           </Typography>
         </Box>
 
@@ -206,8 +210,8 @@ export default function OfferComparisonPage() {
             flexWrap="wrap"
             sx={{ '& > *': { flex: '1 1 calc(25% - 12px)', minWidth: 200 } }}
           >
-            {offerStats.map((stat: OfferComparisonStat) => (
-              <Paper key={stat.offerId} variant="outlined" sx={{ p: 2 }}>
+            {quoteStats.map((stat: VendorQuoteComparisonStat) => (
+              <Paper key={stat.quoteId} variant="outlined" sx={{ p: 2 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box>
                     <Typography variant="body2" color="text.secondary">
@@ -256,7 +260,7 @@ export default function OfferComparisonPage() {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold', width: 200 }}>Term</TableCell>
-                  {offers.map((offer: Offer) => (
+                  {quotes.map((offer: VendorQuote) => (
                     <TableCell key={offer.id} sx={{ fontWeight: 'bold' }}>
                       {offer.vendorName}
                     </TableCell>
@@ -276,9 +280,9 @@ export default function OfferComparisonPage() {
                     <TableCell sx={{ color: 'text.secondary', fontWeight: 'medium' }}>
                       {label}
                     </TableCell>
-                    {offers.map((offer: Offer) => (
+                    {quotes.map((offer: VendorQuote) => (
                       <TableCell key={offer.id}>
-                        {(offer[field as keyof Offer] as string) || (
+                        {(offer[field as keyof VendorQuote] as string) || (
                           <Typography variant="caption" color="text.disabled">
                             —
                           </Typography>
@@ -299,7 +303,7 @@ export default function OfferComparisonPage() {
           </Typography>
           <Divider sx={{ mb: 2 }} />
 
-          {itemComparisons.map((item: ItemComparison) => (
+          {itemComparisons.map((item: VendorQuoteItemComparison) => (
             <Box key={item.rfqItemId} sx={{ mb: 4 }}>
               <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
                 {item.description}
@@ -322,11 +326,11 @@ export default function OfferComparisonPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {item.offers.map((offer: ItemOfferComparison) => {
+                    {item.offers.map((offer) => {
                       const priceScore = calculatePriceScore(offer.unitPrice, item.lowestPrice);
 
                       return (
-                        <TableRow key={offer.offerId}>
+                        <TableRow key={offer.quoteId}>
                           <TableCell>{offer.vendorName}</TableCell>
                           <TableCell align="right">
                             {offer.unitPrice > 0 ? formatCurrency(offer.unitPrice) : 'N/A'}
@@ -395,20 +399,20 @@ export default function OfferComparisonPage() {
           {(rfq?.status === 'COMPLETED' || rfq?.status === 'PO_PROCESSED') && (
             <Alert
               severity={
-                rfq?.status === 'PO_PROCESSED' || offers.some((o) => o.status === 'PO_CREATED')
+                rfq?.status === 'PO_PROCESSED' || quotes.some((o) => o.status === 'PO_CREATED')
                   ? 'success'
                   : 'info'
               }
               sx={{ mb: 2 }}
             >
-              {rfq?.status === 'PO_PROCESSED' || offers.some((o) => o.status === 'PO_CREATED')
+              {rfq?.status === 'PO_PROCESSED' || quotes.some((o) => o.status === 'PO_CREATED')
                 ? 'A Purchase Order has been created from the selected offer.'
                 : 'An offer has been selected. Create a Purchase Order to proceed.'}
             </Alert>
           )}
 
           <Stack spacing={2}>
-            {offers.map((offer: Offer) => {
+            {quotes.map((offer: VendorQuote) => {
               const isRfqCompleted = rfq?.status === 'COMPLETED' || rfq?.status === 'PO_PROCESSED';
               const isPOCreated = offer.status === 'PO_CREATED';
 

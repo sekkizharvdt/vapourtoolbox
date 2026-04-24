@@ -111,10 +111,7 @@ export async function selectVendorQuote(
   if (!quote) throw new Error('Quote not found');
   if (!quote.rfqId) throw new Error('Only RFQ-linked quotes can be selected');
 
-  const transition = offerStateMachine.validateTransition(
-    quote.status as unknown as Parameters<typeof offerStateMachine.validateTransition>[0],
-    'SELECTED'
-  );
+  const transition = offerStateMachine.validateTransition(quote.status, 'SELECTED');
   if (!transition.allowed) {
     throw new Error(transition.reason || `Cannot select quote with status: ${quote.status}`);
   }
@@ -204,10 +201,7 @@ export async function rejectVendorQuote(
   const quote = await getVendorQuoteById(db, quoteId);
   if (!quote) throw new Error('Quote not found');
 
-  const transition = offerStateMachine.validateTransition(
-    quote.status as unknown as Parameters<typeof offerStateMachine.validateTransition>[0],
-    'REJECTED'
-  );
+  const transition = offerStateMachine.validateTransition(quote.status, 'REJECTED');
   if (!transition.allowed) {
     throw new Error(transition.reason || `Cannot reject quote with status: ${quote.status}`);
   }
@@ -256,10 +250,7 @@ export async function withdrawVendorQuote(
   const quote = await getVendorQuoteById(db, quoteId);
   if (!quote) throw new Error('Quote not found');
 
-  const transition = offerStateMachine.validateTransition(
-    quote.status as unknown as Parameters<typeof offerStateMachine.validateTransition>[0],
-    'WITHDRAWN'
-  );
+  const transition = offerStateMachine.validateTransition(quote.status, 'WITHDRAWN');
   if (!transition.allowed) {
     throw new Error(transition.reason || `Cannot withdraw quote with status: ${quote.status}`);
   }

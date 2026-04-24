@@ -27,6 +27,7 @@ import { PERMISSION_FLAGS } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import type {
   CurrencyCode,
+  OfferDeviation,
   QuoteItemType,
   QuoteSourceType,
   QuoteStatus,
@@ -79,6 +80,9 @@ export interface CreateVendorQuoteInput {
   insurance?: string;
   erectionAfterPurchase?: string;
   inspection?: string;
+
+  /** Technical deviations flagged against the PR/RFQ spec (RFQ_RESPONSE only). */
+  deviations?: OfferDeviation[];
 }
 
 export interface CreateVendorQuoteItemInput {
@@ -241,6 +245,8 @@ export async function createVendorQuote(
     insurance: input.insurance,
     erectionAfterPurchase: input.erectionAfterPurchase,
     inspection: input.inspection,
+
+    deviations: input.deviations && input.deviations.length > 0 ? input.deviations : undefined,
 
     status: (items.length > 0 ? 'UPLOADED' : 'DRAFT') as QuoteStatus,
     isRecommended: false,
