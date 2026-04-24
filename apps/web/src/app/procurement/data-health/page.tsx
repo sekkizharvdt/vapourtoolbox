@@ -76,7 +76,7 @@ export default function ProcurementDataHealthPage() {
       const results = await Promise.allSettled([
         getDocs(collection(db, COLLECTIONS.PURCHASE_REQUESTS)),
         getDocs(collection(db, COLLECTIONS.RFQS)),
-        getDocs(collection(db, COLLECTIONS.OFFERS)),
+        getDocs(collection(db, COLLECTIONS.VENDOR_QUOTES)),
         getDocs(collection(db, COLLECTIONS.PURCHASE_ORDERS)),
         getDocs(collection(db, COLLECTIONS.GOODS_RECEIPTS)),
       ]);

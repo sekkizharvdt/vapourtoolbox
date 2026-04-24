@@ -81,8 +81,12 @@ const EXPORTABLE_COLLECTIONS: CollectionGroup[] = [
       },
       { key: 'rfqs', name: 'RFQs', firestoreName: COLLECTIONS.RFQS },
       { key: 'rfqItems', name: 'RFQ Items', firestoreName: COLLECTIONS.RFQ_ITEMS },
-      { key: 'offers', name: 'Offers', firestoreName: COLLECTIONS.OFFERS },
-      { key: 'offerItems', name: 'Offer Items', firestoreName: COLLECTIONS.OFFER_ITEMS },
+      { key: 'vendorQuotes', name: 'Vendor Quotes', firestoreName: COLLECTIONS.VENDOR_QUOTES },
+      {
+        key: 'vendorQuoteItems',
+        name: 'Vendor Quote Items',
+        firestoreName: COLLECTIONS.VENDOR_QUOTE_ITEMS,
+      },
       {
         key: 'purchaseOrders',
         name: 'Purchase Orders',

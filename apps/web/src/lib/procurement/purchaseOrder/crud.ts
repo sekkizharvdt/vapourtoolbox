@@ -29,10 +29,10 @@ import type {
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderStatus,
-  Offer,
-  OfferItem,
   POCommercialTerms,
   CurrencyCode,
+  VendorQuote,
+  VendorQuoteItem,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
@@ -119,29 +119,35 @@ export async function createPOFromOffer(
     idempotencyKey,
     'create-po-from-offer',
     async () => {
-      // Get offer and its items
-      const offerDoc = await getDoc(doc(db, COLLECTIONS.OFFERS, offerId));
+      // Read the source vendor quote (unified collection — see Stage 2 migration).
+      const offerDoc = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, offerId));
       if (!offerDoc.exists()) {
-        throw new Error('Offer not found');
+        throw new Error('Quote not found');
       }
 
-      const offer = { id: offerDoc.id, ...offerDoc.data() } as Offer;
+      const offer: VendorQuote = {
+        id: offerDoc.id,
+        ...(offerDoc.data() as Omit<VendorQuote, 'id'>),
+      };
 
-      // Prevent duplicate PO creation from the same offer
+      // Prevent duplicate PO creation from the same quote
       if (offer.status === 'PO_CREATED') {
-        throw new Error('A Purchase Order has already been created from this offer');
+        throw new Error('A Purchase Order has already been created from this quote');
+      }
+      if (!offer.vendorId) {
+        throw new Error('Quote has no linked vendor — PO creation requires a registered vendor');
       }
 
       const offerItemsQuery = query(
-        collection(db, COLLECTIONS.OFFER_ITEMS),
-        where('offerId', '==', offerId),
+        collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS),
+        where('quoteId', '==', offerId),
         orderBy('lineNumber', 'asc')
       );
       const offerItemsSnapshot = await getDocs(offerItemsQuery);
-      const offerItems = offerItemsSnapshot.docs.map((d) => ({
+      const offerItems: VendorQuoteItem[] = offerItemsSnapshot.docs.map((d) => ({
         id: d.id,
-        ...d.data(),
-      })) as OfferItem[];
+        ...(d.data() as Omit<VendorQuoteItem, 'id'>),
+      }));
 
       // Fetch vendor entity for credit terms and contact info
       let vendorCreditDays: number | undefined;
@@ -316,8 +322,12 @@ export async function createPOFromOffer(
         }
       >();
 
-      // Get unique RFQ item IDs
-      const uniqueRfqItemIds = [...new Set(offerItems.map((item) => item.rfqItemId))];
+      // Get unique RFQ item IDs. rfqItemId is optional on VendorQuoteItem
+      // (offline / standing quotes have no RFQ linkage) — filter undefined here
+      // so the batched lookup only hits real RFQ items.
+      const uniqueRfqItemIds = [
+        ...new Set(offerItems.map((item) => item.rfqItemId).filter((id): id is string => !!id)),
+      ];
 
       // Batch fetch all RFQ items in parallel
       const rfqItemPromises = uniqueRfqItemIds.map(async (rfqItemId) => {
@@ -394,7 +404,9 @@ export async function createPOFromOffer(
       const batch = writeBatch(db);
 
       offerItems.forEach((item) => {
-        const rfqItemInfo = rfqItemMap.get(item.rfqItemId) || { projectId: '' };
+        const rfqItemInfo = (item.rfqItemId ? rfqItemMap.get(item.rfqItemId) : null) || {
+          projectId: '',
+        };
 
         // Build PO item with only defined fields to prevent Firestore errors
         const poItemData: Record<string, unknown> = {
@@ -405,7 +417,7 @@ export async function createPOFromOffer(
           lineNumber: item.lineNumber,
           description: item.description,
           projectId: rfqItemInfo.projectId,
-          quantity: item.quotedQuantity,
+          quantity: item.quantity,
           unit: item.unit,
           unitPrice: item.unitPrice,
           amount: item.amount,
@@ -444,8 +456,8 @@ export async function createPOFromOffer(
         batch.set(itemRef, poItemData);
       });
 
-      // Mark offer as PO_CREATED to prevent duplicate POs
-      batch.update(doc(db, COLLECTIONS.OFFERS, offerId), {
+      // Mark the quote as PO_CREATED to prevent duplicate POs
+      batch.update(doc(db, COLLECTIONS.VENDOR_QUOTES, offerId), {
         status: 'PO_CREATED',
         updatedAt: now,
       });

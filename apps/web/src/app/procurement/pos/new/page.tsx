@@ -31,8 +31,8 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Offer, POCommercialTerms, CommercialTermsTemplate } from '@vapour/types';
-import { getOfferById } from '@/lib/procurement/offer';
+import type { VendorQuote, POCommercialTerms, CommercialTermsTemplate } from '@vapour/types';
+import { getVendorQuoteById } from '@/lib/vendorQuotes';
 import { createPOFromOffer } from '@/lib/procurement/purchaseOrderService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 import {
@@ -55,7 +55,7 @@ export default function NewPOPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [offer, setOffer] = useState<Offer | null>(null);
+  const [offer, setOffer] = useState<VendorQuote | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Template selection
@@ -94,17 +94,17 @@ export default function NewPOPage() {
     setError('');
     try {
       const [offerData, companyDoc] = await Promise.all([
-        getOfferById(offerId),
+        getVendorQuoteById(getFirebase().db, offerId),
         getDoc(doc(getFirebase().db, 'company', 'settings')),
       ]);
 
       if (!offerData) {
-        setError('Offer not found');
+        setError('Quote not found');
         return;
       }
 
       if (offerData.status !== 'SELECTED') {
-        setError('Only selected offers can be converted to Purchase Orders');
+        setError('Only selected quotes can be converted to Purchase Orders');
         return;
       }
 
