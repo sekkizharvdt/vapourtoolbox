@@ -3209,66 +3209,6 @@
       ]
     },
     {
-      "collectionGroup": "offers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "rfqId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "offers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "rfqId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "offers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "vendorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "offerItems",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "offerId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "lineNumber",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "vendorQuotes",
       "queryScope": "COLLECTION",
       "fields": [
@@ -4587,48 +4527,6 @@
         },
         {
           "fieldPath": "status",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "vendorOffers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "isActive",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "vendorOffers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "vendorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "vendorOfferItems",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "offerId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "lineNumber",
           "order": "ASCENDING"
         }
       ]

@@ -85,11 +85,9 @@ export const COLLECTIONS = {
   RFQ_ITEMS: 'rfqItems',
   RFQ_TERMS_TEMPLATES: 'rfqTermsTemplates', // Reusable terms & conditions
   RFQ_PDF_RECORDS: 'rfqPdfRecords', // Generated PDF tracking
-  OFFERS: 'offers',
-  OFFER_ITEMS: 'offerItems',
   OFFER_COMPARISONS: 'offerComparisons',
-  // Unified quote collection — replaces OFFERS + VENDOR_OFFERS after migration.
-  // Stage 1 additive; reads still go to OFFERS and VENDOR_OFFERS until Stages 2–3.
+  // Unified vendor quote collection — replaces the retired `offers` and
+  // `vendorOffers` collections (dropped 2026-04-24). See vendorQuote.ts.
   VENDOR_QUOTES: 'vendorQuotes',
   VENDOR_QUOTE_ITEMS: 'vendorQuoteItems',
   PURCHASE_ORDERS: 'purchaseOrders',
@@ -159,10 +157,6 @@ export const COLLECTIONS = {
 
   // Thermal Calculators
   SAVED_CALCULATIONS: 'savedCalculations', // Personal saved calculator inputs
-
-  // Vendor Offers (Material Database pricing)
-  VENDOR_OFFERS: 'vendorOffers',
-  VENDOR_OFFER_ITEMS: 'vendorOfferItems',
 
   // System Admin
   SYSTEM_STATUS: 'systemStatus', // Package versions, security status (super-admin only)

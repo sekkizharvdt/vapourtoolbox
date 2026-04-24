@@ -615,18 +615,6 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // Legacy offers / offerItems — data migrated to vendorQuotes on 2026-04-24.
-    // Read access retained for a one-tenant audit window; writes are denied.
-    // Collections will be dropped in a follow-up once we're satisfied.
-    match /offers/{offerId} {
-      allow read: if isInternalUser();
-      allow write: if false;
-    }
-    match /offerItems/{itemId} {
-      allow read: if isInternalUser();
-      allow write: if false;
-    }
-
     // ============================================
     // Vendor Quotes — unified quote collection
     // ============================================
@@ -1896,22 +1884,6 @@ service cloud.firestore {
 
       // Delete: Only admins (action items should not be deleted normally)
       allow delete: if isAdmin();
-    }
-
-    // ============================================
-    // Legacy vendorOffers / vendorOfferItems (read-only, being retired)
-    // ============================================
-    // Data was migrated to `vendorQuotes` on 2026-04-24. Keep read access for
-    // a one-tenant audit window, but no writes. Collections will be dropped in
-    // Stage 3 once we are satisfied the migration is complete.
-
-    match /vendorOffers/{offerId} {
-      allow read: if isInternalUser();
-      allow write: if false;
-    }
-    match /vendorOfferItems/{itemId} {
-      allow read: if isInternalUser();
-      allow write: if false;
     }
 
     // ============================================
