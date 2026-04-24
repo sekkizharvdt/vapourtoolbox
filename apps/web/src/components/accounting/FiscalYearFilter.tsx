@@ -100,7 +100,8 @@ export function useFiscalYearFilter(): UseFiscalYearFilterResult {
       endDate: toDate(fy.endDate),
       isCurrent: fy.isCurrent,
     }));
-    return [ALL_YEARS_OPTION, ...fyOptions];
+    // Named FYs first (newest → oldest), "All Years" as the catch-all at the bottom.
+    return [...fyOptions, ALL_YEARS_OPTION];
   }, [fiscalYears]);
 
   const selected = useMemo<FiscalYearRange>(() => {
@@ -141,8 +142,6 @@ export interface FiscalYearFilterProps {
   fullWidth?: boolean;
   /** Label override — defaults to "Fiscal Year" */
   label?: string;
-  /** Show the default "Current FY" sentinel option — defaults to true */
-  showCurrentOption?: boolean;
 }
 
 /**
@@ -163,17 +162,21 @@ export function FiscalYearFilter({
   minWidth = 200,
   fullWidth,
   label = 'Fiscal Year',
-  showCurrentOption = true,
 }: FiscalYearFilterProps) {
+  // Resolve the 'CURRENT' sentinel (the stored default) to the actual FY id so
+  // the Select can find a matching MenuItem. Falls back to 'ALL' if no FY is
+  // flagged as current yet.
+  const resolvedValue =
+    selectedId === DEFAULT_ID ? (options.find((o) => o.isCurrent)?.id ?? 'ALL') : selectedId;
+
   return (
     <FormControl size="small" fullWidth={fullWidth} sx={fullWidth ? undefined : { minWidth }}>
       <InputLabel>{label}</InputLabel>
-      <Select value={selectedId} label={label} onChange={(e) => onChange(e.target.value)}>
-        {showCurrentOption && <MenuItem value={DEFAULT_ID}>Current FY</MenuItem>}
+      <Select value={resolvedValue} label={label} onChange={(e) => onChange(e.target.value)}>
         {options.map((option) => (
           <MenuItem key={option.id} value={option.id}>
             {option.name}
-            {option.isCurrent ? ' (current)' : ''}
+            {option.isCurrent ? ' (current year)' : ''}
           </MenuItem>
         ))}
       </Select>
