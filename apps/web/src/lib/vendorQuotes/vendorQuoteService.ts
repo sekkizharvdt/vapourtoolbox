@@ -4,10 +4,6 @@
  * Replaces (in Stages 2 + 3):
  * - apps/web/src/lib/procurement/offer/* (procurement RFQ-response offers)
  * - apps/web/src/lib/vendorOffers/vendorOfferService.ts (materials standing offers)
- *
- * Stage 1 is purely additive — this service writes to the new `vendorQuotes` /
- * `vendorQuoteItems` collections and doesn't disturb the existing flows.
- * Callers will migrate to this service in Stages 2 and 3.
  */
 
 import {
@@ -27,6 +23,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import type {
   CurrencyCode,
@@ -37,7 +34,9 @@ import type {
   VendorQuote,
   VendorQuoteItem,
 } from '@vapour/types';
+import { requirePermission } from '@/lib/auth';
 import { addMaterialPrice } from '@/lib/materials/pricing';
+import { updateBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 
 const logger = createLogger({ context: 'vendorQuoteService' });
 
@@ -62,9 +61,9 @@ export interface CreateVendorQuoteInput {
   fileName?: string;
   additionalDocuments?: string[];
 
-  subtotal: number;
-  taxAmount: number;
-  totalAmount: number;
+  subtotal?: number;
+  taxAmount?: number;
+  totalAmount?: number;
   currency?: CurrencyCode;
   discount?: number;
 
@@ -115,19 +114,20 @@ export interface CreateVendorQuoteItemInput {
 
 export interface ListVendorQuotesFilters {
   rfqId?: string;
-  /** Pass `null` to return only quotes NOT linked to an RFQ (standing / unsolicited). */
+  /** Pass `true` to return only quotes NOT linked to an RFQ (standing / unsolicited). */
   rfqIdIsNull?: boolean;
   vendorId?: string;
   sourceType?: QuoteSourceType;
   status?: QuoteStatus;
+  /** Filter out archived / inactive quotes. Defaults to true. */
+  activeOnly?: boolean;
   limit?: number;
 }
 
 // ============================================================================
-// Number generation
+// Helpers
 // ============================================================================
 
-/** Format `Q-YYYY-NNNN`, auto-incremented within the calendar year. */
 async function generateQuoteNumber(db: Firestore): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `Q-${year}-`;
@@ -150,10 +150,6 @@ async function generateQuoteNumber(db: Firestore): Promise<string> {
   return `${prefix}${String(next).padStart(4, '0')}`;
 }
 
-// ============================================================================
-// Conversion helpers
-// ============================================================================
-
 function dateToTimestamp(d: Date | undefined): Timestamp | undefined {
   return d ? Timestamp.fromDate(d) : undefined;
 }
@@ -166,31 +162,47 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
   return out;
 }
 
+function roundToPaisa(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 // ============================================================================
 // Create
 // ============================================================================
 
 /**
- * Create a new vendor quote with items. Quote and items are written in a
- * batched write so partial failures are rolled back cleanly.
+ * Create a new vendor quote. Items may be supplied up-front (batched write)
+ * or added later via `addVendorQuoteItem()` for the DRAFT-first pattern.
  */
 export async function createVendorQuote(
   db: Firestore,
   input: CreateVendorQuoteInput,
   items: CreateVendorQuoteItemInput[],
   userId: string,
-  userName: string
+  userName: string,
+  userPermissions: number
 ): Promise<string> {
-  if (!input.vendorName?.trim()) throw new Error('Vendor name is required');
-  if (items.length === 0) throw new Error('At least one item is required');
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'create vendor quote'
+  );
 
-  // rfqId is optional overall, but if sourceType=RFQ_RESPONSE we need it.
+  if (!input.vendorName?.trim()) throw new Error('Vendor name is required');
   if (input.sourceType === 'RFQ_RESPONSE' && !input.rfqId) {
     throw new Error('RFQ_RESPONSE quotes require an rfqId');
   }
 
   const number = await generateQuoteNumber(db);
   const now = Timestamp.now();
+
+  // If items were supplied, use their subtotal. Otherwise start at zero (DRAFT).
+  const subtotal = input.subtotal ?? items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const taxAmount =
+    input.taxAmount ??
+    items.reduce((s, i) => s + (i.gstRate ? i.quantity * i.unitPrice * (i.gstRate / 100) : 0), 0);
+  const totalAmount = input.totalAmount ?? subtotal + taxAmount;
 
   const quoteDoc = stripUndefined({
     number,
@@ -209,11 +221,11 @@ export async function createVendorQuote(
     fileUrl: input.fileUrl,
     fileName: input.fileName,
     additionalDocuments: input.additionalDocuments,
-    itemsParsed: true,
+    itemsParsed: items.length > 0,
 
-    subtotal: input.subtotal,
-    taxAmount: input.taxAmount,
-    totalAmount: input.totalAmount,
+    subtotal: roundToPaisa(subtotal),
+    taxAmount: roundToPaisa(taxAmount),
+    totalAmount: roundToPaisa(totalAmount),
     currency: input.currency || ('INR' as CurrencyCode),
     discount: input.discount,
 
@@ -230,7 +242,7 @@ export async function createVendorQuote(
     erectionAfterPurchase: input.erectionAfterPurchase,
     inspection: input.inspection,
 
-    status: 'UPLOADED' as QuoteStatus,
+    status: (items.length > 0 ? 'UPLOADED' : 'DRAFT') as QuoteStatus,
     isRecommended: false,
 
     itemCount: items.length,
@@ -246,59 +258,59 @@ export async function createVendorQuote(
 
   const quoteRef = await addDoc(collection(db, COLLECTIONS.VENDOR_QUOTES), quoteDoc);
 
-  // Batch-write items.
-  const batch = writeBatch(db);
-  items.forEach((item, idx) => {
-    const itemRef = doc(collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS));
-    const lineTotal = item.quantity * item.unitPrice;
-    const gstAmount =
-      item.gstRate !== undefined
-        ? Math.round(lineTotal * (item.gstRate / 100) * 100) / 100
-        : undefined;
+  if (items.length > 0) {
+    const batch = writeBatch(db);
+    items.forEach((item, idx) => {
+      const itemRef = doc(collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS));
+      const amount = roundToPaisa(item.quantity * item.unitPrice);
+      const gstAmount =
+        item.gstRate !== undefined ? roundToPaisa(amount * (item.gstRate / 100)) : undefined;
 
-    batch.set(
-      itemRef,
-      stripUndefined({
-        quoteId: quoteRef.id,
-        rfqItemId: item.rfqItemId,
-        itemType: item.itemType,
-        lineNumber: item.lineNumber ?? idx + 1,
-        description: item.description,
+      batch.set(
+        itemRef,
+        stripUndefined({
+          quoteId: quoteRef.id,
+          tenantId: input.tenantId,
+          rfqItemId: item.rfqItemId,
+          itemType: item.itemType,
+          lineNumber: item.lineNumber ?? idx + 1,
+          description: item.description,
 
-        materialId: item.materialId,
-        materialCode: item.materialCode,
-        materialName: item.materialName,
-        serviceId: item.serviceId,
-        serviceCode: item.serviceCode,
-        boughtOutItemId: item.boughtOutItemId,
-        linkedItemName: item.linkedItemName,
-        linkedItemCode: item.linkedItemCode,
+          materialId: item.materialId,
+          materialCode: item.materialCode,
+          materialName: item.materialName,
+          serviceId: item.serviceId,
+          serviceCode: item.serviceCode,
+          boughtOutItemId: item.boughtOutItemId,
+          linkedItemName: item.linkedItemName,
+          linkedItemCode: item.linkedItemCode,
 
-        quantity: item.quantity,
-        unit: item.unit,
-        unitPrice: item.unitPrice,
-        amount: lineTotal,
-        gstRate: item.gstRate,
-        gstAmount,
+          quantity: item.quantity,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          amount,
+          gstRate: item.gstRate,
+          gstAmount,
 
-        deliveryPeriod: item.deliveryPeriod,
-        deliveryDate: dateToTimestamp(item.deliveryDate),
-        makeModel: item.makeModel,
+          deliveryPeriod: item.deliveryPeriod,
+          deliveryDate: dateToTimestamp(item.deliveryDate),
+          makeModel: item.makeModel,
 
-        meetsSpec: item.meetsSpec,
-        deviations: item.deviations,
+          meetsSpec: item.meetsSpec,
+          deviations: item.deviations,
 
-        vendorNotes: item.vendorNotes,
-        notes: item.notes,
+          vendorNotes: item.vendorNotes,
+          notes: item.notes,
 
-        priceAccepted: false,
+          priceAccepted: false,
 
-        createdAt: now,
-        updatedAt: now,
-      })
-    );
-  });
-  await batch.commit();
+          createdAt: now,
+          updatedAt: now,
+        })
+      );
+    });
+    await batch.commit();
+  }
 
   logger.info('Vendor quote created', { quoteId: quoteRef.id, number, items: items.length });
   return quoteRef.id;
@@ -331,12 +343,19 @@ export async function listVendorQuotes(
   if (filters.limit) constraints.push(firestoreLimit(filters.limit));
 
   const snap = await getDocs(query(collection(db, COLLECTIONS.VENDOR_QUOTES), ...constraints));
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<VendorQuote, 'id'>) }));
+  let quotes = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<VendorQuote, 'id'>) }));
+
+  // `isActive` filter is a secondary filter rather than a query constraint so
+  // we don't need a composite index for every filter permutation.
+  if (filters.activeOnly !== false) {
+    quotes = quotes.filter((q) => q.isActive !== false);
+  }
+  return quotes;
 }
 
-/** Convenience: all quotes (any status) tied to an RFQ. */
+/** Convenience: all quotes tied to an RFQ (RFQ responses + offline-linked). */
 export async function getQuotesByRFQ(db: Firestore, rfqId: string): Promise<VendorQuote[]> {
-  return listVendorQuotes(db, { rfqId });
+  return listVendorQuotes(db, { rfqId, activeOnly: false });
 }
 
 export async function getVendorQuoteItems(
@@ -361,8 +380,15 @@ export async function updateVendorQuoteStatus(
   db: Firestore,
   quoteId: string,
   newStatus: QuoteStatus,
-  userId: string
+  userId: string,
+  userPermissions: number
 ): Promise<void> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'update vendor quote status'
+  );
   await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId), {
     status: newStatus,
     updatedAt: Timestamp.now(),
@@ -375,41 +401,240 @@ export async function updateVendorQuote(
   db: Firestore,
   quoteId: string,
   updates: Partial<
-    Omit<VendorQuote, 'id' | 'createdAt' | 'createdBy' | 'createdByName' | 'number'>
-  >,
-  userId: string
+    Pick<
+      VendorQuote,
+      | 'vendorId'
+      | 'vendorName'
+      | 'vendorOfferNumber'
+      | 'remarks'
+      | 'currency'
+      | 'status'
+      | 'fileUrl'
+      | 'fileName'
+      | 'paymentTerms'
+      | 'deliveryTerms'
+      | 'warrantyTerms'
+      | 'exWorks'
+      | 'transportation'
+      | 'packingForwarding'
+      | 'insurance'
+      | 'erectionAfterPurchase'
+      | 'inspection'
+      | 'discount'
+      | 'evaluationScore'
+      | 'evaluationNotes'
+      | 'isRecommended'
+      | 'recommendationReason'
+      | 'redFlags'
+      | 'isActive'
+    >
+  > & {
+    vendorOfferDate?: Date;
+    validityDate?: Date;
+  },
+  userId: string,
+  userPermissions: number
 ): Promise<void> {
-  await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId), {
-    ...stripUndefined(updates),
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'update vendor quote'
+  );
+
+  const data: Record<string, unknown> = {
     updatedAt: Timestamp.now(),
     updatedBy: userId,
+  };
+  for (const [k, v] of Object.entries(updates)) {
+    if (v === undefined) continue;
+    if (k === 'vendorOfferDate' || k === 'validityDate') {
+      data[k] = v instanceof Date ? Timestamp.fromDate(v) : v;
+    } else {
+      data[k] = v;
+    }
+  }
+  await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId), data);
+}
+
+// ============================================================================
+// Item CRUD
+// ============================================================================
+
+export async function addVendorQuoteItem(
+  db: Firestore,
+  quoteId: string,
+  input: CreateVendorQuoteItemInput,
+  userId: string,
+  userPermissions: number
+): Promise<VendorQuoteItem> {
+  requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'add quote item');
+
+  // Inherit tenantId from parent quote for tenant-scoped Firestore rules.
+  const parentSnap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId));
+  if (!parentSnap.exists()) throw new Error(`Vendor quote ${quoteId} not found`);
+  const parentTenantId = parentSnap.data()?.tenantId as string | undefined;
+
+  const existing = await getVendorQuoteItems(db, quoteId);
+  const lineNumber = input.lineNumber ?? existing.length + 1;
+  const amount = roundToPaisa(input.quantity * input.unitPrice);
+  const gstAmount =
+    input.gstRate !== undefined ? roundToPaisa(amount * (input.gstRate / 100)) : undefined;
+  const now = Timestamp.now();
+
+  const itemData = stripUndefined({
+    quoteId,
+    tenantId: parentTenantId,
+    rfqItemId: input.rfqItemId,
+    itemType: input.itemType,
+    lineNumber,
+    description: input.description,
+
+    materialId: input.materialId,
+    materialCode: input.materialCode,
+    materialName: input.materialName,
+    serviceId: input.serviceId,
+    serviceCode: input.serviceCode,
+    boughtOutItemId: input.boughtOutItemId,
+    linkedItemName: input.linkedItemName,
+    linkedItemCode: input.linkedItemCode,
+
+    quantity: input.quantity,
+    unit: input.unit,
+    unitPrice: input.unitPrice,
+    amount,
+    gstRate: input.gstRate,
+    gstAmount,
+
+    deliveryPeriod: input.deliveryPeriod,
+    deliveryDate: dateToTimestamp(input.deliveryDate),
+    makeModel: input.makeModel,
+
+    meetsSpec: input.meetsSpec,
+    deviations: input.deviations,
+
+    vendorNotes: input.vendorNotes,
+    notes: input.notes,
+
+    priceAccepted: false,
+
+    createdAt: now,
+    updatedAt: now,
   });
+
+  const ref = await addDoc(collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS), itemData);
+  await recalculateQuoteTotals(db, quoteId, userId);
+
+  logger.info('Quote item added', { quoteId, itemId: ref.id });
+  return { id: ref.id, ...(itemData as Omit<VendorQuoteItem, 'id'>) };
 }
 
-export async function deleteVendorQuoteItem(db: Firestore, itemId: string): Promise<void> {
+export async function updateVendorQuoteItem(
+  db: Firestore,
+  itemId: string,
+  updates: Partial<
+    Pick<
+      VendorQuoteItem,
+      | 'itemType'
+      | 'description'
+      | 'quantity'
+      | 'unit'
+      | 'unitPrice'
+      | 'gstRate'
+      | 'notes'
+      | 'vendorNotes'
+      | 'materialId'
+      | 'materialCode'
+      | 'materialName'
+      | 'serviceId'
+      | 'serviceCode'
+      | 'boughtOutItemId'
+      | 'linkedItemName'
+      | 'linkedItemCode'
+      | 'makeModel'
+      | 'meetsSpec'
+      | 'deviations'
+    >
+  >,
+  userId: string,
+  userPermissions: number
+): Promise<void> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'update quote item'
+  );
+
+  const snap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId));
+  if (!snap.exists()) throw new Error(`Quote item ${itemId} not found`);
+  const current: VendorQuoteItem = {
+    id: snap.id,
+    ...(snap.data() as Omit<VendorQuoteItem, 'id'>),
+  };
+
+  const data: Record<string, unknown> = { updatedAt: Timestamp.now() };
+  for (const [k, v] of Object.entries(updates)) {
+    if (v !== undefined) data[k] = v;
+  }
+
+  const qty = updates.quantity ?? current.quantity;
+  const price = updates.unitPrice ?? current.unitPrice;
+  data.amount = roundToPaisa(qty * price);
+
+  const gstRate = updates.gstRate ?? current.gstRate;
+  if (gstRate) {
+    data.gstAmount = roundToPaisa((data.amount as number) * (gstRate / 100));
+  }
+
+  await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId), data);
+  await recalculateQuoteTotals(db, current.quoteId, userId);
+}
+
+export async function removeVendorQuoteItem(
+  db: Firestore,
+  itemId: string,
+  userId: string,
+  userPermissions: number
+): Promise<void> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'remove quote item'
+  );
+
+  const snap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId));
+  if (!snap.exists()) throw new Error(`Quote item ${itemId} not found`);
+  const current: VendorQuoteItem = {
+    id: snap.id,
+    ...(snap.data() as Omit<VendorQuoteItem, 'id'>),
+  };
+
   await deleteDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId));
+  await recalculateQuoteTotals(db, current.quoteId, userId);
+  logger.info('Quote item removed', { itemId, quoteId: current.quoteId });
 }
 
 // ============================================================================
-// Accept price — push to materialPrices / serviceRates
+// Accept price — push to materialPrices / serviceRates / bought-out pricing
 // ============================================================================
 
-/**
- * Mark a single quote item's price as accepted and push it to the relevant
- * price-history table.
- *
- * - MATERIAL items write to `materialPrices` with `sourceType: 'VENDOR_QUOTE'`
- * - SERVICE items write to `serviceRates`
- * - BOUGHT_OUT items update the bought-out item's current price
- */
 export async function acceptQuoteItemPrice(
   db: Firestore,
   itemId: string,
-  userId: string
+  userId: string,
+  userPermissions: number
 ): Promise<void> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'accept quote item price'
+  );
+
   const itemSnap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId));
   if (!itemSnap.exists()) throw new Error(`Quote item ${itemId} not found`);
-
   const item: VendorQuoteItem = {
     id: itemSnap.id,
     ...(itemSnap.data() as Omit<VendorQuoteItem, 'id'>),
@@ -426,6 +651,8 @@ export async function acceptQuoteItemPrice(
     ...(quoteSnap.data() as Omit<VendorQuote, 'id'>),
   };
 
+  const now = Timestamp.now();
+
   if (item.itemType === 'MATERIAL' && item.materialId) {
     await addMaterialPrice(
       db,
@@ -437,7 +664,7 @@ export async function acceptQuoteItemPrice(
         vendorId: quote.vendorId,
         vendorName: quote.vendorName,
         sourceType: 'VENDOR_QUOTE',
-        effectiveDate: Timestamp.now(),
+        effectiveDate: now,
         isActive: true,
         isForecast: false,
         documentReference: quote.number,
@@ -445,11 +672,45 @@ export async function acceptQuoteItemPrice(
       },
       userId
     );
+  } else if (item.itemType === 'SERVICE' && item.serviceId) {
+    await addDoc(
+      collection(db, COLLECTIONS.SERVICE_RATES),
+      stripUndefined({
+        tenantId: quote.tenantId,
+        serviceId: item.serviceId,
+        rateValue: item.unitPrice,
+        currency: quote.currency,
+        effectiveDate: now,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: userId,
+        updatedBy: userId,
+      })
+    );
+    logger.info('Service rate recorded from quote', {
+      serviceId: item.serviceId,
+      quoteNumber: quote.number,
+    });
+  } else if (item.itemType === 'BOUGHT_OUT' && item.boughtOutItemId) {
+    await updateBoughtOutItem(
+      db,
+      item.boughtOutItemId,
+      {
+        pricing: {
+          listPrice: { amount: item.unitPrice, currency: quote.currency },
+          currency: quote.currency,
+          ...(quote.vendorId ? { vendorId: quote.vendorId } : {}),
+        },
+      },
+      userId
+    );
+    logger.info('Bought-out item price updated from quote', {
+      boughtOutItemId: item.boughtOutItemId,
+      quoteNumber: quote.number,
+    });
   }
-  // SERVICE and BOUGHT_OUT paths can mirror the vendorOfferService logic —
-  // added in Stage 2 alongside the UI migration so we can test in one pass.
 
-  const now = Timestamp.now();
   await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId), {
     priceAccepted: true,
     priceAcceptedAt: now,
@@ -457,11 +718,38 @@ export async function acceptQuoteItemPrice(
     updatedAt: now,
   });
 
-  await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, item.quoteId), {
-    acceptedCount: (quote.acceptedCount || 0) + 1,
-    updatedAt: now,
+  await recalculateQuoteTotals(db, item.quoteId, userId);
+
+  logger.info('Vendor quote item price accepted', {
+    itemId,
+    quoteId: item.quoteId,
+    itemType: item.itemType,
+  });
+}
+
+// ============================================================================
+// Internal helpers
+// ============================================================================
+
+async function recalculateQuoteTotals(
+  db: Firestore,
+  quoteId: string,
+  userId: string
+): Promise<void> {
+  const items = await getVendorQuoteItems(db, quoteId);
+  const subtotal = roundToPaisa(items.reduce((s, i) => s + i.amount, 0));
+  const taxAmount = roundToPaisa(items.reduce((s, i) => s + (i.gstAmount || 0), 0));
+  const totalAmount = roundToPaisa(subtotal + taxAmount);
+  const itemCount = items.length;
+  const acceptedCount = items.filter((i) => i.priceAccepted).length;
+
+  await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId), {
+    subtotal,
+    taxAmount,
+    totalAmount,
+    itemCount,
+    acceptedCount,
+    updatedAt: Timestamp.now(),
     updatedBy: userId,
   });
-
-  logger.info('Vendor quote item price accepted', { itemId, materialId: item.materialId });
 }

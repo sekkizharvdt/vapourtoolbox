@@ -1911,32 +1911,19 @@ service cloud.firestore {
     }
 
     // ============================================
-    // Vendor Offers (Material Database pricing)
+    // Legacy vendorOffers / vendorOfferItems (read-only, being retired)
     // ============================================
+    // Data was migrated to `vendorQuotes` on 2026-04-24. Keep read access for
+    // a one-tenant audit window, but no writes. Collections will be dropped in
+    // Stage 3 once we are satisfied the migration is complete.
 
     match /vendorOffers/{offerId} {
-      // Read: Users with VIEW_ESTIMATION permission
-      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
-
-      // Create: Users with MANAGE_ESTIMATION permission
-      allow create: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
-
-      // Update: Users with MANAGE_ESTIMATION permission
-      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
-
-      // Delete: Super admins only (soft delete preferred)
-      allow delete: if isSuperAdmin();
+      allow read: if isInternalUser();
+      allow write: if false;
     }
-
     match /vendorOfferItems/{itemId} {
-      // Read: Users with VIEW_ESTIMATION permission
-      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
-
-      // Create/Update: Users with MANAGE_ESTIMATION permission
-      allow create, update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
-
-      // Delete: Users with MANAGE_ESTIMATION permission
-      allow delete: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      allow read: if isInternalUser();
+      allow write: if false;
     }
 
     // ============================================

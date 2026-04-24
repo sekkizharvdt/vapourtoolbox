@@ -22,13 +22,15 @@ import { Add as AddIcon, Search as SearchIcon, Home as HomeIcon } from '@mui/ico
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import type { VendorOffer, VendorOfferStatus } from '@vapour/types';
-import { listVendorOffers } from '@/lib/vendorOffers/vendorOfferService';
+import type { VendorQuote, QuoteStatus } from '@vapour/types';
+import { listVendorQuotes } from '@/lib/vendorQuotes/vendorQuoteService';
 import { canManageEstimation } from '@vapour/constants';
 
-const STATUS_COLORS: Record<VendorOfferStatus, 'default' | 'info' | 'success'> = {
+const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' | 'warning'>> = {
   DRAFT: 'default',
-  REVIEWED: 'info',
+  UPLOADED: 'info',
+  UNDER_REVIEW: 'info',
+  EVALUATED: 'success',
   ARCHIVED: 'success',
 };
 
@@ -46,7 +48,7 @@ export default function VendorOffersPage() {
   const { claims } = useAuth();
   const { db } = getFirebase();
 
-  const [offers, setOffers] = useState<VendorOffer[]>([]);
+  const [offers, setOffers] = useState<VendorQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -55,10 +57,11 @@ export default function VendorOffersPage() {
   const loadOffers = useCallback(async () => {
     try {
       setLoading(true);
-      const fetched = await listVendorOffers(db);
+      // Materials-side list shows STANDING_QUOTE only — RFQ responses live in procurement.
+      const fetched = await listVendorQuotes(db, { sourceType: 'STANDING_QUOTE' });
       setOffers(fetched);
     } catch (error) {
-      console.error('Error loading vendor offers:', error);
+      console.error('Error loading vendor quotes:', error);
     } finally {
       setLoading(false);
     }
@@ -71,7 +74,7 @@ export default function VendorOffersPage() {
   const filtered = offers.filter((o) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
-    return o.offerNumber.toLowerCase().includes(term) || o.vendorName.toLowerCase().includes(term);
+    return o.number.toLowerCase().includes(term) || o.vendorName.toLowerCase().includes(term);
   });
 
   return (
@@ -155,16 +158,20 @@ export default function VendorOffersPage() {
                     sx={{ cursor: 'pointer' }}
                     onClick={() => router.push(`/materials/vendor-offers/${offer.id}`)}
                   >
-                    <TableCell sx={{ fontWeight: 500 }}>{offer.offerNumber}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>{offer.number}</TableCell>
                     <TableCell>{offer.vendorName}</TableCell>
-                    <TableCell>{formatDate(offer.offerDate)}</TableCell>
+                    <TableCell>{formatDate(offer.vendorOfferDate)}</TableCell>
                     <TableCell align="center">{offer.itemCount}</TableCell>
                     <TableCell align="center">{offer.acceptedCount}</TableCell>
                     <TableCell align="right">
                       {offer.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      <Chip label={offer.status} size="small" color={STATUS_COLORS[offer.status]} />
+                      <Chip
+                        label={offer.status}
+                        size="small"
+                        color={STATUS_COLORS[offer.status] ?? 'default'}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

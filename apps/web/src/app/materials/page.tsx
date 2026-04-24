@@ -134,9 +134,10 @@ export default function MaterialsPage() {
 
         const results = await Promise.all(Object.values(queries).map((q) => getCountFromServer(q)));
 
-        // Vendor offers count (separate collection)
+        // Vendor quotes — materials-side tile shows STANDING_QUOTE only.
         const voQuery = query(
-          collection(db, COLLECTIONS.VENDOR_OFFERS),
+          collection(db, COLLECTIONS.VENDOR_QUOTES),
+          where('sourceType', '==', 'STANDING_QUOTE'),
           where('isActive', '==', true)
         );
         const voCount = await getCountFromServer(voQuery);

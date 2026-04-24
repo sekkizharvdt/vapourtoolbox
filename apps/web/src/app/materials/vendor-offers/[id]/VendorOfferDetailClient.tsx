@@ -39,23 +39,25 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { PdfViewer } from '@/components/common/PdfViewer';
-import type { VendorOffer, VendorOfferItem, VendorOfferStatus, OfferItemType } from '@vapour/types';
+import type { VendorQuote, VendorQuoteItem, QuoteStatus, QuoteItemType } from '@vapour/types';
 import { canManageEstimation } from '@vapour/constants';
 import {
-  getVendorOfferById,
-  getOfferItems,
-  addOfferItem,
-  updateOfferItem,
-  removeOfferItem,
-  acceptPrice,
-  updateVendorOffer,
-} from '@/lib/vendorOffers/vendorOfferService';
+  getVendorQuoteById,
+  getVendorQuoteItems,
+  addVendorQuoteItem,
+  updateVendorQuoteItem,
+  removeVendorQuoteItem,
+  acceptQuoteItemPrice,
+  updateVendorQuote,
+} from '@/lib/vendorQuotes/vendorQuoteService';
 import { ItemLinkDialog, type LinkedItem } from '../components/ItemLinkDialog';
 import { AcceptPriceDialog } from '../components/AcceptPriceDialog';
 
-const STATUS_COLORS: Record<VendorOfferStatus, 'default' | 'info' | 'success'> = {
+const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' | 'warning'>> = {
   DRAFT: 'default',
-  REVIEWED: 'info',
+  UPLOADED: 'info',
+  UNDER_REVIEW: 'info',
+  EVALUATED: 'success',
   ARCHIVED: 'success',
 };
 
@@ -74,14 +76,14 @@ export default function VendorOfferDetailClient() {
   const { user, claims } = useAuth();
   const { db } = getFirebase();
 
-  const [offer, setOffer] = useState<VendorOffer | null>(null);
-  const [items, setItems] = useState<VendorOfferItem[]>([]);
+  const [offer, setOffer] = useState<VendorQuote | null>(null);
+  const [items, setItems] = useState<VendorQuoteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Add item form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newItemType, setNewItemType] = useState<OfferItemType>('MATERIAL');
+  const [newItemType, setNewItemType] = useState<QuoteItemType>('MATERIAL');
   const [newDescription, setNewDescription] = useState('');
   const [newQuantity, setNewQuantity] = useState('');
   const [newUnit, setNewUnit] = useState('');
@@ -93,11 +95,11 @@ export default function VendorOfferDetailClient() {
   // Link dialog
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkingItemId, setLinkingItemId] = useState<string | null>(null);
-  const [linkingItemType, setLinkingItemType] = useState<OfferItemType>('MATERIAL');
+  const [linkingItemType, setLinkingItemType] = useState<QuoteItemType>('MATERIAL');
 
   // Accept price dialog
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
-  const [acceptingItem, setAcceptingItem] = useState<VendorOfferItem | null>(null);
+  const [acceptingItem, setAcceptingItem] = useState<VendorQuoteItem | null>(null);
   const [accepting, setAccepting] = useState(false);
 
   const canManage = claims?.permissions ? canManageEstimation(claims.permissions) : false;
@@ -108,12 +110,12 @@ export default function VendorOfferDetailClient() {
       setError(null);
 
       // Fetch offer and items independently so a failure in one doesn't block the other
-      const fetchedOffer = await getVendorOfferById(db, offerId);
+      const fetchedOffer = await getVendorQuoteById(db, offerId);
       setOffer(fetchedOffer);
 
       if (fetchedOffer) {
         try {
-          const fetchedItems = await getOfferItems(db, offerId);
+          const fetchedItems = await getVendorQuoteItems(db, offerId);
           setItems(fetchedItems);
         } catch (itemErr) {
           console.error('Error loading offer items:', itemErr);
@@ -148,7 +150,7 @@ export default function VendorOfferDetailClient() {
 
     try {
       setAddingItem(true);
-      await addOfferItem(
+      await addVendorQuoteItem(
         db,
         offerId,
         {
@@ -181,14 +183,14 @@ export default function VendorOfferDetailClient() {
 
   const handleRemoveItem = async (itemId: string) => {
     try {
-      await removeOfferItem(db, itemId, user!.uid, claims?.permissions ?? 0);
+      await removeVendorQuoteItem(db, itemId, user!.uid, claims?.permissions ?? 0);
       await loadData();
     } catch (err) {
       console.error('Error removing item:', err);
     }
   };
 
-  const handleLinkItem = (itemId: string, itemType: OfferItemType) => {
+  const handleLinkItem = (itemId: string, itemType: QuoteItemType) => {
     setLinkingItemId(itemId);
     setLinkingItemType(itemType);
     setLinkDialogOpen(true);
@@ -197,7 +199,7 @@ export default function VendorOfferDetailClient() {
   const handleLinked = async (linked: LinkedItem) => {
     if (!linkingItemId) return;
     try {
-      await updateOfferItem(
+      await updateVendorQuoteItem(
         db,
         linkingItemId,
         {
@@ -217,7 +219,7 @@ export default function VendorOfferDetailClient() {
     }
   };
 
-  const handleAcceptPrice = (item: VendorOfferItem) => {
+  const handleAcceptPrice = (item: VendorQuoteItem) => {
     setAcceptingItem(item);
     setAcceptDialogOpen(true);
   };
@@ -226,7 +228,7 @@ export default function VendorOfferDetailClient() {
     if (!acceptingItem) return;
     try {
       setAccepting(true);
-      await acceptPrice(db, acceptingItem.id, user!.uid, claims?.permissions ?? 0);
+      await acceptQuoteItemPrice(db, acceptingItem.id, user!.uid, claims?.permissions ?? 0);
       setAcceptDialogOpen(false);
       setAcceptingItem(null);
       await loadData();
@@ -237,9 +239,9 @@ export default function VendorOfferDetailClient() {
     }
   };
 
-  const handleStatusChange = async (status: VendorOfferStatus) => {
+  const handleStatusChange = async (status: QuoteStatus) => {
     try {
-      await updateVendorOffer(db, offerId, { status }, user!.uid, claims?.permissions ?? 0);
+      await updateVendorQuote(db, offerId, { status }, user!.uid, claims?.permissions ?? 0);
       await loadData();
     } catch (err) {
       console.error('Error updating status:', err);
@@ -257,13 +259,17 @@ export default function VendorOfferDetailClient() {
           items={[
             { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
             { label: 'Vendor Offers', href: '/materials/vendor-offers' },
-            { label: offer.offerNumber },
+            { label: offer.number },
           ]}
         />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <PageHeader title={offer.offerNumber} subtitle={`From ${offer.vendorName}`} />
-          <Chip label={offer.status} color={STATUS_COLORS[offer.status]} size="small" />
+          <PageHeader title={offer.number} subtitle={`From ${offer.vendorName}`} />
+          <Chip
+            label={offer.status}
+            color={STATUS_COLORS[offer.status] ?? 'default'}
+            size="small"
+          />
         </Box>
       </Box>
 
@@ -281,7 +287,7 @@ export default function VendorOfferDetailClient() {
               <Typography variant="caption" color="text.secondary">
                 Offer Date
               </Typography>
-              <Typography variant="body2">{formatDate(offer.offerDate)}</Typography>
+              <Typography variant="body2">{formatDate(offer.vendorOfferDate)}</Typography>
             </Grid>
             <Grid size={{ xs: 6, md: 2 }}>
               <Typography variant="caption" color="text.secondary">
@@ -316,16 +322,16 @@ export default function VendorOfferDetailClient() {
 
           {canManage && (
             <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-              {offer.status === 'DRAFT' && (
+              {(offer.status === 'DRAFT' || offer.status === 'UPLOADED') && (
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() => handleStatusChange('REVIEWED')}
+                  onClick={() => handleStatusChange('EVALUATED')}
                 >
                   Mark as Reviewed
                 </Button>
               )}
-              {offer.status === 'REVIEWED' && (
+              {offer.status === 'EVALUATED' && (
                 <Button
                   size="small"
                   variant="outlined"
@@ -390,7 +396,7 @@ export default function VendorOfferDetailClient() {
                   <Select
                     value={newItemType}
                     label="Type"
-                    onChange={(e) => setNewItemType(e.target.value as OfferItemType)}
+                    onChange={(e) => setNewItemType(e.target.value as QuoteItemType)}
                   >
                     <MenuItem value="MATERIAL">Material</MenuItem>
                     <MenuItem value="SERVICE">Service</MenuItem>

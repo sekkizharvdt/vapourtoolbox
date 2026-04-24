@@ -38,5 +38,4 @@ export * from './recurringTransaction';
 export * from './paymentPlanning';
 export * from './paymentBatch';
 export * from './fixedAsset';
-export * from './vendorOffer';
 export * from './vendorQuote';

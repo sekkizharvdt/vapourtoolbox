@@ -26,10 +26,10 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Firestore } from 'firebase/firestore';
-import type { OfferItemType } from '@vapour/types';
+import type { QuoteItemType } from '@vapour/types';
 
 export interface LinkedItem {
-  itemType: OfferItemType;
+  itemType: QuoteItemType;
   id: string;
   name: string;
   code: string;
@@ -40,7 +40,7 @@ interface ItemLinkDialogProps {
   onClose: () => void;
   onSelect: (item: LinkedItem) => void;
   db: Firestore;
-  initialTab?: OfferItemType;
+  initialTab?: QuoteItemType;
 }
 
 interface SearchResult {
@@ -50,7 +50,7 @@ interface SearchResult {
   category?: string;
 }
 
-const TAB_MAP: OfferItemType[] = ['MATERIAL', 'SERVICE', 'BOUGHT_OUT'];
+const TAB_MAP: QuoteItemType[] = ['MATERIAL', 'SERVICE', 'BOUGHT_OUT'];
 
 export function ItemLinkDialog({
   open,

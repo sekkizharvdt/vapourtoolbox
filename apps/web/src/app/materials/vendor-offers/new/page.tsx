@@ -26,7 +26,7 @@ import { getFirebase } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { CurrencyCode } from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
-import { createVendorOffer } from '@/lib/vendorOffers/vendorOfferService';
+import { createVendorQuote } from '@/lib/vendorQuotes/vendorQuoteService';
 
 export default function NewVendorOfferPage() {
   const router = useRouter();
@@ -109,23 +109,26 @@ export default function NewVendorOfferPage() {
         fileData = await uploadFile();
       }
 
-      const offer = await createVendorOffer(
+      const quoteId = await createVendorQuote(
         db,
         {
+          sourceType: 'STANDING_QUOTE',
           vendorName: useEntitySelector ? vendorName || 'Unknown Vendor' : name,
           ...(vendorId ? { vendorId } : {}),
-          ...(offerDate ? { offerDate: new Date(offerDate) } : {}),
+          ...(offerDate ? { vendorOfferDate: new Date(offerDate) } : {}),
           ...(validityDate ? { validityDate: new Date(validityDate) } : {}),
           currency,
           ...(remarks ? { remarks } : {}),
           ...(fileData ? { fileUrl: fileData.url, fileName: fileData.name } : {}),
+          tenantId: claims?.tenantId || 'default-entity',
         },
+        [], // items added one-by-one on the detail page
         user!.uid,
         user!.displayName ?? 'Unknown',
         claims?.permissions ?? 0
       );
 
-      router.push(`/materials/vendor-offers/${offer.id}`);
+      router.push(`/materials/vendor-offers/${quoteId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create offer');
     } finally {

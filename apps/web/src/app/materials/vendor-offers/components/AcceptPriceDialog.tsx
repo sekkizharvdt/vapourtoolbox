@@ -9,14 +9,14 @@ import {
   Typography,
   Box,
 } from '@mui/material';
-import type { VendorOfferItem, VendorOffer } from '@vapour/types';
+import type { VendorQuoteItem, VendorQuote } from '@vapour/types';
 
 interface AcceptPriceDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  item: VendorOfferItem | null;
-  offer: VendorOffer | null;
+  item: VendorQuoteItem | null;
+  offer: VendorQuote | null;
   accepting: boolean;
 }
 
