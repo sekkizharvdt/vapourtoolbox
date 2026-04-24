@@ -77,6 +77,17 @@ export function canCancelPO(po: PurchaseOrder): boolean {
   return ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ISSUED'].includes(po.status);
 }
 
+/** Goods receipt can be created once the PO has been issued to (and optionally
+ *  acknowledged by) the vendor, through partial delivery. */
+export function canReceiveGoods(po: PurchaseOrder): boolean {
+  return ['ISSUED', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(po.status);
+}
+
+/** Work-completion certificate applies once execution has started or finished. */
+export function canIssueWorkCompletion(po: PurchaseOrder): boolean {
+  return ['IN_PROGRESS', 'DELIVERED', 'COMPLETED'].includes(po.status);
+}
+
 // ============================================================================
 // DISPLAY UTILITIES
 // ============================================================================

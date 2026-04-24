@@ -6,7 +6,7 @@
 
 'use client';
 
-import { Box, Typography, Button, Stack, Chip } from '@mui/material';
+import { Box, Typography, Button, Stack, Chip, Alert } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
@@ -15,6 +15,8 @@ import {
   Close as CloseIcon,
   Cancel as CancelIcon,
   PictureAsPdf as PdfIcon,
+  Inventory2 as GoodsReceiptIcon,
+  AssignmentTurnedIn as WorkCompletionIcon,
 } from '@mui/icons-material';
 import type { PurchaseOrder } from '@vapour/types';
 import {
@@ -26,6 +28,8 @@ import {
   canRejectPO,
   canIssuePO,
   canCancelPO,
+  canReceiveGoods,
+  canIssueWorkCompletion,
   getAdvancePaymentStatus,
 } from '@/lib/procurement/purchaseOrderHelpers';
 
@@ -38,6 +42,8 @@ interface POHeaderProps {
   onReject: () => void;
   onIssue: () => void;
   onCancel: () => void;
+  onCreateGoodsReceipt?: () => void;
+  onCreateWorkCompletion?: () => void;
   onDownloadPDF?: () => void;
   pdfLoading?: boolean;
 }
@@ -51,10 +57,13 @@ export function POHeader({
   onReject,
   onIssue,
   onCancel,
+  onCreateGoodsReceipt,
+  onCreateWorkCompletion,
   onDownloadPDF,
   pdfLoading = false,
 }: POHeaderProps) {
   const advancePaymentStatus = getAdvancePaymentStatus(po);
+  const showIssueNudge = po.status === 'APPROVED' && canIssuePO(po);
 
   return (
     <Box>
@@ -83,7 +92,7 @@ export function POHeader({
             )}
           </Stack>
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           {onDownloadPDF && (
             <Button
               variant="outlined"
@@ -124,6 +133,26 @@ export function POHeader({
               Issue to Vendor
             </Button>
           )}
+          {canReceiveGoods(po) && onCreateGoodsReceipt && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<GoodsReceiptIcon />}
+              onClick={onCreateGoodsReceipt}
+            >
+              Receive Goods
+            </Button>
+          )}
+          {canIssueWorkCompletion(po) && onCreateWorkCompletion && (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<WorkCompletionIcon />}
+              onClick={onCreateWorkCompletion}
+            >
+              Issue Work Certificate
+            </Button>
+          )}
           {canCancelPO(po) && (
             <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
               Cancel
@@ -131,6 +160,12 @@ export function POHeader({
           )}
         </Stack>
       </Stack>
+      {showIssueNudge && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          This PO is approved but not yet issued to the vendor. Goods receipts and work certificates
+          become available after you click <strong>Issue to Vendor</strong>.
+        </Alert>
+      )}
     </Box>
   );
 }

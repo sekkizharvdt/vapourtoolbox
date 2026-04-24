@@ -249,6 +249,10 @@ export default function PODetailPage() {
           onReject={() => dialogState.setRejectDialogOpen(true)}
           onIssue={() => dialogState.setIssueDialogOpen(true)}
           onCancel={() => dialogState.setCancelDialogOpen(true)}
+          onCreateGoodsReceipt={() => router.push(`/procurement/goods-receipts/new?poId=${poId}`)}
+          onCreateWorkCompletion={() =>
+            router.push(`/procurement/work-completion/new?poId=${poId}`)
+          }
           onDownloadPDF={handleDownloadPDF}
           pdfLoading={pdfLoading}
         />
