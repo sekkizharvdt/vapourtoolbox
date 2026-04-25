@@ -43,7 +43,6 @@ import type { Enquiry, EnquiryStatus } from '@vapour/types';
 import {
   ENQUIRY_STATUS_LABELS,
   ENQUIRY_URGENCY_LABELS,
-  ENQUIRY_PROJECT_TYPE_LABELS,
   STRATEGIC_ALIGNMENT_LABELS,
   WIN_PROBABILITY_LABELS,
   COMMERCIAL_VIABILITY_LABELS,
@@ -51,6 +50,7 @@ import {
   CAPACITY_CAPABILITY_LABELS,
   BID_DECISION_LABELS,
 } from '@vapour/types';
+import { ENGAGEMENT_TYPE_LABELS } from '@vapour/constants';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
 import { BidDecisionDialog } from '../components/BidDecisionDialog';
 import { CreateProposalDialog } from '../components/CreateProposalDialog';
@@ -266,10 +266,12 @@ export default function EnquiryDetailClient() {
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Project Type
+                    Type of work
                   </Typography>
                   <Typography variant="body1">
-                    {enquiry.projectType ? ENQUIRY_PROJECT_TYPE_LABELS[enquiry.projectType] : '-'}
+                    {enquiry.engagementType
+                      ? ENGAGEMENT_TYPE_LABELS[enquiry.engagementType].title
+                      : '—'}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>

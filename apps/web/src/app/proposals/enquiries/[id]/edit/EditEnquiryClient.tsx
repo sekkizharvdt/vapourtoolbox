@@ -23,6 +23,9 @@ import {
   Select,
   MenuItem,
   FormHelperText,
+  Card,
+  CardActionArea,
+  CardContent,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { DatePicker } from '@mui/x-date-pickers';
@@ -32,8 +35,9 @@ import { Timestamp } from 'firebase/firestore';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getEnquiryById, updateEnquiry } from '@/lib/enquiry/enquiryService';
-import type { Enquiry, EnquirySource, EnquiryUrgency, EnquiryProjectType } from '@vapour/types';
-import { ENQUIRY_URGENCY_LABELS, ENQUIRY_PROJECT_TYPE_LABELS } from '@vapour/types';
+import type { Enquiry, EnquirySource, EnquiryUrgency, EngagementType } from '@vapour/types';
+import { ENQUIRY_URGENCY_LABELS } from '@vapour/types';
+import { ENGAGEMENT_TYPE_LABELS, ENGAGEMENT_TYPE_ORDER } from '@vapour/constants';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 
 interface EditEnquiryFormValues {
@@ -46,7 +50,7 @@ interface EditEnquiryFormValues {
   clientReferenceNumber: string;
   receivedVia: EnquirySource;
   referenceSource: string;
-  projectType: EnquiryProjectType;
+  engagementType?: EngagementType;
   industry: string;
   location: string;
   urgency: EnquiryUrgency;
@@ -107,7 +111,7 @@ export default function EditEnquiryClient() {
       clientReferenceNumber: '',
       receivedVia: 'EMAIL',
       referenceSource: '',
-      projectType: 'SUPPLY_ONLY',
+      engagementType: undefined,
       industry: '',
       location: '',
       urgency: 'STANDARD',
@@ -142,7 +146,7 @@ export default function EditEnquiryClient() {
           clientReferenceNumber: data.clientReferenceNumber || '',
           receivedVia: data.receivedVia || 'EMAIL',
           referenceSource: data.referenceSource || '',
-          projectType: data.projectType || 'SUPPLY_ONLY',
+          engagementType: data.engagementType,
           industry: data.industry || '',
           location: data.location || '',
           urgency: data.urgency || 'MEDIUM',
@@ -181,7 +185,7 @@ export default function EditEnquiryClient() {
           clientReferenceNumber: data.clientReferenceNumber || undefined,
           receivedVia: data.receivedVia,
           referenceSource: data.referenceSource || undefined,
-          projectType: data.projectType,
+          engagementType: data.engagementType,
           industry: data.industry || undefined,
           location: data.location || undefined,
           urgency: data.urgency,
@@ -400,22 +404,68 @@ export default function EditEnquiryClient() {
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={12}>
                 <Controller
-                  name="projectType"
+                  name="engagementType"
                   control={control}
                   render={({ field }) => (
-                    <FormControl fullWidth error={!!errors.projectType}>
-                      <InputLabel>Project Type</InputLabel>
-                      <Select {...field} label="Project Type">
-                        {Object.entries(ENQUIRY_PROJECT_TYPE_LABELS).map(([value, label]) => (
-                          <MenuItem key={value} value={value}>
-                            {label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      <FormHelperText>{errors.projectType?.message}</FormHelperText>
-                    </FormControl>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                        Type of work
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                        Pick the closest match — you can refine the scope later.
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: 'repeat(2, 1fr)',
+                            md: 'repeat(3, 1fr)',
+                          },
+                          gap: 1.5,
+                        }}
+                      >
+                        {ENGAGEMENT_TYPE_ORDER.map((key) => {
+                          const label = ENGAGEMENT_TYPE_LABELS[key];
+                          const selected = field.value === key;
+                          return (
+                            <Card
+                              key={key}
+                              variant="outlined"
+                              sx={{
+                                borderColor: selected ? 'primary.main' : 'divider',
+                                borderWidth: selected ? 2 : 1,
+                                bgcolor: selected ? 'action.selected' : 'background.paper',
+                                transition: 'all 120ms ease',
+                              }}
+                            >
+                              <CardActionArea
+                                onClick={() => field.onChange(key)}
+                                sx={{ height: '100%' }}
+                              >
+                                <CardContent sx={{ py: 1.5 }}>
+                                  <Typography variant="subtitle2">{label.title}</Typography>
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ mt: 0.5 }}
+                                  >
+                                    {label.description}
+                                  </Typography>
+                                </CardContent>
+                              </CardActionArea>
+                            </Card>
+                          );
+                        })}
+                      </Box>
+                      {errors.engagementType?.message && (
+                        <FormHelperText error sx={{ mt: 1 }}>
+                          {errors.engagementType.message}
+                        </FormHelperText>
+                      )}
+                    </Box>
                   )}
                 />
               </Grid>

@@ -116,7 +116,7 @@ export async function createEnquiry(
       receivedDate: input.receivedDate,
       receivedVia: input.receivedVia,
       referenceSource: input.referenceSource,
-      projectType: input.projectType,
+      engagementType: input.engagementType,
       industry: input.industry,
       location: input.location,
       urgency: input.urgency,

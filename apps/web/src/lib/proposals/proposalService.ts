@@ -29,7 +29,6 @@ import type {
   ProposalStatus,
   Enquiry,
   ProposalWorkflowStage,
-  EngagementType,
   CurrencyCode,
 } from '@vapour/types';
 
@@ -188,7 +187,8 @@ export async function createProposal(
 }
 
 /**
- * Minimal proposal creation input (simplified for Phase 2 workflow)
+ * Minimal proposal creation input (simplified for Phase 2 workflow).
+ * Type of work is inherited from the parent enquiry — single source of truth.
  */
 export interface CreateMinimalProposalInput {
   tenantId: string;
@@ -198,8 +198,7 @@ export interface CreateMinimalProposalInput {
   validityDate: Date;
   notes?: string;
 
-  // Engagement type + currency — required on new proposals (Stage 1)
-  engagementType: EngagementType;
+  // Currency — proposal-level decision, set at quote time
   nativeCurrency: CurrencyCode;
   displayCurrency?: CurrencyCode;
   displayFxRate?: number;
@@ -258,8 +257,9 @@ export async function createMinimalProposal(
       validityDate: Timestamp.fromDate(input.validityDate),
       preparationDate: now,
 
-      // Engagement type + currency — captured at create time (Stage 1)
-      engagementType: input.engagementType,
+      // Type of work inherited from the enquiry (single source of truth).
+      // Currency is a quote-level decision captured at create time.
+      ...(enquiry.engagementType !== undefined && { engagementType: enquiry.engagementType }),
       nativeCurrency: input.nativeCurrency,
       ...(input.displayCurrency !== undefined && { displayCurrency: input.displayCurrency }),
       ...(input.displayFxRate !== undefined && { displayFxRate: input.displayFxRate }),

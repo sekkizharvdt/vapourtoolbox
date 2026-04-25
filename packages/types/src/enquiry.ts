@@ -5,6 +5,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { TimestampFields, Money } from './common';
+import type { EngagementType } from './proposal';
 
 /**
  * Enquiry Status
@@ -110,16 +111,6 @@ export interface BidDecisionRecord {
  * Enquiry Source
  */
 export type EnquirySource = 'EMAIL' | 'PHONE' | 'MEETING' | 'WEBSITE' | 'REFERRAL' | 'OTHER';
-
-/**
- * Enquiry Project Type (renamed from ProjectType to avoid collision with project.ts)
- */
-export type EnquiryProjectType =
-  | 'SUPPLY_ONLY'
-  | 'SUPPLY_AND_INSTALL'
-  | 'ENGINEERING_DESIGN'
-  | 'TURNKEY'
-  | 'OTHER';
 
 /**
  * Enquiry Urgency Level
@@ -239,17 +230,6 @@ export const ENQUIRY_SOURCE_LABELS: Record<EnquirySource, string> = {
 };
 
 /**
- * Project Type Labels
- */
-export const ENQUIRY_PROJECT_TYPE_LABELS: Record<EnquiryProjectType, string> = {
-  SUPPLY_ONLY: 'Supply Only',
-  SUPPLY_AND_INSTALL: 'Supply & Install',
-  ENGINEERING_DESIGN: 'Engineering Design',
-  TURNKEY: 'Turnkey',
-  OTHER: 'Other',
-};
-
-/**
  * Enquiry Urgency Labels
  */
 export const ENQUIRY_URGENCY_LABELS: Record<EnquiryUrgency, string> = {
@@ -292,7 +272,7 @@ export interface Enquiry extends TimestampFields {
   referenceSource?: string; // If referral/website, specify source
 
   // Requirements
-  projectType?: EnquiryProjectType;
+  engagementType?: EngagementType;
   industry?: string; // e.g., Manufacturing, Oil & Gas, Power
   location?: string; // Project site location
   urgency: EnquiryUrgency;
@@ -337,7 +317,7 @@ export interface CreateEnquiryInput {
   receivedDate: Timestamp;
   receivedVia: EnquirySource;
   referenceSource?: string;
-  projectType?: EnquiryProjectType;
+  engagementType?: EngagementType;
   industry?: string;
   location?: string;
   urgency: EnquiryUrgency;
@@ -361,7 +341,7 @@ export interface UpdateEnquiryInput {
   receivedDate?: Timestamp;
   receivedVia?: EnquirySource;
   referenceSource?: string;
-  projectType?: EnquiryProjectType;
+  engagementType?: EngagementType;
   industry?: string;
   location?: string;
   urgency?: EnquiryUrgency;

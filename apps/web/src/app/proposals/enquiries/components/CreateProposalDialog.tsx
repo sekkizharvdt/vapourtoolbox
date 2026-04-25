@@ -13,21 +13,19 @@ import {
   Box,
   Alert,
   Typography,
-  Card,
-  CardActionArea,
-  CardContent,
   Stack,
   Switch,
   FormControlLabel,
   InputAdornment,
+  Chip,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { addDays } from 'date-fns';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { createMinimalProposal } from '@/lib/proposals/proposalService';
-import type { Enquiry, EngagementType, CurrencyCode } from '@vapour/types';
-import { ENGAGEMENT_TYPE_LABELS, ENGAGEMENT_TYPE_ORDER, CURRENCIES } from '@vapour/constants';
+import type { Enquiry, CurrencyCode } from '@vapour/types';
+import { ENGAGEMENT_TYPE_LABELS, CURRENCIES } from '@vapour/constants';
 
 interface CreateProposalDialogProps {
   open: boolean;
@@ -51,7 +49,6 @@ export function CreateProposalDialog({
   const [error, setError] = useState<string>('');
 
   // Form state
-  const [engagementType, setEngagementType] = useState<EngagementType | ''>('');
   const [nativeCurrency, setNativeCurrency] = useState<CurrencyCode>('INR');
   const [showSecondaryCurrency, setShowSecondaryCurrency] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<CurrencyCode>('USD');
@@ -61,15 +58,17 @@ export function CreateProposalDialog({
   const [validityDate, setValidityDate] = useState<Date | null>(addDays(new Date(), 30));
   const [notes, setNotes] = useState('');
 
-  // Pre-fill title when enquiry changes
   useEffect(() => {
     if (enquiry) {
       setTitle(enquiry.title);
     }
   }, [enquiry]);
 
+  const inheritedTypeLabel = enquiry.engagementType
+    ? ENGAGEMENT_TYPE_LABELS[enquiry.engagementType].title
+    : null;
+
   const resetForm = () => {
-    setEngagementType('');
     setNativeCurrency('INR');
     setShowSecondaryCurrency(false);
     setDisplayCurrency('USD');
@@ -81,8 +80,8 @@ export function CreateProposalDialog({
   };
 
   const handleSubmit = async () => {
-    if (!engagementType) {
-      setError('Pick the kind of work this proposal is for.');
+    if (!enquiry.engagementType) {
+      setError('Set the type of work on the enquiry before creating a proposal.');
       return;
     }
     if (!title.trim()) {
@@ -122,7 +121,6 @@ export function CreateProposalDialog({
           clientId: enquiry.clientId,
           validityDate,
           notes: notes.trim() || undefined,
-          engagementType,
           nativeCurrency,
           ...(showSecondaryCurrency && {
             displayCurrency,
@@ -163,47 +161,24 @@ export function CreateProposalDialog({
         <Stack spacing={4} sx={{ pt: 2 }}>
           {error && <Alert severity="error">{error}</Alert>}
 
-          {/* Engagement type picker */}
+          {/* Inherited type of work */}
           <Box>
-            <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-              What kind of work is this?
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Type of work
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Pick the closest match — you can refine the scope and pricing later.
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
-                gap: 1.5,
-              }}
-            >
-              {ENGAGEMENT_TYPE_ORDER.map((key) => {
-                const label = ENGAGEMENT_TYPE_LABELS[key];
-                const selected = engagementType === key;
-                return (
-                  <Card
-                    key={key}
-                    variant="outlined"
-                    sx={{
-                      borderColor: selected ? 'primary.main' : 'divider',
-                      borderWidth: selected ? 2 : 1,
-                      bgcolor: selected ? 'action.selected' : 'background.paper',
-                      transition: 'all 120ms ease',
-                    }}
-                  >
-                    <CardActionArea onClick={() => setEngagementType(key)} sx={{ height: '100%' }}>
-                      <CardContent sx={{ py: 1.75 }}>
-                        <Typography variant="subtitle2">{label.title}</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {label.description}
-                        </Typography>
-                      </CardContent>
-                    </CardActionArea>
-                  </Card>
-                );
-              })}
-            </Box>
+            {inheritedTypeLabel ? (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip label={inheritedTypeLabel} color="primary" />
+                <Typography variant="body2" color="text.secondary">
+                  Inherited from the enquiry. Edit it on the enquiry if it needs to change.
+                </Typography>
+              </Stack>
+            ) : (
+              <Alert severity="warning" sx={{ mt: 0.5 }}>
+                This enquiry doesn&apos;t have a type of work yet. Open the enquiry, set it, then
+                come back.
+              </Alert>
+            )}
           </Box>
 
           {/* Currency */}
@@ -322,7 +297,11 @@ export function CreateProposalDialog({
         <Button onClick={handleClose} disabled={submitting}>
           Cancel
         </Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={submitting || !inheritedTypeLabel}
+        >
           {submitting ? 'Creating…' : 'Create proposal'}
         </Button>
       </DialogActions>

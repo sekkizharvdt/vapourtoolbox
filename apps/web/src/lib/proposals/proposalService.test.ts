@@ -135,6 +135,7 @@ describe('proposalService', () => {
     description: 'Test enquiry description',
     clientContactPerson: 'John Doe',
     clientEmail: 'john@example.com',
+    engagementType: 'EPC' as const,
     bidDecision: {
       decision: 'BID',
       decidedBy: 'user-456',
@@ -309,7 +310,6 @@ describe('proposalService', () => {
         title: 'Minimal Proposal',
         clientId: 'client-123',
         validityDate: new Date(),
-        engagementType: 'EPC' as const,
         nativeCurrency: 'INR' as const,
       };
 
@@ -335,7 +335,6 @@ describe('proposalService', () => {
         title: 'Test',
         clientId: 'client-123',
         validityDate: new Date(),
-        engagementType: 'EPC' as const,
         nativeCurrency: 'INR' as const,
       };
 
@@ -369,7 +368,6 @@ describe('proposalService', () => {
         title: 'Test',
         clientId: 'client-123',
         validityDate: new Date(),
-        engagementType: 'EPC' as const,
         nativeCurrency: 'INR' as const,
       };
 

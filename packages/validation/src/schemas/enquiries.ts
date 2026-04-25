@@ -32,14 +32,16 @@ export const enquirySourceSchema = z.enum([
 ]);
 
 /**
- * Enquiry Project Type enum schema
+ * Engagement Type enum schema — what kind of work the enquiry is for.
+ * Mirrors `EngagementType` from @vapour/types/proposal.
  */
-export const enquiryProjectTypeSchema = z.enum([
-  'SUPPLY_ONLY',
-  'SUPPLY_AND_INSTALL',
-  'ENGINEERING_DESIGN',
-  'TURNKEY',
-  'OTHER',
+export const engagementTypeSchema = z.enum([
+  'SITE_SURVEY',
+  'ENGINEERING',
+  'EPC',
+  'EPC_WITH_OM',
+  'OM',
+  'CUSTOM',
 ]);
 
 /**
@@ -76,7 +78,7 @@ export const createEnquiryInputSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   receivedVia: enquirySourceSchema,
   referenceSource: z.string().optional(),
-  projectType: enquiryProjectTypeSchema.optional(),
+  engagementType: engagementTypeSchema.optional(),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema,
@@ -105,7 +107,7 @@ export const createEnquiryFormSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   receivedVia: enquirySourceSchema,
   referenceSource: z.string().optional(),
-  projectType: enquiryProjectTypeSchema.optional(),
+  engagementType: engagementTypeSchema.optional(),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema,
@@ -129,7 +131,7 @@ export const updateEnquiryInputSchema = z.object({
   clientReferenceNumber: z.string().optional(),
   receivedVia: enquirySourceSchema.optional(),
   referenceSource: z.string().optional(),
-  projectType: enquiryProjectTypeSchema.optional(),
+  engagementType: engagementTypeSchema.optional(),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema.optional(),
