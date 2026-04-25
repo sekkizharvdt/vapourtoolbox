@@ -29,6 +29,8 @@ import type {
   ProposalStatus,
   Enquiry,
   ProposalWorkflowStage,
+  EngagementType,
+  CurrencyCode,
 } from '@vapour/types';
 
 // Re-export extracted modules for backward compatibility
@@ -195,6 +197,12 @@ export interface CreateMinimalProposalInput {
   clientId: string;
   validityDate: Date;
   notes?: string;
+
+  // Engagement type + currency — required on new proposals (Stage 1)
+  engagementType: EngagementType;
+  nativeCurrency: CurrencyCode;
+  displayCurrency?: CurrencyCode;
+  displayFxRate?: number;
 }
 
 /**
@@ -250,6 +258,13 @@ export async function createMinimalProposal(
       validityDate: Timestamp.fromDate(input.validityDate),
       preparationDate: now,
 
+      // Engagement type + currency — captured at create time (Stage 1)
+      engagementType: input.engagementType,
+      nativeCurrency: input.nativeCurrency,
+      ...(input.displayCurrency !== undefined && { displayCurrency: input.displayCurrency }),
+      ...(input.displayFxRate !== undefined && { displayFxRate: input.displayFxRate }),
+      ...(input.displayCurrency !== undefined && { fxSnapshotDate: now }),
+
       // Empty scope of work - will be filled via scope matrix
       scopeOfWork: {
         summary: enquiry.description || '',
@@ -270,13 +285,14 @@ export async function createMinimalProposal(
         milestones: [],
       },
 
-      // Empty pricing - will be filled in pricing module
+      // Empty pricing - will be filled in pricing module.
+      // Currency reflects the chosen native currency (Stage 1).
       pricing: {
-        currency: 'INR',
+        currency: input.nativeCurrency,
         lineItems: [],
-        subtotal: { amount: 0, currency: 'INR' },
+        subtotal: { amount: 0, currency: input.nativeCurrency },
         taxItems: [],
-        totalAmount: { amount: 0, currency: 'INR' },
+        totalAmount: { amount: 0, currency: input.nativeCurrency },
         paymentTerms: 'To be determined',
       },
 

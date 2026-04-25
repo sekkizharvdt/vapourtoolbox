@@ -66,6 +66,7 @@ import { canConvertToProject } from '@/lib/proposals/projectConversion';
 import type { Proposal } from '@vapour/types';
 import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 import { logger } from '@vapour/logger';
+import { ENGAGEMENT_TYPE_LABELS, CURRENCIES } from '@vapour/constants';
 
 // Components
 import StatusBadge from './components/StatusBadge';
@@ -473,6 +474,25 @@ export default function ProposalDetailClient() {
         <StatusBadge status={proposal.status} />
         {proposal.revision > 1 && (
           <Chip label={`Rev ${proposal.revision}`} variant="outlined" sx={{ ml: 1 }} />
+        )}
+        {proposal.engagementType && (
+          <Chip
+            label={ENGAGEMENT_TYPE_LABELS[proposal.engagementType].title}
+            variant="outlined"
+            color="primary"
+            sx={{ ml: 1 }}
+          />
+        )}
+        {proposal.nativeCurrency && (
+          <Chip
+            label={
+              proposal.displayCurrency
+                ? `${CURRENCIES[proposal.nativeCurrency].symbol} ${proposal.nativeCurrency} / ${CURRENCIES[proposal.displayCurrency].symbol} ${proposal.displayCurrency}`
+                : `${CURRENCIES[proposal.nativeCurrency].symbol} ${proposal.nativeCurrency}`
+            }
+            variant="outlined"
+            sx={{ ml: 1 }}
+          />
         )}
       </PageHeader>
 

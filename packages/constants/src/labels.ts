@@ -161,6 +161,47 @@ export const PROPOSAL_STATUS_LABELS = {
   EXPIRED: 'Expired',
 } as const;
 
+/**
+ * Labels for `EngagementType` — the kind of work a proposal is for.
+ * Title is the short label; description is the one-liner shown under the picker card.
+ */
+export const ENGAGEMENT_TYPE_LABELS = {
+  SITE_SURVEY: {
+    title: 'Site Survey',
+    description: 'Inspect a site and report on its condition.',
+  },
+  ENGINEERING: {
+    title: 'Engineering & Design',
+    description: 'Drawings, calculations, and technical documents.',
+  },
+  EPC: {
+    title: 'Equipment & Plant Supply',
+    description: 'Design, fabricate, supply, and install — the whole job.',
+  },
+  EPC_WITH_OM: {
+    title: 'Plant Supply with O&M',
+    description: 'Build the plant and operate it for an agreed period.',
+  },
+  OM: {
+    title: 'Operations & Maintenance',
+    description: 'Run an existing plant.',
+  },
+  CUSTOM: {
+    title: 'Mixed / Other',
+    description: "A combination, or doesn't fit the options above.",
+  },
+} as const;
+
+/** Display order for the engagement-type picker. */
+export const ENGAGEMENT_TYPE_ORDER = [
+  'SITE_SURVEY',
+  'ENGINEERING',
+  'EPC',
+  'EPC_WITH_OM',
+  'OM',
+  'CUSTOM',
+] as const;
+
 // ============================================================================
 // FLOW — meeting + task labels (sweep 2026-04-21)
 // ============================================================================

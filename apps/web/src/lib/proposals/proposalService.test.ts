@@ -309,6 +309,8 @@ describe('proposalService', () => {
         title: 'Minimal Proposal',
         clientId: 'client-123',
         validityDate: new Date(),
+        engagementType: 'EPC' as const,
+        nativeCurrency: 'INR' as const,
       };
 
       const result = await createMinimalProposal(mockDb, input, mockUserId);
@@ -333,6 +335,8 @@ describe('proposalService', () => {
         title: 'Test',
         clientId: 'client-123',
         validityDate: new Date(),
+        engagementType: 'EPC' as const,
+        nativeCurrency: 'INR' as const,
       };
 
       await expect(createMinimalProposal(mockDb, input, mockUserId)).rejects.toThrow(
@@ -365,6 +369,8 @@ describe('proposalService', () => {
         title: 'Test',
         clientId: 'client-123',
         validityDate: new Date(),
+        engagementType: 'EPC' as const,
+        nativeCurrency: 'INR' as const,
       };
 
       await expect(createMinimalProposal(mockDb, input, mockUserId)).rejects.toThrow(

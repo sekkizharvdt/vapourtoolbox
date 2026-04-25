@@ -401,6 +401,25 @@ export type ProposalStatus =
   | 'EXPIRED';
 
 /**
+ * Engagement Type — what kind of work the proposal is for.
+ * Drives which pricing/scope blocks are enabled by default and PDF layout.
+ * See PROPOSALS-WORKFLOW-DESIGN-2026-04-25.md
+ */
+export type EngagementType =
+  | 'SITE_SURVEY' // Inspect a site, report condition (e.g. baseline MEP survey)
+  | 'ENGINEERING' // Drawings, calculations, technical documents
+  | 'EPC' // Design, fabricate, supply, install — full plant/equipment job
+  | 'EPC_WITH_OM' // EPC plus operations & maintenance for a period
+  | 'OM' // Run an existing plant
+  | 'CUSTOM'; // Mixed or doesn't fit above
+
+/**
+ * Audience — who a pricing/scope block is meant for.
+ * `INTERNAL` blocks drive the cost basis but are suppressed from the client PDF.
+ */
+export type Audience = 'CLIENT' | 'INTERNAL' | 'BOTH';
+
+/**
  * Proposal Line Item Category
  */
 export type ProposalLineItemCategory =
@@ -725,6 +744,20 @@ export interface Proposal extends TimestampFields {
   validityDate: Timestamp; // Offer valid until
   preparationDate: Timestamp;
 
+  // Engagement type — what kind of work this proposal is for.
+  // Optional today for legacy records created before Stage 1; required on new proposals.
+  engagementType?: EngagementType;
+
+  // Native currency the proposal is quoted in (drives all line-item amounts).
+  // Optional today for legacy records; required on new proposals.
+  nativeCurrency?: CurrencyCode;
+
+  // Optional secondary display currency for side-by-side rendering on the PDF.
+  // FX rate is snapshotted at quote time so the PDF doesn't shift over time.
+  displayCurrency?: CurrencyCode;
+  displayFxRate?: number; // 1 unit nativeCurrency = displayFxRate units displayCurrency
+  fxSnapshotDate?: Timestamp;
+
   // Scope of Work
   scopeOfWork: ScopeOfWork;
 
@@ -814,6 +847,12 @@ export interface CreateProposalInput {
   scopeOfWork: ScopeOfWork;
   deliveryPeriod: DeliveryPeriod;
   paymentTerms?: string; // Auto-generated from milestones if not provided
+
+  // Engagement type + currency — required on new proposals
+  engagementType: EngagementType;
+  nativeCurrency: CurrencyCode;
+  displayCurrency?: CurrencyCode;
+  displayFxRate?: number;
 }
 
 /**
@@ -831,6 +870,11 @@ export interface UpdateProposalInput {
   terms?: Partial<TermsAndConditions>;
   status?: ProposalStatus;
   negotiationNotes?: string;
+  // Engagement / currency (editable post-creation)
+  engagementType?: EngagementType;
+  nativeCurrency?: CurrencyCode;
+  displayCurrency?: CurrencyCode;
+  displayFxRate?: number;
   // Workflow timestamps
   scopeCompletedAt?: Timestamp;
   estimationCompletedAt?: Timestamp;
