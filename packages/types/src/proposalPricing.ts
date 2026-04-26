@@ -1,12 +1,19 @@
 /**
- * Proposal Pricing Blocks (Stage 2)
+ * Proposal Costing & Pricing types (Stages 2 + 2.5)
  *
- * Pluggable building blocks that compose a proposal's pricing buildup.
- * A proposal carries an array of blocks; the array shape is determined by
- * the parent enquiry's `workComponents` at create time, then editable.
+ * Two distinct concepts, on two distinct tabs:
  *
- * Each block carries an `audience` so the same pricing data can drive both
- * the internal cost basis (INTERNAL) and the client-facing PDF (CLIENT/BOTH).
+ * COSTING (internal) — `Proposal.pricingBlocks: PricingBlock[]`
+ *   Pluggable building blocks that compose the proposal's internal cost
+ *   basis: manpower roster, per-manday site costs, lump-sum costs, BOM
+ *   cost sheet. The array shape is seeded from the parent enquiry's
+ *   `workComponents` at create time, then editable. The Audience flag
+ *   is retained for backwards compatibility but new entries are always
+ *   internal — Costing is by definition never seen by the client.
+ *
+ * PRICING (client-facing) — `Proposal.clientPricing: ClientPricing`
+ *   What the customer pays: markup % on the cost basis, plus client-
+ *   facing lump-sum lines, plus tax. This is what renders on the PDF.
  *
  * See PROPOSALS-WORKFLOW-DESIGN-2026-04-25.md
  */
@@ -14,8 +21,12 @@
 import type { CurrencyCode } from './common';
 
 /**
- * Audience — who a pricing block is meant for.
- * INTERNAL blocks drive cost computation but are suppressed from the client PDF.
+ * Audience — retained for backwards compatibility with Stage 2 records.
+ * In Stage 2.5+ all pricingBlocks are treated as INTERNAL regardless of
+ * their stored audience; visibility is determined by the tab the data
+ * lives on, not a per-block flag.
+ *
+ * @deprecated visibility is now driven by tab, not per-block
  */
 export type Audience = 'CLIENT' | 'INTERNAL' | 'BOTH';
 
@@ -102,3 +113,49 @@ export type PricingBlock =
   | PerMandayCostBlock
   | LumpSumLinesBlock
   | BOMCostSheetBlock;
+
+/* ─── Pricing tab — client-facing pricing ─────────────────────────────── */
+
+/**
+ * A single client-facing lump-sum line on the Pricing tab.
+ * e.g. "MED Process System — supply, install, commission",
+ *      "Admin charges", "Profit", "Mobilisation".
+ */
+export interface PricingLumpSumRow {
+  id: string;
+  description: string;
+  amount: number;
+}
+
+/**
+ * The Pricing tab's full state. Stored on `Proposal.clientPricing`.
+ *
+ * Layout (when rendering the PDF):
+ *   Cost basis (sum of pricingBlocks subtotals — never shown to client)
+ *   + Overhead     (overheadPercent × cost basis)
+ *   + Contingency  (contingencyPercent × cost basis)
+ *   + Profit       (profitPercent × cost basis)
+ *   + Lump-sum lines (each rendered as its own line on the PDF)
+ *   = Subtotal
+ *   + Tax (taxRate × subtotal)
+ *   = Total price
+ *
+ * All three markup percentages are independent and additive on the cost
+ * basis — none compounds on another.
+ */
+export interface ClientPricing {
+  // Markup % on cost basis
+  overheadPercent: number;
+  contingencyPercent: number;
+  profitPercent: number;
+
+  // Client-facing lump-sum lines (always visible to the client on the PDF)
+  lumpSumLines: PricingLumpSumRow[];
+
+  // Tax
+  taxRate: number; // percent, e.g. 18 for GST 18%
+  taxLabel: string; // e.g. "GST 18%"
+
+  // Currency mirrors proposal.nativeCurrency, snapshotted for convenience
+  currency: CurrencyCode;
+}

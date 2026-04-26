@@ -1,8 +1,8 @@
 /**
- * Pricing block helpers (Stage 2).
+ * Costing & Pricing helpers (Stages 2 + 2.5).
  *
- * Seeds default blocks from the work components on the parent enquiry, and
- * computes block subtotals.
+ * Seeds the Costing tab's default blocks from the work components on the
+ * parent enquiry, and seeds a starter ClientPricing for the Pricing tab.
  */
 
 import type {
@@ -13,22 +13,24 @@ import type {
   PerMandayCostBlock,
   LumpSumLinesBlock,
   BOMCostSheetBlock,
+  ClientPricing,
 } from '@vapour/types';
 
 const newId = (): string => Math.random().toString(36).slice(2, 11);
 
 /**
- * Seed the default pricing blocks for a freshly created proposal,
- * based on the work components inherited from its enquiry.
+ * Seed the default Costing-tab blocks for a freshly created proposal,
+ * based on the work components inherited from the parent enquiry.
  *
- * Rules of thumb (each component adds the blocks it typically needs):
- *  - SURVEY        → Manpower roster (CLIENT) + Per-manday site costs (CLIENT)
- *  - ENGINEERING   → Manpower roster (INTERNAL)
- *  - SUPPLY        → BOM cost sheet (INTERNAL)
- *  - INSTALLATION  → Manpower roster for commissioning (INTERNAL)
- *  - OM            → Manpower roster for O&M (BOTH)
+ * All blocks are INTERNAL — Costing is by definition internal. Markup,
+ * client-facing lump sums, and tax live on the Pricing tab and are
+ * seeded by `createDefaultClientPricing` below.
  *
- * A "Other charges" lump-sum block is always appended for admin/profit lines.
+ *  - SURVEY        → Manpower roster + Per-manday site costs
+ *  - ENGINEERING   → Manpower roster (engineering team)
+ *  - SUPPLY        → BOM cost sheet
+ *  - INSTALLATION  → Manpower roster (site commissioning)
+ *  - OM            → Manpower roster (O&M team)
  */
 export function seedPricingBlocksForComponents(
   components: WorkComponent[],
@@ -38,8 +40,8 @@ export function seedPricingBlocksForComponents(
 
   for (const c of components) {
     if (c === 'SURVEY') {
-      blocks.push(createManpowerBlock(currency, 'CLIENT', 'Survey team'));
-      blocks.push(createPerMandayBlock(currency, 'CLIENT', 'Site costs'));
+      blocks.push(createManpowerBlock(currency, 'INTERNAL', 'Survey team'));
+      blocks.push(createPerMandayBlock(currency, 'INTERNAL', 'Site costs'));
     } else if (c === 'ENGINEERING') {
       blocks.push(createManpowerBlock(currency, 'INTERNAL', 'Engineering team'));
     } else if (c === 'SUPPLY') {
@@ -47,12 +49,32 @@ export function seedPricingBlocksForComponents(
     } else if (c === 'INSTALLATION') {
       blocks.push(createManpowerBlock(currency, 'INTERNAL', 'Site commissioning'));
     } else if (c === 'OM') {
-      blocks.push(createManpowerBlock(currency, 'BOTH', 'O&M team'));
+      blocks.push(createManpowerBlock(currency, 'INTERNAL', 'O&M team'));
     }
   }
 
-  blocks.push(createLumpSumBlock(currency, 'CLIENT', 'Other charges'));
   return blocks;
+}
+
+/**
+ * Seed a starter ClientPricing for a freshly created proposal.
+ * All zeros — user fills in the Pricing tab.
+ *
+ * Default tax: GST 18% if currency is INR (Indian-domestic supply); 0%
+ * otherwise (foreign-currency exports / standalone services). User can
+ * change either way.
+ */
+export function createDefaultClientPricing(currency: CurrencyCode): ClientPricing {
+  const isInr = currency === 'INR';
+  return {
+    overheadPercent: 0,
+    contingencyPercent: 0,
+    profitPercent: 0,
+    lumpSumLines: [],
+    taxRate: isInr ? 18 : 0,
+    taxLabel: isInr ? 'GST 18%' : 'Tax',
+    currency,
+  };
 }
 
 export function createManpowerBlock(

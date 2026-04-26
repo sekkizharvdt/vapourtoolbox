@@ -5,7 +5,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { TimestampFields, Money, CurrencyCode } from './common';
-import type { PricingBlock } from './proposalPricing';
+import type { PricingBlock, ClientPricing } from './proposalPricing';
 
 // ============================================================================
 // Scope Matrix Types
@@ -774,9 +774,13 @@ export interface Proposal extends TimestampFields {
   /** @deprecated superseded by pricingBlocks */
   pricingConfig?: ProposalPricingConfig;
 
-  // Pricing blocks (Stage 2) — composable pricing buildup, seeded from
-  // enquiry.workComponents on creation, then editable.
+  // Pricing blocks (Stage 2) — internal cost basis. Seeded from the
+  // enquiry's workComponents on creation, then editable on the Costing tab.
   pricingBlocks?: PricingBlock[];
+
+  // Client-facing pricing (Stage 2.5) — markup + lump-sum lines + tax.
+  // Lives on the Pricing tab. Renders on the client PDF.
+  clientPricing?: ClientPricing;
 
   // Terms & Conditions
   terms: TermsAndConditions;
@@ -867,6 +871,7 @@ export interface UpdateProposalInput {
   pricing?: Partial<Pricing>;
   pricingConfig?: ProposalPricingConfig;
   pricingBlocks?: PricingBlock[];
+  clientPricing?: ClientPricing;
   terms?: Partial<TermsAndConditions>;
   status?: ProposalStatus;
   negotiationNotes?: string;

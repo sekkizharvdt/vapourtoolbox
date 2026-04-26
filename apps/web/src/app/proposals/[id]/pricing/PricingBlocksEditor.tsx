@@ -24,7 +24,6 @@ import {
   Menu,
   MenuItem,
   Paper,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -55,7 +54,6 @@ import {
 import { useToast } from '@/components/common/Toast';
 import { CURRENCIES } from '@vapour/constants';
 import type {
-  Audience,
   PricingBlock,
   ManpowerRosterBlock,
   PerMandayCostBlock,
@@ -71,12 +69,6 @@ interface Props {
 }
 
 const newId = (): string => Math.random().toString(36).slice(2, 11);
-
-const audienceLabels: Record<Audience, string> = {
-  CLIENT: 'Visible to client',
-  INTERNAL: 'Internal only',
-  BOTH: 'Visible to both',
-};
 
 const blockKindLabels = {
   MANPOWER_ROSTER: 'Manpower roster',
@@ -144,16 +136,7 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
 
   const currency: CurrencyCode = proposal?.nativeCurrency ?? 'INR';
 
-  const totals = useMemo(() => {
-    const all = blocks.reduce((s, b) => s + (b.subtotal || 0), 0);
-    const client = blocks
-      .filter((b) => b.audience !== 'INTERNAL')
-      .reduce((s, b) => s + (b.subtotal || 0), 0);
-    const internal = blocks
-      .filter((b) => b.audience !== 'CLIENT')
-      .reduce((s, b) => s + (b.subtotal || 0), 0);
-    return { all, client, internal };
-  }, [blocks]);
+  const costBasis = useMemo(() => blocks.reduce((s, b) => s + (b.subtotal || 0), 0), [blocks]);
 
   const updateBlock = (id: string, updater: (b: PricingBlock) => PricingBlock) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? recomputeBlockSubtotal(updater(b)) : b)));
@@ -169,11 +152,11 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
     setAddAnchor(null);
     let block: PricingBlock;
     if (kind === 'MANPOWER_ROSTER') {
-      block = createManpowerBlock(currency, 'CLIENT', 'Manpower');
+      block = createManpowerBlock(currency, 'INTERNAL', 'Manpower');
     } else if (kind === 'PER_MANDAY_COST') {
-      block = createPerMandayBlock(currency, 'CLIENT', 'Site costs');
+      block = createPerMandayBlock(currency, 'INTERNAL', 'Site costs');
     } else if (kind === 'LUMP_SUM_LINES') {
-      block = createLumpSumBlock(currency, 'CLIENT', 'Lump-sum lines');
+      block = createLumpSumBlock(currency, 'INTERNAL', 'Internal lump-sum costs');
     } else {
       block = createBOMCostSheetBlock(currency, 'INTERNAL', 'Equipment from estimation');
     }
@@ -224,10 +207,10 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
         sx={{ mb: 3 }}
       >
         <Box>
-          <Typography variant="h6">Pricing buildup</Typography>
+          <Typography variant="h6">Costing</Typography>
           <Typography variant="body2" color="text.secondary">
-            Quoted in {CURRENCIES[currency].symbol} {currency}. Internal-only blocks drive your cost
-            basis but are hidden from the client PDF.
+            Internal cost basis in {CURRENCIES[currency].symbol} {currency}. Never shown to the
+            client. Markup, lump-sum lines, and tax live on the Pricing tab.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -273,27 +256,23 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
         </Stack>
       )}
 
-      {/* Totals */}
+      {/* Cost basis */}
       <Paper variant="outlined" sx={{ p: 2.5, mt: 3 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2}>
-          <Stack>
-            <Typography variant="caption" color="text.secondary">
-              Visible to client
-            </Typography>
-            <Typography variant="h6">{formatMoney(totals.client, currency)}</Typography>
-          </Stack>
-          <Stack>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={2}
+        >
+          <Box>
             <Typography variant="caption" color="text.secondary">
               Internal cost basis
             </Typography>
-            <Typography variant="h6">{formatMoney(totals.internal, currency)}</Typography>
-          </Stack>
-          <Stack>
+            <Typography variant="h5">{formatMoney(costBasis, currency)}</Typography>
             <Typography variant="caption" color="text.secondary">
-              All blocks (sum)
+              Carried into the Pricing tab as the basis for markup.
             </Typography>
-            <Typography variant="h6">{formatMoney(totals.all, currency)}</Typography>
-          </Stack>
+          </Box>
         </Stack>
       </Paper>
     </Box>
@@ -332,25 +311,11 @@ function BlockCard({ block, currency, onChange, onRemove }: BlockCardProps) {
             />
             <Chip label={blockKindLabels[block.kind]} size="small" variant="outlined" />
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Select
-              size="small"
-              value={block.audience}
-              onChange={(e) => onChange((b) => ({ ...b, audience: e.target.value as Audience }))}
-              sx={{ minWidth: 180 }}
-            >
-              {(['CLIENT', 'INTERNAL', 'BOTH'] as Audience[]).map((a) => (
-                <MenuItem key={a} value={a}>
-                  {audienceLabels[a]}
-                </MenuItem>
-              ))}
-            </Select>
-            <Tooltip title="Remove this block">
-              <IconButton onClick={onRemove} size="small" color="error">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+          <Tooltip title="Remove this block">
+            <IconButton onClick={onRemove} size="small" color="error">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Stack>
 
         <Divider sx={{ mb: 2 }} />

@@ -45,6 +45,7 @@ import {
   Dashboard as OverviewIcon,
   GridView as ScopeIcon,
   Schedule as DeliveryIcon,
+  Calculate as CostingIcon,
   PriceChange as PricingIcon,
   Gavel as TermsIcon,
   Visibility as PreviewIcon,
@@ -79,17 +80,20 @@ import { SaveAsTemplateDialog } from './components/SaveAsTemplateDialog';
 // Tab editors
 import { UnifiedScopeEditor } from './scope/UnifiedScopeEditor';
 import DeliveryEditor from './components/DeliveryEditor';
-import PricingBlocksEditor from './pricing/PricingBlocksEditor';
+import CostingBlocksEditor from './pricing/PricingBlocksEditor';
+import PricingEditor from './pricing/PricingEditor';
 import TermsEditor from './components/TermsEditor';
 import PreviewClient from './preview/PreviewClient';
 
-// Tab indices
+// Tab indices — order matches the natural flow:
+//   Overview → Scope → Costing (internal) → Pricing (client-facing) → Delivery → Terms → Preview
 const TAB_OVERVIEW = 0;
 const TAB_SCOPE = 1;
-const TAB_DELIVERY = 2;
+const TAB_COSTING = 2;
 const TAB_PRICING = 3;
-const TAB_TERMS = 4;
-const TAB_PREVIEW = 5;
+const TAB_DELIVERY = 4;
+const TAB_TERMS = 5;
+const TAB_PREVIEW = 6;
 
 export default function ProposalDetailClient() {
   const pathname = usePathname();
@@ -508,8 +512,9 @@ export default function ProposalDetailClient() {
         >
           <Tab icon={<OverviewIcon />} iconPosition="start" label="Overview" />
           <Tab icon={<ScopeIcon />} iconPosition="start" label="Scope" />
-          <Tab icon={<DeliveryIcon />} iconPosition="start" label="Delivery" />
+          <Tab icon={<CostingIcon />} iconPosition="start" label="Costing" />
           <Tab icon={<PricingIcon />} iconPosition="start" label="Pricing" />
+          <Tab icon={<DeliveryIcon />} iconPosition="start" label="Delivery" />
           <Tab icon={<TermsIcon />} iconPosition="start" label="Terms" />
           <Tab icon={<PreviewIcon />} iconPosition="start" label="Preview" />
         </Tabs>
@@ -527,11 +532,15 @@ export default function ProposalDetailClient() {
 
       {activeTab === TAB_SCOPE && proposalId && <UnifiedScopeEditor proposalId={proposalId} />}
 
-      {activeTab === TAB_DELIVERY && proposalId && <DeliveryEditor proposalId={proposalId} />}
+      {activeTab === TAB_COSTING && proposalId && (
+        <CostingBlocksEditor proposalId={proposalId} embedded />
+      )}
 
       {activeTab === TAB_PRICING && proposalId && (
-        <PricingBlocksEditor proposalId={proposalId} embedded />
+        <PricingEditor proposalId={proposalId} embedded />
       )}
+
+      {activeTab === TAB_DELIVERY && proposalId && <DeliveryEditor proposalId={proposalId} />}
 
       {activeTab === TAB_TERMS && proposalId && <TermsEditor proposalId={proposalId} />}
 
