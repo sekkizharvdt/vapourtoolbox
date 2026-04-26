@@ -124,8 +124,13 @@ export const ProposalPDFDocument = ({
   const hasClientPricing = Boolean(proposal.clientPricing);
   const hasPricingConfig = !hasClientPricing && Boolean(proposal.pricingConfig?.isComplete);
 
+  // Internal cost basis is always INR. Quote currency lives on clientPricing.
+  // The conversion (INR → quote currency) is applied only to the final total.
   const cp = proposal.clientPricing;
-  const cpCurrency = cp?.currency ?? proposal.nativeCurrency ?? 'INR';
+  const inrCurrency = 'INR' as const;
+  const quoteCurrency = cp?.currency ?? 'INR';
+  const fxRate = cp?.fxRate ?? 1;
+  const isForeignQuote = quoteCurrency !== 'INR' && fxRate > 0;
   const costBasis = (proposal.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0);
   const cpComputed = cp
     ? (() => {
@@ -136,7 +141,8 @@ export const ProposalPDFDocument = ({
         const subtotal =
           costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
         const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
-        const total = subtotal + taxAmount;
+        const totalInr = subtotal + taxAmount;
+        const totalQuote = isForeignQuote ? totalInr / fxRate : totalInr;
         return {
           overheadAmount,
           contingencyAmount,
@@ -144,7 +150,8 @@ export const ProposalPDFDocument = ({
           lumpSumTotal,
           subtotal,
           taxAmount,
-          total,
+          totalInr,
+          totalQuote,
         };
       })()
     : null;
@@ -291,7 +298,7 @@ export const ProposalPDFDocument = ({
               <View style={local.costRow}>
                 <Text style={local.costLabel}>Overhead ({cp.overheadPercent}%):</Text>
                 <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.overheadAmount, cpCurrency, {
+                  {sharedFormatCurrency(cpComputed.overheadAmount, inrCurrency, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   })}
@@ -302,7 +309,7 @@ export const ProposalPDFDocument = ({
               <View style={local.costRow}>
                 <Text style={local.costLabel}>Contingency ({cp.contingencyPercent}%):</Text>
                 <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.contingencyAmount, cpCurrency, {
+                  {sharedFormatCurrency(cpComputed.contingencyAmount, inrCurrency, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   })}
@@ -313,7 +320,7 @@ export const ProposalPDFDocument = ({
               <View style={local.costRow}>
                 <Text style={local.costLabel}>Profit ({cp.profitPercent}%):</Text>
                 <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.profitAmount, cpCurrency, {
+                  {sharedFormatCurrency(cpComputed.profitAmount, inrCurrency, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   })}
@@ -324,7 +331,7 @@ export const ProposalPDFDocument = ({
               <View key={row.id} style={local.costRow}>
                 <Text style={local.costLabel}>{row.description || '—'}</Text>
                 <Text style={local.costValue}>
-                  {sharedFormatCurrency(row.amount || 0, cpCurrency, {
+                  {sharedFormatCurrency(row.amount || 0, inrCurrency, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   })}
@@ -341,7 +348,7 @@ export const ProposalPDFDocument = ({
             >
               <Text style={local.costLabel}>Subtotal:</Text>
               <Text style={local.costValue}>
-                {sharedFormatCurrency(cpComputed.subtotal, cpCurrency, {
+                {sharedFormatCurrency(cpComputed.subtotal, inrCurrency, {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 0,
                 })}
@@ -351,7 +358,7 @@ export const ProposalPDFDocument = ({
               <View style={local.costRow}>
                 <Text style={local.costLabel}>{cp.taxLabel || `Tax (${cp.taxRate}%)`}:</Text>
                 <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.taxAmount, cpCurrency, {
+                  {sharedFormatCurrency(cpComputed.taxAmount, inrCurrency, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   })}
@@ -366,14 +373,29 @@ export const ProposalPDFDocument = ({
                 borderTop: '1pt solid #ccc',
               }}
             >
-              <Text style={local.costLabel}>Total Amount:</Text>
+              <Text style={local.costLabel}>Total Amount (INR):</Text>
               <Text style={local.totalCost}>
-                {sharedFormatCurrency(cpComputed.total, cpCurrency, {
+                {sharedFormatCurrency(cpComputed.totalInr, inrCurrency, {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 0,
                 })}
               </Text>
             </View>
+            {isForeignQuote && (
+              <>
+                <View style={local.costRow}>
+                  <Text style={local.costLabel}>
+                    Total in {quoteCurrency} (at 1 {quoteCurrency} = ₹{fxRate}):
+                  </Text>
+                  <Text style={local.totalCost}>
+                    {sharedFormatCurrency(cpComputed.totalQuote, quoteCurrency, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         ) : null}
 

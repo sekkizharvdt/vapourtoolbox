@@ -30,6 +30,7 @@ import {
   Divider,
   IconButton,
   InputAdornment,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -102,7 +103,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
           return;
         }
         setProposal(p);
-        setPricing(p.clientPricing ?? createDefaultClientPricing(p.nativeCurrency ?? 'INR'));
+        setPricing(p.clientPricing ?? createDefaultClientPricing());
       } catch (err) {
         if (!cancelled) {
           console.error('[PricingEditor] load failed', err);
@@ -118,7 +119,12 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
     };
   }, [db, proposalId]);
 
-  const currency: CurrencyCode = proposal?.nativeCurrency ?? 'INR';
+  // Internal cost basis is always INR. Quote currency on Pricing only
+  // affects the very last conversion of the final total.
+  const inrCurrency: CurrencyCode = 'INR';
+  const quoteCurrency: CurrencyCode = pricing?.currency ?? 'INR';
+  const fxRate = pricing?.fxRate ?? 1;
+  const isForeignQuote = quoteCurrency !== 'INR';
 
   const costBasis = useMemo(
     () => (proposal?.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0),
@@ -134,7 +140,8 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         lumpSumTotal: 0,
         subtotal: 0,
         taxAmount: 0,
-        total: 0,
+        totalInr: 0,
+        totalQuote: 0,
       };
     }
     const overheadAmount = round2((costBasis * (pricing.overheadPercent || 0)) / 100);
@@ -145,7 +152,8 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
       costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal
     );
     const taxAmount = round2((subtotal * (pricing.taxRate || 0)) / 100);
-    const total = round2(subtotal + taxAmount);
+    const totalInr = round2(subtotal + taxAmount);
+    const totalQuote = isForeignQuote && fxRate > 0 ? round2(totalInr / fxRate) : totalInr;
     return {
       overheadAmount,
       contingencyAmount,
@@ -153,9 +161,10 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
       lumpSumTotal,
       subtotal,
       taxAmount,
-      total,
+      totalInr,
+      totalQuote,
     };
-  }, [pricing, costBasis]);
+  }, [pricing, costBasis, fxRate, isForeignQuote]);
 
   const update = (patch: Partial<ClientPricing>) => {
     setPricing((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -211,8 +220,8 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         <Box>
           <Typography variant="h6">Pricing</Typography>
           <Typography variant="body2" color="text.secondary">
-            What the customer sees on the offer. Shown on the PDF in {CURRENCIES[currency].symbol}{' '}
-            {currency}.
+            What the customer sees on the offer. All inputs below are in ₹ INR — pick the quote
+            currency at the bottom if the offer is going to a foreign client.
           </Typography>
         </Box>
         <Button
@@ -232,7 +241,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
             <Typography variant="caption" color="text.secondary">
               Cost basis (from Costing tab)
             </Typography>
-            <Typography variant="h6">{formatMoney(costBasis, currency)}</Typography>
+            <Typography variant="h6">{formatMoney(costBasis, inrCurrency)}</Typography>
           </Box>
           {costBasis === 0 && (
             <Alert severity="info" sx={{ ml: 2 }}>
@@ -257,21 +266,21 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
               value={pricing.overheadPercent}
               onChange={(v) => update({ overheadPercent: v })}
               amount={computed.overheadAmount}
-              currency={currency}
+              currency={inrCurrency}
             />
             <PercentField
               label="Contingency"
               value={pricing.contingencyPercent}
               onChange={(v) => update({ contingencyPercent: v })}
               amount={computed.contingencyAmount}
-              currency={currency}
+              currency={inrCurrency}
             />
             <PercentField
               label="Profit"
               value={pricing.profitPercent}
               onChange={(v) => update({ profitPercent: v })}
               amount={computed.profitAmount}
-              currency={currency}
+              currency={inrCurrency}
             />
           </Stack>
         </CardContent>
@@ -398,8 +407,58 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
               <Typography variant="caption" color="text.secondary">
                 Tax amount
               </Typography>
-              <Typography variant="body1">{formatMoney(computed.taxAmount, currency)}</Typography>
+              <Typography variant="body1">
+                {formatMoney(computed.taxAmount, inrCurrency)}
+              </Typography>
             </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Quote currency */}
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+            Quote currency
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            The currency the customer sees on the offer. Defaults to ₹ INR. Pick something else for
+            foreign clients and snapshot the exchange rate; the conversion only happens on the final
+            total.
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+            <TextField
+              select
+              label="Quote currency"
+              size="small"
+              value={pricing.currency}
+              onChange={(e) => {
+                const next = e.target.value as CurrencyCode;
+                update({ currency: next, fxRate: next === 'INR' ? 1 : pricing.fxRate });
+              }}
+              sx={{ minWidth: 200 }}
+            >
+              {(['INR', 'USD', 'EUR', 'GBP', 'SGD', 'AED'] as CurrencyCode[]).map((code) => (
+                <MenuItem key={code} value={code}>
+                  {CURRENCIES[code].symbol} {code} — {CURRENCIES[code].name}
+                </MenuItem>
+              ))}
+            </TextField>
+            {isForeignQuote && (
+              <TextField
+                label={`1 ${quoteCurrency} = ? INR`}
+                size="small"
+                type="number"
+                value={pricing.fxRate || ''}
+                onChange={(e) => update({ fxRate: parseFloat(e.target.value) || 0 })}
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">INR</InputAdornment>,
+                }}
+                sx={{ minWidth: 200 }}
+                inputProps={{ min: 0, step: 'any' }}
+                helperText="Snapshot at quote time — held steady on the PDF."
+              />
+            )}
           </Stack>
         </CardContent>
       </Card>
@@ -410,42 +469,49 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         sx={{ p: 2.5, bgcolor: 'primary.light', color: 'primary.contrastText' }}
       >
         <Stack spacing={0.5}>
-          <Row label="Cost basis" value={formatMoney(costBasis, currency)} />
+          <Row label="Cost basis" value={formatMoney(costBasis, inrCurrency)} />
           {pricing.overheadPercent > 0 && (
             <Row
               label={`Overhead (${pricing.overheadPercent}%)`}
-              value={formatMoney(computed.overheadAmount, currency)}
+              value={formatMoney(computed.overheadAmount, inrCurrency)}
             />
           )}
           {pricing.contingencyPercent > 0 && (
             <Row
               label={`Contingency (${pricing.contingencyPercent}%)`}
-              value={formatMoney(computed.contingencyAmount, currency)}
+              value={formatMoney(computed.contingencyAmount, inrCurrency)}
             />
           )}
           {pricing.profitPercent > 0 && (
             <Row
               label={`Profit (${pricing.profitPercent}%)`}
-              value={formatMoney(computed.profitAmount, currency)}
+              value={formatMoney(computed.profitAmount, inrCurrency)}
             />
           )}
           {pricing.lumpSumLines.map((r) => (
             <Row
               key={r.id}
               label={r.description || '(unnamed lump sum)'}
-              value={formatMoney(r.amount || 0, currency)}
+              value={formatMoney(r.amount || 0, inrCurrency)}
             />
           ))}
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
-          <Row label="Subtotal" value={formatMoney(computed.subtotal, currency)} bold />
+          <Row label="Subtotal" value={formatMoney(computed.subtotal, inrCurrency)} bold />
           {pricing.taxRate > 0 && (
             <Row
               label={`${pricing.taxLabel || 'Tax'} (${pricing.taxRate}%)`}
-              value={formatMoney(computed.taxAmount, currency)}
+              value={formatMoney(computed.taxAmount, inrCurrency)}
             />
           )}
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
-          <Row label="Total" value={formatMoney(computed.total, currency)} large />
+          <Row label="Total (INR)" value={formatMoney(computed.totalInr, inrCurrency)} large />
+          {isForeignQuote && fxRate > 0 && (
+            <Row
+              label={`Total quoted as ${quoteCurrency} (at 1 ${quoteCurrency} = ${fxRate} INR)`}
+              value={formatMoney(computed.totalQuote, quoteCurrency)}
+              large
+            />
+          )}
         </Stack>
       </Paper>
     </Box>

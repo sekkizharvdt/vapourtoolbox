@@ -9,14 +9,10 @@ import {
   DialogActions,
   Button,
   TextField,
-  MenuItem,
   Box,
   Alert,
   Typography,
   Stack,
-  Switch,
-  FormControlLabel,
-  InputAdornment,
   Chip,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
@@ -24,8 +20,8 @@ import { addDays } from 'date-fns';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { createMinimalProposal } from '@/lib/proposals/proposalService';
-import type { Enquiry, CurrencyCode } from '@vapour/types';
-import { WORK_COMPONENT_LABELS, CURRENCIES } from '@vapour/constants';
+import type { Enquiry } from '@vapour/types';
+import { WORK_COMPONENT_LABELS } from '@vapour/constants';
 
 interface CreateProposalDialogProps {
   open: boolean;
@@ -33,8 +29,6 @@ interface CreateProposalDialogProps {
   enquiry: Enquiry;
   onSuccess: (proposalId: string) => void;
 }
-
-const CURRENCY_OPTIONS: CurrencyCode[] = ['INR', 'USD', 'EUR', 'GBP', 'SGD', 'AED'];
 
 export function CreateProposalDialog({
   open,
@@ -47,12 +41,6 @@ export function CreateProposalDialog({
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
-
-  // Form state
-  const [nativeCurrency, setNativeCurrency] = useState<CurrencyCode>('INR');
-  const [showSecondaryCurrency, setShowSecondaryCurrency] = useState(false);
-  const [displayCurrency, setDisplayCurrency] = useState<CurrencyCode>('USD');
-  const [displayFxRate, setDisplayFxRate] = useState<string>('');
 
   const [title, setTitle] = useState('');
   const [validityDate, setValidityDate] = useState<Date | null>(addDays(new Date(), 30));
@@ -68,10 +56,6 @@ export function CreateProposalDialog({
   const hasInheritedComponents = inheritedComponents.length > 0;
 
   const resetForm = () => {
-    setNativeCurrency('INR');
-    setShowSecondaryCurrency(false);
-    setDisplayCurrency('USD');
-    setDisplayFxRate('');
     setTitle(enquiry?.title || '');
     setValidityDate(addDays(new Date(), 30));
     setNotes('');
@@ -91,17 +75,6 @@ export function CreateProposalDialog({
       setError('Please pick a validity date.');
       return;
     }
-    if (showSecondaryCurrency) {
-      if (displayCurrency === nativeCurrency) {
-        setError('Pick a different secondary currency from your quote currency.');
-        return;
-      }
-      const rate = parseFloat(displayFxRate);
-      if (!Number.isFinite(rate) || rate <= 0) {
-        setError('Enter a positive exchange rate for the secondary currency.');
-        return;
-      }
-    }
     if (!db || !user?.uid) {
       setError('Authentication required.');
       return;
@@ -120,11 +93,6 @@ export function CreateProposalDialog({
           clientId: enquiry.clientId,
           validityDate,
           notes: notes.trim() || undefined,
-          nativeCurrency,
-          ...(showSecondaryCurrency && {
-            displayCurrency,
-            displayFxRate: parseFloat(displayFxRate),
-          }),
         },
         user.uid
       );
@@ -144,9 +112,6 @@ export function CreateProposalDialog({
     resetForm();
     onClose();
   };
-
-  const nativeSymbol = CURRENCIES[nativeCurrency].symbol;
-  const displaySymbol = CURRENCIES[displayCurrency].symbol;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -179,80 +144,6 @@ export function CreateProposalDialog({
                 This enquiry doesn&apos;t have a type of work yet. Open the enquiry, set it, then
                 come back.
               </Alert>
-            )}
-          </Box>
-
-          {/* Currency */}
-          <Box>
-            <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-              Quote currency
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              The currency you&apos;ll quote the customer in. Your internal costs stay in INR
-              regardless.
-            </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
-              <TextField
-                select
-                label="Quote currency"
-                value={nativeCurrency}
-                onChange={(e) => setNativeCurrency(e.target.value as CurrencyCode)}
-                sx={{ minWidth: 200 }}
-              >
-                {CURRENCY_OPTIONS.map((code) => (
-                  <MenuItem key={code} value={code}>
-                    {CURRENCIES[code].symbol} {code} — {CURRENCIES[code].name}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={showSecondaryCurrency}
-                    onChange={(e) => setShowSecondaryCurrency(e.target.checked)}
-                  />
-                }
-                label="Also show on the PDF in another currency"
-                sx={{ pt: 1 }}
-              />
-            </Stack>
-
-            {showSecondaryCurrency && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2 }}>
-                <TextField
-                  select
-                  label="Secondary currency"
-                  value={displayCurrency}
-                  onChange={(e) => setDisplayCurrency(e.target.value as CurrencyCode)}
-                  sx={{ minWidth: 200 }}
-                >
-                  {CURRENCY_OPTIONS.filter((c) => c !== nativeCurrency).map((code) => (
-                    <MenuItem key={code} value={code}>
-                      {CURRENCIES[code].symbol} {code} — {CURRENCIES[code].name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  label="Exchange rate"
-                  value={displayFxRate}
-                  onChange={(e) => setDisplayFxRate(e.target.value)}
-                  type="number"
-                  inputProps={{ step: 'any', min: 0 }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">{`1 ${nativeSymbol} =`}</InputAdornment>
-                    ),
-                    endAdornment: <InputAdornment position="end">{displaySymbol}</InputAdornment>,
-                  }}
-                  helperText={
-                    displayFxRate && parseFloat(displayFxRate) > 0
-                      ? `i.e. 1 ${displayCurrency} ≈ ${(1 / parseFloat(displayFxRate)).toFixed(4)} ${nativeCurrency}`
-                      : 'Snapshot used for the PDF — held steady after creation.'
-                  }
-                  sx={{ minWidth: 280 }}
-                />
-              </Stack>
             )}
           </Box>
 
@@ -292,6 +183,11 @@ export function CreateProposalDialog({
               helperText="Anything you'd like to remember about this proposal."
             />
           </Stack>
+
+          <Alert severity="info" icon={false} sx={{ bgcolor: 'action.hover' }}>
+            Internal costing is captured in ₹ INR. The currency the customer sees on the offer is
+            decided on the Pricing tab when you finalise the quote.
+          </Alert>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ p: 3 }}>

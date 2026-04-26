@@ -58,22 +58,21 @@ export function seedPricingBlocksForComponents(
 
 /**
  * Seed a starter ClientPricing for a freshly created proposal.
- * All zeros — user fills in the Pricing tab.
  *
- * Default tax: GST 18% if currency is INR (Indian-domestic supply); 0%
- * otherwise (foreign-currency exports / standalone services). User can
- * change either way.
+ * Defaults match Indian-domestic supply (INR + GST 18% + fxRate 1). The
+ * user can switch the quote currency and rate on the Pricing tab if the
+ * offer is going to a foreign client.
  */
-export function createDefaultClientPricing(currency: CurrencyCode): ClientPricing {
-  const isInr = currency === 'INR';
+export function createDefaultClientPricing(): ClientPricing {
   return {
     overheadPercent: 0,
     contingencyPercent: 0,
     profitPercent: 0,
     lumpSumLines: [],
-    taxRate: isInr ? 18 : 0,
-    taxLabel: isInr ? 'GST 18%' : 'Tax',
-    currency,
+    taxRate: 18,
+    taxLabel: 'GST 18%',
+    currency: 'INR',
+    fxRate: 1,
   };
 }
 

@@ -130,32 +130,46 @@ export interface PricingLumpSumRow {
 /**
  * The Pricing tab's full state. Stored on `Proposal.clientPricing`.
  *
- * Layout (when rendering the PDF):
- *   Cost basis (sum of pricingBlocks subtotals — never shown to client)
+ * INR is the base currency for every input on this tab — internal costing,
+ * markup percentages, lump-sum lines, and tax are all in INR. The
+ * `currency` field is the *quote* currency the customer sees on the PDF;
+ * if it's not INR, the final total (and only the final total) is converted
+ * via `fxRate` at the very end. The conversion rate is captured at quote
+ * time so the PDF doesn't shift as exchange rates move.
+ *
+ * Layout:
+ *   Cost basis (INR, sum of pricingBlocks — never shown to client)
  *   + Overhead     (overheadPercent × cost basis)
  *   + Contingency  (contingencyPercent × cost basis)
  *   + Profit       (profitPercent × cost basis)
  *   + Lump-sum lines (each rendered as its own line on the PDF)
- *   = Subtotal
+ *   = Subtotal (INR)
  *   + Tax (taxRate × subtotal)
- *   = Total price
- *
- * All three markup percentages are independent and additive on the cost
- * basis — none compounds on another.
+ *   = Total (INR)
+ *   ÷ fxRate
+ *   = Total in `currency`
  */
 export interface ClientPricing {
-  // Markup % on cost basis
+  // Markup % on cost basis (cost basis is INR)
   overheadPercent: number;
   contingencyPercent: number;
   profitPercent: number;
 
-  // Client-facing lump-sum lines (always visible to the client on the PDF)
+  // Client-facing lump-sum lines (amounts in INR, regardless of quote currency)
   lumpSumLines: PricingLumpSumRow[];
 
   // Tax
   taxRate: number; // percent, e.g. 18 for GST 18%
   taxLabel: string; // e.g. "GST 18%"
 
-  // Currency mirrors proposal.nativeCurrency, snapshotted for convenience
+  // Quote currency — what the customer sees on the offer. Default INR.
+  // When `currency !== 'INR'`, the final total is converted using `fxRate`.
   currency: CurrencyCode;
+
+  /**
+   * Snapshot conversion rate: how many INR equal 1 unit of `currency`.
+   * For INR, fxRate is 1. For USD, fxRate is e.g. 92 (₹92 = $1).
+   * Frozen at quote time — does not move with the market.
+   */
+  fxRate: number;
 }

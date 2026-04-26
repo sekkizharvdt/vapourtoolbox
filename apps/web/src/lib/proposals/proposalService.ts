@@ -29,7 +29,6 @@ import type {
   ProposalStatus,
   Enquiry,
   ProposalWorkflowStage,
-  CurrencyCode,
 } from '@vapour/types';
 
 // Re-export extracted modules for backward compatibility
@@ -190,6 +189,9 @@ export async function createProposal(
 /**
  * Minimal proposal creation input (simplified for Phase 2 workflow).
  * Type of work is inherited from the parent enquiry — single source of truth.
+ *
+ * Currency is NOT set at create time. Internal costing is always INR; the
+ * quote currency the customer sees is decided on the Pricing tab.
  */
 export interface CreateMinimalProposalInput {
   tenantId: string;
@@ -198,11 +200,6 @@ export interface CreateMinimalProposalInput {
   clientId: string;
   validityDate: Date;
   notes?: string;
-
-  // Currency — proposal-level decision, set at quote time
-  nativeCurrency: CurrencyCode;
-  displayCurrency?: CurrencyCode;
-  displayFxRate?: number;
 }
 
 /**
@@ -259,19 +256,12 @@ export async function createMinimalProposal(
       preparationDate: now,
 
       // Work components inherited from the enquiry (single source of truth).
-      // Currency is a quote-level decision captured at create time.
       ...(enquiry.workComponents !== undefined && { workComponents: enquiry.workComponents }),
-      nativeCurrency: input.nativeCurrency,
-      // Seed default Costing-tab blocks based on the enquiry's work components.
-      pricingBlocks: seedPricingBlocksForComponents(
-        enquiry.workComponents ?? [],
-        input.nativeCurrency
-      ),
-      // Seed a starter Pricing-tab structure (zero markup; tax defaulted by currency).
-      clientPricing: createDefaultClientPricing(input.nativeCurrency),
-      ...(input.displayCurrency !== undefined && { displayCurrency: input.displayCurrency }),
-      ...(input.displayFxRate !== undefined && { displayFxRate: input.displayFxRate }),
-      ...(input.displayCurrency !== undefined && { fxSnapshotDate: now }),
+      // Internal cost basis is always INR. The Pricing tab decides what the
+      // customer sees and at what rate, when the offer is being finalised.
+      nativeCurrency: 'INR',
+      pricingBlocks: seedPricingBlocksForComponents(enquiry.workComponents ?? [], 'INR'),
+      clientPricing: createDefaultClientPricing(),
 
       // Empty scope of work - will be filled via scope matrix
       scopeOfWork: {
@@ -306,14 +296,13 @@ export async function createMinimalProposal(
         milestones: [],
       },
 
-      // Empty pricing - will be filled in pricing module.
-      // Currency reflects the chosen native currency (Stage 1).
+      // Empty pricing — legacy field, retained for back-compat. Always INR.
       pricing: {
-        currency: input.nativeCurrency,
+        currency: 'INR',
         lineItems: [],
-        subtotal: { amount: 0, currency: input.nativeCurrency },
+        subtotal: { amount: 0, currency: 'INR' },
         taxItems: [],
-        totalAmount: { amount: 0, currency: input.nativeCurrency },
+        totalAmount: { amount: 0, currency: 'INR' },
         paymentTerms: 'To be determined',
       },
 

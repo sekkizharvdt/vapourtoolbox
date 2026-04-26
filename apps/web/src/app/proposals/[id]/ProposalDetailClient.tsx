@@ -489,13 +489,9 @@ export default function ProposalDetailClient() {
             sx={{ ml: 1 }}
           />
         ))}
-        {proposal.nativeCurrency && (
+        {proposal.clientPricing?.currency && proposal.clientPricing.currency !== 'INR' && (
           <Chip
-            label={
-              proposal.displayCurrency
-                ? `${CURRENCIES[proposal.nativeCurrency].symbol} ${proposal.nativeCurrency} / ${CURRENCIES[proposal.displayCurrency].symbol} ${proposal.displayCurrency}`
-                : `${CURRENCIES[proposal.nativeCurrency].symbol} ${proposal.nativeCurrency}`
-            }
+            label={`Quote in ${CURRENCIES[proposal.clientPricing.currency].symbol} ${proposal.clientPricing.currency}`}
             variant="outlined"
             sx={{ ml: 1 }}
           />

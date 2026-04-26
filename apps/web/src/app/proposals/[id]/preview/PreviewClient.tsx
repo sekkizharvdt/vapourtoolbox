@@ -497,8 +497,13 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           const subtotal =
             costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
           const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
-          const total = subtotal + taxAmount;
-          const fmt = (n: number) => formatCurrency({ amount: n, currency: cp.currency });
+          const totalInr = subtotal + taxAmount;
+          const fxRate = cp.fxRate ?? 1;
+          const isForeignQuote = cp.currency !== 'INR' && fxRate > 0;
+          const totalQuote = isForeignQuote ? totalInr / fxRate : totalInr;
+          // Internal calculations are always INR. Quote currency only converts the final total.
+          const fmt = (n: number) => formatCurrency({ amount: n, currency: 'INR' });
+          const fmtQuote = (n: number) => formatCurrency({ amount: n, currency: cp.currency });
           return (
             <Card variant="outlined" sx={{ mb: 3 }}>
               <CardContent>
@@ -548,15 +553,28 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                       )}
                       <TableRow sx={{ bgcolor: 'primary.50' }}>
                         <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                          Total Price
+                          Total Price (INR)
                         </TableCell>
                         <TableCell
                           align="right"
                           sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
                         >
-                          {fmt(total)}
+                          {fmt(totalInr)}
                         </TableCell>
                       </TableRow>
+                      {isForeignQuote && (
+                        <TableRow sx={{ bgcolor: 'primary.50' }}>
+                          <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                            Total quoted as {cp.currency} (1 {cp.currency} = ₹{fxRate})
+                          </TableCell>
+                          <TableCell
+                            align="right"
+                            sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
+                          >
+                            {fmtQuote(totalQuote)}
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
