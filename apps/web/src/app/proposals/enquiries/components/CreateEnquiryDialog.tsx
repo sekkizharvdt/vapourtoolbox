@@ -41,7 +41,13 @@ import { Controller, useForm } from 'react-hook-form';
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { firebaseApp } from '@/lib/firebase/clientApp';
-import type { EnquiryDocument, BusinessEntity, EnquiryCondition } from '@vapour/types';
+import type {
+  EnquiryDocument,
+  BusinessEntity,
+  EnquiryCondition,
+  UnifiedScopeMatrix,
+} from '@vapour/types';
+import { parsedScopeToMatrix, type ParsedScopeCategory } from '@/lib/enquiry/parsedScope';
 
 // Contact from BusinessEntity.contacts array
 interface EntityContactInfo {
@@ -129,6 +135,7 @@ interface ParseEnquiryResponse {
   success: boolean;
   fields: ParsedFieldsResult;
   conditions: ParsedConditionResult[];
+  scope: ParsedScopeCategory[];
   warnings?: string[];
 }
 
@@ -154,6 +161,10 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
 
   // Conditions parsed from the SOW or added manually
   const [conditions, setConditions] = useState<EnquiryCondition[]>([]);
+
+  // Scope outline parsed from the SOW (immutable record of what the buyer asked for —
+  // copied to the proposal's editable scope matrix on proposal create)
+  const [requestedScope, setRequestedScope] = useState<UnifiedScopeMatrix | undefined>(undefined);
 
   const {
     control,
@@ -293,8 +304,14 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
           source: 'AI_PARSED',
         }))
       );
+      const scopeMatrix = result.scope?.length ? parsedScopeToMatrix(result.scope) : undefined;
+      setRequestedScope(scopeMatrix);
+      const scopeItemCount = scopeMatrix?.categories.reduce((s, c) => s + c.items.length, 0) ?? 0;
+
       const filledCount =
-        Object.keys(result.fields).length + (result.conditions.length > 0 ? 1 : 0);
+        Object.keys(result.fields).length +
+        (result.conditions.length > 0 ? 1 : 0) +
+        (scopeItemCount > 0 ? 1 : 0);
       const warnings = result.warnings?.join(' ') ?? '';
       if (filledCount === 0) {
         setParseStatus({
@@ -303,13 +320,15 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
             warnings || "Couldn't pull anything structured from the document. Fill in manually.",
         });
       } else {
+        const fieldCount = Object.keys(result.fields).length;
+        const parts = [
+          `${fieldCount} field${fieldCount === 1 ? '' : 's'}`,
+          `${result.conditions.length} condition${result.conditions.length === 1 ? '' : 's'}`,
+          `${scopeItemCount} scope item${scopeItemCount === 1 ? '' : 's'}`,
+        ];
         setParseStatus({
           severity: 'success',
-          message: `Filled ${Object.keys(result.fields).length} field${
-            Object.keys(result.fields).length === 1 ? '' : 's'
-          } and ${result.conditions.length} condition${
-            result.conditions.length === 1 ? '' : 's'
-          }. Review and edit anything before saving.${warnings ? ' ' + warnings : ''}`,
+          message: `Filled ${parts.join(', ')}. Review and edit anything before saving.${warnings ? ' ' + warnings : ''}`,
         });
       }
     } catch (err) {
@@ -376,6 +395,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
         {
           ...data,
           conditions: cleanedConditions.length > 0 ? cleanedConditions : undefined,
+          ...(requestedScope && requestedScope.categories.length > 0 && { requestedScope }),
           estimatedBudget: data.estimatedBudget
             ? {
                 amount: data.estimatedBudget.amount,
@@ -393,6 +413,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
 
       reset();
       setConditions([]);
+      setRequestedScope(undefined);
       setPdfFile(null);
       setParseStatus(null);
       setAiFilledKeys(new Set());
@@ -410,6 +431,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
     reset();
     setEntityContacts([]);
     setConditions([]);
+    setRequestedScope(undefined);
     setPdfFile(null);
     setParseStatus(null);
     setAiFilledKeys(new Set());

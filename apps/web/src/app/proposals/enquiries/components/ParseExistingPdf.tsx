@@ -24,6 +24,7 @@ import { firebaseApp } from '@/lib/firebase/clientApp';
 import { updateEnquiry } from '@/lib/enquiry/enquiryService';
 import { Timestamp } from 'firebase/firestore';
 import type { Enquiry, EnquiryCondition, WorkComponent } from '@vapour/types';
+import { mergeParsedScopeIntoMatrix, type ParsedScopeCategory } from '@/lib/enquiry/parsedScope';
 
 interface Props {
   enquiry: Enquiry;
@@ -54,6 +55,7 @@ interface ParseResponse {
   success: boolean;
   fields: ParsedFields;
   conditions: ParsedCondition[];
+  scope: ParsedScopeCategory[];
   warnings?: string[];
 }
 
@@ -137,11 +139,15 @@ export function ParseExistingPdf({ enquiry, onUpdate }: Props) {
       const fieldsTouched = countFieldsTouched(enquiry, merged);
       const conditionsAdded = (merged.conditions?.length ?? 0) - (enquiry.conditions?.length ?? 0);
 
-      if (fieldsTouched === 0 && conditionsAdded === 0) {
+      // Scope merge — preserves manual additions and any user-set exclusion reasons.
+      const scopeMerge = mergeParsedScopeIntoMatrix(enquiry.requestedScope, result.scope ?? []);
+      const scopeItemsAdded = scopeMerge.addedItems;
+      const scopeChanged = scopeItemsAdded > 0 || scopeMerge.addedCategories > 0;
+
+      if (fieldsTouched === 0 && conditionsAdded === 0 && !scopeChanged) {
         setStatus({
           severity: 'warning',
-          message:
-            'Nothing new to add — the enquiry already has values for what was extracted, and no new conditions were found.',
+          message: 'Nothing new to add — the enquiry already covers everything the parser found.',
         });
         return;
       }
@@ -165,16 +171,25 @@ export function ParseExistingPdf({ enquiry, onUpdate }: Props) {
         updates.requiredDeliveryDate = merged.requiredDeliveryDate;
       }
       if (merged.conditions !== enquiry.conditions) updates.conditions = merged.conditions;
+      if (scopeChanged) updates.requestedScope = scopeMerge.matrix;
 
       await updateEnquiry(db, enquiry.id, updates, user.uid);
 
-      onUpdate(merged);
+      const finalEnquiry: Enquiry = scopeChanged
+        ? { ...merged, requestedScope: scopeMerge.matrix }
+        : merged;
+      onUpdate(finalEnquiry);
+
       const warnings = result.warnings?.join(' ') ?? '';
+      const parts: string[] = [];
+      if (fieldsTouched > 0) parts.push(`${fieldsTouched} field${fieldsTouched === 1 ? '' : 's'}`);
+      if (conditionsAdded > 0)
+        parts.push(`${conditionsAdded} condition${conditionsAdded === 1 ? '' : 's'}`);
+      if (scopeItemsAdded > 0)
+        parts.push(`${scopeItemsAdded} scope item${scopeItemsAdded === 1 ? '' : 's'}`);
       setStatus({
         severity: 'success',
-        message: `Filled ${fieldsTouched} field${fieldsTouched === 1 ? '' : 's'} and added ${conditionsAdded} condition${
-          conditionsAdded === 1 ? '' : 's'
-        }.${warnings ? ' ' + warnings : ''}`,
+        message: `Added ${parts.join(', ')}.${warnings ? ' ' + warnings : ''}`,
       });
     } catch (err) {
       console.error('parseEnquiryDocument failed', err);

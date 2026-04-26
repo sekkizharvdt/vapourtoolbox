@@ -5,7 +5,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { TimestampFields, Money } from './common';
-import type { WorkComponent } from './proposal';
+import type { WorkComponent, UnifiedScopeMatrix } from './proposal';
 
 /**
  * Enquiry Status
@@ -340,6 +340,12 @@ export interface Enquiry extends TimestampFields {
   // Conditions / stipulations parsed from the SOW or added manually
   conditions?: EnquiryCondition[];
 
+  // Scope outline parsed from the SOW. Each item carries source: 'AI_PARSED'.
+  // On proposal creation, this is copied into proposal.unifiedScopeMatrix as
+  // the starting point — the proposal team then refines (adds, excludes with
+  // a reason, links BOMs, etc.).
+  requestedScope?: UnifiedScopeMatrix;
+
   // Audit
   createdBy: string;
   updatedBy: string;
@@ -378,6 +384,7 @@ export interface CreateEnquiryInput {
   requirements?: string[];
   attachments?: EnquiryDocument[];
   conditions?: EnquiryCondition[];
+  requestedScope?: UnifiedScopeMatrix;
   assignedToUserId?: string;
 }
 
@@ -403,6 +410,7 @@ export interface UpdateEnquiryInput {
   assignedToUserId?: string;
   status?: EnquiryStatus;
   conditions?: EnquiryCondition[];
+  requestedScope?: UnifiedScopeMatrix;
 }
 
 /**

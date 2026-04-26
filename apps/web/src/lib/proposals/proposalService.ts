@@ -286,6 +286,19 @@ export async function createMinimalProposal(
       // Empty scope of supply
       scopeOfSupply: [],
 
+      // Unified scope matrix — inherited from the enquiry's AI-parsed scope outline,
+      // if any. Items keep their `source: 'AI_PARSED'` tag so the user can see where
+      // each item came from and exclusion-reason flow can require a clarification
+      // when an AI-parsed item is removed.
+      ...(enquiry.requestedScope &&
+        enquiry.requestedScope.categories.length > 0 && {
+          unifiedScopeMatrix: {
+            ...enquiry.requestedScope,
+            lastUpdatedAt: now,
+            lastUpdatedBy: userId,
+          },
+        }),
+
       // Default delivery period
       deliveryPeriod: {
         durationInWeeks: 0,

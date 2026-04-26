@@ -34,6 +34,37 @@ type ConditionCategory =
   | 'PENALTY'
   | 'OTHER';
 
+type ScopeCategoryKey =
+  | 'SITE_PREPARATION'
+  | 'PROCESS_DESIGN'
+  | 'MANUFACTURED'
+  | 'BOUGHT_OUT'
+  | 'PIPING_ENGINEERING'
+  | 'PIPING_FABRICATION'
+  | 'STRUCTURAL'
+  | 'STRUCTURAL_FABRICATION'
+  | 'SITE_WORK'
+  | 'ELECTRICAL'
+  | 'INSTRUMENTATION';
+
+type ScopeItemClassification = 'SERVICE' | 'SUPPLY';
+
+interface ParsedScopeItem {
+  /** Short item name; one line, sentence case. */
+  name: string;
+  /** Optional longer description if the SOW elaborates. */
+  description?: string;
+  classification: ScopeItemClassification;
+  /** Optional quantity for SUPPLY items, omit for SERVICE. */
+  quantity?: number;
+  unit?: string;
+}
+
+interface ParsedScopeCategory {
+  categoryKey: ScopeCategoryKey;
+  items: ParsedScopeItem[];
+}
+
 interface ParsedEnquiryFields {
   title?: string;
   description?: string;
@@ -73,6 +104,7 @@ interface ParseEnquiryResult {
   success: boolean;
   fields: ParsedEnquiryFields;
   conditions: ParsedCondition[];
+  scope: ParsedScopeCategory[];
   warnings?: string[];
   modelUsed: string;
   processingTimeMs: number;
@@ -84,7 +116,7 @@ interface ParseEnquiryResult {
 
 const ENQUIRY_PARSING_PROMPT = `You are a document parsing assistant for an Indian engineering services and equipment supply firm. The firm receives RFP / Scope-of-Work documents from clients (industrial, government, research, infrastructure) and needs to capture them as structured enquiries before deciding whether to bid.
 
-Your task is to read the attached document and produce a single JSON object with two top-level keys: "fields" and "conditions".
+Your task is to read the attached document and produce a single JSON object with three top-level keys: "fields", "conditions", and "scope".
 
 ### "fields" — basic enquiry attributes
 All fields are optional. Only include a key when you are confident; omit otherwise. Use these keys exactly:
@@ -128,6 +160,31 @@ For each condition return:
 
 Be exhaustive. A typical SOW will have 8–20 conditions. Don't summarise multiple conditions into one — split them.
 
+### "scope" — the work breakdown the buyer is asking for
+Read the SOW sections that describe what the contractor must do/supply. Group items into discipline categories. Use these keys exactly:
+
+- SITE_PREPARATION   — site clearing, levelling, foundations prep, mobilisation
+- PROCESS_DESIGN     — process flow diagrams, P&IDs, heat & material balance, sizing calcs
+- MANUFACTURED       — items the contractor will fabricate in their own shop (vessels, evaporators, tanks)
+- BOUGHT_OUT         — items the contractor will procure from third parties (pumps, valves, instruments, motors)
+- PIPING_ENGINEERING — pipe sizing, layout, stress analysis, isometrics, PMS
+- PIPING_FABRICATION — fabrication of process piping, supports, expansion bellows
+- STRUCTURAL         — structural design and analysis (skids, supports, platforms)
+- STRUCTURAL_FABRICATION — fabrication of structural steel
+- SITE_WORK          — site erection, mechanical install, electrical/instrument install, commissioning at site
+- ELECTRICAL         — electrical design, panels, cabling, motors, switchgear (engineering or supply)
+- INSTRUMENTATION    — control loops, PLC, field instruments, control valves
+
+For each item:
+- name           — short single-line item name, sentence case (e.g. "Survey of all electrical panels, switchgear, MCCs")
+- description    — optional 1-2 sentence elaboration if the SOW gives more detail
+- classification — "SERVICE" if it's an activity/work (surveys, design, install, testing) or "SUPPLY" if it's an equipment/material item to be delivered
+- quantity, unit — optional, for SUPPLY items where the SOW gives a quantity (e.g. {quantity: 8, unit: "nos"} for "8 evaporator effects")
+
+Be specific — split bullet sub-points into their own items rather than collapsing. Aim for 5-25 items across all categories on a typical SOW. If the SOW has an "Exclusions" section, DO NOT include those as items here (they're inferred from absence; the proposal team handles exclusions explicitly).
+
+If a category has no items, omit it from the array entirely (don't return empty categories).
+
 ### Output format
 Return ONLY a JSON object, no preamble, no Markdown fences. Shape:
 
@@ -136,16 +193,28 @@ Return ONLY a JSON object, no preamble, no Markdown fences. Shape:
   "conditions": [
     { "category": "BIDDER_QUALIFICATION", "summary": "Min 5 yr MEP survey experience", "verbatim": "Minimum 5 years of experience conducting MEP condition surveys..." },
     ...
+  ],
+  "scope": [
+    { "categoryKey": "ELECTRICAL",
+      "items": [
+        { "name": "Survey all electrical panels, switchgear, MCCs", "classification": "SERVICE" },
+        { "name": "Inspect cable trays throughout facility", "classification": "SERVICE" }
+      ] },
+    { "categoryKey": "INSTRUMENTATION",
+      "items": [
+        { "name": "Tag-verify ~60 field instruments", "classification": "SERVICE" }
+      ] }
   ]
 }
 
-If a field is unknown, omit it. If you found no conditions, return an empty array.`;
+If a field is unknown, omit it. If you found no conditions or no scope items, return empty arrays.`;
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
 
 function safeParseJson(text: string): {
   fields?: ParsedEnquiryFields;
   conditions?: ParsedCondition[];
+  scope?: ParsedScopeCategory[];
 } {
   // Try whole text first, then a regex fallback that grabs the outer-most braces.
   try {
@@ -229,6 +298,53 @@ function normaliseConditions(raw: unknown): ParsedCondition[] {
   return out;
 }
 
+function normaliseScope(raw: unknown): ParsedScopeCategory[] {
+  if (!Array.isArray(raw)) return [];
+  const allowedCats: ScopeCategoryKey[] = [
+    'SITE_PREPARATION',
+    'PROCESS_DESIGN',
+    'MANUFACTURED',
+    'BOUGHT_OUT',
+    'PIPING_ENGINEERING',
+    'PIPING_FABRICATION',
+    'STRUCTURAL',
+    'STRUCTURAL_FABRICATION',
+    'SITE_WORK',
+    'ELECTRICAL',
+    'INSTRUMENTATION',
+  ];
+  const out: ParsedScopeCategory[] = [];
+  for (const c of raw) {
+    if (!c || typeof c !== 'object') continue;
+    const obj = c as Record<string, unknown>;
+    const categoryKey = obj.categoryKey as ScopeCategoryKey;
+    if (!allowedCats.includes(categoryKey)) continue;
+    const itemsRaw = Array.isArray(obj.items) ? obj.items : [];
+    const items: ParsedScopeItem[] = [];
+    for (const i of itemsRaw) {
+      if (!i || typeof i !== 'object') continue;
+      const it = i as Record<string, unknown>;
+      const name = typeof it.name === 'string' ? it.name.trim() : '';
+      if (!name) continue;
+      const classification: ScopeItemClassification =
+        it.classification === 'SUPPLY' ? 'SUPPLY' : 'SERVICE';
+      const description = typeof it.description === 'string' ? it.description.trim() : undefined;
+      const quantity = typeof it.quantity === 'number' && it.quantity > 0 ? it.quantity : undefined;
+      const unit = typeof it.unit === 'string' ? it.unit.trim() : undefined;
+      items.push({
+        name,
+        classification,
+        ...(description && { description }),
+        ...(quantity !== undefined && { quantity }),
+        ...(unit && { unit }),
+      });
+    }
+    if (items.length === 0) continue;
+    out.push({ categoryKey, items });
+  }
+  return out;
+}
+
 /* ─── Cloud Function ──────────────────────────────────────────────────── */
 
 const SUPPORTED_MIME_TYPES = ['application/pdf'];
@@ -281,7 +397,7 @@ export const parseEnquiryDocument = onCall(
 
       const response = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: ENQUIRY_PARSING_PROMPT,
         messages: [
           {
@@ -314,8 +430,11 @@ export const parseEnquiryDocument = onCall(
       const parsed = safeParseJson(responseText);
       const fields = normaliseFields(parsed.fields);
       const conditions = normaliseConditions(parsed.conditions);
+      const scope = normaliseScope(parsed.scope);
 
-      if (Object.keys(fields).length === 0 && conditions.length === 0) {
+      const scopeItemCount = scope.reduce((s, c) => s + c.items.length, 0);
+
+      if (Object.keys(fields).length === 0 && conditions.length === 0 && scopeItemCount === 0) {
         warnings.push('No structured fields could be extracted. Please review the form manually.');
       }
 
@@ -334,6 +453,7 @@ export const parseEnquiryDocument = onCall(
             status: 'COMPLETED',
             fieldsFound: Object.keys(fields).length,
             conditionsFound: conditions.length,
+            scopeItemsFound: scopeItemCount,
             processingTimeMs,
             inputTokens: response.usage.input_tokens,
             outputTokens: response.usage.output_tokens,
@@ -347,6 +467,7 @@ export const parseEnquiryDocument = onCall(
       logger.info('[parseEnquiryDocument] done', {
         fieldsFound: Object.keys(fields).length,
         conditionsFound: conditions.length,
+        scopeItemsFound: scopeItemCount,
         processingTimeMs,
       });
 
@@ -354,6 +475,7 @@ export const parseEnquiryDocument = onCall(
         success: true,
         fields,
         conditions,
+        scope,
         warnings: warnings.length ? warnings : undefined,
         modelUsed: 'claude-sonnet-4-20250514',
         processingTimeMs,

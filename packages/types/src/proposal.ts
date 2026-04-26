@@ -338,6 +338,13 @@ export interface UnifiedScopeItem {
   classification: ScopeItemClassification; // SERVICE or SUPPLY
   included: boolean; // true = in scope, false = excluded
 
+  // Where this item came from. AI-parsed items that the user excludes
+  // require an exclusionReason — that reason renders on the client PDF
+  // as a clarification, since the buyer asked for it but we're not offering it.
+  source?: 'AI_PARSED' | 'MANUAL';
+  /** Reason for excluding an AI-parsed item from the offer (required when included=false && source='AI_PARSED'). */
+  exclusionReason?: string;
+
   // For MATRIX categories: which activity columns are toggled on
   // Key = activity column id (e.g., 'mech_design'), value = enabled
   activityToggles?: Record<string, boolean>;
