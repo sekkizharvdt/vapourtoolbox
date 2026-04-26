@@ -1887,6 +1887,198 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Rule #4 cleanup — collections added 2026-04-26
+    // ============================================
+    // Closes the Rule #4 backlog from RULE-VIOLATIONS-PUNCHLIST-2026-04-26.md.
+    // Future readers can relocate these into their domain-peer sections; they
+    // are grouped here as a batch so the Rule #4 fix is reviewable in one block.
+
+    // ── Accounting domain ──────────────────────────
+
+    // Fiscal years (bookkeeping reference; mostly derived from txn dates)
+    match /fiscalYears/{fyId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
+    // Interproject loans (cross-project cost centre transfers)
+    match /interprojectLoans/{loanId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
+    // Year-end closing entries (immutable once posted; soft-archive only)
+    match /yearEndClosingEntries/{entryId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
+    // Bank reconciliation: statements + line transactions + match results
+    match /bankStatements/{stmtId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
+      allow update: if hasPermission(16384) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /bankTransactions/{lineId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
+      allow update: if hasPermission(16384) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /reconciliationMatches/{matchId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
+      allow update: if hasPermission(16384) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /reconciliationReports/{reportId} {
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
+      allow create: if hasPermission(16384) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
+      allow update: if hasPermission(16384) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Procurement domain ─────────────────────────
+
+    // Service orders (lab tests, sample analysis)
+    match /serviceOrders/{soId} {
+      allow read: if isInternalUser();
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
+      allow update: if hasPermission(65536) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    // PO version snapshots (revision history for amendments)
+    match /purchaseOrderVersions/{versionId} {
+      allow read: if isInternalUser();
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT
+      allow update, delete: if false; // immutable history
+    }
+
+    // Amendment approval audit trail (immutable)
+    match /amendmentApprovalHistory/{historyId} {
+      allow read: if isInternalUser();
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT
+      allow update, delete: if false; // immutable history
+    }
+
+    // Three-way match: PO ↔ GR ↔ Bill comparison
+    match /threeWayMatches/{matchId} {
+      allow read: if isInternalUser();
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT
+      allow update: if hasPermission(65536) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /matchLineItems/{itemId} {
+      allow read: if isInternalUser();
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT
+      allow delete: if hasPermission(65536) && isInternalUser();
+    }
+
+    match /matchDiscrepancies/{discrepancyId} {
+      allow read: if isInternalUser();
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT
+      allow delete: if isSuperAdmin();
+    }
+
+    match /matchToleranceConfigs/{configId} {
+      allow read: if isInternalUser();
+      allow create: if hasPermission(65536) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT
+      allow update: if hasPermission(65536) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Materials / engineering domain ─────────────
+
+    // Material prices (top-level pricing history)
+    match /materialPrices/{priceId} {
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      allow create: if hasPermission(262144) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ESTIMATION (bit 18)
+      allow update: if hasPermission(262144) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Engineering shapes catalog (sections, profiles, ASME standards)
+    match /shapes/{shapeId} {
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION
+      allow create: if hasPermission(262144) && isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ESTIMATION
+      allow update: if hasPermission(262144) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Project channels (slack-like) ──────────────
+
+    match /projectChannels/{channelId} {
+      // Channels are project-scoped; any internal user can read/post in their assigned projects.
+      allow read: if isInternalUser();
+      allow create: if isInternalUser() &&
+                       request.resource.data.tenantId == request.auth.token.tenantId;
+      allow update: if isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── System config (deploy info, feature flags) ─
+
+    match /systemConfig/{docId} {
+      // Read: any signed-in user (e.g., deploy info read on feedback page).
+      // Write: super admin only.
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Legacy / backup-only collections ───────────
+    // The following collections are referenced only in apps/web/src/app/admin/backup/page.tsx
+    // for inclusion in admin backup runs. No active reads or writes from app code.
+    // Locked to admin-only read; writes blocked entirely so a stray service call cannot resurrect them.
+
+    match /companies/{companyId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /entity_contacts/{contactId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /journal_entries/{entryId} {
+      // Superseded by transactions[type='JOURNAL_ENTRY']. Locked.
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /ledger_entries/{entryId} {
+      // Superseded by transactions[].entries[]. Locked.
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 

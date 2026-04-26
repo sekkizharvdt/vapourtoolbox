@@ -17,31 +17,42 @@
 
 ## Summary table (baseline 2026-04-26)
 
-| Rule                                              | Count | Status      | Priority | Notes                                                  |
-| ------------------------------------------------- | ----- | ----------- | -------- | ------------------------------------------------------ |
-| #3 — soft-delete query                            | 0     | ✅ enforce  | —        | Already clean                                          |
-| #4 — collections need security rules              | 22    | ⚠️ advisory | **P0**   | Pure data-exposure risk; one-line fix per collection   |
-| #5 — writes need `requirePermission`              | 254   | ⚠️ advisory | **P1**   | Largest backlog; security perimeter                    |
-| #6 — approve/reject needs `preventSelfApproval`   | 17    | ⚠️ advisory | **P0**   | Concentrated in named functions; small fix per         |
-| #7 — no hardcoded permission flags                | 0     | ✅ enforce  | —        | Already clean                                          |
-| #8 — status changes need `requireValidTransition` | 105   | ⚠️ advisory | **P1**   | Workflow safety                                        |
-| #17 — state machines live in `stateMachines.ts`   | 0     | ✅ enforce  | —        | Already clean                                          |
-| #18 — sensitive ops need an audit-log call        | 35    | ⚠️ advisory | **P1**   | Forensics for agent runs                               |
-| #19 — read+write needs `runTransaction`           | 87    | ⚠️ advisory | **P2**   | Includes false positives — triage required             |
-| #20 — batch ops in loops need 500-op chunking     | 21    | ⚠️ advisory | **P2**   | Manual review per call site                            |
-| #21 — no fallback chains on amount fields         | 107   | ⚠️ advisory | **P1**   | Money correctness; many display-only false positives   |
-| #24 — TransactionType switches exhaustive         | 0     | ✅ enforce  | —        | TS `noFallthroughCasesInSwitch` covers it              |
-| #28 — modules need List + New + View + Edit       | 20    | ⚠️ advisory | **P2**   | UI completeness; some are terminal-doc false positives |
+| Rule                                              | Count | Status      | Priority | Notes                                                                                                                |
+| ------------------------------------------------- | ----- | ----------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| #3 — soft-delete query                            | 0     | ✅ enforce  | —        | Already clean                                                                                                        |
+| #4 — collections need security rules              | 0     | ✅ closed   | —        | Closed 2026-04-26 — see [reports/rule-check-2026-04-26-after-rule4.md](reports/rule-check-2026-04-26-after-rule4.md) |
+| #5 — writes need `requirePermission`              | 254   | ⚠️ advisory | **P1**   | Largest backlog; security perimeter                                                                                  |
+| #6 — approve/reject needs `preventSelfApproval`   | 17    | ⚠️ advisory | **P0**   | Concentrated in named functions; small fix per                                                                       |
+| #7 — no hardcoded permission flags                | 0     | ✅ enforce  | —        | Already clean                                                                                                        |
+| #8 — status changes need `requireValidTransition` | 105   | ⚠️ advisory | **P1**   | Workflow safety                                                                                                      |
+| #17 — state machines live in `stateMachines.ts`   | 0     | ✅ enforce  | —        | Already clean                                                                                                        |
+| #18 — sensitive ops need an audit-log call        | 35    | ⚠️ advisory | **P1**   | Forensics for agent runs                                                                                             |
+| #19 — read+write needs `runTransaction`           | 87    | ⚠️ advisory | **P2**   | Includes false positives — triage required                                                                           |
+| #20 — batch ops in loops need 500-op chunking     | 21    | ⚠️ advisory | **P2**   | Manual review per call site                                                                                          |
+| #21 — no fallback chains on amount fields         | 107   | ⚠️ advisory | **P1**   | Money correctness; many display-only false positives                                                                 |
+| #24 — TransactionType switches exhaustive         | 0     | ✅ enforce  | —        | TS `noFallthroughCasesInSwitch` covers it                                                                            |
+| #28 — modules need List + New + View + Edit       | 20    | ⚠️ advisory | **P2**   | UI completeness; some are terminal-doc false positives                                                               |
 
-**Grand total:** 668 violations across 8 rules.
+**Grand total:** 646 violations across 7 active rules. (Baseline 668; rule #4 closed 2026-04-26.)
 
 ---
 
-## Rule #4 — Collections referenced in code need `firestore.rules` entries
+## Rule #4 — Collections referenced in code need `firestore.rules` entries ✅ CLOSED 2026-04-26
 
 **What it means:** every Firestore collection a service writes to must have a corresponding `match /<name>/{...} { allow … }` block in `firestore.rules` matching the permission model. Without it, security is whatever the catch-all permits.
 
-**Count: 22.** Fully listed in baseline snapshot. Sample:
+**Status:** **closed 2026-04-26.** All 22 collections now have rules. See the new section in `firestore.rules` titled "Rule #4 cleanup — collections added 2026-04-26" (just before the catch-all).
+
+**Resolution summary:**
+
+- 7 accounting collections (`fiscalYears`, `interprojectLoans`, `yearEndClosingEntries`, `bankStatements`, `bankTransactions`, `reconciliationMatches`, `reconciliationReports`) → `VIEW_ACCOUNTING` / `MANAGE_ACCOUNTING` with tenantId enforcement on create.
+- 7 procurement collections (`serviceOrders`, `purchaseOrderVersions`, `amendmentApprovalHistory`, `threeWayMatches`, `matchLineItems`, `matchDiscrepancies`, `matchToleranceConfigs`) → internal-user read, `MANAGE_PROCUREMENT` write. `purchaseOrderVersions` and `amendmentApprovalHistory` are immutable history (no update/delete).
+- 2 materials/engineering collections (`materialPrices`, `shapes`) → `VIEW_ESTIMATION` / `MANAGE_ESTIMATION`.
+- 1 channel collection (`projectChannels`) → internal-user read/write, super-admin delete.
+- 1 system collection (`systemConfig`) → all-signed-in read, super-admin write.
+- 4 legacy collections (`companies`, `entity_contacts`, `journal_entries`, `ledger_entries`) — referenced only in `apps/web/src/app/admin/backup/page.tsx` for backup runs, no active reads/writes from app code → admin read, writes blocked entirely (`allow write: if false`).
+
+**Original count: 22.** Original list (kept for posterity):
 
 ```
 amendmentApprovalHistory, bankStatements, bankTransactions, companies,
