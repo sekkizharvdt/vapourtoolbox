@@ -7,14 +7,20 @@
  *   #3: Financial math, concurrency, soft-delete  (rules #3, #19, #20, #21)
  *   #4: Structural consistency                    (rules #4, #24, #28)
  *
- * Each child script exits 0/1 independently. This wrapper aggregates results
- * so a single command tells you the overall punch list.
+ * Per-rule enforcement model:
+ *   - The set of *enforced* rules lives in scripts/audit/enforced-rules.json.
+ *   - Enforced rules block on any violation (exit 1).
+ *   - Non-enforced rules are reported but never block (exit stays 0).
+ *   - As you close rule violations, add the rule number to the JSON to gate
+ *     against regressions. See RULE-VIOLATIONS-PUNCHLIST-*.md.
  *
  * Flags:
- *   --advisory   never exit non-zero, even if violations found (CI warn mode)
- *   --quiet      print only summary lines, not per-violation detail
- *   --only=N     run only check #N (1, 2, 3, or 4)
- *   --md         also write a dated markdown snapshot to reports/rule-check-YYYY-MM-DD.md
+ *   --advisory     never exit non-zero, even on regressions (pure report mode)
+ *   --quiet        print only summary lines, not per-violation detail
+ *   --only=N       run only check #N (1, 2, 3, or 4)
+ *   --enforce=A,B  CLI override of enforced-rules.json (e.g. --enforce=4,17)
+ *   --no-enforce   nothing is enforced this run (same as --advisory for exit code)
+ *   --md           also write a dated markdown snapshot to reports/rule-check-YYYY-MM-DD.md
  */
 
 const { spawnSync } = require('child_process');
@@ -25,10 +31,37 @@ const args = process.argv.slice(2);
 const ADVISORY = args.includes('--advisory');
 const QUIET = args.includes('--quiet');
 const MD = args.includes('--md');
+const NO_ENFORCE = args.includes('--no-enforce');
 const onlyArg = args.find((a) => a.startsWith('--only='));
 const only = onlyArg ? Number(onlyArg.split('=')[1]) : null;
+const enforceArg = args.find((a) => a.startsWith('--enforce='));
 
 const ROOT = path.resolve(__dirname, '..', '..');
+
+// ─── Load enforced-rules config ────────────────────────────────────────────
+
+function loadEnforcedRules() {
+  if (NO_ENFORCE) return new Set();
+  if (enforceArg) {
+    return new Set(
+      enforceArg
+        .split('=')[1]
+        .split(',')
+        .map((s) => Number(s.trim()))
+        .filter((n) => Number.isFinite(n))
+    );
+  }
+  const configPath = path.join(__dirname, 'enforced-rules.json');
+  if (!fs.existsSync(configPath)) return new Set();
+  try {
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    return new Set(Array.isArray(cfg.enforced) ? cfg.enforced : []);
+  } catch {
+    return new Set();
+  }
+}
+
+const ENFORCED = loadEnforcedRules();
 
 function stripAnsi(s) {
   return s.replace(/\x1b\[[0-9;]*m/g, '');
@@ -117,27 +150,56 @@ console.log(
 console.log(
   `${CYAN}╚════════════════════════════════════════════════════════════════════╝${RESET}\n`
 );
+
+// Show which rules are currently enforced.
+const enforcedList = [...ENFORCED].sort((a, b) => a - b);
+if (enforcedList.length > 0) {
+  console.log(
+    `  ${CYAN}Enforced rules:${RESET} ${enforcedList.map((r) => `#${r}`).join(', ')}  ` +
+      `${CYAN}(violations on these block; others are advisory)${RESET}\n`
+  );
+} else {
+  console.log(`  ${CYAN}Enforced rules:${RESET} none ${CYAN}(all advisory)${RESET}\n`);
+}
+
 let grandTotal = 0;
+let enforcedFailures = 0;
+const enforcedFailing = [];
 for (const s of summaries) {
   const status = s.total === 0 ? `${GREEN}✅${RESET}` : `${RED}${s.total} violation(s)${RESET}`;
   console.log(`  Check ${s.id}: ${s.label.padEnd(28)} ${status}`);
   for (const rc of s.ruleCounts) {
-    console.log(`           ${RED}└ rule #${rc.rule}: ${rc.count}${RESET}`);
+    const isEnforced = ENFORCED.has(rc.rule);
+    const tag = isEnforced ? `${RED}[ENFORCED]${RESET}` : `${CYAN}[advisory]${RESET}`;
+    console.log(`           ${RED}└ rule #${rc.rule}: ${rc.count}${RESET} ${tag}`);
+    if (isEnforced && rc.count > 0) {
+      enforcedFailures += rc.count;
+      enforcedFailing.push(rc.rule);
+    }
   }
   grandTotal += s.total;
 }
 console.log();
 if (grandTotal === 0) {
   console.log(`  ${GREEN}✅ All checks passed.${RESET}\n`);
-} else {
+} else if (enforcedFailures > 0) {
   console.log(
-    `  ${RED}❌ ${grandTotal} total violation(s) across ${totalFailures} of ${checks.length} check groups.${RESET}`
+    `  ${RED}❌ ${enforcedFailures} violation(s) on enforced rule(s) ${enforcedFailing
+      .map((r) => `#${r}`)
+      .join(', ')}.${RESET}`
+  );
+  console.log(
+    `  ${CYAN}+ ${grandTotal - enforcedFailures} advisory violation(s) reported but not blocking.${RESET}`
   );
   if (ADVISORY) {
-    console.log(`  ${CYAN}(advisory mode — exiting 0; drop --advisory to enforce)${RESET}\n`);
+    console.log(`  ${CYAN}(--advisory set — exiting 0)${RESET}\n`);
   } else {
     console.log();
   }
+} else {
+  console.log(
+    `  ${GREEN}✅ All enforced rules clean.${RESET} ${CYAN}(${grandTotal} advisory violation(s) reported but not blocking.)${RESET}\n`
+  );
 }
 
 // ─── Markdown snapshot ─────────────────────────────────────────────────────
@@ -153,18 +215,30 @@ if (MD) {
   lines.push('');
   lines.push(`**Date:** ${date}`);
   lines.push(`**Generated by:** \`pnpm check-rules --md\``);
+  lines.push(
+    `**Enforced rules:** ${
+      enforcedList.length ? enforcedList.map((r) => `#${r}`).join(', ') : 'none (all advisory)'
+    }`
+  );
   lines.push('');
   lines.push(`## Summary`);
   lines.push('');
-  lines.push(`| Check | Group | Total | Per-rule |`);
+  lines.push(`| Check | Group | Total | Per-rule (status) |`);
   lines.push(`| --- | --- | --- | --- |`);
   for (const s of summaries) {
     const perRule = s.ruleCounts.length
-      ? s.ruleCounts.map((r) => `#${r.rule}: ${r.count}`).join(', ')
+      ? s.ruleCounts
+          .map(
+            (r) =>
+              `#${r.rule}: ${r.count} ${ENFORCED.has(r.rule) ? '**[enforced]**' : '_[advisory]_'}`
+          )
+          .join(', ')
       : '—';
     lines.push(`| ${s.id} | ${s.label} | ${s.total} | ${perRule} |`);
   }
-  lines.push(`| | **Grand total** | **${grandTotal}** | |`);
+  lines.push(
+    `| | **Grand total** | **${grandTotal}** | enforced failing: **${enforcedFailures}** |`
+  );
   lines.push('');
   lines.push(`## Full output`);
   lines.push('');
@@ -180,4 +254,8 @@ if (MD) {
   console.log(`  ${CYAN}📄 Snapshot written to ${path.relative(ROOT, outFile)}${RESET}\n`);
 }
 
-process.exit(ADVISORY ? 0 : grandTotal > 0 ? 1 : 0);
+// Exit code:
+//   --advisory    → always 0 (pure report mode)
+//   otherwise     → 1 if any enforced rule has violations, else 0
+//                   (advisory-rule violations never block).
+process.exit(ADVISORY ? 0 : enforcedFailures > 0 ? 1 : 0);

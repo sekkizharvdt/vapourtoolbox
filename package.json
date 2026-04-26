@@ -15,7 +15,7 @@
     "type-check": "turbo type-check",
     "check-type-safety": "node scripts/check-type-safety.js",
     "check-rules": "node scripts/audit/check-rules.js",
-    "check-rules:advisory": "node scripts/audit/check-rules.js --advisory --quiet",
+    "check-rules:report": "node scripts/audit/check-rules.js --advisory",
     "check-rules:snapshot": "node scripts/audit/check-rules.js --advisory --quiet --md",
     "clean": "turbo clean && rm -rf node_modules",
     "prepare": "husky",

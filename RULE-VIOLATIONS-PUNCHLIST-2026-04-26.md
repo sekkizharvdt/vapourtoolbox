@@ -11,7 +11,7 @@
 - **Source of truth for counts:** `pnpm check-rules` (live) or the dated snapshot in `reports/`. This doc carries narrative — it does not try to keep counts current.
 - **Source of truth for fixes:** the rule definitions in [CLAUDE.md](CLAUDE.md) (numbered #1–#29).
 - **Workflow:** pick a rule from the sequencing plan → close batch of violations → `pnpm check-rules --only=<N>` to verify → re-snapshot if you want to record progress (`pnpm check-rules:snapshot`).
-- **When a rule's count hits 0:** drop `--advisory` from its invocation (or wire a per-rule enforcement gate; see "Switching from advisory to enforce" at the bottom).
+- **When a rule's count hits 0:** add the rule number to [scripts/audit/enforced-rules.json](scripts/audit/enforced-rules.json). The pre-commit hook will then block any future regression on that rule. See "Switching from advisory to enforce" at the bottom for the full mechanism.
 
 ---
 
@@ -461,36 +461,48 @@ Total realistic effort to close everything: **~6–8 weeks calendar time** at ~1
 
 ## Switching from advisory to enforce
 
-`.husky/pre-commit` currently runs:
+The runner has a per-rule enforcement model. The list of currently-enforced rules lives in [scripts/audit/enforced-rules.json](scripts/audit/enforced-rules.json):
 
-```sh
-node scripts/audit/check-rules.js --advisory --quiet
+```json
+{
+  "enforced": [3, 4, 7, 17, 24]
+}
 ```
 
-When a rule's count is at 0 in the snapshot:
+**Behavior:**
 
-1. Confirm: `pnpm check-rules --only=<N>` exits 0.
-2. To enforce a single rule across the whole suite: drop `--advisory` from the husky line. **All** non-zero rules will then block commits, so do this only when _every_ rule is at 0 — or build per-rule enforcement (option below).
-3. **Per-rule enforcement** (recommended interim): add a wrapper that runs only the cleared rules in non-advisory mode and the rest in advisory mode. Pattern:
+- Rules in this list block on any violation (runner exits 1).
+- Rules not in this list are reported but never block (advisory).
+- Pre-commit hook runs `pnpm check-rules` (no `--advisory`) — regressions on enforced rules block the commit; advisory-rule violations show but pass through.
 
-```sh
-# .husky/pre-commit (eventual state)
-node scripts/audit/check-rules.js --only=4              # rule #4 enforced
-node scripts/audit/check-rules.js --only=1 --advisory   # #5/#6/#7 still advisory
-node scripts/audit/check-rules.js --only=2 --advisory   # ...
-```
+**To promote a rule to enforced** (after closing its violations):
 
-Migrate one check-group at a time as its rules close.
+1. Confirm clean: `pnpm check-rules --only=<check-group>` should show the rule at 0 violations.
+2. Add the rule number to `enforced-rules.json`.
+3. Run `pnpm check-rules` once — should still exit 0. Future regressions on that rule will now block.
+4. Optionally: `pnpm check-rules:snapshot` to commit a dated milestone in `reports/`.
 
-4. CI parity: add the same `pnpm check-rules` invocation to the CI workflow that runs on PRs (e.g. GitHub Actions). PR checks should mirror pre-commit.
+**Useful commands:**
+
+| Command                          | Behavior                                                                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm check-rules`               | Run all checks; exit 1 if any _enforced_ rule has violations.                                                                     |
+| `pnpm check-rules:report`        | Run all checks and show full output; never exit 1 (pure report mode).                                                             |
+| `pnpm check-rules:snapshot`      | Same as `:report`, plus write `reports/rule-check-YYYY-MM-DD.md`.                                                                 |
+| `pnpm check-rules --enforce=5,6` | One-off override: enforce only rules #5 and #6 this run. Useful for "what would happen if I added these to the config?" dry runs. |
+| `pnpm check-rules --no-enforce`  | One-off: nothing enforced (full advisory).                                                                                        |
+| `pnpm check-rules --only=1`      | Run only check group #1; useful when fixing rule violations in that group.                                                        |
+| `git commit --no-verify`         | Bypass the pre-commit hook entirely. Last resort; use sparingly.                                                                  |
+
+**CI parity:** add `pnpm check-rules` to the GitHub Actions workflow that runs on PRs. Same exit semantics — regressions on enforced rules fail the build, advisory violations are reported via the snapshot.
 
 ---
 
 ## Audit & progress tracking
 
-- **Live count:** `pnpm check-rules`
-- **Dated snapshot:** `pnpm check-rules:snapshot` writes `reports/rule-check-YYYY-MM-DD.md`. Commit one when you want to mark a milestone (e.g. after closing rule #4).
-- **This punch list:** human-edited as items close. Update the summary table and per-rule sections as you go. When a rule reaches 0, change its row to "✅ enforce" and move to the bottom under a "Closed" heading.
+- **Live count:** `pnpm check-rules` (enforced) or `pnpm check-rules:report` (verbose, never fails).
+- **Dated snapshot:** `pnpm check-rules:snapshot` writes `reports/rule-check-YYYY-MM-DD.md`. Commit one when you want to mark a milestone. If you've already snapshotted today, rename the existing file (e.g. `rule-check-2026-04-26-after-rule4.md`) before re-running.
+- **This punch list:** human-edited as items close. Update the summary table and per-rule sections as you go. When a rule reaches 0, change its row to "✅ closed" and add the rule number to `enforced-rules.json`.
 
 ---
 
