@@ -440,7 +440,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                   );
                 })}
 
-              {/* Exclusions — items where included=false */}
+              {/* Exclusions & Clarifications — items the buyer asked for that aren't in this offer */}
               {(() => {
                 const excluded = proposal.unifiedScopeMatrix!.categories.flatMap((cat) =>
                   cat.items.filter((i) => !i.included)
@@ -449,12 +449,29 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                 return (
                   <Box>
                     <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                      Exclusions
+                      Exclusions and Clarifications
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      The following items from the enquiry / SOW are not included in this offer:
                     </Typography>
                     <List dense>
-                      {excluded.map((item) => (
-                        <ListItem key={item.id}>
-                          <ListItemText primary={item.name} secondary={item.description} />
+                      {excluded.map((item, idx) => (
+                        <ListItem key={item.id} alignItems="flex-start">
+                          <ListItemText
+                            primary={`${idx + 1}. ${item.name}`}
+                            secondary={
+                              item.exclusionReason ? (
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontStyle: 'italic', color: 'text.secondary' }}
+                                >
+                                  {item.exclusionReason}
+                                </Typography>
+                              ) : (
+                                item.description
+                              )
+                            }
+                          />
                         </ListItem>
                       ))}
                     </List>
@@ -465,85 +482,96 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           </Card>
         ) : null}
 
-        {/* Pricing */}
-        {proposal.pricingConfig && (
-          <Card variant="outlined" sx={{ mb: 3 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <PaymentIcon color="primary" />
-                <Typography variant="h6">Commercial Terms</Typography>
-              </Box>
+        {/* Pricing — what the customer sees on the offer (Stage 2.5 clientPricing) */}
+        {(() => {
+          const cp = proposal.clientPricing;
+          if (!cp) return null;
+          const costBasis = (proposal.pricingBlocks ?? []).reduce(
+            (s, b) => s + (b.subtotal || 0),
+            0
+          );
+          const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
+          const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
+          const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
+          const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount || 0), 0);
+          const subtotal =
+            costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
+          const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
+          const total = subtotal + taxAmount;
+          const fmt = (n: number) => formatCurrency({ amount: n, currency: cp.currency });
+          return (
+            <Card variant="outlined" sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <PaymentIcon color="primary" />
+                  <Typography variant="h6">Commercial Summary</Typography>
+                </Box>
 
-              <TableContainer>
-                <Table size="small">
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Base Cost (Estimation)</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(proposal.pricingConfig.estimationSubtotal)}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Overhead ({proposal.pricingConfig.overheadPercent}%)</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(proposal.pricingConfig.overheadAmount)}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        Contingency ({proposal.pricingConfig.contingencyPercent}%)
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(proposal.pricingConfig.contingencyAmount)}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Profit ({proposal.pricingConfig.profitMarginPercent}%)</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(proposal.pricingConfig.profitAmount)}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Subtotal</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        {formatCurrency(proposal.pricingConfig.subtotalBeforeTax)}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>GST ({proposal.pricingConfig.taxPercent}%)</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(proposal.pricingConfig.taxAmount)}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow sx={{ bgcolor: 'primary.50' }}>
-                      <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                        Total Price
-                      </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
-                      >
-                        {formatCurrency(proposal.pricingConfig.totalPrice)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      {cp.overheadPercent > 0 && (
+                        <TableRow>
+                          <TableCell>Overhead ({cp.overheadPercent}%)</TableCell>
+                          <TableCell align="right">{fmt(overheadAmount)}</TableCell>
+                        </TableRow>
+                      )}
+                      {cp.contingencyPercent > 0 && (
+                        <TableRow>
+                          <TableCell>Contingency ({cp.contingencyPercent}%)</TableCell>
+                          <TableCell align="right">{fmt(contingencyAmount)}</TableCell>
+                        </TableRow>
+                      )}
+                      {cp.profitPercent > 0 && (
+                        <TableRow>
+                          <TableCell>Profit ({cp.profitPercent}%)</TableCell>
+                          <TableCell align="right">{fmt(profitAmount)}</TableCell>
+                        </TableRow>
+                      )}
+                      {cp.lumpSumLines.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell>{row.description || '—'}</TableCell>
+                          <TableCell align="right">{fmt(row.amount || 0)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Subtotal</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                          {fmt(subtotal)}
+                        </TableCell>
+                      </TableRow>
+                      {cp.taxRate > 0 && (
+                        <TableRow>
+                          <TableCell>{cp.taxLabel || `Tax (${cp.taxRate}%)`}</TableCell>
+                          <TableCell align="right">{fmt(taxAmount)}</TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow sx={{ bgcolor: 'primary.50' }}>
+                        <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                          Total Price
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
+                        >
+                          {fmt(total)}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
 
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2">
-                  <strong>Validity:</strong> {proposal.pricingConfig.validityDays} days from date of
-                  issue
-                </Typography>
                 {proposal.pricing?.paymentTerms && (
-                  <Typography variant="body2">
-                    <strong>Payment Terms:</strong> {proposal.pricing.paymentTerms}
-                  </Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      <strong>Payment Terms:</strong> {proposal.pricing.paymentTerms}
+                    </Typography>
+                  </Box>
                 )}
-              </Box>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Terms & Conditions */}
         {proposal.terms && Object.values(proposal.terms).some(Boolean) && (

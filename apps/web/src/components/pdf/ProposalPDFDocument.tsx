@@ -118,7 +118,36 @@ export const ProposalPDFDocument = ({
     proposal.unifiedScopeMatrix &&
     proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0)
   );
-  const hasPricingConfig = Boolean(proposal.pricingConfig?.isComplete);
+
+  // Stage 2.5: client-facing pricing layered on top of the internal cost basis.
+  // Only one of clientPricing or the legacy pricingConfig will render.
+  const hasClientPricing = Boolean(proposal.clientPricing);
+  const hasPricingConfig = !hasClientPricing && Boolean(proposal.pricingConfig?.isComplete);
+
+  const cp = proposal.clientPricing;
+  const cpCurrency = cp?.currency ?? proposal.nativeCurrency ?? 'INR';
+  const costBasis = (proposal.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0);
+  const cpComputed = cp
+    ? (() => {
+        const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
+        const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
+        const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
+        const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount || 0), 0);
+        const subtotal =
+          costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
+        const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
+        const total = subtotal + taxAmount;
+        return {
+          overheadAmount,
+          contingencyAmount,
+          profitAmount,
+          lumpSumTotal,
+          subtotal,
+          taxAmount,
+          total,
+        };
+      })()
+    : null;
 
   const unifiedServices: UnifiedScopeItem[] = hasUnifiedScopeMatrix
     ? proposal.unifiedScopeMatrix!.categories.flatMap((c) =>
@@ -222,21 +251,133 @@ export const ProposalPDFDocument = ({
           </ReportSection>
         ) : null}
 
-        {/* Exclusions */}
+        {/* Exclusions & Clarifications — items the buyer asked for that aren't in this offer */}
         {hasUnifiedScopeMatrix && unifiedExclusions.length > 0 ? (
-          <ReportSection title="Exclusions">
+          <ReportSection title="Exclusions and Clarifications">
+            <Text style={{ marginBottom: 6, fontSize: 9, color: REPORT_THEME.textSecondary }}>
+              The following items from the enquiry / SOW are not included in this offer:
+            </Text>
             <View style={local.bulletList}>
-              {unifiedExclusions.map((item) => (
-                <Text key={item.id} style={local.bulletItem}>
-                  • {item.name}
-                  {item.description ? ` - ${item.description}` : ''}
-                </Text>
+              {unifiedExclusions.map((item, idx) => (
+                <View key={item.id} style={{ marginBottom: 6 }}>
+                  <Text style={local.bulletItem}>
+                    {idx + 1}. {item.name}
+                  </Text>
+                  {item.exclusionReason && (
+                    <Text
+                      style={{
+                        marginLeft: 14,
+                        fontSize: 9,
+                        color: REPORT_THEME.textSecondary,
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      {item.exclusionReason}
+                    </Text>
+                  )}
+                </View>
               ))}
             </View>
           </ReportSection>
         ) : null}
 
-        {/* Pricing Summary */}
+        {/* Pricing Summary — stage 2.5 clientPricing */}
+        {hasClientPricing && cp && cpComputed ? (
+          <View style={local.costSummary}>
+            <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
+              Commercial Summary
+            </Text>
+            {cp.overheadPercent > 0 && (
+              <View style={local.costRow}>
+                <Text style={local.costLabel}>Overhead ({cp.overheadPercent}%):</Text>
+                <Text style={local.costValue}>
+                  {sharedFormatCurrency(cpComputed.overheadAmount, cpCurrency, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              </View>
+            )}
+            {cp.contingencyPercent > 0 && (
+              <View style={local.costRow}>
+                <Text style={local.costLabel}>Contingency ({cp.contingencyPercent}%):</Text>
+                <Text style={local.costValue}>
+                  {sharedFormatCurrency(cpComputed.contingencyAmount, cpCurrency, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              </View>
+            )}
+            {cp.profitPercent > 0 && (
+              <View style={local.costRow}>
+                <Text style={local.costLabel}>Profit ({cp.profitPercent}%):</Text>
+                <Text style={local.costValue}>
+                  {sharedFormatCurrency(cpComputed.profitAmount, cpCurrency, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              </View>
+            )}
+            {cp.lumpSumLines.map((row) => (
+              <View key={row.id} style={local.costRow}>
+                <Text style={local.costLabel}>{row.description || '—'}</Text>
+                <Text style={local.costValue}>
+                  {sharedFormatCurrency(row.amount || 0, cpCurrency, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              </View>
+            ))}
+            <View
+              style={{
+                ...local.costRow,
+                marginTop: 6,
+                paddingTop: 6,
+                borderTop: '0.5pt solid #ccc',
+              }}
+            >
+              <Text style={local.costLabel}>Subtotal:</Text>
+              <Text style={local.costValue}>
+                {sharedFormatCurrency(cpComputed.subtotal, cpCurrency, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+            </View>
+            {cp.taxRate > 0 && (
+              <View style={local.costRow}>
+                <Text style={local.costLabel}>{cp.taxLabel || `Tax (${cp.taxRate}%)`}:</Text>
+                <Text style={local.costValue}>
+                  {sharedFormatCurrency(cpComputed.taxAmount, cpCurrency, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              </View>
+            )}
+            <View
+              style={{
+                ...local.costRow,
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1pt solid #ccc',
+              }}
+            >
+              <Text style={local.costLabel}>Total Amount:</Text>
+              <Text style={local.totalCost}>
+                {sharedFormatCurrency(cpComputed.total, cpCurrency, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Pricing Summary — legacy pricingConfig (only renders when clientPricing is absent) */}
         {hasPricingConfig && proposal.pricingConfig ? (
           <View style={local.costSummary}>
             <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
