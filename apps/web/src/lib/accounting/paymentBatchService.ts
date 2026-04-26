@@ -27,6 +27,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
+import { preventSelfApproval } from '@/lib/auth/authorizationService';
 import { paymentBatchStateMachine } from '@/lib/workflow/stateMachines';
 import type {
   PaymentBatch,
@@ -661,6 +662,7 @@ export async function approveBatch(
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
   }
+  preventSelfApproval(approverId, batch.createdBy, 'approve payment batch');
   requireValidTransition(paymentBatchStateMachine, batch.status, 'APPROVED', 'PaymentBatch');
 
   await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
@@ -676,20 +678,28 @@ export async function approveBatch(
 /**
  * Reject a payment batch
  */
-export async function rejectBatch(db: Firestore, batchId: string, reason: string): Promise<void> {
+export async function rejectBatch(
+  db: Firestore,
+  batchId: string,
+  reason: string,
+  rejecterId: string
+): Promise<void> {
   const batch = await getPaymentBatch(db, batchId);
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
   }
+  preventSelfApproval(rejecterId, batch.createdBy, 'reject payment batch');
   requireValidTransition(paymentBatchStateMachine, batch.status, 'REJECTED', 'PaymentBatch');
 
   await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
     status: 'REJECTED',
     rejectionReason: reason,
+    rejectedBy: rejecterId,
+    rejectedAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
 
-  logger.info('[rejectBatch] Batch rejected', { batchId, reason });
+  logger.info('[rejectBatch] Batch rejected', { batchId, rejecterId, reason });
 }
 
 /**

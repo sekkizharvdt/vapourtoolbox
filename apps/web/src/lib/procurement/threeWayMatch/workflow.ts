@@ -17,7 +17,11 @@ import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import type { ThreeWayMatch } from '@vapour/types';
-import { requirePermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
+import {
+  requirePermission,
+  preventSelfApproval,
+  type AuthorizationContext,
+} from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'threeWayMatchService' });
 
@@ -59,6 +63,11 @@ export async function approveMatch(
     const match = matchDoc.exists()
       ? ({ id: matchDoc.id, ...matchDoc.data() } as ThreeWayMatch)
       : null;
+
+    // Prevent self-approval — match approver must differ from match creator.
+    if (match?.createdBy) {
+      preventSelfApproval(userId, match.createdBy, 'approve three-way match');
+    }
 
     // Update match status
     await writeBatch(db)
@@ -159,6 +168,11 @@ export async function rejectMatch(
     const match = matchDoc.exists()
       ? ({ id: matchDoc.id, ...matchDoc.data() } as ThreeWayMatch)
       : null;
+
+    // Prevent self-rejection — match rejecter must differ from match creator.
+    if (match?.createdBy) {
+      preventSelfApproval(userId, match.createdBy, 'reject three-way match');
+    }
 
     await writeBatch(db)
       .update(matchRef, {

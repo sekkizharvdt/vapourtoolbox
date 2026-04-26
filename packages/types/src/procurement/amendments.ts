@@ -22,6 +22,9 @@ export interface PurchaseOrderAmendment {
   amendmentNumber: number; // 1, 2, 3... (sequential)
   amendmentDate: Timestamp;
 
+  // Tenant scoping (rule #1) — required for tenant isolation.
+  tenantId?: string;
+
   // Amendment type
   amendmentType:
     | 'QUANTITY_CHANGE'

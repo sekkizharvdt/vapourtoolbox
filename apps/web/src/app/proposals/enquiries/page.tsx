@@ -52,9 +52,12 @@ import type { Enquiry, EnquiryStatus, EnquiryUrgency } from '@vapour/types';
 import {
   ENQUIRY_STATUS_LABELS,
   ENQUIRY_URGENCY_LABELS,
-  ENQUIRY_PRE_PROPOSAL_STATUSES,
+  ENQUIRY_ACTIVE_STATUSES,
+  ENQUIRY_LOST_STATUSES,
 } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
+import { Home as HomeIcon } from '@mui/icons-material';
 
 // Fallback tenant ID for users without multi-tenant claims
 const FALLBACK_TENANT_ID = 'default-entity';
@@ -124,7 +127,7 @@ export default function EnquiriesPage() {
           tenantId,
           status:
             statusFilter === 'ACTIVE'
-              ? ENQUIRY_PRE_PROPOSAL_STATUSES
+              ? ENQUIRY_ACTIVE_STATUSES
               : statusFilter !== 'ALL'
                 ? statusFilter
                 : undefined,
@@ -188,16 +191,20 @@ export default function EnquiriesPage() {
     );
   }
 
-  const activeCount =
-    (statusCounts.NEW || 0) +
-    (statusCounts.UNDER_REVIEW || 0) +
-    (statusCounts.BID_DECISION_PENDING || 0);
+  const activeCount = ENQUIRY_ACTIVE_STATUSES.reduce((sum, s) => sum + (statusCounts[s] || 0), 0);
   const submittedCount = statusCounts.PROPOSAL_SUBMITTED || 0;
   const wonCount = statusCounts.WON || 0;
-  const lostCount = statusCounts.LOST || 0;
+  const lostCount = ENQUIRY_LOST_STATUSES.reduce((sum, s) => sum + (statusCounts[s] || 0), 0);
 
   return (
     <Box sx={{ p: 3 }}>
+      <PageBreadcrumbs
+        items={[
+          { label: 'Proposals', href: '/proposals', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Enquiries' },
+        ]}
+      />
+
       {/* Page Header */}
       <PageHeader
         title="Enquiries"
@@ -259,7 +266,7 @@ export default function EnquiriesPage() {
             label="Status"
           >
             <MenuItem value="ALL">All Status</MenuItem>
-            <MenuItem value="ACTIVE">Active (Pre-Proposal)</MenuItem>
+            <MenuItem value="ACTIVE">Active</MenuItem>
             {Object.entries(ENQUIRY_STATUS_LABELS).map(([value, label]) => (
               <MenuItem key={value} value={value}>
                 {label}

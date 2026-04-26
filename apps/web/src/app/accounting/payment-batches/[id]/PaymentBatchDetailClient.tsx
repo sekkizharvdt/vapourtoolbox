@@ -251,13 +251,13 @@ export default function PaymentBatchDetailClient() {
   };
 
   const handleReject = async () => {
-    if (!batch || !(rejectReason ?? '').trim()) return;
+    if (!batch || !user || !(rejectReason ?? '').trim()) return;
     setSaving(true);
     setError(null);
 
     try {
       const { db } = getFirebase();
-      await rejectBatch(db, batch.id, rejectReason);
+      await rejectBatch(db, batch.id, rejectReason, user.uid);
       const updated = await getPaymentBatch(db, batch.id);
       if (updated) setBatch(updated);
       setRejectDialogOpen(false);

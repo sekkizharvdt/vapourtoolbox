@@ -38,7 +38,7 @@ import {
   createPaymentFromApprovedReceipt,
 } from './accountingIntegration';
 import { PERMISSION_FLAGS, PERMISSION_FLAGS_2 } from '@vapour/constants';
-import { requirePermission } from '@/lib/auth/authorizationService';
+import { requirePermission, preventSelfApproval } from '@/lib/auth/authorizationService';
 
 // ============================================================================
 // CREATE GR
@@ -629,6 +629,11 @@ export async function approveGRForPayment(
 
     if (!grData.paymentRequestId) {
       throw new Error('No bill found for this Goods Receipt. Create bill first.');
+    }
+
+    // Prevent self-approval — payment approver must differ from GR inspector.
+    if (grData.inspectedBy) {
+      preventSelfApproval(userId, grData.inspectedBy, 'approve GR for payment');
     }
 
     // Update GR atomically

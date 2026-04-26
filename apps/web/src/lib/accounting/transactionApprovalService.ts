@@ -452,6 +452,12 @@ export async function rejectTransaction(
       );
     }
 
+    // Prevent self-rejection — separation of duties.
+    const submittedByUserId = transaction.submittedByUserId as string | undefined;
+    if (submittedByUserId) {
+      preventSelfApproval(userId, submittedByUserId, `reject ${config.entityLabelLower}`);
+    }
+
     const approvalRecord: TransactionApprovalRecord = {
       action: 'REJECTED',
       userId,

@@ -197,6 +197,7 @@ export async function submitAmendmentForApproval(
       const historyData = {
         amendmentId,
         purchaseOrderId: amendment.purchaseOrderId,
+        tenantId: amendment.tenantId,
         action: 'SUBMITTED',
         actionDate: serverTimestamp(),
         actionBy: userId,
@@ -317,6 +318,7 @@ export async function approveAmendment(
     const historyData = {
       amendmentId,
       purchaseOrderId: amendment.purchaseOrderId,
+      tenantId: amendment.tenantId,
       action: 'APPROVED',
       actionDate: serverTimestamp(),
       actionBy: userId,
@@ -389,6 +391,11 @@ export async function rejectAmendment(
       throw new Error('Only pending amendments can be rejected');
     }
 
+    // Prevent self-rejection — separation of duties (mirror of approveAmendment).
+    if (amendment.requestedBy) {
+      preventSelfApproval(userId, amendment.requestedBy, 'reject amendment');
+    }
+
     const batch = writeBatch(db);
 
     // Update amendment status
@@ -406,6 +413,7 @@ export async function rejectAmendment(
     const historyData = {
       amendmentId,
       purchaseOrderId: amendment.purchaseOrderId,
+      tenantId: amendment.tenantId,
       action: 'REJECTED',
       actionDate: serverTimestamp(),
       actionBy: userId,

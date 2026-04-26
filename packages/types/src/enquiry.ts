@@ -277,6 +277,25 @@ export const ENQUIRY_PRE_PROPOSAL_STATUSES: EnquiryStatus[] = [
 ];
 
 /**
+ * Active statuses — anything still in flight (not yet won/lost/cancelled).
+ * Covers pre-decision, in-progress, and submitted. Used as the default
+ * filter on the enquiries list so an enquiry doesn't fall off the page
+ * the moment a bid decision is made.
+ */
+export const ENQUIRY_ACTIVE_STATUSES: EnquiryStatus[] = [
+  'NEW',
+  'UNDER_REVIEW',
+  'BID_DECISION_PENDING',
+  'PROPOSAL_IN_PROGRESS',
+  'PROPOSAL_SUBMITTED',
+];
+
+/**
+ * Lost-bucket statuses — enquiries that didn't convert, regardless of why.
+ */
+export const ENQUIRY_LOST_STATUSES: EnquiryStatus[] = ['LOST', 'NO_BID', 'CANCELLED'];
+
+/**
  * Enquiry Entity
  */
 export interface Enquiry extends TimestampFields {

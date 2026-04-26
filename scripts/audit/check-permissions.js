@@ -216,10 +216,12 @@ const PERMISSION_RE = /\b(?:requirePermission|requireAnyPermission|requireOwnerO
 
 const PREVENT_SELF_RE = /\bpreventSelfApproval\s*\(/;
 
-// Approval-pattern names. `cancel*` is intentionally excluded — cancellations
-// are usually done by the original requester, where preventSelfApproval would
-// be incorrect.
-const APPROVAL_NAME_RE = /^(approve|reject)\w*$|^submit\w*[Ff]orApproval$/;
+// Approval-pattern names — only the gate that actually decides on someone
+// else's submission. Excludes:
+//   - `cancel*`: usually done by the original requester.
+//   - `submit*ForApproval`: the submitter IS the actor; comparing against
+//     themselves is vacuous (they haven't been approved yet).
+const APPROVAL_NAME_RE = /^(approve|reject)\w*$/;
 
 // Read-only function names to exclude from rule #5.
 const READ_ONLY_NAME_RE = /^(get|list|find|query|fetch|search|count|load|read|view|select)/i;

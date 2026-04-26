@@ -30,6 +30,7 @@ import type {
   CommentCategory,
   CommentStatus,
 } from '@vapour/types';
+import { preventSelfApproval } from '@/lib/auth/authorizationService';
 
 /**
  * Generate next comment number for a document
@@ -211,6 +212,15 @@ export async function approveCommentResolution(
 ): Promise<void> {
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
 
+  // Prevent self-approval — PM approver must differ from the resolver.
+  const commentSnap = await getDoc(commentRef);
+  const resolvedBy = commentSnap.exists()
+    ? ((commentSnap.data() as DocumentComment).resolvedBy as string | undefined)
+    : undefined;
+  if (resolvedBy) {
+    preventSelfApproval(request.pmApprovedBy, resolvedBy, 'approve comment resolution');
+  }
+
   await updateDoc(commentRef, {
     status: 'CLOSED',
     pmApproved: true,
@@ -236,6 +246,7 @@ export interface RejectResolutionRequest {
   submissionId: string;
   commentId: string;
   pmRemarks: string;
+  pmRejectedBy: string;
 }
 
 export async function rejectCommentResolution(
@@ -243,6 +254,15 @@ export async function rejectCommentResolution(
   request: RejectResolutionRequest
 ): Promise<void> {
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
+
+  // Prevent self-rejection — PM rejecter must differ from the resolver.
+  const commentSnap = await getDoc(commentRef);
+  const resolvedBy = commentSnap.exists()
+    ? ((commentSnap.data() as DocumentComment).resolvedBy as string | undefined)
+    : undefined;
+  if (resolvedBy) {
+    preventSelfApproval(request.pmRejectedBy, resolvedBy, 'reject comment resolution');
+  }
 
   await updateDoc(commentRef, {
     status: 'UNDER_REVIEW', // Send back to under review

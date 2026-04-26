@@ -20,6 +20,7 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import type { DocumentComment, CommentStatus, CommentResolutionTable } from '@vapour/types';
 import { updateCommentCounts } from './documentSubmissionService';
+import { preventSelfApproval } from '@/lib/auth/authorizationService';
 
 // Helper to get database instance
 const getDb = () => getFirebase().db;
@@ -99,6 +100,15 @@ export async function approveCommentResolution(
   }
 ): Promise<void> {
   const docRef = doc(getDb(), 'projects', projectId, 'documentComments', commentId);
+
+  // Prevent self-approval — PM approver must differ from the resolver.
+  const commentSnap = await getDoc(docRef);
+  const resolvedBy = commentSnap.exists()
+    ? ((commentSnap.data() as DocumentComment).resolvedBy as string | undefined)
+    : undefined;
+  if (resolvedBy) {
+    preventSelfApproval(approvalData.pmApprovedBy, resolvedBy, 'approve comment resolution');
+  }
 
   await updateDoc(docRef, {
     ...approvalData,

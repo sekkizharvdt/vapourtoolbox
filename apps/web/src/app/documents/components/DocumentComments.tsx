@@ -262,7 +262,7 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
   };
 
   const handleRejectResolution = async (commentId: string, remarks: string) => {
-    if (!db || !latestSubmissionId) {
+    if (!db || !user || !latestSubmissionId) {
       throw new Error('Missing required data for rejecting resolution');
     }
 
@@ -272,6 +272,7 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
         submissionId: latestSubmissionId,
         commentId,
         pmRemarks: remarks,
+        pmRejectedBy: user.uid,
       });
 
       await loadComments();

@@ -22,7 +22,7 @@
 | #3 — soft-delete query                            | 0     | ✅ enforce  | —        | Already clean                                                                                                        |
 | #4 — collections need security rules              | 0     | ✅ closed   | —        | Closed 2026-04-26 — see [reports/rule-check-2026-04-26-after-rule4.md](reports/rule-check-2026-04-26-after-rule4.md) |
 | #5 — writes need `requirePermission`              | 254   | ⚠️ advisory | **P1**   | Largest backlog; security perimeter                                                                                  |
-| #6 — approve/reject needs `preventSelfApproval`   | 17    | ⚠️ advisory | **P0**   | Concentrated in named functions; small fix per                                                                       |
+| #6 — approve/reject needs `preventSelfApproval`   | 0     | ✅ closed   | —        | Closed 2026-04-26 — see [reports/rule-check-2026-04-26-after-rule6.md](reports/rule-check-2026-04-26-after-rule6.md) |
 | #7 — no hardcoded permission flags                | 0     | ✅ enforce  | —        | Already clean                                                                                                        |
 | #8 — status changes need `requireValidTransition` | 105   | ⚠️ advisory | **P1**   | Workflow safety                                                                                                      |
 | #17 — state machines live in `stateMachines.ts`   | 0     | ✅ enforce  | —        | Already clean                                                                                                        |
@@ -33,7 +33,9 @@
 | #24 — TransactionType switches exhaustive         | 0     | ✅ enforce  | —        | TS `noFallthroughCasesInSwitch` covers it                                                                            |
 | #28 — modules need List + New + View + Edit       | 20    | ⚠️ advisory | **P2**   | UI completeness; some are terminal-doc false positives                                                               |
 
-**Grand total:** 646 violations across 7 active rules. (Baseline 668; rule #4 closed 2026-04-26.)
+**Grand total:** 632 violations across 6 active rules. (Baseline 668; rule #4 closed 2026-04-26; rule #6 closed 2026-04-26.)
+
+> Note: rule #19 count increased from 87 → 90 because the rule #6 fixes added `getDoc` lookups to find submitter IDs (e.g. in `approveCommentResolution`). Wrapping those reads in `runTransaction` is the right rule #19 cleanup but is deferred to that pass.
 
 ---
 
@@ -83,11 +85,29 @@ match /<collectionName>/{docId} {
 
 ---
 
-## Rule #6 — Approval workflows need `preventSelfApproval`
+## Rule #6 — Approval workflows need `preventSelfApproval` ✅ CLOSED 2026-04-26
 
 **What it means:** any function that approves or rejects another user's submission must call `preventSelfApproval(approverId, submitterId, 'op label')` to enforce separation of duties.
 
-**Count: 17.** Concentrated in approval/rejection functions. Sample:
+**Status:** **closed 2026-04-26.** All 12 functions that gate someone else's submission now call `preventSelfApproval` after fetching the document and resolving the submitter ID.
+
+**Resolution summary:**
+
+- 7 procurement / accounting approve & reject functions: `approveBatch`, `rejectBatch`, `rejectTransaction`, `approveGRForPayment`, `rejectAmendment`, `approveMatch`, `rejectMatch`, `rejectVendorQuote`, `rejectProposal` — each now blocks the actor from approving their own submission via the relevant submitter field (`createdBy`, `submittedByUserId`, `requestedBy`, `inspectedBy`, depending on entity).
+- 3 comment-resolution functions: `approveCommentResolution` (×2 — see Rule #16 follow-up below) and `rejectCommentResolution` — block PM from approving their own comment resolutions.
+
+**Signature changes that propagated to callers:**
+
+- `rejectBatch(db, batchId, reason)` → `rejectBatch(db, batchId, reason, rejecterId)`. Updated call site: `apps/web/src/app/accounting/payment-batches/[id]/PaymentBatchDetailClient.tsx`.
+- `RejectResolutionRequest` interface gained required `pmRejectedBy: string`. Updated call site: `apps/web/src/app/documents/components/DocumentComments.tsx`. Test fixtures in `commentService.test.ts` updated.
+
+**Detector refinement** (also landed in this pass):
+
+- The rule #6 detector now matches only `^(approve|reject)\w*$`. `submit*ForApproval` was dropped because the submitter IS the actor in those functions; comparing them against themselves is vacuous. This dropped the original count of 17 to 12 real violations. Documented at [scripts/audit/check-permissions.js](scripts/audit/check-permissions.js).
+
+**Rule #16 follow-up (separate pass):** `approveCommentResolution` is implemented twice — once in [commentService.ts](apps/web/src/lib/documents/commentService.ts) (the production-active path, called by `DocumentComments.tsx`) and once in [commentResolutionService.ts](apps/web/src/lib/documents/commentResolutionService.ts) (re-exported but not imported by name anywhere). The duplicate is dead code and should be deleted under Rule #16 cleanup. Both got `preventSelfApproval` for now to keep the rule clean.
+
+**Original count: 17.** Original list (kept for posterity):
 
 | File                                                            | Function                       |
 | --------------------------------------------------------------- | ------------------------------ |

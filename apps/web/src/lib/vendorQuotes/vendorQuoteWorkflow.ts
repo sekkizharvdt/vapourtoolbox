@@ -25,7 +25,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import type { CurrencyCode, RFQ, RFQItem, VendorQuote, VendorQuoteItem } from '@vapour/types';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission, preventSelfApproval } from '@/lib/auth';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { offerStateMachine, rfqStateMachine } from '@/lib/workflow/stateMachines';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
@@ -200,6 +200,11 @@ export async function rejectVendorQuote(
 
   const quote = await getVendorQuoteById(db, quoteId);
   if (!quote) throw new Error('Quote not found');
+
+  // Prevent self-rejection — quote rejecter must differ from quote uploader.
+  if (quote.createdBy) {
+    preventSelfApproval(userId, quote.createdBy, 'reject vendor quote');
+  }
 
   const transition = offerStateMachine.validateTransition(quote.status, 'REJECTED');
   if (!transition.allowed) {

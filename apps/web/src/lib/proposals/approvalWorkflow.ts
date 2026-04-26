@@ -223,6 +223,11 @@ export async function rejectProposal(
 
     const proposal = proposalSnap.data() as Proposal;
 
+    // Prevent self-rejection — separation of duties (mirror of approveProposal).
+    if (proposal.submittedByUserId) {
+      preventSelfApproval(userId, proposal.submittedByUserId, 'reject proposal');
+    }
+
     // Validate state machine transition (PENDING_APPROVAL -> DRAFT for internal rejection/revision)
     const transitionResult = proposalStateMachine.validateTransition(proposal.status, 'DRAFT');
     if (!transitionResult.allowed) {

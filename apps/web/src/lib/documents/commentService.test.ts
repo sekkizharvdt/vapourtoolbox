@@ -263,6 +263,11 @@ describe('approveCommentResolution', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUpdateDoc.mockResolvedValue(undefined);
+    // preventSelfApproval reads the comment doc to find resolvedBy.
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ resolvedBy: 'eng-1', submissionId: 'sub-1' }),
+    });
   });
 
   it('should approve resolution and close comment', async () => {
@@ -316,6 +321,11 @@ describe('rejectCommentResolution', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUpdateDoc.mockResolvedValue(undefined);
+    // preventSelfApproval reads the comment doc to find resolvedBy.
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ resolvedBy: 'eng-1', submissionId: 'sub-1' }),
+    });
   });
 
   it('should reject resolution and send back to under review', async () => {
@@ -324,6 +334,7 @@ describe('rejectCommentResolution', () => {
       submissionId: 'sub-1',
       commentId: 'comment-1',
       pmRemarks: 'Resolution does not address root cause',
+      pmRejectedBy: 'pm-1',
     };
 
     await rejectCommentResolution(mockDb, request);
@@ -343,6 +354,7 @@ describe('rejectCommentResolution', () => {
       submissionId: 'sub-1',
       commentId: 'comment-1',
       pmRemarks: 'Need more detail',
+      pmRejectedBy: 'pm-1',
     };
 
     await rejectCommentResolution(mockDb, request);
@@ -517,7 +529,8 @@ describe('Comment Workflow Integration', () => {
 
     // 3. Resolve comment
     mockGetDoc.mockResolvedValue({
-      data: () => ({ status: 'UNDER_REVIEW' }),
+      exists: () => true,
+      data: () => ({ status: 'UNDER_REVIEW', resolvedBy: 'engineer-1' }),
     });
 
     await resolveComment(mockDb, {
@@ -551,7 +564,8 @@ describe('Comment Workflow Integration', () => {
 
   it('should support rejection flow: RESOLVED → UNDER_REVIEW → RESOLVED → CLOSED', async () => {
     mockGetDoc.mockResolvedValue({
-      data: () => ({ status: 'OPEN' }),
+      exists: () => true,
+      data: () => ({ status: 'OPEN', resolvedBy: 'eng-1' }),
     });
 
     // 1. Resolve
@@ -570,6 +584,7 @@ describe('Comment Workflow Integration', () => {
       submissionId: 'sub-1',
       commentId: 'comment-1',
       pmRemarks: 'Incomplete resolution',
+      pmRejectedBy: 'pm-1',
     });
 
     expect(mockUpdateDoc).toHaveBeenCalledWith(
@@ -579,7 +594,8 @@ describe('Comment Workflow Integration', () => {
 
     // 3. Re-resolve
     mockGetDoc.mockResolvedValue({
-      data: () => ({ status: 'UNDER_REVIEW' }),
+      exists: () => true,
+      data: () => ({ status: 'UNDER_REVIEW', resolvedBy: 'eng-1' }),
     });
 
     await resolveComment(mockDb, {
