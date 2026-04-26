@@ -54,4 +54,9 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Agent-readiness rule suite (advisory — warns but does not block).
+# Once the existing-violation backlog is cleared, drop --advisory to enforce.
+echo "🔍 Running CLAUDE.md rule audit (advisory)..."
+node scripts/audit/check-rules.js --advisory --quiet
+
 echo "✅ Pre-commit checks passed!"
