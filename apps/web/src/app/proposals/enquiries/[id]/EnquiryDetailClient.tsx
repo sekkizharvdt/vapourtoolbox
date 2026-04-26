@@ -16,6 +16,7 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Stack,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -50,7 +51,11 @@ import {
   CAPACITY_CAPABILITY_LABELS,
   BID_DECISION_LABELS,
 } from '@vapour/types';
-import { WORK_COMPONENT_LABELS } from '@vapour/constants';
+import {
+  WORK_COMPONENT_LABELS,
+  CONDITION_CATEGORY_LABELS,
+  CONDITION_CATEGORY_ORDER,
+} from '@vapour/constants';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
 import { BidDecisionDialog } from '../components/BidDecisionDialog';
 import { CreateProposalDialog } from '../components/CreateProposalDialog';
@@ -334,6 +339,63 @@ export default function EnquiryDetailClient() {
               )}
             </CardContent>
           </Card>
+
+          {/* Conditions Section */}
+          {enquiry.conditions && enquiry.conditions.length > 0 && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Conditions from the buyer
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Stipulations the buyer expects you to meet. Hover a row to see the original quote
+                  from the document.
+                </Typography>
+                <Stack spacing={1.5}>
+                  {CONDITION_CATEGORY_ORDER.map((cat) => {
+                    const items = (enquiry.conditions ?? []).filter((c) => c.category === cat);
+                    if (items.length === 0) return null;
+                    return (
+                      <Box key={cat}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
+                        >
+                          {CONDITION_CATEGORY_LABELS[cat]}
+                        </Typography>
+                        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                          {items.map((c) => (
+                            <Box
+                              key={c.id}
+                              title={c.verbatim}
+                              sx={{
+                                pl: 1.5,
+                                py: 0.75,
+                                borderLeft: 3,
+                                borderColor: c.source === 'AI_PARSED' ? 'primary.light' : 'divider',
+                              }}
+                            >
+                              <Typography variant="body2">{c.summary}</Typography>
+                              {c.verbatim && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ fontStyle: 'italic', display: 'block', mt: 0.25 }}
+                                >
+                                  “{c.verbatim}”
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Documents Section */}
           <Box sx={{ mt: 3 }}>

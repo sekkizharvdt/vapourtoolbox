@@ -119,6 +119,36 @@ export type EnquirySource = 'EMAIL' | 'PHONE' | 'MEETING' | 'WEBSITE' | 'REFERRA
 export type EnquiryUrgency = 'STANDARD' | 'URGENT';
 
 /**
+ * Categories used to classify conditions/stipulations the buyer puts on a
+ * bidder in an RFP/SOW. Drives the conditions section of an enquiry.
+ */
+export type ConditionCategory =
+  | 'BIDDER_QUALIFICATION' // Years of experience, prior projects, in-house team, CVs, references
+  | 'COMMERCIAL' // Validity, payment terms, currency, advance, retention
+  | 'COMPLIANCE' // GST, statutory codes (ASME/ISO), insurance, warranty
+  | 'CONFIDENTIALITY' // NDA, IP, data ownership
+  | 'HSE' // Site safety, PPE, training, induction
+  | 'REPORTING' // Daily reports, review meetings, progress cadence
+  | 'SUBMISSION' // Bid format, references count, CV attachments
+  | 'PENALTY' // Liquidated damages, performance bond, guarantee bank
+  | 'OTHER';
+
+/**
+ * A single condition / stipulation captured on an enquiry. Either parsed by
+ * AI from the SOW or added manually.
+ */
+export interface EnquiryCondition {
+  id: string;
+  category: ConditionCategory;
+  /** Short summary, ~10 words. Editable by the user. */
+  summary: string;
+  /** Exact quote from the source document, for traceability. */
+  verbatim?: string;
+  /** Where this condition came from. */
+  source: 'AI_PARSED' | 'MANUAL';
+}
+
+/**
  * Enquiry Document
  */
 export interface EnquiryDocument {
@@ -288,6 +318,9 @@ export interface Enquiry extends TimestampFields {
   // Documents
   attachedDocuments: EnquiryDocument[]; // Document metadata
 
+  // Conditions / stipulations parsed from the SOW or added manually
+  conditions?: EnquiryCondition[];
+
   // Audit
   createdBy: string;
   updatedBy: string;
@@ -325,6 +358,7 @@ export interface CreateEnquiryInput {
   requiredDeliveryDate?: Timestamp;
   requirements?: string[];
   attachments?: EnquiryDocument[];
+  conditions?: EnquiryCondition[];
   assignedToUserId?: string;
 }
 
@@ -349,6 +383,7 @@ export interface UpdateEnquiryInput {
   requiredDeliveryDate?: Timestamp;
   assignedToUserId?: string;
   status?: EnquiryStatus;
+  conditions?: EnquiryCondition[];
 }
 
 /**

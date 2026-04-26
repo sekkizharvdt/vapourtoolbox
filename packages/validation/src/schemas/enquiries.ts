@@ -50,6 +50,32 @@ export const workComponentSchema = z.enum([
 export const enquiryUrgencySchema = z.enum(['STANDARD', 'URGENT']);
 
 /**
+ * Condition category enum schema for enquiry stipulations.
+ */
+export const conditionCategorySchema = z.enum([
+  'BIDDER_QUALIFICATION',
+  'COMMERCIAL',
+  'COMPLIANCE',
+  'CONFIDENTIALITY',
+  'HSE',
+  'REPORTING',
+  'SUBMISSION',
+  'PENALTY',
+  'OTHER',
+]);
+
+/**
+ * A single condition row.
+ */
+export const enquiryConditionSchema = z.object({
+  id: z.string().min(1),
+  category: conditionCategorySchema,
+  summary: z.string().min(1, 'Summary required'),
+  verbatim: z.string().optional(),
+  source: z.enum(['AI_PARSED', 'MANUAL']),
+});
+
+/**
  * Enquiry attachment schema (matches EnquiryDocument from types)
  */
 export const attachmentSchema = z.object({
@@ -78,6 +104,7 @@ export const createEnquiryInputSchema = z.object({
   receivedVia: enquirySourceSchema,
   referenceSource: z.string().optional(),
   workComponents: z.array(workComponentSchema).min(1, 'Pick at least one type of work'),
+  conditions: z.array(enquiryConditionSchema).optional(),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema,
@@ -107,6 +134,7 @@ export const createEnquiryFormSchema = z.object({
   receivedVia: enquirySourceSchema,
   referenceSource: z.string().optional(),
   workComponents: z.array(workComponentSchema).min(1, 'Pick at least one type of work'),
+  conditions: z.array(enquiryConditionSchema).optional(),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema,
@@ -137,4 +165,5 @@ export const updateEnquiryInputSchema = z.object({
   estimatedBudget: moneySchema.optional(),
   assignedToUserId: z.string().optional(),
   status: enquiryStatusSchema.optional(),
+  conditions: z.array(enquiryConditionSchema).optional(),
 });

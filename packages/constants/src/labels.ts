@@ -198,6 +198,34 @@ export const WORK_COMPONENT_ORDER = [
   'OM',
 ] as const;
 
+/**
+ * User-facing labels for condition categories on an enquiry.
+ */
+export const CONDITION_CATEGORY_LABELS = {
+  BIDDER_QUALIFICATION: 'Bidder qualification',
+  COMMERCIAL: 'Commercial',
+  COMPLIANCE: 'Compliance',
+  CONFIDENTIALITY: 'Confidentiality',
+  HSE: 'Health, safety & environment',
+  REPORTING: 'Reporting',
+  SUBMISSION: 'Submission requirements',
+  PENALTY: 'Penalties & guarantees',
+  OTHER: 'Other',
+} as const;
+
+/** Display order for the conditions section. */
+export const CONDITION_CATEGORY_ORDER = [
+  'BIDDER_QUALIFICATION',
+  'SUBMISSION',
+  'COMMERCIAL',
+  'COMPLIANCE',
+  'PENALTY',
+  'CONFIDENTIALITY',
+  'HSE',
+  'REPORTING',
+  'OTHER',
+] as const;
+
 // ============================================================================
 // FLOW — meeting + task labels (sweep 2026-04-21)
 // ============================================================================

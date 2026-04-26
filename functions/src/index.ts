@@ -81,6 +81,9 @@ export { parseOfferDocument } from './offerParsing/parseOfferDocument';
 export { compareOfferParsers } from './offerParsing/compareOfferParsers';
 export { compareOfferWithSpecs } from './offerParsing/compareOfferWithSpecs';
 
+// Import enquiry parsing function (RFP/SOW → structured fields + conditions)
+export { parseEnquiryDocument } from './enquiryParsing/parseEnquiryDocument';
+
 // Import denormalization sync functions (keeps denormalized data fresh)
 export {
   onUserNameChange,

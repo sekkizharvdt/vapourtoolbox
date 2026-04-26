@@ -2079,6 +2079,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // AI parsing audit logs — written by Cloud Functions only
+    // ============================================
+
+    match /enquiryParsingJobs/{jobId} {
+      // Read for super admins; writes only via Cloud Functions (admin SDK bypasses these rules).
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 
