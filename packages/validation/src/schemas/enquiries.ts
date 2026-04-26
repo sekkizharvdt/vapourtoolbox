@@ -32,16 +32,15 @@ export const enquirySourceSchema = z.enum([
 ]);
 
 /**
- * Engagement Type enum schema — what kind of work the enquiry is for.
- * Mirrors `EngagementType` from @vapour/types/proposal.
+ * Work Component enum schema — atomic kinds of work an enquiry can cover.
+ * Multi-select on the form; mirrors `WorkComponent` from @vapour/types/proposal.
  */
-export const engagementTypeSchema = z.enum([
-  'SITE_SURVEY',
+export const workComponentSchema = z.enum([
+  'SURVEY',
   'ENGINEERING',
-  'EPC',
-  'EPC_WITH_OM',
+  'SUPPLY',
+  'INSTALLATION',
   'OM',
-  'CUSTOM',
 ]);
 
 /**
@@ -78,7 +77,7 @@ export const createEnquiryInputSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   receivedVia: enquirySourceSchema,
   referenceSource: z.string().optional(),
-  engagementType: engagementTypeSchema.optional(),
+  workComponents: z.array(workComponentSchema).min(1, 'Pick at least one type of work'),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema,
@@ -107,7 +106,7 @@ export const createEnquiryFormSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   receivedVia: enquirySourceSchema,
   referenceSource: z.string().optional(),
-  engagementType: engagementTypeSchema.optional(),
+  workComponents: z.array(workComponentSchema).min(1, 'Pick at least one type of work'),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema,
@@ -131,7 +130,7 @@ export const updateEnquiryInputSchema = z.object({
   clientReferenceNumber: z.string().optional(),
   receivedVia: enquirySourceSchema.optional(),
   referenceSource: z.string().optional(),
-  engagementType: engagementTypeSchema.optional(),
+  workComponents: z.array(workComponentSchema).min(1, 'Pick at least one type of work').optional(),
   industry: z.string().optional(),
   location: z.string().optional(),
   urgency: enquiryUrgencySchema.optional(),

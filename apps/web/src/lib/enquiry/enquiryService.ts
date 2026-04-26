@@ -116,7 +116,7 @@ export async function createEnquiry(
       receivedDate: input.receivedDate,
       receivedVia: input.receivedVia,
       referenceSource: input.referenceSource,
-      engagementType: input.engagementType,
+      workComponents: input.workComponents,
       industry: input.industry,
       location: input.location,
       urgency: input.urgency,

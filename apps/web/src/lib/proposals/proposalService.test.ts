@@ -135,7 +135,7 @@ describe('proposalService', () => {
     description: 'Test enquiry description',
     clientContactPerson: 'John Doe',
     clientEmail: 'john@example.com',
-    engagementType: 'EPC' as const,
+    workComponents: ['ENGINEERING', 'SUPPLY', 'INSTALLATION'] as const,
     bidDecision: {
       decision: 'BID',
       decidedBy: 'user-456',

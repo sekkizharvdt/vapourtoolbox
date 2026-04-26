@@ -5,7 +5,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { TimestampFields, Money } from './common';
-import type { EngagementType } from './proposal';
+import type { WorkComponent } from './proposal';
 
 /**
  * Enquiry Status
@@ -272,7 +272,7 @@ export interface Enquiry extends TimestampFields {
   referenceSource?: string; // If referral/website, specify source
 
   // Requirements
-  engagementType?: EngagementType;
+  workComponents?: WorkComponent[];
   industry?: string; // e.g., Manufacturing, Oil & Gas, Power
   location?: string; // Project site location
   urgency: EnquiryUrgency;
@@ -317,7 +317,7 @@ export interface CreateEnquiryInput {
   receivedDate: Timestamp;
   receivedVia: EnquirySource;
   referenceSource?: string;
-  engagementType?: EngagementType;
+  workComponents?: WorkComponent[];
   industry?: string;
   location?: string;
   urgency: EnquiryUrgency;
@@ -341,7 +341,7 @@ export interface UpdateEnquiryInput {
   receivedDate?: Timestamp;
   receivedVia?: EnquirySource;
   referenceSource?: string;
-  engagementType?: EngagementType;
+  workComponents?: WorkComponent[];
   industry?: string;
   location?: string;
   urgency?: EnquiryUrgency;

@@ -162,44 +162,40 @@ export const PROPOSAL_STATUS_LABELS = {
 } as const;
 
 /**
- * Labels for `EngagementType` — the kind of work a proposal is for.
- * Title is the short label; description is the one-liner shown under the picker card.
+ * Labels for `WorkComponent` — the atomic kinds of work a proposal can cover.
+ * Title is the short label; description is the one-liner shown on the picker card.
+ * Multi-select; a real proposal is the sum of its components.
  */
-export const ENGAGEMENT_TYPE_LABELS = {
-  SITE_SURVEY: {
-    title: 'Site Survey',
-    description: 'Inspect a site and report on its condition.',
+export const WORK_COMPONENT_LABELS = {
+  SURVEY: {
+    title: 'Survey',
+    description: 'Inspect a site or assess existing equipment.',
   },
   ENGINEERING: {
-    title: 'Engineering & Design',
+    title: 'Engineering',
     description: 'Drawings, calculations, and technical documents.',
   },
-  EPC: {
-    title: 'Equipment & Plant Supply',
-    description: 'Design, fabricate, supply, and install — the whole job.',
+  SUPPLY: {
+    title: 'Supply',
+    description: 'Design, fabricate, and supply equipment.',
   },
-  EPC_WITH_OM: {
-    title: 'Plant Supply with O&M',
-    description: 'Build the plant and operate it for an agreed period.',
+  INSTALLATION: {
+    title: 'Installation',
+    description: 'Erect and commission on site.',
   },
   OM: {
     title: 'Operations & Maintenance',
-    description: 'Run an existing plant.',
-  },
-  CUSTOM: {
-    title: 'Mixed / Other',
-    description: "A combination, or doesn't fit the options above.",
+    description: 'Run a plant.',
   },
 } as const;
 
-/** Display order for the engagement-type picker. */
-export const ENGAGEMENT_TYPE_ORDER = [
-  'SITE_SURVEY',
+/** Display order for the work-component picker. */
+export const WORK_COMPONENT_ORDER = [
+  'SURVEY',
   'ENGINEERING',
-  'EPC',
-  'EPC_WITH_OM',
+  'SUPPLY',
+  'INSTALLATION',
   'OM',
-  'CUSTOM',
 ] as const;
 
 // ============================================================================

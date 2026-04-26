@@ -134,7 +134,7 @@ describe('createEnquiry', () => {
         description: 'Description',
         receivedDate: { seconds: 1709827200, nanoseconds: 0 } as never,
         receivedVia: 'EMAIL',
-        engagementType: 'EPC',
+        workComponents: ['ENGINEERING', 'SUPPLY', 'INSTALLATION'],
       } as never,
       'user-1'
     );

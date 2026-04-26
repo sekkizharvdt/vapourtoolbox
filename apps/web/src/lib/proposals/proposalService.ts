@@ -257,9 +257,9 @@ export async function createMinimalProposal(
       validityDate: Timestamp.fromDate(input.validityDate),
       preparationDate: now,
 
-      // Type of work inherited from the enquiry (single source of truth).
+      // Work components inherited from the enquiry (single source of truth).
       // Currency is a quote-level decision captured at create time.
-      ...(enquiry.engagementType !== undefined && { engagementType: enquiry.engagementType }),
+      ...(enquiry.workComponents !== undefined && { workComponents: enquiry.workComponents }),
       nativeCurrency: input.nativeCurrency,
       ...(input.displayCurrency !== undefined && { displayCurrency: input.displayCurrency }),
       ...(input.displayFxRate !== undefined && { displayFxRate: input.displayFxRate }),

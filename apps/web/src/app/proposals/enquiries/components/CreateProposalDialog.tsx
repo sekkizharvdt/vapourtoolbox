@@ -25,7 +25,7 @@ import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { createMinimalProposal } from '@/lib/proposals/proposalService';
 import type { Enquiry, CurrencyCode } from '@vapour/types';
-import { ENGAGEMENT_TYPE_LABELS, CURRENCIES } from '@vapour/constants';
+import { WORK_COMPONENT_LABELS, CURRENCIES } from '@vapour/constants';
 
 interface CreateProposalDialogProps {
   open: boolean;
@@ -64,9 +64,8 @@ export function CreateProposalDialog({
     }
   }, [enquiry]);
 
-  const inheritedTypeLabel = enquiry.engagementType
-    ? ENGAGEMENT_TYPE_LABELS[enquiry.engagementType].title
-    : null;
+  const inheritedComponents = enquiry.workComponents ?? [];
+  const hasInheritedComponents = inheritedComponents.length > 0;
 
   const resetForm = () => {
     setNativeCurrency('INR');
@@ -80,7 +79,7 @@ export function CreateProposalDialog({
   };
 
   const handleSubmit = async () => {
-    if (!enquiry.engagementType) {
+    if (!hasInheritedComponents) {
       setError('Set the type of work on the enquiry before creating a proposal.');
       return;
     }
@@ -166,11 +165,13 @@ export function CreateProposalDialog({
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
               Type of work
             </Typography>
-            {inheritedTypeLabel ? (
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Chip label={inheritedTypeLabel} color="primary" />
+            {hasInheritedComponents ? (
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                {inheritedComponents.map((c) => (
+                  <Chip key={c} label={WORK_COMPONENT_LABELS[c].title} color="primary" />
+                ))}
                 <Typography variant="body2" color="text.secondary">
-                  Inherited from the enquiry. Edit it on the enquiry if it needs to change.
+                  Inherited from the enquiry. Edit it there if it needs to change.
                 </Typography>
               </Stack>
             ) : (
@@ -300,7 +301,7 @@ export function CreateProposalDialog({
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={submitting || !inheritedTypeLabel}
+          disabled={submitting || !hasInheritedComponents}
         >
           {submitting ? 'Creating…' : 'Create proposal'}
         </Button>

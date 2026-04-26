@@ -401,17 +401,17 @@ export type ProposalStatus =
   | 'EXPIRED';
 
 /**
- * Engagement Type — what kind of work the proposal is for.
- * Drives which pricing/scope blocks are enabled by default and PDF layout.
- * See PROPOSALS-WORKFLOW-DESIGN-2026-04-25.md
+ * Work Component — atomic kinds of work a proposal can cover.
+ * Multi-select; a real proposal is the sum of its components (e.g. EPC =
+ * Engineering + Supply + Installation). Drives which pricing/scope blocks
+ * are enabled by default. See PROPOSALS-WORKFLOW-DESIGN-2026-04-25.md
  */
-export type EngagementType =
-  | 'SITE_SURVEY' // Inspect a site, report condition (e.g. baseline MEP survey)
+export type WorkComponent =
+  | 'SURVEY' // Inspect a site or assess existing equipment
   | 'ENGINEERING' // Drawings, calculations, technical documents
-  | 'EPC' // Design, fabricate, supply, install — full plant/equipment job
-  | 'EPC_WITH_OM' // EPC plus operations & maintenance for a period
-  | 'OM' // Run an existing plant
-  | 'CUSTOM'; // Mixed or doesn't fit above
+  | 'SUPPLY' // Design, fabricate, supply equipment
+  | 'INSTALLATION' // Erect and commission on site
+  | 'OM'; // Operations & maintenance — run a plant
 
 /**
  * Audience — who a pricing/scope block is meant for.
@@ -744,9 +744,10 @@ export interface Proposal extends TimestampFields {
   validityDate: Timestamp; // Offer valid until
   preparationDate: Timestamp;
 
-  // Engagement type — what kind of work this proposal is for.
-  // Optional today for legacy records created before Stage 1; required on new proposals.
-  engagementType?: EngagementType;
+  // Work components — what kinds of work this proposal covers.
+  // Inherited from the parent enquiry on creation. Optional today for legacy
+  // records created before Stage 1; required (≥1 entry) on new proposals.
+  workComponents?: WorkComponent[];
 
   // Native currency the proposal is quoted in (drives all line-item amounts).
   // Optional today for legacy records; required on new proposals.
@@ -848,8 +849,8 @@ export interface CreateProposalInput {
   deliveryPeriod: DeliveryPeriod;
   paymentTerms?: string; // Auto-generated from milestones if not provided
 
-  // Engagement type + currency — required on new proposals
-  engagementType: EngagementType;
+  // Work components + currency — required on new proposals
+  workComponents: WorkComponent[];
   nativeCurrency: CurrencyCode;
   displayCurrency?: CurrencyCode;
   displayFxRate?: number;
@@ -870,8 +871,8 @@ export interface UpdateProposalInput {
   terms?: Partial<TermsAndConditions>;
   status?: ProposalStatus;
   negotiationNotes?: string;
-  // Engagement / currency (editable post-creation)
-  engagementType?: EngagementType;
+  // Work components / currency (editable post-creation)
+  workComponents?: WorkComponent[];
   nativeCurrency?: CurrencyCode;
   displayCurrency?: CurrencyCode;
   displayFxRate?: number;

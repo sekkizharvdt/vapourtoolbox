@@ -66,7 +66,7 @@ import { canConvertToProject } from '@/lib/proposals/projectConversion';
 import type { Proposal } from '@vapour/types';
 import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 import { logger } from '@vapour/logger';
-import { ENGAGEMENT_TYPE_LABELS, CURRENCIES } from '@vapour/constants';
+import { WORK_COMPONENT_LABELS, CURRENCIES } from '@vapour/constants';
 
 // Components
 import StatusBadge from './components/StatusBadge';
@@ -475,14 +475,16 @@ export default function ProposalDetailClient() {
         {proposal.revision > 1 && (
           <Chip label={`Rev ${proposal.revision}`} variant="outlined" sx={{ ml: 1 }} />
         )}
-        {proposal.engagementType && (
+        {proposal.workComponents?.map((c) => (
           <Chip
-            label={ENGAGEMENT_TYPE_LABELS[proposal.engagementType].title}
+            key={c}
+            label={WORK_COMPONENT_LABELS[c].title}
             variant="outlined"
             color="primary"
+            size="small"
             sx={{ ml: 1 }}
           />
-        )}
+        ))}
         {proposal.nativeCurrency && (
           <Chip
             label={

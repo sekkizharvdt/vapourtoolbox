@@ -50,7 +50,7 @@ import {
   CAPACITY_CAPABILITY_LABELS,
   BID_DECISION_LABELS,
 } from '@vapour/types';
-import { ENGAGEMENT_TYPE_LABELS } from '@vapour/constants';
+import { WORK_COMPONENT_LABELS } from '@vapour/constants';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
 import { BidDecisionDialog } from '../components/BidDecisionDialog';
 import { CreateProposalDialog } from '../components/CreateProposalDialog';
@@ -268,11 +268,21 @@ export default function EnquiryDetailClient() {
                   <Typography variant="subtitle2" color="text.secondary">
                     Type of work
                   </Typography>
-                  <Typography variant="body1">
-                    {enquiry.engagementType
-                      ? ENGAGEMENT_TYPE_LABELS[enquiry.engagementType].title
-                      : '—'}
-                  </Typography>
+                  {enquiry.workComponents && enquiry.workComponents.length > 0 ? (
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                      {enquiry.workComponents.map((c) => (
+                        <Chip
+                          key={c}
+                          label={WORK_COMPONENT_LABELS[c].title}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body1">—</Typography>
+                  )}
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">

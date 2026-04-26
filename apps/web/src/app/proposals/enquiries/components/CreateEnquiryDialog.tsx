@@ -21,6 +21,7 @@ import {
   CardContent,
   Typography,
 } from '@mui/material';
+import { CheckCircle as CheckIcon } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { Controller, useForm } from 'react-hook-form';
 import { Timestamp } from 'firebase/firestore';
@@ -40,9 +41,9 @@ interface EntityContactInfo {
 import { useFirestore } from '@/lib/firebase/hooks';
 import { createEnquiry } from '@/lib/enquiry/enquiryService';
 import { useAuth } from '@/contexts/AuthContext';
-import type { EnquirySource, EnquiryUrgency, EngagementType, CurrencyCode } from '@vapour/types';
+import type { EnquirySource, EnquiryUrgency, WorkComponent, CurrencyCode } from '@vapour/types';
 import { ENQUIRY_URGENCY_LABELS } from '@vapour/types';
-import { ENGAGEMENT_TYPE_LABELS, ENGAGEMENT_TYPE_ORDER } from '@vapour/constants';
+import { WORK_COMPONENT_LABELS, WORK_COMPONENT_ORDER } from '@vapour/constants';
 import { createEnquiryFormSchema } from '@vapour/validation';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 
@@ -60,7 +61,7 @@ interface CreateEnquiryFormValues {
   description: string;
   receivedVia: EnquirySource;
   referenceSource?: string;
-  engagementType?: EngagementType;
+  workComponents: WorkComponent[];
   industry?: string;
   location?: string;
   urgency: EnquiryUrgency;
@@ -107,7 +108,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
       receivedVia: 'EMAIL',
       receivedDate: new Date(),
       urgency: 'STANDARD',
-      engagementType: undefined,
+      workComponents: [],
       description: '',
       requirements: [],
       attachments: [],
@@ -374,70 +375,87 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
                 />
               </Grid>
 
-              {/* Type of work — cards picker */}
+              {/* Type of work — multi-select cards */}
               <Grid size={12}>
                 <Controller
-                  name="engagementType"
+                  name="workComponents"
                   control={control}
-                  render={({ field }) => (
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                        Type of work
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                        Pick the closest match — you can refine the scope later.
-                      </Typography>
-                      <Box
-                        sx={{
-                          display: 'grid',
-                          gridTemplateColumns: {
-                            xs: '1fr',
-                            sm: 'repeat(2, 1fr)',
-                            md: 'repeat(3, 1fr)',
-                          },
-                          gap: 1.5,
-                        }}
-                      >
-                        {ENGAGEMENT_TYPE_ORDER.map((key) => {
-                          const label = ENGAGEMENT_TYPE_LABELS[key];
-                          const selected = field.value === key;
-                          return (
-                            <Card
-                              key={key}
-                              variant="outlined"
-                              sx={{
-                                borderColor: selected ? 'primary.main' : 'divider',
-                                borderWidth: selected ? 2 : 1,
-                                bgcolor: selected ? 'action.selected' : 'background.paper',
-                                transition: 'all 120ms ease',
-                              }}
-                            >
-                              <CardActionArea
-                                onClick={() => field.onChange(key)}
-                                sx={{ height: '100%' }}
+                  render={({ field }) => {
+                    const value = field.value ?? [];
+                    const toggle = (key: WorkComponent) => {
+                      field.onChange(
+                        value.includes(key) ? value.filter((k) => k !== key) : [...value, key]
+                      );
+                    };
+                    return (
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                          Type of work
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                          Tick everything this proposal will cover. You can refine the scope later.
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                              xs: '1fr',
+                              sm: 'repeat(2, 1fr)',
+                              md: 'repeat(3, 1fr)',
+                            },
+                            gap: 1.5,
+                          }}
+                        >
+                          {WORK_COMPONENT_ORDER.map((key) => {
+                            const label = WORK_COMPONENT_LABELS[key];
+                            const selected = value.includes(key);
+                            return (
+                              <Card
+                                key={key}
+                                variant="outlined"
+                                sx={{
+                                  position: 'relative',
+                                  borderColor: selected ? 'primary.main' : 'divider',
+                                  borderWidth: selected ? 2 : 1,
+                                  bgcolor: selected ? 'action.selected' : 'background.paper',
+                                  transition: 'all 120ms ease',
+                                }}
                               >
-                                <CardContent sx={{ py: 1.5 }}>
-                                  <Typography variant="subtitle2">{label.title}</Typography>
-                                  <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ mt: 0.5 }}
-                                  >
-                                    {label.description}
-                                  </Typography>
-                                </CardContent>
-                              </CardActionArea>
-                            </Card>
-                          );
-                        })}
+                                <CardActionArea onClick={() => toggle(key)} sx={{ height: '100%' }}>
+                                  <CardContent sx={{ py: 1.5, pr: 4 }}>
+                                    <Typography variant="subtitle2">{label.title}</Typography>
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      sx={{ mt: 0.5 }}
+                                    >
+                                      {label.description}
+                                    </Typography>
+                                  </CardContent>
+                                </CardActionArea>
+                                {selected && (
+                                  <CheckIcon
+                                    color="primary"
+                                    sx={{
+                                      position: 'absolute',
+                                      top: 8,
+                                      right: 8,
+                                      pointerEvents: 'none',
+                                    }}
+                                  />
+                                )}
+                              </Card>
+                            );
+                          })}
+                        </Box>
+                        {errors.workComponents?.message && (
+                          <FormHelperText error sx={{ mt: 1 }}>
+                            {errors.workComponents.message}
+                          </FormHelperText>
+                        )}
                       </Box>
-                      {errors.engagementType?.message && (
-                        <FormHelperText error sx={{ mt: 1 }}>
-                          {errors.engagementType.message}
-                        </FormHelperText>
-                      )}
-                    </Box>
-                  )}
+                    );
+                  }}
                 />
               </Grid>
 
