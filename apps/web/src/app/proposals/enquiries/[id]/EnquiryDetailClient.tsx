@@ -57,6 +57,7 @@ import {
   CONDITION_CATEGORY_ORDER,
 } from '@vapour/constants';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
+import { ParseExistingPdf } from '../components/ParseExistingPdf';
 import { BidDecisionDialog } from '../components/BidDecisionDialog';
 import { CreateProposalDialog } from '../components/CreateProposalDialog';
 import { formatDate, formatCurrency } from '@/lib/utils/formatters';
@@ -403,6 +404,7 @@ export default function EnquiryDetailClient() {
               Documents
             </Typography>
             <EnquiryDocumentUpload enquiry={enquiry} onUpdate={setEnquiry} />
+            <ParseExistingPdf enquiry={enquiry} onUpdate={setEnquiry} />
           </Box>
         </Grid>
 
