@@ -837,3 +837,47 @@ export async function cloneProposal(
     throw error;
   }
 }
+
+/**
+ * Fetch the latest-revision proposal for each given enquiry id.
+ * Returns a map keyed by enquiryId. Enquiries with no proposal are simply
+ * absent from the map. Used by the enquiries list to show inline proposal
+ * status.
+ *
+ * Firestore `in` supports up to 30 values per query, so we chunk.
+ */
+export async function listLatestProposalsByEnquiryIds(
+  db: Firestore,
+  tenantId: string,
+  enquiryIds: string[]
+): Promise<Map<string, Proposal>> {
+  const out = new Map<string, Proposal>();
+  if (enquiryIds.length === 0) return out;
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < enquiryIds.length; i += 30) {
+    chunks.push(enquiryIds.slice(i, i + 30));
+  }
+
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const q = query(
+        collection(db, COLLECTIONS.PROPOSALS),
+        where('tenantId', '==', tenantId),
+        where('isLatestRevision', '==', true),
+        where('enquiryId', 'in', chunk)
+      );
+      const snap = await getDocs(q);
+      snap.docs.forEach((d) => {
+        const proposal: Proposal = { id: d.id, ...(d.data() as Omit<Proposal, 'id'>) };
+        if (proposal.enquiryId) {
+          // Enquiry can have multiple proposal "kinds" via revisions; we already
+          // filter to isLatestRevision so each enquiry should map to one.
+          out.set(proposal.enquiryId, proposal);
+        }
+      });
+    })
+  );
+
+  return out;
+}

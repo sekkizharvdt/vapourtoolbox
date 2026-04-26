@@ -48,13 +48,15 @@ import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import dynamic from 'next/dynamic';
 import { listEnquiries, getEnquiriesCountByStatus } from '@/lib/enquiry/enquiryService';
-import type { Enquiry, EnquiryStatus, EnquiryUrgency } from '@vapour/types';
+import { listLatestProposalsByEnquiryIds } from '@/lib/proposals/proposalService';
+import type { Enquiry, EnquiryStatus, EnquiryUrgency, Proposal } from '@vapour/types';
 import {
   ENQUIRY_STATUS_LABELS,
   ENQUIRY_URGENCY_LABELS,
   ENQUIRY_ACTIVE_STATUSES,
   ENQUIRY_LOST_STATUSES,
 } from '@vapour/types';
+import { PROPOSAL_STATUS_LABELS } from '@vapour/constants';
 import { formatDate } from '@/lib/utils/formatters';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Home as HomeIcon } from '@mui/icons-material';
@@ -100,6 +102,7 @@ export default function EnquiriesPage() {
   const { claims } = useAuth();
 
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [proposalsByEnquiry, setProposalsByEnquiry] = useState<Map<string, Proposal>>(new Map());
   const [statusCounts, setStatusCounts] = useState<Record<EnquiryStatus, number>>(
     {} as Record<EnquiryStatus, number>
   );
@@ -137,6 +140,29 @@ export default function EnquiriesPage() {
         });
 
         setEnquiries(enquiriesList);
+
+        // Look up proposal info for any enquiry that's progressed past
+        // BID_DECISION_PENDING. Cheap join — one batched query per 30 ids.
+        const enquiryIdsWithProposals = enquiriesList
+          .filter((e) =>
+            ['PROPOSAL_IN_PROGRESS', 'PROPOSAL_SUBMITTED', 'WON', 'LOST'].includes(e.status)
+          )
+          .map((e) => e.id);
+        if (enquiryIdsWithProposals.length > 0) {
+          try {
+            const map = await listLatestProposalsByEnquiryIds(
+              db,
+              tenantId,
+              enquiryIdsWithProposals
+            );
+            setProposalsByEnquiry(map);
+          } catch (proposalErr) {
+            console.warn('Could not load proposal info for enquiry list', proposalErr);
+            setProposalsByEnquiry(new Map());
+          }
+        } else {
+          setProposalsByEnquiry(new Map());
+        }
 
         // Load status counts for stat cards
         const counts = await getEnquiriesCountByStatus(db, tenantId);
@@ -320,6 +346,7 @@ export default function EnquiriesPage() {
                 <TableCell>Title</TableCell>
                 <TableCell>Received Date</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Proposal</TableCell>
                 <TableCell>Urgency</TableCell>
                 <TableCell>Assigned To</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -351,6 +378,39 @@ export default function EnquiriesPage() {
                       color={STATUS_COLORS[enquiry.status]}
                       size="small"
                     />
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const proposal = proposalsByEnquiry.get(enquiry.id);
+                      if (!proposal) {
+                        return (
+                          <Typography variant="caption" color="text.secondary">
+                            —
+                          </Typography>
+                        );
+                      }
+                      return (
+                        <Box>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              cursor: 'pointer',
+                              color: 'primary.main',
+                              '&:hover': { textDecoration: 'underline' },
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/proposals/${proposal.id}`);
+                            }}
+                          >
+                            {proposal.proposalNumber}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {PROPOSAL_STATUS_LABELS[proposal.status]}
+                          </Typography>
+                        </Box>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <Chip
