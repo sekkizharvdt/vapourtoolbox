@@ -22,6 +22,7 @@ export * from './pdf';
 export * from './procurement';
 export * from './project';
 export * from './proposal';
+export * from './proposalPricing';
 export * from './service';
 export * from './shape';
 export * from './task';

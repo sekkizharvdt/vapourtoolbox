@@ -79,7 +79,7 @@ import { SaveAsTemplateDialog } from './components/SaveAsTemplateDialog';
 // Tab editors
 import { UnifiedScopeEditor } from './scope/UnifiedScopeEditor';
 import DeliveryEditor from './components/DeliveryEditor';
-import PricingEditorClient from './pricing/PricingEditorClient';
+import PricingBlocksEditor from './pricing/PricingBlocksEditor';
 import TermsEditor from './components/TermsEditor';
 import PreviewClient from './preview/PreviewClient';
 
@@ -530,7 +530,7 @@ export default function ProposalDetailClient() {
       {activeTab === TAB_DELIVERY && proposalId && <DeliveryEditor proposalId={proposalId} />}
 
       {activeTab === TAB_PRICING && proposalId && (
-        <PricingEditorClient proposalId={proposalId} embedded />
+        <PricingBlocksEditor proposalId={proposalId} embedded />
       )}
 
       {activeTab === TAB_TERMS && proposalId && <TermsEditor proposalId={proposalId} />}

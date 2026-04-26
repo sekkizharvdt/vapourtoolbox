@@ -48,6 +48,7 @@ export {
 } from './proposalHelpers';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
+import { seedPricingBlocksForComponents } from './pricingBlocks';
 
 const logger = createLogger({ context: 'proposalService' });
 
@@ -261,6 +262,11 @@ export async function createMinimalProposal(
       // Currency is a quote-level decision captured at create time.
       ...(enquiry.workComponents !== undefined && { workComponents: enquiry.workComponents }),
       nativeCurrency: input.nativeCurrency,
+      // Seed default pricing blocks based on the enquiry's work components.
+      pricingBlocks: seedPricingBlocksForComponents(
+        enquiry.workComponents ?? [],
+        input.nativeCurrency
+      ),
       ...(input.displayCurrency !== undefined && { displayCurrency: input.displayCurrency }),
       ...(input.displayFxRate !== undefined && { displayFxRate: input.displayFxRate }),
       ...(input.displayCurrency !== undefined && { fxSnapshotDate: now }),

@@ -1,0 +1,155 @@
+/**
+ * Pricing block helpers (Stage 2).
+ *
+ * Seeds default blocks from the work components on the parent enquiry, and
+ * computes block subtotals.
+ */
+
+import type {
+  CurrencyCode,
+  PricingBlock,
+  WorkComponent,
+  ManpowerRosterBlock,
+  PerMandayCostBlock,
+  LumpSumLinesBlock,
+  BOMCostSheetBlock,
+} from '@vapour/types';
+
+const newId = (): string => Math.random().toString(36).slice(2, 11);
+
+/**
+ * Seed the default pricing blocks for a freshly created proposal,
+ * based on the work components inherited from its enquiry.
+ *
+ * Rules of thumb (each component adds the blocks it typically needs):
+ *  - SURVEY        → Manpower roster (CLIENT) + Per-manday site costs (CLIENT)
+ *  - ENGINEERING   → Manpower roster (INTERNAL)
+ *  - SUPPLY        → BOM cost sheet (INTERNAL)
+ *  - INSTALLATION  → Manpower roster for commissioning (INTERNAL)
+ *  - OM            → Manpower roster for O&M (BOTH)
+ *
+ * A "Other charges" lump-sum block is always appended for admin/profit lines.
+ */
+export function seedPricingBlocksForComponents(
+  components: WorkComponent[],
+  currency: CurrencyCode
+): PricingBlock[] {
+  const blocks: PricingBlock[] = [];
+
+  for (const c of components) {
+    if (c === 'SURVEY') {
+      blocks.push(createManpowerBlock(currency, 'CLIENT', 'Survey team'));
+      blocks.push(createPerMandayBlock(currency, 'CLIENT', 'Site costs'));
+    } else if (c === 'ENGINEERING') {
+      blocks.push(createManpowerBlock(currency, 'INTERNAL', 'Engineering team'));
+    } else if (c === 'SUPPLY') {
+      blocks.push(createBOMCostSheetBlock(currency, 'INTERNAL', 'Equipment BOMs'));
+    } else if (c === 'INSTALLATION') {
+      blocks.push(createManpowerBlock(currency, 'INTERNAL', 'Site commissioning'));
+    } else if (c === 'OM') {
+      blocks.push(createManpowerBlock(currency, 'BOTH', 'O&M team'));
+    }
+  }
+
+  blocks.push(createLumpSumBlock(currency, 'CLIENT', 'Other charges'));
+  return blocks;
+}
+
+export function createManpowerBlock(
+  currency: CurrencyCode,
+  audience: ManpowerRosterBlock['audience'],
+  label: string
+): ManpowerRosterBlock {
+  return {
+    id: newId(),
+    kind: 'MANPOWER_ROSTER',
+    label,
+    audience,
+    currency,
+    subtotal: 0,
+    rows: [],
+  };
+}
+
+export function createPerMandayBlock(
+  currency: CurrencyCode,
+  audience: PerMandayCostBlock['audience'],
+  label: string
+): PerMandayCostBlock {
+  return {
+    id: newId(),
+    kind: 'PER_MANDAY_COST',
+    label,
+    audience,
+    currency,
+    subtotal: 0,
+    rows: [],
+  };
+}
+
+export function createLumpSumBlock(
+  currency: CurrencyCode,
+  audience: LumpSumLinesBlock['audience'],
+  label: string
+): LumpSumLinesBlock {
+  return {
+    id: newId(),
+    kind: 'LUMP_SUM_LINES',
+    label,
+    audience,
+    currency,
+    subtotal: 0,
+    rows: [],
+  };
+}
+
+export function createBOMCostSheetBlock(
+  currency: CurrencyCode,
+  audience: BOMCostSheetBlock['audience'],
+  label: string
+): BOMCostSheetBlock {
+  return {
+    id: newId(),
+    kind: 'BOM_COST_SHEET',
+    label,
+    audience,
+    currency,
+    subtotal: 0,
+    linkedBomIds: [],
+  };
+}
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/**
+ * Recompute subtotals for every row + the block as a whole.
+ * Pure function — does not mutate the input.
+ */
+export function recomputeBlockSubtotal(block: PricingBlock): PricingBlock {
+  switch (block.kind) {
+    case 'MANPOWER_ROSTER': {
+      const rows = block.rows.map((r) => ({
+        ...r,
+        total: round2((r.mandays || 0) * (r.dayRate || 0)),
+      }));
+      return { ...block, rows, subtotal: round2(rows.reduce((s, r) => s + r.total, 0)) };
+    }
+    case 'PER_MANDAY_COST': {
+      const rows = block.rows.map((r) => ({
+        ...r,
+        total: round2((r.mandays || 0) * (r.ratePerManday || 0)),
+      }));
+      return { ...block, rows, subtotal: round2(rows.reduce((s, r) => s + r.total, 0)) };
+    }
+    case 'LUMP_SUM_LINES': {
+      return {
+        ...block,
+        subtotal: round2(block.rows.reduce((s, r) => s + (r.amount || 0), 0)),
+      };
+    }
+    case 'BOM_COST_SHEET': {
+      // Subtotal computed elsewhere from linked BOM totals; pass through.
+      return block;
+    }
+  }
+}
