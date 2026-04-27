@@ -80,6 +80,7 @@ export { parseDocumentForPR } from './documentParsing';
 export { parseOfferDocument } from './offerParsing/parseOfferDocument';
 export { compareOfferParsers } from './offerParsing/compareOfferParsers';
 export { compareOfferWithSpecs } from './offerParsing/compareOfferWithSpecs';
+export { parseQuote } from './offerParsing/parseQuote';
 
 // Import enquiry parsing function (RFP/SOW → structured fields + conditions)
 export { parseEnquiryDocument } from './enquiryParsing/parseEnquiryDocument';

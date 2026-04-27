@@ -62,8 +62,16 @@ export type QuoteStatus =
   /** Historical record; no further action expected. */
   | 'ARCHIVED';
 
-/** Whether the line item is a material, service, or bought-out item. */
-export type QuoteItemType = 'MATERIAL' | 'SERVICE' | 'BOUGHT_OUT';
+/**
+ * Line item classification.
+ *
+ * `NOTE` covers footer-level entries that don't map to a master record —
+ * discounts (negative unitPrice), freight, packing & forwarding, transportation,
+ * insurance, erection-when-listed-separately, and free-text clarifications.
+ * NOTE rows skip the master-record link requirement and are excluded from
+ * GST per-line because tax handling for these is vendor-specific.
+ */
+export type QuoteItemType = 'MATERIAL' | 'SERVICE' | 'BOUGHT_OUT' | 'NOTE';
 
 // ============================================================================
 // VendorQuote — parent document
