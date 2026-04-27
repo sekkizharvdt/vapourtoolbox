@@ -119,7 +119,9 @@ jobs:
       - name: Download CI build artifact (best-effort)
         id: download
         if: needs.detect.outputs.hosting == 'true'
-        uses: dawidd6/action-download-artifact@v6
+        # v9 added support for actions/upload-artifact@v4 cross-workflow.
+        # v6 silently fails to find v4-uploaded artifacts on some accounts.
+        uses: dawidd6/action-download-artifact@v9
         continue-on-error: true
         with:
           workflow: ci.yml
