@@ -398,6 +398,94 @@ export default function EnquiryDetailClient() {
             </Card>
           )}
 
+          {/* Scope outline parsed from the SOW (read-only on the enquiry —
+              a fresh proposal will inherit this and let you edit) */}
+          {enquiry.requestedScope && enquiry.requestedScope.categories.length > 0 && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Scope outline (from SOW)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  What the buyer asked for, grouped by discipline. A new proposal created from this
+                  enquiry will start with this exact list — you can then add, edit, or exclude items
+                  on the proposal.
+                </Typography>
+                <Stack spacing={2}>
+                  {enquiry.requestedScope.categories.map((cat) => (
+                    <Box key={cat.id}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}
+                      >
+                        {cat.label}
+                      </Typography>
+                      <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+                        {cat.items.map((item) => (
+                          <Box
+                            key={item.id}
+                            sx={{
+                              pl: 1.5,
+                              py: 0.5,
+                              borderLeft: 3,
+                              borderColor: 'primary.light',
+                            }}
+                          >
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              alignItems="flex-start"
+                              flexWrap="wrap"
+                              useFlexGap
+                            >
+                              <Typography variant="body2" sx={{ flex: 1 }}>
+                                {item.name}
+                                {item.quantity !== undefined && item.unit && (
+                                  <Typography
+                                    component="span"
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ ml: 1 }}
+                                  >
+                                    ({item.quantity} {item.unit})
+                                  </Typography>
+                                )}
+                              </Typography>
+                              <Chip
+                                label={item.classification === 'SUPPLY' ? 'Supply' : 'Service'}
+                                size="small"
+                                variant="outlined"
+                                color={item.classification === 'SUPPLY' ? 'secondary' : 'default'}
+                              />
+                            </Stack>
+                            {item.description && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'block', mt: 0.25 }}
+                              >
+                                {item.description}
+                              </Typography>
+                            )}
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mt: 2, fontStyle: 'italic' }}
+                >
+                  {enquiry.requestedScope.categories.reduce((s, c) => s + c.items.length, 0)} items
+                  across {enquiry.requestedScope.categories.length} categories
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Documents Section */}
           <Box sx={{ mt: 3 }}>
             <Typography variant="h6" gutterBottom>
