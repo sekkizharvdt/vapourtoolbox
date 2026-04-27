@@ -115,6 +115,19 @@ const darkThemeOptions: ThemeOptions = {
       defaultProps: {
         variant: 'outlined',
       },
+      styleOverrides: {
+        root: {
+          // Hide spinner controls on number inputs (parity with lightTheme).
+          '& input[type=number]': {
+            MozAppearance: 'textfield',
+          },
+          '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
+            {
+              WebkitAppearance: 'none',
+              margin: 0,
+            },
+        },
+      },
     },
 
     MuiPaper: {

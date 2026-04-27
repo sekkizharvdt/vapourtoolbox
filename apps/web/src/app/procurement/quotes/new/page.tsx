@@ -986,6 +986,15 @@ export default function NewProcurementQuotePage() {
         open={servicePickerOpen}
         onClose={() => setServicePickerOpen(false)}
         onSelect={handleServicePicked}
+        createDefaults={(() => {
+          const row = lineItems[pickerRowIndex];
+          if (!row) return undefined;
+          return {
+            ...(row.description && { name: row.description }),
+            ...(row.unit && { unit: row.unit }),
+            ...(row.unitPrice && { defaultRateValue: row.unitPrice }),
+          };
+        })()}
       />
     </>
   );

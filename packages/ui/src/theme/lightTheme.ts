@@ -114,6 +114,19 @@ const lightThemeOptions: ThemeOptions = {
               minHeight: 48,
             },
           },
+          // Hide the up/down spinner controls on number inputs across the
+          // whole app. They eat ~20px of column width (truncating values
+          // like "18" into "1" in dense tables) and trigger value changes
+          // on accidental scroll. Use inputMode="decimal" on a text field
+          // when you specifically want a numeric keypad on mobile.
+          '& input[type=number]': {
+            MozAppearance: 'textfield',
+          },
+          '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
+            {
+              WebkitAppearance: 'none',
+              margin: 0,
+            },
         },
       },
     },
