@@ -33,7 +33,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { getEnquiryById } from '@/lib/enquiry/enquiryService';
 import { Timestamp } from 'firebase/firestore';
-import type { Proposal, UnifiedScopeMatrix, UnifiedScopeItem } from '@vapour/types';
+import type {
+  Proposal,
+  UnifiedScopeMatrix,
+  UnifiedScopeItem,
+  ScopeCategoryKey,
+} from '@vapour/types';
 import { SCOPE_CATEGORY_ORDER, SCOPE_CATEGORY_DEFAULTS } from '@vapour/types';
 import { ScopeCategorySection } from './components/ScopeCategorySection';
 import { AddUnifiedScopeItemDialog } from './components/AddUnifiedScopeItemDialog';
@@ -145,21 +150,57 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
     setHasChanges(true);
   }, []);
 
-  // Handle updating an item within a category
-  const handleUpdateItem = useCallback((categoryId: string, updatedItem: UnifiedScopeItem) => {
-    setMatrix((prev) => ({
-      ...prev,
-      categories: prev.categories.map((cat) =>
-        cat.id === categoryId
-          ? {
-              ...cat,
-              items: cat.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
+  // Handle updating an item within a category. If `targetCategoryKey` is
+  // supplied and differs from the source's categoryKey, the item is moved:
+  // removed from the source category and re-numbered into the destination.
+  const handleUpdateItem = useCallback(
+    (categoryId: string, updatedItem: UnifiedScopeItem, targetCategoryKey?: ScopeCategoryKey) => {
+      setMatrix((prev) => {
+        const sourceCat = prev.categories.find((c) => c.id === categoryId);
+        if (!sourceCat) return prev;
+        const isMoving = !!targetCategoryKey && targetCategoryKey !== sourceCat.categoryKey;
+
+        if (!isMoving) {
+          return {
+            ...prev,
+            categories: prev.categories.map((cat) =>
+              cat.id === categoryId
+                ? {
+                    ...cat,
+                    items: cat.items.map((item) =>
+                      item.id === updatedItem.id ? updatedItem : item
+                    ),
+                  }
+                : cat
+            ),
+          };
+        }
+
+        const targetCat = prev.categories.find((c) => c.categoryKey === targetCategoryKey);
+        if (!targetCat) return prev;
+
+        return {
+          ...prev,
+          categories: prev.categories.map((cat) => {
+            if (cat.id === categoryId) {
+              return { ...cat, items: cat.items.filter((i) => i.id !== updatedItem.id) };
             }
-          : cat
-      ),
-    }));
-    setHasChanges(true);
-  }, []);
+            if (cat.id === targetCat.id) {
+              const movedItem: UnifiedScopeItem = {
+                ...updatedItem,
+                order: cat.items.length,
+                itemNumber: `${(cat.order ?? 0) + 1}.${cat.items.length + 1}`,
+              };
+              return { ...cat, items: [...cat.items, movedItem] };
+            }
+            return cat;
+          }),
+        };
+      });
+      setHasChanges(true);
+    },
+    []
+  );
 
   // Handle deleting an item from a category
   const handleDeleteItem = useCallback((categoryId: string, itemId: string) => {
@@ -354,6 +395,10 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
         <ScopeCategorySection
           key={category.id}
           category={category}
+          allCategories={matrix.categories.map((c) => ({
+            categoryKey: c.categoryKey,
+            label: c.label,
+          }))}
           onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}
           onAddItem={handleOpenAddDialog}

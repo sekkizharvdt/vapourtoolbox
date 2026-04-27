@@ -14,20 +14,32 @@ import {
   ExpandLess as ExpandLessIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import type { ScopeCategoryEntry, UnifiedScopeItem, ActivityColumn } from '@vapour/types';
+import type {
+  ScopeCategoryEntry,
+  UnifiedScopeItem,
+  ActivityColumn,
+  ScopeCategoryKey,
+} from '@vapour/types';
 import { SCOPE_CATEGORY_DEFAULTS, MATRIX_ACTIVITY_TEMPLATES } from '@vapour/types';
 import { ChecklistItemList } from './ChecklistItemList';
 import { MatrixTable } from './MatrixTable';
 
 interface ScopeCategorySectionProps {
   category: ScopeCategoryEntry;
-  onUpdateItem: (categoryId: string, item: UnifiedScopeItem) => void;
+  /** All categories on the matrix, used by the edit dialog's category picker. */
+  allCategories: { categoryKey: ScopeCategoryKey; label: string }[];
+  onUpdateItem: (
+    categoryId: string,
+    item: UnifiedScopeItem,
+    targetCategoryKey?: ScopeCategoryKey
+  ) => void;
   onDeleteItem: (categoryId: string, itemId: string) => void;
   onAddItem: (categoryId: string) => void;
 }
 
 export function ScopeCategorySection({
   category,
+  allCategories,
   onUpdateItem,
   onDeleteItem,
   onAddItem,
@@ -104,7 +116,11 @@ export function ScopeCategorySection({
             <ChecklistItemList
               items={category.items}
               defaultClassification={defaults.defaultClassification}
-              onUpdateItem={(item) => onUpdateItem(category.id, item)}
+              currentCategoryKey={category.categoryKey}
+              allCategories={allCategories}
+              onUpdateItem={(item, targetCategoryKey) =>
+                onUpdateItem(category.id, item, targetCategoryKey)
+              }
               onDeleteItem={(itemId) => onDeleteItem(category.id, itemId)}
             />
           ) : (
@@ -112,7 +128,11 @@ export function ScopeCategorySection({
               items={category.items}
               activityColumns={activityColumns}
               defaultClassification={defaults.defaultClassification}
-              onUpdateItem={(item) => onUpdateItem(category.id, item)}
+              currentCategoryKey={category.categoryKey}
+              allCategories={allCategories}
+              onUpdateItem={(item, targetCategoryKey) =>
+                onUpdateItem(category.id, item, targetCategoryKey)
+              }
               onDeleteItem={(itemId) => onDeleteItem(category.id, itemId)}
             />
           )}

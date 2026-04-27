@@ -27,6 +27,10 @@ import {
   ToggleButton,
   Button,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -37,27 +41,34 @@ import {
   AutoAwesome as AiIcon,
   RestartAlt as ReincludeIcon,
 } from '@mui/icons-material';
-import type { UnifiedScopeItem, ScopeItemClassification } from '@vapour/types';
+import type { UnifiedScopeItem, ScopeItemClassification, ScopeCategoryKey } from '@vapour/types';
 import { SCOPE_ITEM_CLASSIFICATION_LABELS } from '@vapour/types';
 
 interface ChecklistItemListProps {
   items: UnifiedScopeItem[];
   defaultClassification: ScopeItemClassification;
-  onUpdateItem: (item: UnifiedScopeItem) => void;
+  currentCategoryKey: ScopeCategoryKey;
+  allCategories: { categoryKey: ScopeCategoryKey; label: string }[];
+  onUpdateItem: (item: UnifiedScopeItem, targetCategoryKey?: ScopeCategoryKey) => void;
   onDeleteItem: (itemId: string) => void;
 }
 
 function ChecklistItemCard({
   item,
+  currentCategoryKey,
+  allCategories,
   onUpdate,
   onDelete,
 }: {
   item: UnifiedScopeItem;
-  onUpdate: (item: UnifiedScopeItem) => void;
+  currentCategoryKey: ScopeCategoryKey;
+  allCategories: { categoryKey: ScopeCategoryKey; label: string }[];
+  onUpdate: (item: UnifiedScopeItem, targetCategoryKey?: ScopeCategoryKey) => void;
   onDelete: (itemId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editedItem, setEditedItem] = useState(item);
+  const [targetCategory, setTargetCategory] = useState<ScopeCategoryKey>(currentCategoryKey);
 
   // Inline exclusion-reason flow for AI-parsed items.
   // While capturing the reason, the item is in a "pending exclusion" state.
@@ -66,12 +77,13 @@ function ChecklistItemCard({
   const isAiParsed = item.source === 'AI_PARSED';
 
   const handleSave = () => {
-    onUpdate(editedItem);
+    onUpdate(editedItem, targetCategory);
     setEditing(false);
   };
 
   const handleCancel = () => {
     setEditedItem(item);
+    setTargetCategory(currentCategoryKey);
     setEditing(false);
   };
 
@@ -121,6 +133,21 @@ function ChecklistItemCard({
     return (
       <Paper variant="outlined" sx={{ p: 2, mb: 1, bgcolor: 'background.default' }}>
         <Stack spacing={2}>
+          <FormControl fullWidth size="small">
+            <InputLabel id={`category-label-${item.id}`}>Category</InputLabel>
+            <Select
+              labelId={`category-label-${item.id}`}
+              label="Category"
+              value={targetCategory}
+              onChange={(e) => setTargetCategory(e.target.value as ScopeCategoryKey)}
+            >
+              {allCategories.map((c) => (
+                <MenuItem key={c.categoryKey} value={c.categoryKey}>
+                  {c.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField
             label="Name"
             value={editedItem.name}
@@ -360,7 +387,13 @@ function ChecklistItemCard({
   );
 }
 
-export function ChecklistItemList({ items, onUpdateItem, onDeleteItem }: ChecklistItemListProps) {
+export function ChecklistItemList({
+  items,
+  currentCategoryKey,
+  allCategories,
+  onUpdateItem,
+  onDeleteItem,
+}: ChecklistItemListProps) {
   if (items.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
@@ -377,6 +410,8 @@ export function ChecklistItemList({ items, onUpdateItem, onDeleteItem }: Checkli
         <ChecklistItemCard
           key={item.id}
           item={item}
+          currentCategoryKey={currentCategoryKey}
+          allCategories={allCategories}
           onUpdate={onUpdateItem}
           onDelete={onDeleteItem}
         />

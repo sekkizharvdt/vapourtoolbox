@@ -32,35 +32,51 @@ import {
   Stack,
   ToggleButtonGroup,
   ToggleButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
-import type { UnifiedScopeItem, ActivityColumn, ScopeItemClassification } from '@vapour/types';
+import type {
+  UnifiedScopeItem,
+  ActivityColumn,
+  ScopeItemClassification,
+  ScopeCategoryKey,
+} from '@vapour/types';
 import { SCOPE_ITEM_CLASSIFICATION_LABELS } from '@vapour/types';
 
 interface MatrixTableProps {
   items: UnifiedScopeItem[];
   activityColumns: ActivityColumn[];
   defaultClassification: ScopeItemClassification;
-  onUpdateItem: (item: UnifiedScopeItem) => void;
+  currentCategoryKey: ScopeCategoryKey;
+  allCategories: { categoryKey: ScopeCategoryKey; label: string }[];
+  onUpdateItem: (item: UnifiedScopeItem, targetCategoryKey?: ScopeCategoryKey) => void;
   onDeleteItem: (itemId: string) => void;
 }
 
-/** Inline dialog for editing item name, description, classification */
+/** Inline dialog for editing item name, description, classification, and category. */
 function EditItemDialog({
   open,
   item,
+  currentCategoryKey,
+  allCategories,
   onClose,
   onSave,
 }: {
   open: boolean;
   item: UnifiedScopeItem;
+  currentCategoryKey: ScopeCategoryKey;
+  allCategories: { categoryKey: ScopeCategoryKey; label: string }[];
   onClose: () => void;
-  onSave: (item: UnifiedScopeItem) => void;
+  onSave: (item: UnifiedScopeItem, targetCategoryKey: ScopeCategoryKey) => void;
 }) {
   const [editedItem, setEditedItem] = useState(item);
+  const [targetCategory, setTargetCategory] = useState<ScopeCategoryKey>(currentCategoryKey);
 
   const handleSave = () => {
-    onSave(editedItem);
+    onSave(editedItem, targetCategory);
     onClose();
   };
 
@@ -69,6 +85,21 @@ function EditItemDialog({
       <DialogTitle>Edit Item</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="edit-item-category-label">Category</InputLabel>
+            <Select
+              labelId="edit-item-category-label"
+              label="Category"
+              value={targetCategory}
+              onChange={(e) => setTargetCategory(e.target.value as ScopeCategoryKey)}
+            >
+              {allCategories.map((c) => (
+                <MenuItem key={c.categoryKey} value={c.categoryKey}>
+                  {c.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField
             label="Name"
             value={editedItem.name}
@@ -155,6 +186,8 @@ function EditItemDialog({
 export function MatrixTable({
   items,
   activityColumns,
+  currentCategoryKey,
+  allCategories,
   onUpdateItem,
   onDeleteItem,
 }: MatrixTableProps) {
@@ -364,9 +397,11 @@ export function MatrixTable({
         <EditItemDialog
           open={!!editingItem}
           item={editingItem}
+          currentCategoryKey={currentCategoryKey}
+          allCategories={allCategories}
           onClose={() => setEditingItem(null)}
-          onSave={(updatedItem) => {
-            onUpdateItem(updatedItem);
+          onSave={(updatedItem, targetCategoryKey) => {
+            onUpdateItem(updatedItem, targetCategoryKey);
             setEditingItem(null);
           }}
         />

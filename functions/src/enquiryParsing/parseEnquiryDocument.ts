@@ -163,22 +163,31 @@ Be exhaustive. A typical SOW will have 8–20 conditions. Don't summarise multip
 ### "scope" — the work breakdown the buyer is asking for
 Read the SOW sections that describe what the contractor must do/supply. Group items into discipline categories. Use these keys exactly:
 
-- SITE_PREPARATION   — site clearing, levelling, foundations prep, mobilisation
-- PROCESS_DESIGN     — process flow diagrams, P&IDs, heat & material balance, sizing calcs
-- MANUFACTURED       — items the contractor will fabricate in their own shop (vessels, evaporators, tanks)
-- BOUGHT_OUT         — items the contractor will procure from third parties (pumps, valves, instruments, motors)
-- PIPING_ENGINEERING — pipe sizing, layout, stress analysis, isometrics, PMS
-- PIPING_FABRICATION — fabrication of process piping, supports, expansion bellows
-- STRUCTURAL         — structural design and analysis (skids, supports, platforms)
-- STRUCTURAL_FABRICATION — fabrication of structural steel
-- SITE_WORK          — site erection, mechanical install, electrical/instrument install, commissioning at site
-- ELECTRICAL         — electrical design, panels, cabling, motors, switchgear (engineering or supply)
-- INSTRUMENTATION    — control loops, PLC, field instruments, control valves
+- SITE_PREPARATION       — site clearing, levelling, foundations prep, mobilisation, **and any general site survey / topographical survey**
+- PROCESS_DESIGN         — process flow diagrams, P&IDs, heat & material balance, sizing calcs, **and any condition assessment / inspection of process equipment such as pumps, evaporators, heat exchangers, vessels**
+- MANUFACTURED           — physical items the contractor will fabricate in their own shop and deliver (vessels, evaporators, tanks, columns). **classification MUST be "SUPPLY".** Do NOT put surveys, inspections, or any service activity here, even if it targets a manufactured item.
+- BOUGHT_OUT             — physical items the contractor will procure from third parties and deliver (pumps, valves, instruments, motors). **classification MUST be "SUPPLY".** Do NOT put surveys/inspections of these items here — those go in the engineering bucket for the relevant discipline.
+- PIPING_ENGINEERING     — pipe sizing, layout, stress analysis, isometrics, PMS, **and any condition assessment / inspection of existing piping**
+- PIPING_FABRICATION     — fabrication of process piping, supports, expansion bellows. classification MUST be "SUPPLY".
+- STRUCTURAL             — structural design, analysis, **and any condition assessment / inspection of existing structures, platforms, supports**
+- STRUCTURAL_FABRICATION — fabrication of structural steel. classification MUST be "SUPPLY".
+- SITE_WORK              — site erection, mechanical install, electrical/instrument install, commissioning at site
+- ELECTRICAL             — electrical design, panels, cabling, motors, switchgear (engineering or supply), **and any survey / inspection of existing electrical equipment, panels, switchgear, MCCs, cabling**
+- INSTRUMENTATION        — control loops, PLC, field instruments, control valves, **and any survey / tag-verification / inspection of existing instrumentation**
+
+**Critical rule for SURVEY-type SOWs**: A survey, inspection, or condition assessment is a SERVICE — never SUPPLY. Place it in the discipline category that matches what is being surveyed:
+  - "Condition assessment of process pumps" → PROCESS_DESIGN (or PIPING_ENGINEERING if the SOW frames it as piping-system inspection)
+  - "Inspection of evaporator effects / heat exchangers" → PROCESS_DESIGN
+  - "Survey of electrical panels, MCCs, switchgear" → ELECTRICAL
+  - "Tag-verify field instruments" → INSTRUMENTATION
+  - "Visual inspection of structural skids, platforms" → STRUCTURAL
+  - "General site / topographical survey" → SITE_PREPARATION
+  MANUFACTURED and BOUGHT_OUT are reserved for physical equipment we will fabricate or procure and deliver — they should be empty on a survey-only SOW.
 
 For each item:
 - name           — short single-line item name, sentence case (e.g. "Survey of all electrical panels, switchgear, MCCs")
 - description    — optional 1-2 sentence elaboration if the SOW gives more detail
-- classification — "SERVICE" if it's an activity/work (surveys, design, install, testing) or "SUPPLY" if it's an equipment/material item to be delivered
+- classification — "SERVICE" if it's an activity/work (surveys, design, install, testing, condition assessment) or "SUPPLY" if it's an equipment/material item the contractor will deliver
 - quantity, unit — optional, for SUPPLY items where the SOW gives a quantity (e.g. {quantity: 8, unit: "nos"} for "8 evaporator effects")
 
 Be specific — split bullet sub-points into their own items rather than collapsing. Aim for 5-25 items across all categories on a typical SOW. If the SOW has an "Exclusions" section, DO NOT include those as items here (they're inferred from absence; the proposal team handles exclusions explicitly).
