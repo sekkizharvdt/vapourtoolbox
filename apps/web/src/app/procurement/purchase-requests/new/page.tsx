@@ -74,6 +74,7 @@ interface FormData {
 export default function NewPurchaseRequestPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -264,6 +265,7 @@ export default function NewPurchaseRequestPage() {
         : itemSummary;
 
     return {
+      tenantId,
       type: formData.type,
       category: formData.category,
       projectId: formData.projectId,

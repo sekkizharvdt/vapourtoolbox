@@ -22,7 +22,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { SERVICE_CATEGORY_LABELS, SERVICE_CALCULATION_METHOD_LABELS } from '@vapour/types';
@@ -42,10 +42,20 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 export default function ServiceDetailClient() {
   const router = useRouter();
-  const params = useParams();
-  const serviceId = params.id as string;
+  const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
+
+  // Static export: useParams() returns the placeholder; parse the real id from the path.
+  const [serviceId, setServiceId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/services\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') {
+      setServiceId(extracted);
+    }
+  }, [pathname]);
 
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);

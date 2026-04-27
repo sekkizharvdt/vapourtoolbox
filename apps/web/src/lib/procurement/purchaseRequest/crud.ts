@@ -209,10 +209,13 @@ export async function createPurchaseRequest(
 
     // Provide more specific error messages
     if (error instanceof Error) {
-      // Check for common Firestore permission errors
+      // Check for common Firestore permission errors. The rule for /purchaseRequests
+      // requires MANAGE_PROCUREMENT *and* `tenantId` matching the auth claim, so a
+      // PERMISSION_DENIED here can mean either — surface the underlying message so
+      // tenant/scoping mismatches don't get masked as a permission-flag problem.
       if (error.message.includes('permission') || error.message.includes('PERMISSION_DENIED')) {
         throw new Error(
-          'Permission denied: You need MANAGE_PROCUREMENT permission to create purchase requests. Please contact your administrator.'
+          `Permission denied creating purchase request — needs MANAGE_PROCUREMENT and matching tenantId. (${error.message})`
         );
       }
 

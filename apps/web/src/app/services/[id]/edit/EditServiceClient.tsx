@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -34,10 +34,20 @@ import { getServiceById, updateService } from '@/lib/services/crud';
 
 export default function EditServiceClient() {
   const router = useRouter();
-  const params = useParams();
-  const serviceId = params.id as string;
+  const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
+
+  // Static export: useParams() returns the placeholder; parse the real id from the path.
+  const [serviceId, setServiceId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/services\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') {
+      setServiceId(extracted);
+    }
+  }, [pathname]);
 
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,7 +123,7 @@ export default function EditServiceClient() {
       return;
     }
 
-    if (!user?.uid || !db) return;
+    if (!user?.uid || !db || !serviceId) return;
 
     setSaving(true);
     setError('');
