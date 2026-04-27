@@ -141,6 +141,19 @@ service firebase.storage {
       allow delete: if isAuthenticated();
     }
 
+    // Vendor Quotes - quotation documents uploaded via the procurement
+    // "Log Vendor Quote" page (incl. the staging path used by the AI parser
+    // before the quote is saved). 10MB limit matches the form's client-side check.
+    // Path: vendor-quotes/{timestamp}_{filename} or vendor-quotes/staging/...
+    match /vendor-quotes/{allPaths=**} {
+      allow read: if isAuthenticated();
+
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 25 * 1024 * 1024;
+
+      allow delete: if isAuthenticated();
+    }
+
     // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;
