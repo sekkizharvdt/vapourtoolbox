@@ -148,6 +148,7 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
     customNotes,
     watermark,
     isIndividualVendor,
+    showProjectName,
   } = data;
 
   // Build spec string for an item (specification + technicalSpec + makeModel)
@@ -231,7 +232,7 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
           valueWidth="80%"
           rows={[
             { label: 'RFQ Title', value: rfq.title },
-            ...(rfq.projectNames.length > 0
+            ...(showProjectName && rfq.projectNames.length > 0
               ? [{ label: 'Project', value: rfq.projectNames.join(', ') }]
               : []),
             ...(rfq.purchaseRequestNumbers.length > 0

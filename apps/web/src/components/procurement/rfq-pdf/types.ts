@@ -70,6 +70,8 @@ export interface GenerateNewTabProps {
   setShowDeliveryDates: (value: boolean) => void;
   showEquipmentCodes: boolean;
   setShowEquipmentCodes: (value: boolean) => void;
+  showProjectName: boolean;
+  setShowProjectName: (value: boolean) => void;
   watermark: string;
   setWatermark: (value: string) => void;
   customNotes: string;

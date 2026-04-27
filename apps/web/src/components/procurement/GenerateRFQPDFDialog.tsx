@@ -101,6 +101,7 @@ export default function GenerateRFQPDFDialog({
   const [showItemSpecifications, setShowItemSpecifications] = useState(true);
   const [showDeliveryDates, setShowDeliveryDates] = useState(true);
   const [showEquipmentCodes, setShowEquipmentCodes] = useState(true);
+  const [showProjectName, setShowProjectName] = useState(true);
 
   // Additional
   const [watermark, setWatermark] = useState('');
@@ -233,6 +234,7 @@ export default function GenerateRFQPDFDialog({
         showItemSpecifications,
         showDeliveryDates,
         showEquipmentCodes,
+        showProjectName,
         watermark: watermark || undefined,
         customNotes: customNotes || undefined,
         contactPersonName: contactPersonName || undefined,
@@ -348,6 +350,8 @@ export default function GenerateRFQPDFDialog({
                 setShowDeliveryDates={setShowDeliveryDates}
                 showEquipmentCodes={showEquipmentCodes}
                 setShowEquipmentCodes={setShowEquipmentCodes}
+                showProjectName={showProjectName}
+                setShowProjectName={setShowProjectName}
                 watermark={watermark}
                 setWatermark={setWatermark}
                 customNotes={customNotes}

@@ -74,6 +74,8 @@ export function GenerateNewTab({
   setShowDeliveryDates,
   showEquipmentCodes,
   setShowEquipmentCodes,
+  showProjectName,
+  setShowProjectName,
   watermark,
   setWatermark,
   customNotes,
@@ -302,6 +304,15 @@ export function GenerateNewTab({
                 />
               }
               label="Show equipment codes"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showProjectName}
+                  onChange={(e) => setShowProjectName(e.target.checked)}
+                />
+              }
+              label="Show project name"
             />
             <Divider sx={{ my: 1 }} />
             <TextField

@@ -318,6 +318,7 @@ function preparePDFData(
     showItemSpecifications: options.showItemSpecifications !== false,
     showDeliveryDates: options.showDeliveryDates !== false,
     showEquipmentCodes: options.showEquipmentCodes !== false,
+    showProjectName: options.showProjectName !== false,
     isIndividualVendor: isIndividual && vendor !== undefined,
 
     customNotes: options.customNotes,

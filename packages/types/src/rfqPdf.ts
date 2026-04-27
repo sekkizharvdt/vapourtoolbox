@@ -153,6 +153,9 @@ export interface RFQPDFGenerationOptions {
   showItemSpecifications?: boolean;
   showDeliveryDates?: boolean;
   showEquipmentCodes?: boolean;
+  /** Hide the Project row in the TO section. Use when the buyer doesn't want
+   *  to disclose project context to the vendor. Default: true (show). */
+  showProjectName?: boolean;
 
   // Watermark (optional)
   watermark?: string; // e.g., "DRAFT", "CONFIDENTIAL"
@@ -245,6 +248,7 @@ export interface RFQPDFData {
   showItemSpecifications: boolean;
   showDeliveryDates: boolean;
   showEquipmentCodes: boolean;
+  showProjectName: boolean;
   isIndividualVendor: boolean; // true = addressed to one vendor
 }
 
