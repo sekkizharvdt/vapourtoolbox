@@ -659,7 +659,8 @@ export default function RFQDetailPage() {
                   Issued
                 </Typography>
                 <Typography variant="body2">
-                  {rfq.issueDate.toDate().toLocaleString()} by {rfq.sentBy}
+                  {rfq.issueDate.toDate().toLocaleString()} by{' '}
+                  {rfq.sentByName || rfq.sentBy || 'Unknown'}
                 </Typography>
               </Box>
             )}

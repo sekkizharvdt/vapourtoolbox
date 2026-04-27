@@ -64,6 +64,7 @@ export interface RFQ {
   latestPdfUrl?: string;
   sentToVendorsAt?: Timestamp; // Manual tracking
   sentBy?: string;
+  sentByName?: string; // Denormalized display name (rule 26)
 
   // Offers tracking
   offersReceived: number;

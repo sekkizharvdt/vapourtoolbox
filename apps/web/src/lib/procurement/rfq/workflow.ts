@@ -46,6 +46,7 @@ export async function issueRFQ(
     issueDate: now,
     sentToVendorsAt: now,
     sentBy: userId,
+    sentByName: userName,
     updatedAt: now,
     updatedBy: userId,
   });
