@@ -82,6 +82,7 @@ function applyBalanceChanges(
   const accountsRef = db.collection('accounts');
   const multiplier = reverse ? -1 : 1;
 
+  // rule20-exempt: bounded by the caller's transaction entries (one txn = < 20 GL accounts).
   for (const [accountId, change] of changes) {
     // Skip zero-change accounts (common in updates where entries didn't change)
     if (change.debit === 0 && change.credit === 0) continue;

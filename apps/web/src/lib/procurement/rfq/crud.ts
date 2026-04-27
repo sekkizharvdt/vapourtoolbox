@@ -430,6 +430,7 @@ export async function createRFQFromPRs(
   // If this fails, log the error but don't fail the entire operation
   try {
     const batch = writeBatch(db);
+    // rule20-exempt: prIds is a user-selected list (UI caps at handful).
     for (const prId of prIds) {
       batch.update(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId), {
         status: 'CONVERTED_TO_RFQ',

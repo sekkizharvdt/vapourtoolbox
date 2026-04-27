@@ -28,12 +28,12 @@
 | #17 — state machines live in `stateMachines.ts`   | 0     | ✅ enforce  | —        | Already clean                                                                                                          |
 | #18 — sensitive ops need an audit-log call        | 35    | ⚠️ advisory | **P1**   | Forensics for agent runs                                                                                               |
 | #19 — read+write needs `runTransaction`           | 87    | ⚠️ advisory | **P2**   | Includes false positives — triage required                                                                             |
-| #20 — batch ops in loops need 500-op chunking     | 21    | ⚠️ advisory | **P2**   | Manual review per call site                                                                                            |
+| #20 — batch ops in loops need 500-op chunking     | 0     | ✅ closed   | —        | Closed 2026-04-27 — see [reports/rule-check-2026-04-27-after-rule20.md](reports/rule-check-2026-04-27-after-rule20.md) |
 | #21 — no fallback chains on amount fields         | 0     | ✅ closed   | —        | Closed 2026-04-26 — see [reports/rule-check-2026-04-26-after-rule21.md](reports/rule-check-2026-04-26-after-rule21.md) |
 | #24 — TransactionType switches exhaustive         | 0     | ✅ enforce  | —        | TS `noFallthroughCasesInSwitch` covers it                                                                              |
 | #28 — modules need List + New + View + Edit       | 20    | ⚠️ advisory | **P2**   | UI completeness; some are terminal-doc false positives                                                                 |
 
-**Grand total:** 525 violations across 5 active rules. (Baseline 668; rule #4 closed 2026-04-26; rule #6 closed 2026-04-26; rule #21 closed 2026-04-26.)
+**Grand total:** 504 violations across 4 active rules. (Baseline 668; rule #4, #6, #20, #21 closed.)
 
 > Note: rule #19 count is at 90 (up from 87 baseline) because the rule #6 fixes added `getDoc` lookups to find submitter IDs. Wrapping those reads in `runTransaction` is the right rule #19 cleanup but is deferred to that pass.
 
@@ -412,7 +412,16 @@ batch.update(ref, { totalDelivered: FieldValue.increment(qty) });
 
 ---
 
-## Rule #20 — Batch ops in loops need 500-op chunking
+## Rule #20 — Batch ops in loops need 500-op chunking ✅ CLOSED 2026-04-27
+
+**Status:** **closed 2026-04-27.** Of the 21 detector hits, 14 were bounded by document schema (single-doc line items, user-multi-select, fixed-list initialization) and got `// rule20-exempt: <reason>` markers; 3 were genuinely unbounded fan-outs (`linkService.updateLinksStatus`, `folderService.moveDocumentsToFolder`, `procurementPaymentStatus.syncPOPaymentToGRs`) and got real 500-op chunking; 2 had pre-existing chunking the detector didn't recognize (because they used `batchSize` as a variable instead of literal `500` — detector regex extended to match `batchSize`/`chunkSize`/`BATCH_SIZE`/`CHUNK_SIZE`); 2 had explicit pre-flight guards that throw before exceeding the limit (`bankReconciliation.matchMultipleTransactions`, `accountBalances.applyBalanceChanges`) and got `rule20-exempt` markers.
+
+**Detector additions:**
+
+- `// rule20-exempt: <reason>` marker — exempts a function whose body carries the marker (used at 14 sites with documented bounds).
+- `CHUNK_HINT_RE` extended to recognize `batchSize` / `chunkSize` / `BATCH_SIZE` / `CHUNK_SIZE` as chunk-size variables in `i += <var>` and `slice(i, i + <var>)` patterns.
+
+**Original count: 21.** Original list (kept for posterity):
 
 **What it means:** Firestore rejects batches >500 operations. Loops that build batches must chunk via `if (i % 500 === 0) await batch.commit()` or `slice(i, i + 500)` patterns.
 

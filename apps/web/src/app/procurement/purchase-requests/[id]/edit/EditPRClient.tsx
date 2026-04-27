@@ -385,7 +385,8 @@ export default function EditPRPage() {
         updatedBy: user.uid,
       });
 
-      // Process line items - track line number separately for non-deleted items
+      // Process line items - track line number separately for non-deleted items.
+      // rule20-exempt: bounded by line items on a single PR (UI typical < 50).
       let lineNumber = 0;
       for (const item of lineItems) {
         if (item.isDeleted && item.id) {

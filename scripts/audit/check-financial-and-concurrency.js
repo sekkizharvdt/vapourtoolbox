@@ -173,7 +173,8 @@ const RUN_TXN_RE = /\b(?:runTransaction|db\.runTransaction)\s*\(/;
 // Rule #20 — batch ops in loops without chunking.
 const FOR_LOOP_RE = /\b(?:for\s*\(|while\s*\()/;
 const BATCH_OP_RE = /\b(?:batch\.(?:set|update|delete|create))\s*\(/;
-const CHUNK_HINT_RE = /(?:%\s*500|i\s*\+\s*500|i\s*\+=\s*500|slice\s*\(\s*i\s*,\s*i\s*\+\s*500)/;
+const CHUNK_HINT_RE =
+  /(?:%\s*500|i\s*\+\s*500|i\s*\+=\s*500|slice\s*\(\s*i\s*,\s*i\s*\+\s*(?:500|batchSize|chunkSize|BATCH_SIZE|CHUNK_SIZE)|i\s*\+=\s*(?:batchSize|chunkSize|BATCH_SIZE|CHUNK_SIZE))/;
 
 // Rule #21 — fallback chains on amount fields, and unrounded money math.
 const AMOUNT_FALLBACK_RE =
@@ -234,6 +235,10 @@ function analyseFile(filePath) {
     const hasGet = GET_DOC_RE.test(fn.body);
     const hasWrite = WRITE_DOC_RE.test(fn.body);
     const hasTxn = RUN_TXN_RE.test(fn.body);
+    // `// rule20-exempt:<reason>` anywhere in the function body opts the
+    // function out of the bounded-loop check (used when a loop is provably
+    // bounded by document schema or a query .limit()).
+    const hasRule20Exempt = /\brule20-exempt\b/.test(fn.body);
 
     // Rule #19 — getDoc + updateDoc/setDoc without transaction.
     if (hasGet && hasWrite && !hasTxn) {
@@ -247,7 +252,12 @@ function analyseFile(filePath) {
     }
 
     // Rule #20 — batch op inside a loop without chunking hint.
-    if (FOR_LOOP_RE.test(fn.body) && BATCH_OP_RE.test(fn.body) && !CHUNK_HINT_RE.test(fn.body)) {
+    if (
+      FOR_LOOP_RE.test(fn.body) &&
+      BATCH_OP_RE.test(fn.body) &&
+      !CHUNK_HINT_RE.test(fn.body) &&
+      !hasRule20Exempt
+    ) {
       violations.rule20.push({
         file: rel,
         line: fn.lineNumber,

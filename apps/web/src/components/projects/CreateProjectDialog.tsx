@@ -307,7 +307,8 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
         assignedProjects: arrayUnion(projectId),
       });
 
-      // Add project to each team member's assignedProjects
+      // Add project to each team member's assignedProjects.
+      // rule20-exempt: bounded by team-member multi-select on a project (UI < 100).
       for (const member of teamMembers) {
         const userRef = doc(db, COLLECTIONS.USERS, member.userId);
         batch.update(userRef, {

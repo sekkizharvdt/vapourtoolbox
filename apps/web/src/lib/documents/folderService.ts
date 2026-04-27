@@ -593,16 +593,18 @@ export async function moveDocumentsToFolder(
   newFolderPath: string
 ): Promise<void> {
   const { db } = getFirebase();
-  const batch = writeBatch(db);
-
-  for (const documentId of documentIds) {
-    batch.update(doc(db, COLLECTIONS.DOCUMENTS, documentId), {
-      folder: newFolderPath,
-      updatedAt: Timestamp.now(),
-    });
+  // Chunk by 500 (Firestore batch limit) — bulk-move can span many docs.
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < documentIds.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db);
+    for (const documentId of documentIds.slice(i, i + BATCH_SIZE)) {
+      batch.update(doc(db, COLLECTIONS.DOCUMENTS, documentId), {
+        folder: newFolderPath,
+        updatedAt: Timestamp.now(),
+      });
+    }
+    await batch.commit();
   }
-
-  await batch.commit();
 }
 
 // ============================================================================

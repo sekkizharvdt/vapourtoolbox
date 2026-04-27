@@ -272,6 +272,9 @@ function checkDocCreationHasTenantId() {
     'materialPrices',
     'stockMovements',
     'exchangeRates',
+    'exchange_rates', // system-wide RBI rates; written by Cloud Function, no tenant scope
+    'documentFolders', // firestore.rules allow any internal user — no tenantId enforcement
+    'DOCUMENT_FOLDERS',
     'currencyConfig',
     'systemStatus',
     'feedback',

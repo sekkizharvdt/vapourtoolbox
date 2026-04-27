@@ -185,9 +185,17 @@ export async function matchTransactions(
     const batch = writeBatch(db);
     const now = Timestamp.now();
 
+    // Resolve tenantId from the bank transaction (firestore.rules requires it on
+    // create for reconciliationMatches per CLAUDE.md rule #4).
+    const bankTxnSnap = await getDoc(
+      doc(db, COLLECTIONS.BANK_TRANSACTIONS, input.bankTransactionId)
+    );
+    const tenantId = (bankTxnSnap.exists() ? bankTxnSnap.data()?.tenantId : '') as string;
+
     // Create reconciliation match record
     const matchRef = doc(collection(db, COLLECTIONS.RECONCILIATION_MATCHES));
-    const matchData: Omit<ReconciliationMatch, 'id'> = {
+    const matchData: Omit<ReconciliationMatch, 'id'> & { tenantId: string } = {
+      tenantId,
       statementId: '', // Will be set from bank transaction
       accountId: '', // Will be set from bank transaction
       bankTransactionId: input.bankTransactionId,
@@ -294,7 +302,8 @@ export async function matchMultipleTransactions(
   notes?: string
 ): Promise<void> {
   try {
-    // Each accounting transaction requires 2 batch ops (match record + txn update) + 1 for bank txn
+    // Each accounting transaction requires 2 batch ops (match record + txn update) + 1 for bank txn.
+    // rule20-exempt: explicit pre-flight guard throws before exceeding 500 ops.
     const FIRESTORE_BATCH_LIMIT = 500;
     const requiredOps = accountingTransactionIds.length * 2 + 1;
     if (requiredOps > FIRESTORE_BATCH_LIMIT) {
@@ -307,10 +316,16 @@ export async function matchMultipleTransactions(
     const batch = writeBatch(db);
     const now = Timestamp.now();
 
+    // Resolve tenantId from the bank transaction (firestore.rules requires it
+    // on create for reconciliationMatches per CLAUDE.md rule #4).
+    const bankTxnSnap = await getDoc(doc(db, COLLECTIONS.BANK_TRANSACTIONS, bankTransactionId));
+    const tenantId = (bankTxnSnap.exists() ? bankTxnSnap.data()?.tenantId : '') as string;
+
     // Create reconciliation match records for each accounting transaction
     for (const accTxnId of accountingTransactionIds) {
       const matchRef = doc(collection(db, COLLECTIONS.RECONCILIATION_MATCHES));
-      const matchData: Omit<ReconciliationMatch, 'id'> = {
+      const matchData: Omit<ReconciliationMatch, 'id'> & { tenantId: string } = {
+        tenantId,
         statementId: '', // Will be set from bank transaction
         accountId: '', // Will be set from bank transaction
         bankTransactionId,

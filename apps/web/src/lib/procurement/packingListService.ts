@@ -206,7 +206,7 @@ export async function createPackingList(
 
     const itemRef = doc(collection(db, COLLECTIONS.PACKING_LIST_ITEMS));
     batch.set(itemRef, plItemData);
-  });
+  }); // rule20-exempt: bounded by single packing list's items (< 200)
 
   await batch.commit();
 

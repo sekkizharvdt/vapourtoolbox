@@ -87,17 +87,21 @@ async function syncPOPaymentToGRs(db: admin.firestore.Firestore, poId: string): 
     return;
   }
 
-  const batch = db.batch();
+  // Chunk by 500 (Firestore batch limit) — a PO can in theory receive many
+  // partial deliveries; keep the fan-out safe.
   const now = admin.firestore.Timestamp.now();
-  for (const grDoc of grsSnap.docs) {
-    batch.update(grDoc.ref, {
-      paymentStatus: bucket,
-      totalPaidAgainstPO: Number(totalPaid.toFixed(2)),
-      paymentStatusUpdatedAt: now,
-      updatedAt: now,
-    });
+  for (let i = 0; i < grsSnap.docs.length; i += 500) {
+    const batch = db.batch();
+    for (const grDoc of grsSnap.docs.slice(i, i + 500)) {
+      batch.update(grDoc.ref, {
+        paymentStatus: bucket,
+        totalPaidAgainstPO: Number(totalPaid.toFixed(2)),
+        paymentStatusUpdatedAt: now,
+        updatedAt: now,
+      });
+    }
+    await batch.commit();
   }
-  await batch.commit();
 
   logger.info('[procurementPaymentStatus] Synced GRs for PO', {
     poId,

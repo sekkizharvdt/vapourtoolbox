@@ -56,6 +56,7 @@ export async function initializeChartOfAccounts(
 
     if (forceReinit && !snapshot.empty) {
       const batch = writeBatch(db);
+      // rule20-exempt: bounded by INDIAN_COA_TEMPLATE size (~80 accounts).
       snapshot.docs.forEach((doc) => {
         batch.delete(doc.ref);
       });

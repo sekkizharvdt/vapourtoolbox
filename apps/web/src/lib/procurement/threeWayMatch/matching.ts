@@ -376,7 +376,10 @@ export async function performThreeWayMatch(
     );
 
     // Create 3-way match record
-    const matchData: Omit<ThreeWayMatch, 'id'> = {
+    const matchData: Omit<ThreeWayMatch, 'id'> & { tenantId?: string } = {
+      // tenantId required by firestore.rules for threeWayMatches (rule #4 cleanup).
+      // Inherit from the source PO.
+      tenantId: po.tenantId,
       matchNumber: `TWM/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${Date.now()}`,
       purchaseOrderId,
       poNumber: po.number,
@@ -428,7 +431,8 @@ export async function performThreeWayMatch(
     // Save to Firestore
     const matchRef = await addDoc(collection(db, COLLECTIONS.THREE_WAY_MATCHES), cleanedMatchData);
 
-    // Save line items and discrepancies
+    // Save line items and discrepancies.
+    // rule20-exempt: bounded by a single PO/GR/Bill match's line items (< 200).
     const batch = writeBatch(db);
 
     matchLineItems.forEach((lineItem) => {

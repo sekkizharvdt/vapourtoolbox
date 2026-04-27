@@ -454,7 +454,7 @@ export async function createPOFromOffer(
 
         const itemRef = doc(collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS));
         batch.set(itemRef, poItemData);
-      });
+      }); // rule20-exempt: bounded by single offer's line items (typical < 100)
 
       // Mark the quote as PO_CREATED to prevent duplicate POs
       batch.update(doc(db, COLLECTIONS.VENDOR_QUOTES, offerId), {

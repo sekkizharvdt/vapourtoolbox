@@ -323,7 +323,8 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
       const oldTeamUserIds = new Set((project.team || []).map((m) => m.userId));
       const newTeamUserIds = new Set(teamMembers.map((m) => m.userId));
 
-      // Users to add to assignedProjects
+      // Users to add to assignedProjects.
+      // rule20-exempt: bounded by team-member multi-select on a project (UI < 100).
       const addedUsers = teamMembers.filter((m) => !oldTeamUserIds.has(m.userId));
       for (const member of addedUsers) {
         const userRef = doc(db, COLLECTIONS.USERS, member.userId);

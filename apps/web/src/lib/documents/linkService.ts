@@ -357,47 +357,47 @@ export async function updateLinksStatus(
 
   const linkedDocResults = await Promise.all(linkedDocPromises);
 
-  // Use batch write for all updates (instead of sequential writes)
-  const batch = writeBatch(db);
+  // Chunk into batches of 500 (Firestore batch limit) — a document can in theory
+  // have many linked docs across predecessors / successors / related lists.
   const now = Timestamp.now();
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < linkedDocResults.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db);
+    for (const { linkedDocRef, linkedSnapshot } of linkedDocResults.slice(i, i + BATCH_SIZE)) {
+      if (!linkedSnapshot.exists()) {
+        continue;
+      }
 
-  for (const { linkedDocRef, linkedSnapshot } of linkedDocResults) {
-    if (!linkedSnapshot.exists()) {
-      continue;
+      const linkedDoc = linkedSnapshot.data() as MasterDocumentEntry;
+
+      // Update the link in predecessors
+      const updatedPredecessors = linkedDoc.predecessors.map((link) =>
+        link.masterDocumentId === documentId
+          ? { ...link, status: newStatus, currentRevision: newRevision }
+          : link
+      );
+
+      // Update the link in successors
+      const updatedSuccessors = linkedDoc.successors.map((link) =>
+        link.masterDocumentId === documentId
+          ? { ...link, status: newStatus, currentRevision: newRevision }
+          : link
+      );
+
+      // Update the link in related documents
+      const updatedRelated = linkedDoc.relatedDocuments.map((link) =>
+        link.masterDocumentId === documentId
+          ? { ...link, status: newStatus, currentRevision: newRevision }
+          : link
+      );
+
+      batch.update(linkedDocRef, {
+        predecessors: updatedPredecessors,
+        successors: updatedSuccessors,
+        relatedDocuments: updatedRelated,
+        updatedAt: now,
+      });
     }
-
-    const linkedDoc = linkedSnapshot.data() as MasterDocumentEntry;
-
-    // Update the link in predecessors
-    const updatedPredecessors = linkedDoc.predecessors.map((link) =>
-      link.masterDocumentId === documentId
-        ? { ...link, status: newStatus, currentRevision: newRevision }
-        : link
-    );
-
-    // Update the link in successors
-    const updatedSuccessors = linkedDoc.successors.map((link) =>
-      link.masterDocumentId === documentId
-        ? { ...link, status: newStatus, currentRevision: newRevision }
-        : link
-    );
-
-    // Update the link in related documents
-    const updatedRelated = linkedDoc.relatedDocuments.map((link) =>
-      link.masterDocumentId === documentId
-        ? { ...link, status: newStatus, currentRevision: newRevision }
-        : link
-    );
-
-    // Add to batch
-    batch.update(linkedDocRef, {
-      predecessors: updatedPredecessors,
-      successors: updatedSuccessors,
-      relatedDocuments: updatedRelated,
-      updatedAt: now,
-    });
+    await batch.commit();
   }
-
-  // Commit all updates atomically
-  await batch.commit();
 }

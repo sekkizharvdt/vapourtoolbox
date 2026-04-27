@@ -480,6 +480,8 @@ export async function deleteBOMItem(
     const childrenQuery = query(itemsRef, where('parentItemId', '==', itemId));
     const childrenSnapshot = await getDocs(childrenQuery);
 
+    // rule20-exempt: each recursive call has its own batch with a single delete;
+    // the `for` loop does not write to this batch.
     const batch = writeBatch(db);
 
     // Delete children recursively

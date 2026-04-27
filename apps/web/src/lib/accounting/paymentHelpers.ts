@@ -459,7 +459,8 @@ export async function createPaymentWithAllocationsAtomic(
     const invoiceRefs = validAllocations.map((a) => doc(db, COLLECTIONS.TRANSACTIONS, a.invoiceId));
     const invoiceDocs = await Promise.all(invoiceRefs.map((ref) => getDoc(ref)));
 
-    // 5. Update each invoice/bill status in the same batch
+    // 5. Update each invoice/bill status in the same batch.
+    // rule20-exempt: bounded by allocations on a single payment (typical < 50).
     validAllocations.forEach((allocation, index) => {
       const invoiceDoc = invoiceDocs[index];
       const invoiceRef = invoiceRefs[index];

@@ -189,6 +189,7 @@ export async function initializeUserLeaveBalances(
     const batch = writeBatch(db);
     const now = Timestamp.now();
 
+    // rule20-exempt: bounded by configured leave types (~10).
     for (const leaveType of leaveTypes) {
       const balanceRef = doc(collection(db, COLLECTIONS.HR_LEAVE_BALANCES));
 

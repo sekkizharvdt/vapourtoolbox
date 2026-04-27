@@ -172,6 +172,7 @@ async function storeRates(rates: RBIRateData[], triggeredBy: string = 'system'):
   const effectiveFrom = admin.firestore.Timestamp.now();
   let storedCount = 0;
 
+  // rule20-exempt: bounded by RBI's foreign-currency list (~30 currencies).
   for (const rateData of rates) {
     const rateDoc = db.collection('exchange_rates').doc();
     batch.set(rateDoc, {
