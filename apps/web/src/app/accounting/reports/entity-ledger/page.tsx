@@ -48,6 +48,7 @@ import {
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
 import { FiscalYearFilter, useFiscalYearFilter } from '@/components/accounting/FiscalYearFilter';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 // Helper to get fiscal year start based on configured start month
 function getFiscalYearStart(startMonth: number = 4, date: Date = new Date()): Date {
@@ -292,7 +293,7 @@ function EntityLedgerInner() {
     // Add movement from transactions before the selected start date
     // Use baseAmount (INR) for foreign currency transactions, fall back to totalAmount for INR-only
     openingBalanceTransactions.forEach((txn) => {
-      const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
+      const amount = getInrAmount(txn);
       switch (txn.type) {
         case 'CUSTOMER_INVOICE':
           balance += amount; // Customer owes us
@@ -370,8 +371,8 @@ function EntityLedgerInner() {
 
     periodTransactions.forEach((txn) => {
       // Use baseAmount (INR) for foreign currency transactions
-      const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
-      const outstanding = txn.outstandingAmount || 0;
+      const amount = getInrAmount(txn);
+      const outstanding = txn.outstandingAmount ?? 0;
       const dueDate = txn.dueDate ? new Date(txn.dueDate) : null;
       const daysPastDue = dueDate
         ? Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -546,7 +547,7 @@ function EntityLedgerInner() {
     };
     const rows = filteredTransactions.map((txn) => {
       const d = toDate(txn.date);
-      const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
+      const amount = getInrAmount(txn);
       let debit = 0;
       let credit = 0;
       switch (txn.type) {

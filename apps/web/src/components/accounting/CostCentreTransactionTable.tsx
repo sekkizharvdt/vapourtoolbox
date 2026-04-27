@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { OpenInNew as OpenIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 export type CostCentreTransactionType = 'invoice' | 'bill';
 
@@ -117,14 +118,11 @@ export function CostCentreTransactionTable({
                 <TableCell>{transaction.referenceNumber || transaction.reference || '-'}</TableCell>
               )}
               <TableCell align="right">
-                {formatCurrency(
-                  transaction.totalAmount || transaction.amount,
-                  transaction.currency
-                )}
+                {formatCurrency(getInrAmount(transaction), transaction.currency)}
               </TableCell>
               {isInvoice && (
                 <TableCell align="right">
-                  {formatCurrency(transaction.paidAmount || 0, transaction.currency)}
+                  {formatCurrency(transaction.paidAmount ?? 0, transaction.currency)}
                 </TableCell>
               )}
               <TableCell>

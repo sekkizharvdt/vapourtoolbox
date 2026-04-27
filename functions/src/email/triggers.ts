@@ -304,7 +304,7 @@ export const onAccountingNotify = onDocumentUpdated(
           details: [
             { label: 'Invoice #', value: after.transactionNumber || event.params.txId },
             { label: 'Customer', value: after.entityName || '-' },
-            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/accounting/invoices',
         },
@@ -327,7 +327,7 @@ export const onAccountingNotify = onDocumentUpdated(
           details: [
             { label: 'Payment #', value: after.transactionNumber || event.params.txId },
             { label: 'Entity', value: after.entityName || '-' },
-            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/accounting/payments',
         },
@@ -350,7 +350,7 @@ export const onAccountingNotify = onDocumentUpdated(
           details: [
             { label: 'Bill #', value: after.transactionNumber || event.params.txId },
             { label: 'Vendor', value: after.entityName || '-' },
-            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/accounting/bills',
         },
@@ -373,7 +373,7 @@ export const onAccountingNotify = onDocumentUpdated(
           details: [
             { label: 'JE #', value: after.transactionNumber || event.params.txId },
             { label: 'Description', value: after.description || '-' },
-            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/accounting/journal-entries',
         },
@@ -663,7 +663,7 @@ export const onTravelExpenseNotify = onDocumentUpdated(
             { label: 'Report #', value: after.reportNumber || event.params.expenseId },
             { label: 'Employee', value: after.employeeName || '-' },
             { label: 'Purpose', value: after.tripPurpose || '-' },
-            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
         },
@@ -682,7 +682,7 @@ export const onTravelExpenseNotify = onDocumentUpdated(
           details: [
             { label: 'Report #', value: after.reportNumber || event.params.expenseId },
             { label: 'Employee', value: after.employeeName || '-' },
-            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
             { label: 'Status', value: action },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
@@ -703,7 +703,7 @@ export const onTravelExpenseNotify = onDocumentUpdated(
           details: [
             { label: 'Report #', value: after.reportNumber || event.params.expenseId },
             { label: 'Employee', value: after.employeeName || '-' },
-            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
         },

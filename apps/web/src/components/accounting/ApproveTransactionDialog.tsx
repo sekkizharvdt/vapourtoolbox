@@ -200,7 +200,7 @@ export function ApproveTransactionDialog({
                   Amount
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {formatCurrency(transaction.totalAmount || 0, transaction.currency || 'INR')}
+                  {formatCurrency(transaction.totalAmount ?? 0, transaction.currency || 'INR')}
                 </Typography>
               </Box>
             </Stack>

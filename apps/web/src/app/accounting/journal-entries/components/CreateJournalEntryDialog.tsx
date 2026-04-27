@@ -50,6 +50,7 @@ import {
   reverseJournalSettlement,
 } from '@/lib/accounting/paymentHelpers';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 interface TransactionOption {
   id: string;
@@ -386,7 +387,7 @@ export function CreateJournalEntryDialog({
         const oldIsActive = editingEntry.status === 'POSTED' || editingEntry.status === 'APPROVED';
         const oldLinkedBill = editingEntry.linkedVendorBillId || '';
         const oldLinkedInvoice = editingEntry.linkedCustomerInvoiceId || '';
-        const oldBaseAmount = editingEntry.baseAmount || editingEntry.amount || 0;
+        const oldBaseAmount = getInrAmount(editingEntry);
 
         try {
           // Reverse old bill settlement if link changed or status deactivated

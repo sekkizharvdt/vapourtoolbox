@@ -43,6 +43,7 @@ import { RecordCustomerPaymentDialog } from '../../payments/components/RecordCus
 import { RecordVendorPaymentDialog } from '../../payments/components/RecordVendorPaymentDialog';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { bulkAutoAllocatePayments } from '@/lib/accounting/paymentHelpers';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 type UnappliedPayment = (CustomerPayment | VendorPayment) & {
   id: string;
@@ -116,7 +117,7 @@ export default function UnappliedPaymentsPage() {
         const data = doc.data() as CustomerPayment;
         if (data.isAdvance === true) return; // Advances are shown separately
         const allocations = data.invoiceAllocations || [];
-        const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount || 0), 0);
+        const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount ?? 0), 0);
         if (totalAllocated === 0) {
           unapplied.push({
             ...data,
@@ -130,7 +131,7 @@ export default function UnappliedPaymentsPage() {
         const data = doc.data() as VendorPayment;
         if (data.isAdvance === true) return; // Advances are shown separately
         const allocations = data.billAllocations || [];
-        const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount || 0), 0);
+        const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount ?? 0), 0);
         if (totalAllocated === 0) {
           unapplied.push({
             ...data,
@@ -225,10 +226,7 @@ export default function UnappliedPaymentsPage() {
     fetchUnappliedPayments();
   };
 
-  const totalAmount = filteredPayments.reduce(
-    (sum, p) => sum + (p.totalAmount || p.amount || 0),
-    0
-  );
+  const totalAmount = filteredPayments.reduce((sum, p) => sum + getInrAmount(p), 0);
 
   const customerCount = filteredPayments.filter((p) => p.paymentType === 'customer').length;
   const vendorCount = filteredPayments.filter((p) => p.paymentType === 'vendor').length;
@@ -394,7 +392,7 @@ export default function UnappliedPaymentsPage() {
                         fontWeight="medium"
                         color={payment.paymentType === 'customer' ? 'success.main' : 'error.main'}
                       >
-                        {formatCurrency(payment.totalAmount || payment.amount || 0, 'INR')}
+                        {formatCurrency(getInrAmount(payment), 'INR')}
                       </Typography>
                     </TableCell>
                     <TableCell>

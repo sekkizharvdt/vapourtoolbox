@@ -739,7 +739,7 @@ export default function TravelExpenseDetailClient() {
           <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
             <Typography variant="subtitle2">Total Amount</Typography>
             <Typography variant="h6" color="primary.main">
-              {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')}
+              {formatExpenseAmount(report?.totalAmount ?? 0, report?.currency || 'INR')}
             </Typography>
           </Box>
         </DialogContent>
@@ -769,7 +769,7 @@ export default function TravelExpenseDetailClient() {
             You are about to approve{' '}
             <strong>
               {report?.reportNumber} (
-              {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')})
+              {formatExpenseAmount(report?.totalAmount ?? 0, report?.currency || 'INR')})
             </strong>
           </Typography>
           <TextField

@@ -493,7 +493,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
           const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
           const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
-          const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount || 0), 0);
+          const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0);
           const subtotal =
             costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
           const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
@@ -536,7 +536,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                       {cp.lumpSumLines.map((row) => (
                         <TableRow key={row.id}>
                           <TableCell>{row.description || '—'}</TableCell>
-                          <TableCell align="right">{fmt(row.amount || 0)}</TableCell>
+                          <TableCell align="right">{fmt(row.amount ?? 0)}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow>

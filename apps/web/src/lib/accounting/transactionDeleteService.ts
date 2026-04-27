@@ -25,6 +25,7 @@ import type { TransactionStatus, TransactionType } from '@vapour/types';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth/authorizationService';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 const logger = createLogger({ context: 'transactionDeleteService' });
 
@@ -164,7 +165,7 @@ export async function softDeleteTransaction(
           metadata: {
             transactionType: data.type,
             entityName: data.entityName,
-            amount: data.totalAmount || data.amount,
+            amount: getInrAmount(data),
             deletionReason: reason,
           },
         }
@@ -321,10 +322,11 @@ export async function hardDeleteTransaction(
       };
     }
 
-    // Archive to DELETED_TRANSACTIONS
+    // Archive to DELETED_TRANSACTIONS — preserve tenantId from the source txn.
     const archiveRef = doc(db, COLLECTIONS.DELETED_TRANSACTIONS, transactionId);
     await setDoc(archiveRef, {
       ...data,
+      tenantId: data.tenantId,
       hardDeletedAt: Timestamp.now(),
       hardDeletedBy: userId,
       hardDeletedByName: userName,
@@ -350,7 +352,7 @@ export async function hardDeleteTransaction(
           metadata: {
             transactionType: data.type,
             entityName: data.entityName,
-            amount: data.totalAmount || data.amount,
+            amount: getInrAmount(data),
             archivedDocId: transactionId,
           },
         }

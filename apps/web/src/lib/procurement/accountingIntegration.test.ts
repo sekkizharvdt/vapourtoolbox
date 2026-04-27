@@ -678,7 +678,8 @@ describe('createPaymentFromApprovedReceipt', () => {
       data: () => ({
         status: 'PARTIAL',
         totalAmount: 118000,
-        outstandingAmount: 50000, // Partial already paid
+        paidAmount: 68000, // Partial already paid (118000 - 68000 = 50000 outstanding)
+        outstandingAmount: 50000,
         currency: 'INR',
         entityId: 'vendor-1',
         transactionNumber: 'BILL-001',

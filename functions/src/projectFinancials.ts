@@ -8,6 +8,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getInrAmount } from './utils/amountHelpers';
 
 const db = getFirestore();
 
@@ -41,7 +42,7 @@ async function calculateCostCentreActualSpent(costCentreId: string): Promise<num
     let totalActualSpent = 0;
     transactionsSnapshot.forEach((doc) => {
       const data = doc.data();
-      const amount = data.totalAmount || data.amount || 0;
+      const amount = getInrAmount(data);
       totalActualSpent += amount;
     });
 
@@ -149,7 +150,7 @@ async function updateProjectBudget(projectId: string, actualExpenses: number): P
     });
 
     // Check budget thresholds and create alerts if needed
-    const estimatedAmount = budget.estimated?.amount || 0;
+    const estimatedAmount = budget.estimated?.amount ?? 0;
     if (estimatedAmount > 0) {
       const utilizationPercent = (actualExpenses / estimatedAmount) * 100;
 

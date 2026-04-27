@@ -56,6 +56,7 @@ import type {
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
+import { deriveOutstanding } from '@/lib/accounting/amountHelpers';
 
 interface AddPaymentDialogProps {
   open: boolean;
@@ -207,7 +208,7 @@ export default function AddPaymentDialog({
           payeeType: 'VENDOR',
           entityId: bill.entityId,
           entityName: bill.entityName || 'Unknown Vendor',
-          amount: bill.outstandingAmount || bill.baseAmount || bill.totalAmount,
+          amount: deriveOutstanding(bill),
           currency: bill.currency || 'INR',
           projectId: bill.projectId || bill.costCentreId,
           projectName: undefined, // Project name will be looked up by the batch detail page
@@ -380,9 +381,7 @@ export default function AddPaymentDialog({
                           fontWeight="medium"
                           color={bill.paymentStatus === 'OVERDUE' ? 'error.main' : 'text.primary'}
                         >
-                          {formatCurrency(
-                            bill.outstandingAmount || bill.baseAmount || bill.totalAmount
-                          )}
+                          {formatCurrency(deriveOutstanding(bill))}
                         </Typography>
                       </ListItemButton>
                     </ListItem>
@@ -398,10 +397,7 @@ export default function AddPaymentDialog({
                   {formatCurrency(
                     bills
                       .filter((b) => selectedBills.has(b.id))
-                      .reduce(
-                        (sum, b) => sum + (b.outstandingAmount || b.baseAmount || b.totalAmount),
-                        0
-                      )
+                      .reduce((sum, b) => sum + deriveOutstanding(b), 0)
                   )}
                 </Typography>
               </Box>

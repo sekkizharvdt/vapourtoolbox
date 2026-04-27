@@ -58,7 +58,7 @@ export async function convertProposalToProject(
       lineNumber: idx + 1,
       description: item.name || `Line Item ${idx + 1}`,
       executionType: 'IN_HOUSE' as const,
-      estimatedCost: item.estimationSummary?.totalCost?.amount || 0,
+      estimatedCost: item.estimationSummary?.totalCost?.amount ?? 0,
       currency: 'INR' as const,
       status: 'PLANNED' as const,
       scopeLinkage: {

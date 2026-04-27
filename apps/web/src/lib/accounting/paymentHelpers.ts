@@ -27,6 +27,7 @@ import {
   type PaymentGLInput,
 } from './glEntry';
 import { enforceDoubleEntry, saveTransactionBatch } from './transactionService';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 const logger = createLogger({ context: 'paymentHelpers' });
 
@@ -172,8 +173,8 @@ export async function updateTransactionStatusAfterPayment(
       const transactionData = transactionDoc.data();
       // Use baseAmount (INR) for forex invoices, fall back to totalAmount for INR invoices
       // This ensures outstanding is always tracked in INR for consistent payment allocation
-      const totalAmountINR = transactionData.baseAmount || transactionData.totalAmount || 0;
-      const previouslyPaid = transactionData.amountPaid || 0;
+      const totalAmountINR = getInrAmount(transactionData);
+      const previouslyPaid = transactionData.amountPaid ?? 0;
       const newTotalPaid = previouslyPaid + paidAmount;
       // Round to 2 decimal places to avoid floating-point residues (e.g. 155750.21000000002 - 155750.21 = 2.9e-11)
       const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
@@ -246,8 +247,8 @@ export async function processPaymentAllocations(
       }
 
       const data = snap.data();
-      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
-      const previouslyPaid = data.amountPaid || 0;
+      const totalAmountINR = getInrAmount(data);
+      const previouslyPaid = data.amountPaid ?? 0;
       const newTotalPaid = previouslyPaid + allocationsByInvoice.get(txnId)!;
       const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
@@ -291,7 +292,7 @@ export async function getOutstandingAmount(
 
     const transactionData = transactionDoc.data();
     // Use baseAmount (INR) for forex invoices since allocations are stored in INR
-    const totalAmount = transactionData.baseAmount || transactionData.totalAmount || 0;
+    const totalAmount = getInrAmount(transactionData);
 
     // Query all payments for this invoice/bill
     const paymentsRef = collection(db, COLLECTIONS.TRANSACTIONS);
@@ -320,7 +321,7 @@ export async function getOutstandingAmount(
       // Find allocations for this specific transaction
       allocations.forEach((allocation: PaymentAllocation) => {
         if (allocation.invoiceId === transactionId) {
-          totalPaid += allocation.allocatedAmount || 0;
+          totalPaid += allocation.allocatedAmount ?? 0;
         }
       });
     });
@@ -391,8 +392,7 @@ export async function createPaymentWithAllocationsAtomic(
   // Validate inputs before any database operations
   validatePaymentData(paymentData);
   // Use baseAmount (INR) for validation since allocations are always in INR
-  const validationAmount =
-    paymentData.baseAmount || paymentData.totalAmount || paymentData.amount || 0;
+  const validationAmount = getInrAmount(paymentData);
   validateAllocations(allocations, validationAmount);
 
   // AC-7: Validate each allocation against actual outstanding amounts
@@ -420,7 +420,7 @@ export async function createPaymentWithAllocationsAtomic(
       transactionId: '', // Will be set after payment creation
       transactionNumber: paymentData.transactionNumber || '',
       transactionDate: paymentData.transactionDate || Timestamp.now(),
-      amount: paymentData.amount || 0,
+      amount: paymentData.amount ?? 0,
       currency: paymentData.currency || 'INR',
       paymentMethod: paymentData.paymentMethod || 'BANK_TRANSFER',
       bankAccountId: paymentData.bankAccountId,
@@ -473,8 +473,8 @@ export async function createPaymentWithAllocationsAtomic(
 
       const invoiceData = invoiceDoc.data();
       // Use baseAmount (INR) for forex invoices, fall back to totalAmount for INR invoices
-      const totalAmountINR = invoiceData.baseAmount || invoiceData.totalAmount || 0;
-      const previouslyPaid = invoiceData.amountPaid || 0;
+      const totalAmountINR = getInrAmount(invoiceData);
+      const previouslyPaid = invoiceData.amountPaid ?? 0;
       const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
       const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
@@ -527,7 +527,7 @@ export async function updatePaymentWithAllocationsAtomic(
     throw new Error('Invalid payment ID');
   }
   validatePaymentData(paymentData);
-  validateAllocations(newAllocations, paymentData.amount || 0);
+  validateAllocations(newAllocations, paymentData.amount ?? 0);
 
   // Generate GL entries outside transaction (they don't modify state)
   const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
@@ -535,7 +535,7 @@ export async function updatePaymentWithAllocationsAtomic(
     transactionId: paymentId,
     transactionNumber: paymentData.transactionNumber || '',
     transactionDate: paymentData.transactionDate || Timestamp.now(),
-    amount: paymentData.amount || 0,
+    amount: paymentData.amount ?? 0,
     currency: paymentData.currency || 'INR',
     paymentMethod: paymentData.paymentMethod || 'BANK_TRANSFER',
     bankAccountId: paymentData.bankAccountId,
@@ -637,8 +637,8 @@ export async function updatePaymentWithAllocationsAtomic(
       }
 
       // Use baseAmount (INR) for forex invoices, fall back to totalAmount for INR invoices
-      const totalAmountINR = invoiceData.baseAmount || invoiceData.totalAmount || 0;
-      const previouslyPaid = invoiceData.amountPaid || 0;
+      const totalAmountINR = getInrAmount(invoiceData);
+      const previouslyPaid = invoiceData.amountPaid ?? 0;
       const newTotalPaid = Math.max(0, previouslyPaid + netChange);
       const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
@@ -724,7 +724,7 @@ export async function reconcilePaymentStatuses(
     if (data.isDeleted) continue;
     checked++;
 
-    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+    const totalAmountINR = getInrAmount(data);
     const correctPaid = allocationMap.get(docSnap.id) ?? 0;
     const correctOutstanding = parseFloat(Math.max(0, totalAmountINR - correctPaid).toFixed(2));
 
@@ -812,7 +812,7 @@ export async function reconcilePaymentStatuses(
   allTxnSnap.forEach((txnDoc) => {
     const data = txnDoc.data();
     if (data.isDeleted) return;
-    const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+    const amount = getInrAmount(data);
     switch (data.type) {
       case 'CUSTOMER_INVOICE':
         addToEntityBalance(data.entityId, amount);
@@ -893,7 +893,7 @@ export async function reconcilePaymentStatuses(
 
     if (!isSettled) continue;
 
-    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+    const totalAmountINR = getInrAmount(data);
     if (totalAmountINR <= 0) continue;
 
     if (!dryRun) {
@@ -985,8 +985,8 @@ export async function settleLinkedTransactionViaJournal(
 
     if (settlementAmount <= 0) return;
 
-    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
-    const previouslyPaid = data.amountPaid || 0;
+    const totalAmountINR = getInrAmount(data);
+    const previouslyPaid = data.amountPaid ?? 0;
     const newTotalPaid = previouslyPaid + settlementAmount;
     const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
@@ -1041,8 +1041,8 @@ export async function reverseJournalSettlement(
     }
 
     const data = snap.data();
-    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
-    const previouslyPaid = data.amountPaid || 0;
+    const totalAmountINR = getInrAmount(data);
+    const previouslyPaid = data.amountPaid ?? 0;
     const newTotalPaid = Math.max(0, previouslyPaid - reversalAmount);
     const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
@@ -1123,7 +1123,7 @@ export async function bulkAutoAllocatePayments(
     if (data.isDeleted || data.isAdvance) return;
     const allocs = data.invoiceAllocations || [];
     const totalAllocated = allocs.reduce(
-      (sum: number, a: PaymentAllocation) => sum + (a.allocatedAmount || 0),
+      (sum: number, a: PaymentAllocation) => sum + (a.allocatedAmount ?? 0),
       0
     );
     if (totalAllocated === 0) {
@@ -1133,7 +1133,7 @@ export async function bulkAutoAllocatePayments(
         entityId: data.entityId || '',
         entityName: data.entityName || '',
         transactionNumber: data.transactionNumber || d.id,
-        amount: data.baseAmount || data.totalAmount || data.amount || 0,
+        amount: getInrAmount(data),
       });
     }
   });
@@ -1143,7 +1143,7 @@ export async function bulkAutoAllocatePayments(
     if (data.isDeleted || data.isAdvance) return;
     const allocs = data.billAllocations || [];
     const totalAllocated = allocs.reduce(
-      (sum: number, a: PaymentAllocation) => sum + (a.allocatedAmount || 0),
+      (sum: number, a: PaymentAllocation) => sum + (a.allocatedAmount ?? 0),
       0
     );
     if (totalAllocated === 0) {
@@ -1153,7 +1153,7 @@ export async function bulkAutoAllocatePayments(
         entityId: data.entityId || '',
         entityName: data.entityName || '',
         transactionNumber: data.transactionNumber || d.id,
-        amount: data.baseAmount || data.totalAmount || data.amount || 0,
+        amount: getInrAmount(data),
       });
     }
   });
@@ -1217,8 +1217,8 @@ export async function bulkAutoAllocatePayments(
     for (const billDoc of outstanding) {
       if (remaining <= 0.01) break;
       const data = billDoc.data();
-      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
-      const previouslyPaid = data.amountPaid || 0;
+      const totalAmountINR = getInrAmount(data);
+      const previouslyPaid = data.amountPaid ?? 0;
       const billOutstanding = Math.max(0, totalAmountINR - previouslyPaid);
       if (billOutstanding <= 0.01) continue;
 

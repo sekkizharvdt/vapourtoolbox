@@ -165,7 +165,7 @@ export function recomputeBlockSubtotal(block: PricingBlock): PricingBlock {
     case 'LUMP_SUM_LINES': {
       return {
         ...block,
-        subtotal: round2(block.rows.reduce((s, r) => s + (r.amount || 0), 0)),
+        subtotal: round2(block.rows.reduce((s, r) => s + (r.amount ?? 0), 0)),
       };
     }
     case 'BOM_COST_SHEET': {

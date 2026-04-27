@@ -17,6 +17,7 @@ import {
   OPENING_BALANCE_ALLOCATION_ID,
   isOpeningBalanceAllocation,
 } from '@/lib/accounting/paymentHelpers';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 interface UseOutstandingInvoicesOptions {
   entityId: string | null;
@@ -52,11 +53,13 @@ function calculateOutstandingINR(data: CustomerInvoice): number {
   if (invoiceCurrency === 'INR') {
     if (data.outstandingAmount != null) return data.outstandingAmount;
     const amountPaidINR = (data as unknown as Record<string, number>).amountPaid ?? 0;
+    // rule21-exempt: forex-aware INR derivation; helper can't replace fx math here.
     return Math.max(0, (data.baseAmount ?? totalAmount) - amountPaidINR);
   }
 
-  // Forex invoice — determine if outstandingAmount is stored in INR or foreign currency
-  const baseAmountINR = data.baseAmount ?? totalAmount * invoiceExchangeRate;
+  // Forex invoice — determine if outstandingAmount is stored in INR or foreign currency.
+  // When baseAmount is missing we multiply totalAmount by the exchange rate to estimate INR.
+  const baseAmountINR = data.baseAmount ?? totalAmount * invoiceExchangeRate; // rule21-exempt
 
   if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
     const outstanding = data.outstandingAmount;
@@ -154,9 +157,11 @@ export function useOutstandingInvoices({
           for (const invoice of invoices) {
             const saved = savedMap.get(invoice.id!);
             if (saved) {
+              // Prefer cached outstandingAmount when set (it's derived & rounded above);
+              // else fall back to a forex-aware live calc that the central helper can't express.
               const currentOutstanding =
-                invoice.outstandingAmount ?? calculateOutstandingINR(invoice);
-              const invoiceTotalINR = invoice.baseAmount ?? invoice.totalAmount ?? 0;
+                invoice.outstandingAmount ?? calculateOutstandingINR(invoice); // rule21-exempt
+              const invoiceTotalINR = getInrAmount(invoice);
               invoice.outstandingAmount = Math.min(
                 invoiceTotalINR,
                 currentOutstanding + saved.allocatedAmount
@@ -192,7 +197,7 @@ export function useOutstandingInvoices({
             const paymentAllocations = paymentDoc.data().invoiceAllocations || [];
             for (const a of paymentAllocations) {
               if (a.invoiceId === OPENING_BALANCE_ALLOCATION_ID) {
-                alreadyAllocated += a.allocatedAmount || 0;
+                alreadyAllocated += a.allocatedAmount ?? 0;
               }
             }
           });

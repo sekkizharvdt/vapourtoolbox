@@ -46,6 +46,7 @@ import { collection, query, where, getDocs, documentId } from 'firebase/firestor
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
 
 const CreateBillDialog = dynamic(
   () => import('../../bills/components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
@@ -160,17 +161,17 @@ export default function OverdueItemsPage() {
       invoicesSnap.docs.forEach((doc) => {
         if (doc.data().isDeleted) return;
         const data = doc.data();
-        addToEntityBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+        addToEntityBalance(data.entityId, getInrAmount(data));
       });
       billsSnap.docs.forEach((doc) => {
         if (doc.data().isDeleted) return;
         const data = doc.data();
-        addToEntityBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+        addToEntityBalance(data.entityId, -getInrAmount(data));
       });
       paymentsSnap.docs.forEach((doc) => {
         if (doc.data().isDeleted) return;
         const data = doc.data();
-        const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+        const amount = getInrAmount(data);
         addToEntityBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amount : amount);
       });
       journalEntriesSnap.docs.forEach((doc) => {
@@ -246,7 +247,7 @@ export default function OverdueItemsPage() {
           }
 
           // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
-          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+          const outstanding = deriveOutstanding(data);
 
           // Use >= 0.01 to exclude floating-point residues (e.g. 2.9e-11) left by payment arithmetic
           if (outstanding >= 0.01) {
@@ -256,7 +257,7 @@ export default function OverdueItemsPage() {
               type: 'VENDOR_BILL',
               entityName: data.entityName || '',
               dueDate,
-              totalAmount: data.totalAmount || 0,
+              totalAmount: data.totalAmount ?? 0,
               outstandingAmount: outstanding,
               daysOverdue,
               status: data.status || '',
@@ -296,7 +297,7 @@ export default function OverdueItemsPage() {
           }
 
           // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
-          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+          const outstanding = deriveOutstanding(data);
 
           // Use >= 0.01 to exclude floating-point residues (e.g. 2.9e-11) left by payment arithmetic
           if (outstanding >= 0.01) {
@@ -306,7 +307,7 @@ export default function OverdueItemsPage() {
               type: 'CUSTOMER_INVOICE',
               entityName: data.entityName || '',
               dueDate,
-              totalAmount: data.totalAmount || 0,
+              totalAmount: data.totalAmount ?? 0,
               outstandingAmount: outstanding,
               daysOverdue,
               status: data.status || '',

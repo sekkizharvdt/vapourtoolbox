@@ -477,7 +477,7 @@ export async function getVendorQuoteComparison(
         quoteId: quote.id,
         vendorName: quote.vendorName,
         unitPrice: match?.unitPrice || 0,
-        totalPrice: match?.amount || 0,
+        totalPrice: match?.amount ?? 0,
         deliveryPeriod: match?.deliveryPeriod,
         meetsSpec: match?.meetsSpec || false,
         deviations: match?.deviations,

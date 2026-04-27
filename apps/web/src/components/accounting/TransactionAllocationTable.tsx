@@ -132,7 +132,7 @@ export function TransactionAllocationTable({
                   const allocation = allocations[index];
                   const transactionDate = toDate(transaction.date);
                   const transactionCurrency = transaction.currency || 'INR';
-                  const originalAmount = transaction.totalAmount || 0;
+                  const originalAmount = transaction.totalAmount ?? 0;
                   const isForexTransaction = transactionCurrency !== 'INR';
                   const isOpeningBalance = transaction.id === OPENING_BALANCE_ALLOCATION_ID;
 
@@ -188,7 +188,7 @@ export function TransactionAllocationTable({
                         <TextField
                           type="number"
                           size="small"
-                          value={allocation?.allocatedAmount || 0}
+                          value={allocation?.allocatedAmount ?? 0}
                           onChange={(e) =>
                             onAllocationChange(transaction.id!, parseFloat(e.target.value) || 0)
                           }
@@ -301,7 +301,7 @@ export function TransactionAllocationTable({
                   <TextField
                     type="number"
                     size="small"
-                    value={allocation?.allocatedAmount || 0}
+                    value={allocation?.allocatedAmount ?? 0}
                     onChange={(e) =>
                       onAllocationChange(transaction.id!, parseFloat(e.target.value) || 0)
                     }

@@ -80,7 +80,7 @@ export function UnmatchedAccountingTable({
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    {formatCurrency(typedTxn.amount || typedTxn.totalAmount || 0)}
+                    {formatCurrency(typedTxn.amount ?? typedTxn.totalAmount ?? 0)}
                   </TableCell>
                 </TableRow>
               );

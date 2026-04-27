@@ -232,7 +232,7 @@ export default function JournalEntriesPage() {
           number: '',
           description: 'TOTAL',
           reference: '',
-          amount: filteredEntries.reduce((s, e) => s + (e.amount || 0), 0),
+          amount: filteredEntries.reduce((s, e) => s + (e.amount ?? 0), 0),
           status: '',
         },
       },

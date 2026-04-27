@@ -35,6 +35,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 const CreateBillDialog = dynamic(
   () => import('../../bills/components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
@@ -153,15 +154,15 @@ export default function StalePaymentsPage() {
 
       invoices.forEach((d) => {
         const data = d.data();
-        addToEntityBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+        addToEntityBalance(data.entityId, getInrAmount(data));
       });
       bills.forEach((d) => {
         const data = d.data();
-        addToEntityBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+        addToEntityBalance(data.entityId, -getInrAmount(data));
       });
       payments.forEach((d) => {
         const data = d.data();
-        const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+        const amount = getInrAmount(data);
         addToEntityBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amount : amount);
       });
       journalEntries.forEach((d) => {

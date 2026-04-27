@@ -51,6 +51,7 @@ import {
   hardDeleteTransaction,
   getTransactionTypeLabel,
 } from '@/lib/accounting/transactionDeleteService';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 // Extended type to access soft-delete fields and entity info
 interface DeletedTransaction extends BaseTransaction {
@@ -282,7 +283,7 @@ export default function TrashPage() {
                   <TableCell>{txn.transactionNumber}</TableCell>
                   <TableCell>{txn.entityName || '-'}</TableCell>
                   <TableCell align="right">
-                    {formatCurrency(txn.totalAmount || txn.amount || 0, txn.currency || 'INR')}
+                    {formatCurrency(getInrAmount(txn), txn.currency || 'INR')}
                   </TableCell>
                   <TableCell>
                     <Chip

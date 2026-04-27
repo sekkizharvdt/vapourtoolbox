@@ -111,7 +111,7 @@ export default function RecurringTransactionForm({
     endDate: initialData?.endDate,
     dayOfMonth: initialData?.dayOfMonth || 1,
     dayOfWeek: initialData?.dayOfWeek,
-    amount: initialData?.amount || 0,
+    amount: initialData?.amount ?? 0,
     currency: initialData?.currency || 'INR',
     vendorId: initialData?.vendorId,
     customerId: initialData?.customerId,

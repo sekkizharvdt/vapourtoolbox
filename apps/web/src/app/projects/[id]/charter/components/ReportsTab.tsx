@@ -150,12 +150,12 @@ export function ReportsTab({ project }: ReportsTabProps) {
   const timeProgress = totalDuration > 0 ? ((elapsedDays / totalDuration) * 100).toFixed(1) : '0';
 
   // Budget stats
-  const estimated = project.budget?.estimated?.amount || 0;
-  const actual = project.budget?.actual?.amount || 0;
+  const estimated = project.budget?.estimated?.amount ?? 0;
+  const actual = project.budget?.actual?.amount ?? 0;
   const procurementCommitted =
     project.procurementItems?.reduce(
       (sum, item) =>
-        sum + (item.status !== 'CANCELLED' ? item.estimatedTotalPrice?.amount || 0 : 0),
+        sum + (item.status !== 'CANCELLED' ? (item.estimatedTotalPrice?.amount ?? 0) : 0),
       0
     ) || 0;
   const vendorCommitted =
@@ -163,7 +163,7 @@ export function ReportsTab({ project }: ReportsTabProps) {
       (sum, vendor) =>
         sum +
         (vendor.contractStatus === 'ACTIVE' || vendor.contractStatus === 'NEGOTIATION'
-          ? vendor.contractValue?.amount || 0
+          ? (vendor.contractValue?.amount ?? 0)
           : 0),
       0
     ) || 0;

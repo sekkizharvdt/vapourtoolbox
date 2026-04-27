@@ -158,7 +158,7 @@ export default function ProcurementDataHealthPage() {
         const data = doc.data();
         if (data.status === 'PENDING_APPROVAL') {
           posPendingCount++;
-          posPendingValue += data.grandTotal || 0;
+          posPendingValue += data.grandTotal ?? 0;
         }
       });
 
@@ -177,7 +177,7 @@ export default function ProcurementDataHealthPage() {
             (data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : null);
           if (expectedDate && expectedDate < now && data.deliveryProgress < 100) {
             overdueCount++;
-            overdueValue += data.grandTotal || 0;
+            overdueValue += data.grandTotal ?? 0;
           }
         }
       });

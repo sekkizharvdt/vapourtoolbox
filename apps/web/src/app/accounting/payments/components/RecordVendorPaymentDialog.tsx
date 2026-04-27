@@ -35,6 +35,7 @@ import {
 } from './vendor-payment';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
+import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
 
 interface RecordVendorPaymentDialogProps {
   open: boolean;
@@ -125,7 +126,7 @@ export function RecordVendorPaymentDialog({
           if ('isDeleted' in data && data.isDeleted) return;
           // Use outstandingAmount for partially paid bills, fallback to baseAmount (INR) for forex
           // Compute outstanding: prefer explicit outstandingAmount, fall back to total - amountPaid
-          const totalINR = data.baseAmount ?? data.totalAmount ?? 0;
+          const totalINR = getInrAmount(data);
           const amountPaid = (data as unknown as Record<string, number>).amountPaid ?? 0;
           const outstanding =
             data.outstandingAmount != null
@@ -166,7 +167,7 @@ export function RecordVendorPaymentDialog({
             const saved = savedMap.get(bill.id!);
             if (saved) {
               const currentOutstanding = bill.outstandingAmount ?? 0;
-              const billTotal = bill.baseAmount ?? bill.totalAmount ?? 0;
+              const billTotal = getInrAmount(bill);
               // Cap at bill total to prevent over-inflated outstanding when field was stale
               const effectiveOutstanding = Math.min(
                 billTotal,
@@ -208,7 +209,7 @@ export function RecordVendorPaymentDialog({
             const paymentAllocations = paymentDoc.data().billAllocations || [];
             for (const a of paymentAllocations) {
               if (a.invoiceId === OPENING_BALANCE_ALLOCATION_ID) {
-                alreadyAllocated += a.allocatedAmount || 0;
+                alreadyAllocated += a.allocatedAmount ?? 0;
               }
             }
           });
@@ -238,7 +239,7 @@ export function RecordVendorPaymentDialog({
 
         // Add real bill allocations
         for (const bill of bills) {
-          const outstanding = bill.outstandingAmount ?? bill.baseAmount ?? bill.totalAmount ?? 0;
+          const outstanding = deriveOutstanding(bill);
           allAllocations.push({
             invoiceId: bill.id!,
             invoiceNumber: bill.transactionNumber || '',
@@ -309,7 +310,7 @@ export function RecordVendorPaymentDialog({
         setPaymentDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setEntityId(editingPayment.entityId ?? null);
         setEntityName(editingPayment.entityName || '');
-        setAmount(editingPayment.totalAmount || 0);
+        setAmount(editingPayment.totalAmount ?? 0);
         setPaymentMethod(editingPayment.paymentMethod);
         setChequeNumber(editingPayment.chequeNumber || '');
         setUpiTransactionId(editingPayment.upiTransactionId || '');

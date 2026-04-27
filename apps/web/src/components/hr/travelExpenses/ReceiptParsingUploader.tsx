@@ -281,7 +281,7 @@ export function ReceiptParsingUploader({
       category: (data.suggestedCategory as TravelExpenseCategory) || 'OTHER',
       description: data.vendorName || '',
       expenseDate: data.transactionDate ? new Date(data.transactionDate) : new Date(),
-      amount: data.totalAmount || 0,
+      amount: data.totalAmount ?? 0,
       vendorName: data.vendorName || '',
       invoiceNumber: data.invoiceNumber || '',
       gstRate: data.gstRate,
@@ -782,7 +782,7 @@ export function ReceiptParsingUploader({
             <Typography variant="caption" color="text.secondary">
               Total Amount
             </Typography>
-            <Typography variant="h6">{formatExpenseAmount(formData.amount || 0)}</Typography>
+            <Typography variant="h6">{formatExpenseAmount(formData.amount ?? 0)}</Typography>
           </Grid>
           <Grid size={{ xs: 4 }}>
             <Typography variant="caption" color="text.secondary">

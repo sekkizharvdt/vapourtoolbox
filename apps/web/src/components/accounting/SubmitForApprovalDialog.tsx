@@ -163,7 +163,7 @@ export function SubmitForApprovalDialog({
                 Amount
               </Typography>
               <Typography variant="h6">
-                {formatCurrency(transaction.totalAmount || 0, transaction.currency || 'INR')}
+                {formatCurrency(transaction.totalAmount ?? 0, transaction.currency || 'INR')}
               </Typography>
             </Box>
           )}

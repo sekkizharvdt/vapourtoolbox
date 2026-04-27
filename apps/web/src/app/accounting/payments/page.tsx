@@ -315,7 +315,7 @@ export default function PaymentsPage() {
           number: p.transactionNumber || '',
           entity: p.entityName || '',
           method: p.paymentMethod || '',
-          amount: p.totalAmount || 0,
+          amount: p.totalAmount ?? 0,
           reference:
             p.paymentMethod === 'CHEQUE' && p.chequeNumber
               ? `Cheque #${p.chequeNumber}`
@@ -330,7 +330,7 @@ export default function PaymentsPage() {
           number: '',
           entity: 'TOTAL',
           method: '',
-          amount: filteredPayments.reduce((s, p) => s + (p.totalAmount || 0), 0),
+          amount: filteredPayments.reduce((s, p) => s + (p.totalAmount ?? 0), 0),
           reference: '',
           status: '',
         },
@@ -567,7 +567,7 @@ export default function PaymentsPage() {
                   <TableCell>{payment.transactionNumber}</TableCell>
                   <TableCell>{payment.entityName || '-'}</TableCell>
                   <TableCell>{payment.paymentMethod}</TableCell>
-                  <TableCell align="right">{formatCurrency(payment.totalAmount || 0)}</TableCell>
+                  <TableCell align="right">{formatCurrency(payment.totalAmount ?? 0)}</TableCell>
                   <TableCell>
                     {payment.paymentMethod === 'CHEQUE' && payment.chequeNumber
                       ? `Cheque #${payment.chequeNumber}`

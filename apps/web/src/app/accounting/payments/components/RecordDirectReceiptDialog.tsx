@@ -103,7 +103,7 @@ export function RecordDirectReceiptDialog({
         setRevenueAccountId(editingReceipt.revenueAccountId || null);
         setBankAccountId(editingReceipt.bankAccountId || null);
         setBankAccountName(editingReceipt.bankAccountName || '');
-        setAmount(editingReceipt.amount || 0);
+        setAmount(editingReceipt.amount ?? 0);
         setPaymentMethod(editingReceipt.paymentMethod || 'BANK_TRANSFER');
         setChequeNumber(editingReceipt.chequeNumber || '');
         setUpiTransactionId(editingReceipt.upiTransactionId || '');

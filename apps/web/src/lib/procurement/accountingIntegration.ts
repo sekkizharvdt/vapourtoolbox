@@ -34,6 +34,7 @@ import type {
   PaymentAllocation,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { deriveOutstanding, getInrAmount } from '@/lib/accounting/amountHelpers';
 
 const logger = createLogger({ context: 'accountingIntegration' });
 import { generateBillGLEntries, type BillGLInput } from '../accounting/glEntry';
@@ -568,7 +569,7 @@ export async function getGRNsPendingBilling(db: Firestore): Promise<GRNPendingBi
     return {
       gr,
       vendorName: po?.vendorName || '—',
-      poTotalAmount: po?.grandTotal || 0,
+      poTotalAmount: po?.grandTotal ?? 0,
       currency: po?.currency || 'INR',
     };
   });
@@ -756,9 +757,9 @@ export async function createPaymentFromApprovedReceipt(
       });
     }
 
-    // Calculate payment amount (outstanding amount from bill)
-    const outstandingAmount = bill.outstandingAmount || bill.totalAmount;
-    const billTotalAmount = bill.totalAmount || outstandingAmount;
+    // Calculate payment amount per rule #21 — derive outstanding from total - paid.
+    const outstandingAmount = deriveOutstanding(bill);
+    const billTotalAmount = getInrAmount(bill);
 
     // Generate transaction number
     const timestamp = Date.now();

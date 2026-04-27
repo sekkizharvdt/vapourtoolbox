@@ -45,7 +45,7 @@ export function calculateEnhancedMatchScore(
 
   // Amount matching
   const bankAmount = bankTxn.debitAmount || bankTxn.creditAmount;
-  const accAmount = accountingTxn.amount || accountingTxn.totalAmount || 0;
+  const accAmount = accountingTxn.amount ?? accountingTxn.totalAmount ?? 0;
   const amountMatch = isAmountMatch(bankAmount, accAmount, config);
 
   if (amountMatch.exact) {

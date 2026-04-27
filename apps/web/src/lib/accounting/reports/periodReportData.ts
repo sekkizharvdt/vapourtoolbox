@@ -13,6 +13,7 @@ import type { CustomerInvoice } from '@vapour/types';
 import { generateComparativeProfitLossReport, type ProfitLossReport } from './profitLoss';
 import { generateBalanceSheet, type BalanceSheetReport } from './balanceSheet';
 import { generateCashFlowStatement, type CashFlowStatement } from './cashFlow';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 /* ─── Period model ────────────────────────────────────────────── */
 
@@ -364,7 +365,7 @@ async function fetchProjectPerformance(
   for (const d of invSnap.docs) {
     const data = d.data() as Record<string, unknown> & { isDeleted?: boolean };
     if (data.isDeleted === true) continue;
-    const amount = Number(data.baseAmount ?? data.totalAmount ?? 0);
+    const amount = Number(getInrAmount(data as Parameters<typeof getInrAmount>[0]));
     if (amount <= 0.01) continue;
     totalRevenue += amount;
 
@@ -389,7 +390,7 @@ async function fetchProjectPerformance(
   for (const d of billSnap.docs) {
     const data = d.data() as Record<string, unknown> & { isDeleted?: boolean };
     if (data.isDeleted === true) continue;
-    const amount = Number(data.baseAmount ?? data.totalAmount ?? 0);
+    const amount = Number(getInrAmount(data as Parameters<typeof getInrAmount>[0]));
     if (amount <= 0.01) continue;
     totalBilled += amount;
 

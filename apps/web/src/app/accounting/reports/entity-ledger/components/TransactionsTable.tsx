@@ -23,6 +23,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { getTransactionTypeLabel, getTransactionTypeColor, getPaymentStatusColor } from './helpers';
 import type { EntityTransaction, AllocationRef } from './types';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 interface TransactionsTableProps {
   transactions: EntityTransaction[];
@@ -45,7 +46,7 @@ const TOTAL_COLUMNS = 9; // including expand column
  */
 function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number } {
   // Use baseAmount (INR) for foreign currency transactions, fall back to totalAmount for INR-only
-  const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
+  const amount = getInrAmount(txn);
 
   switch (txn.type) {
     case 'CUSTOMER_INVOICE':
@@ -84,7 +85,7 @@ function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number
  */
 function getBalanceImpact(txn: EntityTransaction): number {
   // Use baseAmount (INR) for foreign currency transactions
-  const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
+  const amount = getInrAmount(txn);
   switch (txn.type) {
     case 'CUSTOMER_INVOICE':
       return amount; // Customer owes us more
@@ -351,7 +352,7 @@ function AllocationDetail({
   if (isBillOrInvoice) {
     const appliedPayments = allocationMap?.get(txn.id!) || [];
     const totalAllocated = appliedPayments.reduce((sum, p) => sum + p.allocatedAmount, 0);
-    const totalAmount = txn.baseAmount || txn.totalAmount || 0;
+    const totalAmount = getInrAmount(txn);
 
     return (
       <Box sx={{ py: 1.5, px: 2, bgcolor: 'grey.50' }}>

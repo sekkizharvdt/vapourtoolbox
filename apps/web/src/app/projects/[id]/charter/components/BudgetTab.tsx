@@ -93,7 +93,7 @@ export function BudgetTab({ project }: BudgetTabProps) {
     // Procurement commitments
     const procurementCommitted = procurementItems.reduce((sum, item) => {
       if (item.status !== 'CANCELLED') {
-        return sum + (item.estimatedTotalPrice?.amount || 0);
+        return sum + (item.estimatedTotalPrice?.amount ?? 0);
       }
       return sum;
     }, 0);
@@ -101,7 +101,7 @@ export function BudgetTab({ project }: BudgetTabProps) {
     // Vendor contract values
     const vendorCommitted = vendors.reduce((sum, vendor) => {
       if (vendor.contractStatus === 'ACTIVE' || vendor.contractStatus === 'NEGOTIATION') {
-        return sum + (vendor.contractValue?.amount || 0);
+        return sum + (vendor.contractValue?.amount ?? 0);
       }
       return sum;
     }, 0);
@@ -116,10 +116,10 @@ export function BudgetTab({ project }: BudgetTabProps) {
   };
 
   const breakdown = calculateBudgetBreakdown();
-  const estimated = project.budget?.estimated?.amount || 0;
+  const estimated = project.budget?.estimated?.amount ?? 0;
   // Use calculated actual cost from transactions, fallback to manual entry
   const actual =
-    calculatedActualCost !== null ? calculatedActualCost : project.budget?.actual?.amount || 0;
+    calculatedActualCost !== null ? calculatedActualCost : (project.budget?.actual?.amount ?? 0);
   const totalSpent = actual;
   const totalCommitted = breakdown.totalCommitted;
   const totalUtilized = totalSpent + totalCommitted;

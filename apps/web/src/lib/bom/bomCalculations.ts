@@ -64,7 +64,7 @@ export async function calculateBoughtOutItemCost(
     const material = docToTyped<Material>(materialDoc.id, materialDoc.data());
 
     // Get material price
-    const materialPrice = material.currentPrice?.pricePerUnit.amount || 0;
+    const materialPrice = material.currentPrice?.pricePerUnit.amount ?? 0;
     const currency = material.currentPrice?.pricePerUnit.currency || 'INR';
 
     // For bought-out items:
@@ -347,7 +347,7 @@ export async function getMaterialPrice(db: Firestore, materialId: string): Promi
     }
 
     const material = materialDoc.data() as Material;
-    return material.currentPrice?.pricePerUnit.amount || 0;
+    return material.currentPrice?.pricePerUnit.amount ?? 0;
   } catch (error) {
     logger.error('Error getting material price', { materialId, error });
     return 0;

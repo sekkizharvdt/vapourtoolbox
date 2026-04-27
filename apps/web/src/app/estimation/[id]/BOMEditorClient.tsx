@@ -441,9 +441,9 @@ export default function BOMEditorClient() {
                                 <Typography variant="h6" color="primary">
                                   {formatCurrency({
                                     amount:
-                                      (item.cost.totalMaterialCost?.amount || 0) +
-                                      (item.cost.totalFabricationCost?.amount || 0) +
-                                      (item.cost.totalServiceCost?.amount || 0),
+                                      (item.cost.totalMaterialCost?.amount ?? 0) +
+                                      (item.cost.totalFabricationCost?.amount ?? 0) +
+                                      (item.cost.totalServiceCost?.amount ?? 0),
                                     currency: item.cost.totalMaterialCost.currency,
                                   })}
                                 </Typography>

@@ -38,6 +38,7 @@ import {
   useOutstandingInvoices,
 } from './customer-payment';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 interface RecordCustomerPaymentDialogProps {
   open: boolean;
@@ -116,7 +117,7 @@ export function RecordCustomerPaymentDialog({
         setAmount(String(editingPayment.totalAmount || ''));
         setCurrency(editingPayment.currency || 'INR');
         setExchangeRate(String(editingPayment.exchangeRate || '1'));
-        setBaseAmount(editingPayment.baseAmount || editingPayment.totalAmount || 0);
+        setBaseAmount(getInrAmount(editingPayment));
         setPaymentMethod(editingPayment.paymentMethod);
         setChequeNumber(editingPayment.chequeNumber || '');
         setUpiTransactionId(editingPayment.upiTransactionId || '');

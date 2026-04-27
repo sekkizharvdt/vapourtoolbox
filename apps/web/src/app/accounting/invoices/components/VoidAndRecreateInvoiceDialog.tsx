@@ -192,7 +192,7 @@ export function VoidAndRecreateInvoiceDialog({
               <strong>Customer:</strong> {invoice.entityName || 'Unknown'}
             </Typography>
             <Typography variant="body1">
-              <strong>Amount:</strong> {formatCurrency(invoice.totalAmount || 0)}
+              <strong>Amount:</strong> {formatCurrency(invoice.totalAmount ?? 0)}
             </Typography>
             <Typography variant="body1">
               <strong>Status:</strong> {invoice.status}

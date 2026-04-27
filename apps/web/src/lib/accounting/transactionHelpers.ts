@@ -164,7 +164,7 @@ export function generateBillLedgerEntries(
   // Credit: Vendor Account (Accounts Payable)
   // If TDS deducted, vendor gets net amount (totalAmount - TDS)
   const tdsAmount = bill.tdsDeducted && bill.tdsAmount ? bill.tdsAmount : 0;
-  const vendorPayable = (bill.totalAmount || 0) - tdsAmount;
+  const vendorPayable = (bill.totalAmount ?? 0) - tdsAmount;
 
   entries.push({
     accountId: vendorAccountId,

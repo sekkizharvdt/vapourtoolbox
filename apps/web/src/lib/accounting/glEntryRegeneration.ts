@@ -14,6 +14,7 @@ import {
   generateVendorPaymentGLEntries,
 } from './glEntry/generators';
 import type { PaymentGLInput } from './glEntry/types';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 interface RegenerationResult {
   success: boolean;
@@ -65,7 +66,7 @@ export async function regenerateCustomerPaymentGL(
 
     // Prepare input for GL generation
     const glInput: PaymentGLInput = {
-      amount: payment.totalAmount || payment.amount || 0,
+      amount: getInrAmount(payment),
       bankAccountId: bankAccountId,
       projectId: payment.projectId || payment.costCentreId,
     };
@@ -138,7 +139,7 @@ export async function regenerateVendorPaymentGL(
 
     // Prepare input for GL generation
     const glInput: PaymentGLInput = {
-      amount: payment.totalAmount || payment.amount || 0,
+      amount: getInrAmount(payment),
       bankAccountId: bankAccountId,
       projectId: payment.projectId || payment.costCentreId,
     };

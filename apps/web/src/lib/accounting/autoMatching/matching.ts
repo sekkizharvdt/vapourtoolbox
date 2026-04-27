@@ -111,7 +111,7 @@ export function findMultiTransactionMatches(
     const combinations = generateCombinations(candidates, size);
 
     for (const combo of combinations) {
-      const totalAmount = combo.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+      const totalAmount = combo.reduce((sum, t) => sum + (t.amount ?? t.totalAmount ?? 0), 0);
       const amountMatch = isAmountMatch(bankAmount, totalAmount, config);
 
       if (amountMatch.close) {

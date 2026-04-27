@@ -137,7 +137,7 @@ export const ProposalPDFDocument = ({
         const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
         const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
         const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
-        const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount || 0), 0);
+        const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0);
         const subtotal =
           costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
         const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
@@ -331,7 +331,7 @@ export const ProposalPDFDocument = ({
               <View key={row.id} style={local.costRow}>
                 <Text style={local.costLabel}>{row.description || '—'}</Text>
                 <Text style={local.costValue}>
-                  {sharedFormatCurrency(row.amount || 0, inrCurrency, {
+                  {sharedFormatCurrency(row.amount ?? 0, inrCurrency, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   })}

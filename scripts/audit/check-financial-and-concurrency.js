@@ -205,6 +205,12 @@ function analyseFile(filePath) {
   // Rule #21 — line-level amount fallback patterns.
   lines.forEach((line, idx) => {
     if (/^\s*(\/\/|\*)/.test(line)) return; // skip comments
+    // Inline exemption marker (same line OR a comment on the immediately
+    // preceding line carries `rule21-exempt`). Lets one comment cover a
+    // multi-line expression and keeps trailing-comment usage clean.
+    if (/\brule21-exempt\b/.test(line)) return;
+    const prev = idx > 0 ? lines[idx - 1] : '';
+    if (/^\s*(\/\/|\*).*\brule21-exempt\b/.test(prev)) return;
     if (AMOUNT_FALLBACK_RE.test(line)) {
       violations.rule21.push({
         file: rel,

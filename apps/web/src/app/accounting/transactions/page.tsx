@@ -55,6 +55,7 @@ import {
   matchesFiscalYear,
 } from '@/components/accounting/FiscalYearFilter';
 import { useRouter } from 'next/navigation';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -196,7 +197,7 @@ export default function TransactionsPage() {
           entity: ('entityName' in txn ? (txn as { entityName?: string }).entityName : '') || '',
           description: txn.description || '',
           reference: txn.reference || '',
-          amount: txn.baseAmount || txn.amount || 0,
+          amount: getInrAmount(txn),
           status: txn.status,
         })),
         summary: {
@@ -206,7 +207,7 @@ export default function TransactionsPage() {
           entity: 'TOTAL',
           description: '',
           reference: '',
-          amount: filteredTransactions.reduce((s, t) => s + (t.baseAmount || t.amount || 0), 0),
+          amount: filteredTransactions.reduce((s, t) => s + getInrAmount(t), 0),
           status: '',
         },
       },
@@ -429,7 +430,7 @@ export default function TransactionsPage() {
         <Typography variant="body2" color="text.secondary">
           Total (INR):{' '}
           {formatCurrency(
-            filteredTransactions.reduce((sum, txn) => sum + (txn.baseAmount || txn.amount), 0),
+            filteredTransactions.reduce((sum, txn) => sum + getInrAmount(txn), 0),
             'INR'
           )}
         </Typography>

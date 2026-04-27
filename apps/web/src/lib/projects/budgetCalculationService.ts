@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 const logger = createLogger({ context: 'budgetCalculationService' });
 
@@ -77,7 +78,7 @@ export async function calculateProjectBudgetActualCosts(
       if (transaction.isDeleted) return;
 
       const budgetLineItemId = transaction.budgetLineItemId as string | undefined;
-      const amount = transaction.totalAmount || transaction.amount || 0;
+      const amount = getInrAmount(transaction);
 
       // Skip transactions not linked to a budget line item
       if (!budgetLineItemId) {
@@ -189,7 +190,7 @@ export async function calculateBudgetLineItemActualCost(
     transactionsSnapshot.forEach((doc) => {
       const transaction = doc.data() as DocumentData;
       if (transaction.isDeleted) return;
-      const amount = transaction.totalAmount || transaction.amount || 0;
+      const amount = getInrAmount(transaction);
       actualCost += amount;
     });
 

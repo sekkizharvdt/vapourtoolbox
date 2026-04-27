@@ -39,6 +39,7 @@ import { httpsCallable } from 'firebase/functions';
 import { COLLECTIONS } from '@vapour/firebase';
 import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
 
 interface DataHealthStats {
   unappliedPayments: { count: number; total: number };
@@ -171,17 +172,17 @@ export default function DataHealthPage() {
             ? data.invoiceAllocations || []
             : data.billAllocations || [];
         const hasAllocations = allocations.some(
-          (a: { allocatedAmount?: number }) => (a.allocatedAmount || 0) > 0
+          (a: { allocatedAmount?: number }) => (a.allocatedAmount ?? 0) > 0
         );
         if (!hasAllocations) {
           if (data.isAdvance === true) {
             // Intentional advance — informational only, does not affect health score
             advancesCount++;
-            advancesTotal += data.totalAmount || data.amount || 0;
+            advancesTotal += getInrAmount(data);
           } else {
             // Unintentionally unapplied — counts as a data issue
             unappliedCount++;
-            unappliedTotal += data.totalAmount || data.amount || 0;
+            unappliedTotal += getInrAmount(data);
             transactionsWithIssues.add(doc.id);
           }
         }
@@ -245,7 +246,7 @@ export default function DataHealthPage() {
       // so we can skip items where the entity's net position is zero.
       const staleCandidates = [...bills, ...invoices].map((d) => {
         const data = d.data();
-        const totalINR = data.baseAmount || data.totalAmount || 0;
+        const totalINR = getInrAmount(data);
         const correctPaid = allocationMap.get(d.id) ?? 0;
         const currentPaid = data.amountPaid ?? 0;
         const currentStatus = data.paymentStatus ?? 'UNPAID';
@@ -274,15 +275,15 @@ export default function DataHealthPage() {
       };
       invoices.forEach((doc) => {
         const data = doc.data();
-        addToEntityBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+        addToEntityBalance(data.entityId, getInrAmount(data));
       });
       bills.forEach((doc) => {
         const data = doc.data();
-        addToEntityBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+        addToEntityBalance(data.entityId, -getInrAmount(data));
       });
       payments.forEach((doc) => {
         const data = doc.data();
-        const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+        const amount = getInrAmount(data);
         addToEntityBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amount : amount);
       });
       journalEntries.forEach((doc) => {
@@ -366,8 +367,7 @@ export default function DataHealthPage() {
                 if (transactionType === 'VENDOR_BILL' && entityBalance >= 0) return;
               }
               // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
-              const outstanding =
-                data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+              const outstanding = deriveOutstanding(data);
               if (outstanding > 0) {
                 overdueCount++;
                 overdueTotal += outstanding;

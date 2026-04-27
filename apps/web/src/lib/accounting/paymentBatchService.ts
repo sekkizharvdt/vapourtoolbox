@@ -587,12 +587,12 @@ export async function updateBatchPayment(
       ...updates,
       id: existingPayment.id, // Ensure id is always present
       entityName: updates.entityName || existingPayment.entityName,
-      amount: updates.amount || existingPayment.amount,
+      amount: updates.amount ?? existingPayment.amount,
       currency: updates.currency || existingPayment.currency,
       status: existingPayment.status,
       netPayable:
         updates.tdsAmount !== undefined
-          ? (updates.amount || existingPayment.amount) - updates.tdsAmount
+          ? (updates.amount ?? existingPayment.amount) - updates.tdsAmount
           : updates.amount
             ? updates.amount - (existingPayment.tdsAmount || 0)
             : existingPayment.netPayable,

@@ -78,6 +78,7 @@ import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 // Lazy load heavy dialog components
 const CreateInvoiceDialog = dynamic(
@@ -161,20 +162,17 @@ export default function InvoicesPage() {
   // Calculate stats - always in INR (base currency)
   const stats = useMemo(() => {
     const activeInvoices = invoices;
-    const totalInvoiced = activeInvoices.reduce(
-      (sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0),
-      0
-    );
+    const totalInvoiced = activeInvoices.reduce((sum, inv) => sum + getInrAmount(inv), 0);
     const outstanding = activeInvoices
       .filter((inv) => inv.paymentStatus !== 'PAID' && inv.status !== 'DRAFT')
-      .reduce((sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0), 0);
+      .reduce((sum, inv) => sum + getInrAmount(inv), 0);
     const overdue = activeInvoices
       .filter((inv) => {
         if (inv.paymentStatus !== 'UNPAID' || !inv.dueDate) return false;
         const dueDate = toDate(inv.dueDate);
         return dueDate && dueDate < new Date();
       })
-      .reduce((sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0), 0);
+      .reduce((sum, inv) => sum + getInrAmount(inv), 0);
 
     return { totalInvoiced, outstanding, overdue };
   }, [invoices]);
@@ -348,7 +346,7 @@ export default function InvoicesPage() {
           description: inv.description || '',
           subtotal: inv.subtotal || 0,
           gst: inv.gstDetails?.totalGST || inv.taxAmount || 0,
-          total: inv.baseAmount || inv.totalAmount || 0,
+          total: getInrAmount(inv),
           currency: inv.currency || 'INR',
           status: inv.status,
         })),
@@ -362,7 +360,7 @@ export default function InvoicesPage() {
             (s, i) => s + (i.gstDetails?.totalGST || i.taxAmount || 0),
             0
           ),
-          total: filteredInvoices.reduce((s, i) => s + (i.baseAmount || i.totalAmount || 0), 0),
+          total: filteredInvoices.reduce((s, i) => s + getInrAmount(i), 0),
           currency: '',
           status: '',
         },
@@ -560,9 +558,9 @@ export default function InvoicesPage() {
                     </TableCell>
                     <TableCell align="right">
                       <DualCurrencyAmount
-                        foreignAmount={invoice.totalAmount || 0}
+                        foreignAmount={invoice.totalAmount ?? 0}
                         foreignCurrency={invoice.currency || 'INR'}
-                        baseAmount={invoice.baseAmount || invoice.totalAmount || 0}
+                        baseAmount={getInrAmount(invoice)}
                         exchangeRate={invoice.exchangeRate}
                         size="small"
                       />
@@ -745,9 +743,9 @@ export default function InvoicesPage() {
                       {formatDate(invoice.date)}
                     </Typography>
                     <DualCurrencyAmount
-                      foreignAmount={invoice.totalAmount || 0}
+                      foreignAmount={invoice.totalAmount ?? 0}
                       foreignCurrency={invoice.currency || 'INR'}
-                      baseAmount={invoice.baseAmount || invoice.totalAmount || 0}
+                      baseAmount={getInrAmount(invoice)}
                       exchangeRate={invoice.exchangeRate}
                       size="small"
                     />

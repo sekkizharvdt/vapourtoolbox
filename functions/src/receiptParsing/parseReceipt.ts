@@ -708,8 +708,9 @@ async function processReceiptWithDocumentAI(
     }
   }
 
-  // Merge entity data with regex data (entity data takes precedence)
-  const finalTotalAmount = entityData.totalAmount ?? amounts.totalAmount;
+  // Merge entity data with regex data (entity data takes precedence).
+  // Receipt-parsing extraction priority: structured Document AI first, regex fallback.
+  const finalTotalAmount = entityData.totalAmount ?? amounts.totalAmount; // rule21-exempt
   const finalTaxableAmount = entityData.taxableAmount ?? amounts.taxableAmount;
   const finalVendorName = entityData.vendorName ?? invoiceDetails.vendorName;
   const finalInvoiceNumber = entityData.invoiceNumber ?? invoiceDetails.invoiceNumber;

@@ -261,6 +261,7 @@ export function CreateBillDialog({
         ...(sourcePoNumber && { sourcePoNumber }),
         // Payment tracking - preserve existing values on edit, initialize on create
         paidAmount: editingBill?.paidAmount ?? 0,
+        // rule21-exempt: edit-form pre-fill — preserve cached outstanding on edit, default to total on create.
         outstandingAmount: editingBill?.outstandingAmount ?? totalAmount,
         paymentStatus: editingBill?.paymentStatus ?? 'UNPAID',
       };

@@ -43,6 +43,7 @@ import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { RecordCustomerPaymentDialog } from '../../payments/components/RecordCustomerPaymentDialog';
 import { RecordVendorPaymentDialog } from '../../payments/components/RecordVendorPaymentDialog';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 type AdvancePayment = (CustomerPayment | VendorPayment) & {
   id: string;
@@ -177,10 +178,7 @@ export default function AdvancesPage() {
     fetchAdvances();
   };
 
-  const totalAmount = filteredAdvances.reduce(
-    (sum, p) => sum + (p.totalAmount || p.amount || 0),
-    0
-  );
+  const totalAmount = filteredAdvances.reduce((sum, p) => sum + getInrAmount(p), 0);
   const customerCount = filteredAdvances.filter((p) => p.paymentType === 'customer').length;
   const vendorCount = filteredAdvances.filter((p) => p.paymentType === 'vendor').length;
 
@@ -321,7 +319,7 @@ export default function AdvancesPage() {
                         fontWeight="medium"
                         color={advance.paymentType === 'customer' ? 'success.main' : 'error.main'}
                       >
-                        {formatCurrency(advance.totalAmount || advance.amount || 0, 'INR')}
+                        {formatCurrency(getInrAmount(advance), 'INR')}
                       </Typography>
                     </TableCell>
                     <TableCell>

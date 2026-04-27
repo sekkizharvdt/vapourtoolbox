@@ -71,7 +71,7 @@ export async function generateGSTR1(
         customerGSTIN: invoice.customerGSTIN || '',
         placeOfSupply: '', // Not in current schema
         reverseCharge: false,
-        invoiceValue: invoice.totalAmount || 0,
+        invoiceValue: invoice.totalAmount ?? 0,
         taxableValue: invoice.subtotal || 0,
         cgst: gst.cgst,
         sgst: gst.sgst,
@@ -93,7 +93,7 @@ export async function generateGSTR1(
         invoiceNumber: invoice.transactionNumber || doc.id,
         invoiceDate,
         placeOfSupply: '', // Not in current schema
-        invoiceValue: invoice.totalAmount || 0,
+        invoiceValue: invoice.totalAmount ?? 0,
         taxableValue: invoice.subtotal || 0,
         gstRate,
         cgst: gst.cgst,
@@ -222,7 +222,7 @@ export async function generateGSTR2(
       vendorGSTIN: bill.vendorGSTIN || '',
       placeOfSupply: '', // Not in current schema
       reverseCharge: isReverseCharge,
-      billValue: bill.totalAmount || 0,
+      billValue: bill.totalAmount ?? 0,
       taxableValue: bill.subtotal || 0,
       cgst: gst.cgst,
       sgst: gst.sgst,

@@ -147,7 +147,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
     const overheadAmount = round2((costBasis * (pricing.overheadPercent || 0)) / 100);
     const contingencyAmount = round2((costBasis * (pricing.contingencyPercent || 0)) / 100);
     const profitAmount = round2((costBasis * (pricing.profitPercent || 0)) / 100);
-    const lumpSumTotal = round2(pricing.lumpSumLines.reduce((s, r) => s + (r.amount || 0), 0));
+    const lumpSumTotal = round2(pricing.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0));
     const subtotal = round2(
       costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal
     );
@@ -492,7 +492,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
             <Row
               key={r.id}
               label={r.description || '(unnamed lump sum)'}
-              value={formatMoney(r.amount || 0, inrCurrency)}
+              value={formatMoney(r.amount ?? 0, inrCurrency)}
             />
           ))}
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />

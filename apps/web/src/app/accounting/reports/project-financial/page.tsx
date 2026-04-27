@@ -123,7 +123,7 @@ export default function ProjectFinancialReportPage() {
         transactions.push(transaction);
 
         // Calculate revenue and expenses based on transaction type
-        const amount = data.amount || 0;
+        const amount = data.amount ?? 0;
         if (data.type === 'CUSTOMER_INVOICE' || data.type === 'CUSTOMER_PAYMENT') {
           revenue += amount;
         } else if (data.type === 'VENDOR_BILL' || data.type === 'VENDOR_PAYMENT') {
@@ -426,7 +426,7 @@ export default function ProjectFinancialReportPage() {
                           <TableCell>{transaction.description || '-'}</TableCell>
                           <TableCell align="right">
                             {formatCurrency(
-                              transaction.amount || 0,
+                              transaction.amount ?? 0,
                               transaction.currency || financials.budgetCurrency
                             )}
                           </TableCell>

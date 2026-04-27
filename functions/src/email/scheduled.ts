@@ -11,6 +11,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
+import { getInrAmount, deriveOutstanding } from '../utils/amountHelpers';
 
 interface ScheduleConfig {
   frequency: 'daily' | 'weekly' | 'monthly';
@@ -97,17 +98,17 @@ export const checkOverdueItemsAndNotify = onSchedule(
       invoicesSnap.docs.forEach((d) => {
         if (d.data().isDeleted) return;
         const data = d.data();
-        addBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+        addBalance(data.entityId, getInrAmount(data));
       });
       billsSnap.docs.forEach((d) => {
         if (d.data().isDeleted) return;
         const data = d.data();
-        addBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+        addBalance(data.entityId, -getInrAmount(data));
       });
       paymentsSnap.docs.forEach((d) => {
         if (d.data().isDeleted) return;
         const data = d.data();
-        const amt = data.baseAmount || data.totalAmount || data.amount || 0;
+        const amt = getInrAmount(data);
         addBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amt : amt);
       });
       journalSnap.docs.forEach((d) => {
@@ -159,7 +160,7 @@ export const checkOverdueItemsAndNotify = onSchedule(
             if (balance >= 0) return;
           }
 
-          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+          const outstanding = deriveOutstanding(data);
           if (outstanding < 0.01) return; // Skip floating-point residues
 
           overdueBills.push({

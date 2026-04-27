@@ -36,6 +36,7 @@ import type {
   PaymentRiskStatus,
 } from '@vapour/types';
 import { getUpcomingOccurrences } from './recurringTransactionService';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 // Re-export CashFlowSummary for consumers
 export type { CashFlowSummary } from '@vapour/types';
@@ -210,7 +211,7 @@ async function getOutstandingInvoices(
     const data = docSnap.data();
     if (data.isDeleted) continue; // Skip soft-deleted transactions
     const dueDate = data.dueDate?.toDate?.() ?? data.date?.toDate?.();
-    const amount = (data.totalAmount ?? data.amount ?? 0) - (data.paidAmount ?? 0);
+    const amount = getInrAmount(data) - (data.paidAmount ?? 0);
 
     if (amount <= 0) continue;
 
@@ -261,7 +262,7 @@ async function getOutstandingBills(
     const data = docSnap.data();
     if (data.isDeleted) continue; // Skip soft-deleted transactions
     const dueDate = data.dueDate?.toDate?.() ?? data.date?.toDate?.();
-    const amount = (data.totalAmount ?? data.amount ?? 0) - (data.paidAmount ?? 0);
+    const amount = getInrAmount(data) - (data.paidAmount ?? 0);
 
     if (amount <= 0) continue;
 

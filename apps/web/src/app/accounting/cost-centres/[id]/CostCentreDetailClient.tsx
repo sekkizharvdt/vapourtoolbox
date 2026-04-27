@@ -45,6 +45,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { CostCentre, BaseTransaction, CustomerInvoice, PurchaseOrder } from '@vapour/types';
 import CostCentreDialog from '../components/CostCentreDialog';
+import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
 
 // Lazy load table components
 const InvoicesTable = lazy(() =>
@@ -270,7 +271,7 @@ export default function CostCentreDetailClient() {
   const invoiceTotals = invoices.reduce(
     (acc, inv) => {
       // Use baseAmount (INR) for foreign currency invoices, fallback to totalAmount for INR-only
-      const amount = inv.baseAmount || inv.totalAmount || inv.amount || 0;
+      const amount = getInrAmount(inv);
       acc['INR'] = (acc['INR'] || 0) + amount;
       return acc;
     },
@@ -280,7 +281,7 @@ export default function CostCentreDetailClient() {
   const paymentTotals = payments.reduce(
     (acc, pay) => {
       const currency = pay.currency || 'INR';
-      acc[currency] = (acc[currency] || 0) + (pay.amount || 0);
+      acc[currency] = (acc[currency] || 0) + (pay.amount ?? 0);
       return acc;
     },
     {} as Record<string, number>
@@ -288,12 +289,9 @@ export default function CostCentreDetailClient() {
 
   const billTotals = bills.reduce(
     (acc, bill) => {
-      // Use baseAmount (INR) for foreign currency bills, fallback to totalAmount for INR-only
-      const amount =
-        bill.baseAmount ||
-        (bill as unknown as { totalAmount?: number }).totalAmount ||
-        bill.amount ||
-        0;
+      // Funnel through getInrAmount() per rule #21; legacy `bill` shape may
+      // not declare baseAmount/totalAmount as typed fields.
+      const amount = getInrAmount(bill as unknown as Parameters<typeof getInrAmount>[0]);
       acc['INR'] = (acc['INR'] || 0) + amount;
       return acc;
     },
@@ -303,7 +301,7 @@ export default function CostCentreDetailClient() {
   const poTotals = purchaseOrders.reduce(
     (acc, po) => {
       const currency = po.currency || 'INR';
-      acc[currency] = (acc[currency] || 0) + (po.grandTotal || 0);
+      acc[currency] = (acc[currency] || 0) + (po.grandTotal ?? 0);
       return acc;
     },
     {} as Record<string, number>
@@ -313,15 +311,10 @@ export default function CostCentreDetailClient() {
   // outstandingAmount is maintained in INR when payments are recorded
   const vendorOutstandingTotals = bills.reduce(
     (acc, bill) => {
-      // Outstanding is always tracked in INR
-      const outstanding = (bill as unknown as { outstandingAmount?: number }).outstandingAmount;
-      const baseAmount = (bill as unknown as { baseAmount?: number }).baseAmount;
-      const totalAmount =
-        (bill as unknown as { totalAmount?: number }).totalAmount || bill.amount || 0;
-      const paidAmount = (bill as unknown as { paidAmount?: number }).paidAmount || 0;
-      // Use outstandingAmount (INR), fallback to baseAmount (INR for forex), then totalAmount - paidAmount
-      const outstandingValue =
-        outstanding !== undefined ? outstanding : (baseAmount ?? totalAmount) - paidAmount;
+      // Per rule #21 — derive outstanding via the centralized helper.
+      const outstandingValue = deriveOutstanding(
+        bill as unknown as Parameters<typeof deriveOutstanding>[0]
+      );
       acc['INR'] = (acc['INR'] || 0) + outstandingValue;
       return acc;
     },
@@ -332,14 +325,10 @@ export default function CostCentreDetailClient() {
   // outstandingAmount is maintained in INR when payments are recorded
   const customerOutstandingTotals = invoices.reduce(
     (acc, inv) => {
-      // Outstanding is always tracked in INR
-      const outstanding = (inv as unknown as { outstandingAmount?: number }).outstandingAmount;
-      const baseAmount = (inv as unknown as { baseAmount?: number }).baseAmount;
-      const totalAmount = inv.totalAmount || inv.amount || 0;
-      const paidAmount = (inv as unknown as { paidAmount?: number }).paidAmount || 0;
-      // Use outstandingAmount (INR), fallback to baseAmount (INR for forex), then totalAmount - paidAmount
-      const outstandingValue =
-        outstanding !== undefined ? outstanding : (baseAmount ?? totalAmount) - paidAmount;
+      // Per rule #21 — derive outstanding via the centralized helper.
+      const outstandingValue = deriveOutstanding(
+        inv as unknown as Parameters<typeof deriveOutstanding>[0]
+      );
       acc['INR'] = (acc['INR'] || 0) + outstandingValue;
       return acc;
     },

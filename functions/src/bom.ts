@@ -39,18 +39,18 @@ export const onBOMItemWrite = onDocumentWritten(
     // Add new values
     if (newData) {
       deltaWeight += newData.calculatedProperties?.totalWeight || 0;
-      deltaMaterialCost += newData.cost?.totalMaterialCost?.amount || 0;
-      deltaFabricationCost += newData.cost?.totalFabricationCost?.amount || 0;
-      deltaServiceCost += newData.cost?.totalServiceCost?.amount || 0;
+      deltaMaterialCost += newData.cost?.totalMaterialCost?.amount ?? 0;
+      deltaFabricationCost += newData.cost?.totalFabricationCost?.amount ?? 0;
+      deltaServiceCost += newData.cost?.totalServiceCost?.amount ?? 0;
       deltaItemCount += 1;
     }
 
     // Subtract old values
     if (oldData) {
       deltaWeight -= oldData.calculatedProperties?.totalWeight || 0;
-      deltaMaterialCost -= oldData.cost?.totalMaterialCost?.amount || 0;
-      deltaFabricationCost -= oldData.cost?.totalFabricationCost?.amount || 0;
-      deltaServiceCost -= oldData.cost?.totalServiceCost?.amount || 0;
+      deltaMaterialCost -= oldData.cost?.totalMaterialCost?.amount ?? 0;
+      deltaFabricationCost -= oldData.cost?.totalFabricationCost?.amount ?? 0;
+      deltaServiceCost -= oldData.cost?.totalServiceCost?.amount ?? 0;
       deltaItemCount -= 1;
     }
 

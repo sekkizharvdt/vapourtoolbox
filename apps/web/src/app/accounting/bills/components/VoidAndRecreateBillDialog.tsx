@@ -186,7 +186,7 @@ export function VoidAndRecreateBillDialog({ open, onClose, bill }: VoidAndRecrea
               <strong>Vendor:</strong> {bill.entityName || 'Unknown'}
             </Typography>
             <Typography variant="body1">
-              <strong>Amount:</strong> {formatCurrency(bill.totalAmount || 0)}
+              <strong>Amount:</strong> {formatCurrency(bill.totalAmount ?? 0)}
             </Typography>
             <Typography variant="body1">
               <strong>Status:</strong> {bill.status}

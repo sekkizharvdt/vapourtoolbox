@@ -82,6 +82,7 @@ import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 // Lazy load heavy dialog components
 const CreateBillDialog = dynamic(
@@ -178,19 +179,16 @@ export default function BillsPage() {
 
   // Calculate stats - always in INR (base currency)
   const stats = useMemo(() => {
-    const totalBilled = bills.reduce(
-      (sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0),
-      0
-    );
+    const totalBilled = bills.reduce((sum, bill) => sum + getInrAmount(bill), 0);
     const outstanding = bills
       .filter((bill) => bill.paymentStatus !== 'PAID' && bill.status !== 'DRAFT')
-      .reduce((sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0), 0);
+      .reduce((sum, bill) => sum + getInrAmount(bill), 0);
     const overdue = bills
       .filter(
         (bill) =>
           bill.paymentStatus === 'UNPAID' && bill.dueDate && new Date(bill.dueDate) < new Date()
       )
-      .reduce((sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0), 0);
+      .reduce((sum, bill) => sum + getInrAmount(bill), 0);
 
     return { totalBilled, outstanding, overdue };
   }, [bills]);
@@ -233,10 +231,7 @@ export default function BillsPage() {
   const monthTotals = useMemo(() => {
     const subtotal = filteredBills.reduce((sum, bill) => sum + (bill.subtotal || 0), 0);
     const gst = filteredBills.reduce((sum, bill) => sum + (bill.gstDetails?.totalGST || 0), 0);
-    const total = filteredBills.reduce(
-      (sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0),
-      0
-    );
+    const total = filteredBills.reduce((sum, bill) => sum + getInrAmount(bill), 0);
     const tds = filteredBills.reduce(
       (sum, bill) => sum + (bill.tdsDeducted ? bill.tdsAmount || 0 : 0),
       0
@@ -426,7 +421,7 @@ export default function BillsPage() {
           subtotal: bill.subtotal || 0,
           gst: bill.gstDetails?.totalGST || 0,
           tds: bill.tdsDeducted ? bill.tdsAmount || 0 : 0,
-          total: bill.baseAmount || bill.totalAmount || 0,
+          total: getInrAmount(bill),
           status: bill.status,
         })),
         summary: {
@@ -710,9 +705,9 @@ export default function BillsPage() {
                   </TableCell>
                   <TableCell align="right">
                     <DualCurrencyAmount
-                      foreignAmount={bill.totalAmount || 0}
+                      foreignAmount={bill.totalAmount ?? 0}
                       foreignCurrency={bill.currency || 'INR'}
-                      baseAmount={bill.baseAmount || bill.totalAmount || 0}
+                      baseAmount={getInrAmount(bill)}
                       exchangeRate={bill.exchangeRate}
                       size="small"
                     />
@@ -907,9 +902,9 @@ export default function BillsPage() {
                       {bill.sourcePoNumber ? ` · PO ${bill.sourcePoNumber}` : ''}
                     </Typography>
                     <DualCurrencyAmount
-                      foreignAmount={bill.totalAmount || 0}
+                      foreignAmount={bill.totalAmount ?? 0}
                       foreignCurrency={bill.currency || 'INR'}
-                      baseAmount={bill.baseAmount || bill.totalAmount || 0}
+                      baseAmount={getInrAmount(bill)}
                       exchangeRate={bill.exchangeRate}
                       size="small"
                     />

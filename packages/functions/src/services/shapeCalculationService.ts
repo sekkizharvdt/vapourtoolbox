@@ -286,7 +286,7 @@ export async function calculateShape(input: CalculationInput): Promise<Calculati
     // Note: This uses material.currentPrice which reflects the most recent price.
     // It does not account for quantity-based price breaks, date-specific pricing,
     // or supplier-specific rates. For procurement pricing, use the procurement service.
-    const pricePerKg = material.currentPrice?.pricePerUnit?.amount || 0;
+    const pricePerKg = material.currentPrice?.pricePerUnit?.amount ?? 0;
     const materialCost = weight ? weight * pricePerKg : 0;
 
     const fabricationCosts = calculateFabricationCosts(

@@ -46,6 +46,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { regeneratePaymentGL } from '@/lib/accounting/glEntryRegeneration';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 const RecordCustomerPaymentDialog = dynamic(
   () =>
@@ -479,7 +480,7 @@ export default function MissingGLEntriesPage() {
                           payment.paymentType === 'CUSTOMER_PAYMENT' ? 'success.main' : 'error.main'
                         }
                       >
-                        {formatCurrency(payment.totalAmount || payment.amount || 0, 'INR')}
+                        {formatCurrency(getInrAmount(payment), 'INR')}
                       </Typography>
                     </TableCell>
                     <TableCell>

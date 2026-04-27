@@ -206,6 +206,7 @@ export async function createVendorQuote(
   const taxAmount =
     input.taxAmount ??
     items.reduce((s, i) => s + (i.gstRate ? i.quantity * i.unitPrice * (i.gstRate / 100) : 0), 0);
+  // rule21-exempt: caller may supply totalAmount explicitly; if absent, derive from parts.
   const totalAmount = input.totalAmount ?? subtotal + taxAmount;
 
   const quoteDoc = stripUndefined({

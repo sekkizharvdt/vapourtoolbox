@@ -71,7 +71,7 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
   const perimeter = formulaResults.perimeter?.result;
 
   // Calculate individual cost components
-  const basePrice = material.currentPrice?.pricePerUnit.amount || 0;
+  const basePrice = material.currentPrice?.pricePerUnit.amount ?? 0;
   const materialCost = weight * basePrice; // Finished weight cost
 
   // Calculate scrap weight and costs
@@ -137,7 +137,7 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
     materialId: material.id,
     materialName: material.name,
     materialDensity: density,
-    materialPricePerKg: material.currentPrice?.pricePerUnit.amount || 0,
+    materialPricePerKg: material.currentPrice?.pricePerUnit.amount ?? 0,
 
     // Parameter values
     parameterValues: Object.entries(parameterValues).map(([name, value]) => {

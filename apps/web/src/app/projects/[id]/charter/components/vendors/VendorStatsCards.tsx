@@ -13,7 +13,7 @@ export function VendorStatsCards({ vendors }: VendorStatsCardsProps) {
     active: vendors.filter((v) => v.contractStatus === 'ACTIVE').length,
     negotiation: vendors.filter((v) => v.contractStatus === 'NEGOTIATION').length,
     completed: vendors.filter((v) => v.contractStatus === 'COMPLETED').length,
-    totalValue: vendors.reduce((sum, v) => sum + (v.contractValue?.amount || 0), 0),
+    totalValue: vendors.reduce((sum, v) => sum + (v.contractValue?.amount ?? 0), 0),
   };
 
   return (

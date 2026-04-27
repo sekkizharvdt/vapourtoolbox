@@ -102,7 +102,7 @@ export function RecordDirectPaymentDialog({
         setPaymentDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setExpenseAccountId(editingPayment.expenseAccountId || null);
         setBankAccountId(editingPayment.bankAccountId || null);
-        setAmount(editingPayment.amount || 0);
+        setAmount(editingPayment.amount ?? 0);
         setPaymentMethod(editingPayment.paymentMethod || 'BANK_TRANSFER');
         setChequeNumber(editingPayment.chequeNumber || '');
         setUpiTransactionId(editingPayment.upiTransactionId || '');
