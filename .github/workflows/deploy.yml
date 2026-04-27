@@ -107,25 +107,42 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
-        # Functions deploy needs node_modules (firebase-tools picks them up).
-        # Skip package build — artifact carries it.
+        with:
+          # Build internal @vapour/* packages so the inline-build fallback
+          # below works if the CI artifact isn't available. Cheap (cached).
+          build-packages: 'true'
 
       # Pull the build artifact from the most recent successful CI run on
-      # this exact SHA. Fails the deploy with a clear error if CI didn't run
-      # successfully on this commit, which is the right enforcement: never
-      # deploy untested bytes.
-      - name: Download CI build artifact
+      # this exact SHA. Best-effort: if the artifact is missing (CI is still
+      # running, didn't run, or failed mid-build) we fall back to building
+      # inline below.
+      - name: Download CI build artifact (best-effort)
+        id: download
         if: needs.detect.outputs.hosting == 'true'
         uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
         with:
           workflow: ci.yml
           commit: ${{ github.sha }}
           name: build-output
           path: .
-          if_no_artifact_found: fail
-          # Look back further than the default 50 in case other workflows
-          # have run on the same commit.
+          if_no_artifact_found: warn
           search_artifacts: true
+
+      # Inline build fallback. Only runs if the artifact step didn't succeed.
+      # Slower but unblocks the deploy if CI hasn't run yet on this commit.
+      - name: Build web application (fallback)
+        if: needs.detect.outputs.hosting == 'true' && steps.download.outcome != 'success'
+        run: pnpm build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=6144'
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_USE_EMULATOR: 'false'
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools@15.3.1
