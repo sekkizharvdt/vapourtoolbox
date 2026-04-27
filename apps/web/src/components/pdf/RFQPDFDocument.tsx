@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { Document, Text, View, Link, StyleSheet } from '@react-pdf/renderer';
+import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { RFQPDFData } from '@vapour/types';
 import {
   ReportPage,
@@ -119,11 +119,6 @@ const local = StyleSheet.create({
   attachmentHeader: {
     fontWeight: 'bold',
     fontSize: 8,
-  },
-  attachmentLink: {
-    fontSize: 8,
-    color: REPORT_THEME.primary,
-    textDecoration: 'underline',
   },
 });
 
@@ -342,13 +337,14 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
       <ReportPage>
         {watermark && <Watermark text={watermark} />}
 
-        {/* Supporting Documents */}
+        {/* Supporting Documents — filenames only.
+            The actual files are delivered alongside the PDF inside the RFQ ZIP
+            bundle, so the PDF never carries hyperlinks (no signed-URL leakage,
+            and the document stays consistent however it's shared). */}
         {rfq.attachments && rfq.attachments.length > 0 && (
           <>
             <Text style={local.sectionTitle}>SUPPORTING DOCUMENTS</Text>
-            <Text style={local.attachmentHint}>
-              Click the file name to download. Links are valid for the duration of this RFQ.
-            </Text>
+            <Text style={local.attachmentHint}>The following files are bundled with this RFQ.</Text>
             <View style={local.attachmentList}>
               {/* Header row */}
               <View style={local.attachmentHeaderRow}>
@@ -365,13 +361,7 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
               {rfq.attachments.map((a, i) => (
                 <View key={i} style={local.attachmentRow}>
                   <View style={[local.attachmentCell, { width: '45%' }]}>
-                    {a.publicUrl ? (
-                      <Link src={a.publicUrl} style={local.attachmentLink}>
-                        {a.fileName}
-                      </Link>
-                    ) : (
-                      <Text>{a.fileName}</Text>
-                    )}
+                    <Text>{a.fileName}</Text>
                   </View>
                   <Text style={[local.attachmentCell, { width: '20%' }]}>{a.attachmentType}</Text>
                   <Text style={[local.attachmentCell, { width: '35%' }]}>

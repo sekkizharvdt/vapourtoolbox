@@ -37,6 +37,8 @@ import {
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
   PictureAsPdf as PdfIcon,
+  Archive as ArchiveIcon,
+  AttachFile as AttachFileIcon,
   Home as HomeIcon,
   Upload as UploadIcon,
   Compare as CompareIcon,
@@ -45,6 +47,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ, RFQItem } from '@vapour/types';
 import { getRFQById, getRFQItems, issueRFQ, cancelRFQ } from '@/lib/procurement/rfq';
+import { downloadRFQZip } from '@/lib/procurement/rfq/rfqZipService';
+import { getFirebase } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import {
   getRFQStatusText,
   getRFQStatusColor,
@@ -78,6 +84,19 @@ export default function RFQDetailPage() {
   const [items, setItems] = useState<RFQItem[]>([]);
   const [error, setError] = useState<string>('');
   const [rfqId, setRfqId] = useState<string | null>(null);
+
+  // PR attachments carried forward from the source PR(s) — listed here so
+  // procurement can sanity-check what vendors will receive in the RFQ ZIP.
+  const [attachments, setAttachments] = useState<
+    Array<{
+      id: string;
+      fileName: string;
+      attachmentType: string;
+      description?: string;
+      storagePath: string;
+    }>
+  >([]);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   // Dialogs
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
@@ -132,11 +151,73 @@ export default function RFQDetailPage() {
 
       setRfq(rfqData);
       setItems(itemsData);
+
+      // Load PR attachments across every source PR. Worth surfacing on the
+      // detail page so users can see what's bundled into the RFQ ZIP without
+      // having to open each PR separately.
+      try {
+        const { db } = getFirebase();
+        const found: typeof attachments = [];
+        for (const prId of rfqData.purchaseRequestIds || []) {
+          const snap = await getDocs(
+            query(
+              collection(db, 'purchaseRequestAttachments'),
+              where('purchaseRequestId', '==', prId)
+            )
+          );
+          for (const d of snap.docs) {
+            const data = d.data();
+            if (data.storagePath) {
+              found.push({
+                id: d.id,
+                fileName: data.fileName || 'attachment',
+                attachmentType: data.attachmentType || 'OTHER',
+                description: data.description,
+                storagePath: data.storagePath,
+              });
+            }
+          }
+        }
+        setAttachments(found);
+      } catch (attachErr) {
+        console.warn('[RFQDetailPage] Failed to load PR attachments', attachErr);
+      }
+
       setLoading(false);
     } catch (err) {
       console.error('[RFQDetailPage] Error loading RFQ:', err);
       setError('Failed to load RFQ');
       setLoading(false);
+    }
+  };
+
+  const handleOpenAttachment = async (path: string) => {
+    try {
+      const { storage } = getFirebase();
+      const url = await getDownloadURL(storageRef(storage, path));
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('[RFQDetailPage] Failed to open attachment', err);
+      setError('Failed to open attachment.');
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    if (!rfq?.latestPdfUrl) return;
+    setDownloadingZip(true);
+    setError('');
+    try {
+      const { db, storage } = getFirebase();
+      await downloadRFQZip(db, storage, {
+        rfqNumber: rfq.number,
+        pdfUrl: rfq.latestPdfUrl,
+        purchaseRequestIds: rfq.purchaseRequestIds || [],
+      });
+    } catch (err) {
+      console.error('[RFQDetailPage] Failed to build ZIP', err);
+      setError(err instanceof Error ? err.message : 'Failed to build ZIP bundle.');
+    } finally {
+      setDownloadingZip(false);
     }
   };
 
@@ -319,6 +400,19 @@ export default function RFQDetailPage() {
                 Download Latest PDF
               </Button>
             )}
+            {rfq.latestPdfUrl && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={
+                  downloadingZip ? <CircularProgress size={16} color="inherit" /> : <ArchiveIcon />
+                }
+                onClick={handleDownloadZip}
+                disabled={downloadingZip}
+              >
+                {downloadingZip ? 'Building ZIP…' : 'Download as ZIP'}
+              </Button>
+            )}
           </Stack>
         </Stack>
 
@@ -494,6 +588,53 @@ export default function RFQDetailPage() {
               </TableBody>
             </Table>
           </TableContainer>
+        </Paper>
+
+        {/* Attachments — files carried forward from the source PR(s).
+            These are also bundled into the RFQ ZIP for vendor delivery. */}
+        <Paper sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <AttachFileIcon color="primary" />
+            <Typography variant="h6">Attachments ({attachments.length})</Typography>
+          </Stack>
+          <Divider sx={{ mb: 2 }} />
+          {attachments.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No attachments on the source purchase request(s).
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>File</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Description</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {attachments.map((a) => (
+                    <TableRow key={a.id} hover>
+                      <TableCell>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => handleOpenAttachment(a.storagePath)}
+                          sx={{ textTransform: 'none', p: 0, justifyContent: 'flex-start' }}
+                        >
+                          {a.fileName}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={a.attachmentType} size="small" variant="outlined" />
+                      </TableCell>
+                      <TableCell>{a.description || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Paper>
 
         {/* Audit Trail */}

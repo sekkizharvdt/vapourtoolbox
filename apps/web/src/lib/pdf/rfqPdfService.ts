@@ -255,7 +255,11 @@ function preparePDFData(
 ): RFQPDFData {
   return {
     rfqNumber: rfq.number,
-    issueDate: formatTimestamp(rfq.issueDate) || formatTimestamp(Timestamp.now()),
+    // RFQ.issueDate is only set when status transitions to ISSUED. For PDFs
+    // generated against a DRAFT RFQ (vendor preview), fall back to today.
+    // Direct `||` doesn't work — formatTimestamp(undefined) returns 'N/A'
+    // (truthy), so the fallback never fires.
+    issueDate: rfq.issueDate ? formatTimestamp(rfq.issueDate) : formatTimestamp(Timestamp.now()),
     dueDate: formatTimestamp(rfq.dueDate),
     validityPeriod: rfq.validityPeriod ? `${rfq.validityPeriod} days` : '30 Days',
     generatedAt: new Date().toLocaleString('en-IN'),
