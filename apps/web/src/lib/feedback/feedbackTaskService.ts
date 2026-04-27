@@ -153,6 +153,7 @@ export async function closeFeedbackFromTask(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule18-exempt: workflow nudge from task auto-completion
   try {
     const feedbackRef = doc(db, COLLECTIONS.FEEDBACK, feedbackId);
     const feedbackSnap = await getDoc(feedbackRef);

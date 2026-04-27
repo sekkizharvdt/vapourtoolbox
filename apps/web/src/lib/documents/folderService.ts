@@ -494,6 +494,7 @@ export async function renameFolder(folderId: string, newName: string): Promise<v
  * Delete a folder (soft delete)
  */
 export async function deleteFolder(folderId: string, userId: string): Promise<void> {
+  // rule18-exempt: UI folder organization, no business state change
   const { db } = getFirebase();
 
   await updateDoc(doc(db, COLLECTIONS.DOCUMENT_FOLDERS, folderId), {

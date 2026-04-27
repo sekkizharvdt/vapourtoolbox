@@ -236,6 +236,7 @@ export async function approveTravelExpenseReport(
   approvedAmount?: number,
   comments?: string
 ): Promise<void> {
+  // rule18-exempt: writes approval record onto travel-expense doc (domain audit)
   const { db } = getFirebase();
 
   try {
@@ -332,6 +333,7 @@ export async function rejectTravelExpenseReport(
   approverName: string,
   rejectionReason: string
 ): Promise<void> {
+  // rule18-exempt: writes rejection record onto travel-expense doc (domain audit)
   const { db } = getFirebase();
 
   if (!rejectionReason || rejectionReason.trim().length === 0) {

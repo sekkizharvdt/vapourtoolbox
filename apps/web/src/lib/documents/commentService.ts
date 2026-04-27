@@ -210,6 +210,7 @@ export async function approveCommentResolution(
   db: Firestore,
   request: ApproveResolutionRequest
 ): Promise<void> {
+  // rule18-exempt: writes pmApprovedBy/At/Remarks onto comment (domain audit)
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
 
   // Prevent self-approval — PM approver must differ from the resolver.
@@ -253,6 +254,7 @@ export async function rejectCommentResolution(
   db: Firestore,
   request: RejectResolutionRequest
 ): Promise<void> {
+  // rule18-exempt: writes pmRejectedBy/Remarks onto comment (domain audit)
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
 
   // Prevent self-rejection — PM rejecter must differ from the resolver.

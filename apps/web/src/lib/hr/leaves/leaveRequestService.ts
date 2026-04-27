@@ -573,6 +573,7 @@ export async function updateLeaveRequest(
  * Only allowed for DRAFT status
  */
 export async function deleteLeaveRequest(requestId: string, userId: string): Promise<void> {
+  // rule18-exempt: user deletes their own draft request
   const { db } = getFirebase();
 
   try {

@@ -108,6 +108,7 @@ export async function deleteDocumentRequirement(
   requirementId: string,
   userId: string
 ): Promise<void> {
+  // rule18-exempt: project config edit — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
 
   try {

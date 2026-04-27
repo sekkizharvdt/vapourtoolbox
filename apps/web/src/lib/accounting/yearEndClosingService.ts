@@ -908,7 +908,9 @@ export async function createClosingJournalEntry(
     doubleEntryValidatedAt: Timestamp.now(),
   };
 
-  // Use setDoc instead of transaction since the calling functions manage their own workflow
+  // Use setDoc instead of transaction since the calling functions manage their own workflow.
+  // Note: COLLECTIONS.TRANSACTIONS is single-tenant per CLAUDE.md rule #1, so tenantId
+  // is not on the document.
   const { setDoc } = await import('firebase/firestore');
   await setDoc(journalEntryRef, journalEntryData);
 
@@ -940,6 +942,16 @@ export async function voidClosingJournalEntry(
   });
 
   logger.info('Provisional closing JE voided', { journalId });
+
+  await logAuditEvent(
+    db,
+    createAuditContext(userId, '', ''),
+    'CLOSING_VOIDED',
+    'YEAR_END_CLOSING',
+    journalId,
+    `Provisional closing journal entry voided`,
+    { severity: 'WARNING' }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }
 
 /**

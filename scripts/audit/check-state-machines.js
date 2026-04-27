@@ -226,11 +226,16 @@ function analyseFile(filePath) {
     const setsStatus = STATUS_LITERAL_RE.test(fn.body);
     const comparesStatus = STATUS_COMPARE_RE.test(fn.body);
     const hasValidTransition = REQUIRE_VALID_TRANSITION_RE.test(fn.body);
+    // `// rule18-exempt:<reason>` skips the audit-log requirement for this
+    // function (used for user-private deletes / low-impact workflow nudges).
+    const hasRule18Exempt = /\brule18-exempt\b/.test(fn.body);
+    // `// rule8-exempt:<reason>` skips the state-machine requirement.
+    const hasRule8Exempt = /\brule8-exempt\b/.test(fn.body);
     const hasAuditLog = AUDIT_LOG_RE.test(fn.body);
     const isSensitiveName = SENSITIVE_NAME_RE.test(fn.name);
 
     // Rule #8: status mutation without requireValidTransition.
-    if (writes && setsStatus && !hasValidTransition && fn.isExported) {
+    if (writes && setsStatus && !hasValidTransition && fn.isExported && !hasRule8Exempt) {
       violations.rule8.push({
         file: rel,
         line: fn.lineNumber,
@@ -241,7 +246,14 @@ function analyseFile(filePath) {
     }
 
     // Rule #8b: ad-hoc state machine = compares status AND writes, no validation.
-    if (writes && comparesStatus && !hasValidTransition && !setsStatus && fn.isExported) {
+    if (
+      writes &&
+      comparesStatus &&
+      !hasValidTransition &&
+      !setsStatus &&
+      fn.isExported &&
+      !hasRule8Exempt
+    ) {
       violations.rule8.push({
         file: rel,
         line: fn.lineNumber,
@@ -251,7 +263,7 @@ function analyseFile(filePath) {
     }
 
     // Rule #18: sensitive operations without an audit log call.
-    if (isSensitiveName && writes && !hasAuditLog && fn.isExported) {
+    if (isSensitiveName && writes && !hasAuditLog && fn.isExported && !hasRule18Exempt) {
       violations.rule18.push({
         file: rel,
         line: fn.lineNumber,

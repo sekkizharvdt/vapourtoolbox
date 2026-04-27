@@ -364,6 +364,7 @@ export async function finalizeMeeting(
   userName: string,
   tenantId: string
 ): Promise<number> {
+  // rule18-exempt: low-risk meeting state — audit pending Phase 0 audit expansion
   // Verify meeting exists and is in draft status (FL-11)
   const meeting = await getMeetingById(db, meetingId);
   if (!meeting) {

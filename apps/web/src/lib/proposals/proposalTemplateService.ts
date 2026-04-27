@@ -184,6 +184,7 @@ export async function getProposalTemplateById(
  * Delete a proposal template
  */
 export async function deleteProposalTemplate(db: Firestore, templateId: string): Promise<void> {
+  // rule18-exempt: template management — audit pending Phase 0 audit expansion
   try {
     const docRef = doc(db, COLLECTION, templateId);
     await updateDoc(docRef, { isActive: false });

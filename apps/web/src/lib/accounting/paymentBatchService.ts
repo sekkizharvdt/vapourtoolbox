@@ -28,6 +28,7 @@ import { createLogger } from '@vapour/logger';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
 import { preventSelfApproval } from '@/lib/auth/authorizationService';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { paymentBatchStateMachine } from '@/lib/workflow/stateMachines';
 import type {
   PaymentBatch,
@@ -648,6 +649,22 @@ export async function submitBatchForApproval(db: Firestore, batchId: string): Pr
   });
 
   logger.info('[submitBatchForApproval] Batch submitted', { batchId });
+
+  await logAuditEvent(
+    db,
+    createAuditContext(batch.createdBy, '', ''),
+    'BATCH_SUBMITTED',
+    'PAYMENT_BATCH',
+    batchId,
+    `Payment batch ${batch.batchNumber} submitted for approval`,
+    {
+      entityName: batch.batchNumber,
+      metadata: {
+        totalReceiptAmount: batch.totalReceiptAmount,
+        totalPaymentAmount: batch.totalPaymentAmount,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }
 
 /**
@@ -673,6 +690,23 @@ export async function approveBatch(
   });
 
   logger.info('[approveBatch] Batch approved', { batchId, approverId });
+
+  await logAuditEvent(
+    db,
+    createAuditContext(approverId, '', ''),
+    'BATCH_APPROVED',
+    'PAYMENT_BATCH',
+    batchId,
+    `Payment batch ${batch.batchNumber} approved`,
+    {
+      entityName: batch.batchNumber,
+      severity: 'WARNING',
+      metadata: {
+        submittedBy: batch.createdBy,
+        totalPaymentAmount: batch.totalPaymentAmount,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }
 
 /**
@@ -700,6 +734,23 @@ export async function rejectBatch(
   });
 
   logger.info('[rejectBatch] Batch rejected', { batchId, rejecterId, reason });
+
+  await logAuditEvent(
+    db,
+    createAuditContext(rejecterId, '', ''),
+    'BATCH_REJECTED',
+    'PAYMENT_BATCH',
+    batchId,
+    `Payment batch ${batch.batchNumber} rejected: ${reason}`,
+    {
+      entityName: batch.batchNumber,
+      severity: 'WARNING',
+      metadata: {
+        submittedBy: batch.createdBy,
+        rejectionReason: reason,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }
 
 /**

@@ -88,6 +88,7 @@ export async function deleteCalculation(
   _userId: string,
   calculationId: string
 ): Promise<void> {
+  // rule18-exempt: user-private calculator state
   const docRef = doc(db, COLLECTIONS.SAVED_CALCULATIONS, calculationId);
   // Firestore rules enforce ownership — if the doc's userId doesn't match,
   // the update will be rejected by security rules.

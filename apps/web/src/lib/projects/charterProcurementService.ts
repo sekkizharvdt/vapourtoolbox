@@ -124,6 +124,7 @@ export async function deleteProcurementItem(
   itemId: string,
   userId: string
 ): Promise<void> {
+  // rule18-exempt: project config edit — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
 
   try {
@@ -183,12 +184,20 @@ export async function createPRFromCharterItem(
     const batch = writeBatch(db);
     const now = Timestamp.now();
 
+    // Resolve tenantId from the parent project (firestore.rules require it on
+    // create for purchaseRequests).
+    const parentProjectSnap = await getDoc(doc(db, COLLECTIONS.PROJECTS, projectId));
+    const tenantId = (
+      parentProjectSnap.exists() ? parentProjectSnap.data()?.tenantId : ''
+    ) as string;
+
     // Generate PR number
     const prNumber = await generatePRNumber();
 
     // Create PR document
     const prData = {
       number: prNumber,
+      tenantId,
 
       // Classification
       type: 'CAPEX' as const,

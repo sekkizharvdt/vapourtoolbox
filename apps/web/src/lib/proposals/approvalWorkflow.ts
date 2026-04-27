@@ -17,6 +17,7 @@ import {
 } from '@/lib/tasks/taskNotificationService';
 import { getProposalApprovers } from './userHelpers';
 import { requirePermission, preventSelfApproval } from '@/lib/auth';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { proposalStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'proposalApproval' });
@@ -90,6 +91,16 @@ export async function submitProposalForApproval(
     }
 
     logger.info('Proposal submitted for approval', { proposalId, userId });
+
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'PROPOSAL_SUBMITTED',
+      'PROPOSAL',
+      proposalId,
+      `Proposal ${proposal.proposalNumber} submitted for approval`,
+      { entityName: proposal.proposalNumber }
+    ).catch((err) => logger.error('Failed to log audit event', { error: err }));
   } catch (error) {
     logger.error('Error submitting proposal', { proposalId, error });
     throw error;
@@ -186,6 +197,20 @@ export async function approveProposal(
     }
 
     logger.info('Proposal approved', { proposalId, userId });
+
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'PROPOSAL_APPROVED',
+      'PROPOSAL',
+      proposalId,
+      `Proposal ${proposal.proposalNumber} approved`,
+      {
+        entityName: proposal.proposalNumber,
+        severity: 'WARNING',
+        metadata: { submittedBy: proposal.submittedByUserId, comments },
+      }
+    ).catch((err) => logger.error('Failed to log audit event', { error: err }));
   } catch (error) {
     logger.error('Error approving proposal', { proposalId, error });
     throw error;
@@ -280,6 +305,20 @@ export async function rejectProposal(
     }
 
     logger.info('Proposal rejected', { proposalId, userId });
+
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'PROPOSAL_REJECTED',
+      'PROPOSAL',
+      proposalId,
+      `Proposal ${proposal.proposalNumber} rejected: ${comments}`,
+      {
+        entityName: proposal.proposalNumber,
+        severity: 'WARNING',
+        metadata: { submittedBy: proposal.submittedByUserId, comments },
+      }
+    ).catch((err) => logger.error('Failed to log audit event', { error: err }));
   } catch (error) {
     logger.error('Error rejecting proposal', { proposalId, error });
     throw error;

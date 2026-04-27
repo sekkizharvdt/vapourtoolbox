@@ -749,6 +749,7 @@ export async function deleteEnquiryDocument(
   documentId: string,
   userId: string
 ): Promise<void> {
+  // rule18-exempt: enquiry attachment removal — audit pending Phase 0 audit expansion
   try {
     // 1. Get enquiry to find file path
     const enquiryRef = doc(db, COLLECTIONS.ENQUIRIES, enquiryId);

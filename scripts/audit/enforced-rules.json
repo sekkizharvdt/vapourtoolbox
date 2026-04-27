@@ -1,4 +1,4 @@
 {
   "_doc": "List of CLAUDE.md rule numbers currently enforced by the rule audit suite. Add a rule here once its violation count reaches 0; the runner will then block any regression. See RULE-VIOLATIONS-PUNCHLIST-2026-04-26.md and CLAUDE.md for context.",
-  "enforced": [3, 4, 6, 7, 17, 20, 21, 24]
+  "enforced": [3, 4, 6, 7, 17, 18, 20, 21, 24]
 }

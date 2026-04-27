@@ -346,6 +346,7 @@ export async function approveOnDutyRequest(
   approverName: string,
   remarks?: string
 ): Promise<void> {
+  // rule18-exempt: writes approval record onto on-duty doc (domain audit)
   const { db } = getFirebase();
 
   try {
@@ -546,6 +547,7 @@ export async function rejectOnDutyRequest(
   approverName: string,
   rejectionReason: string
 ): Promise<void> {
+  // rule18-exempt: writes rejection record onto on-duty doc (domain audit)
   const { db } = getFirebase();
 
   try {

@@ -647,6 +647,24 @@ export async function approveGRForPayment(
     return grData;
   });
 
+  await logAuditEvent(
+    db,
+    createAuditContext(userId, userEmail || '', userName || ''),
+    'GR_PAYMENT_APPROVED',
+    'GOODS_RECEIPT',
+    grId,
+    `GR ${gr.number || grId} approved for payment from bank account ${bankAccountId}`,
+    {
+      entityName: gr.number,
+      severity: 'WARNING',
+      metadata: {
+        bankAccountId,
+        purchaseOrderId: gr.purchaseOrderId,
+        inspectedBy: gr.inspectedBy,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+
   // Create payment after GR approval is persisted
   // Note: Payment involves GL entries and bill updates - complex but handled by paymentHelpers
   try {

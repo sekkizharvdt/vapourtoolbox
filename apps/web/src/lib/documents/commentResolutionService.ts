@@ -99,6 +99,7 @@ export async function approveCommentResolution(
     pmRemarks?: string;
   }
 ): Promise<void> {
+  // rule18-exempt: writes pmApprovedBy/At/Remarks onto comment (domain audit)
   const docRef = doc(getDb(), 'projects', projectId, 'documentComments', commentId);
 
   // Prevent self-approval — PM approver must differ from the resolver.

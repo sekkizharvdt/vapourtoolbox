@@ -159,6 +159,7 @@ export async function submitAmendmentForApproval(
   ipAddress?: string,
   userAgent?: string
 ): Promise<void> {
+  // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   try {
     const amendmentRef = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId);
 
@@ -233,6 +234,7 @@ export async function approveAmendment(
   userAgent?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   // Authorization check (PR-4)
   if (userPermissions !== undefined) {
     requirePermission(
@@ -367,6 +369,7 @@ export async function rejectAmendment(
   userAgent?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   // Authorization check (PR-4)
   if (userPermissions !== undefined) {
     requirePermission(

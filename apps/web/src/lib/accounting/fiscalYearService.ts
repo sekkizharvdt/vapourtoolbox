@@ -210,6 +210,7 @@ export async function closePeriod(
   tenantId: string,
   notes?: string
 ): Promise<void> {
+  // rule18-exempt: writes to PERIOD_LOCK_AUDIT (domain-specific audit trail).
   const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
   if (!existing) {
@@ -278,6 +279,7 @@ export async function lockPeriod(
   tenantId: string,
   reason: string
 ): Promise<void> {
+  // rule18-exempt: writes to PERIOD_LOCK_AUDIT (domain-specific audit trail).
   const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
   if (!existing) {
@@ -323,6 +325,7 @@ export async function reopenPeriod(
   tenantId: string,
   reason: string
 ): Promise<void> {
+  // rule18-exempt: writes to PERIOD_LOCK_AUDIT (domain-specific audit trail).
   const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
   if (!existing) {

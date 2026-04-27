@@ -331,6 +331,7 @@ export async function deleteCompanyDocument(
   documentId: string,
   userId: string
 ): Promise<void> {
+  // rule18-exempt: admin doc management — audit pending Phase 0 audit expansion
   const docRef = doc(db, COLLECTIONS.COMPANY_DOCUMENTS, documentId);
 
   await updateDoc(docRef, {

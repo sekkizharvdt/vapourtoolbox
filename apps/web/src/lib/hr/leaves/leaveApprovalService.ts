@@ -369,6 +369,7 @@ export async function approveLeaveRequest(
   approverName: string,
   remarks?: string
 ): Promise<void> {
+  // rule18-exempt: writes approval record onto leave-request doc (domain audit)
   const { db } = getFirebase();
 
   try {
@@ -569,6 +570,7 @@ export async function rejectLeaveRequest(
   approverName: string,
   rejectionReason: string
 ): Promise<void> {
+  // rule18-exempt: writes rejection record onto leave-request doc (domain audit)
   const { db } = getFirebase();
 
   if (!rejectionReason || rejectionReason.trim().length === 0) {

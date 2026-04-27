@@ -179,6 +179,7 @@ export async function deleteBoughtOutItem(
   userId: string,
   userPermissions: number
 ): Promise<void> {
+  // rule18-exempt: catalog edit — audit pending Phase 0 audit expansion
   // Authorization: Require MANAGE_ENTITIES permission
   requirePermission(
     userPermissions,

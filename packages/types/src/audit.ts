@@ -193,7 +193,37 @@ export type AuditAction =
   // Invitation
   | 'INVITATION_SENT'
   | 'INVITATION_ACCEPTED'
-  | 'INVITATION_REJECTED';
+  | 'INVITATION_REJECTED'
+  // Payment batches
+  | 'BATCH_SUBMITTED'
+  | 'BATCH_APPROVED'
+  | 'BATCH_REJECTED'
+  // Period / closing
+  | 'PERIOD_REOPENED'
+  | 'CLOSING_VOIDED'
+  // Procurement (extras)
+  | 'GR_PAYMENT_APPROVED'
+  | 'AMENDMENT_SUBMITTED'
+  | 'AMENDMENT_APPROVED'
+  | 'AMENDMENT_REJECTED'
+  // HR workflows
+  | 'TRAVEL_EXPENSE_APPROVED'
+  | 'TRAVEL_EXPENSE_REJECTED'
+  | 'ON_DUTY_APPROVED'
+  | 'ON_DUTY_REJECTED'
+  | 'LEAVE_APPROVED'
+  | 'LEAVE_REJECTED'
+  | 'HOLIDAY_DELETED'
+  // Documents (extras)
+  | 'COMMENT_REJECTED'
+  | 'COMPANY_DOCUMENT_DELETED'
+  | 'DOCUMENT_REQUIREMENT_DELETED'
+  // Project / catalog
+  | 'PROCUREMENT_ITEM_DELETED'
+  | 'BOUGHT_OUT_ITEM_DELETED'
+  // Proposals (extras)
+  | 'PROPOSAL_TEMPLATE_DELETED'
+  | 'ENQUIRY_DOCUMENT_DELETED';
 
 /**
  * Entity types that can be audited
@@ -250,10 +280,23 @@ export type AuditEntityType =
   | 'BOUGHT_OUT_ITEM'
   // Proposals
   | 'PROPOSAL'
+  | 'PROPOSAL_TEMPLATE'
   | 'ENQUIRY'
+  | 'ENQUIRY_DOCUMENT'
   // Tasks
   | 'TASK_NOTIFICATION'
-  | 'TIME_ENTRY';
+  | 'TIME_ENTRY'
+  // Accounting (extras)
+  | 'PAYMENT_BATCH'
+  // HR
+  | 'TRAVEL_EXPENSE'
+  | 'LEAVE_REQUEST'
+  | 'ON_DUTY_REQUEST'
+  | 'HOLIDAY'
+  // Documents / projects (extras)
+  | 'COMPANY_DOCUMENT'
+  | 'DOCUMENT_REQUIREMENT'
+  | 'PROJECT_PROCUREMENT_ITEM';
 
 /**
  * Audit log severity levels

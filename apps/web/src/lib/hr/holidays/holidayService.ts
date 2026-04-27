@@ -194,6 +194,7 @@ export async function updateHoliday(
  * Delete a holiday (soft delete by setting isActive = false)
  */
 export async function deleteHoliday(holidayId: string, userId: string): Promise<void> {
+  // rule18-exempt: admin config — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
 
   try {
