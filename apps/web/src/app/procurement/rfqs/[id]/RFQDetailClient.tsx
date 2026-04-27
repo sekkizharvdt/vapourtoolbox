@@ -33,7 +33,6 @@ import {
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Edit as EditIcon,
-  Send as SendIcon,
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
   PictureAsPdf as PdfIcon,
@@ -326,10 +325,10 @@ export default function RFQDetailPage() {
             {canIssueRFQ(rfq) && (
               <Button
                 variant="contained"
-                startIcon={<SendIcon />}
+                startIcon={<CheckCircleIcon />}
                 onClick={() => setIssueDialogOpen(true)}
               >
-                Issue RFQ
+                Mark as Sent
               </Button>
             )}
             {canReceiveOffers(rfq) && (
@@ -680,22 +679,24 @@ export default function RFQDetailPage() {
         </Paper>
       </Stack>
 
-      {/* Issue Dialog */}
+      {/* Mark as Sent Dialog */}
       <Dialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)}>
-        <DialogTitle>Issue RFQ</DialogTitle>
+        <DialogTitle>Mark RFQ as Sent</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to issue this RFQ to {rfq.vendorIds.length} vendor(s)?
+            Confirm that you have already sent this RFQ to {rfq.vendorIds.length} vendor(s) outside
+            the toolbox (email, WhatsApp, etc.).
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            This will generate a PDF and mark the RFQ as issued. You will need to manually send the
-            PDF to vendors.
+            The toolbox does not email vendors directly. Marking it sent locks editing on most
+            fields, records the issue date, and lets vendors&apos; offers be uploaded against this
+            RFQ.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIssueDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleIssueRFQ}>
-            Issue RFQ
+            Mark as Sent
           </Button>
         </DialogActions>
       </Dialog>
