@@ -346,6 +346,11 @@ export interface Enquiry extends TimestampFields {
   // a reason, links BOMs, etc.).
   requestedScope?: UnifiedScopeMatrix;
 
+  // Set when the user has at least once visited the scope-triage screen and
+  // saved. Drives the "Review parsed scope" banner on the enquiry detail.
+  scopeReviewedAt?: Timestamp;
+  scopeReviewedBy?: string;
+
   // Audit
   createdBy: string;
   updatedBy: string;
@@ -411,6 +416,8 @@ export interface UpdateEnquiryInput {
   status?: EnquiryStatus;
   conditions?: EnquiryCondition[];
   requestedScope?: UnifiedScopeMatrix;
+  scopeReviewedAt?: Timestamp;
+  scopeReviewedBy?: string;
 }
 
 /**

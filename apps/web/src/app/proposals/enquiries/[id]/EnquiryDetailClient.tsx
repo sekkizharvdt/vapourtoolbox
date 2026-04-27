@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -35,6 +36,8 @@ import {
   Gavel as BidDecisionIcon,
   ThumbUp as BidIcon,
   ThumbDown as NoBidIcon,
+  AutoAwesome as AiIcon,
+  Tune as ReorganiseIcon,
 } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState, getStatusColor } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
@@ -423,9 +426,44 @@ export default function EnquiryDetailClient() {
           {enquiry.requestedScope && enquiry.requestedScope.categories.length > 0 && (
             <Card sx={{ mt: 2 }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Scope outline (from SOW)
-                </Typography>
+                {!enquiry.scopeReviewedAt && (
+                  <Alert
+                    severity="info"
+                    icon={<AiIcon />}
+                    sx={{ mb: 2 }}
+                    action={
+                      <Button
+                        color="primary"
+                        size="small"
+                        startIcon={<ReorganiseIcon />}
+                        onClick={() =>
+                          router.push(`/proposals/enquiries/${enquiry.id}/scope-triage`)
+                        }
+                      >
+                        Review &amp; reorganise
+                      </Button>
+                    }
+                  >
+                    AI-parsed scope hasn&apos;t been reviewed yet. Misplaced items can throw off the
+                    proposal&apos;s costing — review them once before creating the proposal.
+                  </Alert>
+                )}
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ mb: 1 }}
+                >
+                  <Typography variant="h6">Scope outline (from SOW)</Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<ReorganiseIcon />}
+                    onClick={() => router.push(`/proposals/enquiries/${enquiry.id}/scope-triage`)}
+                  >
+                    Reorganise
+                  </Button>
+                </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   What the buyer asked for, grouped by discipline. A new proposal created from this
                   enquiry will start with this exact list — you can then add, edit, or exclude items
