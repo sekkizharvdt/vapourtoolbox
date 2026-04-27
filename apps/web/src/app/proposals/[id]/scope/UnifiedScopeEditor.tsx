@@ -241,11 +241,11 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
       setMatrix(updatedMatrix);
       setHasChanges(false);
       toast.success(
-        markComplete ? 'Scope marked as complete! Continue to pricing.' : 'Scope saved successfully'
+        markComplete ? 'Scope marked as complete! Continue to costing.' : 'Scope saved successfully'
       );
 
       if (markComplete) {
-        router.push(`/proposals/${proposalId}/pricing`);
+        router.push(`/proposals/${proposalId}?tab=costing`);
       }
     } catch (err) {
       console.error('Error saving scope matrix:', err);
@@ -449,9 +449,9 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
             color="success"
             startIcon={<PricingIcon />}
             endIcon={<ArrowIcon />}
-            onClick={() => router.push(`/proposals/${proposalId}/pricing`)}
+            onClick={() => router.push(`/proposals/${proposalId}?tab=costing`)}
           >
-            Continue to Pricing
+            Continue to Costing
           </Button>
         ) : (
           <LoadingButton

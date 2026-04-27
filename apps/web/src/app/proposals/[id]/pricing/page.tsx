@@ -1,27 +1,17 @@
 /**
- * Proposal Pricing Editor Page
+ * Legacy /proposals/[id]/pricing route — redirect-only stub.
  *
- * Server component that renders the client-side pricing editor.
- * Uses generateStaticParams for static export compatibility.
+ * Pricing now lives as a tab inside ProposalDetailClient (stage 2.5a). This
+ * stub keeps the old URL working: anyone landing here is bounced to the
+ * tabbed UI with the Pricing tab pre-selected.
  */
 
-import { use } from 'react';
-import PricingEditorClient from './PricingEditorClient';
+import LegacyPricingRedirect from './LegacyPricingRedirect';
 
-// For static export, we need to provide at least one path
-// Client-side component will parse actual ID from URL
 export function generateStaticParams() {
   return [{ id: 'placeholder' }];
 }
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default function PricingEditorPage({ params }: PageProps) {
-  // In Next.js 15+, params is now async
-  const { id } = use(params);
-
-  // Use id as key to force component remount when navigating between proposals
-  return <PricingEditorClient key={id} />;
+export default function Page() {
+  return <LegacyPricingRedirect />;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Box,
   Button,
@@ -95,9 +95,19 @@ const TAB_DELIVERY = 4;
 const TAB_TERMS = 5;
 const TAB_PREVIEW = 6;
 
+// URL-driven tab selection: ?tab=costing maps onto the activeTab index.
+// Used by post-scope redirects and any external bookmark.
+const TAB_NAMES = ['overview', 'scope', 'costing', 'pricing', 'delivery', 'terms', 'preview'];
+const tabIndexFromName = (name: string | null): number | null => {
+  if (!name) return null;
+  const idx = TAB_NAMES.indexOf(name.toLowerCase());
+  return idx >= 0 ? idx : null;
+};
+
 export default function ProposalDetailClient() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const db = useFirestore();
   const { user, claims } = useAuth();
 
@@ -132,6 +142,22 @@ export default function ProposalDetailClient() {
       }
     }
   }, [pathname]);
+
+  // Sync activeTab with the ?tab= query param so external links (e.g. the
+  // "Mark Scope Complete" redirect) can land on a specific tab.
+  useEffect(() => {
+    const idx = tabIndexFromName(searchParams.get('tab'));
+    if (idx !== null) setActiveTab(idx);
+  }, [searchParams]);
+
+  const handleTabChange = (next: number) => {
+    setActiveTab(next);
+    if (typeof window !== 'undefined' && proposalId) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', TAB_NAMES[next] ?? 'overview');
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
 
   useEffect(() => {
     if (!db || !proposalId) return;
@@ -502,7 +528,7 @@ export default function ProposalDetailClient() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs
           value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
+          onChange={(_, v) => handleTabChange(v)}
           variant="scrollable"
           scrollButtons="auto"
         >
