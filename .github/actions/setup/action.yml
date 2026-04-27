@@ -1,0 +1,65 @@
+name: Setup repo
+description: Checkout (already done), setup pnpm + Node, install deps, restore caches.
+inputs:
+  install-deps:
+    description: Run pnpm install --frozen-lockfile
+    required: false
+    default: 'true'
+  build-packages:
+    description: Build internal @vapour/* packages (excluding @vapour/web)
+    required: false
+    default: 'false'
+  next-cache-key-suffix:
+    description: Optional suffix for the .next/cache key (use commit SHA on the build job; ref name elsewhere)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.19.0
+
+    # `cache: 'pnpm'` here caches the pnpm store transparently — keyed on the
+    # lockfile hash. Don't add a separate actions/cache for the same store;
+    # they collide.
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      if: inputs.install-deps == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    # Turbo cache keyed on the lockfile + branch ref so it shares across
+    # commits on the same branch. Don't include github.sha in the key —
+    # that defeats the cache on every push. restore-keys gives broad fallback.
+    - name: Restore Turbo cache
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
+          ${{ runner.os }}-turbo-
+
+    # Next.js incremental compile cache. Keyed on lockfile + ref so unrelated
+    # branches don't poison each other. Big speedup on warm builds.
+    - name: Restore Next.js build cache
+      uses: actions/cache@v4
+      with:
+        path: apps/web/.next/cache
+        key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}-${{ inputs.next-cache-key-suffix }}
+        restore-keys: |
+          ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.ref_name }}-
+          ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+
+    - name: Build internal packages
+      if: inputs.build-packages == 'true'
+      shell: bash
+      run: pnpm --filter "@vapour/*" --filter "!@vapour/web" build

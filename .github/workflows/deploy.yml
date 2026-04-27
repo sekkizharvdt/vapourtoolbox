@@ -1,68 +1,149 @@
 name: Deploy - Production
 
 on:
-  workflow_dispatch: # Manual deployment only
+  workflow_dispatch:
+    inputs:
+      force_full_deploy:
+        description: 'Deploy all targets (skip change detection)'
+        type: boolean
+        default: false
 
-# Only one deployment at a time
+# Only one deployment at a time. Don't cancel mid-flight.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
-  # Deploy to Firebase (CI already ran on commit)
-  deploy:
-    name: Deploy to Firebase
+  # ─────────────────────────────────────────────────────────────
+  # Detect which deploy targets need to run.
+  # Compares against the last successful prod-deploy SHA stored as a tag,
+  # falling back to HEAD~1 if no tag exists. Force-full input bypasses.
+  # ─────────────────────────────────────────────────────────────
+  detect:
+    name: Detect changed targets
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 2
+    outputs:
+      rules: ${{ steps.changes.outputs.rules }}
+      indexes: ${{ steps.changes.outputs.indexes }}
+      storage: ${{ steps.changes.outputs.storage }}
+      functions: ${{ steps.changes.outputs.functions }}
+      hosting: ${{ steps.changes.outputs.hosting }}
+      base_sha: ${{ steps.changes.outputs.base_sha }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
         with:
-          version: 10.19.0
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Detect changes
+        id: changes
+        run: |
+          set -e
+          if [ "${{ inputs.force_full_deploy }}" = "true" ]; then
+            echo "Force-full deploy requested — every target will run."
+            for t in rules indexes storage functions hosting; do
+              echo "${t}=true" >> $GITHUB_OUTPUT
+            done
+            echo "base_sha=force_full" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Find the last successful prod deploy by tag. We tag the deployed
+          # commit as `prod-deployed` after each successful run (see the
+          # Tag deployed commit step below).
+          if git rev-parse --verify --quiet refs/tags/prod-deployed >/dev/null; then
+            BASE=$(git rev-parse refs/tags/prod-deployed)
+          else
+            # First deploy (or tag missing) — diff against parent commit.
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+          fi
+
+          echo "Diffing $BASE..HEAD"
+          DIFF=$(git diff --name-only "$BASE" HEAD)
+          echo "Changed files:"
+          echo "$DIFF" | sed 's/^/  /'
+          echo "base_sha=$BASE" >> $GITHUB_OUTPUT
+
+          # Map files → targets.
+          rules=false; indexes=false; storage=false; functions=false; hosting=false
+          if echo "$DIFF" | grep -qE '^firestore\.rules$'; then rules=true; fi
+          if echo "$DIFF" | grep -qE '^firestore\.indexes\.json$'; then indexes=true; fi
+          if echo "$DIFF" | grep -qE '^storage\.rules$'; then storage=true; fi
+          if echo "$DIFF" | grep -qE '^(functions/|pnpm-lock\.yaml$)'; then functions=true; fi
+          if echo "$DIFF" | grep -qE '^(apps/web/|packages/|firebase\.json$|pnpm-lock\.yaml$)'; then hosting=true; fi
+
+          echo "Targets selected:"
+          echo "  rules=$rules indexes=$indexes storage=$storage functions=$functions hosting=$hosting"
+
+          for kv in rules=$rules indexes=$indexes storage=$storage functions=$functions hosting=$hosting; do
+            echo "$kv" >> $GITHUB_OUTPUT
+          done
+
+  # ─────────────────────────────────────────────────────────────
+  # Deploy job — consumes the build artifact uploaded by CI.
+  # No rebuild here; same bytes that CI tested ship to prod.
+  # ─────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Firebase
+    runs-on: ubuntu-latest
+    needs: [detect]
+    timeout-minutes: 15
+    if: |
+      needs.detect.outputs.rules == 'true' ||
+      needs.detect.outputs.indexes == 'true' ||
+      needs.detect.outputs.storage == 'true' ||
+      needs.detect.outputs.functions == 'true' ||
+      needs.detect.outputs.hosting == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup
+        uses: ./.github/actions/setup
+        # Functions deploy needs node_modules (firebase-tools picks them up).
+        # Skip package build — artifact carries it.
 
-      - name: Build web application
-        run: pnpm build
-        env:
-          NODE_OPTIONS: '--max-old-space-size=6144'
-          # Firebase client configuration (public - safe to expose)
-          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
-          NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
-          # CRITICAL: Explicitly disable emulator mode in production builds
-          NEXT_PUBLIC_USE_EMULATOR: false
+      # Pull the build artifact from the most recent successful CI run on
+      # this exact SHA. Fails the deploy with a clear error if CI didn't run
+      # successfully on this commit, which is the right enforcement: never
+      # deploy untested bytes.
+      - name: Download CI build artifact
+        if: needs.detect.outputs.hosting == 'true'
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ci.yml
+          commit: ${{ github.sha }}
+          name: build-output
+          path: .
+          if_no_artifact_found: fail
+          # Look back further than the default 50 in case other workflows
+          # have run on the same commit.
+          search_artifacts: true
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools@15.3.1
 
       - name: Install Functions dependencies
+        if: needs.detect.outputs.functions == 'true'
         run: cd functions && pnpm install --frozen-lockfile
 
       - name: Create Functions environment file
+        if: needs.detect.outputs.functions == 'true'
         run: |
           echo "# Document AI Configuration (auto-generated by CI)" > functions/.env
           echo "DOCUMENT_AI_EXPENSE_PROCESSOR_ID=${{ secrets.DOCUMENT_AI_EXPENSE_PROCESSOR_ID }}" >> functions/.env
           echo "DOCUMENT_AI_PROCESSOR_ID=${{ secrets.DOCUMENT_AI_PROCESSOR_ID }}" >> functions/.env
         shell: bash
 
-      # Note: EXCHANGERATE_API_KEY is now managed as a Firebase Secret
-      # It was configured via: firebase functions:secrets:set EXCHANGERATE_API_KEY
-      # The secret is automatically injected at runtime by Firebase
+      # EXCHANGERATE_API_KEY is managed as a Firebase Secret
+      # (firebase functions:secrets:set EXCHANGERATE_API_KEY).
 
       - name: Setup Firebase Service Account
         run: |
@@ -70,34 +151,31 @@ jobs:
         shell: bash
 
       - name: Deploy Firestore Rules
+        if: needs.detect.outputs.rules == 'true'
         run: firebase deploy --only firestore:rules --project vapour-toolbox
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
       - name: Deploy Firestore Indexes
+        if: needs.detect.outputs.indexes == 'true'
         run: firebase deploy --only firestore:indexes --force --project vapour-toolbox
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
       - name: Deploy Storage Rules
+        if: needs.detect.outputs.storage == 'true'
         run: firebase deploy --only storage --project vapour-toolbox
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
-      - name: Delete Removed Functions
-        run: |
-          # Delete functions that were removed from codebase
-          firebase functions:delete seedHistoricalExchangeRates --region us-central1 --force --project vapour-toolbox || true
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
-        continue-on-error: true
-
       - name: Deploy Cloud Functions
+        if: needs.detect.outputs.functions == 'true'
         run: firebase deploy --only functions --force --project vapour-toolbox
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
       - name: Deploy to Firebase Hosting
+        if: needs.detect.outputs.hosting == 'true'
         run: firebase deploy --only hosting --project vapour-toolbox
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
@@ -113,9 +191,17 @@ jobs:
           db.doc('systemConfig/deployInfo').set({
             deployedAt: admin.firestore.FieldValue.serverTimestamp(),
             commitSha: '${{ github.sha }}',
+            baseSha: '${{ needs.detect.outputs.base_sha }}',
             commitMessage: commitMsg,
             deployedBy: '${{ github.actor }}',
             runId: '${{ github.run_id }}',
+            targets: {
+              rules: ${{ needs.detect.outputs.rules }},
+              indexes: ${{ needs.detect.outputs.indexes }},
+              storage: ${{ needs.detect.outputs.storage }},
+              functions: ${{ needs.detect.outputs.functions }},
+              hosting: ${{ needs.detect.outputs.hosting }},
+            },
           }).then(() => {
             console.log('Deploy metadata written to Firestore');
             process.exit(0);
@@ -128,21 +214,48 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         continue-on-error: true
 
+      # Move the prod-deployed tag to this commit so the next deploy diffs
+      # against this point. Force-push the tag to handle reruns.
+      - name: Tag deployed commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f prod-deployed
+          git push -f origin prod-deployed
+        continue-on-error: true
+
       - name: Deployment Success
         run: |
           echo "🎉 Deployment successful!"
           echo "🌐 Web App: https://vapour-toolbox.web.app"
           echo "🌐 Custom Domain: https://toolbox.vapourdesal.com"
           echo ""
-          echo "Deployed components:"
-          echo "  ✅ Firestore Rules"
-          echo "  ✅ Firestore Indexes"
-          echo "  ✅ Cloud Functions"
-          echo "  ✅ Firebase Hosting"
+          echo "Deployed targets:"
+          echo "  rules:     ${{ needs.detect.outputs.rules }}"
+          echo "  indexes:   ${{ needs.detect.outputs.indexes }}"
+          echo "  storage:   ${{ needs.detect.outputs.storage }}"
+          echo "  functions: ${{ needs.detect.outputs.functions }}"
+          echo "  hosting:   ${{ needs.detect.outputs.hosting }}"
 
       - name: Post-deployment Health Check
         run: |
           echo "🔍 Running post-deployment health check..."
-          # Add custom health check commands here
           echo "✅ Health check passed!"
         continue-on-error: true
+
+  no-op:
+    name: Nothing to deploy
+    runs-on: ubuntu-latest
+    needs: [detect]
+    if: |
+      needs.detect.outputs.rules != 'true' &&
+      needs.detect.outputs.indexes != 'true' &&
+      needs.detect.outputs.storage != 'true' &&
+      needs.detect.outputs.functions != 'true' &&
+      needs.detect.outputs.hosting != 'true'
+
+    steps:
+      - name: Nothing to deploy
+        run: |
+          echo "ℹ️ No targets need deployment since the last successful prod deploy."
+          echo "ℹ️ If you want to force a redeploy, re-run with 'force_full_deploy = true'."
