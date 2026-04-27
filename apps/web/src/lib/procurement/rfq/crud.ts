@@ -197,7 +197,9 @@ export async function createRFQ(
 
   const now = Timestamp.now();
 
-  // Create RFQ document using sanitized input
+  // Create RFQ document using sanitized input.
+  // Optional fields use conditional spreads so we never write `undefined`
+  // (Firestore rejects undefined values — CLAUDE.md rule 12).
   const rfqData: Omit<RFQ, 'id'> = {
     number: rfqNumber,
     ...(input.tenantId && { tenantId: input.tenantId }),
@@ -208,15 +210,15 @@ export async function createRFQ(
     projectIds,
     projectNames,
     title: sanitizedInput.title,
-    description: sanitizedInput.description,
+    description: sanitizedInput.description ?? '',
     vendorIds: input.vendorIds,
     vendorNames: input.vendorNames,
-    paymentTerms: sanitizedInput.paymentTerms,
-    deliveryTerms: sanitizedInput.deliveryTerms,
-    warrantyTerms: input.warrantyTerms,
+    ...(sanitizedInput.paymentTerms && { paymentTerms: sanitizedInput.paymentTerms }),
+    ...(sanitizedInput.deliveryTerms && { deliveryTerms: sanitizedInput.deliveryTerms }),
+    ...(input.warrantyTerms && { warrantyTerms: input.warrantyTerms }),
     otherTerms: input.otherTerms || [],
     dueDate: Timestamp.fromDate(input.dueDate),
-    validityPeriod: input.validityPeriod,
+    ...(input.validityPeriod !== undefined && { validityPeriod: input.validityPeriod }),
     status: 'DRAFT',
     pdfVersion: 1,
     offersReceived: 0,

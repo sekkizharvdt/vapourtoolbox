@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -61,6 +62,7 @@ export default function ServicePickerDialog({
 }: ServicePickerDialogProps) {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string>(categoryFilter ?? '');
 
@@ -71,6 +73,7 @@ export default function ServicePickerDialog({
 
     async function load() {
       setLoading(true);
+      setLoadError(null);
       try {
         const constraints: QueryConstraint[] = [where('isActive', '==', true)];
 
@@ -85,6 +88,12 @@ export default function ServicePickerDialog({
         setServices(snap.docs.map((d) => docToTyped<Service>(d.id, d.data())));
       } catch (error) {
         console.error('Error loading services:', error);
+        setServices([]);
+        setLoadError(
+          error instanceof Error
+            ? `Failed to load services: ${error.message}`
+            : 'Failed to load services.'
+        );
       } finally {
         setLoading(false);
       }
@@ -152,13 +161,23 @@ export default function ServicePickerDialog({
         </Box>
 
         {/* Results */}
+        {loadError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {loadError}
+          </Alert>
+        )}
+
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : filtered.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-            {search ? 'No services match your search' : 'No services in this category'}
+            {loadError
+              ? '—'
+              : search
+                ? 'No services match your search'
+                : 'No services in this category'}
           </Typography>
         ) : (
           <TableContainer sx={{ maxHeight: 400 }}>

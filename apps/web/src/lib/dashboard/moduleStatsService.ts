@@ -9,8 +9,23 @@ import { collection, query, where, getCountFromServer, Timestamp } from 'firebas
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/utils';
+import { PERMISSION_FLAGS_2, hasPermission2 } from '@vapour/constants';
 
 const logger = createLogger('ModuleStats');
+
+/**
+ * Whether the user can read all on-duty / leave records across the tenant.
+ * The firestore rules only allow unfiltered count() aggregations on
+ * `onDutyRecords` and `leaveRequests` for APPROVE_LEAVES or MANAGE_HR_SETTINGS
+ * holders — anyone else 403s. Skip those queries up-front so the dashboard
+ * doesn't surface a permission-denied error in the browser console.
+ */
+function canReadAllLeaveAggregates(permissions2: number): boolean {
+  return (
+    hasPermission2(permissions2, PERMISSION_FLAGS_2.APPROVE_LEAVES) ||
+    hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS)
+  );
+}
 
 export interface ModuleStats {
   moduleId: string;
@@ -24,7 +39,7 @@ export interface ModuleStats {
 /**
  * Get stats for Tasks module (Time Tracking)
  */
-async function getTasksStats(tenantId: string): Promise<ModuleStats> {
+async function getTasksStats(tenantId: string, permissions2: number): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
@@ -36,21 +51,26 @@ async function getTasksStats(tenantId: string): Promise<ModuleStats> {
     );
     const pendingSnapshot = await getCountFromServer(pendingTasksQuery);
 
-    // Count on-duty today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const onDutyQuery = query(
-      collection(db, 'onDutyRecords'),
-      where('tenantId', '==', tenantId),
-      where('date', '>=', Timestamp.fromDate(today)),
-      where('status', '==', 'APPROVED')
-    );
-    const onDutySnapshot = await getCountFromServer(onDutyQuery);
+    // Count on-duty today — only for users with leave-approval permission;
+    // others can't read the collection unfiltered (would 403).
+    let recentCount = 0;
+    if (canReadAllLeaveAggregates(permissions2)) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const onDutyQuery = query(
+        collection(db, 'onDutyRecords'),
+        where('tenantId', '==', tenantId),
+        where('date', '>=', Timestamp.fromDate(today)),
+        where('status', '==', 'APPROVED')
+      );
+      const onDutySnapshot = await getCountFromServer(onDutyQuery);
+      recentCount = onDutySnapshot.data().count || 0;
+    }
 
     return {
       moduleId: 'time-tracking',
       pendingCount: pendingSnapshot.data().count || 0,
-      recentCount: onDutySnapshot.data().count || 0,
+      recentCount,
       label: 'Pending Tasks',
     };
   } catch (error) {
@@ -271,11 +291,17 @@ async function getUserStats(): Promise<ModuleStats> {
 /**
  * Get stats for HR module
  */
-async function getHRStats(tenantId: string): Promise<ModuleStats> {
+async function getHRStats(tenantId: string, permissions2: number): Promise<ModuleStats> {
+  // Only approvers can count pending leave requests across the tenant.
+  // Users without APPROVE_LEAVES / MANAGE_HR_SETTINGS would 403 — there's no
+  // useful badge for them anyway, so skip the query entirely.
+  if (!canReadAllLeaveAggregates(permissions2)) {
+    return { moduleId: 'hr-management', pendingCount: 0, label: 'Pending Leaves' };
+  }
+
   const { db } = getFirebase();
 
   try {
-    // Count pending leave requests
     const pendingLeavesQuery = query(
       collection(db, 'leaveRequests'),
       where('tenantId', '==', tenantId),
@@ -350,14 +376,15 @@ async function getAdminStats(): Promise<ModuleStats> {
  */
 export async function getAllModuleStats(
   accessibleModuleIds: string[],
-  tenantId: string
+  tenantId: string,
+  permissions2: number = 0
 ): Promise<ModuleStats[]> {
   const statsPromises: Promise<ModuleStats>[] = [];
 
   for (const moduleId of accessibleModuleIds) {
     switch (moduleId) {
       case 'time-tracking':
-        statsPromises.push(getTasksStats(tenantId));
+        statsPromises.push(getTasksStats(tenantId, permissions2));
         break;
       case 'document-management':
         statsPromises.push(getDocumentStats(tenantId));
@@ -381,7 +408,7 @@ export async function getAllModuleStats(
         statsPromises.push(getUserStats());
         break;
       case 'hr-management':
-        statsPromises.push(getHRStats(tenantId));
+        statsPromises.push(getHRStats(tenantId, permissions2));
         break;
       case 'proposal-management':
         statsPromises.push(getProposalStats(tenantId));
@@ -416,11 +443,12 @@ export async function getAllModuleStats(
  */
 export async function getModuleStats(
   moduleId: string,
-  tenantId: string
+  tenantId: string,
+  permissions2: number = 0
 ): Promise<ModuleStats | null> {
   switch (moduleId) {
     case 'time-tracking':
-      return getTasksStats(tenantId);
+      return getTasksStats(tenantId, permissions2);
     case 'document-management':
       return getDocumentStats(tenantId);
     case 'procurement':
@@ -436,7 +464,7 @@ export async function getModuleStats(
     case 'user-management':
       return getUserStats();
     case 'hr-management':
-      return getHRStats(tenantId);
+      return getHRStats(tenantId, permissions2);
     case 'proposal-management':
       return getProposalStats(tenantId);
     case 'admin':

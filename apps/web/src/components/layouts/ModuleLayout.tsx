@@ -135,7 +135,11 @@ export function ModuleLayout({
       .map((m) => m.id);
   }, [claims, userPermissionsForStats, userPermissions2ForStats]);
 
-  const { data: moduleStatsList } = useAllModuleStats(accessibleModuleIds, tenantIdForStats);
+  const { data: moduleStatsList } = useAllModuleStats(
+    accessibleModuleIds,
+    tenantIdForStats,
+    userPermissions2ForStats
+  );
   const moduleBadges = useMemo<Record<string, number>>(() => {
     if (!moduleStatsList) return {};
     const map: Record<string, number> = {};

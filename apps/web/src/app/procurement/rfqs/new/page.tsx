@@ -347,8 +347,8 @@ export default function NewRFQPage() {
                 No approved purchase requests available. Please create and approve PRs first.
               </Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ maxHeight: 500 }}>
+                <Table stickyHeader>
                   <TableHead>
                     <TableRow>
                       <TableCell padding="checkbox">Select</TableCell>
@@ -493,8 +493,8 @@ export default function NewRFQPage() {
               )}
             </Box>
 
-            <TableContainer>
-              <Table size="small">
+            <TableContainer sx={{ maxHeight: 500 }}>
+              <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell padding="checkbox">Select</TableCell>

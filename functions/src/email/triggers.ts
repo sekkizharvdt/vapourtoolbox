@@ -93,7 +93,10 @@ export const onPRSubmittedNotify = onDocumentUpdated(
           message: `A purchase request has been submitted for approval.`,
           details: [
             { label: 'PR Number', value: after.number || event.params.prId },
-            { label: 'Requested By', value: after.createdByName || 'Unknown' },
+            {
+              label: 'Requested By',
+              value: after.submittedByName || after.createdByName || 'Unknown',
+            },
             { label: 'Approver', value: after.approverName || '-' },
             { label: 'Project', value: after.projectName || '-' },
             { label: 'Description', value: after.description || '-' },
@@ -116,7 +119,10 @@ export const onPRSubmittedNotify = onDocumentUpdated(
           details: [
             { label: 'PR Number', value: after.number || event.params.prId },
             { label: 'Title', value: after.title || '-' },
-            { label: 'Requested By', value: after.createdByName || 'Unknown' },
+            {
+              label: 'Requested By',
+              value: after.submittedByName || after.createdByName || 'Unknown',
+            },
             { label: 'Approved By', value: after.approvedByName || '-' },
             { label: 'Project', value: after.projectName || '-' },
           ],

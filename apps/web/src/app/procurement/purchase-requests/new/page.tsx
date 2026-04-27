@@ -861,8 +861,13 @@ export default function NewPurchaseRequestPage() {
         {/* Summary/Info Section */}
         <Alert severity="info" icon={<SendIcon />}>
           <Typography variant="body2">
-            <strong>Ready to submit?</strong> Once submitted, this purchase request will be sent to
-            the Engineering Head for approval. You can also save as draft to continue later.
+            <strong>Ready to submit?</strong> Once submitted, this purchase request will be sent to{' '}
+            {formData.approverName ? (
+              <strong>{formData.approverName}</strong>
+            ) : (
+              'the selected approver'
+            )}{' '}
+            for approval. You can also save as draft to continue later.
           </Typography>
         </Alert>
 

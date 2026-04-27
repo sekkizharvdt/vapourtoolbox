@@ -33,16 +33,17 @@ export { moduleStatsKeys };
 export function useAllModuleStats(
   accessibleModuleIds: string[],
   entityId: string,
+  permissions2: number = 0,
   options?: {
     enabled?: boolean;
     staleTime?: number;
   }
 ) {
   return useQuery({
-    queryKey: [...moduleStatsKeys.list(accessibleModuleIds), entityId],
+    queryKey: [...moduleStatsKeys.list(accessibleModuleIds), entityId, permissions2],
     queryFn: async () => {
       logger.debug('Fetching module stats', { moduleIds: accessibleModuleIds, entityId });
-      const stats = await getAllModuleStats(accessibleModuleIds, entityId);
+      const stats = await getAllModuleStats(accessibleModuleIds, entityId, permissions2);
       logger.info('Module stats fetched successfully', { count: stats.length });
       return stats;
     },
@@ -60,17 +61,20 @@ export function useAllModuleStats(
 export function useModuleStats(
   moduleId: string | null,
   entityId: string,
+  permissions2: number = 0,
   options?: {
     enabled?: boolean;
     staleTime?: number;
   }
 ) {
   return useQuery({
-    queryKey: moduleId ? [...moduleStatsKeys.detail(moduleId), entityId] : ['moduleStats', 'null'],
+    queryKey: moduleId
+      ? [...moduleStatsKeys.detail(moduleId), entityId, permissions2]
+      : ['moduleStats', 'null'],
     queryFn: async () => {
       if (!moduleId) return null;
       logger.debug('Fetching single module stats', { moduleId, entityId });
-      const stats = await getModuleStats(moduleId, entityId);
+      const stats = await getModuleStats(moduleId, entityId, permissions2);
       logger.info('Single module stats fetched', { moduleId, stats });
       return stats;
     },

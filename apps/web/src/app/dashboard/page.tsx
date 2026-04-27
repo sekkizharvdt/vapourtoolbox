@@ -63,7 +63,7 @@ export default function DashboardPage() {
     data: moduleStats,
     isLoading: isLoadingStats,
     error: statsError,
-  } = useAllModuleStats(accessibleModuleIds, tenantId);
+  } = useAllModuleStats(accessibleModuleIds, tenantId, userPermissions2);
 
   return (
     <Container maxWidth="xl">
