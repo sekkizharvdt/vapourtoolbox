@@ -40,7 +40,8 @@ import { PageHeader, LoadingState, EmptyState, getStatusColor } from '@vapour/ui
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getEnquiryById, updateEnquiryStatus, deleteEnquiry } from '@/lib/enquiry/enquiryService';
-import type { Enquiry, EnquiryStatus } from '@vapour/types';
+import { findActiveProposalForEnquiry } from '@/lib/proposals/proposalService';
+import type { Enquiry, EnquiryStatus, Proposal } from '@vapour/types';
 import {
   ENQUIRY_STATUS_LABELS,
   ENQUIRY_URGENCY_LABELS,
@@ -71,6 +72,7 @@ export default function EnquiryDetailClient() {
   const { confirm } = useConfirmDialog();
 
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
+  const [activeProposal, setActiveProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -103,6 +105,15 @@ export default function EnquiryDetailClient() {
           setError('Enquiry not found');
         } else {
           setEnquiry(data);
+          // Look up an in-flight proposal for this enquiry so we can
+          // surface "Open Proposal" instead of "Create Proposal".
+          try {
+            const active = await findActiveProposalForEnquiry(db, enquiryId);
+            setActiveProposal(active);
+          } catch (proposalErr) {
+            console.warn('Could not look up active proposal for enquiry', proposalErr);
+            setActiveProposal(null);
+          }
         }
       } catch (err) {
         console.error('Error loading enquiry:', err);
@@ -205,9 +216,18 @@ export default function EnquiryDetailClient() {
                   Make Bid Decision
                 </Button>
               )}
-            {/* Show Create Proposal only after BID decision */}
+            {/* After a BID decision: either open the existing proposal or create a new one */}
             {enquiry.bidDecision?.decision === 'BID' &&
-              !['WON', 'LOST', 'CANCELLED'].includes(enquiry.status) && (
+              !['WON', 'LOST', 'CANCELLED'].includes(enquiry.status) &&
+              (activeProposal ? (
+                <Button
+                  variant="contained"
+                  startIcon={<ProposalIcon />}
+                  onClick={() => router.push(`/proposals/${activeProposal.id}`)}
+                >
+                  Open {activeProposal.proposalNumber}
+                </Button>
+              ) : (
                 <Button
                   variant="contained"
                   startIcon={<ProposalIcon />}
@@ -215,7 +235,7 @@ export default function EnquiryDetailClient() {
                 >
                   Create Proposal
                 </Button>
-              )}
+              ))}
             <IconButton onClick={handleMenuOpen} aria-label="More options">
               <MoreIcon />
             </IconButton>

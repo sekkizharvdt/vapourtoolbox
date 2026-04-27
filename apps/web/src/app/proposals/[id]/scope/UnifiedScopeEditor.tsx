@@ -31,6 +31,7 @@ import { LoadingButton } from '@/components/common/LoadingButton';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
+import { getEnquiryById } from '@/lib/enquiry/enquiryService';
 import { Timestamp } from 'firebase/firestore';
 import type { Proposal, UnifiedScopeMatrix, UnifiedScopeItem } from '@vapour/types';
 import { SCOPE_CATEGORY_ORDER, SCOPE_CATEGORY_DEFAULTS } from '@vapour/types';
@@ -69,6 +70,9 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [matrix, setMatrix] = useState<UnifiedScopeMatrix>(createDefaultMatrix());
+  const [enquiryRequestedScope, setEnquiryRequestedScope] = useState<UnifiedScopeMatrix | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +104,18 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
           setMatrix(data.unifiedScopeMatrix);
         } else {
           setMatrix(createDefaultMatrix());
+        }
+
+        // Look up the parent enquiry's requestedScope (if any) so we can
+        // surface a "Pull from SOW" action when items are missing here.
+        if (data.enquiryId) {
+          try {
+            const enq = await getEnquiryById(db, data.enquiryId);
+            setEnquiryRequestedScope(enq?.requestedScope ?? null);
+          } catch (enqErr) {
+            console.warn('Could not load parent enquiry for scope refresh', enqErr);
+            setEnquiryRequestedScope(null);
+          }
         }
       } catch (err) {
         console.error('Error loading proposal:', err);
@@ -199,6 +215,52 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
     }
   };
 
+  // Count how many items live on the parent enquiry's requestedScope but
+  // aren't yet on this proposal's matrix. Drives the "Pull from SOW" banner.
+  const itemsAvailableFromEnquiry = (() => {
+    if (!enquiryRequestedScope) return 0;
+    let count = 0;
+    for (const enquiryCat of enquiryRequestedScope.categories) {
+      const matrixCat = matrix.categories.find((c) => c.categoryKey === enquiryCat.categoryKey);
+      if (!matrixCat) {
+        count += enquiryCat.items.length;
+        continue;
+      }
+      const existingNames = new Set(matrixCat.items.map((i) => i.name.trim().toLowerCase()));
+      for (const item of enquiryCat.items) {
+        if (!existingNames.has(item.name.trim().toLowerCase())) count += 1;
+      }
+    }
+    return count;
+  })();
+
+  const handlePullFromEnquiry = useCallback(() => {
+    if (!enquiryRequestedScope) return;
+    setMatrix((prev) => {
+      const next = prev.categories.map((cat) => {
+        const enquiryCat = enquiryRequestedScope.categories.find(
+          (c) => c.categoryKey === cat.categoryKey
+        );
+        if (!enquiryCat) return cat;
+        const existingNames = new Set(cat.items.map((i) => i.name.trim().toLowerCase()));
+        const newItems: UnifiedScopeItem[] = enquiryCat.items
+          .filter((it) => !existingNames.has(it.name.trim().toLowerCase()))
+          .map((it, idx) => ({
+            ...it,
+            id: crypto.randomUUID(),
+            itemNumber: `${(cat.order ?? 0) + 1}.${cat.items.length + idx + 1}`,
+            order: cat.items.length + idx,
+            included: true,
+            source: 'AI_PARSED' as const,
+          }));
+        return newItems.length > 0 ? { ...cat, items: [...cat.items, ...newItems] } : cat;
+      });
+      return { ...prev, categories: next };
+    });
+    setHasChanges(true);
+    toast.success(`Pulled ${itemsAvailableFromEnquiry} items from the enquiry SOW.`);
+  }, [enquiryRequestedScope, itemsAvailableFromEnquiry, toast]);
+
   // Compute summary stats
   const totalItems = matrix.categories.reduce((sum, cat) => sum + cat.items.length, 0);
   const includedItems = matrix.categories.reduce(
@@ -265,6 +327,25 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+
+      {/* Pull-from-enquiry banner — visible when the parent enquiry's SOW has
+          items that aren't on this proposal yet (e.g. proposal was created
+          before the SOW was AI-parsed). */}
+      {itemsAvailableFromEnquiry > 0 && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="primary" size="small" onClick={handlePullFromEnquiry}>
+              Pull from SOW
+            </Button>
+          }
+        >
+          {itemsAvailableFromEnquiry} scope item{itemsAvailableFromEnquiry === 1 ? '' : 's'} from
+          the enquiry SOW {itemsAvailableFromEnquiry === 1 ? 'is' : 'are'} not yet in this
+          proposal&apos;s scope.
         </Alert>
       )}
 

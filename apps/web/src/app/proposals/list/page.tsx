@@ -34,7 +34,6 @@ import {
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { Home as HomeIcon } from '@mui/icons-material';
-import EditIcon from '@mui/icons-material/Edit';
 import ViewIcon from '@mui/icons-material/Visibility';
 import { PageHeader, FilterBar, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
@@ -278,15 +277,9 @@ export default function ProposalListPage() {
                   <TableActionCell
                     actions={[
                       {
-                        label: 'View',
+                        label: 'Open',
                         icon: <ViewIcon fontSize="small" />,
                         onClick: () => handleViewProposal(proposal.id),
-                      },
-                      {
-                        label: 'Edit',
-                        icon: <EditIcon fontSize="small" />,
-                        onClick: () => handleViewProposal(proposal.id),
-                        show: proposal.status === 'DRAFT' || proposal.status === 'PENDING_APPROVAL',
                       },
                     ]}
                   />

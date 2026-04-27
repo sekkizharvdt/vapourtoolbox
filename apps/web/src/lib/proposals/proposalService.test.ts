@@ -300,6 +300,9 @@ describe('proposalService', () => {
           data: () => mockClient,
         });
 
+      // Two getDocs calls: first the duplicate-active-proposal guard
+      // (findActiveProposalForEnquiry), then generateProposalNumber.
+      mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
       mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
       mockAddDoc.mockResolvedValueOnce({ id: 'minimal-proposal-123' });
       mockUpdateDoc.mockResolvedValueOnce(undefined);

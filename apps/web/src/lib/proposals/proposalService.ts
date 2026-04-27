@@ -227,6 +227,17 @@ export async function createMinimalProposal(
       throw new Error('Cannot create proposal without a BID decision on the enquiry');
     }
 
+    // Guard: refuse if an active proposal already exists for this enquiry.
+    // Active = anything not yet won/lost/expired. Revisions live under the
+    // existing proposal; parallel quotes are not supported on purpose.
+    const existingActive = await findActiveProposalForEnquiry(db, input.enquiryId);
+    if (existingActive) {
+      throw new Error(
+        `Proposal ${existingActive.proposalNumber} is already in progress for this enquiry. ` +
+          `Open it, mark it as Lost or Withdrawn, or create a new revision from inside it.`
+      );
+    }
+
     // Get client details
     const clientDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, input.clientId));
     if (!clientDoc.exists()) {
@@ -840,6 +851,44 @@ export async function cloneProposal(
     logger.error('Error cloning proposal', { error, input });
     throw error;
   }
+}
+
+/**
+ * Statuses that count as "active" — the proposal is still in flight and
+ * should block creation of a parallel proposal for the same enquiry.
+ */
+const ACTIVE_PROPOSAL_STATUSES: ProposalStatus[] = [
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'SUBMITTED',
+  'UNDER_NEGOTIATION',
+];
+
+/**
+ * Find the latest-revision proposal for an enquiry IF it's still active.
+ * Returns null if the enquiry has no proposal, or only terminal ones
+ * (Accepted/Rejected/Expired).
+ *
+ * Used by the create-proposal guard so we don't end up with two parallel
+ * drafts for the same enquiry by accident.
+ */
+export async function findActiveProposalForEnquiry(
+  db: Firestore,
+  enquiryId: string
+): Promise<Proposal | null> {
+  const q = query(
+    collection(db, COLLECTIONS.PROPOSALS),
+    where('enquiryId', '==', enquiryId),
+    where('isLatestRevision', '==', true),
+    where('status', 'in', ACTIVE_PROPOSAL_STATUSES),
+    limit(1)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  if (!d) return null;
+  return { id: d.id, ...(d.data() as Omit<Proposal, 'id'>) };
 }
 
 /**
