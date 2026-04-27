@@ -242,7 +242,12 @@ export default function ProposalListPage() {
             </TableHead>
             <TableBody>
               {proposals.map((proposal) => (
-                <TableRow key={proposal.id} hover>
+                <TableRow
+                  key={proposal.id}
+                  hover
+                  onClick={() => handleViewProposal(proposal.id)}
+                  sx={{ cursor: 'pointer' }}
+                >
                   <TableCell>
                     <Typography variant="body2" fontWeight="medium">
                       {proposal.proposalNumber}
