@@ -453,13 +453,30 @@ export interface BoughtOutItem extends TimestampFields {
   tenantId: string;
 
   // Basic Info
-  itemCode: string; // Auto-generated: BO-YYYY-NNNN
+  itemCode: string; // Auto-generated: BO-YYYY-NNNN (sequential, human-friendly)
+  /**
+   * Deterministic spec code, e.g. `VLV-GATE-SS316-DN50-150-FLG-MAN`.
+   * Built from the structured specification block when complete enough.
+   * Same spec → same code, every time. Used by the AI quote parser to
+   * find-or-create equipment items without producing duplicates: parsed
+   * lines and manually-created items share the same matching key.
+   * Optional — items entered before this scheme, or with insufficient
+   * spec data, leave it undefined.
+   */
+  specCode?: string;
   name: string;
   description?: string;
   category: BoughtOutCategory;
 
   // Specifications - Dynamic based on category
   specifications: BoughtOutSpecifications;
+
+  /**
+   * Set true when the AI quote parser auto-creates this record so a human
+   * can verify the extracted spec before the data spreads. Cleared on
+   * manual review; the bought-out list/picker can filter by this flag.
+   */
+  needsReview?: boolean;
 
   // Pricing
   pricing: {

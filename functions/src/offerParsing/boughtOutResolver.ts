@@ -184,7 +184,7 @@ export async function generateBoughtOutSpecCode(
   const typeCode = i.instrumentType ? INSTRUMENT_TYPE_SHORT[i.instrumentType] : 'X';
   const prefix = `INST-${varCode}${typeCode}-`;
   const snap = await db
-    .collection('boughtOutItems')
+    .collection('bought_out_items')
     .where('specCode', '>=', prefix)
     .where('specCode', '<', prefix + '')
     .get();
@@ -227,7 +227,7 @@ export async function resolveBoughtOutItem(
   }
 
   const existing = await db
-    .collection('boughtOutItems')
+    .collection('bought_out_items')
     .where('specCode', '==', specCode)
     .limit(1)
     .get();
@@ -246,7 +246,7 @@ export async function resolveBoughtOutItem(
         : args.parsed.instrument;
 
   const now = admin.firestore.Timestamp.now();
-  const newDoc = await db.collection('boughtOutItems').add({
+  const newDoc = await db.collection('bought_out_items').add({
     itemCode: specCode, // Use specCode as the user-facing code too — deterministic
     // and stable across re-creation. Existing items created by hand keep their
     // BO-YYYY-NNNN format; new auto-created ones get the structured code.

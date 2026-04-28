@@ -17,13 +17,53 @@ import {
   CreateBoughtOutItemInput,
   UpdateBoughtOutItemInput,
   ListBoughtOutItemsOptions,
+  ValveSpecs,
+  PumpSpecs,
+  InstrumentSpecs,
 } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
+import {
+  buildValveSpecCode,
+  buildPumpSpecCode,
+  nextInstrumentSpecCode,
+  BOUGHT_OUT_COLLECTION,
+} from './specCode';
 
 const COLLECTIONS = {
-  BOUGHT_OUT_ITEMS: 'bought_out_items',
+  BOUGHT_OUT_ITEMS: BOUGHT_OUT_COLLECTION,
 };
+
+/**
+ * Build the deterministic spec code for a bought-out item from its
+ * structured spec, when the spec is complete enough. Returns undefined
+ * if any required attribute is missing — the record is still created
+ * (without specCode), but the AI parser won't be able to match against
+ * it until a future update fills in the missing fields.
+ *
+ * Categories without a deterministic format (MOTOR, SAFETY, GAUGE, etc.)
+ * also return undefined here.
+ */
+async function tryBuildSpecCode(
+  db: Firestore,
+  category: BoughtOutItem['category'],
+  specifications: BoughtOutItem['specifications']
+): Promise<string | undefined> {
+  if (category === 'VALVE') {
+    const r = buildValveSpecCode(specifications as ValveSpecs);
+    return r.ok ? r.code : undefined;
+  }
+  if (category === 'PUMP') {
+    const r = buildPumpSpecCode(specifications as PumpSpecs);
+    return r.ok ? r.code : undefined;
+  }
+  if (category === 'INSTRUMENT') {
+    const inst = specifications as InstrumentSpecs;
+    if (!inst.variable || !inst.instrumentType) return undefined;
+    return await nextInstrumentSpecCode(db, inst);
+  }
+  return undefined;
+}
 
 /**
  * Create a new bought-out item
@@ -36,6 +76,12 @@ export async function createBoughtOutItem(
   // Generate itemCode: BO-YYYY-NNNN
   const itemCode = await generateBoughtOutItemCode(db);
 
+  // Try to build a deterministic spec code from the structured spec. If
+  // the spec is complete enough, the AI quote parser will be able to
+  // match this record by code (no duplicates). Manual entries with full
+  // specs participate in the same dedup scheme as parser-created ones.
+  const specCode = await tryBuildSpecCode(db, input.category, input.specifications);
+
   const now = Timestamp.now();
 
   // Build item data with only defined fields to prevent Firestore errors
@@ -43,6 +89,7 @@ export async function createBoughtOutItem(
   const item: Record<string, unknown> = {
     // Required fields
     itemCode,
+    ...(specCode && { specCode }),
     name: input.name,
     category: input.category,
     tenantId: input.tenantId,
@@ -74,6 +121,39 @@ export async function createBoughtOutItem(
   // Re-fetch to get properly typed result
   const createdDoc = await getDoc(docRef);
   return { id: createdDoc.id, ...(createdDoc.data() as Omit<BoughtOutItem, 'id'>) };
+}
+
+/**
+ * Find an existing bought-out item by spec code, or create a new one.
+ * Mirrors the server-side resolver used by the AI quote parser so manual
+ * entry shares the same find-or-create behaviour: a 2" SS316 gate valve
+ * created here will be matched by the parser the next time the same valve
+ * appears on a quote (and vice versa).
+ */
+export async function findOrCreateBoughtOutBySpec(
+  db: Firestore,
+  input: CreateBoughtOutItemInput,
+  userId: string
+): Promise<{ item: BoughtOutItem; created: boolean }> {
+  const specCode = await tryBuildSpecCode(db, input.category, input.specifications);
+  if (specCode) {
+    const existing = await getDocs(
+      query(
+        collection(db, COLLECTIONS.BOUGHT_OUT_ITEMS),
+        where('specCode', '==', specCode),
+        limit(1)
+      )
+    );
+    const existingDoc = existing.docs[0];
+    if (existingDoc) {
+      return {
+        item: { id: existingDoc.id, ...(existingDoc.data() as Omit<BoughtOutItem, 'id'>) },
+        created: false,
+      };
+    }
+  }
+  const item = await createBoughtOutItem(db, input, userId);
+  return { item, created: true };
 }
 
 /**
@@ -147,6 +227,20 @@ export async function updateBoughtOutItem(
   if (input.attachments !== undefined) updates.attachments = input.attachments;
   if (input.tags !== undefined) updates.tags = input.tags;
   if (input.isActive !== undefined) updates.isActive = input.isActive;
+
+  // Recompute specCode whenever category or specifications change. A record
+  // that gains complete spec data later picks up a code so the AI parser
+  // can match against it on subsequent quotes.
+  if (input.category !== undefined || input.specifications !== undefined) {
+    const existing = await getDoc(docRef);
+    const cur = existing.data() as Pick<BoughtOutItem, 'category' | 'specifications'> | undefined;
+    if (cur) {
+      const newCategory = input.category ?? cur.category;
+      const newSpecs = input.specifications ?? cur.specifications;
+      const newSpecCode = await tryBuildSpecCode(db, newCategory, newSpecs);
+      if (newSpecCode) updates.specCode = newSpecCode;
+    }
+  }
 
   if (input.pricing) {
     // Build pricing object carefully to avoid undefined values
