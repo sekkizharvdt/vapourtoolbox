@@ -58,12 +58,12 @@ export default function ProcurementPage() {
           path: '/procurement/rfqs',
         },
         {
-          id: 'log-quote',
-          title: 'Log Vendor Quote',
+          id: 'quotes',
+          title: 'Quotes',
           description:
-            'Record a vendor quote received offline (phone, email, WhatsApp) — link to an RFQ or leave unsolicited',
+            'All vendor quotes — RFQ replies, offline replies, unsolicited offers, and standing rate cards. Log a new quote from inside.',
           icon: <FormatQuoteIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-          path: '/procurement/quotes/new',
+          path: '/procurement/quotes',
         },
         {
           id: 'pos',
