@@ -70,6 +70,19 @@ export interface Material {
   substituteMaterials?: string[]; // Alternative material IDs
   substituteNotes?: string; // When to use substitutes
 
+  // Equipment specification — populated for valves, pumps, and instruments.
+  // The deterministic equipment-code generator uses this block as input
+  // (see `generateEquipmentCode`); auto-creation flows from the AI quote
+  // parser stash the structured spec here too. Plates/pipes/flanges/etc
+  // continue to use `specification` (grade/standard/etc).
+  equipmentSpec?: EquipmentSpec;
+
+  // Auto-creation review flag. Set `true` when a material is created
+  // automatically from a parsed vendor quote — a human should look it
+  // over (verify the spec extraction was accurate) and clear the flag.
+  // Materials list/picker UIs surface this as a "Review" badge.
+  needsReview?: boolean;
+
   // Piping Dimensions (for flanges, pipes, fittings — flat model, no variants)
   nps?: string; // Nominal Pipe Size: "1/2", "2", "4"
   dn?: string; // DN metric designation: "15", "50", "100"
@@ -153,7 +166,7 @@ export interface MaterialVariant {
 /**
  * Material type classification
  */
-export type MaterialType = 'RAW_MATERIAL' | 'BOUGHT_OUT_COMPONENT' | 'CONSUMABLE';
+export type MaterialType = 'RAW_MATERIAL' | 'BOUGHT_OUT_COMPONENT' | 'CONSUMABLE' | 'EQUIPMENT';
 
 /**
  * Material specification details (ASME/ASTM Standards)
@@ -166,6 +179,46 @@ export interface MaterialSpecification {
   schedule?: string; // For pipes: "Sch 10", "Sch 40", "Sch 80", etc.
   nominalSize?: string; // For pipes/fittings: "DN 50", "NPS 2"
   customSpecs?: string; // Additional specifications
+}
+
+// ============================================================================
+// Equipment Specification (valves, pumps, instruments)
+// ============================================================================
+
+/**
+ * Per-family attributes that drive deterministic equipment material codes.
+ *
+ * Format conventions (the code generator depends on these short codes):
+ *   Valves:      `VLV-{TYPE}-{MATL}-{SIZE}-{RATING}-{ACT}`
+ *   Pumps:       `PUMP-{TYPE}-{FLOW}M3H-{HEAD}M`
+ *   Instruments: `INST-{SUBTYPE}-{seq}`
+ *
+ * Same spec → same code, every time. Two parsed valve lines with identical
+ * (type, material, size, rating, actuation) collapse to one material record.
+ */
+export interface EquipmentSpec {
+  family: 'VALVE' | 'PUMP' | 'INSTRUMENT';
+
+  // --- Valves ---
+  valveType?: 'GATE' | 'GLOBE' | 'BALL' | 'BUTTERFLY' | 'CHECK' | 'OTHER';
+  /** Body material grade. Short form used in the code: SS316, SS304, CS, CI, DI, BRZ. */
+  valveMaterial?: string;
+  /** Free-text size — the code uses it verbatim, e.g. `DN50`, `2IN`, `100MM`. */
+  valveSize?: string;
+  /** Pressure class or PN rating — `150`, `300`, `600`, `PN16`, `PN25`. */
+  valveRating?: string;
+  valveActuation?: 'MAN' | 'PNE' | 'ELE' | 'HYD';
+
+  // --- Pumps ---
+  pumpType?: 'CF' | 'PD' | 'OTHER';
+  /** Flow rate in m³/hr. Standardized — codes use `{N}M3H`. */
+  pumpFlowM3H?: number;
+  /** Head in metres. Codes use `{N}M`. */
+  pumpHeadM?: number;
+
+  // --- Instruments ---
+  /** Short subtype used in the code: PG, TS, FM, LT, CV, OTH. */
+  instrumentSubtype?: string;
 }
 
 // ============================================================================

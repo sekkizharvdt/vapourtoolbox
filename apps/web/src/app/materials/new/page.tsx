@@ -465,6 +465,11 @@ const TYPE_CATEGORIES: Record<MaterialType, MC[]> = {
     MC.ELECTRICAL,
   ],
   CONSUMABLE: [MC.WELDING_CONSUMABLES, MC.PAINTS_COATINGS, MC.LUBRICANTS, MC.CHEMICALS],
+  // EQUIPMENT — valves, pumps, instruments, motors. Not surfaced on this
+  // legacy form (the AI quote parser auto-creates them, and the picker's
+  // inline-create flow handles manual entry); empty array keeps the
+  // existing TYPE → category cascade clean if a user does land here.
+  EQUIPMENT: [],
 };
 
 // Categories handled by their own /new pages (plates, pipes)
