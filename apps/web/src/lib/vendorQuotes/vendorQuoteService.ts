@@ -427,6 +427,55 @@ export function getQuotesByMaterialId(db: Firestore, materialId: string): Promis
   return getQuotesByItemRef(db, 'materialId', materialId);
 }
 
+/**
+ * Return every quote line item that references a given material, paired
+ * with its parent quote. Used by the material detail page's "Quotes"
+ * section to show all prices we've received (highlighting accepted ones)
+ * — broader than the price-history view, which only shows accepted rows.
+ *
+ * Sorted newest-first by parent quote `createdAt`.
+ */
+export async function getQuoteRowsByMaterialId(
+  db: Firestore,
+  materialId: string
+): Promise<Array<{ item: VendorQuoteItem; quote: VendorQuote }>> {
+  const itemsSnap = await getDocs(
+    query(collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS), where('materialId', '==', materialId))
+  );
+  if (itemsSnap.empty) return [];
+
+  const items: VendorQuoteItem[] = itemsSnap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as Omit<VendorQuoteItem, 'id'>),
+  }));
+  const uniqueQuoteIds = Array.from(new Set(items.map((i) => i.quoteId).filter(Boolean)));
+
+  const quotesById = new Map<string, VendorQuote>();
+  await Promise.all(
+    uniqueQuoteIds.map(async (qid) => {
+      const snap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, qid));
+      if (snap.exists()) {
+        quotesById.set(qid, { id: snap.id, ...(snap.data() as Omit<VendorQuote, 'id'>) });
+      }
+    })
+  );
+
+  const rows = items
+    .map((item) => {
+      const quote = quotesById.get(item.quoteId);
+      return quote && quote.isActive !== false ? { item, quote } : null;
+    })
+    .filter((r): r is { item: VendorQuoteItem; quote: VendorQuote } => r !== null);
+
+  // Sort newest-first by parent quote createdAt.
+  rows.sort((a, b) => {
+    const ta = (a.quote.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+    const tb = (b.quote.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+    return tb - ta;
+  });
+  return rows;
+}
+
 // ============================================================================
 // Update
 // ============================================================================

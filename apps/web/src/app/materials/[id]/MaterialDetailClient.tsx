@@ -28,22 +28,13 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
 import { getFirebase } from '@/lib/firebase';
-import type { Material, MaterialPrice } from '@vapour/types';
+import type { Material, VendorQuote, VendorQuoteItem } from '@vapour/types';
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory } from '@vapour/types';
 import { getMaterialById } from '@/lib/materials/materialService';
-import { getMaterialPriceHistory } from '@/lib/materials/pricing';
-import { formatMoney, formatDate } from '@/lib/utils/formatters';
-
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  VENDOR_QUOTE: 'Vendor Quote',
-  VENDOR_INVOICE: 'Vendor Bill',
-  MARKET_RATE: 'Market Rate',
-  HISTORICAL: 'Historical',
-  ESTIMATED: 'Estimated',
-  CONTRACT_RATE: 'Contract',
-};
+import { getQuoteRowsByMaterialId } from '@/lib/vendorQuotes/vendorQuoteService';
+import { formatMoney, formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { CheckCircle as AcceptedIcon } from '@mui/icons-material';
 
 export default function MaterialDetailClient() {
   const router = useRouter();
@@ -51,7 +42,10 @@ export default function MaterialDetailClient() {
   const { db } = getFirebase();
 
   const [material, setMaterial] = useState<Material | null>(null);
-  const [priceHistory, setPriceHistory] = useState<MaterialPrice[]>([]);
+  const [quoteRows, setQuoteRows] = useState<Array<{ item: VendorQuoteItem; quote: VendorQuote }>>(
+    []
+  );
+  const [quotesLoading, setQuotesLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [materialId, setMaterialId] = useState<string | null>(null);
@@ -101,12 +95,16 @@ export default function MaterialDetailClient() {
 
       setMaterial(data);
 
-      // Load price history in the background — non-blocking.
-      getMaterialPriceHistory(db, materialId, { limitResults: 20 })
-        .then(setPriceHistory)
+      // Load quote history in the background — non-blocking. We surface
+      // every quote line item that references this material, with the
+      // accepted-as-canonical-price ones highlighted (broader than the
+      // old "Price History" view, which only showed accepted rows).
+      getQuoteRowsByMaterialId(db, materialId)
+        .then(setQuoteRows)
         .catch((err) => {
-          console.warn('Failed to load price history', err);
-        });
+          console.warn('Failed to load quotes for material', err);
+        })
+        .finally(() => setQuotesLoading(false));
     } catch (err) {
       console.error('Error loading material:', err);
       setError(err instanceof Error ? err.message : 'Failed to load material');
@@ -331,68 +329,92 @@ export default function MaterialDetailClient() {
             </CardContent>
           </Card>
 
-          {/* Price History — quotes, invoices, and market rates that have been
-              captured for this material. Each row links back to its source. */}
+          {/* Quotes — every vendor quote line item that references this
+              material. Accepted prices (the ones we picked as canonical)
+              are highlighted; everything else gives context for that pick. */}
           <Card sx={{ mt: 2 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Price History
-              </Typography>
-              {priceHistory.length === 0 ? (
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Typography variant="h6">Quotes</Typography>
+                <Chip
+                  label={quotesLoading ? '…' : quoteRows.length}
+                  size="small"
+                  color={quoteRows.length > 0 ? 'primary' : 'default'}
+                />
+              </Stack>
+              {quotesLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={20} />
+                </Box>
+              ) : quoteRows.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  No prices recorded yet. Quotes and vendor invoices automatically appear here when
-                  their item prices are accepted.
+                  No vendor quotes for this material yet. They&apos;ll appear here automatically as
+                  you log quotes that include this item.
                 </Typography>
               ) : (
                 <Table size="small">
                   <TableBody>
-                    {priceHistory.map((price) => {
+                    {quoteRows.map(({ item, quote }) => {
                       const dateVal =
-                        price.effectiveDate &&
-                        typeof (price.effectiveDate as { toDate?: () => Date }).toDate ===
+                        quote.vendorOfferDate &&
+                        typeof (quote.vendorOfferDate as { toDate?: () => Date }).toDate ===
                           'function'
-                          ? (price.effectiveDate as { toDate: () => Date }).toDate()
+                          ? (quote.vendorOfferDate as { toDate: () => Date }).toDate()
                           : null;
-                      const quoteHref = price.sourceQuoteId
-                        ? `/procurement/quotes/${price.sourceQuoteId}`
-                        : null;
+                      const accepted = item.priceAccepted === true;
                       return (
-                        <TableRow key={price.id}>
+                        <TableRow
+                          key={item.id}
+                          hover
+                          sx={{
+                            cursor: 'pointer',
+                            ...(accepted && {
+                              backgroundColor: 'success.light',
+                              opacity: 0.95,
+                            }),
+                          }}
+                          onClick={() => router.push(`/procurement/quotes/${quote.id}`)}
+                        >
                           <TableCell sx={{ py: 1 }}>
-                            <Typography variant="body2" fontWeight={500}>
-                              {formatMoney(price.pricePerUnit)} / {price.unit}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {price.vendorName || '—'}
-                              {dateVal ? ` · ${formatDate(dateVal)}` : ''}
-                            </Typography>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              {accepted && (
+                                <AcceptedIcon
+                                  fontSize="small"
+                                  color="success"
+                                  titleAccess="Accepted price"
+                                />
+                              )}
+                              <Box>
+                                <Typography variant="body2" fontWeight={accepted ? 600 : 500}>
+                                  {formatCurrency(item.unitPrice, quote.currency)} / {item.unit}
+                                  {item.gstRate ? ` · GST ${item.gstRate}%` : ''}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  display="block"
+                                >
+                                  {quote.vendorName || '—'}
+                                  {dateVal ? ` · ${formatDate(dateVal)}` : ''}
+                                </Typography>
+                              </Box>
+                            </Stack>
                           </TableCell>
                           <TableCell align="right" sx={{ py: 1 }}>
                             <Chip
-                              label={SOURCE_TYPE_LABELS[price.sourceType] || price.sourceType}
+                              label={accepted ? 'Accepted' : quote.status}
                               size="small"
-                              variant="outlined"
+                              color={accepted ? 'success' : 'default'}
+                              variant={accepted ? 'filled' : 'outlined'}
                             />
-                            {quoteHref && price.documentReference && (
-                              <Typography
-                                variant="caption"
-                                component={Link}
-                                href={quoteHref}
-                                sx={{ display: 'block', mt: 0.5 }}
-                              >
-                                {price.documentReference}
-                              </Typography>
-                            )}
-                            {!quoteHref && price.documentReference && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                display="block"
-                                sx={{ mt: 0.5 }}
-                              >
-                                {price.documentReference}
-                              </Typography>
-                            )}
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              sx={{ mt: 0.5, fontFamily: 'monospace' }}
+                            >
+                              {quote.number}
+                            </Typography>
                           </TableCell>
                         </TableRow>
                       );
