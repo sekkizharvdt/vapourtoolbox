@@ -19,12 +19,15 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import Anthropic from '@anthropic-ai/sdk';
 import { anthropicApiKey } from './parseOfferWithClaude';
+import { resolveEquipmentMaterial, type EquipmentSpec } from './equipmentResolver';
 
 interface ParseQuoteRequest {
   storagePath: string;
   fileName: string;
   mimeType: string;
   fileSize: number;
+  /** Optional — used to scope auto-created materials to the right tenant. */
+  tenantId?: string;
 }
 
 interface ParsedQuoteHeader {
@@ -54,6 +57,20 @@ interface ParsedQuoteItem {
   deliveryPeriod?: string;
   makeModel?: string;
   vendorNotes?: string;
+  /**
+   * Equipment-specific category ID (`VALVE_GATE`, `PUMP_CENTRIFUGAL`, etc.).
+   * Set when Claude detected an equipment line — drives auto-link/create.
+   */
+  equipmentCategory?: string;
+  /** Structured spec from Claude — lets the resolver build a deterministic code. */
+  equipmentSpec?: EquipmentSpec;
+  /** Set after server-side resolution. Drives the UI badge per row. */
+  linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
+  /** Populated when linkStatus is linked or auto-created. */
+  materialId?: string;
+  materialCode?: string;
+  /** Why we couldn't auto-resolve (manual-needed only). */
+  linkReason?: string;
 }
 
 interface ParseQuoteResult {
@@ -93,7 +110,34 @@ Return ONLY valid JSON in this exact shape (no prose before or after):
       "gstRate": number or null,
       "deliveryPeriod": "string or null",
       "makeModel": "string or null",
-      "vendorNotes": "string or null"
+      "vendorNotes": "string or null",
+
+      // Equipment auto-resolution (valves, pumps, instruments).
+      // Set BOTH equipmentCategory and equipmentSpec when the line is
+      // clearly one of these. Leave both null for plates, pipes, fittings,
+      // raw materials, services, fasteners, gaskets, motors, NOTE rows.
+      // The system uses these to build a deterministic code and auto-link
+      // (or auto-create) the matching master record.
+      "equipmentCategory": "VALVE_GATE | VALVE_GLOBE | VALVE_BALL | VALVE_BUTTERFLY | VALVE_CHECK | VALVE_OTHER | PUMP_CENTRIFUGAL | PUMP_POSITIVE_DISPLACEMENT | INSTRUMENT_PRESSURE_GAUGE | INSTRUMENT_TEMPERATURE_SENSOR | INSTRUMENT_FLOW_METER | INSTRUMENT_LEVEL_TRANSMITTER | INSTRUMENT_CONTROL_VALVE | INSTRUMENT_OTHER | null",
+      "equipmentSpec": {
+        // family must match equipmentCategory
+        "family": "VALVE | PUMP | INSTRUMENT | null",
+
+        // VALVE fields — required when family=VALVE
+        "valveType": "GATE | GLOBE | BALL | BUTTERFLY | CHECK | OTHER | null",
+        "valveMaterial": "SS316 | SS304 | CS | CI | DI | BRZ | null  — body material short code",
+        "valveSize": "string e.g. DN50 / 2IN / 100MM (use the form the vendor used) | null",
+        "valveRating": "string e.g. 150 / 300 / 600 / PN16 / PN25 | null",
+        "valveActuation": "MAN | PNE | ELE | HYD | null  — default MAN if vendor didn't specify",
+
+        // PUMP fields — required when family=PUMP
+        "pumpType": "CF (centrifugal) | PD (positive displacement) | OTHER | null",
+        "pumpFlowM3H": "number — convert to m³/hr if vendor used GPM/LPM | null",
+        "pumpHeadM": "number — convert to metres if vendor used feet | null",
+
+        // INSTRUMENT fields — required when family=INSTRUMENT
+        "instrumentSubtype": "PG | TS | FM | LT | CV | OTH | null"
+      }
     }
   ]
 }
@@ -113,7 +157,20 @@ Critical rules:
    When unclear, prefer MATERIAL — the user can override.
 8. unitPrice and amount must be plain numbers (no currency symbols, no commas).
 9. If quantity is missing, assume 1.
-10. If unit is missing, default to "NOS".`;
+10. If unit is missing, default to "NOS".
+11. EQUIPMENT detection — for valves, pumps, and instruments only:
+    - Read the description carefully and populate equipmentCategory + equipmentSpec
+      with as much detail as the vendor provided.
+    - Convert pump flow to m³/hr (1 GPM = 0.227 m³/hr; 1 LPM = 0.06 m³/hr).
+    - Convert pump head to metres (1 ft = 0.3048 m).
+    - For valves, use the short material codes (SS316/SS304/CS/CI/DI/BRZ) — not
+      long forms like "Stainless Steel 316".
+    - If actuation isn't mentioned, default to MAN (manual).
+    - If ANY required field for the equipment family is missing in the document,
+      leave equipmentCategory and equipmentSpec NULL and fall back to itemType
+      = MATERIAL. The system will surface those rows for manual picking.
+12. NEVER set equipmentCategory for non-equipment items (plates, pipes,
+    fittings, fasteners, gaskets, services, NOTE rows).`;
 
 export const parseQuote = onCall(
   {
@@ -268,6 +325,10 @@ export const parseQuote = onCall(
         ...(item.deliveryPeriod && { deliveryPeriod: item.deliveryPeriod }),
         ...(item.makeModel && { makeModel: item.makeModel }),
         ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
+        // Propagate equipment fields if Claude detected an equipment line.
+        // The resolver below decides what to do with them.
+        ...(item.equipmentCategory && { equipmentCategory: item.equipmentCategory }),
+        ...(item.equipmentSpec && { equipmentSpec: item.equipmentSpec }),
       };
     });
 
@@ -277,10 +338,50 @@ export const parseQuote = onCall(
       );
     }
 
+    // Resolve equipment lines against the materials master — auto-link existing
+    // matches by deterministic code, auto-create new ones (flagged needsReview).
+    // Non-equipment lines pass through unchanged; the user picks manually.
+    const db = admin.firestore();
+    let linkedCount = 0;
+    let createdCount = 0;
+    let manualCount = 0;
+
+    for (const item of items) {
+      if (!item.equipmentCategory || !item.equipmentSpec) continue;
+
+      const result = await resolveEquipmentMaterial(db, {
+        category: item.equipmentCategory,
+        spec: item.equipmentSpec,
+        name: item.description,
+        baseUnit: item.unit,
+        userId: request.auth.uid,
+        ...(data.tenantId && { tenantId: data.tenantId }),
+      });
+
+      if (result.status === 'manual-needed') {
+        item.linkStatus = 'manual-needed';
+        item.linkReason = result.reason;
+        manualCount++;
+      } else {
+        item.linkStatus = result.status;
+        item.materialId = result.materialId;
+        item.materialCode = result.materialCode;
+        if (result.status === 'linked') linkedCount++;
+        else createdCount++;
+      }
+    }
+
+    if (createdCount > 0) {
+      warnings.push(
+        `${createdCount} new material${createdCount === 1 ? '' : 's'} auto-created from this quote — review them in Materials.`
+      );
+    }
+
     logger.info('[parseQuote] Parsed successfully', {
       fileName: data.fileName,
       itemCount: items.length,
       hasHeader: Object.keys(header).length > 0,
+      equipmentResolution: { linked: linkedCount, autoCreated: createdCount, manual: manualCount },
       usage: response.usage,
     });
 
