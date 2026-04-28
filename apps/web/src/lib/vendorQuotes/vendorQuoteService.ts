@@ -379,6 +379,54 @@ export async function getVendorQuoteItems(
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<VendorQuoteItem, 'id'>) }));
 }
 
+/**
+ * Find every quote that has at least one line item linked to a particular
+ * master record (service / material / bought-out). Returns the parent quotes,
+ * not the items themselves — useful for the "Recent Quotes" section on
+ * service / material / bought-out detail pages.
+ *
+ * Implementation: queries `vendorQuoteItems` by the matching id field, takes
+ * the unique parent quoteIds, then fetches the parents in parallel. Volumes
+ * are low so a join-on-the-client is fine; if this gets hot, denormalize
+ * a `quoteIds[]` array onto the master record.
+ */
+async function getQuotesByItemRef(
+  db: Firestore,
+  field: 'serviceId' | 'materialId' | 'boughtOutItemId',
+  id: string
+): Promise<VendorQuote[]> {
+  const itemsSnap = await getDocs(
+    query(collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS), where(field, '==', id))
+  );
+  const quoteIds = Array.from(
+    new Set(itemsSnap.docs.map((d) => (d.data() as { quoteId?: string }).quoteId).filter(Boolean))
+  ) as string[];
+  if (quoteIds.length === 0) return [];
+
+  const parents = await Promise.all(
+    quoteIds.map(async (qid) => {
+      const snap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, qid));
+      return snap.exists() ? { id: snap.id, ...(snap.data() as Omit<VendorQuote, 'id'>) } : null;
+    })
+  );
+  // Drop missing/inactive, sort newest-first by createdAt.
+  return parents
+    .filter((q): q is VendorQuote => q !== null && q.isActive !== false)
+    .sort((a, b) => {
+      const ta = (a.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+      const tb = (b.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+      return tb - ta;
+    });
+}
+
+export function getQuotesByServiceId(db: Firestore, serviceId: string): Promise<VendorQuote[]> {
+  return getQuotesByItemRef(db, 'serviceId', serviceId);
+}
+
+export function getQuotesByMaterialId(db: Firestore, materialId: string): Promise<VendorQuote[]> {
+  return getQuotesByItemRef(db, 'materialId', materialId);
+}
+
 // ============================================================================
 // Update
 // ============================================================================

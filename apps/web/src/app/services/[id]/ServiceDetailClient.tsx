@@ -15,19 +15,27 @@ import {
   DialogContentText,
   DialogActions,
   Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  RequestQuote as QuoteIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { SERVICE_CATEGORY_LABELS, SERVICE_CALCULATION_METHOD_LABELS } from '@vapour/types';
-import type { Service } from '@vapour/types';
+import type { Service, VendorQuote } from '@vapour/types';
 import { getServiceById, deleteService } from '@/lib/services/crud';
+import { getQuotesByServiceId } from '@/lib/vendorQuotes/vendorQuoteService';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -67,6 +75,11 @@ export default function ServiceDetailClient() {
     message: '',
   });
 
+  // Recent quotes — vendor quotes that link to this service. Independent of
+  // the main load: a failure here shouldn't block the rest of the page.
+  const [quotes, setQuotes] = useState<VendorQuote[]>([]);
+  const [quotesLoading, setQuotesLoading] = useState(true);
+
   useEffect(() => {
     async function load() {
       if (!db || !serviceId) return;
@@ -85,6 +98,22 @@ export default function ServiceDetailClient() {
       }
     }
     load();
+  }, [db, serviceId]);
+
+  useEffect(() => {
+    async function loadQuotes() {
+      if (!db || !serviceId) return;
+      try {
+        const found = await getQuotesByServiceId(db, serviceId);
+        setQuotes(found);
+      } catch (err) {
+        console.warn('[ServiceDetail] Failed to load related quotes', err);
+        setQuotes([]);
+      } finally {
+        setQuotesLoading(false);
+      }
+    }
+    loadQuotes();
   }, [db, serviceId]);
 
   const handleDelete = async () => {
@@ -304,6 +333,72 @@ export default function ServiceDetailClient() {
           </Grid>
         </Paper>
       )}
+
+      {/* Recent Quotes — vendor quotes that include this service.
+          Lets users see the latest prices without leaving the page. */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <QuoteIcon color="primary" />
+          <Typography variant="h6">Recent Quotes</Typography>
+          <Chip
+            label={quotesLoading ? '…' : quotes.length}
+            size="small"
+            color={quotes.length > 0 ? 'primary' : 'default'}
+          />
+        </Box>
+        {quotesLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={20} />
+          </Box>
+        ) : quotes.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No vendor quotes for this service yet.
+          </Typography>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Number</TableCell>
+                  <TableCell>Vendor</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell align="right">Total</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {quotes.slice(0, 10).map((q) => {
+                  const date =
+                    q.vendorOfferDate &&
+                    typeof (q.vendorOfferDate as { toDate?: () => Date }).toDate === 'function'
+                      ? (q.vendorOfferDate as { toDate: () => Date })
+                          .toDate()
+                          .toLocaleDateString('en-IN')
+                      : '-';
+                  return (
+                    <TableRow
+                      key={q.id}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => router.push(`/procurement/quotes/${q.id}`)}
+                    >
+                      <TableCell sx={{ fontWeight: 500 }}>{q.number}</TableCell>
+                      <TableCell>{q.vendorName}</TableCell>
+                      <TableCell>{date}</TableCell>
+                      <TableCell align="right">
+                        {q.currency} {q.totalAmount.toLocaleString('en-IN')}
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={q.status} size="small" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
 
       {/* Delete Confirmation */}
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
