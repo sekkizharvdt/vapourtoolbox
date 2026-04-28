@@ -8,7 +8,11 @@
  * sent offline.
  *
  * Creates a VendorQuote with:
- * - sourceType = 'OFFLINE_RFQ' if an RFQ is selected, otherwise 'UNSOLICITED'
+ * - sourceType = 'OFFLINE_RFQ' for any reply to a phone/email/WhatsApp
+ *   conversation (whether or not an in-app RFQ exists). Default for
+ *   anything not explicitly marked unsolicited.
+ * - sourceType = 'UNSOLICITED' only when the user opts in via the
+ *   "Unsolicited" toggle (rare cold-quote case).
  * - rfqMode = 'OFFLINE' when rfqId is set
  *
  * Line items get added on the detail page after the quote is created.
@@ -106,6 +110,11 @@ export default function NewProcurementQuotePage() {
   const [validityDate, setValidityDate] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>('INR');
   const [remarks, setRemarks] = useState('');
+
+  // Most logged quotes are replies to an offline conversation (email, phone,
+  // WhatsApp) — solicited, just no in-app RFQ doc. Truly unsolicited cold
+  // quotes are rare. Default to offline; let the user opt in for unsolicited.
+  const [isUnsolicited, setIsUnsolicited] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -460,7 +469,11 @@ export default function NewProcurementQuotePage() {
       const quoteId = await createVendorQuote(
         db,
         {
-          sourceType: selectedRfq ? 'OFFLINE_RFQ' : 'UNSOLICITED',
+          // Classification: an RFQ link upgrades to OFFLINE_RFQ (linked).
+          // Otherwise default to OFFLINE_RFQ (vendor replied to an offline
+          // conversation we initiated) unless the user explicitly opts into
+          // UNSOLICITED via the checkbox below.
+          sourceType: isUnsolicited && !selectedRfq ? 'UNSOLICITED' : 'OFFLINE_RFQ',
           ...(selectedRfq && {
             rfqId: selectedRfq.id,
             rfqNumber: selectedRfq.number,
@@ -575,13 +588,31 @@ export default function NewProcurementQuotePage() {
                     size="small"
                     helperText={
                       selectedRfq
-                        ? 'Marked as an offline RFQ response'
-                        : 'Leave blank to log as an unsolicited quote'
+                        ? 'Linked to this RFQ'
+                        : 'Leave blank if there’s no in-app RFQ for this quote'
                     }
                   />
                 )}
               />
             </Grid>
+
+            {/* Unsolicited opt-in — only meaningful when there's no RFQ link.
+                Default behaviour treats unlinked quotes as offline replies,
+                which matches reality most of the time. */}
+            {!selectedRfq && (
+              <Grid size={{ xs: 12 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={isUnsolicited}
+                      onChange={(e) => setIsUnsolicited(e.target.checked)}
+                    />
+                  }
+                  label="Unsolicited — vendor sent this without us asking"
+                />
+              </Grid>
+            )}
 
             {/* Vendor's own ref */}
             <Grid size={{ xs: 12, md: 4 }}>

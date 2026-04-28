@@ -63,7 +63,9 @@ const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' 
 const SOURCE_LABELS: Record<QuoteSourceType, string> = {
   STANDING_QUOTE: 'Standing',
   RFQ_RESPONSE: 'RFQ Response',
-  OFFLINE_RFQ: 'Offline RFQ',
+  // "Offline" rather than "Offline RFQ" — covers replies to phone/email/
+  // WhatsApp conversations whether or not an in-app RFQ is linked.
+  OFFLINE_RFQ: 'Offline',
   UNSOLICITED: 'Unsolicited',
 };
 
