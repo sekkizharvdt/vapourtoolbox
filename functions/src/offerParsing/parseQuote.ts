@@ -19,7 +19,13 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import Anthropic from '@anthropic-ai/sdk';
 import { anthropicApiKey } from './parseOfferWithClaude';
-import { resolveEquipmentMaterial, type EquipmentSpec } from './equipmentResolver';
+import {
+  resolveBoughtOutItem,
+  type ParsedBoughtOutSpec,
+  type ValveSpecMin,
+  type PumpSpecMin,
+  type InstrumentSpecMin,
+} from './boughtOutResolver';
 
 interface ParseQuoteRequest {
   storagePath: string;
@@ -58,17 +64,21 @@ interface ParsedQuoteItem {
   makeModel?: string;
   vendorNotes?: string;
   /**
-   * Equipment-specific category ID (`VALVE_GATE`, `PUMP_CENTRIFUGAL`, etc.).
-   * Set when Claude detected an equipment line — drives auto-link/create.
+   * Bought-out category — set when Claude detected a valve/pump/instrument line.
+   * Drives the auto-link/create lookup against the boughtOutItems collection.
    */
-  equipmentCategory?: string;
-  /** Structured spec from Claude — lets the resolver build a deterministic code. */
-  equipmentSpec?: EquipmentSpec;
+  boughtOutCategory?: 'VALVE' | 'PUMP' | 'INSTRUMENT';
+  /** Per-category spec (only the field for the matching category is set). */
+  valveSpec?: ValveSpecMin;
+  pumpSpec?: PumpSpecMin;
+  instrumentSpec?: InstrumentSpecMin;
+  manufacturer?: string;
+  model?: string;
   /** Set after server-side resolution. Drives the UI badge per row. */
   linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
   /** Populated when linkStatus is linked or auto-created. */
-  materialId?: string;
-  materialCode?: string;
+  boughtOutItemId?: string;
+  boughtOutCode?: string;
   /** Why we couldn't auto-resolve (manual-needed only). */
   linkReason?: string;
 }
@@ -112,31 +122,37 @@ Return ONLY valid JSON in this exact shape (no prose before or after):
       "makeModel": "string or null",
       "vendorNotes": "string or null",
 
-      // Equipment auto-resolution (valves, pumps, instruments).
-      // Set BOTH equipmentCategory and equipmentSpec when the line is
-      // clearly one of these. Leave both null for plates, pipes, fittings,
-      // raw materials, services, fasteners, gaskets, motors, NOTE rows.
-      // The system uses these to build a deterministic code and auto-link
-      // (or auto-create) the matching master record.
-      "equipmentCategory": "VALVE_GATE | VALVE_GLOBE | VALVE_BALL | VALVE_BUTTERFLY | VALVE_CHECK | VALVE_OTHER | PUMP_CENTRIFUGAL | PUMP_POSITIVE_DISPLACEMENT | INSTRUMENT_PRESSURE_GAUGE | INSTRUMENT_TEMPERATURE_SENSOR | INSTRUMENT_FLOW_METER | INSTRUMENT_LEVEL_TRANSMITTER | INSTRUMENT_CONTROL_VALVE | INSTRUMENT_OTHER | null",
-      "equipmentSpec": {
-        // family must match equipmentCategory
-        "family": "VALVE | PUMP | INSTRUMENT | null",
+      // Bought-out auto-resolution (valves, pumps, instruments).
+      // Set boughtOutCategory + the matching spec block when the line is
+      // clearly one of these. Leave them null for plates, pipes, fittings,
+      // raw materials, services, fasteners, gaskets, NOTE rows.
+      // The system uses these to build a deterministic spec code and
+      // auto-link (or auto-create) the matching bought-out item record.
+      "boughtOutCategory": "VALVE | PUMP | INSTRUMENT | null",
+      "manufacturer": "string or null — vendor's brand if mentioned",
+      "model": "string or null — model number / series if mentioned",
 
-        // VALVE fields — required when family=VALVE
-        "valveType": "GATE | GLOBE | BALL | BUTTERFLY | CHECK | OTHER | null",
-        "valveMaterial": "SS316 | SS304 | CS | CI | DI | BRZ | null  — body material short code",
-        "valveSize": "string e.g. DN50 / 2IN / 100MM (use the form the vendor used) | null",
-        "valveRating": "string e.g. 150 / 300 / 600 / PN16 / PN25 | null",
-        "valveActuation": "MAN | PNE | ELE | HYD | null  — default MAN if vendor didn't specify",
+      // VALVE — fill ONLY when boughtOutCategory=VALVE
+      "valveSpec": {
+        "valveType": "GATE | GLOBE | BALL | BUTTERFLY | CHECK_SWING | CHECK_DUAL_PLATE | CHECK_LIFT | PLUG | NEEDLE | DIAPHRAGM | CONTROL | null",
+        "size": "string — DN50 / 2\" / 100MM (use the form the vendor used) | null",
+        "pressureRating": "string — 150# / 300# / PN16 | null",
+        "bodyMaterial": "string — short code preferred: SS316 / SS304 / CS / CI / DI / BRZ | null",
+        "endConnection": "FLANGED_RF | FLANGED_FF | BUTT_WELD | SOCKET_WELD | THREADED | WAFER | LUG | null  — for check valves default to WAFER if not specified",
+        "operation": "MANUAL | GEAR | PNEUMATIC | ELECTRIC | HYDRAULIC | SELF_ACTUATED | null  — default MANUAL if vendor didn't specify"
+      },
 
-        // PUMP fields — required when family=PUMP
-        "pumpType": "CF (centrifugal) | PD (positive displacement) | OTHER | null",
-        "pumpFlowM3H": "number — convert to m³/hr if vendor used GPM/LPM | null",
-        "pumpHeadM": "number — convert to metres if vendor used feet | null",
+      // PUMP — fill ONLY when boughtOutCategory=PUMP
+      "pumpSpec": {
+        "pumpType": "CENTRIFUGAL | GEAR | DIAPHRAGM | SCREW | RECIPROCATING | DOSING | null",
+        "flowRate": "number — m³/h, convert from GPM (×0.227) or LPM (×0.06) | null",
+        "head": "number — metres, convert from feet (×0.3048) | null"
+      },
 
-        // INSTRUMENT fields — required when family=INSTRUMENT
-        "instrumentSubtype": "PG | TS | FM | LT | CV | OTH | null"
+      // INSTRUMENT — fill ONLY when boughtOutCategory=INSTRUMENT
+      "instrumentSpec": {
+        "instrumentType": "TRANSMITTER | SWITCH | ANALYSER | INDICATOR | RECORDER | CONTROLLER | null",
+        "variable": "PRESSURE | TEMPERATURE | FLOW | LEVEL | CONDUCTIVITY | PH | TURBIDITY | DISSOLVED_O2 | null"
       }
     }
   ]
@@ -158,19 +174,25 @@ Critical rules:
 8. unitPrice and amount must be plain numbers (no currency symbols, no commas).
 9. If quantity is missing, assume 1.
 10. If unit is missing, default to "NOS".
-11. EQUIPMENT detection — for valves, pumps, and instruments only:
-    - Read the description carefully and populate equipmentCategory + equipmentSpec
-      with as much detail as the vendor provided.
-    - Convert pump flow to m³/hr (1 GPM = 0.227 m³/hr; 1 LPM = 0.06 m³/hr).
+11. BOUGHT-OUT detection — valves, pumps, instruments only. These map to
+    the dedicated 'boughtOutItems' collection (NOT the materials collection):
+    - Set itemType = "BOUGHT_OUT" for these lines.
+    - Populate boughtOutCategory and the matching valveSpec / pumpSpec /
+      instrumentSpec block with as much detail as the vendor provided.
+    - Convert pump flow to m³/h (1 GPM = 0.227 m³/h; 1 LPM = 0.06 m³/h).
     - Convert pump head to metres (1 ft = 0.3048 m).
-    - For valves, use the short material codes (SS316/SS304/CS/CI/DI/BRZ) — not
-      long forms like "Stainless Steel 316".
-    - If actuation isn't mentioned, default to MAN (manual).
-    - If ANY required field for the equipment family is missing in the document,
-      leave equipmentCategory and equipmentSpec NULL and fall back to itemType
-      = MATERIAL. The system will surface those rows for manual picking.
-12. NEVER set equipmentCategory for non-equipment items (plates, pipes,
-    fittings, fasteners, gaskets, services, NOTE rows).`;
+    - For valves, prefer SHORT material codes (SS316, SS304, CS, CI, DI, BRZ)
+      over long forms ("Stainless Steel 316"). The deterministic code uses the
+      bodyMaterial verbatim — short codes give cleaner codes.
+    - If valve operation isn't mentioned, default to MANUAL.
+    - For check (NRV) valves: end connection is almost always WAFER unless
+      the vendor explicitly says otherwise.
+    - If ANY required field for the bought-out category is missing in the
+      document, leave boughtOutCategory NULL — the system will surface those
+      rows for manual picking. Don't guess.
+12. NEVER set boughtOutCategory for items that are clearly NOT valves /
+    pumps / instruments (plates, pipes, fittings, fasteners, gaskets,
+    services, motors, NOTE rows).`;
 
 export const parseQuote = onCall(
   {
@@ -325,10 +347,15 @@ export const parseQuote = onCall(
         ...(item.deliveryPeriod && { deliveryPeriod: item.deliveryPeriod }),
         ...(item.makeModel && { makeModel: item.makeModel }),
         ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
-        // Propagate equipment fields if Claude detected an equipment line.
-        // The resolver below decides what to do with them.
-        ...(item.equipmentCategory && { equipmentCategory: item.equipmentCategory }),
-        ...(item.equipmentSpec && { equipmentSpec: item.equipmentSpec }),
+        // Propagate bought-out fields when Claude detected a valve / pump /
+        // instrument line. The resolver below routes them at the
+        // boughtOutItems collection.
+        ...(item.boughtOutCategory && { boughtOutCategory: item.boughtOutCategory }),
+        ...(item.valveSpec && { valveSpec: item.valveSpec }),
+        ...(item.pumpSpec && { pumpSpec: item.pumpSpec }),
+        ...(item.instrumentSpec && { instrumentSpec: item.instrumentSpec }),
+        ...(item.manufacturer && { manufacturer: item.manufacturer }),
+        ...(item.model && { model: item.model }),
       };
     });
 
@@ -338,22 +365,49 @@ export const parseQuote = onCall(
       );
     }
 
-    // Resolve equipment lines against the materials master — auto-link existing
-    // matches by deterministic code, auto-create new ones (flagged needsReview).
-    // Non-equipment lines pass through unchanged; the user picks manually.
+    // Resolve bought-out lines against the boughtOutItems collection —
+    // auto-link existing matches by deterministic spec code, auto-create
+    // new ones (flagged needsReview). Non-equipment lines pass through; the
+    // user picks manually for materials and services.
     const db = admin.firestore();
     let linkedCount = 0;
     let createdCount = 0;
     let manualCount = 0;
+    const currency = (header.currency ?? 'INR').toUpperCase();
 
     for (const item of items) {
-      if (!item.equipmentCategory || !item.equipmentSpec) continue;
+      if (!item.boughtOutCategory) continue;
 
-      const result = await resolveEquipmentMaterial(db, {
-        category: item.equipmentCategory,
-        spec: item.equipmentSpec,
+      let parsed: ParsedBoughtOutSpec | null = null;
+      if (item.boughtOutCategory === 'VALVE' && item.valveSpec) {
+        parsed = {
+          category: 'VALVE',
+          valve: item.valveSpec,
+          ...(item.manufacturer && { manufacturer: item.manufacturer }),
+          ...(item.model && { model: item.model }),
+        };
+      } else if (item.boughtOutCategory === 'PUMP' && item.pumpSpec) {
+        parsed = {
+          category: 'PUMP',
+          pump: item.pumpSpec,
+          ...(item.manufacturer && { manufacturer: item.manufacturer }),
+          ...(item.model && { model: item.model }),
+        };
+      } else if (item.boughtOutCategory === 'INSTRUMENT' && item.instrumentSpec) {
+        parsed = {
+          category: 'INSTRUMENT',
+          instrument: item.instrumentSpec,
+          ...(item.manufacturer && { manufacturer: item.manufacturer }),
+          ...(item.model && { model: item.model }),
+        };
+      }
+      if (!parsed) continue;
+
+      const result = await resolveBoughtOutItem(db, {
+        parsed,
         name: item.description,
-        baseUnit: item.unit,
+        unitPrice: item.unitPrice,
+        currency,
         userId: request.auth.uid,
         ...(data.tenantId && { tenantId: data.tenantId }),
       });
@@ -364,8 +418,8 @@ export const parseQuote = onCall(
         manualCount++;
       } else {
         item.linkStatus = result.status;
-        item.materialId = result.materialId;
-        item.materialCode = result.materialCode;
+        item.boughtOutItemId = result.itemId;
+        item.boughtOutCode = result.specCode;
         if (result.status === 'linked') linkedCount++;
         else createdCount++;
       }
@@ -373,7 +427,7 @@ export const parseQuote = onCall(
 
     if (createdCount > 0) {
       warnings.push(
-        `${createdCount} new material${createdCount === 1 ? '' : 's'} auto-created from this quote — review them in Materials.`
+        `${createdCount} new bought-out item${createdCount === 1 ? '' : 's'} auto-created from this quote — review them in Bought-Out Items.`
       );
     }
 
@@ -381,7 +435,7 @@ export const parseQuote = onCall(
       fileName: data.fileName,
       itemCount: items.length,
       hasHeader: Object.keys(header).length > 0,
-      equipmentResolution: { linked: linkedCount, autoCreated: createdCount, manual: manualCount },
+      boughtOutResolution: { linked: linkedCount, autoCreated: createdCount, manual: manualCount },
       usage: response.usage,
     });
 

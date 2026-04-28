@@ -281,12 +281,13 @@ export default function NewProcurementQuotePage() {
             deliveryPeriod?: string;
             makeModel?: string;
             vendorNotes?: string;
-            // Equipment auto-resolution metadata. Only present for valves /
-            // pumps / instruments where Claude could extract a full spec.
-            equipmentCategory?: string;
+            // Bought-out auto-resolution metadata. Only present for valves /
+            // pumps / instruments where Claude could extract a full spec —
+            // the parser writes these to the boughtOutItems collection.
+            boughtOutCategory?: 'VALVE' | 'PUMP' | 'INSTRUMENT';
             linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
-            materialId?: string;
-            materialCode?: string;
+            boughtOutItemId?: string;
+            boughtOutCode?: string;
             linkReason?: string;
           }>;
           warnings: string[];
@@ -329,8 +330,8 @@ export default function NewProcurementQuotePage() {
 
       // Items — replace any existing rows with the parsed set. NOTE rows
       // skip the master picker; everything else needs a manual link before save.
-      // Equipment lines (valves/pumps/instruments) may already carry a
-      // materialId from the server-side resolver — propagate it through.
+      // Bought-out lines (valves/pumps/instruments) may already carry a
+      // boughtOutItemId from the server-side resolver — propagate it through.
       const parsedRows: LineItemRow[] = data.items.map((item) => {
         const row = newRow({
           itemType: item.itemType,
@@ -342,12 +343,12 @@ export default function NewProcurementQuotePage() {
           ...(item.deliveryPeriod && { deliveryPeriod: item.deliveryPeriod }),
           ...(item.makeModel && { makeModel: item.makeModel }),
           ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
-          // Auto-link equipment lines that the parser resolved. The picker
-          // is bypassed for these — material code chip shows on the row.
-          ...(item.materialId && {
-            materialId: item.materialId,
-            materialCode: item.materialCode,
-            materialName: item.description,
+          // Auto-link bought-out lines the parser resolved. The picker is
+          // bypassed for these — bought-out code chip shows on the row.
+          ...(item.boughtOutItemId && {
+            boughtOutItemId: item.boughtOutItemId,
+            linkedItemCode: item.boughtOutCode,
+            linkedItemName: item.description,
           }),
         });
         if (item.linkStatus) row.linkStatus = item.linkStatus;
@@ -363,8 +364,8 @@ export default function NewProcurementQuotePage() {
         (r) => r.itemType !== 'NOTE' && !r.materialId && !r.serviceId && !r.boughtOutItemId
       ).length;
       const parts = [`AI extracted ${parsedRows.length} item${parsedRows.length === 1 ? '' : 's'}`];
-      if (linked > 0) parts.push(`${linked} linked to existing master`);
-      if (autoCreated > 0) parts.push(`${autoCreated} auto-created (review in Materials)`);
+      if (linked > 0) parts.push(`${linked} linked to existing bought-out item`);
+      if (autoCreated > 0) parts.push(`${autoCreated} auto-created (review in Bought-Out)`);
       if (manual > 0) parts.push(`${manual} need manual pick`);
       const warningText = data.warnings.length > 0 ? ` · ${data.warnings.join(' ')}` : '';
       setParseHint(parts.join(' · ') + warningText);
@@ -459,7 +460,8 @@ export default function NewProcurementQuotePage() {
   const isRowLinked = (row: LineItemRow): boolean => {
     if (row.itemType === 'NOTE') return true;
     if (row.itemType === 'SERVICE') return !!row.serviceId;
-    if (row.itemType === 'MATERIAL' || row.itemType === 'BOUGHT_OUT') return !!row.materialId;
+    if (row.itemType === 'MATERIAL') return !!row.materialId;
+    if (row.itemType === 'BOUGHT_OUT') return !!row.boughtOutItemId;
     return false;
   };
 
@@ -798,11 +800,12 @@ export default function NewProcurementQuotePage() {
               return (
                 <Alert severity="info" sx={{ mb: 2 }}>
                   <strong>
-                    {autoCreated.length} new material{autoCreated.length === 1 ? '' : 's'}{' '}
-                    auto-created from this quote.
+                    {autoCreated.length} new bought-out item
+                    {autoCreated.length === 1 ? '' : 's'} auto-created from this quote.
                   </strong>{' '}
-                  The AI parser couldn&apos;t find a matching master record so it generated one for
-                  each. Open the Materials list and verify the spec — these are flagged for review.
+                  The AI parser couldn&apos;t find a matching record by spec, so it generated one
+                  for each. Open Bought-Out Items and verify the spec — these are flagged for
+                  review.
                 </Alert>
               );
             })()}
@@ -908,6 +911,15 @@ export default function NewProcurementQuotePage() {
                                 label={row.serviceCode}
                                 size="small"
                                 color="secondary"
+                                variant="outlined"
+                                sx={{ mt: 0.5, mr: 0.5 }}
+                              />
+                            )}
+                            {row.linkedItemCode && (
+                              <Chip
+                                label={row.linkedItemCode}
+                                size="small"
+                                color="primary"
                                 variant="outlined"
                                 sx={{ mt: 0.5, mr: 0.5 }}
                               />
