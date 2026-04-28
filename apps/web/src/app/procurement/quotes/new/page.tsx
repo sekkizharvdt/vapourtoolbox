@@ -138,7 +138,14 @@ export default function NewProcurementQuotePage() {
 
   // Line items — populated by AI parser, editable, eventually persisted
   // alongside the quote header. NOTE-type rows are free-text (no master link).
-  type LineItemRow = CreateVendorQuoteItemInput & { tempKey: string };
+  type LineItemRow = CreateVendorQuoteItemInput & {
+    tempKey: string;
+    /** Set by the AI parser for equipment lines so the UI can badge the row
+     *  (Linked / Auto-created / Manual). User-added rows stay undefined. */
+    linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
+    /** Why the parser couldn't auto-resolve (when linkStatus = manual-needed). */
+    linkReason?: string;
+  };
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
 
   // Picker state
@@ -250,6 +257,7 @@ export default function NewProcurementQuotePage() {
           fileName: string;
           mimeType: string;
           fileSize: number;
+          tenantId?: string;
         },
         {
           success: boolean;
@@ -273,17 +281,26 @@ export default function NewProcurementQuotePage() {
             deliveryPeriod?: string;
             makeModel?: string;
             vendorNotes?: string;
+            // Equipment auto-resolution metadata. Only present for valves /
+            // pumps / instruments where Claude could extract a full spec.
+            equipmentCategory?: string;
+            linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
+            materialId?: string;
+            materialCode?: string;
+            linkReason?: string;
           }>;
           warnings: string[];
           error?: string;
         }
       >(fns, 'parseQuote');
 
+      const tenantIdForParse = claims?.tenantId || 'default-entity';
       const res = await callable({
         storagePath: stagedFile.storagePath,
         fileName: stagedFile.fileName,
         mimeType: stagedFile.mimeType,
         fileSize: stagedFile.fileSize,
+        tenantId: tenantIdForParse,
       });
 
       const data = res.data;
@@ -312,8 +329,10 @@ export default function NewProcurementQuotePage() {
 
       // Items — replace any existing rows with the parsed set. NOTE rows
       // skip the master picker; everything else needs a manual link before save.
-      const parsedRows: LineItemRow[] = data.items.map((item) =>
-        newRow({
+      // Equipment lines (valves/pumps/instruments) may already carry a
+      // materialId from the server-side resolver — propagate it through.
+      const parsedRows: LineItemRow[] = data.items.map((item) => {
+        const row = newRow({
           itemType: item.itemType,
           description: item.description,
           quantity: item.quantity,
@@ -323,14 +342,32 @@ export default function NewProcurementQuotePage() {
           ...(item.deliveryPeriod && { deliveryPeriod: item.deliveryPeriod }),
           ...(item.makeModel && { makeModel: item.makeModel }),
           ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
-        })
-      );
+          // Auto-link equipment lines that the parser resolved. The picker
+          // is bypassed for these — material code chip shows on the row.
+          ...(item.materialId && {
+            materialId: item.materialId,
+            materialCode: item.materialCode,
+            materialName: item.description,
+          }),
+        });
+        if (item.linkStatus) row.linkStatus = item.linkStatus;
+        if (item.linkReason) row.linkReason = item.linkReason;
+        return row;
+      });
       setLineItems(parsedRows);
 
+      // Build hint summarizing auto-resolution counts.
+      const autoCreated = parsedRows.filter((r) => r.linkStatus === 'auto-created').length;
+      const linked = parsedRows.filter((r) => r.linkStatus === 'linked').length;
+      const manual = parsedRows.filter(
+        (r) => r.itemType !== 'NOTE' && !r.materialId && !r.serviceId && !r.boughtOutItemId
+      ).length;
+      const parts = [`AI extracted ${parsedRows.length} item${parsedRows.length === 1 ? '' : 's'}`];
+      if (linked > 0) parts.push(`${linked} linked to existing master`);
+      if (autoCreated > 0) parts.push(`${autoCreated} auto-created (review in Materials)`);
+      if (manual > 0) parts.push(`${manual} need manual pick`);
       const warningText = data.warnings.length > 0 ? ` · ${data.warnings.join(' ')}` : '';
-      setParseHint(
-        `AI extracted ${parsedRows.length} item${parsedRows.length === 1 ? '' : 's'}. Review each row and link to a master record before saving.${warningText}`
-      );
+      setParseHint(parts.join(' · ') + warningText);
     } catch (err) {
       console.error('[NewQuotePage] parseQuote failed', err);
       setError(err instanceof Error ? err.message : 'AI parser unavailable. Please try again.');
@@ -753,6 +790,23 @@ export default function NewProcurementQuotePage() {
               </Button>
             </Stack>
 
+            {/* Auto-created summary — surfaces new master records the parser
+                wrote, so users can spot-check before the data spreads. */}
+            {(() => {
+              const autoCreated = lineItems.filter((r) => r.linkStatus === 'auto-created');
+              if (autoCreated.length === 0) return null;
+              return (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <strong>
+                    {autoCreated.length} new material{autoCreated.length === 1 ? '' : 's'}{' '}
+                    auto-created from this quote.
+                  </strong>{' '}
+                  The AI parser couldn&apos;t find a matching master record so it generated one for
+                  each. Open the Materials list and verify the spec — these are flagged for review.
+                </Alert>
+              );
+            })()}
+
             {lineItems.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
                 Use <strong>Parse with AI</strong> to extract items from the uploaded document, or
@@ -846,7 +900,7 @@ export default function NewProcurementQuotePage() {
                                 size="small"
                                 color="primary"
                                 variant="outlined"
-                                sx={{ mt: 0.5 }}
+                                sx={{ mt: 0.5, mr: 0.5 }}
                               />
                             )}
                             {row.serviceCode && (
@@ -855,16 +909,48 @@ export default function NewProcurementQuotePage() {
                                 size="small"
                                 color="secondary"
                                 variant="outlined"
-                                sx={{ mt: 0.5 }}
+                                sx={{ mt: 0.5, mr: 0.5 }}
                               />
                             )}
-                            {!isNote && !linked && (
+                            {/* AI auto-resolution status — only on rows the
+                                parser tried to resolve. User-added rows are
+                                untouched. */}
+                            {row.linkStatus === 'linked' && (
+                              <Chip
+                                label="Linked"
+                                size="small"
+                                color="success"
+                                sx={{ mt: 0.5, mr: 0.5 }}
+                              />
+                            )}
+                            {row.linkStatus === 'auto-created' && (
+                              <Tooltip title="New material created. Open Materials → Review to verify the spec.">
+                                <Chip
+                                  label="Auto-created · review"
+                                  size="small"
+                                  color="info"
+                                  sx={{ mt: 0.5, mr: 0.5 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {row.linkStatus === 'manual-needed' && row.linkReason && (
+                              <Tooltip title={row.linkReason}>
+                                <Chip
+                                  label="AI couldn't resolve"
+                                  size="small"
+                                  color="warning"
+                                  variant="outlined"
+                                  sx={{ mt: 0.5, mr: 0.5 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {!isNote && !linked && row.linkStatus !== 'manual-needed' && (
                               <Chip
                                 label="Pick from master"
                                 size="small"
                                 color="warning"
                                 variant="outlined"
-                                sx={{ mt: 0.5 }}
+                                sx={{ mt: 0.5, mr: 0.5 }}
                               />
                             )}
                           </TableCell>
