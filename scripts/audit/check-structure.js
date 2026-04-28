@@ -43,6 +43,7 @@ const violations = {
   rule4: [],
   rule24: [],
   rule28: [],
+  rule30: [],
 };
 
 // ─── Rule #4: collections in code without security rules ──────────────────
@@ -230,6 +231,60 @@ function findMatchingBrace(s, startIdx) {
   return -1;
 }
 
+// ─── Rule #30: useParams() under [id] routes (static export bug) ──────────
+//
+// next.config.ts uses `output: 'export'`, which renders dynamic routes against
+// a single 'placeholder' generateStaticParams entry. At runtime useParams()
+// returns that placeholder regardless of the URL, so detail pages silently
+// load nothing and render "not found". Pages must read the id via
+// usePathname() instead — see CLAUDE.md rule #30.
+
+function findFilesUnderDynamicRoutes(rootDir) {
+  // Returns absolute paths for every .tsx file under apps/web/src/app/**/[*]/...
+  const result = [];
+  function walk(dir, insideDynamic) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const isDynamic = insideDynamic || entry.name.startsWith('[');
+        walk(full, isDynamic);
+      } else if (insideDynamic && (entry.name.endsWith('.tsx') || entry.name.endsWith('.ts'))) {
+        result.push(full);
+      }
+    }
+  }
+  walk(rootDir, false);
+  return result;
+}
+
+function checkRule30() {
+  const files = findFilesUnderDynamicRoutes(APP_DIR);
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf8');
+    // Match `useParams(` — including `useParams<...>(`. Skip type-only imports
+    // and comments; a simple substring check is fine here because false
+    // positives are easy to spot and the rule is advisory until we sweep.
+    if (!/\buseParams\s*[(<]/.test(content)) continue;
+
+    // Skip files that already opt into the canonical pattern alongside
+    // useParams (rare but possible during a partial migration).
+    const usesPathnamePattern =
+      /usePathname\s*\(/.test(content) && /pathname\.match\s*\(/.test(content);
+    if (usesPathnamePattern) continue;
+
+    // Find the first useParams line for the report.
+    const lines = content.split('\n');
+    const lineNumber = lines.findIndex((l) => /\buseParams\s*[(<]/.test(l)) + 1;
+    violations.rule30.push({
+      file: path.relative(ROOT, file),
+      line: lineNumber || 1,
+      reason:
+        'useParams() under a dynamic route — returns placeholder under static export. Use usePathname() + path regex (rule #30).',
+    });
+  }
+}
+
 // ─── Rule #28: module completeness ─────────────────────────────────────────
 
 const SYSTEM_DIRS = new Set([
@@ -327,6 +382,7 @@ function main() {
   checkRule4();
   checkRule24();
   checkRule28();
+  checkRule30();
 
   printRule(
     'Rule #4 — collections referenced in code need firestore.rules entries',
@@ -347,7 +403,17 @@ function main() {
     (v) => `    ${DIM}${v.module}${RESET}\n      ${v.reason}`
   );
 
-  const total = violations.rule4.length + violations.rule24.length + violations.rule28.length;
+  printRule(
+    'Rule #30 — useParams() under [id] routes (broken under static export)',
+    violations.rule30,
+    (v) => `    ${DIM}${v.file}:${v.line}${RESET}\n      ${v.reason}`
+  );
+
+  const total =
+    violations.rule4.length +
+    violations.rule24.length +
+    violations.rule28.length +
+    violations.rule30.length;
 
   console.log();
   if (total === 0) {

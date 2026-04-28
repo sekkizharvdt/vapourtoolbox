@@ -35,7 +35,7 @@ import {
   CheckCircle as AcceptedIcon,
   PriceCheck as AcceptPriceIcon,
 } from '@mui/icons-material';
-import { useParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { PdfViewer } from '@/components/common/PdfViewer';
@@ -71,10 +71,21 @@ function formatDate(ts: unknown): string {
 }
 
 export default function VendorOfferDetailClient() {
-  const params = useParams();
-  const offerId = params.id as string;
+  const pathname = usePathname();
   const { user, claims } = useAuth();
   const { db } = getFirebase();
+
+  // Static export: useParams() returns the placeholder; parse the real id
+  // from the path (same pattern as services and estimation detail pages).
+  const [offerId, setOfferId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/materials\/vendor-offers\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') {
+      setOfferId(extracted);
+    }
+  }, [pathname]);
 
   const [offer, setOffer] = useState<VendorQuote | null>(null);
   const [items, setItems] = useState<VendorQuoteItem[]>([]);
@@ -105,6 +116,7 @@ export default function VendorOfferDetailClient() {
   const canManage = claims?.permissions ? canManageEstimation(claims.permissions) : false;
 
   const loadData = useCallback(async () => {
+    if (!offerId) return;
     try {
       setLoading(true);
       setError(null);
@@ -131,10 +143,11 @@ export default function VendorOfferDetailClient() {
   }, [db, offerId]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (offerId) loadData();
+  }, [offerId, loadData]);
 
   const handleAddItem = async () => {
+    if (!offerId) return;
     const qty = parseFloat(newQuantity);
     const price = parseFloat(newUnitPrice);
     if (
@@ -240,6 +253,7 @@ export default function VendorOfferDetailClient() {
   };
 
   const handleStatusChange = async (status: QuoteStatus) => {
+    if (!offerId) return;
     try {
       await updateVendorQuote(db, offerId, { status }, user!.uid, claims?.permissions ?? 0);
       await loadData();

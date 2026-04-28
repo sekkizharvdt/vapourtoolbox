@@ -356,6 +356,31 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
     The constants file is reviewed quarterly with the domain user — suggest updates via a PR against `labels.ts`, not by changing strings in individual components.
 
+## Routing & Static Export
+
+30. **Detail pages under `app/**/[id]/...`MUST read the id from`usePathname()`, not `useParams()`** — `next.config.ts`sets`output: 'export'`, so dynamic routes are pre-generated against a single `'placeholder'`value via`generateStaticParams()`. At runtime `useParams()`returns the placeholder regardless of the URL, which silently breaks every`getDocById` lookup and the page renders "not found". Three different modules hit this bug before it was caught (services detail, services edit, vendor-offer detail).
+
+    Canonical pattern (follow [`/estimation/[id]/BOMEditorClient.tsx`](apps/web/src/app/estimation/[id]/BOMEditorClient.tsx)):
+
+    ```typescript
+    const pathname = usePathname();
+    const [docId, setDocId] = useState<string | null>(null);
+
+    useEffect(() => {
+      if (!pathname) return;
+      const match = pathname.match(/\/estimation\/([^/]+)(?:\/|$)/);
+      const extracted = match?.[1];
+      if (extracted && extracted !== 'placeholder') {
+        setDocId(extracted);
+      }
+    }, [pathname]);
+
+    // Every effect / handler that uses docId must also guard:
+    // `if (!docId) return;`
+    ```
+
+    The pre-commit `check-structure.js` audit flags any `useParams()` call under `apps/web/src/app/**/[id*]/*.tsx`.
+
 ## Data Dictionary — Key Collections
 
 | Collection                      | Entity-scoped              | Key Fields                                                                                                                                     | Written By                                             | Read By                                            |
