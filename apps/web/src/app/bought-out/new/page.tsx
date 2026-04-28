@@ -1,24 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Typography,
   Button,
   Card,
   CardContent,
+  Chip,
   Grid,
   TextField,
   MenuItem,
   InputAdornment,
   Alert,
   CircularProgress,
+  Stack,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
   Home as HomeIcon,
+  AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,8 +31,17 @@ import {
   BOUGHT_OUT_CATEGORY_LABELS,
   CreateBoughtOutItemInput,
   CurrencyCode,
+  ValveSpecs,
+  PumpSpecs,
+  InstrumentSpecs,
 } from '@vapour/types';
 import { createBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
+import {
+  buildValveSpecCode,
+  buildPumpSpecCode,
+  checkInstrumentSpecComplete,
+  findBoughtOutBySpecCode,
+} from '@/lib/boughtOut/specCode';
 import SpecificationForm from '../components/SpecificationForm';
 
 export default function NewBoughtOutItemPage() {
@@ -56,6 +68,55 @@ export default function NewBoughtOutItemPage() {
 
   // Single-tenant: default-entity (must match tenantId claim for Firestore rules)
   const tenantId = claims?.tenantId || 'default-entity';
+
+  // Live spec-code preview. As the user fills in valve / pump / instrument
+  // attributes, this shows the deterministic code we'll write — and tells
+  // them exactly which fields are still missing. Same code that the AI
+  // quote parser uses for matching, so manual entries deduplicate against
+  // future parsed quotes (and vice versa).
+  const specCodePreview = useMemo<{ code: string | null; reason?: string }>(() => {
+    if (category === 'VALVE') {
+      const r = buildValveSpecCode(specs as ValveSpecs);
+      return r.ok ? { code: r.code } : { code: null, reason: r.reason };
+    }
+    if (category === 'PUMP') {
+      const r = buildPumpSpecCode(specs as PumpSpecs);
+      return r.ok ? { code: r.code } : { code: null, reason: r.reason };
+    }
+    if (category === 'INSTRUMENT') {
+      const r = checkInstrumentSpecComplete(specs as InstrumentSpecs);
+      return r.ok ? { code: r.code } : { code: null, reason: r.reason };
+    }
+    return { code: null };
+  }, [category, specs]);
+
+  // Duplicate-check: when the spec is complete enough to produce a code,
+  // poll Firestore to see if another item already has it. Doesn't block
+  // typing — surfaces a banner the user can act on (open existing or
+  // continue creating intentionally).
+  const [duplicate, setDuplicate] = useState<{
+    id: string;
+    itemCode?: string;
+    name?: string;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const code = specCodePreview.code;
+    if (!code || code.endsWith('-XXXX')) {
+      setDuplicate(null);
+      return;
+    }
+    findBoughtOutBySpecCode(db, code)
+      .then((existing) => {
+        if (!cancelled) setDuplicate(existing);
+      })
+      .catch(() => {
+        // Best-effort; swallow lookup errors so the form stays usable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, specCodePreview.code]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,6 +232,60 @@ export default function NewBoughtOutItemPage() {
                   Specifications
                 </Typography>
                 <SpecificationForm category={category} specs={specs} onChange={setSpecs} />
+
+                {/* Live spec-code preview. Helps users understand the matching
+                    system: same spec → same code → AI parser will link to this
+                    record on subsequent quotes (no duplicates). */}
+                {(category === 'VALVE' || category === 'PUMP' || category === 'INSTRUMENT') && (
+                  <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                      <AutoAwesomeIcon fontSize="small" color="primary" />
+                      <Typography variant="subtitle2">Spec code</Typography>
+                    </Stack>
+                    {specCodePreview.code ? (
+                      <Chip
+                        label={specCodePreview.code}
+                        color="primary"
+                        variant="outlined"
+                        sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        {specCodePreview.reason ??
+                          'Fill in the spec fields above to see the auto-generated code.'}
+                      </Typography>
+                    )}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block', mt: 1 }}
+                    >
+                      The AI quote parser uses this code to match equipment against the master.
+                      Future quotes for the same spec will link to this record automatically.
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Duplicate-check banner. Surfaces an existing item with the
+                    same spec code BEFORE the user creates a duplicate. */}
+                {duplicate && (
+                  <Alert
+                    severity="warning"
+                    sx={{ mt: 2 }}
+                    action={
+                      <Button
+                        size="small"
+                        onClick={() => router.push(`/bought-out/${duplicate.id}`)}
+                      >
+                        Open existing
+                      </Button>
+                    }
+                  >
+                    <strong>An item with this spec already exists.</strong>{' '}
+                    {duplicate.name ?? duplicate.itemCode ?? 'Existing record'}. You can open it, or
+                    continue creating a new one if this is genuinely different.
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </Grid>
