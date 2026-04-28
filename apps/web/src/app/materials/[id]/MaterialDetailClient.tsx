@@ -354,7 +354,7 @@ export default function MaterialDetailClient() {
                           ? (price.effectiveDate as { toDate: () => Date }).toDate()
                           : null;
                       const quoteHref = price.sourceQuoteId
-                        ? `/materials/vendor-offers/${price.sourceQuoteId}`
+                        ? `/procurement/quotes/${price.sourceQuoteId}`
                         : null;
                       return (
                         <TableRow key={price.id}>

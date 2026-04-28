@@ -483,9 +483,7 @@ export default function NewProcurementQuotePage() {
         claims?.permissions ?? 0
       );
 
-      // The quote detail UI lives under /materials/vendor-offers/[id] and works for
-      // any sourceType — reuse it rather than duplicate.
-      router.push(`/materials/vendor-offers/${quoteId}`);
+      router.push(`/procurement/quotes/${quoteId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create quote');
     } finally {

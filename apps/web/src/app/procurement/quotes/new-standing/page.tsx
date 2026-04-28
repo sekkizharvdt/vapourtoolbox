@@ -128,7 +128,7 @@ export default function NewVendorOfferPage() {
         claims?.permissions ?? 0
       );
 
-      router.push(`/materials/vendor-offers/${quoteId}`);
+      router.push(`/procurement/quotes/${quoteId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create offer');
     } finally {
@@ -141,15 +141,15 @@ export default function NewVendorOfferPage() {
       <Box sx={{ mb: 2 }}>
         <PageBreadcrumbs
           items={[
-            { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
-            { label: 'Vendor Offers', href: '/materials/vendor-offers' },
-            { label: 'New Offer' },
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Quotes', href: '/procurement/quotes' },
+            { label: 'Add Standing Quote' },
           ]}
         />
 
         <PageHeader
-          title="New Vendor Offer"
-          subtitle="Upload a vendor quotation and enter offer details"
+          title="Add Standing Quote"
+          subtitle="Capture a vendor's standing rate card or catalog price"
         />
       </Box>
 
@@ -297,7 +297,7 @@ export default function NewVendorOfferPage() {
           <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/materials/vendor-offers')}
+              onClick={() => router.push('/procurement/quotes')}
               disabled={saving}
             >
               Cancel

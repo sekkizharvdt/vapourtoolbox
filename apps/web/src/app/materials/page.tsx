@@ -265,14 +265,14 @@ export default function MaterialsPage() {
       countLoading: loading,
     },
     {
-      id: 'vendor-offers',
-      title: 'Vendor Offers',
+      id: 'quotes',
+      title: 'Quotes',
       description:
-        'Upload vendor quotations and map prices to materials, services, and bought-out items',
+        'Vendor quotes — RFQ replies, offline quotes, unsolicited offers, and standing rate cards',
       icon: <VendorOffersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/vendor-offers',
+      path: '/procurement/quotes',
       count: counts.vendorOffers,
-      countLabel: 'offers',
+      countLabel: 'quotes',
       countLoading: loading,
     },
   ];

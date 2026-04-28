@@ -70,17 +70,17 @@ function formatDate(ts: unknown): string {
   return '-';
 }
 
-export default function VendorOfferDetailClient() {
+export default function QuoteDetailClient() {
   const pathname = usePathname();
   const { user, claims } = useAuth();
   const { db } = getFirebase();
 
   // Static export: useParams() returns the placeholder; parse the real id
-  // from the path (same pattern as services and estimation detail pages).
+  // from the path (CLAUDE.md rule #30).
   const [offerId, setOfferId] = useState<string | null>(null);
   useEffect(() => {
     if (!pathname) return;
-    const match = pathname.match(/\/materials\/vendor-offers\/([^/]+)(?:\/|$)/);
+    const match = pathname.match(/\/procurement\/quotes\/([^/]+)(?:\/|$)/);
     const extracted = match?.[1];
     if (extracted && extracted !== 'placeholder') {
       setOfferId(extracted);
@@ -271,8 +271,8 @@ export default function VendorOfferDetailClient() {
       <Box sx={{ mb: 2 }}>
         <PageBreadcrumbs
           items={[
-            { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
-            { label: 'Vendor Offers', href: '/materials/vendor-offers' },
+            { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
+            { label: 'Quotes', href: '/procurement/quotes' },
             { label: offer.number },
           ]}
         />
