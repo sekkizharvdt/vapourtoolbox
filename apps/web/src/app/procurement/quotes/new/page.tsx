@@ -283,7 +283,7 @@ export default function NewProcurementQuotePage() {
             vendorNotes?: string;
             // Bought-out auto-resolution metadata. Only present for valves /
             // pumps / instruments where Claude could extract a full spec —
-            // the parser writes these to the boughtOutItems collection.
+            // the parser writes these to the bought_out_items collection.
             boughtOutCategory?: 'VALVE' | 'PUMP' | 'INSTRUMENT';
             linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
             boughtOutItemId?: string;

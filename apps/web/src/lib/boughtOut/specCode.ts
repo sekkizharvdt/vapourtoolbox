@@ -23,9 +23,11 @@
 import { collection, getDocs, query, where, type Firestore } from 'firebase/firestore';
 import type { ValveSpecs, PumpSpecs, InstrumentSpecs } from '@vapour/types';
 
-// Bought-out items live in the `bought_out_items` collection (snake_case —
-// established convention in this codebase, also used by firestore.rules and
-// the existing boughtOutService). Centralized here so all callers agree.
+// Bought-out items live in the `bought_out_items` collection (snake_case,
+// matching firestore.rules and the existing boughtOutService). Centralized
+// here so all callers — UI, service, AI parser resolver — query the same
+// collection. The Cloud Function resolver imports its own copy of this
+// literal; if you ever rename the collection, update both.
 export const BOUGHT_OUT_COLLECTION = 'bought_out_items';
 
 /* ─── Vocabulary ─────────────────────────────────────────────── */

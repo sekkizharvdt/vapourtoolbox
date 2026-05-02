@@ -65,7 +65,7 @@ interface ParsedQuoteItem {
   vendorNotes?: string;
   /**
    * Bought-out category — set when Claude detected a valve/pump/instrument line.
-   * Drives the auto-link/create lookup against the boughtOutItems collection.
+   * Drives the auto-link/create lookup against the bought_out_items collection.
    */
   boughtOutCategory?: 'VALVE' | 'PUMP' | 'INSTRUMENT';
   /** Per-category spec (only the field for the matching category is set). */
@@ -175,7 +175,7 @@ Critical rules:
 9. If quantity is missing, assume 1.
 10. If unit is missing, default to "NOS".
 11. BOUGHT-OUT detection — valves, pumps, instruments only. These map to
-    the dedicated 'boughtOutItems' collection (NOT the materials collection):
+    the dedicated 'bought_out_items' collection (NOT the materials collection):
     - Set itemType = "BOUGHT_OUT" for these lines.
     - Populate boughtOutCategory and the matching valveSpec / pumpSpec /
       instrumentSpec block with as much detail as the vendor provided.
@@ -349,7 +349,7 @@ export const parseQuote = onCall(
         ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
         // Propagate bought-out fields when Claude detected a valve / pump /
         // instrument line. The resolver below routes them at the
-        // boughtOutItems collection.
+        // bought_out_items collection.
         ...(item.boughtOutCategory && { boughtOutCategory: item.boughtOutCategory }),
         ...(item.valveSpec && { valveSpec: item.valveSpec }),
         ...(item.pumpSpec && { pumpSpec: item.pumpSpec }),
@@ -365,7 +365,7 @@ export const parseQuote = onCall(
       );
     }
 
-    // Resolve bought-out lines against the boughtOutItems collection —
+    // Resolve bought-out lines against the bought_out_items collection —
     // auto-link existing matches by deterministic spec code, auto-create
     // new ones (flagged needsReview). Non-equipment lines pass through; the
     // user picks manually for materials and services.
