@@ -539,6 +539,8 @@ export interface UpdateBoughtOutItemInput {
   attachments?: Partial<BoughtOutItem['attachments']>;
   tags?: string[];
   isActive?: boolean;
+  /** Set false to clear the AI-parser auto-create review flag. */
+  needsReview?: boolean;
 }
 
 /**
@@ -551,4 +553,70 @@ export interface ListBoughtOutItemsOptions {
   limit?: number;
   startAfter?: string; // For pagination
   projectId?: string;
+  /**
+   * When true, return only items flagged for human review (AI-auto-created).
+   * Filtered client-side after the base query so we don't need a new
+   * (tenantId, isActive, needsReview) composite index.
+   */
+  needsReviewOnly?: boolean;
+}
+
+// ============================================================================
+// Bought-Out Price History
+// ============================================================================
+
+/**
+ * Per-vendor price history for a bought-out item. Mirrors `MaterialPrice`
+ * for the materials module — same shape, same lifecycle. Each accepted
+ * price from a vendor quote appends a record here so the catalog tracks
+ * how a part's price has moved across vendors over time, instead of
+ * silently overwriting `pricing.listPrice` on the parent record.
+ *
+ * Lives in the `bought_out_prices` collection.
+ */
+export interface BoughtOutPrice {
+  id: string;
+  /** Parent bought-out item. */
+  boughtOutItemId: string;
+  /** Multi-tenancy. */
+  tenantId?: string;
+
+  // --- Price details ----------------------------------------------------
+  unitPrice: number;
+  unit: string;
+  currency: CurrencyCode;
+
+  // --- Vendor & source --------------------------------------------------
+  vendorId?: string;
+  /** Denormalized for display. */
+  vendorName?: string;
+  /** Where the price came from. Same enum as MaterialPrice for consistency. */
+  sourceType: 'VENDOR_QUOTE' | 'VENDOR_INVOICE' | 'CONTRACT_RATE' | 'MARKET_RATE' | 'MANUAL';
+
+  // --- Validity ---------------------------------------------------------
+  /** When the price became effective (typically the quote date). */
+  effectiveDate: Timestamp;
+  /** Quote validity end-date. Optional. */
+  expiryDate?: Timestamp;
+
+  // --- Source linkage ---------------------------------------------------
+  /** Human-readable doc number (quote number, PO number). */
+  documentReference?: string;
+  /** Firestore doc id of the source quote — lets the UI link back. */
+  sourceQuoteId?: string;
+  /** Source quote-line id — lets the UI link to the specific row. */
+  sourceQuoteItemId?: string;
+
+  // --- Notes ------------------------------------------------------------
+  remarks?: string;
+
+  // --- Status -----------------------------------------------------------
+  /** True when this price reflects current reality (not historical). */
+  isActive: boolean;
+
+  // --- Audit ------------------------------------------------------------
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt: Timestamp;
+  updatedBy: string;
 }

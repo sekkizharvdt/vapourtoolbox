@@ -369,11 +369,19 @@ export const parseQuote = onCall(
     // auto-link existing matches by deterministic spec code, auto-create
     // new ones (flagged needsReview). Non-equipment lines pass through; the
     // user picks manually for materials and services.
+    //
+    // Auto-create is gated on MANAGE_BOUGHT_OUT_DB (permissions2 bit 5 = 32):
+    // procurement users can parse and link, but only master-data stewards
+    // can mint a fresh catalog record. A user without the flag still gets
+    // every linked match; misses come back as manual-needed.
     const db = admin.firestore();
     let linkedCount = 0;
     let createdCount = 0;
     let manualCount = 0;
     const currency = (header.currency ?? 'INR').toUpperCase();
+    const permissions2 = Number(request.auth.token['permissions2'] ?? 0);
+    const MANAGE_BOUGHT_OUT_DB = 32;
+    const canAutoCreate = (permissions2 & MANAGE_BOUGHT_OUT_DB) === MANAGE_BOUGHT_OUT_DB;
 
     for (const item of items) {
       if (!item.boughtOutCategory) continue;
@@ -409,6 +417,7 @@ export const parseQuote = onCall(
         unitPrice: item.unitPrice,
         currency,
         userId: request.auth.uid,
+        canAutoCreate,
         ...(data.tenantId && { tenantId: data.tenantId }),
       });
 
@@ -428,6 +437,11 @@ export const parseQuote = onCall(
     if (createdCount > 0) {
       warnings.push(
         `${createdCount} new bought-out item${createdCount === 1 ? '' : 's'} auto-created from this quote — review them in Bought-Out Items.`
+      );
+    }
+    if (!canAutoCreate && manualCount > 0) {
+      warnings.push(
+        'Auto-create of new bought-out items is disabled for your role — link or skip those rows manually.'
       );
     }
 

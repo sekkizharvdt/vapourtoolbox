@@ -95,6 +95,15 @@ export interface VendorQuote {
   /** Only meaningful when rfqId is set. */
   rfqMode?: RFQMode;
 
+  /**
+   * Denormalized from the RFQ (or set directly on standing/unsolicited
+   * quotes that target specific projects). Lets project-scoped views and
+   * dashboards filter quotes without joining through RFQ. Per CLAUDE.md
+   * rule #26 — every child writes the parent chain at creation time.
+   */
+  projectIds?: string[];
+  projectNames?: string[];
+
   // --- Vendor --------------------------------------------------------------
 
   /** Entity ID if the vendor is in the entities master. Optional for unsolicited / standing quotes from unlisted vendors. */

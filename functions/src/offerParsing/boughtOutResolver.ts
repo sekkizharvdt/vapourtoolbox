@@ -211,6 +211,14 @@ export async function resolveBoughtOutItem(
     currency: string;
     userId: string;
     tenantId?: string;
+    /**
+     * Whether this caller is allowed to auto-create a master bought-out
+     * record on a miss. When false, an unmatched spec returns
+     * `manual-needed` instead of writing — the procurement user can still
+     * link the line by hand against an existing item, and master-data
+     * stewards (MANAGE_BOUGHT_OUT_DB) own creation of new catalog records.
+     */
+    canAutoCreate: boolean;
   }
 ): Promise<
   | { status: 'linked' | 'auto-created'; itemId: string; specCode: string }
@@ -234,6 +242,14 @@ export async function resolveBoughtOutItem(
   const existingDoc = existing.docs[0];
   if (existingDoc) {
     return { status: 'linked', itemId: existingDoc.id, specCode };
+  }
+
+  if (!args.canAutoCreate) {
+    return {
+      status: 'manual-needed',
+      reason:
+        'No matching bought-out item; auto-create requires Bought-Out master-data permission.',
+    };
   }
 
   // Build the specifications block in the shape `BoughtOutItem.specifications`

@@ -63,6 +63,9 @@ export {
   onGoodsReceiptSyncToProject,
 } from './procurementProjectSync';
 
+// Keep `rfqs/{id}.offersReceived` in sync with the count of linked vendor quotes
+export { onVendorQuoteWriteUpdateCounter, backfillRFQOfferCounts } from './vendorQuoteCounters';
+
 // Import procurement payment status sync (keeps GR paymentStatus in sync with vendor payments)
 export { syncPOPaymentStatusOnVendorPayment } from './procurementPaymentStatus';
 

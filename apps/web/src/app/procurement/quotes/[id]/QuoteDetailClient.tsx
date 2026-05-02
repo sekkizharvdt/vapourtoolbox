@@ -34,6 +34,7 @@ import {
   LinkOff as LinkOffIcon,
   CheckCircle as AcceptedIcon,
   PriceCheck as AcceptPriceIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +53,25 @@ import {
 } from '@/lib/vendorQuotes/vendorQuoteService';
 import { ItemLinkDialog, type LinkedItem } from '../components/ItemLinkDialog';
 import { AcceptPriceDialog } from '../components/AcceptPriceDialog';
+import {
+  EditQuoteHeaderDialog,
+  type EditQuoteHeaderInput,
+} from '../components/EditQuoteHeaderDialog';
+import { offerStateMachine } from '@/lib/workflow/stateMachines';
+
+/**
+ * Plain-text labels for the button face. Status names like UNDER_REVIEW
+ * are not friendly. Keep this in lockstep with `offerStateMachine`.
+ */
+const STATUS_TRANSITION_LABEL: Partial<Record<QuoteStatus, string>> = {
+  UPLOADED: 'Mark as Uploaded',
+  UNDER_REVIEW: 'Mark Under Review',
+  EVALUATED: 'Mark as Evaluated',
+  ARCHIVED: 'Archive',
+  // SELECTED / REJECTED / WITHDRAWN need a reason dialog and the
+  // sibling-rejection workflow — they're handled by their own UI in
+  // the comparison view, not by a plain status button here.
+};
 
 const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' | 'warning'>> = {
   DRAFT: 'default',
@@ -112,6 +132,10 @@ export default function QuoteDetailClient() {
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
   const [acceptingItem, setAcceptingItem] = useState<VendorQuoteItem | null>(null);
   const [accepting, setAccepting] = useState(false);
+
+  // Edit-header dialog
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   const canManage = claims?.permissions ? canManageEstimation(claims.permissions) : false;
 
@@ -262,6 +286,18 @@ export default function QuoteDetailClient() {
     }
   };
 
+  const handleEditSave = async (updates: EditQuoteHeaderInput) => {
+    if (!offerId || !user) return;
+    try {
+      setEditSaving(true);
+      await updateVendorQuote(db, offerId, updates, user.uid, claims?.permissions ?? 0);
+      setEditOpen(false);
+      await loadData();
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   if (loading) return <LoadingState message="Loading vendor offer..." />;
   if (error) return <Typography color="error">{error}</Typography>;
   if (!offer) return <Typography color="error">Offer not found</Typography>;
@@ -284,6 +320,16 @@ export default function QuoteDetailClient() {
             color={STATUS_COLORS[offer.status] ?? 'default'}
             size="small"
           />
+          {canManage && !offerStateMachine.isTerminal(offer.status) && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => setEditOpen(true)}
+            >
+              Edit Details
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -335,29 +381,28 @@ export default function QuoteDetailClient() {
           </Grid>
 
           {canManage && (
-            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-              {(offer.status === 'DRAFT' || offer.status === 'UPLOADED') && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleStatusChange('EVALUATED')}
-                >
-                  Mark as Reviewed
-                </Button>
-              )}
-              {offer.status === 'EVALUATED' && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleStatusChange('ARCHIVED')}
-                >
-                  Archive
-                </Button>
-              )}
-              {offer.status !== 'DRAFT' && (
-                <Button size="small" variant="outlined" onClick={() => handleStatusChange('DRAFT')}>
-                  Reopen as Draft
-                </Button>
+            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {/* Render only state-machine-valid transitions. Excludes
+                  SELECTED / REJECTED / WITHDRAWN — those need a reason
+                  dialog and trigger sibling rejection / RFQ status sync,
+                  so they live in the comparison view. */}
+              {offerStateMachine
+                .getAvailableTransitions(offer.status)
+                .filter((target) => STATUS_TRANSITION_LABEL[target])
+                .map((target) => (
+                  <Button
+                    key={target}
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleStatusChange(target)}
+                  >
+                    {STATUS_TRANSITION_LABEL[target]}
+                  </Button>
+                ))}
+              {offerStateMachine.isTerminal(offer.status) && (
+                <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  Terminal status — no further transitions.
+                </Typography>
               )}
             </Box>
           )}
@@ -648,6 +693,14 @@ export default function QuoteDetailClient() {
         item={acceptingItem}
         offer={offer}
         accepting={accepting}
+      />
+
+      <EditQuoteHeaderDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSave={handleEditSave}
+        offer={offer}
+        saving={editSaving}
       />
     </>
   );

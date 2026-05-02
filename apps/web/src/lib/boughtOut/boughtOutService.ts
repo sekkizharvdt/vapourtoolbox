@@ -199,7 +199,18 @@ export async function listBoughtOutItems(
   }
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<BoughtOutItem, 'id'>) }));
+  const all = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as Omit<BoughtOutItem, 'id'>),
+  }));
+
+  // needsReview filter is applied client-side so we don't need a new
+  // composite index. The set of records flagged for review is small
+  // (AI-parser auto-creates only) so the additional fetch cost is minimal.
+  if (options.needsReviewOnly) {
+    return all.filter((item) => item.needsReview === true);
+  }
+  return all;
 }
 
 /**
@@ -227,6 +238,7 @@ export async function updateBoughtOutItem(
   if (input.attachments !== undefined) updates.attachments = input.attachments;
   if (input.tags !== undefined) updates.tags = input.tags;
   if (input.isActive !== undefined) updates.isActive = input.isActive;
+  if (input.needsReview !== undefined) updates.needsReview = input.needsReview;
 
   // Recompute specCode whenever category or specifications change. A record
   // that gains complete spec data later picks up a code so the AI parser

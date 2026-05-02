@@ -3290,6 +3290,23 @@
       ]
     },
     {
+      "collectionGroup": "bought_out_prices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "boughtOutItemId", "order": "ASCENDING" },
+        { "fieldPath": "effectiveDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bought_out_prices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "boughtOutItemId", "order": "ASCENDING" },
+        { "fieldPath": "vendorId", "order": "ASCENDING" },
+        { "fieldPath": "effectiveDate", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "purchaseRequestItems",
       "queryScope": "COLLECTION",
       "fields": [

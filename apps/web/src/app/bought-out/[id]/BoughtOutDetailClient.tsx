@@ -14,9 +14,22 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
 } from '@mui/material';
+import type { VendorQuote, VendorQuoteItem, BoughtOutPrice } from '@vapour/types';
+import { getQuoteRowsByBoughtOutItemId } from '@/lib/vendorQuotes/vendorQuoteService';
+import { getBoughtOutPriceHistory } from '@/lib/boughtOut/pricing';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
-import { Home as HomeIcon, Save as SaveIcon } from '@mui/icons-material';
+import {
+  Home as HomeIcon,
+  Save as SaveIcon,
+  RateReview as RateReviewIcon,
+  CheckCircle as AcceptedIcon,
+} from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -60,6 +73,21 @@ export default function BoughtOutItemDetailPage() {
   const [currency, setCurrency] = useState('INR');
   const [leadTime, setLeadTime] = useState('');
   const [moq, setMoq] = useState('');
+
+  // Recent quotes — every line item across vendor quotes that links to this
+  // bought-out record. Mirrors the material/service detail pages so the
+  // catalog page surfaces the price points feeding back into the master.
+  const [quoteRows, setQuoteRows] = useState<Array<{ item: VendorQuoteItem; quote: VendorQuote }>>(
+    []
+  );
+  const [quotesLoading, setQuotesLoading] = useState(false);
+
+  // Price history — distinct from the quote rows above: this is the
+  // accepted-only timeline (each entry was promoted to the catalog) rather
+  // than every received price. Lets the catalog show how this part's
+  // canonical price has moved over time.
+  const [priceHistory, setPriceHistory] = useState<BoughtOutPrice[]>([]);
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
 
   // Extract ID from pathname for static export compatibility
   useEffect(() => {
@@ -108,6 +136,33 @@ export default function BoughtOutItemDetailPage() {
   useEffect(() => {
     loadItem();
   }, [loadItem]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setQuotesLoading(true);
+    setPriceHistoryLoading(true);
+    Promise.all([
+      getQuoteRowsByBoughtOutItemId(db, id).then((rows) => {
+        if (!cancelled) setQuoteRows(rows);
+      }),
+      getBoughtOutPriceHistory(db, id, { limitResults: 25 }).then((rows) => {
+        if (!cancelled) setPriceHistory(rows);
+      }),
+    ])
+      .catch((err) => {
+        console.warn('[BoughtOutDetail] Failed to load quotes/prices', err);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setQuotesLoading(false);
+          setPriceHistoryLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,6 +253,45 @@ export default function BoughtOutItemDetailPage() {
       {success && (
         <Alert severity="success" sx={{ mb: 3 }}>
           {success}
+        </Alert>
+      )}
+
+      {/* Review banner — shown when the AI quote parser auto-created this
+          item. Reviewer verifies the extracted spec, then clicks "Mark as
+          reviewed" to clear the flag and remove it from the review queue. */}
+      {item.needsReview && (
+        <Alert
+          severity="warning"
+          icon={<RateReviewIcon />}
+          sx={{ mb: 3 }}
+          action={
+            <Button
+              size="small"
+              variant="contained"
+              color="warning"
+              disabled={saving || !user || !id}
+              onClick={async () => {
+                if (!user || !id) return;
+                try {
+                  setSaving(true);
+                  setError(null);
+                  await updateBoughtOutItem(db, id, { needsReview: false }, user.uid);
+                  setSuccess('Marked as reviewed');
+                  loadItem();
+                } catch (err) {
+                  console.error('Error clearing review flag:', err);
+                  setError('Failed to mark as reviewed');
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              Mark as reviewed
+            </Button>
+          }
+        >
+          This item was auto-created by the AI quote parser. Verify the extracted spec, save any
+          corrections, then mark it as reviewed.
         </Alert>
       )}
 
@@ -334,6 +428,171 @@ export default function BoughtOutItemDetailPage() {
           </Grid>
         </Grid>
       </form>
+
+      {/* Price History — every accepted price written to this bought-out
+          item across vendors / over time. Distinct from the Quotes card
+          below: this is the canonical-price timeline, that one shows every
+          received quote (accepted or not). */}
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <Typography variant="h6">Price History</Typography>
+            <Chip
+              label={priceHistoryLoading ? '…' : priceHistory.length}
+              size="small"
+              color={priceHistory.length > 0 ? 'primary' : 'default'}
+            />
+          </Stack>
+          {priceHistoryLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={20} />
+            </Box>
+          ) : priceHistory.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No accepted prices yet. When you accept a quoted price for this item, it&apos;ll be
+              recorded here.
+            </Typography>
+          ) : (
+            <Table size="small">
+              <TableBody>
+                {priceHistory.map((p) => {
+                  const effective = p.effectiveDate?.toDate?.();
+                  return (
+                    <TableRow
+                      key={p.id}
+                      hover
+                      sx={{ cursor: p.sourceQuoteId ? 'pointer' : 'default' }}
+                      onClick={() => {
+                        if (p.sourceQuoteId) {
+                          router.push(`/procurement/quotes/${p.sourceQuoteId}`);
+                        }
+                      }}
+                    >
+                      <TableCell sx={{ py: 1 }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {new Intl.NumberFormat('en-IN', {
+                            style: 'currency',
+                            currency: p.currency,
+                          }).format(p.unitPrice)}{' '}
+                          / {p.unit}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {p.vendorName ?? 'Unknown vendor'}
+                          {effective ? ` · ${formatDate(effective)}` : ''}
+                          {p.sourceType !== 'VENDOR_QUOTE' ? ` · ${p.sourceType}` : ''}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 1 }}>
+                        {p.documentReference && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ fontFamily: 'monospace' }}
+                          >
+                            {p.documentReference}
+                          </Typography>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Quotes — every vendor quote line that linked to this
+          bought-out record. Mirrors the same section on material / service
+          detail pages. Accepted prices (the canonical pick) are highlighted. */}
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <Typography variant="h6">Quotes</Typography>
+            <Chip
+              label={quotesLoading ? '…' : quoteRows.length}
+              size="small"
+              color={quoteRows.length > 0 ? 'primary' : 'default'}
+            />
+          </Stack>
+          {quotesLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={20} />
+            </Box>
+          ) : quoteRows.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No vendor quotes for this item yet. They&apos;ll appear here automatically as you log
+              quotes that include this item.
+            </Typography>
+          ) : (
+            <Table size="small">
+              <TableBody>
+                {quoteRows.map(({ item: line, quote }) => {
+                  const dateVal =
+                    quote.vendorOfferDate &&
+                    typeof (quote.vendorOfferDate as { toDate?: () => Date }).toDate === 'function'
+                      ? (quote.vendorOfferDate as { toDate: () => Date }).toDate()
+                      : null;
+                  const accepted = line.priceAccepted === true;
+                  return (
+                    <TableRow
+                      key={line.id}
+                      hover
+                      sx={{
+                        cursor: 'pointer',
+                        ...(accepted && { backgroundColor: 'success.light', opacity: 0.95 }),
+                      }}
+                      onClick={() => router.push(`/procurement/quotes/${quote.id}`)}
+                    >
+                      <TableCell sx={{ py: 1 }}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {accepted && (
+                            <AcceptedIcon
+                              fontSize="small"
+                              color="success"
+                              titleAccess="Accepted price"
+                            />
+                          )}
+                          <Box>
+                            <Typography variant="body2" fontWeight={accepted ? 600 : 500}>
+                              {new Intl.NumberFormat('en-IN', {
+                                style: 'currency',
+                                currency: quote.currency,
+                              }).format(line.unitPrice)}{' '}
+                              / {line.unit}
+                              {line.gstRate ? ` · GST ${line.gstRate}%` : ''}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {quote.vendorName || '—'}
+                              {dateVal ? ` · ${formatDate(dateVal)}` : ''}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 1 }}>
+                        <Chip
+                          label={accepted ? 'Accepted' : quote.status}
+                          size="small"
+                          color={accepted ? 'success' : 'default'}
+                          variant={accepted ? 'filled' : 'outlined'}
+                        />
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                          sx={{ mt: 0.5, fontFamily: 'monospace' }}
+                        >
+                          {quote.number}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </Box>
   );
 }

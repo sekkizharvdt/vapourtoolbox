@@ -76,6 +76,9 @@ interface RFQOption {
   id: string;
   number: string;
   title?: string;
+  /** Carried through onto the quote so project-scoped views can filter without joining. */
+  projectIds?: string[];
+  projectNames?: string[];
 }
 
 /**
@@ -161,7 +164,13 @@ export default function NewProcurementQuotePage() {
         const result = await listRFQs({ limit: 100 });
         if (cancelled) return;
         setRfqOptions(
-          result.items.map((r: RFQ) => ({ id: r.id, number: r.number, title: r.title }))
+          result.items.map((r: RFQ) => ({
+            id: r.id,
+            number: r.number,
+            title: r.title,
+            projectIds: r.projectIds,
+            projectNames: r.projectNames,
+          }))
         );
       } catch (err) {
         console.warn('[NewQuotePage] Failed to load RFQs for picker', err);
@@ -517,6 +526,10 @@ export default function NewProcurementQuotePage() {
             rfqId: selectedRfq.id,
             rfqNumber: selectedRfq.number,
             rfqMode: 'OFFLINE',
+            ...(selectedRfq.projectIds &&
+              selectedRfq.projectIds.length > 0 && { projectIds: selectedRfq.projectIds }),
+            ...(selectedRfq.projectNames &&
+              selectedRfq.projectNames.length > 0 && { projectNames: selectedRfq.projectNames }),
           }),
           tenantId: claims?.tenantId || 'default-entity',
           vendorName: useEntitySelector ? vendorName || 'Unknown Vendor' : name,

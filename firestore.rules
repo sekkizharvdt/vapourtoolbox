@@ -2022,6 +2022,19 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // Bought-out price history — mirrors materialPrices for the bought-out
+    // catalog. Procurement (MANAGE_PROCUREMENT bit 16 = 65536) writes when
+    // an accepted quote line records a price; catalog stewards
+    // (MANAGE_ESTIMATION bit 18 = 262144) write when adding prices by hand.
+    // Read is gated on VIEW_ESTIMATION so the bought-out detail page can
+    // render the history alongside the catalog data.
+    match /bought_out_prices/{priceId} {
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      allow create: if (hasPermission(65536) || hasPermission(262144)) && isInternalUser();
+      allow update: if (hasPermission(65536) || hasPermission(262144)) && isInternalUser();
+      allow delete: if isSuperAdmin();
+    }
+
     // Engineering shapes catalog (sections, profiles, ASME standards)
     match /shapes/{shapeId} {
       allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION

@@ -366,17 +366,31 @@ export async function createPOFromOffer(
         rfqItemMap.set(id, data);
       });
 
-      // Collect unique project IDs from RFQ items and fetch project names
-      const uniqueProjectIds = [
+      // Collect unique project IDs from RFQ items and fetch project names.
+      // For online RFQ responses every line carries an rfqItemId so the
+      // per-item projectIds populate fully. For OFFLINE_RFQ quotes with
+      // manual line items (no rfqItemId), this set comes back empty —
+      // fall back to the quote's own denormalized `projectIds` (written
+      // from the linked RFQ at quote-save time, per CLAUDE.md rule #26).
+      let uniqueProjectIds = [
         ...new Set(
           Array.from(rfqItemMap.values())
             .map((info) => info.projectId)
             .filter(Boolean)
         ),
       ];
+      let uniqueProjectNames: string[] = [];
 
-      const projectNameMap = new Map<string, string>();
-      if (uniqueProjectIds.length > 0) {
+      if (uniqueProjectIds.length === 0 && offer.projectIds && offer.projectIds.length > 0) {
+        uniqueProjectIds = [...offer.projectIds];
+        uniqueProjectNames =
+          offer.projectNames && offer.projectNames.length === uniqueProjectIds.length
+            ? [...offer.projectNames]
+            : uniqueProjectIds.map(() => '');
+      }
+
+      if (uniqueProjectNames.length === 0 && uniqueProjectIds.length > 0) {
+        const projectNameMap = new Map<string, string>();
         const projectFetches = await Promise.all(
           uniqueProjectIds.map(async (projectId) => {
             try {
@@ -393,12 +407,13 @@ export async function createPOFromOffer(
         for (const result of projectFetches) {
           if (result) projectNameMap.set(result.id, result.name);
         }
+        uniqueProjectNames = uniqueProjectIds.map((id) => projectNameMap.get(id) || '');
       }
 
       // Update PO with project IDs and names
       await updateDoc(poRef, {
         projectIds: uniqueProjectIds,
-        projectNames: uniqueProjectIds.map((id) => projectNameMap.get(id) || ''),
+        projectNames: uniqueProjectNames,
       });
 
       const batch = writeBatch(db);

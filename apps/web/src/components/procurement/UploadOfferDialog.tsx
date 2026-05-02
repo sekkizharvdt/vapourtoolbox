@@ -700,6 +700,8 @@ export default function UploadOfferDialog({
         rfqMode: 'ONLINE',
         rfqId: rfq.id,
         rfqNumber: rfq.number,
+        ...(rfq.projectIds && rfq.projectIds.length > 0 && { projectIds: rfq.projectIds }),
+        ...(rfq.projectNames && rfq.projectNames.length > 0 && { projectNames: rfq.projectNames }),
         tenantId: claims?.tenantId || 'default-entity',
         vendorId,
         vendorName,

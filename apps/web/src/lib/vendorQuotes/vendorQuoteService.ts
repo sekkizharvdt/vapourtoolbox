@@ -38,6 +38,7 @@ import type {
 import { requirePermission } from '@/lib/auth';
 import { addMaterialPrice } from '@/lib/materials/pricing';
 import { updateBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
+import { addBoughtOutPrice } from '@/lib/boughtOut/pricing';
 
 const logger = createLogger({ context: 'vendorQuoteService' });
 
@@ -52,6 +53,10 @@ export interface CreateVendorQuoteInput {
   rfqId?: string;
   rfqNumber?: string;
   rfqMode?: RFQMode;
+
+  /** Denormalized from the linked RFQ; pass these through verbatim. */
+  projectIds?: string[];
+  projectNames?: string[];
 
   vendorId?: string;
   vendorName: string;
@@ -217,6 +222,10 @@ export async function createVendorQuote(
     rfqId: input.rfqId,
     rfqNumber: input.rfqNumber,
     rfqMode: input.rfqMode,
+
+    projectIds: input.projectIds && input.projectIds.length > 0 ? input.projectIds : undefined,
+    projectNames:
+      input.projectNames && input.projectNames.length > 0 ? input.projectNames : undefined,
 
     vendorId: input.vendorId,
     vendorName: input.vendorName,
@@ -425,6 +434,59 @@ export function getQuotesByServiceId(db: Firestore, serviceId: string): Promise<
 
 export function getQuotesByMaterialId(db: Firestore, materialId: string): Promise<VendorQuote[]> {
   return getQuotesByItemRef(db, 'materialId', materialId);
+}
+
+export function getQuotesByBoughtOutItemId(
+  db: Firestore,
+  boughtOutItemId: string
+): Promise<VendorQuote[]> {
+  return getQuotesByItemRef(db, 'boughtOutItemId', boughtOutItemId);
+}
+
+/**
+ * Return every quote line item that references a given bought-out item,
+ * paired with its parent quote. Mirrors `getQuoteRowsByMaterialId` so the
+ * bought-out detail page can render the same "Recent Quotes" section as
+ * the material detail page.
+ */
+export async function getQuoteRowsByBoughtOutItemId(
+  db: Firestore,
+  boughtOutItemId: string
+): Promise<Array<{ item: VendorQuoteItem; quote: VendorQuote }>> {
+  const itemsSnap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS),
+      where('boughtOutItemId', '==', boughtOutItemId)
+    )
+  );
+  const items = itemsSnap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as Omit<VendorQuoteItem, 'id'>),
+  }));
+  if (items.length === 0) return [];
+
+  const quoteIds = Array.from(new Set(items.map((it) => it.quoteId)));
+  const quotes = await Promise.all(
+    quoteIds.map(async (qid) => {
+      const snap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, qid));
+      return snap.exists() ? { id: snap.id, ...(snap.data() as Omit<VendorQuote, 'id'>) } : null;
+    })
+  );
+  const quoteById = new Map(
+    quotes.filter((q): q is VendorQuote => q !== null && q.isActive !== false).map((q) => [q.id, q])
+  );
+
+  return items
+    .map((item) => {
+      const quote = quoteById.get(item.quoteId);
+      return quote ? { item, quote } : null;
+    })
+    .filter((row): row is { item: VendorQuoteItem; quote: VendorQuote } => row !== null)
+    .sort((a, b) => {
+      const ta = (a.quote.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+      const tb = (b.quote.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+      return tb - ta;
+    });
 }
 
 /**
@@ -798,6 +860,9 @@ export async function acceptQuoteItemPrice(
       quoteNumber: quote.number,
     });
   } else if (item.itemType === 'BOUGHT_OUT' && item.boughtOutItemId) {
+    // Update the catalog's current list price (so the picker keeps showing
+    // the latest accepted price) AND append a price-history record so the
+    // detail page can show how this item's price has moved across vendors.
     await updateBoughtOutItem(
       db,
       item.boughtOutItemId,
@@ -807,6 +872,26 @@ export async function acceptQuoteItemPrice(
           currency: quote.currency,
           ...(quote.vendorId ? { vendorId: quote.vendorId } : {}),
         },
+      },
+      userId
+    );
+    await addBoughtOutPrice(
+      db,
+      {
+        boughtOutItemId: item.boughtOutItemId,
+        unitPrice: item.unitPrice,
+        unit: item.unit,
+        currency: quote.currency,
+        sourceType: 'VENDOR_QUOTE',
+        effectiveDate: quote.vendorOfferDate ?? now,
+        ...(quote.validityDate && { expiryDate: quote.validityDate }),
+        ...(quote.vendorId && { vendorId: quote.vendorId }),
+        ...(quote.vendorName && { vendorName: quote.vendorName }),
+        documentReference: quote.number,
+        sourceQuoteId: quote.id,
+        sourceQuoteItemId: item.id,
+        ...(quote.tenantId && { tenantId: quote.tenantId }),
+        isActive: true,
       },
       userId
     );

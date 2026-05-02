@@ -25,6 +25,7 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  RateReview as RateReviewIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,6 +56,11 @@ export default function BoughtOutPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<BoughtOutCategory | 'ALL'>('ALL');
+  // When on, the list shows only AI-parser auto-created records that
+  // still need a human to verify the extracted spec. Reviewers come
+  // here, open each item, fix anything wrong, and click "Mark as
+  // reviewed" on the detail page to clear the flag.
+  const [reviewOnly, setReviewOnly] = useState(false);
 
   // Single-tenant: default-entity (must match tenantId claim for Firestore rules)
   const tenantId = claims?.tenantId || 'default-entity';
@@ -71,6 +77,10 @@ export default function BoughtOutPage() {
         options.category = categoryFilter;
       }
 
+      if (reviewOnly) {
+        options.needsReviewOnly = true;
+      }
+
       const fetchedItems = await listBoughtOutItems(db, options);
       setItems(fetchedItems);
     } catch (error) {
@@ -78,7 +88,7 @@ export default function BoughtOutPage() {
     } finally {
       setLoading(false);
     }
-  }, [db, categoryFilter, tenantId]);
+  }, [db, categoryFilter, reviewOnly, tenantId]);
 
   useEffect(() => {
     loadItems();
@@ -181,9 +191,9 @@ export default function BoughtOutPage() {
             ))}
           </Tabs>
         </Box>
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <TextField
-            fullWidth
+            sx={{ flex: 1, minWidth: 240 }}
             placeholder="Search by name or code..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -194,6 +204,14 @@ export default function BoughtOutPage() {
                 </InputAdornment>
               ),
             }}
+          />
+          <Chip
+            icon={<RateReviewIcon />}
+            label={reviewOnly ? 'Showing items to review' : 'Needs review'}
+            color={reviewOnly ? 'warning' : 'default'}
+            variant={reviewOnly ? 'filled' : 'outlined'}
+            onClick={() => setReviewOnly((v) => !v)}
+            onDelete={reviewOnly ? () => setReviewOnly(false) : undefined}
           />
         </Box>
       </Card>
@@ -237,7 +255,18 @@ export default function BoughtOutPage() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body1">{item.name}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <Typography variant="body1">{item.name}</Typography>
+                      {item.needsReview && (
+                        <Chip
+                          icon={<RateReviewIcon />}
+                          label="Needs review"
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                        />
+                      )}
+                    </Box>
                     {item.description && (
                       <Typography variant="caption" color="text.secondary">
                         {item.description}
