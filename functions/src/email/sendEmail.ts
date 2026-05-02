@@ -42,6 +42,8 @@ interface SendNotificationInput {
   };
   /** Send directly to these emails instead of the configured recipient list */
   directRecipientEmails?: string[];
+  /** Always include these emails in addition to the configured recipient list (deduped) */
+  additionalRecipientEmails?: string[];
 }
 
 // Cache compiled templates
@@ -190,6 +192,16 @@ export async function sendNotificationEmail(input: SendNotificationInput): Promi
           ? eventSpecificIds
           : emailConfig.recipientUserIds;
       recipientEmails = await resolveRecipientEmails(idsToResolve);
+    }
+
+    if (input.additionalRecipientEmails?.length) {
+      const seen = new Set(recipientEmails);
+      for (const email of input.additionalRecipientEmails) {
+        if (email && !seen.has(email)) {
+          recipientEmails.push(email);
+          seen.add(email);
+        }
+      }
     }
 
     if (recipientEmails.length === 0) {

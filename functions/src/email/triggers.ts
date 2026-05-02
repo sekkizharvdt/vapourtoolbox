@@ -476,8 +476,10 @@ export const onLeaveNotify = onDocumentUpdated(
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/leaves',
         },
-        // Notify the employee, not the admin who approved it
-        directRecipientEmails: after.userEmail ? [after.userEmail] : undefined,
+        // Configured recipients (per-event override or default) plus the employee themselves.
+        // If no custom recipients are configured for `leave_approved`, the global Default
+        // Recipients list will receive this — pick a custom list on /admin/email to scope it.
+        additionalRecipientEmails: after.userEmail ? [after.userEmail] : undefined,
       });
     }
   }
