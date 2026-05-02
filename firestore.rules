@@ -1780,6 +1780,17 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Email Idempotency Locks (Cloud Functions only)
+    // ============================================
+    //
+    // Markers prevent duplicate email sends when Cloud Functions retries a trigger.
+    // Configure Firestore TTL on the `expiresAt` field to auto-prune (~30 days).
+
+    match /emailIdempotency/{lockId} {
+      allow read, write: if false; // written/read only by Cloud Functions
+    }
+
+    // ============================================
     // Backup Records (Admin read-only, written by Cloud Functions)
     // ============================================
 

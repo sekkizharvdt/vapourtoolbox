@@ -10,6 +10,7 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
+import { APP_URL } from './config';
 
 /**
  * Format a Firestore Timestamp (or raw value) to a readable date string.
@@ -101,8 +102,9 @@ export const onPRSubmittedNotify = onDocumentUpdated(
             { label: 'Project', value: after.projectName || '-' },
             { label: 'Description', value: after.description || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/purchase-requests/${event.params.prId}`,
+          linkUrl: `${APP_URL}/procurement/purchase-requests/${event.params.prId}`,
         },
+        idempotencyKey: event.id,
         // Send directly to the approver — same person who gets the Flow task
         directRecipientEmails: approverEmail ? [approverEmail] : undefined,
       });
@@ -126,8 +128,9 @@ export const onPRSubmittedNotify = onDocumentUpdated(
             { label: 'Approved By', value: after.approvedByName || '-' },
             { label: 'Project', value: after.projectName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/purchase-requests/${event.params.prId}`,
+          linkUrl: `${APP_URL}/procurement/purchase-requests/${event.params.prId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -157,8 +160,9 @@ export const onPOStatusNotify = onDocumentUpdated(
             { label: 'Vendor', value: after.entityName || '-' },
             { label: 'Project', value: after.projectName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/pos/${event.params.poId}`,
+          linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -175,8 +179,9 @@ export const onPOStatusNotify = onDocumentUpdated(
             { label: 'Vendor', value: after.entityName || '-' },
             { label: 'Project', value: after.projectName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/pos/${event.params.poId}`,
+          linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -194,8 +199,9 @@ export const onPOStatusNotify = onDocumentUpdated(
             { label: 'Rejected By', value: after.rejectedByName || '-' },
             { label: 'Reason', value: after.rejectionReason || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/pos/${event.params.poId}`,
+          linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -226,8 +232,9 @@ export const onRFQCompletedNotify = onDocumentUpdated(
             { label: 'Project', value: (after.projectNames || []).join(', ') || '-' },
             { label: 'Vendors Invited', value: String((after.vendorIds || []).length) },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/rfqs/${event.params.rfqId}`,
+          linkUrl: `${APP_URL}/procurement/rfqs/${event.params.rfqId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -258,8 +265,9 @@ export const onServiceOrderNotify = onDocumentUpdated(
             { label: 'Vendor', value: after.vendorName || '-' },
             { label: 'Project', value: after.projectName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/service-orders/${event.params.soId}`,
+          linkUrl: `${APP_URL}/procurement/service-orders/${event.params.soId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -277,8 +285,9 @@ export const onServiceOrderNotify = onDocumentUpdated(
             { label: 'Vendor', value: after.vendorName || '-' },
             { label: 'Result', value: after.resultSummary || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/service-orders/${event.params.soId}`,
+          linkUrl: `${APP_URL}/procurement/service-orders/${event.params.soId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -312,8 +321,9 @@ export const onAccountingNotify = onDocumentUpdated(
             { label: 'Customer', value: after.entityName || '-' },
             { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/accounting/invoices',
+          linkUrl: `${APP_URL}/accounting/invoices`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -335,8 +345,9 @@ export const onAccountingNotify = onDocumentUpdated(
             { label: 'Entity', value: after.entityName || '-' },
             { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/accounting/payments',
+          linkUrl: `${APP_URL}/accounting/payments`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -358,8 +369,9 @@ export const onAccountingNotify = onDocumentUpdated(
             { label: 'Vendor', value: after.entityName || '-' },
             { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/accounting/bills',
+          linkUrl: `${APP_URL}/accounting/bills`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -381,8 +393,9 @@ export const onAccountingNotify = onDocumentUpdated(
             { label: 'Description', value: after.description || '-' },
             { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/accounting/journal-entries',
+          linkUrl: `${APP_URL}/accounting/journal-entries`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -415,8 +428,9 @@ export const onLeaveNotify = onDocumentUpdated(
             { label: 'Days', value: String(after.numberOfDays || '-') },
             { label: 'Reason', value: after.reason || '-' },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/hr/leaves',
+          linkUrl: `${APP_URL}/hr/leaves`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -451,9 +465,13 @@ export const onLeaveNotify = onDocumentUpdated(
                 value: `${approvalFlow?.approvals?.length || 1} of ${approvalFlow?.requiredApprovalCount || 2} approvals`,
               },
             ],
-            linkUrl: 'https://toolbox.vapourdesal.com/hr/leaves',
+            linkUrl: `${APP_URL}/hr/leaves`,
           },
           directRecipientEmails: remainingApproverEmails,
+          // Use a distinct suffix because this branch shares the `leave_submitted` eventId
+          // with the main pending-approval branch (mutually exclusive on after.status, but
+          // adding a suffix keeps the lock unambiguous).
+          idempotencyKey: `${event.id}_partial`,
         });
       }
     }
@@ -474,8 +492,9 @@ export const onLeaveNotify = onDocumentUpdated(
             { label: 'From', value: formatDate(after.startDate) },
             { label: 'To', value: formatDate(after.endDate) },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/hr/leaves',
+          linkUrl: `${APP_URL}/hr/leaves`,
         },
+        idempotencyKey: event.id,
         // Configured recipients (per-event override or default) plus the employee themselves.
         // If no custom recipients are configured for `leave_approved`, the global Default
         // Recipients list will receive this — pick a custom list on /admin/email to scope it.
@@ -508,8 +527,9 @@ export const onNewUserNotify = onDocumentCreated(
           { label: 'Name', value: data.displayName || '-' },
           { label: 'Email', value: data.email || '-' },
         ],
-        linkUrl: 'https://toolbox.vapourdesal.com/admin/users',
+        linkUrl: `${APP_URL}/admin/users`,
       },
+      idempotencyKey: event.id,
     });
   }
 );
@@ -545,8 +565,9 @@ export const onPaymentBatchNotify = onDocumentUpdated(
             },
             { label: 'Bank Account', value: after.bankAccountName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/accounting/payment-batches/${event.params.batchId}`,
+          linkUrl: `${APP_URL}/accounting/payment-batches/${event.params.batchId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -566,8 +587,9 @@ export const onPaymentBatchNotify = onDocumentUpdated(
             },
             { label: 'Bank Account', value: after.bankAccountName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/accounting/payment-batches/${event.params.batchId}`,
+          linkUrl: `${APP_URL}/accounting/payment-batches/${event.params.batchId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -587,8 +609,9 @@ export const onPaymentBatchNotify = onDocumentUpdated(
             },
             { label: 'Bank Account', value: after.bankAccountName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/accounting/payment-batches/${event.params.batchId}`,
+          linkUrl: `${APP_URL}/accounting/payment-batches/${event.params.batchId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -619,8 +642,9 @@ export const onOnDutyNotify = onDocumentUpdated(
             { label: 'Holiday', value: after.holidayName || '-' },
             { label: 'Reason', value: after.reason || '-' },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/hr/on-duty',
+          linkUrl: `${APP_URL}/hr/on-duty`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -639,8 +663,9 @@ export const onOnDutyNotify = onDocumentUpdated(
             { label: 'Holiday', value: after.holidayName || '-' },
             { label: 'Status', value: action },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/hr/on-duty',
+          linkUrl: `${APP_URL}/hr/on-duty`,
         },
+        idempotencyKey: event.id,
         // Notify the employee, not the admin who approved it
         directRecipientEmails: after.userEmail ? [after.userEmail] : undefined,
       });
@@ -673,8 +698,9 @@ export const onTravelExpenseNotify = onDocumentUpdated(
             { label: 'Purpose', value: after.tripPurpose || '-' },
             { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
+          linkUrl: `${APP_URL}/hr/travel-expenses`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -693,8 +719,9 @@ export const onTravelExpenseNotify = onDocumentUpdated(
             { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
             { label: 'Status', value: action },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
+          linkUrl: `${APP_URL}/hr/travel-expenses`,
         },
+        idempotencyKey: event.id,
         // Notify the employee, not the admin who approved it
         directRecipientEmails: after.employeeEmail ? [after.employeeEmail] : undefined,
       });
@@ -713,8 +740,9 @@ export const onTravelExpenseNotify = onDocumentUpdated(
             { label: 'Employee', value: after.employeeName || '-' },
             { label: 'Amount', value: `₹${(after.totalAmount ?? 0).toLocaleString('en-IN')}` },
           ],
-          linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
+          linkUrl: `${APP_URL}/hr/travel-expenses`,
         },
+        idempotencyKey: event.id,
         // Notify the employee
         directRecipientEmails: after.employeeEmail ? [after.employeeEmail] : undefined,
       });
@@ -746,8 +774,9 @@ export const onProposalNotify = onDocumentUpdated(
             { label: 'Client', value: after.clientName || '-' },
             { label: 'Title', value: after.title || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+          linkUrl: `${APP_URL}/estimation/proposals/${event.params.proposalId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -764,8 +793,9 @@ export const onProposalNotify = onDocumentUpdated(
             { label: 'Client', value: after.clientName || '-' },
             { label: 'Title', value: after.title || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+          linkUrl: `${APP_URL}/estimation/proposals/${event.params.proposalId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -782,8 +812,9 @@ export const onProposalNotify = onDocumentUpdated(
             { label: 'Client', value: after.clientName || '-' },
             { label: 'Title', value: after.title || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+          linkUrl: `${APP_URL}/estimation/proposals/${event.params.proposalId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -801,8 +832,9 @@ export const onProposalNotify = onDocumentUpdated(
             { label: 'Client', value: after.clientName || '-' },
             { label: 'Outcome', value: outcome },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+          linkUrl: `${APP_URL}/estimation/proposals/${event.params.proposalId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -833,8 +865,9 @@ export const onGoodsReceiptNotify = onDocumentUpdated(
             { label: 'Project', value: after.projectName || '-' },
             { label: 'Condition', value: after.overallCondition || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/procurement/goods-receipts/${event.params.grId}`,
+          linkUrl: `${APP_URL}/procurement/goods-receipts/${event.params.grId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }
@@ -869,8 +902,9 @@ export const onFeedbackNotify = onDocumentCreated(
           { label: 'Submitted By', value: data.userName || data.userEmail || '-' },
           { label: 'Description', value: (data.description || '-').substring(0, 200) },
         ],
-        linkUrl: `https://toolbox.vapourdesal.com/feedback/${event.params.feedbackId}`,
+        linkUrl: `${APP_URL}/feedback/${event.params.feedbackId}`,
       },
+      idempotencyKey: event.id,
     });
   }
 );
@@ -904,8 +938,9 @@ export const onEnquiryNotify = onDocumentUpdated(
             { label: 'Title', value: after.title || '-' },
             { label: 'Assigned To', value: after.assignedToUserName || '-' },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/estimation/enquiries/${event.params.enquiryId}`,
+          linkUrl: `${APP_URL}/estimation/enquiries/${event.params.enquiryId}`,
         },
+        idempotencyKey: event.id,
       });
     }
 
@@ -925,8 +960,9 @@ export const onEnquiryNotify = onDocumentUpdated(
             { label: 'Title', value: after.title || '-' },
             { label: 'Outcome', value: outcome },
           ],
-          linkUrl: `https://toolbox.vapourdesal.com/estimation/enquiries/${event.params.enquiryId}`,
+          linkUrl: `${APP_URL}/estimation/enquiries/${event.params.enquiryId}`,
         },
+        idempotencyKey: event.id,
       });
     }
   }

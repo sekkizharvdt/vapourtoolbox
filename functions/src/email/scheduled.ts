@@ -11,6 +11,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
+import { APP_URL } from './config';
 import { getInrAmount, deriveOutstanding } from '../utils/amountHelpers';
 
 interface ScheduleConfig {
@@ -189,6 +190,9 @@ export const checkOverdueItemsAndNotify = onSchedule(
           });
         }
 
+        // One digest per IST calendar day — idempotency key uses the date so retries
+        // within the same day collapse to a single send.
+        const istDateKey = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
         await sendNotificationEmail({
           eventId: 'bill_overdue',
           subject: `${overdueBills.length} Overdue Bills — ₹${totalAmount.toLocaleString('en-IN')}`,
@@ -196,8 +200,9 @@ export const checkOverdueItemsAndNotify = onSchedule(
             title: 'Overdue Vendor Bills',
             message: `${overdueBills.length} vendor bill(s) are past their due date, totaling ₹${totalAmount.toLocaleString('en-IN')}.`,
             details,
-            linkUrl: 'https://toolbox.vapourdesal.com/accounting/data-health/overdue',
+            linkUrl: `${APP_URL}/accounting/data-health/overdue`,
           },
+          idempotencyKey: `bill_overdue_${istDateKey}`,
         });
       }
     } catch (err) {
@@ -243,6 +248,7 @@ export const checkOverdueItemsAndNotify = onSchedule(
           });
         }
 
+        const istDateKey = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
         await sendNotificationEmail({
           eventId: 'delivery_overdue',
           subject: `${overdueDeliveries.length} Overdue PO Deliveries`,
@@ -250,8 +256,9 @@ export const checkOverdueItemsAndNotify = onSchedule(
             title: 'Overdue Purchase Order Deliveries',
             message: `${overdueDeliveries.length} purchase order(s) are past their expected delivery date.`,
             details,
-            linkUrl: 'https://toolbox.vapourdesal.com/procurement/pos',
+            linkUrl: `${APP_URL}/procurement/pos`,
           },
+          idempotencyKey: `delivery_overdue_${istDateKey}`,
         });
       }
     } catch (err) {

@@ -18,6 +18,7 @@ import nodemailer from 'nodemailer';
 import Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
+import { APP_URL } from './config';
 
 // Firebase secret — must be set via CLI before deploying
 export const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD');
@@ -42,8 +43,17 @@ interface SendNotificationInput {
   };
   /** Send directly to these emails instead of the configured recipient list */
   directRecipientEmails?: string[];
-  /** Always include these emails in addition to the configured recipient list (deduped) */
+  /**
+   * Always include these emails in addition to the configured recipient list (deduped).
+   * Bypasses user opt-out preferences — use only for "self" notifications where the
+   * person is the subject of the event (e.g. employee on their own approved leave).
+   */
   additionalRecipientEmails?: string[];
+  /**
+   * Unique key for idempotency. When provided, prevents duplicate sends if Cloud
+   * Functions retries the trigger. Pass `event.id` from the trigger handler.
+   */
+  idempotencyKey?: string;
 }
 
 // Cache compiled templates
@@ -125,6 +135,65 @@ async function isEventEnabled(eventId: string): Promise<boolean> {
 }
 
 /**
+ * Build a plain-text version of the email body from the template data.
+ * Used as the multipart fallback for clients that don't render HTML.
+ */
+function buildPlainText(templateData: SendNotificationInput['templateData']): string {
+  const lines: string[] = [];
+  lines.push(templateData.title);
+  lines.push('');
+  lines.push(templateData.message);
+  if (templateData.details?.length) {
+    lines.push('');
+    for (const { label, value } of templateData.details) {
+      lines.push(`${label}: ${value}`);
+    }
+  }
+  if (templateData.linkUrl) {
+    lines.push('');
+    lines.push(`View details: ${templateData.linkUrl}`);
+  }
+  lines.push('');
+  lines.push('— Vapour Toolbox');
+  return lines.join('\n');
+}
+
+/**
+ * Acquire an idempotency lock for this send. Returns true if the caller
+ * should proceed, false if a previous (successful) attempt already sent.
+ *
+ * Uses .create() which throws if the document exists — atomic claim.
+ * Docs include `expiresAt` 30 days out; configure Firestore TTL on the
+ * `emailIdempotency` collection / `expiresAt` field to auto-prune.
+ */
+async function acquireIdempotencyLock(key: string, eventId: string): Promise<boolean> {
+  const db = admin.firestore();
+  const lockRef = db.doc(`emailIdempotency/${key}_${eventId}`);
+  const expiresAt = admin.firestore.Timestamp.fromDate(
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  );
+  try {
+    await lockRef.create({
+      eventId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt,
+    });
+    return true;
+  } catch (err) {
+    // ALREADY_EXISTS — a prior attempt of this same logical event already sent
+    const code = (err as { code?: number | string })?.code;
+    if (code === 6 || code === 'already-exists') {
+      return false;
+    }
+    // Unknown error — log and let the caller proceed (fail open, prefer over-send to lost notification)
+    logger.warn(`Idempotency lock check failed for ${key}_${eventId} — proceeding`, {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return true;
+  }
+}
+
+/**
  * Resolve recipient UIDs to email addresses.
  * Filters out users who have opted out via preferences.notifications.email.
  */
@@ -181,17 +250,38 @@ export async function sendNotificationEmail(input: SendNotificationInput): Promi
       return;
     }
 
-    // 3. Resolve recipients — use direct emails if provided, then per-event override, then global list
+    // 3. Idempotency — claim a lock so Cloud Function retries don't re-send
+    if (input.idempotencyKey) {
+      const proceed = await acquireIdempotencyLock(input.idempotencyKey, input.eventId);
+      if (!proceed) {
+        logger.info(
+          `Idempotency: ${input.eventId} already sent for key ${input.idempotencyKey} — skipping`
+        );
+        return;
+      }
+    }
+
+    // 4. Resolve recipients
+    //    - directRecipientEmails: bypass everything
+    //    - per-event override: use it; if it resolves to zero active users, fall back to defaults
+    //    - default: use the global recipientUserIds
+    //    - additionalRecipientEmails: always appended (deduped), bypasses opt-out
     let recipientEmails: string[];
     if (input.directRecipientEmails?.length) {
-      recipientEmails = input.directRecipientEmails;
+      recipientEmails = [...input.directRecipientEmails];
     } else {
       const eventSpecificIds = emailConfig.eventRecipients?.[input.eventId];
-      const idsToResolve =
-        eventSpecificIds && eventSpecificIds.length > 0
-          ? eventSpecificIds
-          : emailConfig.recipientUserIds;
-      recipientEmails = await resolveRecipientEmails(idsToResolve);
+      if (eventSpecificIds && eventSpecificIds.length > 0) {
+        recipientEmails = await resolveRecipientEmails(eventSpecificIds);
+        if (recipientEmails.length === 0) {
+          logger.warn(
+            `Per-event recipients for ${input.eventId} resolved to 0 active users — falling back to default recipients`
+          );
+          recipientEmails = await resolveRecipientEmails(emailConfig.recipientUserIds);
+        }
+      } else {
+        recipientEmails = await resolveRecipientEmails(emailConfig.recipientUserIds);
+      }
     }
 
     if (input.additionalRecipientEmails?.length) {
@@ -205,62 +295,112 @@ export async function sendNotificationEmail(input: SendNotificationInput): Promi
     }
 
     if (recipientEmails.length === 0) {
-      logger.info('No eligible recipients — skipping email');
+      logger.info(`No eligible recipients for ${input.eventId} — skipping email`);
       return;
     }
 
-    // 4. Compile template
+    // 5. Compile template (HTML + plain-text fallback)
     const { base, notification } = compileTemplates();
     const bodyHtml = notification(input.templateData);
     const fullHtml = base({
       senderName: emailConfig.fromName || 'Vapour Toolbox',
       body: bodyHtml,
     });
+    const plainText = buildPlainText(input.templateData);
 
-    // 5. Send via Gmail SMTP
+    // 6. Send via Gmail SMTP — per-recipient try/catch so one failure doesn't block the rest
     const transporter = createTransporter(emailConfig.fromEmail);
+    const fromHeader = `"${emailConfig.fromName || 'Vapour Toolbox'}" <${emailConfig.fromEmail}>`;
 
-    for (const to of recipientEmails) {
-      await transporter.sendMail({
-        from: `"${emailConfig.fromName || 'Vapour Toolbox'}" <${emailConfig.fromEmail}>`,
-        to,
-        subject: input.subject,
-        html: fullHtml,
-      });
-    }
-
-    logger.info(
-      `Sent ${input.eventId} email to ${recipientEmails.length} recipients: ${recipientEmails.join(', ')}`
+    const results = await Promise.allSettled(
+      recipientEmails.map((to) =>
+        transporter.sendMail({
+          from: fromHeader,
+          to,
+          subject: input.subject,
+          html: fullHtml,
+          text: plainText,
+        })
+      )
     );
 
-    // 6. Log delivery to Firestore
-    await logEmailDelivery(input.eventId, input.subject, recipientEmails, 'sent');
+    const sentEmails: string[] = [];
+    const failedEmails: { email: string; error: string }[] = [];
+    results.forEach((r, i) => {
+      const email = recipientEmails[i];
+      if (r.status === 'fulfilled') {
+        sentEmails.push(email);
+      } else {
+        const message = r.reason instanceof Error ? r.reason.message : String(r.reason);
+        failedEmails.push({ email, error: message });
+      }
+    });
+
+    const overallStatus: 'sent' | 'partial' | 'failed' =
+      failedEmails.length === 0 ? 'sent' : sentEmails.length === 0 ? 'failed' : 'partial';
+
+    if (failedEmails.length > 0) {
+      logger.error(`${input.eventId}: ${sentEmails.length} sent, ${failedEmails.length} failed`, {
+        failedEmails,
+      });
+    } else {
+      logger.info(`Sent ${input.eventId} email to ${sentEmails.length} recipients`);
+    }
+
+    await logEmailDelivery({
+      eventId: input.eventId,
+      subject: input.subject,
+      recipientEmails,
+      sentEmails,
+      failedEmails,
+      status: overallStatus,
+    });
   } catch (error) {
     logger.error(`Failed to send ${input.eventId} email:`, error);
-    await logEmailDelivery(input.eventId, input.subject, [], 'failed', String(error));
+    await logEmailDelivery({
+      eventId: input.eventId,
+      subject: input.subject,
+      recipientEmails: [],
+      sentEmails: [],
+      failedEmails: [],
+      status: 'failed',
+      error: String(error),
+    });
   }
 }
 
 /**
  * Write a delivery record to the emailLogs collection.
+ *
+ * - `recipientEmails` / `recipientCount` — every address attempted (back-compat)
+ * - `sentEmails` / `failedEmails` — per-recipient outcome with error messages
+ * - `status` — 'sent' (all ok), 'partial' (some failed), 'failed' (all failed or pre-send error)
  */
-async function logEmailDelivery(
-  eventId: string,
-  subject: string,
-  recipientEmails: string[],
-  status: 'sent' | 'failed',
-  error?: string
-): Promise<void> {
+interface EmailLogEntry {
+  eventId: string;
+  subject: string;
+  recipientEmails: string[];
+  sentEmails: string[];
+  failedEmails: { email: string; error: string }[];
+  status: 'sent' | 'partial' | 'failed';
+  error?: string;
+}
+
+async function logEmailDelivery(entry: EmailLogEntry): Promise<void> {
   try {
     const db = admin.firestore();
     await db.collection('emailLogs').add({
-      eventId,
-      subject,
-      recipientEmails,
-      recipientCount: recipientEmails.length,
+      eventId: entry.eventId,
+      subject: entry.subject,
+      recipientEmails: entry.recipientEmails,
+      recipientCount: entry.recipientEmails.length,
+      sentEmails: entry.sentEmails,
+      sentCount: entry.sentEmails.length,
+      failedEmails: entry.failedEmails,
+      failedCount: entry.failedEmails.length,
+      status: entry.status,
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
-      status,
-      ...(error !== undefined && { error }),
+      ...(entry.error !== undefined && { error: entry.error }),
     });
   } catch (logError) {
     // Don't let logging failures cascade — just warn
@@ -302,9 +442,18 @@ export async function sendTestEmailToAddress(
         }),
       },
     ],
-    linkUrl: 'https://toolbox.vapourdesal.com/admin/email',
+    linkUrl: `${APP_URL}/admin/email`,
   });
   const fullHtml = base({ senderName: fromName || 'Vapour Toolbox', body: bodyHtml });
+  const plainText = buildPlainText({
+    title,
+    message,
+    details: [
+      { label: 'Event', value: eventId || 'Global test' },
+      { label: 'From', value: `${fromName} <${fromEmail}>` },
+    ],
+    linkUrl: `${APP_URL}/admin/email`,
+  });
 
   const subject = eventId
     ? `[Test] ${formatEventLabel(eventId)} — Vapour Toolbox`
@@ -315,6 +464,7 @@ export async function sendTestEmailToAddress(
     to: recipientEmail,
     subject,
     html: fullHtml,
+    text: plainText,
   });
 }
 

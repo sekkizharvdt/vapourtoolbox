@@ -106,8 +106,11 @@ interface EmailLog {
   eventId: string;
   subject: string;
   recipientCount: number;
+  sentCount?: number;
+  failedCount?: number;
+  failedEmails?: { email: string; error: string }[];
   sentAt: { toDate: () => Date } | Date | string;
-  status: 'sent' | 'failed';
+  status: 'sent' | 'partial' | 'failed';
   error?: string;
 }
 
@@ -548,6 +551,9 @@ export default function EmailManagementPage() {
             eventId: data.eventId || '',
             subject: data.subject || '',
             recipientCount: data.recipientCount ?? 0,
+            sentCount: data.sentCount,
+            failedCount: data.failedCount,
+            failedEmails: data.failedEmails,
             sentAt: data.sentAt,
             status: data.status || 'sent',
             error: data.error,
@@ -1133,12 +1139,28 @@ export default function EmailManagementPage() {
                       </TableCell>
                       <TableCell sx={{ textAlign: 'right' }}>
                         <Typography variant="body2">{log.recipientCount}</Typography>
+                        {log.failedCount && log.failedCount > 0 ? (
+                          <Typography variant="caption" color="error">
+                            {log.sentCount ?? 0} sent / {log.failedCount} failed
+                          </Typography>
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         <Chip
                           label={log.status}
                           size="small"
-                          color={log.status === 'sent' ? 'success' : 'error'}
+                          color={
+                            log.status === 'sent'
+                              ? 'success'
+                              : log.status === 'partial'
+                                ? 'warning'
+                                : 'error'
+                          }
+                          title={
+                            log.failedEmails && log.failedEmails.length > 0
+                              ? log.failedEmails.map((f) => `${f.email}: ${f.error}`).join('\n')
+                              : undefined
+                          }
                         />
                       </TableCell>
                     </TableRow>
