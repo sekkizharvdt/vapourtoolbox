@@ -58,6 +58,7 @@ import {
   History as HistoryIcon,
   PlayArrow as TestIcon,
   Close as CloseIcon,
+  HealthAndSafety as HealthIcon,
 } from '@mui/icons-material';
 import {
   doc,
@@ -146,6 +147,11 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         id: 'pr_approved',
         label: 'PR Approved',
         description: 'When a purchase request is approved — notifies procurement team',
+      },
+      {
+        id: 'pr_rejected',
+        label: 'PR Rejected',
+        description: 'When a purchase request is rejected — notifies the requester',
       },
       { id: 'po_approved', label: 'PO Approved', description: 'When a purchase order is approved' },
       {
@@ -511,7 +517,7 @@ export default function EmailManagementPage() {
           getDoc(doc(db, 'notificationSettings', 'emailConfig')),
           getDoc(doc(db, 'notificationSettings', 'config')),
           getDocs(query(collection(db, COLLECTIONS.USERS), where('isActive', '==', true))),
-          getDocs(query(collection(db, 'emailLogs'), orderBy('sentAt', 'desc'), limit(50))),
+          getDocs(query(collection(db, 'emailLogs'), orderBy('sentAt', 'desc'), limit(200))),
         ]);
 
         if (configDoc.exists()) {
@@ -686,6 +692,25 @@ export default function EmailManagementPage() {
 
   const totalEvents = NOTIFICATION_SECTIONS.reduce((sum, s) => sum + s.events.length, 0);
   const enabledCount = Object.values(eventSettings).filter(Boolean).length;
+
+  // Health stats over the loaded log window (most recent 200 sends)
+  const healthStats = (() => {
+    const counts = { sent: 0, partial: 0, failed: 0 };
+    const firedEventIds = new Set<string>();
+    for (const log of logs) {
+      if (log.status === 'sent') counts.sent++;
+      else if (log.status === 'partial') counts.partial++;
+      else counts.failed++;
+      firedEventIds.add(log.eventId);
+    }
+    const allEvents = NOTIFICATION_SECTIONS.flatMap((s) => s.events);
+    const quietEnabledEvents = allEvents.filter(
+      (e) => eventSettings[e.id] === true && !firedEventIds.has(e.id)
+    );
+    const oldestLog = logs[logs.length - 1];
+    const newestLog = logs[0];
+    return { counts, quietEnabledEvents, oldestLog, newestLog };
+  })();
 
   return (
     <Box>
@@ -1075,14 +1100,121 @@ export default function EmailManagementPage() {
       </Card>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Section 5: Delivery Log                                             */}
+      {/* Section 5: Delivery Health                                          */}
+      {/* ------------------------------------------------------------------ */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <HealthIcon color="primary" />
+            <Typography variant="h6">Delivery Health</Typography>
+            {healthStats.oldestLog && healthStats.newestLog ? (
+              <Typography variant="caption" color="text.secondary">
+                ({logs.length} sends from{' '}
+                {toDate(healthStats.oldestLog.sentAt).toLocaleDateString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                })}{' '}
+                to{' '}
+                {toDate(healthStats.newestLog.sentAt).toLocaleDateString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                })}
+                )
+              </Typography>
+            ) : null}
+          </Box>
+
+          {logs.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+              No emails sent yet.
+            </Typography>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                <Box
+                  sx={{
+                    flex: '1 1 120px',
+                    p: 2,
+                    borderRadius: 1,
+                    bgcolor: 'success.light',
+                    color: 'success.contrastText',
+                  }}
+                >
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {healthStats.counts.sent}
+                  </Typography>
+                  <Typography variant="caption">Sent (all recipients ok)</Typography>
+                </Box>
+                <Box
+                  sx={{
+                    flex: '1 1 120px',
+                    p: 2,
+                    borderRadius: 1,
+                    bgcolor: 'warning.light',
+                    color: 'warning.contrastText',
+                  }}
+                >
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {healthStats.counts.partial}
+                  </Typography>
+                  <Typography variant="caption">Partial (some failed)</Typography>
+                </Box>
+                <Box
+                  sx={{
+                    flex: '1 1 120px',
+                    p: 2,
+                    borderRadius: 1,
+                    bgcolor: 'error.light',
+                    color: 'error.contrastText',
+                  }}
+                >
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {healthStats.counts.failed}
+                  </Typography>
+                  <Typography variant="caption">Failed (no recipient ok)</Typography>
+                </Box>
+              </Box>
+
+              {healthStats.quietEnabledEvents.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Enabled events with no sends in this window
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: 'block' }}
+                  >
+                    These may be unused, or their trigger may be broken. Use &ldquo;Send Test&rdquo;
+                    on each to confirm delivery still works.
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {healthStats.quietEnabledEvents.map((e) => (
+                      <Chip
+                        key={e.id}
+                        label={e.label}
+                        size="small"
+                        variant="outlined"
+                        title={e.description}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Section 6: Delivery Log                                             */}
       {/* ------------------------------------------------------------------ */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <HistoryIcon color="primary" />
             <Typography variant="h6">Delivery Log</Typography>
-            <Chip label={`Last ${logs.length}`} size="small" />
+            <Chip label={`Showing ${Math.min(logs.length, 50)} of ${logs.length}`} size="small" />
           </Box>
 
           {logs.length === 0 ? (
@@ -1101,7 +1233,7 @@ export default function EmailManagementPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {logs.map((log) => {
+                {logs.slice(0, 50).map((log) => {
                   const date = toDate(log.sentAt);
                   return (
                     <TableRow key={log.id} hover>

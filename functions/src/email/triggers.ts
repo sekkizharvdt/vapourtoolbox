@@ -133,6 +133,49 @@ export const onPRSubmittedNotify = onDocumentUpdated(
         idempotencyKey: event.id,
       });
     }
+
+    if (after.status === 'REJECTED' && before.status !== 'REJECTED') {
+      // Resolve requester's email so they're notified their PR was bounced back
+      let requesterEmail: string | undefined;
+      const requesterId = after.submittedBy || after.createdBy;
+      if (requesterId) {
+        try {
+          const userDoc = await admin.firestore().doc(`users/${requesterId}`).get();
+          if (userDoc.exists) {
+            requesterEmail = userDoc.data()?.email;
+          }
+        } catch (err) {
+          logger.warn('Failed to resolve PR requester email', {
+            requesterId,
+            error: err,
+          });
+        }
+      }
+
+      logger.info(`PR ${after.number} rejected — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'pr_rejected',
+        subject: `PR Rejected: ${after.number}`,
+        templateData: {
+          title: 'Purchase Request Rejected',
+          message: `A purchase request has been rejected and requires revision before resubmission.`,
+          details: [
+            { label: 'PR Number', value: after.number || event.params.prId },
+            { label: 'Title', value: after.title || '-' },
+            {
+              label: 'Requested By',
+              value: after.submittedByName || after.createdByName || 'Unknown',
+            },
+            { label: 'Rejected By', value: after.reviewedByName || '-' },
+            { label: 'Reason', value: after.rejectionReason || '-' },
+          ],
+          linkUrl: `${APP_URL}/procurement/purchase-requests/${event.params.prId}`,
+        },
+        // Configured recipients plus the requester themselves
+        additionalRecipientEmails: requesterEmail ? [requesterEmail] : undefined,
+        idempotencyKey: event.id,
+      });
+    }
   }
 );
 
