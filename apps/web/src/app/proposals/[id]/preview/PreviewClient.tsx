@@ -59,6 +59,29 @@ import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/
 
 const logger = createLogger({ context: 'PreviewClient' });
 
+function formatBillingAddress(addr: unknown): string | undefined {
+  if (!addr || typeof addr !== 'object') return undefined;
+  const a = addr as {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  };
+  const clean = (v: string | null | undefined): string => (v ?? '').trim();
+  const lines: string[] = [];
+  if (clean(a.line1)) lines.push(clean(a.line1));
+  if (clean(a.line2)) lines.push(clean(a.line2));
+  const cityLine = [clean(a.city), clean(a.state), clean(a.postalCode)]
+    .filter((p) => p.length > 0)
+    .join(', ');
+  if (cityLine) lines.push(cityLine);
+  if (clean(a.country)) lines.push(clean(a.country));
+  const out = lines.join('\n');
+  return out || undefined;
+}
+
 interface PreviewClientProps {
   proposalId?: string;
   embedded?: boolean;
@@ -73,13 +96,17 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
   const { toast } = useToast();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [liveClientAddress, setLiveClientAddress] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
 
-  // Load proposal
+  // Load proposal + refresh client address from the live entity record so
+  // old proposals with a corrupted "null, null" denormalised string render
+  // the current address (per CLAUDE.md rule #13). The PDF generator does
+  // the same lookup; this keeps the on-screen preview consistent.
   useEffect(() => {
     if (!db || !proposalId || proposalId === 'placeholder') return;
 
@@ -96,6 +123,22 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
 
         setProposal(data);
         logger.info('Proposal loaded for preview', { proposalId });
+
+        if (data.clientId) {
+          try {
+            const { doc: fsDoc, getDoc } = await import('firebase/firestore');
+            const snap = await getDoc(fsDoc(db, 'entities', data.clientId));
+            if (snap.exists()) {
+              const ent = snap.data() as { billingAddress?: unknown };
+              const fresh = formatBillingAddress(ent.billingAddress);
+              if (fresh) setLiveClientAddress(fresh);
+            }
+          } catch (entErr) {
+            logger.warn('Failed to refresh client address for preview', {
+              error: entErr instanceof Error ? entErr.message : String(entErr),
+            });
+          }
+        }
       } catch (err) {
         logger.error('Error loading proposal', { error: err });
         setError('Failed to load proposal');
@@ -388,7 +431,9 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                 <Typography variant="caption" color="text.secondary">
                   Address
                 </Typography>
-                <Typography variant="body1">{proposal.clientAddress}</Typography>
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                  {liveClientAddress || proposal.clientAddress}
+                </Typography>
               </Box>
             </Box>
           </CardContent>

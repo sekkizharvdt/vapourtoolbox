@@ -71,10 +71,11 @@ export default function ConvertToProjectDialog({
     }
   };
 
-  const formatCurrency = (money: { amount: number; currency: string }) => {
+  const formatCurrency = (money: { amount: number; currency: string } | undefined) => {
+    if (!money) return '—';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: money.currency,
+      currency: money.currency || 'INR',
     }).format(money.amount);
   };
 
@@ -117,7 +118,7 @@ export default function ConvertToProjectDialog({
             </ListItemIcon>
             <ListItemText
               primary="Budget"
-              secondary={formatCurrency(proposal.pricing.totalAmount)}
+              secondary={formatCurrency(proposal.pricing?.totalAmount)}
             />
           </ListItem>
 
@@ -127,7 +128,11 @@ export default function ConvertToProjectDialog({
             </ListItemIcon>
             <ListItemText
               primary="Duration"
-              secondary={`${proposal.deliveryPeriod.durationInWeeks} weeks`}
+              secondary={
+                proposal.deliveryPeriod?.durationInWeeks
+                  ? `${proposal.deliveryPeriod.durationInWeeks} weeks`
+                  : '—'
+              }
             />
           </ListItem>
 

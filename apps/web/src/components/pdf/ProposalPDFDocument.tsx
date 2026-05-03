@@ -36,6 +36,19 @@ export interface ProposalPDFCompany {
   website?: string;
 }
 
+/**
+ * Live client info read from the entity record at PDF render time.
+ * Overrides the denormalised proposal.clientAddress / clientContactPerson
+ * so a renamed entity or a fixed address propagates to the PDF without
+ * needing a backfill on every proposal.
+ */
+export interface ProposalPDFClient {
+  address?: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+}
+
 const local = StyleSheet.create({
   companyMeta: {
     marginTop: -8,
@@ -110,6 +123,7 @@ interface ProposalPDFDocumentProps {
   watermark?: string;
   company?: ProposalPDFCompany;
   logoDataUri?: string;
+  clientProfile?: ProposalPDFClient;
 }
 
 const DEFAULT_COMPANY: ProposalPDFCompany = {
@@ -123,7 +137,14 @@ export const ProposalPDFDocument = ({
   watermark,
   company = DEFAULT_COMPANY,
   logoDataUri,
+  clientProfile,
 }: ProposalPDFDocumentProps) => {
+  // Prefer the live entity address over the proposal's denormalised
+  // clientAddress so old proposals with a corrupted "null, null" string
+  // still render cleanly. Same for clientContactPerson.
+  const clientAddress = clientProfile?.address || proposal.clientAddress;
+  const clientContactPerson = clientProfile?.contactPerson || proposal.clientContactPerson;
+  const clientEmail = clientProfile?.email || proposal.clientEmail;
   const hasUnifiedScopeMatrix = Boolean(
     proposal.unifiedScopeMatrix &&
     proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0)
@@ -203,9 +224,9 @@ export const ProposalPDFDocument = ({
         {/* Client Information */}
         <ReportSection title="TO">
           <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>{proposal.clientName}</Text>
-          {proposal.clientAddress && <Text>{proposal.clientAddress}</Text>}
-          {proposal.clientContactPerson && <Text>Attention: {proposal.clientContactPerson}</Text>}
-          {proposal.clientEmail && <Text>Email: {proposal.clientEmail}</Text>}
+          {clientAddress && <Text>{clientAddress}</Text>}
+          {clientContactPerson && <Text>Attention: {clientContactPerson}</Text>}
+          {clientEmail && <Text>Email: {clientEmail}</Text>}
         </ReportSection>
 
         {/* Proposal Details */}

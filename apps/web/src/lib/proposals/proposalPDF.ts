@@ -39,6 +39,74 @@ function formatAddress(addr?: {
   return lines.join('\n') || undefined;
 }
 
+/**
+ * Format an entity billingAddress into a multi-line string. Filters out
+ * null / undefined / empty parts so old broken `clientAddress` strings
+ * (which contained literal "null"s) get superseded by a clean version
+ * built from the live entity record.
+ */
+function formatEntityBillingAddress(addr: unknown): string | undefined {
+  if (!addr || typeof addr !== 'object') return undefined;
+  const a = addr as {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  };
+  const clean = (v: string | null | undefined): string => (v ?? '').trim();
+  const lines: string[] = [];
+  if (clean(a.line1)) lines.push(clean(a.line1));
+  if (clean(a.line2)) lines.push(clean(a.line2));
+  const cityLine = [clean(a.city), clean(a.state), clean(a.postalCode)]
+    .filter((p) => p.length > 0)
+    .join(', ');
+  if (cityLine) lines.push(cityLine);
+  if (clean(a.country)) lines.push(clean(a.country));
+  const out = lines.join('\n');
+  return out || undefined;
+}
+
+/**
+ * Pull the live client entity and rebuild the address string, so the PDF
+ * always reflects the current entity record (per CLAUDE.md rule #13).
+ * Falls back to the proposal's denormalised `clientAddress` if the entity
+ * lookup fails. Also returns a contact-person override when the entity
+ * has a primary contact configured.
+ */
+async function loadClientProfile(
+  clientId?: string
+): Promise<
+  { address?: string; contactPerson?: string; email?: string; phone?: string } | undefined
+> {
+  if (!clientId) return undefined;
+  try {
+    const { db } = getFirebase();
+    const snap = await getDoc(doc(db, 'entities', clientId));
+    if (!snap.exists()) return undefined;
+    const data = snap.data() as {
+      billingAddress?: unknown;
+      primaryContact?: { name?: string; email?: string; phone?: string };
+      email?: string;
+      phone?: string;
+    };
+    const address = formatEntityBillingAddress(data.billingAddress);
+    return {
+      ...(address && { address }),
+      contactPerson: data.primaryContact?.name,
+      email: data.primaryContact?.email || data.email,
+      phone: data.primaryContact?.phone || data.phone,
+    };
+  } catch (err) {
+    logger.warn('Failed to load client profile for proposal PDF', {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+}
+
 async function loadCompanyProfile(): Promise<ProposalPDFCompany | undefined> {
   try {
     const { db } = getFirebase();
@@ -83,9 +151,10 @@ export async function generateProposalPDF(
 ): Promise<Blob> {
   const { includeTerms = true, includeDeliverySchedule = true, watermark } = options;
 
-  const [company, logoDataUri] = await Promise.all([
+  const [company, logoDataUri, clientProfile] = await Promise.all([
     loadCompanyProfile(),
     fetchLogoAsDataUri().catch(() => undefined),
+    loadClientProfile(proposal.clientId),
   ]);
 
   return generatePDFBlob(
@@ -96,6 +165,7 @@ export async function generateProposalPDF(
       watermark,
       company,
       logoDataUri,
+      clientProfile,
     })
   );
 }

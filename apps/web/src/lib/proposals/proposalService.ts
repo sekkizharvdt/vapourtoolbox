@@ -60,6 +60,36 @@ const COLLECTIONS = {
 };
 
 /**
+ * Format an entity's billing address into a multi-line string suitable for
+ * the proposal's denormalised `clientAddress` field. Filters out
+ * null / undefined / empty parts so the rendered address never contains
+ * literal "null" or stray comma sequences. Joins the city / state /
+ * postalCode line on commas + spaces, and uses every populated field —
+ * including line2 and country — that the previous template ignored.
+ */
+function formatClientAddress(addr: unknown): string {
+  if (!addr || typeof addr !== 'object') return '';
+  const a = addr as {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  };
+  const clean = (v: string | null | undefined): string => (v ?? '').trim();
+  const lines: string[] = [];
+  if (clean(a.line1)) lines.push(clean(a.line1));
+  if (clean(a.line2)) lines.push(clean(a.line2));
+  const cityLine = [clean(a.city), clean(a.state), clean(a.postalCode)]
+    .filter((p) => p.length > 0)
+    .join(', ');
+  if (cityLine) lines.push(cityLine);
+  if (clean(a.country)) lines.push(clean(a.country));
+  return lines.join('\n');
+}
+
+/**
  * Generate next proposal number: PROP-YY-NN
  * Format: PROP-25-01, PROP-25-02, etc.
  */
@@ -140,9 +170,7 @@ export async function createProposal(
       clientName: client.name || '',
       clientContactPerson: enquiry.clientContactPerson,
       clientEmail: enquiry.clientEmail,
-      clientAddress: client.billingAddress
-        ? `${client.billingAddress.line1}, ${client.billingAddress.city}, ${client.billingAddress.state} ${client.billingAddress.postalCode}`
-        : '',
+      clientAddress: formatClientAddress(client.billingAddress),
       title: input.title,
       validityDate: input.validityDate,
       preparationDate: now,
@@ -260,9 +288,7 @@ export async function createMinimalProposal(
       clientName: client.name || '',
       clientContactPerson: enquiry.clientContactPerson,
       clientEmail: enquiry.clientEmail,
-      clientAddress: client.billingAddress
-        ? `${client.billingAddress.line1}, ${client.billingAddress.city}, ${client.billingAddress.state} ${client.billingAddress.postalCode}`
-        : '',
+      clientAddress: formatClientAddress(client.billingAddress),
       title: input.title,
       validityDate: Timestamp.fromDate(input.validityDate),
       preparationDate: now,
@@ -732,9 +758,7 @@ export async function cloneProposal(
         clientName = client.name || '';
         clientContactPerson = client.primaryContact?.name || '';
         clientEmail = client.primaryContact?.email || client.email || '';
-        clientAddress = client.billingAddress
-          ? `${client.billingAddress.line1}, ${client.billingAddress.city}, ${client.billingAddress.state} ${client.billingAddress.postalCode}`
-          : '';
+        clientAddress = formatClientAddress(client.billingAddress);
       }
     }
 
