@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Box,
   Button,
@@ -107,7 +107,6 @@ const tabIndexFromName = (name: string | null): number | null => {
 export default function ProposalDetailClient() {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const db = useFirestore();
   const { user, claims } = useAuth();
 
@@ -144,11 +143,15 @@ export default function ProposalDetailClient() {
   }, [pathname]);
 
   // Sync activeTab with the ?tab= query param so external links (e.g. the
-  // "Mark Scope Complete" redirect) can land on a specific tab.
+  // "Mark Scope Complete" redirect) can land on a specific tab. Parsing
+  // window.location.search directly (rather than via useSearchParams) keeps
+  // the page from needing a Suspense boundary under output: 'export'.
   useEffect(() => {
-    const idx = tabIndexFromName(searchParams.get('tab'));
+    if (typeof window === 'undefined') return;
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    const idx = tabIndexFromName(tab);
     if (idx !== null) setActiveTab(idx);
-  }, [searchParams]);
+  }, [pathname]);
 
   const handleTabChange = (next: number) => {
     setActiveTab(next);
