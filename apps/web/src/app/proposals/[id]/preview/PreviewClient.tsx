@@ -48,7 +48,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
-import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
+import { downloadProposalPDF, saveProposalPDF } from '@/lib/proposals/proposalPDF';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
 import type { Proposal, Money } from '@vapour/types';
@@ -152,36 +152,47 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
   const handleGeneratePDF = async () => {
     if (!proposal) return;
 
+    setGeneratingPdf(true);
+    setError(null);
+
+    // Step 1 — generate + download. If this fails, the user got nothing.
     try {
-      setGeneratingPdf(true);
-      setError(null);
-
-      // Generate and download PDF, optionally saving to storage
-      await generateAndDownloadProposalPDF(
-        db,
-        proposal,
-        {
-          includeTerms: true,
-          includeDeliverySchedule: true,
-        },
-        !!db
-      ); // Save to storage if db is available
-
-      toast.success('PDF generated and downloaded successfully');
-      logger.info('PDF generated', { proposalId: proposal.id });
-
-      // Refresh proposal to get updated PDF URL if saved
-      if (db) {
-        const updated = await getProposalById(db, proposal.id);
-        if (updated) setProposal(updated);
-      }
+      await downloadProposalPDF(proposal, {
+        includeTerms: true,
+        includeDeliverySchedule: true,
+      });
+      toast.success('PDF downloaded.');
+      logger.info('PDF downloaded', { proposalId: proposal.id });
     } catch (err) {
       logger.error('Error generating PDF', { error: err });
-      setError('Failed to generate PDF');
-      toast.error('Failed to generate PDF');
-    } finally {
+      setError('Failed to generate PDF.');
+      toast.error('Failed to generate PDF.');
       setGeneratingPdf(false);
+      return;
     }
+
+    // Step 2 — best-effort save to storage so the proposal record links to
+    // the latest generated PDF. A failure here (storage 403, network blip)
+    // doesn't undo the user's download — show a softer warning instead of
+    // claiming the whole operation failed.
+    if (db) {
+      try {
+        await saveProposalPDF(db, proposal, {
+          includeTerms: true,
+          includeDeliverySchedule: true,
+        });
+        const updated = await getProposalById(db, proposal.id);
+        if (updated) setProposal(updated);
+      } catch (err) {
+        logger.warn('PDF downloaded but storage save failed', {
+          proposalId: proposal.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        toast.info('Downloaded — but couldn’t archive the PDF to the proposal record.');
+      }
+    }
+
+    setGeneratingPdf(false);
   };
 
   const Wrapper: React.ElementType = embedded ? Box : Container;
@@ -482,7 +493,11 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           </Card>
         ) : null}
 
-        {/* Pricing — what the customer sees on the offer (Stage 2.5 clientPricing) */}
+        {/* Commercial Summary — mirrors the customer-facing PDF.
+            Internal markup percentages (overhead / contingency / profit) are
+            rolled into a single priced "scope of work" line so what the user
+            sees here matches what the buyer will see. The markup breakdown
+            stays on the Costing tab for internal review only. */}
         {(() => {
           const cp = proposal.clientPricing;
           if (!cp) return null;
@@ -493,15 +508,14 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
           const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
           const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
+          const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
           const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0);
-          const subtotal =
-            costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
+          const subtotal = scopeLinePrice + lumpSumTotal;
           const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
           const totalInr = subtotal + taxAmount;
           const fxRate = cp.fxRate ?? 1;
           const isForeignQuote = cp.currency !== 'INR' && fxRate > 0;
           const totalQuote = isForeignQuote ? totalInr / fxRate : totalInr;
-          // Internal calculations are always INR. Quote currency only converts the final total.
           const fmt = (n: number) => formatCurrency({ amount: n, currency: 'INR' });
           const fmtQuote = (n: number) => formatCurrency({ amount: n, currency: cp.currency });
           return (
@@ -515,22 +529,10 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                 <TableContainer>
                   <Table size="small">
                     <TableBody>
-                      {cp.overheadPercent > 0 && (
+                      {scopeLinePrice > 0 && (
                         <TableRow>
-                          <TableCell>Overhead ({cp.overheadPercent}%)</TableCell>
-                          <TableCell align="right">{fmt(overheadAmount)}</TableCell>
-                        </TableRow>
-                      )}
-                      {cp.contingencyPercent > 0 && (
-                        <TableRow>
-                          <TableCell>Contingency ({cp.contingencyPercent}%)</TableCell>
-                          <TableCell align="right">{fmt(contingencyAmount)}</TableCell>
-                        </TableRow>
-                      )}
-                      {cp.profitPercent > 0 && (
-                        <TableRow>
-                          <TableCell>Profit ({cp.profitPercent}%)</TableCell>
-                          <TableCell align="right">{fmt(profitAmount)}</TableCell>
+                          <TableCell>{proposal.title || 'Scope of Work'}</TableCell>
+                          <TableCell align="right">{fmt(scopeLinePrice)}</TableCell>
                         </TableRow>
                       )}
                       {cp.lumpSumLines.map((row) => (

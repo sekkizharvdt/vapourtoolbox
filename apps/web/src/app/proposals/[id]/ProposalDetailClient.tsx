@@ -208,8 +208,6 @@ export default function ProposalDetailClient() {
         db,
         proposal,
         {
-          showCostBreakdown: true,
-          showIndirectCosts: true,
           includeTerms: true,
           includeDeliverySchedule: true,
         },

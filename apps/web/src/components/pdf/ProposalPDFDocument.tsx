@@ -1,17 +1,24 @@
 /**
  * Proposal PDF Document Template
  *
- * Uses standardised report components from @/lib/pdf/reportComponents.
- * Supports both legacy (pricing) and new (unifiedScopeMatrix, pricingConfig) data structures.
+ * Customer-facing proposal PDF. Uses the shared report components so the
+ * format matches RFQ / PO / other modules (logo, header, theme).
+ *
+ * IMPORTANT: This document is what the client sees. It MUST NOT expose
+ * internal markup percentages (overhead / contingency / profit) — those
+ * are negotiation-sensitive and live only on the Costing tab. The
+ * Commercial Summary collapses the cost basis + markups into a single
+ * priced line and shows lump-sum lines, subtotal, tax, total.
  */
 
 import React from 'react';
 import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
-import type { Proposal, Money, UnifiedScopeItem } from '@vapour/types';
+import type { Proposal, UnifiedScopeItem } from '@vapour/types';
 import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
 import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 import {
   ReportPage,
+  ReportHeader,
   ReportSection,
   ReportTable,
   Watermark,
@@ -20,22 +27,31 @@ import {
   REPORT_THEME,
 } from '@/lib/pdf/reportComponents';
 
+export interface ProposalPDFCompany {
+  name: string;
+  address?: string;
+  gstin?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+}
+
 const local = StyleSheet.create({
-  header: {
-    marginBottom: 20,
-    paddingBottom: 10,
-    borderBottom: `2pt solid ${REPORT_THEME.primary}`,
+  companyMeta: {
+    marginTop: -8,
+    marginBottom: 8,
   },
-  companyName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: REPORT_THEME.primary,
-    marginBottom: 5,
+  companyMetaText: {
+    fontSize: 8,
+    color: REPORT_THEME.textSecondary,
+    textAlign: 'center',
   },
   proposalTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
-    marginTop: 10,
+    marginTop: 6,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   row: {
     flexDirection: 'row',
@@ -89,40 +105,34 @@ const local = StyleSheet.create({
 
 interface ProposalPDFDocumentProps {
   proposal: Proposal;
-  showCostBreakdown: boolean;
-  showIndirectCosts: boolean;
   includeTerms: boolean;
   includeDeliverySchedule: boolean;
   watermark?: string;
+  company?: ProposalPDFCompany;
+  logoDataUri?: string;
 }
+
+const DEFAULT_COMPANY: ProposalPDFCompany = {
+  name: 'Vapour Desal Technologies Private Limited',
+};
 
 export const ProposalPDFDocument = ({
   proposal,
-  showCostBreakdown: _showCostBreakdown,
-  showIndirectCosts: _showIndirectCosts,
   includeTerms,
   includeDeliverySchedule,
   watermark,
+  company = DEFAULT_COMPANY,
+  logoDataUri,
 }: ProposalPDFDocumentProps) => {
-  const formatCurrency = (
-    money: Money | { amount: number; currency: string } | undefined | null
-  ) => {
-    if (!money) return '—';
-    return sharedFormatCurrency(money.amount, money.currency, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-  };
-
   const hasUnifiedScopeMatrix = Boolean(
     proposal.unifiedScopeMatrix &&
     proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0)
   );
 
-  // Stage 2.5: client-facing pricing layered on top of the internal cost basis.
-  // Only one of clientPricing or the legacy pricingConfig will render.
+  // Stage 2.5: client-facing pricing. Only clientPricing renders on the
+  // customer PDF; the legacy pricingConfig markup-breakdown is no longer
+  // shown to clients (internal-only data).
   const hasClientPricing = Boolean(proposal.clientPricing);
-  const hasPricingConfig = !hasClientPricing && Boolean(proposal.pricingConfig?.isComplete);
 
   // Internal cost basis is always INR. Quote currency lives on clientPricing.
   // The conversion (INR → quote currency) is applied only to the final total.
@@ -137,17 +147,16 @@ export const ProposalPDFDocument = ({
         const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
         const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
         const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
+        // What the client sees as the price for the scope of work — markups
+        // are rolled in here so they're invisible to the buyer.
+        const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
         const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0);
-        const subtotal =
-          costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal;
+        const subtotal = scopeLinePrice + lumpSumTotal;
         const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
         const totalInr = subtotal + taxAmount;
         const totalQuote = isForeignQuote ? totalInr / fxRate : totalInr;
         return {
-          overheadAmount,
-          contingencyAmount,
-          profitAmount,
-          lumpSumTotal,
+          scopeLinePrice,
           subtotal,
           taxAmount,
           totalInr,
@@ -175,15 +184,21 @@ export const ProposalPDFDocument = ({
       <ReportPage style={{ padding: 40, fontSize: 10 }}>
         {watermark && <Watermark text={watermark} />}
 
-        {/* Header */}
-        <View style={local.header}>
-          <Text style={local.companyName}>Vapour Desal Technologies</Text>
-          <Text>Professional Water Treatment Solutions</Text>
-          <Text style={local.proposalTitle}>
-            Techno-Commercial Proposal (Proposal No: {proposal.proposalNumber} Rev.
-            {proposal.revision})
-          </Text>
-        </View>
+        {/* Header — shared format with RFQ / PO / other modules */}
+        <ReportHeader
+          title="Techno-Commercial Proposal"
+          subtitle={company.name}
+          logoDataUri={logoDataUri}
+        />
+        {(company.address || company.gstin) && (
+          <View style={local.companyMeta}>
+            {company.address && <Text style={local.companyMetaText}>{company.address}</Text>}
+            {company.gstin && <Text style={local.companyMetaText}>GSTIN: {company.gstin}</Text>}
+          </View>
+        )}
+        <Text style={local.proposalTitle}>
+          Proposal No: {proposal.proposalNumber} Rev.{proposal.revision}
+        </Text>
 
         {/* Client Information */}
         <ReportSection title="TO">
@@ -288,39 +303,21 @@ export const ProposalPDFDocument = ({
           </ReportSection>
         ) : null}
 
-        {/* Pricing Summary — stage 2.5 clientPricing */}
+        {/* Commercial Summary — customer-facing.
+            The cost basis + overhead + contingency + profit are rolled into a
+            SINGLE priced line (described by the proposal title) so internal
+            markup percentages never reach the client. Lump-sum lines render
+            individually. Then subtotal, tax, total. */}
         {hasClientPricing && cp && cpComputed ? (
           <View style={local.costSummary}>
             <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
               Commercial Summary
             </Text>
-            {cp.overheadPercent > 0 && (
+            {cpComputed.scopeLinePrice > 0 && (
               <View style={local.costRow}>
-                <Text style={local.costLabel}>Overhead ({cp.overheadPercent}%):</Text>
+                <Text style={local.costLabel}>{proposal.title || 'Scope of Work'}</Text>
                 <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.overheadAmount, inrCurrency, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-              </View>
-            )}
-            {cp.contingencyPercent > 0 && (
-              <View style={local.costRow}>
-                <Text style={local.costLabel}>Contingency ({cp.contingencyPercent}%):</Text>
-                <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.contingencyAmount, inrCurrency, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-              </View>
-            )}
-            {cp.profitPercent > 0 && (
-              <View style={local.costRow}>
-                <Text style={local.costLabel}>Profit ({cp.profitPercent}%):</Text>
-                <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.profitAmount, inrCurrency, {
+                  {sharedFormatCurrency(cpComputed.scopeLinePrice, inrCurrency, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   })}
@@ -382,96 +379,18 @@ export const ProposalPDFDocument = ({
               </Text>
             </View>
             {isForeignQuote && (
-              <>
-                <View style={local.costRow}>
-                  <Text style={local.costLabel}>
-                    Total in {quoteCurrency} (at 1 {quoteCurrency} = ₹{fxRate}):
-                  </Text>
-                  <Text style={local.totalCost}>
-                    {sharedFormatCurrency(cpComputed.totalQuote, quoteCurrency, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}
-                  </Text>
-                </View>
-              </>
+              <View style={local.costRow}>
+                <Text style={local.costLabel}>
+                  Total in {quoteCurrency} (at 1 {quoteCurrency} = ₹{fxRate}):
+                </Text>
+                <Text style={local.totalCost}>
+                  {sharedFormatCurrency(cpComputed.totalQuote, quoteCurrency, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              </View>
             )}
-          </View>
-        ) : null}
-
-        {/* Pricing Summary — legacy pricingConfig (only renders when clientPricing is absent) */}
-        {hasPricingConfig && proposal.pricingConfig ? (
-          <View style={local.costSummary}>
-            <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
-              Commercial Summary
-            </Text>
-            <View style={local.costRow}>
-              <Text style={local.costLabel}>Base Cost:</Text>
-              <Text style={local.costValue}>
-                {formatCurrency(proposal.pricingConfig.estimationSubtotal)}
-              </Text>
-            </View>
-            <View style={local.costRow}>
-              <Text style={local.costLabel}>
-                Overhead ({proposal.pricingConfig.overheadPercent}%):
-              </Text>
-              <Text style={local.costValue}>
-                {formatCurrency(proposal.pricingConfig.overheadAmount)}
-              </Text>
-            </View>
-            <View style={local.costRow}>
-              <Text style={local.costLabel}>
-                Contingency ({proposal.pricingConfig.contingencyPercent}%):
-              </Text>
-              <Text style={local.costValue}>
-                {formatCurrency(proposal.pricingConfig.contingencyAmount)}
-              </Text>
-            </View>
-            <View style={local.costRow}>
-              <Text style={local.costLabel}>
-                Profit ({proposal.pricingConfig.profitMarginPercent}%):
-              </Text>
-              <Text style={local.costValue}>
-                {formatCurrency(proposal.pricingConfig.profitAmount)}
-              </Text>
-            </View>
-            <View
-              style={{
-                ...local.costRow,
-                marginTop: 6,
-                paddingTop: 6,
-                borderTop: '0.5pt solid #ccc',
-              }}
-            >
-              <Text style={local.costLabel}>Subtotal:</Text>
-              <Text style={local.costValue}>
-                {formatCurrency(proposal.pricingConfig.subtotalBeforeTax)}
-              </Text>
-            </View>
-            <View style={local.costRow}>
-              <Text style={local.costLabel}>GST ({proposal.pricingConfig.taxPercent}%):</Text>
-              <Text style={local.costValue}>
-                {formatCurrency(proposal.pricingConfig.taxAmount)}
-              </Text>
-            </View>
-            <View
-              style={{
-                ...local.costRow,
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: '1pt solid #ccc',
-              }}
-            >
-              <Text style={local.costLabel}>Total Amount:</Text>
-              <Text style={local.totalCost}>
-                {formatCurrency(proposal.pricingConfig.totalPrice)}
-              </Text>
-            </View>
-            <View style={{ marginTop: 10 }}>
-              <Text style={{ fontSize: 9, color: REPORT_THEME.textSecondary }}>
-                Validity: {proposal.pricingConfig.validityDays} days from date of issue
-              </Text>
-            </View>
           </View>
         ) : null}
 

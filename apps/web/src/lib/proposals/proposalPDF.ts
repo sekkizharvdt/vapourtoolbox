@@ -7,20 +7,67 @@
  */
 
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, Firestore, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Firestore, Timestamp } from 'firebase/firestore';
 import type { Proposal } from '@vapour/types';
-import { ProposalPDFDocument } from '@/components/pdf/ProposalPDFDocument';
+import { ProposalPDFDocument, type ProposalPDFCompany } from '@/components/pdf/ProposalPDFDocument';
 import { generatePDFBlob, downloadBlob } from '@/lib/pdf/pdfUtils';
+import { fetchLogoAsDataUri } from '@/lib/pdf/logoUtils';
+import { getFirebase } from '@/lib/firebase';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'proposalPDF' });
 
 export interface ProposalPDFOptions {
-  showCostBreakdown?: boolean;
-  showIndirectCosts?: boolean;
   includeTerms?: boolean;
   includeDeliverySchedule?: boolean;
   watermark?: string;
+}
+
+function formatAddress(addr?: {
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}): string | undefined {
+  if (!addr) return undefined;
+  const lines: string[] = [];
+  if (addr.street) lines.push(addr.street);
+  const cityLine = [addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
+  if (cityLine) lines.push(cityLine);
+  if (addr.country) lines.push(addr.country);
+  return lines.join('\n') || undefined;
+}
+
+async function loadCompanyProfile(): Promise<ProposalPDFCompany | undefined> {
+  try {
+    const { db } = getFirebase();
+    const snap = await getDoc(doc(db, 'company', 'settings'));
+    if (!snap.exists()) return undefined;
+    const data = snap.data() as {
+      companyName?: string;
+      legalName?: string;
+      address?: Parameters<typeof formatAddress>[0];
+      taxIds?: { gstin?: string; pan?: string };
+      email?: string;
+      phone?: string;
+      website?: string;
+    };
+    const address = formatAddress(data.address);
+    return {
+      name: data.legalName || data.companyName || 'Vapour Desal Technologies Private Limited',
+      ...(address && { address }),
+      gstin: data.taxIds?.gstin,
+      email: data.email,
+      phone: data.phone,
+      website: data.website,
+    };
+  } catch (err) {
+    logger.warn('Failed to load company profile for proposal PDF', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
 }
 
 /**
@@ -34,22 +81,21 @@ export async function generateProposalPDF(
   proposal: Proposal,
   options: ProposalPDFOptions = {}
 ): Promise<Blob> {
-  const {
-    showCostBreakdown = true,
-    showIndirectCosts = true,
-    includeTerms = true,
-    includeDeliverySchedule = true,
-    watermark,
-  } = options;
+  const { includeTerms = true, includeDeliverySchedule = true, watermark } = options;
+
+  const [company, logoDataUri] = await Promise.all([
+    loadCompanyProfile(),
+    fetchLogoAsDataUri().catch(() => undefined),
+  ]);
 
   return generatePDFBlob(
     ProposalPDFDocument({
       proposal,
-      showCostBreakdown,
-      showIndirectCosts,
       includeTerms,
       includeDeliverySchedule,
       watermark,
+      company,
+      logoDataUri,
     })
   );
 }
