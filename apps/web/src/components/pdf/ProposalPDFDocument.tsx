@@ -434,44 +434,76 @@ export const ProposalPDFDocument = ({
           </ReportSection>
         )}
 
-        {/* Terms & Conditions */}
-        {includeTerms && proposal.terms && (
-          <ReportSection title="Terms &amp; Conditions">
-            {proposal.terms.warranty && (
-              <View style={{ marginBottom: 6 }}>
-                <Text style={{ fontWeight: 'bold' }}>Warranty:</Text>
-                <Text>{proposal.terms.warranty}</Text>
-              </View>
-            )}
-            {proposal.terms.liquidatedDamages && (
-              <View style={{ marginBottom: 6 }}>
-                <Text style={{ fontWeight: 'bold' }}>Liquidated Damages:</Text>
-                <Text>{proposal.terms.liquidatedDamages}</Text>
-              </View>
-            )}
-            {proposal.terms.forceMajeure && (
-              <View style={{ marginBottom: 6 }}>
-                <Text style={{ fontWeight: 'bold' }}>Force Majeure:</Text>
-                <Text>{proposal.terms.forceMajeure}</Text>
-              </View>
-            )}
-            {proposal.terms.disputeResolution && (
-              <View style={{ marginBottom: 6 }}>
-                <Text style={{ fontWeight: 'bold' }}>Dispute Resolution:</Text>
-                <Text>{proposal.terms.disputeResolution}</Text>
-              </View>
-            )}
-            {proposal.terms.customTerms && proposal.terms.customTerms.length > 0 && (
-              <View style={local.bulletList}>
-                {proposal.terms.customTerms.map((term, idx) => (
-                  <Text key={idx} style={local.bulletItem}>
-                    • {term}
-                  </Text>
-                ))}
-              </View>
-            )}
-          </ReportSection>
-        )}
+        {/* Terms & Conditions — structured termsBlocks render first;
+            legacy `terms` named slots are only used when termsBlocks isn't
+            present (older proposals from before stage 2.5j). */}
+        {includeTerms &&
+          (() => {
+            const blocks = (proposal.termsBlocks ?? [])
+              .filter((b) => b.included && b.body.trim().length > 0)
+              .sort((a, b) => a.order - b.order);
+            if (blocks.length > 0) {
+              return (
+                <ReportSection title="Terms &amp; Conditions">
+                  {blocks.map((b, idx) => (
+                    <View key={b.id} style={{ marginBottom: 8 }}>
+                      <Text style={{ fontWeight: 'bold' }}>
+                        {idx + 1}. {b.title}
+                      </Text>
+                      <Text>{b.body}</Text>
+                    </View>
+                  ))}
+                </ReportSection>
+              );
+            }
+            // Legacy fallback for proposals created before structured terms.
+            if (!proposal.terms) return null;
+            const t = proposal.terms;
+            const hasAny =
+              !!t.warranty ||
+              !!t.liquidatedDamages ||
+              !!t.forceMajeure ||
+              !!t.disputeResolution ||
+              (t.customTerms && t.customTerms.length > 0);
+            if (!hasAny) return null;
+            return (
+              <ReportSection title="Terms &amp; Conditions">
+                {t.warranty && (
+                  <View style={{ marginBottom: 6 }}>
+                    <Text style={{ fontWeight: 'bold' }}>Warranty:</Text>
+                    <Text>{t.warranty}</Text>
+                  </View>
+                )}
+                {t.liquidatedDamages && (
+                  <View style={{ marginBottom: 6 }}>
+                    <Text style={{ fontWeight: 'bold' }}>Liquidated Damages:</Text>
+                    <Text>{t.liquidatedDamages}</Text>
+                  </View>
+                )}
+                {t.forceMajeure && (
+                  <View style={{ marginBottom: 6 }}>
+                    <Text style={{ fontWeight: 'bold' }}>Force Majeure:</Text>
+                    <Text>{t.forceMajeure}</Text>
+                  </View>
+                )}
+                {t.disputeResolution && (
+                  <View style={{ marginBottom: 6 }}>
+                    <Text style={{ fontWeight: 'bold' }}>Dispute Resolution:</Text>
+                    <Text>{t.disputeResolution}</Text>
+                  </View>
+                )}
+                {t.customTerms && t.customTerms.length > 0 && (
+                  <View style={local.bulletList}>
+                    {t.customTerms.map((term, idx) => (
+                      <Text key={idx} style={local.bulletItem}>
+                        • {term}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </ReportSection>
+            );
+          })()}
 
         <ReportFooter
           lines={[

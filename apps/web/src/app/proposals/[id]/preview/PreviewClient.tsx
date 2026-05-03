@@ -593,44 +593,76 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           );
         })()}
 
-        {/* Terms & Conditions */}
-        {proposal.terms && Object.values(proposal.terms).some(Boolean) && (
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Terms & Conditions
-              </Typography>
-              <List dense>
-                {proposal.terms.warranty && (
-                  <ListItem>
-                    <ListItemText primary="Warranty" secondary={proposal.terms.warranty} />
-                  </ListItem>
-                )}
-                {proposal.terms.liquidatedDamages && (
-                  <ListItem>
-                    <ListItemText
-                      primary="Liquidated Damages"
-                      secondary={proposal.terms.liquidatedDamages}
-                    />
-                  </ListItem>
-                )}
-                {proposal.terms.forceMajeure && (
-                  <ListItem>
-                    <ListItemText primary="Force Majeure" secondary={proposal.terms.forceMajeure} />
-                  </ListItem>
-                )}
-                {proposal.terms.disputeResolution && (
-                  <ListItem>
-                    <ListItemText
-                      primary="Dispute Resolution"
-                      secondary={proposal.terms.disputeResolution}
-                    />
-                  </ListItem>
-                )}
-              </List>
-            </CardContent>
-          </Card>
-        )}
+        {/* Terms & Conditions — mirrors what the PDF will show. Renders the
+            structured termsBlocks if present, falling back to the legacy
+            named-slot shape for old proposals. */}
+        {(() => {
+          const blocks = (proposal.termsBlocks ?? [])
+            .filter((b) => b.included && b.body.trim().length > 0)
+            .sort((a, b) => a.order - b.order);
+          if (blocks.length > 0) {
+            return (
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    Terms &amp; Conditions
+                  </Typography>
+                  {blocks.map((b, idx) => (
+                    <Box key={b.id} sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        {idx + 1}. {b.title}
+                      </Typography>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                        {b.body}
+                      </Typography>
+                    </Box>
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          }
+          if (!proposal.terms || !Object.values(proposal.terms).some(Boolean)) return null;
+          return (
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Terms &amp; Conditions
+                </Typography>
+                <List dense>
+                  {proposal.terms.warranty && (
+                    <ListItem>
+                      <ListItemText primary="Warranty" secondary={proposal.terms.warranty} />
+                    </ListItem>
+                  )}
+                  {proposal.terms.liquidatedDamages && (
+                    <ListItem>
+                      <ListItemText
+                        primary="Liquidated Damages"
+                        secondary={proposal.terms.liquidatedDamages}
+                      />
+                    </ListItem>
+                  )}
+                  {proposal.terms.forceMajeure && (
+                    <ListItem>
+                      <ListItemText
+                        primary="Force Majeure"
+                        secondary={proposal.terms.forceMajeure}
+                      />
+                    </ListItem>
+                  )}
+                  {proposal.terms.disputeResolution && (
+                    <ListItem>
+                      <ListItemText
+                        primary="Dispute Resolution"
+                        secondary={proposal.terms.disputeResolution}
+                      />
+                    </ListItem>
+                  )}
+                </List>
+              </CardContent>
+            </Card>
+          );
+        })()}
       </Paper>
 
       {/* Submit Confirmation Dialog */}

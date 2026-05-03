@@ -659,7 +659,11 @@ export interface ProposalPricingConfig {
 }
 
 /**
- * Terms & Conditions
+ * Terms & Conditions (legacy)
+ *
+ * Retained for read compatibility with proposals created before
+ * `termsBlocks`. New proposals seed `termsBlocks` instead and the editor /
+ * PDF render that array. Don't add new fields here.
  */
 export interface TermsAndConditions {
   warranty?: string;
@@ -669,6 +673,43 @@ export interface TermsAndConditions {
   forceMajeure?: string;
   disputeResolution?: string;
   customTerms?: string[];
+}
+
+/**
+ * Single clause inside the structured Terms & Conditions block.
+ *
+ * Each clause is independently editable, can be toggled in/out per deal,
+ * and re-ordered. The `key` distinguishes seed clauses from user-added
+ * `CUSTOM` clauses so the editor can show a "reset to default" affordance
+ * on the seeded ones.
+ */
+export type ProposalTermsBlockKey =
+  | 'PRICES_BINDING'
+  | 'RIGHTS_AND_OBLIGATIONS'
+  | 'LIMITATION_OF_LIABILITY'
+  | 'TERMINATION'
+  | 'INDEMNITY'
+  | 'CHANGE_IN_WORK_ASSIGNMENT'
+  | 'FORCE_MAJEURE'
+  | 'NOTICE_AND_AMENDMENTS'
+  | 'NO_PARTNERSHIP'
+  | 'GOVERNING_LAW_AND_DISPUTE_RESOLUTION'
+  | 'CONFIDENTIALITY'
+  | 'INTELLECTUAL_PROPERTY'
+  | 'WARRANTY'
+  | 'LIQUIDATED_DAMAGES'
+  | 'CUSTOM';
+
+export interface ProposalTermsBlock {
+  id: string;
+  /** Stable key for seeded clauses; 'CUSTOM' for user-added ones. */
+  key: ProposalTermsBlockKey;
+  title: string;
+  body: string;
+  /** Whether the clause prints on the customer PDF for this proposal. */
+  included: boolean;
+  /** 0-based render order; lower numbers print first. */
+  order: number;
 }
 
 /**
@@ -790,7 +831,11 @@ export interface Proposal extends TimestampFields {
   clientPricing?: ClientPricing;
 
   // Terms & Conditions
+  // `terms` is the legacy named-slot shape; new proposals seed `termsBlocks`.
+  // The customer PDF renders termsBlocks when present, falling back to
+  // `terms` for older proposals so nothing in flight breaks.
   terms: TermsAndConditions;
+  termsBlocks?: ProposalTermsBlock[];
 
   // Status & Workflow
   status: ProposalStatus;
@@ -880,6 +925,7 @@ export interface UpdateProposalInput {
   pricingBlocks?: PricingBlock[];
   clientPricing?: ClientPricing;
   terms?: Partial<TermsAndConditions>;
+  termsBlocks?: ProposalTermsBlock[];
   status?: ProposalStatus;
   negotiationNotes?: string;
   // Work components / currency (editable post-creation)

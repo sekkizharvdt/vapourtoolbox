@@ -48,6 +48,7 @@ export {
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
 import { seedPricingBlocksForComponents, createDefaultClientPricing } from './pricingBlocks';
+import { buildDefaultTermsBlocks } from './termsBlocks';
 
 const logger = createLogger({ context: 'proposalService' });
 
@@ -317,8 +318,13 @@ export async function createMinimalProposal(
         paymentTerms: 'To be determined',
       },
 
-      // Empty terms
+      // Empty legacy terms slot (retained for back-compat reads).
       terms: {},
+      // Structured terms — seeded from the canonical clause set so a fresh
+      // proposal arrives at the Terms tab already loaded with sensible
+      // defaults. The user toggles individual clauses in/out and edits
+      // bodies as needed; nothing is set in stone here.
+      termsBlocks: buildDefaultTermsBlocks(),
 
       // Status & Workflow
       status: 'DRAFT',
