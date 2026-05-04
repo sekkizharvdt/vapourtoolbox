@@ -49,6 +49,7 @@ import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { downloadProposalPDF, saveProposalPDF } from '@/lib/proposals/proposalPDF';
+import { buildDefaultTermsBlocks } from '@/lib/proposals/termsBlocks';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
 import type { Proposal, Money } from '@vapour/types';
@@ -574,45 +575,13 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                 <TableContainer>
                   <Table size="small">
                     <TableBody>
-                      {scopeLinePrice > 0 && (
-                        <TableRow>
-                          <TableCell>{proposal.title || 'Scope of Work'}</TableCell>
-                          <TableCell align="right">{fmt(scopeLinePrice)}</TableCell>
-                        </TableRow>
-                      )}
-                      {cp.lumpSumLines.map((row) => (
-                        <TableRow key={row.id}>
-                          <TableCell>{row.description || '—'}</TableCell>
-                          <TableCell align="right">{fmt(row.amount ?? 0)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Subtotal</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                          {fmt(subtotal)}
-                        </TableCell>
-                      </TableRow>
-                      {cp.taxRate > 0 && (
-                        <TableRow>
-                          <TableCell>{cp.taxLabel || `Tax (${cp.taxRate}%)`}</TableCell>
-                          <TableCell align="right">{fmt(taxAmount)}</TableCell>
-                        </TableRow>
-                      )}
-                      <TableRow sx={{ bgcolor: 'primary.50' }}>
-                        <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                          Total Price (INR)
-                        </TableCell>
-                        <TableCell
-                          align="right"
-                          sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
-                        >
-                          {fmt(totalInr)}
-                        </TableCell>
-                      </TableRow>
-                      {isForeignQuote && (
+                      {isForeignQuote ? (
+                        // Foreign-currency quote: GST is baked into the
+                        // single total, INR breakdown and conversion line
+                        // hidden (per direct user instruction).
                         <TableRow sx={{ bgcolor: 'primary.50' }}>
                           <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                            Total quoted as {cp.currency} (1 {cp.currency} = ₹{fxRate})
+                            {proposal.title || 'Scope of Work'} (incl. all applicable taxes)
                           </TableCell>
                           <TableCell
                             align="right"
@@ -621,6 +590,48 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                             {fmtQuote(totalQuote)}
                           </TableCell>
                         </TableRow>
+                      ) : (
+                        <>
+                          {scopeLinePrice > 0 && (
+                            <TableRow>
+                              <TableCell>{proposal.title || 'Scope of Work'}</TableCell>
+                              <TableCell align="right">{fmt(scopeLinePrice)}</TableCell>
+                            </TableRow>
+                          )}
+                          {cp.lumpSumLines.map((row) => (
+                            <TableRow key={row.id}>
+                              <TableCell>{row.description || '—'}</TableCell>
+                              <TableCell align="right">{fmt(row.amount ?? 0)}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Subtotal</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              {fmt(subtotal)}
+                            </TableCell>
+                          </TableRow>
+                          {cp.taxRate > 0 && (
+                            <TableRow>
+                              <TableCell>{cp.taxLabel || `Tax (${cp.taxRate}%)`}</TableCell>
+                              <TableCell align="right">{fmt(taxAmount)}</TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow sx={{ bgcolor: 'primary.50' }}>
+                            <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                              Total Amount
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{
+                                fontWeight: 'bold',
+                                fontSize: '1.1rem',
+                                color: 'primary.main',
+                              }}
+                            >
+                              {fmt(totalInr)}
+                            </TableCell>
+                          </TableRow>
+                        </>
                       )}
                     </TableBody>
                   </Table>
@@ -638,11 +649,16 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           );
         })()}
 
-        {/* Terms & Conditions — mirrors what the PDF will show. Renders the
-            structured termsBlocks if present, falling back to the legacy
-            named-slot shape for old proposals. */}
+        {/* Terms & Conditions — mirrors what the PDF will show. If a
+            proposal predates structured T&Cs, seed the canonical defaults
+            so something always renders. The legacy named-slot shape is the
+            second fallback. */}
         {(() => {
-          const blocks = (proposal.termsBlocks ?? [])
+          const sourceBlocks =
+            proposal.termsBlocks && proposal.termsBlocks.length > 0
+              ? proposal.termsBlocks
+              : buildDefaultTermsBlocks();
+          const blocks = sourceBlocks
             .filter((b) => b.included && b.body.trim().length > 0)
             .sort((a, b) => a.order - b.order);
           if (blocks.length > 0) {

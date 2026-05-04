@@ -15,7 +15,8 @@ import React from 'react';
 import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { Proposal, UnifiedScopeItem } from '@vapour/types';
 import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
-import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
+import { formatDate } from '@/lib/utils/formatters';
+import { buildDefaultTermsBlocks } from '@/lib/proposals/termsBlocks';
 import {
   ReportPage,
   ReportHeader,
@@ -26,6 +27,31 @@ import {
   reportStyles as s,
   REPORT_THEME,
 } from '@/lib/pdf/reportComponents';
+
+/**
+ * PDF-safe currency formatter. The default react-pdf font (Helvetica)
+ * lacks the Indian Rupee glyph (U+20B9), so Intl.NumberFormat output for
+ * INR comes through as a superscript ¹ on the rendered page. Workaround:
+ * format INR with an "Rs." prefix and the local en-IN digit grouping.
+ * Other currencies render correctly via Intl since their symbols
+ * ($, €, £, S$, AED) all live in Helvetica.
+ */
+function formatPdfMoney(amount: number, currency: string): string {
+  const rounded = Math.round(amount);
+  if (currency === 'INR') {
+    return `Rs. ${rounded.toLocaleString('en-IN')}`;
+  }
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(rounded);
+  } catch {
+    return `${currency} ${rounded.toLocaleString('en-IN')}`;
+  }
+}
 
 export interface ProposalPDFCompany {
   name: string;
@@ -327,92 +353,89 @@ export const ProposalPDFDocument = ({
         {/* Commercial Summary — customer-facing.
             The cost basis + overhead + contingency + profit are rolled into a
             SINGLE priced line (described by the proposal title) so internal
-            markup percentages never reach the client. Lump-sum lines render
-            individually. Then subtotal, tax, total. */}
+            markup percentages never reach the client.
+            For INR quotes: line items, subtotal, GST, total.
+            For foreign-currency quotes: a single Total line with GST baked
+            in — no INR breakdown, no fxRate disclosure (per direct user
+            instruction: taxes are included in the foreign price, not extra). */}
         {hasClientPricing && cp && cpComputed ? (
-          <View style={local.costSummary}>
-            <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
-              Commercial Summary
-            </Text>
-            {cpComputed.scopeLinePrice > 0 && (
-              <View style={local.costRow}>
-                <Text style={local.costLabel}>{proposal.title || 'Scope of Work'}</Text>
-                <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.scopeLinePrice, inrCurrency, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-              </View>
-            )}
-            {cp.lumpSumLines.map((row) => (
-              <View key={row.id} style={local.costRow}>
-                <Text style={local.costLabel}>{row.description || '—'}</Text>
-                <Text style={local.costValue}>
-                  {sharedFormatCurrency(row.amount ?? 0, inrCurrency, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-              </View>
-            ))}
-            <View
-              style={{
-                ...local.costRow,
-                marginTop: 6,
-                paddingTop: 6,
-                borderTop: '0.5pt solid #ccc',
-              }}
-            >
-              <Text style={local.costLabel}>Subtotal:</Text>
-              <Text style={local.costValue}>
-                {sharedFormatCurrency(cpComputed.subtotal, inrCurrency, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}
+          isForeignQuote ? (
+            <View style={local.costSummary}>
+              <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
+                Commercial Summary
               </Text>
-            </View>
-            {cp.taxRate > 0 && (
-              <View style={local.costRow}>
-                <Text style={local.costLabel}>{cp.taxLabel || `Tax (${cp.taxRate}%)`}:</Text>
-                <Text style={local.costValue}>
-                  {sharedFormatCurrency(cpComputed.taxAmount, inrCurrency, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-              </View>
-            )}
-            <View
-              style={{
-                ...local.costRow,
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: '1pt solid #ccc',
-              }}
-            >
-              <Text style={local.costLabel}>Total Amount (INR):</Text>
-              <Text style={local.totalCost}>
-                {sharedFormatCurrency(cpComputed.totalInr, inrCurrency, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
-            </View>
-            {isForeignQuote && (
-              <View style={local.costRow}>
+              <View
+                style={{
+                  ...local.costRow,
+                  marginTop: 4,
+                  paddingTop: 4,
+                }}
+              >
                 <Text style={local.costLabel}>
-                  Total in {quoteCurrency} (at 1 {quoteCurrency} = ₹{fxRate}):
+                  {proposal.title || 'Scope of Work'} (incl. all applicable taxes)
                 </Text>
                 <Text style={local.totalCost}>
-                  {sharedFormatCurrency(cpComputed.totalQuote, quoteCurrency, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
+                  {formatPdfMoney(cpComputed.totalQuote, quoteCurrency)}
                 </Text>
               </View>
-            )}
-          </View>
+            </View>
+          ) : (
+            <View style={local.costSummary}>
+              <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
+                Commercial Summary
+              </Text>
+              {cpComputed.scopeLinePrice > 0 && (
+                <View style={local.costRow}>
+                  <Text style={local.costLabel}>{proposal.title || 'Scope of Work'}</Text>
+                  <Text style={local.costValue}>
+                    {formatPdfMoney(cpComputed.scopeLinePrice, inrCurrency)}
+                  </Text>
+                </View>
+              )}
+              {cp.lumpSumLines.map((row) => (
+                <View key={row.id} style={local.costRow}>
+                  <Text style={local.costLabel}>{row.description || '—'}</Text>
+                  <Text style={local.costValue}>
+                    {formatPdfMoney(row.amount ?? 0, inrCurrency)}
+                  </Text>
+                </View>
+              ))}
+              <View
+                style={{
+                  ...local.costRow,
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop: '0.5pt solid #ccc',
+                }}
+              >
+                <Text style={local.costLabel}>Subtotal:</Text>
+                <Text style={local.costValue}>
+                  {formatPdfMoney(cpComputed.subtotal, inrCurrency)}
+                </Text>
+              </View>
+              {cp.taxRate > 0 && (
+                <View style={local.costRow}>
+                  <Text style={local.costLabel}>{cp.taxLabel || `Tax (${cp.taxRate}%)`}:</Text>
+                  <Text style={local.costValue}>
+                    {formatPdfMoney(cpComputed.taxAmount, inrCurrency)}
+                  </Text>
+                </View>
+              )}
+              <View
+                style={{
+                  ...local.costRow,
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: '1pt solid #ccc',
+                }}
+              >
+                <Text style={local.costLabel}>Total Amount:</Text>
+                <Text style={local.totalCost}>
+                  {formatPdfMoney(cpComputed.totalInr, inrCurrency)}
+                </Text>
+              </View>
+            </View>
+          )
         ) : null}
 
         {/* Delivery Schedule */}
@@ -455,12 +478,18 @@ export const ProposalPDFDocument = ({
           </ReportSection>
         )}
 
-        {/* Terms & Conditions — structured termsBlocks render first;
-            legacy `terms` named slots are only used when termsBlocks isn't
-            present (older proposals from before stage 2.5j). */}
+        {/* Terms & Conditions — structured termsBlocks render first; if a
+            proposal predates stage 2.5j (no termsBlocks at all), seed the
+            canonical defaults so the customer always sees standard T&Cs.
+            The legacy named-slot rendering is only used when there's
+            something there to lift. */}
         {includeTerms &&
           (() => {
-            const blocks = (proposal.termsBlocks ?? [])
+            const sourceBlocks =
+              proposal.termsBlocks && proposal.termsBlocks.length > 0
+                ? proposal.termsBlocks
+                : buildDefaultTermsBlocks();
+            const blocks = sourceBlocks
               .filter((b) => b.included && b.body.trim().length > 0)
               .sort((a, b) => a.order - b.order);
             if (blocks.length > 0) {
