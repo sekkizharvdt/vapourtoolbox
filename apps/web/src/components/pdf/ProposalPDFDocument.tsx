@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Image, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { Proposal, UnifiedScopeItem } from '@vapour/types';
 import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
@@ -60,6 +60,11 @@ export interface ProposalPDFCompany {
   email?: string;
   phone?: string;
   website?: string;
+  /** Named individual ("Contact Person" row on the cover page). */
+  primaryContactName?: string;
+  primaryContactRole?: string;
+  primaryContactPhone?: string;
+  primaryContactEmail?: string;
 }
 
 /**
@@ -91,6 +96,84 @@ const local = StyleSheet.create({
     marginTop: 6,
     marginBottom: 10,
     textAlign: 'center',
+  },
+  // Cover page —————————————————————————————————————————————
+  coverDocBand: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 30,
+  },
+  coverDocBandRight: {
+    fontSize: 9,
+    textAlign: 'right',
+    color: REPORT_THEME.textSecondary,
+    lineHeight: 1.3,
+  },
+  coverTitleBlock: {
+    marginTop: 60,
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  coverTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 1.4,
+    marginBottom: 10,
+  },
+  coverFor: {
+    fontSize: 10,
+    color: REPORT_THEME.textSecondary,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  coverClientName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  coverMetaBlock: {
+    marginTop: 30,
+    marginBottom: 30,
+    border: `1pt solid ${REPORT_THEME.border}`,
+  },
+  coverMetaRow: {
+    flexDirection: 'row',
+    borderBottom: `0.5pt solid ${REPORT_THEME.border}`,
+  },
+  coverMetaRowLast: {
+    flexDirection: 'row',
+  },
+  coverMetaLabel: {
+    width: '32%',
+    padding: 6,
+    fontSize: 9,
+    fontWeight: 'bold',
+    backgroundColor: REPORT_THEME.tableHeaderBg,
+    borderRight: `0.5pt solid ${REPORT_THEME.border}`,
+  },
+  coverMetaValue: {
+    flex: 1,
+    padding: 6,
+    fontSize: 9,
+    lineHeight: 1.4,
+  },
+  coverAnnexuresTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 6,
+  },
+  coverAnnexureItem: {
+    fontSize: 9,
+    marginLeft: 10,
+    marginBottom: 2,
+  },
+  coverLogo: {
+    width: 80,
+    height: 40,
+    objectFit: 'contain',
   },
   row: {
     flexDirection: 'row',
@@ -226,12 +309,185 @@ export const ProposalPDFDocument = ({
     ? proposal.unifiedScopeMatrix!.categories.flatMap((c) => c.items.filter((i) => !i.included))
     : [];
 
+  // Cover-page metadata — assembled once so the layout stays declarative.
+  const docNumber = `${proposal.proposalNumber}/R${proposal.revision}`;
+  const submissionDate = formatDate(proposal.preparationDate);
+  const contactPersonText = company.primaryContactName
+    ? `${company.primaryContactName}${
+        company.primaryContactRole ? ', ' + company.primaryContactRole : ''
+      }${company.name ? ', ' + company.name : ''}` +
+      (company.primaryContactPhone ? `\nPhone: ${company.primaryContactPhone}` : '') +
+      (company.primaryContactEmail ? `\nEmail: ${company.primaryContactEmail}` : '')
+    : company.name +
+      (company.phone ? `\nPhone: ${company.phone}` : '') +
+      (company.email ? `\nEmail: ${company.email}` : '');
+  const companyDetailsText =
+    company.name +
+    (company.address ? `\n${company.address}` : '') +
+    (company.email ? `\nEmail: ${company.email}` : '') +
+    (company.phone ? `\nPhone: ${company.phone}` : '');
+  const annexures = (proposal.attachments ?? []).filter((a) => a.fileName);
+
   return (
     <Document>
+      {/* ─── Page 1: Cover ──────────────────────────────────── */}
       <ReportPage style={{ padding: 40, fontSize: 10 }}>
         {watermark && <Watermark text={watermark} />}
 
-        {/* Header — shared format with RFQ / PO / other modules */}
+        {/* Doc number band: logo top-left, document number + date top-right */}
+        <View style={local.coverDocBand}>
+          {logoDataUri ? (
+            // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+            <Image src={logoDataUri} style={local.coverLogo} />
+          ) : (
+            <View />
+          )}
+          <View>
+            <Text style={local.coverDocBandRight}>Document Number: {docNumber}</Text>
+            <Text style={local.coverDocBandRight}>Date: {submissionDate}</Text>
+          </View>
+        </View>
+
+        {/* Big stacked title + "for" + client */}
+        <View style={local.coverTitleBlock}>
+          <Text style={local.coverTitle}>{proposal.title || 'Techno-Commercial Proposal'}</Text>
+          <Text style={local.coverFor}>for</Text>
+          <Text style={local.coverClientName}>{proposal.clientName}</Text>
+        </View>
+
+        {/* Metadata table */}
+        <View style={local.coverMetaBlock}>
+          <View style={local.coverMetaRow}>
+            <Text style={local.coverMetaLabel}>End User</Text>
+            <Text style={local.coverMetaValue}>{proposal.clientName}</Text>
+          </View>
+          {proposal.enquiryNumber && (
+            <View style={local.coverMetaRow}>
+              <Text style={local.coverMetaLabel}>Enquiry Reference</Text>
+              <Text style={local.coverMetaValue}>{proposal.enquiryNumber}</Text>
+            </View>
+          )}
+          <View style={local.coverMetaRow}>
+            <Text style={local.coverMetaLabel}>Proposal Number</Text>
+            <Text style={local.coverMetaValue}>{proposal.proposalNumber}</Text>
+          </View>
+          <View style={local.coverMetaRow}>
+            <Text style={local.coverMetaLabel}>Date of Submission</Text>
+            <Text style={local.coverMetaValue}>{submissionDate}</Text>
+          </View>
+          <View style={local.coverMetaRow}>
+            <Text style={local.coverMetaLabel}>Revision Number</Text>
+            <Text style={local.coverMetaValue}>R{proposal.revision}</Text>
+          </View>
+          <View style={local.coverMetaRow}>
+            <Text style={local.coverMetaLabel}>Valid Until</Text>
+            <Text style={local.coverMetaValue}>{formatDate(proposal.validityDate)}</Text>
+          </View>
+          <View style={local.coverMetaRow}>
+            <Text style={local.coverMetaLabel}>Contact Person</Text>
+            <Text style={local.coverMetaValue}>{contactPersonText}</Text>
+          </View>
+          <View style={local.coverMetaRowLast}>
+            <Text style={local.coverMetaLabel}>Company Details</Text>
+            <Text style={local.coverMetaValue}>{companyDetailsText}</Text>
+          </View>
+        </View>
+
+        {/* List of Annexures (proposal attachments) */}
+        {annexures.length > 0 && (
+          <View>
+            <Text style={local.coverAnnexuresTitle}>List of Annexures</Text>
+            {annexures.map((a, idx) => (
+              <Text key={a.id} style={local.coverAnnexureItem}>
+                {idx + 1}. {a.fileName}
+              </Text>
+            ))}
+          </View>
+        )}
+      </ReportPage>
+
+      {/* ─── Page 2: Covering letter ─────────────────────────── */}
+      {proposal.coverLetter && proposal.coverLetter.included !== false && (
+        <ReportPage style={{ padding: 40, fontSize: 10 }}>
+          {watermark && <Watermark text={watermark} />}
+
+          {/* Same doc-number band as the cover so the page is self-identifying */}
+          <View style={local.coverDocBand}>
+            {logoDataUri ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+              <Image src={logoDataUri} style={local.coverLogo} />
+            ) : (
+              <View />
+            )}
+            <View>
+              <Text style={local.coverDocBandRight}>Document Number: {docNumber}</Text>
+              <Text style={local.coverDocBandRight}>Date: {submissionDate}</Text>
+            </View>
+          </View>
+
+          {/* Recipient block */}
+          <View style={{ marginTop: 10, marginBottom: 16 }}>
+            <Text style={{ marginBottom: 2 }}>To,</Text>
+            {proposal.coverLetter.recipientName && (
+              <Text style={{ fontWeight: 'bold' }}>{proposal.coverLetter.recipientName},</Text>
+            )}
+            {proposal.coverLetter.recipientTitle && (
+              <Text>{proposal.coverLetter.recipientTitle},</Text>
+            )}
+            {proposal.coverLetter.recipientCompany && (
+              <Text>{proposal.coverLetter.recipientCompany}</Text>
+            )}
+          </View>
+
+          {/* Subject */}
+          {proposal.coverLetter.subject && (
+            <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+              <Text style={{ fontWeight: 'bold', width: 80 }}>Subject</Text>
+              <Text style={{ fontWeight: 'bold', marginRight: 6 }}>:</Text>
+              <Text style={{ flex: 1, fontWeight: 'bold' }}>{proposal.coverLetter.subject}</Text>
+            </View>
+          )}
+
+          {/* Salutation + body */}
+          {proposal.coverLetter.salutation && (
+            <Text style={{ fontWeight: 'bold', marginBottom: 10 }}>
+              {proposal.coverLetter.salutation}
+            </Text>
+          )}
+          {proposal.coverLetter.body && (
+            <View style={{ marginBottom: 16 }}>
+              {proposal.coverLetter.body.split('\n\n').map((para, idx) => (
+                <Text key={idx} style={{ marginBottom: 8, lineHeight: 1.5 }}>
+                  {para}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {/* Sign-off */}
+          <View style={{ marginTop: 30 }}>
+            <Text>Yours Sincerely,</Text>
+            <Text>For {company.name},</Text>
+            {proposal.coverLetter.signOffName ? (
+              <Text style={{ marginTop: 30, fontWeight: 'bold' }}>
+                {proposal.coverLetter.signOffName}
+              </Text>
+            ) : company.primaryContactName ? (
+              <Text style={{ marginTop: 30, fontWeight: 'bold' }}>
+                {company.primaryContactName}
+                {company.primaryContactRole ? `\n${company.primaryContactRole}` : ''}
+              </Text>
+            ) : null}
+          </View>
+        </ReportPage>
+      )}
+
+      {/* ─── Page 3 onwards: technical content ─────────────── */}
+      <ReportPage style={{ padding: 40, fontSize: 10 }}>
+        {watermark && <Watermark text={watermark} />}
+
+        {/* Compact header band on subsequent pages so the proposal number
+            stays visible without repeating the full cover. */}
         <ReportHeader
           title="Techno-Commercial Proposal"
           subtitle={company.name}
@@ -253,26 +509,6 @@ export const ProposalPDFDocument = ({
           {clientAddress && <Text>{clientAddress}</Text>}
           {clientContactPerson && <Text>Attention: {clientContactPerson}</Text>}
           {clientEmail && <Text>Email: {clientEmail}</Text>}
-        </ReportSection>
-
-        {/* Proposal Details */}
-        <ReportSection title="Proposal Details">
-          <View style={local.row}>
-            <Text style={local.label}>Subject:</Text>
-            <Text style={local.value}>{proposal.title}</Text>
-          </View>
-          <View style={local.row}>
-            <Text style={local.label}>Date:</Text>
-            <Text style={local.value}>{formatDate(proposal.preparationDate)}</Text>
-          </View>
-          <View style={local.row}>
-            <Text style={local.label}>Valid Until:</Text>
-            <Text style={local.value}>{formatDate(proposal.validityDate)}</Text>
-          </View>
-          <View style={local.row}>
-            <Text style={local.label}>Enquiry Ref:</Text>
-            <Text style={local.value}>{proposal.enquiryNumber}</Text>
-          </View>
         </ReportSection>
 
         {/* Scope of Services — Unified Scope Matrix */}

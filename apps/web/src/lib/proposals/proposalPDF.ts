@@ -117,18 +117,21 @@ async function loadCompanyProfile(): Promise<ProposalPDFCompany | undefined> {
       legalName?: string;
       address?: Parameters<typeof formatAddress>[0];
       taxIds?: { gstin?: string; pan?: string };
-      email?: string;
-      phone?: string;
-      website?: string;
+      contact?: { phone?: string; email?: string; website?: string };
+      primaryContact?: { name?: string; role?: string; phone?: string; email?: string };
     };
     const address = formatAddress(data.address);
     return {
       name: data.legalName || data.companyName || 'Vapour Desal Technologies Private Limited',
       ...(address && { address }),
       gstin: data.taxIds?.gstin,
-      email: data.email,
-      phone: data.phone,
-      website: data.website,
+      email: data.contact?.email,
+      phone: data.contact?.phone,
+      website: data.contact?.website,
+      primaryContactName: data.primaryContact?.name,
+      primaryContactRole: data.primaryContact?.role,
+      primaryContactPhone: data.primaryContact?.phone || data.contact?.phone,
+      primaryContactEmail: data.primaryContact?.email || data.contact?.email,
     };
   } catch (err) {
     logger.warn('Failed to load company profile for proposal PDF', {

@@ -36,6 +36,15 @@ interface CompanySettings {
     email: string;
     website?: string;
   };
+  // Named individual who appears as the "Contact Person" on outgoing
+  // documents (proposal cover pages, bid responses). Distinct from the
+  // generic company contact info above.
+  primaryContact?: {
+    name?: string;
+    role?: string;
+    phone?: string;
+    email?: string;
+  };
   taxIds?: {
     gstin?: string;
     pan?: string;
@@ -90,6 +99,10 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
     phone: existingSettings?.contact?.phone || '',
     email: existingSettings?.contact?.email || '',
     website: existingSettings?.contact?.website || '',
+    primaryContactName: existingSettings?.primaryContact?.name || '',
+    primaryContactRole: existingSettings?.primaryContact?.role || '',
+    primaryContactPhone: existingSettings?.primaryContact?.phone || '',
+    primaryContactEmail: existingSettings?.primaryContact?.email || '',
     gstin: existingSettings?.taxIds?.gstin || '',
     pan: existingSettings?.taxIds?.pan || '',
     tan: existingSettings?.taxIds?.tan || '',
@@ -133,6 +146,12 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
           phone: formData.phone,
           email: formData.email,
           website: formData.website || null,
+        },
+        primaryContact: {
+          name: formData.primaryContactName || null,
+          role: formData.primaryContactRole || null,
+          phone: formData.primaryContactPhone || null,
+          email: formData.primaryContactEmail || null,
         },
         taxIds: {
           gstin: formData.gstin || null,
@@ -272,6 +291,50 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 value={formData.website}
                 onChange={handleChange('website')}
                 helperText="Optional"
+              />
+            </Grid>
+            {/* Primary contact — the named person who signs/answers for the
+                company on outgoing documents (proposal cover pages, etc.).
+                All fields optional but recommended. */}
+            <Grid size={{ xs: 12 }}>
+              <Alert severity="info" sx={{ mb: 1 }}>
+                The primary contact appears on the cover page of every outgoing proposal. Fill in to
+                personalise the document; leave blank to use the generic company phone/email above.
+              </Alert>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Primary contact name"
+                value={formData.primaryContactName}
+                onChange={handleChange('primaryContactName')}
+                helperText="e.g. Sekkizhar Prasanna"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Role / Title"
+                value={formData.primaryContactRole}
+                onChange={handleChange('primaryContactRole')}
+                helperText="e.g. Director"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Primary contact phone"
+                value={formData.primaryContactPhone}
+                onChange={handleChange('primaryContactPhone')}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                type="email"
+                label="Primary contact email"
+                value={formData.primaryContactEmail}
+                onChange={handleChange('primaryContactEmail')}
               />
             </Grid>
           </Grid>

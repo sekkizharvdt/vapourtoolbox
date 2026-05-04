@@ -713,6 +713,27 @@ export interface ProposalTermsBlock {
 }
 
 /**
+ * Personalised covering-letter content that prints immediately after the
+ * cover page on the customer PDF. Recipient block defaults are seeded
+ * from the parent enquiry/client; the body is editable per proposal.
+ */
+export interface ProposalCoverLetter {
+  recipientName?: string;
+  recipientTitle?: string;
+  recipientCompany?: string;
+  /** Greeting line (e.g. "Dear Mr Thyagarajan,"). */
+  salutation?: string;
+  /** Subject line — defaults to the proposal title. */
+  subject?: string;
+  /** Body paragraphs separated by blank lines. */
+  body?: string;
+  /** Sign-off block (e.g. "K. Sekkizhar Prasanna"). */
+  signOffName?: string;
+  /** Whether the cover letter prints on the customer PDF. */
+  included?: boolean;
+}
+
+/**
  * Approval Record
  */
 export interface ApprovalRecord {
@@ -837,6 +858,11 @@ export interface Proposal extends TimestampFields {
   terms: TermsAndConditions;
   termsBlocks?: ProposalTermsBlock[];
 
+  // Covering letter — the personalised "Dear Sir, ..." page that prints
+  // immediately after the cover. Defaults are seeded on creation but the
+  // user can rewrite the body per deal.
+  coverLetter?: ProposalCoverLetter;
+
   // Status & Workflow
   status: ProposalStatus;
   workflowStage?: ProposalWorkflowStage; // Optional for backward compatibility
@@ -926,6 +952,7 @@ export interface UpdateProposalInput {
   clientPricing?: ClientPricing;
   terms?: Partial<TermsAndConditions>;
   termsBlocks?: ProposalTermsBlock[];
+  coverLetter?: ProposalCoverLetter;
   status?: ProposalStatus;
   negotiationNotes?: string;
   // Work components / currency (editable post-creation)

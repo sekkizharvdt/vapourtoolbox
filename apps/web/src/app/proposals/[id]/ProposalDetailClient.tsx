@@ -49,6 +49,7 @@ import {
   PriceChange as PricingIcon,
   Gavel as TermsIcon,
   Visibility as PreviewIcon,
+  Mail as CoverLetterIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
@@ -83,21 +84,32 @@ import DeliveryEditor from './components/DeliveryEditor';
 import CostingBlocksEditor from './pricing/PricingBlocksEditor';
 import PricingEditor from './pricing/PricingEditor';
 import TermsEditor from './components/TermsEditor';
+import CoverLetterEditor from './components/CoverLetterEditor';
 import PreviewClient from './preview/PreviewClient';
 
 // Tab indices — order matches the natural flow:
-//   Overview → Scope → Costing (internal) → Pricing (client-facing) → Delivery → Terms → Preview
+//   Overview → Scope → Costing (internal) → Pricing (client-facing) → Delivery → Terms → Cover Letter → Preview
 const TAB_OVERVIEW = 0;
 const TAB_SCOPE = 1;
 const TAB_COSTING = 2;
 const TAB_PRICING = 3;
 const TAB_DELIVERY = 4;
 const TAB_TERMS = 5;
-const TAB_PREVIEW = 6;
+const TAB_COVER_LETTER = 6;
+const TAB_PREVIEW = 7;
 
 // URL-driven tab selection: ?tab=costing maps onto the activeTab index.
 // Used by post-scope redirects and any external bookmark.
-const TAB_NAMES = ['overview', 'scope', 'costing', 'pricing', 'delivery', 'terms', 'preview'];
+const TAB_NAMES = [
+  'overview',
+  'scope',
+  'costing',
+  'pricing',
+  'delivery',
+  'terms',
+  'cover-letter',
+  'preview',
+];
 const tabIndexFromName = (name: string | null): number | null => {
   if (!name) return null;
   const idx = TAB_NAMES.indexOf(name.toLowerCase());
@@ -539,6 +551,7 @@ export default function ProposalDetailClient() {
           <Tab icon={<PricingIcon />} iconPosition="start" label="Pricing" />
           <Tab icon={<DeliveryIcon />} iconPosition="start" label="Delivery" />
           <Tab icon={<TermsIcon />} iconPosition="start" label="Terms" />
+          <Tab icon={<CoverLetterIcon />} iconPosition="start" label="Cover Letter" />
           <Tab icon={<PreviewIcon />} iconPosition="start" label="Preview" />
         </Tabs>
       </Box>
@@ -566,6 +579,10 @@ export default function ProposalDetailClient() {
       {activeTab === TAB_DELIVERY && proposalId && <DeliveryEditor proposalId={proposalId} />}
 
       {activeTab === TAB_TERMS && proposalId && <TermsEditor proposalId={proposalId} />}
+
+      {activeTab === TAB_COVER_LETTER && proposalId && (
+        <CoverLetterEditor proposalId={proposalId} />
+      )}
 
       {activeTab === TAB_PREVIEW && proposalId && (
         <PreviewClient proposalId={proposalId} embedded />

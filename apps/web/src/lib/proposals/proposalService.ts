@@ -352,6 +352,20 @@ export async function createMinimalProposal(
       // bodies as needed; nothing is set in stone here.
       termsBlocks: buildDefaultTermsBlocks(),
 
+      // Covering letter — pre-fill the recipient block from enquiry data
+      // and seed a generic body. The author edits per deal on the
+      // Cover Letter tab.
+      coverLetter: {
+        recipientName: enquiry.clientContactPerson,
+        recipientTitle: undefined,
+        recipientCompany: client.name || undefined,
+        salutation: 'Dear Sir/Madam,',
+        subject: input.title,
+        body: `We are pleased to submit our techno-commercial proposal for ${input.title}.\n\nThis offer is based on the scope of work shared with us and the discussions held to date. The commercial summary, delivery schedule, and applicable terms are detailed in the following sections.\n\nIn case of any clarifications, please feel free to contact us.`,
+        signOffName: undefined,
+        included: true,
+      },
+
       // Status & Workflow
       status: 'DRAFT',
       workflowStage: 'SCOPE_DEFINITION' as ProposalWorkflowStage,
