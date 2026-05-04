@@ -893,6 +893,31 @@ export function getMaterialCodeParts(category: MaterialCategory): [string, strin
   );
 }
 
+/**
+ * Categories that use the variants model — one parent doc per grade,
+ * with thickness/finish stored as variants. Duplicate material codes
+ * are an error here; the right answer is to add a variant to the parent.
+ */
+export function usesVariantModel(category: MaterialCategory): boolean {
+  return !!PLATE_MATERIAL_CODES[category];
+}
+
+/**
+ * Derive a 2–4 letter prefix from a category enum name for use in
+ * material codes when the category isn't in any explicit code map.
+ * Examples: EXPANSION_BELLOWS → "EB", MOTORS → "MO", STRAINERS → "ST",
+ * RUBBER_GROMMET → "RG", BARS_AND_RODS → "BAR".
+ */
+export function deriveCategoryPrefix(category: MaterialCategory): string {
+  const segs = (category as string).split('_').filter(Boolean);
+  if (segs.length === 0) return 'X';
+  if (segs.length === 1) return segs[0]!.slice(0, 2);
+  return segs
+    .map((s) => s.charAt(0))
+    .join('')
+    .slice(0, 4);
+}
+
 // ============================================================================
 // Validation Error Types
 // ============================================================================

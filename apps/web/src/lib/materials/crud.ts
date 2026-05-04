@@ -21,7 +21,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { docToTyped } from '../firebase/typeHelpers';
 import type { Material, MaterialCategory } from '@vapour/types';
-import { getMaterialCodeParts } from '@vapour/types';
+import { deriveCategoryPrefix, getMaterialCodeParts, usesVariantModel } from '@vapour/types';
 import { logAuditEvent, type AuditContext } from '../audit/clientAuditService';
 
 const logger = createLogger({ context: 'materialService:crud' });
@@ -128,17 +128,18 @@ export async function createMaterial(
 }
 
 /**
- * Generate material code (PL-SS-304 format)
- * Format: {FORM}-{MATERIAL}-{GRADE}
- * Example: PL-SS-304 (Plate - Stainless Steel - 304)
+ * Generate material code.
  *
- * Note: Each grade has exactly ONE material code.
- * All thickness/finish variations are stored as variants within that material.
+ * Mapped categories (plates, pipes, flanges, fittings) use the canonical
+ * format `{form}-{material}-{grade}` — e.g. `PL-SS-304`. Categories that
+ * aren't in any code map fall back to `{prefix}-{grade}` derived from the
+ * category enum name — e.g. `EB-UNSS2205` for EXPANSION_BELLOWS.
  *
- * @param db - Firestore instance
- * @param category - Material category (e.g., PLATES_STAINLESS_STEEL)
- * @param grade - Material grade (e.g., "304", "304L", "316", "316L")
- * @returns Promise<string> - Generated material code
+ * Plate categories use the variants model (one parent per grade, thickness
+ * as variants), so a duplicate code is an error — surface it loudly. All
+ * other categories are flat-doc, so on collision we suffix `-001`, `-002`
+ * until a free code is found. The user can rename later from the materials
+ * master page.
  */
 async function generateMaterialCode(
   db: Firestore,
@@ -146,35 +147,39 @@ async function generateMaterialCode(
   grade: string
 ): Promise<string> {
   const codeParts = getMaterialCodeParts(category);
-
-  if (!codeParts) {
-    throw new Error(`Material code generation not supported for category: ${category}`);
-  }
-
-  const [form, material] = codeParts;
-
-  // Normalize grade (remove spaces, convert to uppercase)
   const normalizedGrade = grade.replace(/\s+/g, '').toUpperCase();
 
-  // Simple format: PL-SS-304 (no sequence number)
-  const materialCode = `${form}-${material}-${normalizedGrade}`;
+  const baseCode = codeParts
+    ? `${codeParts[0]}-${codeParts[1]}-${normalizedGrade}`
+    : `${deriveCategoryPrefix(category)}-${normalizedGrade}`;
 
-  // Check if this material code already exists
-  const q = query(
-    collection(db, COLLECTIONS.MATERIALS),
-    where('materialCode', '==', materialCode),
-    limit(1)
-  );
+  if (!(await materialCodeExists(db, baseCode))) {
+    return baseCode;
+  }
 
-  const snapshot = await getDocs(q);
-
-  if (!snapshot.empty) {
+  if (usesVariantModel(category)) {
     throw new Error(
-      `Material code ${materialCode} already exists. Each grade should have only one material entry. Use variants for different thicknesses/finishes.`
+      `Material code ${baseCode} already exists. Plates use variants for different thicknesses — add a variant on the material master page instead of creating a duplicate.`
     );
   }
 
-  return materialCode;
+  for (let seq = 1; seq < 1000; seq++) {
+    const candidate = `${baseCode}-${String(seq).padStart(3, '0')}`;
+    if (!(await materialCodeExists(db, candidate))) {
+      return candidate;
+    }
+  }
+  throw new Error(`Could not allocate a unique material code for ${baseCode} after 999 attempts`);
+}
+
+async function materialCodeExists(db: Firestore, code: string): Promise<boolean> {
+  const q = query(
+    collection(db, COLLECTIONS.MATERIALS),
+    where('materialCode', '==', code),
+    limit(1)
+  );
+  const snap = await getDocs(q);
+  return !snap.empty;
 }
 
 /**

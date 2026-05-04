@@ -67,6 +67,16 @@ jest.mock('@vapour/types', () => ({
     };
     return mapping[category];
   },
+  usesVariantModel: (category: string) => category.startsWith('PLATES_'),
+  deriveCategoryPrefix: (category: string) => {
+    const segs = category.split('_').filter(Boolean);
+    if (segs.length === 0) return 'X';
+    if (segs.length === 1) return segs[0]!.slice(0, 2);
+    return segs
+      .map((s) => s.charAt(0))
+      .join('')
+      .slice(0, 4);
+  },
 }));
 
 jest.mock('../firebase/typeHelpers', () => ({
@@ -235,16 +245,36 @@ describe('Material CRUD Operations', () => {
       expect(result.updatedAt).toEqual(mockTimestamp);
     });
 
-    it('should throw error for unsupported category', async () => {
-      const unsupportedCategory: CreateMaterialInput = {
+    it('should generate fallback code for unmapped category', async () => {
+      mockGetDocs.mockResolvedValue({ empty: true });
+      mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
+
+      const unmappedCategory: CreateMaterialInput = {
         ...baseMaterialData,
-        materialCode: '', // Force code generation
-        category: 'UNKNOWN_CATEGORY' as MaterialCategory,
+        materialCode: '',
+        category: 'EXPANSION_BELLOWS' as MaterialCategory,
       };
 
-      await expect(createMaterial(mockDb, unsupportedCategory, userId)).rejects.toThrow(
-        'Material code generation not supported for category'
-      );
+      const result = await createMaterial(mockDb, unmappedCategory, userId);
+
+      expect(result.materialCode).toBe('EB-304');
+    });
+
+    it('should suffix sequence on collision for non-plate categories', async () => {
+      mockGetDocs
+        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'existing' }] })
+        .mockResolvedValueOnce({ empty: true });
+      mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
+
+      const data: CreateMaterialInput = {
+        ...baseMaterialData,
+        materialCode: '',
+        category: 'EXPANSION_BELLOWS' as MaterialCategory,
+      };
+
+      const result = await createMaterial(mockDb, data, userId);
+
+      expect(result.materialCode).toBe('EB-304-001');
     });
   });
 
