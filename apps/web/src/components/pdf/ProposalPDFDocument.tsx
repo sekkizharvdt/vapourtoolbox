@@ -15,6 +15,7 @@ import React from 'react';
 import { Document, Image, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { Proposal, UnifiedScopeItem } from '@vapour/types';
 import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
+import { Timestamp } from 'firebase/firestore';
 import { formatDate } from '@/lib/utils/formatters';
 import { buildDefaultTermsBlocks } from '@/lib/proposals/termsBlocks';
 import {
@@ -311,7 +312,12 @@ export const ProposalPDFDocument = ({
 
   // Cover-page metadata — assembled once so the layout stays declarative.
   const docNumber = `${proposal.proposalNumber}/R${proposal.revision}`;
-  const submissionDate = formatDate(proposal.preparationDate);
+  // Date of Submission — once the proposal has actually been submitted to
+  // the client, preserve that historical date. Until then, stamp today's
+  // date so a draft re-downloaded right before sending reflects the day
+  // it's going out (preparationDate stays as the original create date for
+  // internal tracking but doesn't drive what the customer sees).
+  const submissionDate = formatDate(proposal.submittedAt ?? Timestamp.now());
   const contactPersonText = company.primaryContactName
     ? `${company.primaryContactName}${
         company.primaryContactRole ? ', ' + company.primaryContactRole : ''
@@ -326,7 +332,13 @@ export const ProposalPDFDocument = ({
     (company.address ? `\n${company.address}` : '') +
     (company.email ? `\nEmail: ${company.email}` : '') +
     (company.phone ? `\nPhone: ${company.phone}` : '');
+  // Annexures listed on the cover. Each attachment's `description`
+  // (set at upload time on the Attachments card) is the human-readable
+  // label — e.g. "Process Flow Diagram", "Price Breakup". When the
+  // description is blank, we fall back to the filename.
   const annexures = (proposal.attachments ?? []).filter((a) => a.fileName);
+  const annexureLabel = (a: { description?: string; fileName: string }): string =>
+    a.description?.trim() ? a.description.trim() : a.fileName;
 
   return (
     <Document>
@@ -393,13 +405,15 @@ export const ProposalPDFDocument = ({
           </View>
         </View>
 
-        {/* List of Annexures (proposal attachments) */}
+        {/* List of Annexures — labelled by the attachment's description
+            field (set on upload) so the cover reads "1. Annexure 1 -
+            Process Flow Diagram" rather than a raw filename. */}
         {annexures.length > 0 && (
           <View>
             <Text style={local.coverAnnexuresTitle}>List of Annexures</Text>
             {annexures.map((a, idx) => (
               <Text key={a.id} style={local.coverAnnexureItem}>
-                {idx + 1}. {a.fileName}
+                {idx + 1}. Annexure {idx + 1} – {annexureLabel(a)}
               </Text>
             ))}
           </View>
@@ -511,6 +525,49 @@ export const ProposalPDFDocument = ({
           {clientEmail && <Text>Email: {clientEmail}</Text>}
         </ReportSection>
 
+        {/* Project Brief — narrative + input data + clarifications. Each
+            piece is independently optional and skipped when empty. The
+            whole section is hidden when included === false. */}
+        {proposal.projectBrief && proposal.projectBrief.included !== false && (
+          <>
+            {proposal.projectBrief.description && proposal.projectBrief.description.trim() && (
+              <ReportSection title="Description of the Project">
+                {proposal.projectBrief.description.split('\n\n').map((para, idx) => (
+                  <Text key={idx} style={{ marginBottom: 6, lineHeight: 1.5 }}>
+                    {para}
+                  </Text>
+                ))}
+              </ReportSection>
+            )}
+            {proposal.projectBrief.inputData && proposal.projectBrief.inputData.length > 0 && (
+              <ReportSection title="Input Data Considered">
+                <ReportTable
+                  columns={[
+                    { key: 'sno', header: 'S No', width: '10%', align: 'center' },
+                    { key: 'parameter', header: 'Parameter', width: '55%' },
+                    { key: 'value', header: 'Value', width: '35%' },
+                  ]}
+                  rows={proposal.projectBrief.inputData.map((r, idx) => ({
+                    sno: idx + 1,
+                    parameter: r.parameter,
+                    value: r.value,
+                  }))}
+                />
+              </ReportSection>
+            )}
+            {proposal.projectBrief.clarifications &&
+              proposal.projectBrief.clarifications.trim() && (
+                <ReportSection title="Clarifications">
+                  {proposal.projectBrief.clarifications.split('\n\n').map((para, idx) => (
+                    <Text key={idx} style={{ marginBottom: 6, lineHeight: 1.5 }}>
+                      {para}
+                    </Text>
+                  ))}
+                </ReportSection>
+              )}
+          </>
+        )}
+
         {/* Scope of Services — Unified Scope Matrix */}
         {hasUnifiedScopeMatrix && unifiedServices.length > 0 ? (
           <ReportSection title="Scope of Services">
@@ -607,9 +664,7 @@ export const ProposalPDFDocument = ({
                   paddingTop: 4,
                 }}
               >
-                <Text style={local.costLabel}>
-                  {proposal.title || 'Scope of Work'} (incl. all applicable taxes)
-                </Text>
+                <Text style={local.costLabel}>{proposal.title || 'Scope of Work'}</Text>
                 <Text style={local.totalCost}>
                   {formatPdfMoney(cpComputed.totalQuote, quoteCurrency)}
                 </Text>
@@ -682,25 +737,45 @@ export const ProposalPDFDocument = ({
               proposal.deliveryPeriod.milestones.length > 0 && (
                 <View style={{ marginTop: 8 }}>
                   <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Milestones:</Text>
+                  {/* The Tax column only belongs on INR offers — foreign
+                      quotes don't carry an "Incl./Excl. Tax" concept since
+                      Indian GST is zero-rated on exports. */}
                   <ReportTable
-                    columns={[
-                      { key: 'num', header: '#', width: '8%' },
-                      { key: 'description', header: 'Description', width: '37%' },
-                      { key: 'deliverable', header: 'Deliverable', width: '20%' },
-                      { key: 'duration', header: 'Duration', width: '12%' },
-                      { key: 'payment', header: 'Payment', width: '12%' },
-                      { key: 'tax', header: 'Tax', width: '11%' },
-                    ]}
-                    rows={proposal.deliveryPeriod.milestones.map((milestone, idx) => ({
-                      num: milestone.milestoneNumber || idx + 1,
-                      description: milestone.description,
-                      deliverable: milestone.deliverable || '—',
-                      duration: `${milestone.durationInWeeks} wks`,
-                      payment: milestone.paymentPercentage
-                        ? `${milestone.paymentPercentage}%`
-                        : '—',
-                      tax: milestone.taxType ? MILESTONE_TAX_TYPE_LABELS[milestone.taxType] : '—',
-                    }))}
+                    columns={
+                      isForeignQuote
+                        ? [
+                            { key: 'num', header: '#', width: '8%' },
+                            { key: 'description', header: 'Description', width: '46%' },
+                            { key: 'deliverable', header: 'Deliverable', width: '22%' },
+                            { key: 'duration', header: 'Duration', width: '12%' },
+                            { key: 'payment', header: 'Payment', width: '12%' },
+                          ]
+                        : [
+                            { key: 'num', header: '#', width: '8%' },
+                            { key: 'description', header: 'Description', width: '37%' },
+                            { key: 'deliverable', header: 'Deliverable', width: '20%' },
+                            { key: 'duration', header: 'Duration', width: '12%' },
+                            { key: 'payment', header: 'Payment', width: '12%' },
+                            { key: 'tax', header: 'Tax', width: '11%' },
+                          ]
+                    }
+                    rows={proposal.deliveryPeriod.milestones.map((milestone, idx) => {
+                      const base: Record<string, string | number> = {
+                        num: milestone.milestoneNumber || idx + 1,
+                        description: milestone.description,
+                        deliverable: milestone.deliverable || '—',
+                        duration: `${milestone.durationInWeeks} wks`,
+                        payment: milestone.paymentPercentage
+                          ? `${milestone.paymentPercentage}%`
+                          : '—',
+                      };
+                      if (!isForeignQuote) {
+                        base.tax = milestone.taxType
+                          ? MILESTONE_TAX_TYPE_LABELS[milestone.taxType]
+                          : '—';
+                      }
+                      return base;
+                    })}
                   />
                 </View>
               )}
@@ -710,7 +785,14 @@ export const ProposalPDFDocument = ({
         {/* Payment Terms */}
         {proposal.pricing?.paymentTerms && (
           <ReportSection title="Payment Terms">
-            <Text>{proposal.pricing.paymentTerms}</Text>
+            {/* For foreign quotes, scrub "(Incl. Tax)" / "(Excl. Tax)" suffixes
+                that the milestone summariser appends — those tax annotations
+                are meaningless on an export quote. */}
+            <Text>
+              {isForeignQuote
+                ? proposal.pricing.paymentTerms.replace(/\s*\((?:Incl|Excl)\.\s*Tax\)/gi, '')
+                : proposal.pricing.paymentTerms}
+            </Text>
           </ReportSection>
         )}
 

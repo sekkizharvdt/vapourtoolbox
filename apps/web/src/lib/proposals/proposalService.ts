@@ -352,6 +352,17 @@ export async function createMinimalProposal(
       // bodies as needed; nothing is set in stone here.
       termsBlocks: buildDefaultTermsBlocks(),
 
+      // Project brief — empty by default; the engineer fills the
+      // narrative on the Description tab. `included` defaults to true
+      // so the section renders on the PDF as soon as there's content;
+      // an empty brief renders nothing.
+      projectBrief: {
+        description: enquiry.description || '',
+        inputData: [],
+        clarifications: '',
+        included: true,
+      },
+
       // Covering letter — pre-fill the recipient block from enquiry data
       // and seed a generic body. The author edits per deal on the
       // Cover Letter tab.

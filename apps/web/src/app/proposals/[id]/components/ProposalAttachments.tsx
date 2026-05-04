@@ -409,7 +409,8 @@ export default function ProposalAttachments({
                           </FormControl>
                           <TextField
                             size="small"
-                            placeholder="Description (optional)"
+                            placeholder='Annexure label (e.g. "Process Flow Diagram")'
+                            helperText="Shown on the cover page's List of Annexures."
                             value={fileData.description}
                             onChange={(e) => handleChangeDescription(index, e.target.value)}
                             disabled={uploading}

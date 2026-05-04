@@ -581,7 +581,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                         // hidden (per direct user instruction).
                         <TableRow sx={{ bgcolor: 'primary.50' }}>
                           <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                            {proposal.title || 'Scope of Work'} (incl. all applicable taxes)
+                            {proposal.title || 'Scope of Work'}
                           </TableCell>
                           <TableCell
                             align="right"
@@ -640,7 +640,13 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                 {proposal.pricing?.paymentTerms && (
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2">
-                      <strong>Payment Terms:</strong> {proposal.pricing.paymentTerms}
+                      <strong>Payment Terms:</strong>{' '}
+                      {isForeignQuote
+                        ? proposal.pricing.paymentTerms.replace(
+                            /\s*\((?:Incl|Excl)\.\s*Tax\)/gi,
+                            ''
+                          )
+                        : proposal.pricing.paymentTerms}
                     </Typography>
                   </Box>
                 )}

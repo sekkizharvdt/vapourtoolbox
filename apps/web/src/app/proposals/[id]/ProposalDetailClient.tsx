@@ -50,6 +50,7 @@ import {
   Gavel as TermsIcon,
   Visibility as PreviewIcon,
   Mail as CoverLetterIcon,
+  Subject as DescriptionTabIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
@@ -85,23 +86,26 @@ import CostingBlocksEditor from './pricing/PricingBlocksEditor';
 import PricingEditor from './pricing/PricingEditor';
 import TermsEditor from './components/TermsEditor';
 import CoverLetterEditor from './components/CoverLetterEditor';
+import ProjectBriefEditor from './components/ProjectBriefEditor';
 import PreviewClient from './preview/PreviewClient';
 
-// Tab indices — order matches the natural flow:
-//   Overview → Scope → Costing (internal) → Pricing (client-facing) → Delivery → Terms → Cover Letter → Preview
+// Tab indices — order matches the natural authoring flow:
+//   Overview → Description → Scope → Costing → Pricing → Delivery → Terms → Cover Letter → Preview
 const TAB_OVERVIEW = 0;
-const TAB_SCOPE = 1;
-const TAB_COSTING = 2;
-const TAB_PRICING = 3;
-const TAB_DELIVERY = 4;
-const TAB_TERMS = 5;
-const TAB_COVER_LETTER = 6;
-const TAB_PREVIEW = 7;
+const TAB_DESCRIPTION = 1;
+const TAB_SCOPE = 2;
+const TAB_COSTING = 3;
+const TAB_PRICING = 4;
+const TAB_DELIVERY = 5;
+const TAB_TERMS = 6;
+const TAB_COVER_LETTER = 7;
+const TAB_PREVIEW = 8;
 
-// URL-driven tab selection: ?tab=costing maps onto the activeTab index.
+// URL-driven tab selection: ?tab=description maps onto the activeTab index.
 // Used by post-scope redirects and any external bookmark.
 const TAB_NAMES = [
   'overview',
+  'description',
   'scope',
   'costing',
   'pricing',
@@ -546,6 +550,7 @@ export default function ProposalDetailClient() {
           scrollButtons="auto"
         >
           <Tab icon={<OverviewIcon />} iconPosition="start" label="Overview" />
+          <Tab icon={<DescriptionTabIcon />} iconPosition="start" label="Description" />
           <Tab icon={<ScopeIcon />} iconPosition="start" label="Scope" />
           <Tab icon={<CostingIcon />} iconPosition="start" label="Costing" />
           <Tab icon={<PricingIcon />} iconPosition="start" label="Pricing" />
@@ -564,6 +569,10 @@ export default function ProposalDetailClient() {
           formatCurrency={formatCurrency}
           reloadProposal={reloadProposal}
         />
+      )}
+
+      {activeTab === TAB_DESCRIPTION && proposalId && (
+        <ProjectBriefEditor proposalId={proposalId} />
       )}
 
       {activeTab === TAB_SCOPE && proposalId && <UnifiedScopeEditor proposalId={proposalId} />}

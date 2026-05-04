@@ -713,6 +713,34 @@ export interface ProposalTermsBlock {
 }
 
 /**
+ * Single row in the project brief's input-data parameter table
+ * (e.g. flow rate, density, temperature on an engineering proposal).
+ */
+export interface ProposalInputDataRow {
+  id: string;
+  parameter: string;
+  value: string;
+}
+
+/**
+ * "Description of the Project" content — the technical narrative that
+ * prints between the covering letter and the scope. Combines:
+ *   - description: multi-paragraph project narrative
+ *   - inputData: parameter table for engineering proposals (optional)
+ *   - clarifications: items the contractor IS doing but with specific
+ *     assumptions (distinct from exclusions, which are out-of-scope)
+ *
+ * Each piece is independently optional; the section only renders on the
+ * PDF when `included !== false` AND at least one piece has content.
+ */
+export interface ProposalProjectBrief {
+  description?: string;
+  inputData?: ProposalInputDataRow[];
+  clarifications?: string;
+  included?: boolean;
+}
+
+/**
  * Personalised covering-letter content that prints immediately after the
  * cover page on the customer PDF. Recipient block defaults are seeded
  * from the parent enquiry/client; the body is editable per proposal.
@@ -863,6 +891,11 @@ export interface Proposal extends TimestampFields {
   // user can rewrite the body per deal.
   coverLetter?: ProposalCoverLetter;
 
+  // Project brief — the narrative that prints between the covering
+  // letter and the scope (description + optional input-data table +
+  // clarifications). Edited on the Description tab.
+  projectBrief?: ProposalProjectBrief;
+
   // Status & Workflow
   status: ProposalStatus;
   workflowStage?: ProposalWorkflowStage; // Optional for backward compatibility
@@ -953,6 +986,7 @@ export interface UpdateProposalInput {
   terms?: Partial<TermsAndConditions>;
   termsBlocks?: ProposalTermsBlock[];
   coverLetter?: ProposalCoverLetter;
+  projectBrief?: ProposalProjectBrief;
   status?: ProposalStatus;
   negotiationNotes?: string;
   // Work components / currency (editable post-creation)
