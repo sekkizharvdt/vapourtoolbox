@@ -31,9 +31,9 @@
 | #20 — batch ops in loops need 500-op chunking     | 0     | ✅ closed   | —        | Closed 2026-04-27 — see [reports/rule-check-2026-04-27-after-rule20.md](reports/rule-check-2026-04-27-after-rule20.md) |
 | #21 — no fallback chains on amount fields         | 0     | ✅ closed   | —        | Closed 2026-04-26 — see [reports/rule-check-2026-04-26-after-rule21.md](reports/rule-check-2026-04-26-after-rule21.md) |
 | #24 — TransactionType switches exhaustive         | 0     | ✅ enforce  | —        | TS `noFallthroughCasesInSwitch` covers it                                                                              |
-| #28 — modules need List + New + View + Edit       | 20    | ⚠️ advisory | **P2**   | UI completeness; some are terminal-doc false positives                                                                 |
+| #28 — modules need List + New + View + Edit       | 0     | ✅ closed   | —        | Closed 2026-05-04 — all 20 marked with `rule28-exempt` (dialog edits, terminal docs, sub-route edits, master data)     |
 
-**Grand total:** 469 violations across 3 active rules. (Baseline 668; rule #4, #6, #18, #20, #21 closed.)
+**Grand total:** 449 violations across 3 active rules. (Baseline 668; rule #4, #6, #18, #20, #21, #28 closed.)
 
 > Note: rule #19 count is at 90 (up from 87 baseline) because the rule #6 fixes added `getDoc` lookups to find submitter IDs. Wrapping those reads in `runTransaction` is the right rule #19 cleanup but is deferred to that pass.
 
@@ -469,11 +469,30 @@ for (let i = 0; i < updates.length; i += 500) {
 
 ---
 
-## Rule #28 — Modules need List + New + View + Edit pages
+## Rule #28 — Modules need List + New + View + Edit pages ✅ CLOSED 2026-05-04
 
-**What it means:** every entity module under `apps/web/src/app/<module>/` must have `page.tsx` (list), `new/page.tsx`, `[id]/page.tsx`, `[id]/edit/page.tsx`. Dashboards (single page, no entity routes) are not entity modules and are exempt.
+**Status:** ✅ Closed. Rule is now enforced; the audit blocks any new module that doesn't either ship the canonical page set or document an exemption with `// rule28-exempt: <reason>` in its list page.
 
-**Count: 20.** From baseline:
+**Resolution:** All 20 baseline violations were triaged and marked with `rule28-exempt` markers explaining the legitimate alternative pattern (dialog-based CRUD, terminal documents, master data, sub-route edits, or inline-edit detail pages). No new pages were added — the markers document the intent so future audits don't flag them again. The detector was extended to honour the marker (mirrors the rule #18 / #20 / #21 pattern). New modules that don't fit one of these patterns must add the standard List + New + View + Edit pages or the audit will fail.
+
+**Marker categories applied:**
+
+| Pattern                  | Modules                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dialog-based edit        | `accounting/cost-centres`, `accounting/fixed-assets`, `documents`, `hr/employees`, `procurement/quotes`                                                                         |
+| Terminal / status-only   | `accounting/payment-batches`, `accounting/recurring`, `procurement/amendments`, `procurement/three-way-match`, `procurement/work-completion`, `hr/leaves`, `hr/travel-expenses` |
+| Inline edit on detail    | `bought-out`, `procurement/service-orders`, `estimation` (`[id]/page` IS the BOM editor)                                                                                        |
+| Master data list         | `materials/pipes`, `materials/plates`                                                                                                                                           |
+| Sub-route edits          | `projects` (charter/, scope/, budget/, team/, …), `proposals` (scope/, pricing/, preview/)                                                                                      |
+| Dialog-based create only | `proposals/enquiries` (CreateEnquiryDialog on the list page; `[id]/edit` already exists)                                                                                        |
+
+**Files touched:**
+
+- `scripts/audit/check-structure.js` — added `hasRule28ExemptMarker()` helper that scans the module's `page.tsx` / `list/page.tsx` / `layout.tsx` head for the marker.
+- 20 module list pages — added the `// rule28-exempt: <reason>` line above `'use client'`.
+- `scripts/audit/enforced-rules.json` — added `28` to the enforced list.
+
+**Original baseline (closed):** 20 modules
 
 | Module                                         | Missing    |
 | ---------------------------------------------- | ---------- |

@@ -1,3 +1,5 @@
+// rule28-exempt: [id]/page IS the BOM editor (BOMEditorClient) — view and edit are the same screen; no separate /edit route
+
 'use client';
 
 import {

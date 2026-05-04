@@ -1,3 +1,5 @@
+// rule28-exempt: detail page is itself the editor — fields are saved inline (Save Changes button); no separate /edit route
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';

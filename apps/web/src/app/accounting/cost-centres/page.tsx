@@ -1,3 +1,5 @@
+// rule28-exempt: edits via CostCentreDialog on the detail page (no separate edit route)
+
 'use client';
 
 import { useState, useEffect } from 'react';

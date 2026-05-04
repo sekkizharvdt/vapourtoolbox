@@ -1,3 +1,5 @@
+// rule28-exempt: terminal — amendment is drafted at /new and then moves through submit → approve/reject via dialogs; the proposed changes are immutable once submitted
+
 'use client';
 
 /**

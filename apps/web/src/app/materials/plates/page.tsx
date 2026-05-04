@@ -1,3 +1,5 @@
+// rule28-exempt: master data — list with bulk import + dialog-based per-row edits; rows are referenced by selectors elsewhere, no per-row detail page is meaningful
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';

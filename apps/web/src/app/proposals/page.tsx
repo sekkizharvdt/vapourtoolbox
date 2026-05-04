@@ -1,3 +1,5 @@
+// rule28-exempt: created from an enquiry (or via dialog); edits happen on dedicated sub-route pages — [id]/scope, [id]/pricing, [id]/preview — not a single edit form
+
 'use client';
 
 /**

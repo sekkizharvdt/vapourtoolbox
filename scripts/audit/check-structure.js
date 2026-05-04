@@ -337,9 +337,33 @@ function walkForEntityModules(rootDir, relPath = '') {
   return result;
 }
 
+function hasRule28ExemptMarker(dir) {
+  // Look for `rule28-exempt: <reason>` in the module's list page (or layout).
+  // Format mirrors rule #18/#20/#21 markers — a comment in source documenting
+  // why the module legitimately doesn't follow List+New+View+Edit (e.g.
+  // dialog-based edits, terminal documents, master data with no per-row page).
+  const files = [
+    path.join(dir, 'page.tsx'),
+    path.join(dir, 'list', 'page.tsx'),
+    path.join(dir, 'layout.tsx'),
+  ];
+  for (const f of files) {
+    if (!fs.existsSync(f)) continue;
+    try {
+      const head = fs.readFileSync(f, 'utf8').slice(0, 4096);
+      if (/rule28-exempt\s*:/i.test(head)) return true;
+    } catch {
+      /* empty */
+    }
+  }
+  return false;
+}
+
 function checkRule28() {
   const modules = walkForEntityModules(APP_DIR);
   for (const { dir, rel } of modules) {
+    if (hasRule28ExemptMarker(dir)) continue;
+
     const required = [
       { kind: 'List', candidates: ['page.tsx', 'list/page.tsx'] },
       { kind: 'New', candidates: ['new/page.tsx'] },

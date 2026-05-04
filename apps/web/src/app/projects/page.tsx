@@ -1,3 +1,5 @@
+// rule28-exempt: created via NewProjectDialog on the list page; edits happen on dedicated sub-route pages — [id]/charter, [id]/scope, [id]/budget, [id]/team, [id]/timeline, [id]/technical — not a single edit form
+
 'use client';
 
 /**

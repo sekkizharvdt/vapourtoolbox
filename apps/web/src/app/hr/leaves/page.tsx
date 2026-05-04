@@ -1,3 +1,5 @@
+// rule28-exempt: terminal — leave application form is at /new; once submitted, only approve/reject/cancel actions via dialogs (no field edits)
+
 'use client';
 
 import { useState } from 'react';

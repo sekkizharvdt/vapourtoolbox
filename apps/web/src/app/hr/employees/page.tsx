@@ -1,3 +1,5 @@
+// rule28-exempt: created via AddEmployeeDialog on the list page; edited via EditEmployeeDialog on the detail page — dialog-driven CRUD, no separate routes
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';

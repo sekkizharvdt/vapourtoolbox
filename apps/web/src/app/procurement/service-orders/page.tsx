@@ -1,3 +1,5 @@
+// rule28-exempt: detail page edits the editable fields inline (Save Notes button) and drives status transitions through dialogs; no separate /edit route
+
 'use client';
 
 /**

@@ -1,3 +1,5 @@
+// rule28-exempt: created from journal entries; edited via EditAssetDialog and disposed via DisposeAssetDialog on the detail page
+
 'use client';
 
 import { useState, useMemo } from 'react';

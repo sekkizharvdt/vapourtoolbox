@@ -1,3 +1,5 @@
+// rule28-exempt: recurring rule fields are fixed at creation; runtime control is via skip/cancel actions only — no edit route by design
+
 'use client';
 
 import { useState, useEffect } from 'react';

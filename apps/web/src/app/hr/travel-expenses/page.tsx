@@ -1,3 +1,5 @@
+// rule28-exempt: claim header is created at /new; on the detail page, expense lines are added via AddExpenseDialog and the claim moves through submit/approve/reject dialogs — no field-level edit route
+
 'use client';
 
 import { useState } from 'react';

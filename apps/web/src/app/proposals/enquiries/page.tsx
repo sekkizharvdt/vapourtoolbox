@@ -1,3 +1,5 @@
+// rule28-exempt: created via CreateEnquiryDialog on the list page (no /new route by design); detail and [id]/edit routes exist for view/edit
+
 'use client';
 
 /**

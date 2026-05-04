@@ -1,3 +1,5 @@
+// rule28-exempt: terminal — Work Completion Certificate is issued from PO completion; the detail page is print/view only, no field edits post-creation
+
 'use client';
 
 /**

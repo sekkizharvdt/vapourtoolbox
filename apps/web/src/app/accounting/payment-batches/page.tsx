@@ -1,3 +1,5 @@
+// rule28-exempt: terminal — payment batches are assembled from approved bills/invoices; only status transitions (approve/reject/process) via dialogs, no field edits
+
 'use client';
 
 import { useState, useEffect } from 'react';

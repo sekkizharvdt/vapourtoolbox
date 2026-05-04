@@ -1,3 +1,5 @@
+// rule28-exempt: created via UploadDialog on the list page; edited via EditDocumentDialog on the detail page — dialog-driven CRUD, no separate routes
+
 'use client';
 
 /**
