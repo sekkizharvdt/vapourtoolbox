@@ -24,7 +24,7 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { SERVICE_ORDER_STATUS_LABELS, SERVICE_ORDER_STATUS_COLORS } from '@vapour/types';
@@ -58,10 +58,18 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 export default function ServiceOrderDetailClient() {
   const router = useRouter();
-  const params = useParams();
-  const soId = params.id as string;
+  const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
+
+  const [soId, setSoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/procurement\/service-orders\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') setSoId(extracted);
+  }, [pathname]);
 
   const [order, setOrder] = useState<ServiceOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +103,7 @@ export default function ServiceOrderDetailClient() {
   }, [loadOrder]);
 
   const handleStatusTransition = async (targetStatus: ServiceOrderStatus) => {
-    if (!db || !user?.uid || !order) return;
+    if (!db || !user?.uid || !order || !soId) return;
     setTransitioning(true);
     try {
       const updates: Partial<ServiceOrder> = {};
@@ -125,7 +133,7 @@ export default function ServiceOrderDetailClient() {
   };
 
   const handleSaveDetails = async () => {
-    if (!db || !user?.uid) return;
+    if (!db || !user?.uid || !soId) return;
     try {
       await updateServiceOrder(
         db,

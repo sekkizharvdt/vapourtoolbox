@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Typography,
   Box,
@@ -71,10 +71,17 @@ const STATUS_COLORS: Record<string, 'success' | 'warning' | 'default' | 'error' 
 };
 
 export default function RecurringDetailClient() {
-  const params = useParams();
-  const id = params.id as string;
+  const pathname = usePathname();
   const router = useRouter();
   const { claims, user } = useAuth();
+  const [id, setId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/accounting\/recurring\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') setId(extracted);
+  }, [pathname]);
   const [transaction, setTransaction] = useState<RecurringTransaction | null>(null);
   const [occurrences, setOccurrences] = useState<RecurringOccurrence[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +97,7 @@ export default function RecurringDetailClient() {
       setLoading(false);
       return;
     }
+    if (!id) return;
 
     const loadData = async () => {
       try {
@@ -111,7 +119,7 @@ export default function RecurringDetailClient() {
   }, [id, hasViewAccess]);
 
   const handleToggleStatus = async () => {
-    if (!transaction || !user) return;
+    if (!transaction || !user || !id) return;
     const { db } = getFirebase();
 
     try {
@@ -153,7 +161,7 @@ export default function RecurringDetailClient() {
   };
 
   const confirmSkipOccurrence = async () => {
-    if (!skipOccurrenceId || !user) return;
+    if (!skipOccurrenceId || !user || !id) return;
 
     const { db } = getFirebase();
 

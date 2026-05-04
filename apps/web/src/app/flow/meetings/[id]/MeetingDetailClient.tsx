@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -61,13 +61,20 @@ const PRIORITY_COLORS: Record<ManualTaskPriority, 'default' | 'info' | 'warning'
 
 export default function MeetingDetailClient() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
   const db = useFirestore();
   const { user, claims } = useAuth();
   const { toast } = useToast();
 
-  const meetingId = params.id as string;
+  const [meetingId, setMeetingId] = useState<string | null>(null);
   const tenantId = claims?.tenantId || 'default-entity';
+
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/flow\/meetings\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') setMeetingId(extracted);
+  }, [pathname]);
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [actionItems, setActionItems] = useState<MeetingActionItem[]>([]);
@@ -80,10 +87,11 @@ export default function MeetingDetailClient() {
   // Load meeting
   useEffect(() => {
     if (!db || !meetingId) return;
+    const id = meetingId;
 
     async function load() {
       try {
-        const m = await getMeetingById(db!, meetingId);
+        const m = await getMeetingById(db!, id);
         setMeeting(m);
       } catch (err) {
         console.error('[MeetingDetail] Failed to load meeting:', err);
@@ -107,7 +115,7 @@ export default function MeetingDetailClient() {
   }, [db, meetingId]);
 
   const handleFinalize = useCallback(async () => {
-    if (!db || !user || !meeting) return;
+    if (!db || !user || !meeting || !meetingId) return;
 
     try {
       setFinalizing(true);
@@ -134,7 +142,7 @@ export default function MeetingDetailClient() {
 
   // FL-23: Delete draft meeting with confirmation
   const handleDelete = useCallback(async () => {
-    if (!db || !user) return;
+    if (!db || !user || !meetingId) return;
 
     try {
       setDeleting(true);

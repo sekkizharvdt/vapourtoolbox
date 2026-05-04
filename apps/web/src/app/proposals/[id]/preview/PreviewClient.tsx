@@ -44,7 +44,7 @@ import {
   Engineering as ScopeIcon,
   Payments as PaymentIcon,
 } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
@@ -90,11 +90,20 @@ interface PreviewClientProps {
 
 export default function PreviewClient({ proposalId: propId, embedded }: PreviewClientProps = {}) {
   const router = useRouter();
-  const params = useParams();
-  const proposalId = propId || (params.id as string);
+  const pathname = usePathname();
   const db = useFirestore();
   const { user, claims } = useAuth();
   const { toast } = useToast();
+
+  const [pathId, setPathId] = useState<string | null>(null);
+  const proposalId = propId ?? pathId;
+
+  useEffect(() => {
+    if (propId || !pathname) return;
+    const match = pathname.match(/\/proposals\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') setPathId(extracted);
+  }, [pathname, propId]);
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [liveClientAddress, setLiveClientAddress] = useState<string | null>(null);
@@ -160,7 +169,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
   };
 
   const handleSubmitToClient = async () => {
-    if (!db || !user || !proposal) return;
+    if (!db || !user || !proposal || !proposalId) return;
 
     try {
       setSubmitting(true);

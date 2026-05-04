@@ -32,8 +32,9 @@
 | #21 — no fallback chains on amount fields         | 0     | ✅ closed   | —        | Closed 2026-04-26 — see [reports/rule-check-2026-04-26-after-rule21.md](reports/rule-check-2026-04-26-after-rule21.md) |
 | #24 — TransactionType switches exhaustive         | 0     | ✅ enforce  | —        | TS `noFallthroughCasesInSwitch` covers it                                                                              |
 | #28 — modules need List + New + View + Edit       | 0     | ✅ closed   | —        | Closed 2026-05-04 — all 20 marked with `rule28-exempt` (dialog edits, terminal docs, sub-route edits, master data)     |
+| #30 — `useParams()` under `[id]` static-export    | 0     | ✅ closed   | —        | Closed 2026-05-04 — 8 detail clients migrated to `usePathname()` + path regex                                          |
 
-**Grand total:** 449 violations across 3 active rules. (Baseline 668; rule #4, #6, #18, #20, #21, #28 closed.)
+**Grand total:** 450 violations across 3 active rules. (Baseline 676; rule #4, #6, #18, #20, #21, #28, #30 closed.)
 
 > Note: rule #19 count is at 90 (up from 87 baseline) because the rule #6 fixes added `getDoc` lookups to find submitter IDs. Wrapping those reads in `runTransaction` is the right rule #19 cleanup but is deferred to that pass.
 
@@ -520,6 +521,32 @@ for (let i = 0; i < updates.length; i += 500) {
 **False positives:** terminal documents (`procurement/work-completion`, `procurement/three-way-match`) legitimately have no Edit page per CLAUDE.md ("Edit page for fields that remain editable in non-terminal states"). Mark these as accepted exceptions when triaging.
 
 **Target:** P2, ~2 weeks if all gaps are real. Most are likely Edit-page gaps where Edit is currently inline in a dialog — decide per module whether that satisfies rule #28 or whether to spin out a dedicated route.
+
+---
+
+## Rule #30 — `useParams()` under `[id]` routes (broken under static export) ✅ CLOSED 2026-05-04
+
+**What it means:** [next.config.ts](apps/web/next.config.ts) sets `output: 'export'`, so dynamic routes are pre-generated against the single placeholder ID returned by `generateStaticParams()`. At runtime `useParams()` returns that placeholder regardless of the URL — every `getDocById(placeholder)` lookup silently returns nothing and the page renders "not found". Detail pages must read the ID from `usePathname()` + a path regex instead. Three modules hit this bug in the wild before the rule was written.
+
+**Status:** ✅ Closed. Rule is now enforced; the audit blocks any new dynamic-route file that calls `useParams()` without the `usePathname()` + `pathname.match(...)` opt-in.
+
+**Resolution:** All 8 violating clients migrated to the canonical pattern (a `useEffect` against `usePathname()` writes the extracted ID into local state; downstream effects guard with `if (!id) return`). The proposal sub-route editors that accept an optional `propId` prop kept their embedded-mode escape hatch — they fall back to the path regex only when `propId` is unset.
+
+| File                                                                                                          | Module            | Notes                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [PaymentBatchDetailClient.tsx](apps/web/src/app/accounting/payment-batches/[id]/PaymentBatchDetailClient.tsx) | payment-batches   | Replaced the `pathname.split('/').pop() \|\| params.id` hack                                                     |
+| [RecurringDetailClient.tsx](apps/web/src/app/accounting/recurring/[id]/RecurringDetailClient.tsx)             | recurring         | Standard migration                                                                                               |
+| [MeetingDetailClient.tsx](apps/web/src/app/flow/meetings/[id]/MeetingDetailClient.tsx)                        | flow/meetings     | Captured `meetingId` into a local const inside the load effect for TS narrowing through the inner async function |
+| [ServiceOrderDetailClient.tsx](apps/web/src/app/procurement/service-orders/[id]/ServiceOrderDetailClient.tsx) | service-orders    | Added `!soId` guard to status / save handlers                                                                    |
+| [PreviewClient.tsx](apps/web/src/app/proposals/[id]/preview/PreviewClient.tsx)                                | proposals/preview | Embedded-mode prop preserved (`propId ?? pathId`)                                                                |
+| [PricingBlocksEditor.tsx](apps/web/src/app/proposals/[id]/pricing/PricingBlocksEditor.tsx)                    | proposals/pricing | Same embedded-mode pattern                                                                                       |
+| [PricingEditor.tsx](apps/web/src/app/proposals/[id]/pricing/PricingEditor.tsx)                                | proposals/pricing | Same embedded-mode pattern                                                                                       |
+| [ScopeEditorClient.tsx](apps/web/src/app/proposals/[id]/scope/ScopeEditorClient.tsx)                          | proposals/scope   | Renders a spinner while the path regex is resolving (UnifiedScopeEditor expects a non-null id)                   |
+
+**Files touched:**
+
+- 8 detail clients listed above.
+- `scripts/audit/enforced-rules.json` — added `30` to the enforced list.
 
 ---
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Typography,
   Box,
@@ -94,14 +94,19 @@ const CATEGORY_LABELS: Record<BatchPaymentCategory, string> = {
 };
 
 export default function PaymentBatchDetailClient() {
-  const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
   const { claims, user } = useAuth();
 
-  // Extract ID from pathname for static export compatibility
-  const batchId = pathname?.split('/').pop() || (params?.id as string);
+  const [batchId, setBatchId] = useState<string | null>(null);
   const isNew = batchId === 'new';
+
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/accounting\/payment-batches\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') setBatchId(extracted);
+  }, [pathname]);
 
   const [batch, setBatch] = useState<PaymentBatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,11 +166,7 @@ export default function PaymentBatchDetailClient() {
       return;
     }
 
-    // Don't load if using placeholder ID
-    if (batchId === 'placeholder') {
-      setLoading(false);
-      return;
-    }
+    if (!batchId) return;
 
     const loadData = async () => {
       try {

@@ -6,8 +6,8 @@
  * Client-side wrapper that handles the scope matrix editing UI.
  */
 
-import { Suspense } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import dynamic from 'next/dynamic';
@@ -26,8 +26,15 @@ const UnifiedScopeEditor = dynamic(
 );
 
 export default function ScopeEditorClient() {
-  const params = useParams();
-  const proposalId = params.id as string;
+  const pathname = usePathname();
+  const [proposalId, setProposalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pathname) return;
+    const match = pathname.match(/\/proposals\/([^/]+)(?:\/|$)/);
+    const extracted = match?.[1];
+    if (extracted && extracted !== 'placeholder') setProposalId(extracted);
+  }, [pathname]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -52,7 +59,13 @@ export default function ScopeEditorClient() {
           </Box>
         }
       >
-        <UnifiedScopeEditor proposalId={proposalId} />
+        {proposalId ? (
+          <UnifiedScopeEditor proposalId={proposalId} />
+        ) : (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+            <CircularProgress />
+          </Box>
+        )}
       </Suspense>
     </Box>
   );
