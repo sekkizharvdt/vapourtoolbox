@@ -497,3 +497,46 @@ export async function isHolidayConvertedToWorkingDay(holidayId: string): Promise
 
   return overrides.length > 0;
 }
+
+/**
+ * Get the set of dates (YYYY-MM-DD) within [startDate, endDate] that have a
+ * COMPLETED working-day override. The leave picker and working-day count use
+ * this to override the recurring holiday calendar — a 1st Saturday declared
+ * as a working day must be selectable / countable as a regular workday.
+ */
+export async function getWorkingDayOverrideDates(
+  startDate: Date,
+  endDate: Date
+): Promise<Set<string>> {
+  const { db } = getFirebase();
+
+  try {
+    // Query by status only (covered by existing status+createdAt index) and
+    // filter the date range in memory — this collection is admin-managed and
+    // typically holds tens of records per year.
+    const q = query(
+      collection(db, COLLECTIONS.HR_HOLIDAY_WORKING_OVERRIDES),
+      where('status', '==', 'COMPLETED'),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    const startMs = startDate.getTime();
+    const endMs = endDate.getTime();
+    const keys = new Set<string>();
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data() as { holidayDate?: Timestamp };
+      if (!data.holidayDate) continue;
+      const ms = data.holidayDate.toDate().getTime();
+      if (ms < startMs || ms > endMs) continue;
+      const key = data.holidayDate.toDate().toISOString().split('T')[0];
+      if (key) keys.add(key);
+    }
+
+    return keys;
+  } catch (error) {
+    logger.error('Failed to get working-day override dates', { startDate, endDate, error });
+    throw new Error('Failed to get working-day overrides');
+  }
+}

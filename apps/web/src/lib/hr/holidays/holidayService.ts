@@ -28,6 +28,7 @@ import {
   getRecurringHolidayLabel,
   DEFAULT_RECURRING_CONFIG,
 } from './recurringHolidayCalculator';
+import { getWorkingDayOverrideDates } from './holidayWorkingService';
 
 const logger = createLogger({ context: 'holidayService' });
 
@@ -335,8 +336,15 @@ export async function getAllHolidaysInRange(
   recurringConfig: RecurringHolidayConfig = DEFAULT_RECURRING_CONFIG
 ): Promise<HolidayInfo[]> {
   try {
-    // Get recurring holidays
-    const recurringDates = getRecurringHolidaysInRange(startDate, endDate, recurringConfig);
+    // Fetch recurring + company holidays + admin working-day overrides in
+    // parallel. The override set lists dates the admin converted from a
+    // holiday/Saturday to a working day; those drop out of the merged result.
+    const [recurringDates, companyHolidays, overrideKeys] = await Promise.all([
+      Promise.resolve(getRecurringHolidaysInRange(startDate, endDate, recurringConfig)),
+      getCompanyHolidaysInRange(startDate, endDate),
+      getWorkingDayOverrideDates(startDate, endDate),
+    ]);
+
     const recurringHolidays: HolidayInfo[] = recurringDates.map((date) => ({
       date,
       name: getRecurringHolidayLabel(date) || 'Holiday',
@@ -344,8 +352,6 @@ export async function getAllHolidaysInRange(
       isRecurring: true,
     }));
 
-    // Get company holidays
-    const companyHolidays = await getCompanyHolidaysInRange(startDate, endDate);
     const companyHolidayInfos: HolidayInfo[] = companyHolidays.map((holiday) => ({
       date: holiday.date.toDate(),
       name: holiday.name,
@@ -369,6 +375,11 @@ export async function getAllHolidaysInRange(
     for (const holiday of companyHolidayInfos) {
       const key = holiday.date.toISOString().split('T')[0] ?? '';
       holidayMap.set(key, holiday);
+    }
+
+    // Admin "convert to working day" overrides remove the date entirely
+    for (const key of overrideKeys) {
+      holidayMap.delete(key);
     }
 
     // Sort by date

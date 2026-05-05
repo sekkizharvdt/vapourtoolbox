@@ -31,6 +31,7 @@ import {
   isRecurringHoliday,
   DEFAULT_RECURRING_CONFIG,
   getAllHolidaysInRange,
+  getWorkingDayOverrideDates,
   type HolidayInfo,
 } from '@/lib/hr';
 import type { LeaveType, LeaveBalance } from '@vapour/types';
@@ -42,6 +43,10 @@ export default function NewLeaveRequestPage() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [companyHolidays, setCompanyHolidays] = useState<HolidayInfo[]>([]);
+  // YYYY-MM-DD keys for dates the admin converted from a holiday/Saturday
+  // to a working day. These override the recurring-holiday calendar so the
+  // user can apply leave on (e.g.) a 1st Saturday declared as working.
+  const [workingDayOverrides, setWorkingDayOverrides] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,15 +80,17 @@ export default function NewLeaveRequestPage() {
       const today = new Date();
       const nextYear = new Date(today.getFullYear() + 1, 11, 31);
 
-      const [typesData, balancesData, holidaysData] = await Promise.all([
+      const [typesData, balancesData, holidaysData, overrides] = await Promise.all([
         getLeaveTypes(claims?.tenantId || 'default-entity'),
         getUserLeaveBalances(user.uid, fiscalYear),
         getAllHolidaysInRange(today, nextYear),
+        getWorkingDayOverrideDates(today, nextYear),
       ]);
 
       setLeaveTypes(typesData);
       setBalances(balancesData);
       setCompanyHolidays(holidaysData.filter((h) => !h.isRecurring));
+      setWorkingDayOverrides(overrides);
 
       // Pre-select first leave type
       if (typesData.length > 0 && !leaveTypeId && typesData[0]) {
@@ -128,8 +135,12 @@ export default function NewLeaveRequestPage() {
       end.setHours(0, 0, 0, 0);
 
       while (current <= end) {
-        // Check recurring holidays
-        if (isRecurringHoliday(current, DEFAULT_RECURRING_CONFIG)) {
+        const dateKey = current.toISOString().split('T')[0] ?? '';
+        const isOverriddenWorkingDay = workingDayOverrides.has(dateKey);
+
+        if (isOverriddenWorkingDay) {
+          // Admin converted this holiday/Saturday to a working day — skip
+        } else if (isRecurringHoliday(current, DEFAULT_RECURRING_CONFIG)) {
           const dayOfWeek = current.getDay();
           const dayOfMonth = current.getDate();
           let label = 'Sunday';
@@ -144,8 +155,6 @@ export default function NewLeaveRequestPage() {
             isRecurring: true,
           });
         } else {
-          // Check company holidays
-          const dateKey = current.toISOString().split('T')[0];
           const companyHoliday = companyHolidays.find(
             (h) => h.date.toISOString().split('T')[0] === dateKey
           );
@@ -160,12 +169,19 @@ export default function NewLeaveRequestPage() {
     } else {
       setExcludedHolidays([]);
     }
-  }, [startDate, endDate, companyHolidays]);
+  }, [startDate, endDate, companyHolidays, workingDayOverrides]);
 
   // Function to determine if a date should be disabled
   const shouldDisableDate = (day: Date | { toDate(): Date }): boolean => {
     // Handle both Date and Dayjs objects
     const date = 'toDate' in day ? day.toDate() : day;
+    const dateKey = date.toISOString().split('T')[0] ?? '';
+
+    // Admin "convert to working day" override beats every other check —
+    // an admin-declared working Saturday must be selectable for leave.
+    if (workingDayOverrides.has(dateKey)) {
+      return false;
+    }
 
     // Check recurring holidays (Sundays, 1st/3rd Saturdays)
     if (isRecurringHoliday(date, DEFAULT_RECURRING_CONFIG)) {
@@ -173,7 +189,6 @@ export default function NewLeaveRequestPage() {
     }
 
     // Check company holidays
-    const dateKey = date.toISOString().split('T')[0];
     const isCompanyHoliday = companyHolidays.some(
       (h) => h.date.toISOString().split('T')[0] === dateKey
     );

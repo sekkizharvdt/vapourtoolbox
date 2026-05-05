@@ -47,4 +47,5 @@ export {
   listHolidayWorkingOverrides,
   getHolidayWorkingHistory,
   isHolidayConvertedToWorkingDay,
+  getWorkingDayOverrideDates,
 } from './holidayWorkingService';
