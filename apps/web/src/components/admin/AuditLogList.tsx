@@ -61,6 +61,9 @@ export function AuditLogList() {
   const [actionFilter, setActionFilter] = useState<AuditAction | 'all'>('all');
   const [entityTypeFilter, setEntityTypeFilter] = useState<AuditEntityType | 'all'>('all');
   const [severityFilter, setSeverityFilter] = useState<AuditSeverity | 'all'>('all');
+  const [actorTypeFilter, setActorTypeFilter] = useState<'all' | 'user' | 'agent' | 'system'>(
+    'all'
+  );
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -121,6 +124,12 @@ export function AuditLogList() {
       // Severity filter
       if (severityFilter !== 'all' && log.severity !== severityFilter) return false;
 
+      // Actor type filter — legacy rows without actorType are treated as 'user'
+      if (actorTypeFilter !== 'all') {
+        const effectiveActorType = log.actorType ?? 'user';
+        if (effectiveActorType !== actorTypeFilter) return false;
+      }
+
       // Date range filter
       if (startDate || endDate) {
         try {
@@ -151,7 +160,16 @@ export function AuditLogList() {
 
       return true;
     });
-  }, [auditLogs, actionFilter, entityTypeFilter, severityFilter, searchQuery, startDate, endDate]);
+  }, [
+    auditLogs,
+    actionFilter,
+    entityTypeFilter,
+    severityFilter,
+    actorTypeFilter,
+    searchQuery,
+    startDate,
+    endDate,
+  ]);
 
   // Paginated logs
   const paginatedLogs = useMemo(() => {
@@ -177,6 +195,7 @@ export function AuditLogList() {
     setActionFilter('all');
     setEntityTypeFilter('all');
     setSeverityFilter('all');
+    setActorTypeFilter('all');
     setStartDate('');
     setEndDate('');
     setPage(0);
@@ -370,6 +389,23 @@ export function AuditLogList() {
             </Select>
           </FormControl>
 
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>Actor</InputLabel>
+            <Select
+              value={actorTypeFilter}
+              label="Actor"
+              onChange={(e) => {
+                setActorTypeFilter(e.target.value as 'all' | 'user' | 'agent' | 'system');
+                setPage(0);
+              }}
+            >
+              <MenuItem value="all">All Actors</MenuItem>
+              <MenuItem value="user">Human</MenuItem>
+              <MenuItem value="agent">Agent</MenuItem>
+              <MenuItem value="system">System</MenuItem>
+            </Select>
+          </FormControl>
+
           <TextField
             size="small"
             type="date"
@@ -465,9 +501,31 @@ export function AuditLogList() {
 
                   {/* Actor */}
                   <TableCell>
-                    <Typography variant="body2" noWrap sx={{ maxWidth: 160 }}>
-                      {log.actorName || log.actorEmail || 'System'}
-                    </Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.25 }}>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 130 }}>
+                        {log.actorName || log.actorEmail || 'System'}
+                      </Typography>
+                      {/* Show non-user actor types so the agent's writes are
+                          immediately visible at a glance. Legacy rows
+                          without actorType are treated as 'user' and get
+                          no chip. */}
+                      {log.actorType === 'agent' && (
+                        <Chip
+                          label="Agent"
+                          size="small"
+                          color="secondary"
+                          sx={{ height: 18, fontSize: '0.65rem' }}
+                        />
+                      )}
+                      {log.actorType === 'system' && (
+                        <Chip
+                          label="System"
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 18, fontSize: '0.65rem' }}
+                        />
+                      )}
+                    </Stack>
                     {log.actorEmail &&
                       log.actorName &&
                       log.actorEmail !== log.actorName &&
@@ -483,6 +541,17 @@ export function AuditLogList() {
                           {log.actorEmail}
                         </Typography>
                       )}
+                    {log.agentToolName && (
+                      <Typography
+                        variant="caption"
+                        color="secondary"
+                        noWrap
+                        component="div"
+                        sx={{ maxWidth: 160, fontFamily: 'monospace', fontSize: '0.7rem' }}
+                      >
+                        {log.agentToolName}
+                      </Typography>
+                    )}
                   </TableCell>
 
                   {/* Action */}

@@ -62,6 +62,13 @@ export interface AuditUserContext {
   userName: string;
   userPermissions?: number; // Bitwise permission flags
   tenantId: string; // Required — audit rows are tenant-scoped (CLAUDE.md rule #1)
+
+  // Actor classification (see AuditLog.actorType in packages/types/src/audit.ts).
+  // Defaults to 'user' when omitted — the agent orchestrator overrides to
+  // 'agent' and supplies agentRunId + agentToolName.
+  actorType?: 'user' | 'agent' | 'system';
+  agentRunId?: string;
+  agentToolName?: string;
 }
 
 /**
@@ -102,6 +109,11 @@ export async function logFinancialTransactionEvent(
       actorEmail: user.userEmail,
       actorName: user.userName,
       actorPermissions: user.userPermissions,
+
+      // Actor classification (defaults to 'user' for legacy callers)
+      actorType: user.actorType ?? 'user',
+      ...(user.agentRunId !== undefined && { agentRunId: user.agentRunId }),
+      ...(user.agentToolName !== undefined && { agentToolName: user.agentToolName }),
 
       // Action details
       action,
@@ -155,6 +167,9 @@ export async function logFinancialTransactionEvent(
         actorEmail: user.userEmail,
         actorName: user.userName,
         actorPermissions: user.userPermissions,
+        actorType: user.actorType ?? 'user',
+        ...(user.agentRunId !== undefined && { agentRunId: user.agentRunId }),
+        ...(user.agentToolName !== undefined && { agentToolName: user.agentToolName }),
         action,
         severity: getSeverityForAction(action),
         description,

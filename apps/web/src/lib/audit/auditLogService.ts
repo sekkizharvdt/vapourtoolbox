@@ -33,6 +33,13 @@ export interface AuditLogQueryOptions {
   actorId?: string;
   entityId?: string;
   limitCount?: number;
+  // Filter by actor classification — see AuditLog.actorType for the full
+  // taxonomy. Lets the audit viewer answer "show me everything the agent
+  // did today" or "system-generated rows only".
+  actorType?: 'user' | 'agent' | 'system';
+  // Filter by a specific agent run — used to reconstruct a transcript for
+  // a single orchestrator invocation.
+  agentRunId?: string;
 }
 
 /**
@@ -69,6 +76,14 @@ export function buildAuditLogQuery(db: Firestore, options: AuditLogQueryOptions 
 
   if (options.entityId) {
     constraints.push(where('entityId', '==', options.entityId));
+  }
+
+  if (options.actorType) {
+    constraints.push(where('actorType', '==', options.actorType));
+  }
+
+  if (options.agentRunId) {
+    constraints.push(where('agentRunId', '==', options.agentRunId));
   }
 
   // Always order by timestamp descending (newest first)

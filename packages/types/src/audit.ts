@@ -332,6 +332,27 @@ export interface AuditLog {
   actorName: string;
   actorPermissions?: number; // Bitwise permission flags
 
+  // Actor classification — what KIND of caller produced this entry.
+  // Foundation for the AI-agent rollout (see AI-AGENT-ROADMAP-2026-04-25.md
+  // Phase 0 § "Audit trail expansion"):
+  //   - 'user'   — a human operator using the web UI (default for client writes)
+  //   - 'agent'  — an autonomous run executed by the agent orchestrator
+  //                (carries agentRunId + agentToolName below)
+  //   - 'system' — a Cloud Function trigger / scheduled job; no human actor
+  // Optional during the migration so existing rows still load; the
+  // audit-log viewer treats missing actorType as 'user'.
+  actorType?: 'user' | 'agent' | 'system';
+
+  // Agent provenance (set only when actorType === 'agent').
+  // - agentRunId  — single-orchestrator-run identifier so all tool calls
+  //                 from the same run can be retrieved as a transcript
+  //                 from the `agentRuns` collection.
+  // - agentToolName — the named tool that produced the write
+  //                   (e.g. 'createDraftPR', 'allocatePayment'); lets the
+  //                   admin dashboard surface "which tool ran how often".
+  agentRunId?: string;
+  agentToolName?: string;
+
   // Action details
   action: AuditAction;
   severity: AuditSeverity;
@@ -379,6 +400,11 @@ export interface CreateAuditLogParams {
   actorName?: string;
   actorPermissions?: number; // Bitwise permission flags
 
+  // Actor classification (see AuditLog.actorType for full notes)
+  actorType?: 'user' | 'agent' | 'system';
+  agentRunId?: string;
+  agentToolName?: string;
+
   // Action details
   action: AuditAction;
   severity?: AuditSeverity; // Defaults to INFO
@@ -413,6 +439,12 @@ export interface AuditLogQuery {
   entityType?: AuditEntityType;
   entityId?: string;
   severity?: AuditSeverity;
+  // Filter by actor classification — lets the audit viewer answer
+  // "show me everything the agent did today" or "system-generated rows only".
+  actorType?: 'user' | 'agent' | 'system';
+  // Filter by a specific agent run — used to reconstruct the per-run
+  // transcript from the audit log without joining `agentRuns`.
+  agentRunId?: string;
   startDate?: Date;
   endDate?: Date;
   limit?: number;

@@ -160,6 +160,27 @@ export function AuditLogDetail({ log, open, onClose }: AuditLogDetailProps) {
                   <strong>Permissions:</strong> {log.actorPermissions}
                 </Typography>
               )}
+              {log.actorType && log.actorType !== 'user' && (
+                <Typography variant="body2">
+                  <strong>Actor type:</strong> {log.actorType}
+                </Typography>
+              )}
+              {log.agentRunId && (
+                <Typography variant="body2">
+                  <strong>Agent run:</strong>{' '}
+                  <Typography component="code" variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {log.agentRunId}
+                  </Typography>
+                </Typography>
+              )}
+              {log.agentToolName && (
+                <Typography variant="body2">
+                  <strong>Tool:</strong>{' '}
+                  <Typography component="code" variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {log.agentToolName}
+                  </Typography>
+                </Typography>
+              )}
             </Stack>
           </Box>
 

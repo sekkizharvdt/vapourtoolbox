@@ -45,6 +45,15 @@ export interface AuditContext {
   // `claims?.tenantId`. Currently optional so the broader call graph
   // compiles while the properly-plumbed `auditLogger` path lands.
   tenantId?: string;
+
+  // Actor classification — see AuditLog.actorType for the full taxonomy.
+  // Defaults to 'user' (set by createAuditContext); the agent orchestrator
+  // calls createAgentAuditContext to override.
+  actorType?: 'user' | 'agent' | 'system';
+
+  // Agent provenance (set only when actorType === 'agent')
+  agentRunId?: string;
+  agentToolName?: string;
 }
 
 /**
@@ -152,6 +161,12 @@ export async function logAuditEvent(
       actorEmail: context.userEmail,
       actorName: context.userName,
       actorPermissions: context.permissions ?? 0, // Default to 0 to avoid Firestore undefined error
+
+      // Actor classification (defaults to 'user' on legacy contexts that
+      // pre-date the agent rollout — createAuditContext now sets this).
+      actorType: context.actorType ?? 'user',
+      ...(context.agentRunId !== undefined && { agentRunId: context.agentRunId }),
+      ...(context.agentToolName !== undefined && { agentToolName: context.agentToolName }),
 
       // Action details
       action,
@@ -309,5 +324,43 @@ export function createAuditContext(
     userEmail: effectiveEmail,
     userName: effectiveName,
     permissions,
+    actorType: 'user',
+  };
+}
+
+/**
+ * Helper to create an audit context for an agent-driven run.
+ *
+ * The agent orchestrator (Phase 0 in AI-AGENT-ROADMAP-2026-04-25.md) calls
+ * this once per run, then re-uses the returned context for every tool that
+ * writes to Firestore. Every audit row written through this context will
+ * carry `actorType: 'agent'` plus the run + tool identifiers, so the admin
+ * dashboard can reconstruct a full transcript by querying
+ * `auditLogs where agentRunId == X order by timestamp asc`.
+ *
+ * @param agentUserId - the Firebase UID for the agent identity (the
+ *   `agent@vapourtoolbox.internal` user provisioned in Phase 0)
+ * @param agentEmail - the agent identity's email (for display)
+ * @param runId - unique identifier for this run (typically a uuid)
+ * @param toolName - the named tool the orchestrator is about to invoke
+ *   (e.g. 'createDraftPR'); subsequent tool calls within the same run
+ *   should call createAgentAuditContext again to update toolName.
+ * @param tenantId - tenant scope for the run
+ */
+export function createAgentAuditContext(
+  agentUserId: string,
+  agentEmail: string,
+  runId: string,
+  toolName: string,
+  tenantId: string
+): AuditContext {
+  return {
+    userId: agentUserId,
+    userEmail: agentEmail,
+    userName: 'Vapour Agent',
+    actorType: 'agent',
+    agentRunId: runId,
+    agentToolName: toolName,
+    tenantId,
   };
 }

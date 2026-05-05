@@ -29,6 +29,12 @@ export async function createAuditLog(params: CreateAuditLogParams): Promise<stri
     actorName: params.actorName || 'System',
     actorPermissions: params.actorPermissions || 0,
 
+    // Actor classification — Cloud Functions default to 'system' (background
+    // triggers / scheduled jobs / admin SDK writes with no human actor). The
+    // agent orchestrator overrides this with 'agent' when invoking through
+    // a Cloud Function tool surface (Phase 0 in AI-AGENT-ROADMAP-2026-04-25.md).
+    actorType: params.actorType || (params.actorId ? 'user' : 'system'),
+
     // Action details
     action: params.action,
     severity: params.severity || 'INFO',
@@ -65,6 +71,12 @@ export async function createAuditLog(params: CreateAuditLogParams): Promise<stri
   }
   if (params.errorMessage !== undefined) {
     auditLog.errorMessage = params.errorMessage;
+  }
+  if (params.agentRunId !== undefined) {
+    auditLog.agentRunId = params.agentRunId;
+  }
+  if (params.agentToolName !== undefined) {
+    auditLog.agentToolName = params.agentToolName;
   }
 
   // Save audit log

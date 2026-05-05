@@ -830,8 +830,20 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       allow read: if isAdmin(); // Only users with MANAGE_USERS permission
       // Write: Internal users can create audit logs (for client-side operations)
-      // External users cannot write audit logs directly
-      allow create: if isInternalUser();
+      // External users cannot write audit logs directly. Every new row must
+      // carry an `actorType` (one of 'user' | 'agent' | 'system') so the
+      // admin viewer and agent transcript queries don't have to disambiguate
+      // legacy rows. Rows that claim actorType='agent' must also carry an
+      // agentRunId — that's the foundation for Phase 0 of the AI agent
+      // rollout (see AI-AGENT-ROADMAP-2026-04-25.md).
+      // TODO (AI-AGENT-ROADMAP Phase 0): once `agent@vapourtoolbox.internal`
+      // is provisioned, tighten the agent branch to
+      //   request.auth.uid == 'agent-firebase-uid'
+      // so only the agent identity can write actorType='agent'.
+      allow create: if isInternalUser() &&
+                       request.resource.data.actorType in ['user', 'agent', 'system'] &&
+                       (request.resource.data.actorType != 'agent' ||
+                        request.resource.data.agentRunId is string);
       allow update, delete: if false; // Audit logs are immutable
     }
 

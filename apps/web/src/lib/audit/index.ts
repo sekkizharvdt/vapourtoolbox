@@ -8,6 +8,7 @@ export {
   logAuditEvent,
   createFieldChanges,
   createAuditContext,
+  createAgentAuditContext,
   type AuditContext,
   type AuditEventOptions,
 } from './clientAuditService';
