@@ -65,6 +65,7 @@ export async function createVersionSnapshot(
   userId: string,
   notes?: string
 ): Promise<string> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   try {
     // Get current PO state
     const poDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, purchaseOrderId));

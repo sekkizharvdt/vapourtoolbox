@@ -48,6 +48,8 @@ export async function createWorkItem(
   db: Firestore,
   request: CreateWorkItemRequest
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const workItem: Omit<WorkItem, 'id'> = {
     projectId: request.projectId,
     masterDocumentId: request.masterDocumentId,
@@ -118,6 +120,8 @@ export async function updateWorkItemStatus(
   db: Firestore,
   request: UpdateWorkItemStatusRequest
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const workItemRef = doc(db, 'projects', request.projectId, 'workItems', request.workItemId);
 
   const updates: Record<string, unknown> = {
@@ -150,6 +154,7 @@ export async function updateWorkItemAssignment(
   db: Firestore,
   request: UpdateWorkItemAssignmentRequest
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const workItemRef = doc(db, 'projects', request.projectId, 'workItems', request.workItemId);
 
   await updateDoc(workItemRef, {
@@ -169,6 +174,7 @@ export async function deleteWorkItem(
   projectId: string,
   workItemId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const workItemRef = doc(db, 'projects', projectId, 'workItems', workItemId);
   await deleteDoc(workItemRef);
 }

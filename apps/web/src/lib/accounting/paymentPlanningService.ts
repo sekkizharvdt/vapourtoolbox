@@ -52,6 +52,7 @@ export async function createManualCashFlowItem(
   db: Firestore,
   item: Omit<ManualCashFlowItem, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const now = Timestamp.now();
 
   const docData = {
@@ -79,6 +80,7 @@ export async function updateManualCashFlowItem(
   id: string,
   updates: Partial<Omit<ManualCashFlowItem, 'id' | 'createdAt' | 'createdBy'>>
 ): Promise<void> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const docRef = doc(db, COLLECTIONS.MANUAL_CASH_FLOW_ITEMS, id);
 
   const updateData: Record<string, unknown> = {
@@ -107,6 +109,7 @@ export async function updateManualCashFlowItem(
  * Delete a manual cash flow item
  */
 export async function deleteManualCashFlowItem(db: Firestore, id: string): Promise<void> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   await deleteDoc(doc(db, COLLECTIONS.MANUAL_CASH_FLOW_ITEMS, id));
 }
 

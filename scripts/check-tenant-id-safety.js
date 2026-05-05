@@ -340,6 +340,25 @@ function checkDocCreationHasTenantId() {
     'VENDOR_OFFER_ITEMS',
     'manualCashFlowItems',
     'MANUAL_CASH_FLOW_ITEMS',
+    // SSOT subcollections under projects/{id} — inherit tenant scope from parent
+    'equipment',
+    'instruments',
+    'lines',
+    'pipeTable',
+    'streams',
+    'valves',
+    // Notifications & mentions — Cloud Function-driven or scoped by recipient identity
+    'notifications',
+    'NOTIFICATIONS',
+    'taskMentions',
+    'TASK_MENTIONS',
+    'stockMovements',
+    'STOCK_MOVEMENTS',
+    'serviceOrderEvents',
+    'SERVICE_ORDER_EVENTS',
+    // documentTemplates — firestore.rules require MANAGE_DOCUMENTS but not tenantId
+    'documentTemplates',
+    'DOCUMENT_TEMPLATES',
   ];
 
   // Get staged .ts/.tsx files (only check what's being committed)
@@ -413,8 +432,11 @@ function checkDocCreationHasTenantId() {
       }
       const statement = statementLines.join('\n');
 
-      // Also grab a small window before the call for variable refs (e.g., the data var)
-      const preambleStart = Math.max(0, i - 10);
+      // Window before the call to resolve variable refs and collection
+      // identifiers. 50 lines covers the typical pattern where a function
+      // declares `const xRef = collection(db, COLLECTIONS.X)` near the top
+      // and the `addDoc(xRef, ...)` happens lower down after some logic.
+      const preambleStart = Math.max(0, i - 50);
       const preamble = lines.slice(preambleStart, i).join('\n');
 
       // Check if this targets a non-tenant-scoped collection.
@@ -443,7 +465,14 @@ function checkDocCreationHasTenantId() {
       if (
         fullContext.includes('/items') ||
         fullContext.includes('SUBCOLLECTIONS') ||
-        fullContext.includes('subcollection')
+        fullContext.includes('subcollection') ||
+        // SSOT_COLLECTIONS.X(projectId) and per-service helpers (getEquipmentCollection,
+        // getInstrumentsCollection, etc.) all return `projects/${id}/<sub>` paths;
+        // see packages/firebase/src/collections.ts SSOT_COLLECTIONS map.
+        fullContext.includes('SSOT_COLLECTIONS') ||
+        /\bget(?:Equipment|Instruments?|Lines?|PipeTable|Streams?|Valves?)Collection\b/.test(
+          fullContext
+        )
       ) {
         continue;
       }

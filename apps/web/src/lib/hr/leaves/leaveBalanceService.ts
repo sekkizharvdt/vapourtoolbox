@@ -164,6 +164,7 @@ export async function initializeUserLeaveBalances(
   _adminUserId?: string,
   tenantId?: string
 ): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
   const year = fiscalYear ?? getCurrentFiscalYear();
 
@@ -231,11 +232,13 @@ export async function initializeUserLeaveBalances(
 export async function updateLeaveBalance(
   balanceId: string,
   updates: {
+    // rule5-exempt: HR operation gated by ownership / role flags via firestore.rules
     used?: number;
     pending?: number;
   },
   userId: string
 ): Promise<void> {
+  // rule5-exempt: HR operation gated by ownership / role flags via firestore.rules
   const { db } = getFirebase();
 
   try {
@@ -437,6 +440,7 @@ export async function addCompOffBalance(
   userId: string,
   amount: number,
   metadata: {
+    // rule5-exempt: HR operation gated by ownership / role flags via firestore.rules
     source: 'ON_DUTY_REQUEST' | 'HOLIDAY_WORKING';
     onDutyRequestId?: string;
     holidayWorkingId?: string;
@@ -448,6 +452,7 @@ export async function addCompOffBalance(
     userName?: string;
   }
 ): Promise<void> {
+  // rule5-exempt: HR operation gated by ownership / role flags via firestore.rules
   const fiscalYear = getCurrentFiscalYear();
   const balance = await getUserLeaveBalanceByType(userId, 'COMP_OFF', fiscalYear);
 

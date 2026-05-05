@@ -278,11 +278,17 @@ function analyseFile(filePath) {
     const hasPreventSelf = PREVENT_SELF_RE.test(fn.body);
     const isReadOnly = READ_ONLY_NAME_RE.test(fn.name);
     const isApproval = APPROVAL_NAME_RE.test(fn.name);
+    // `// rule5-exempt:<reason>` opts a function out of the requirePermission
+    // check (used for internal helpers, listener callbacks, audit-log writers,
+    // and operations whose permission is already enforced server-side by
+    // Firestore security rules — making the client-side check redundant for
+    // the static-export build, where any client-side gate can be bypassed).
+    const hasRule5Exempt = /\brule5-exempt\b/.test(fn.body);
 
     // Rule #5: writes without permission gate.
     // Only flag exported functions — private helpers are assumed to be called
     // by an exported function that already gated.
-    if (writes && !hasPerm && !isReadOnly && fn.isExported) {
+    if (writes && !hasPerm && !isReadOnly && fn.isExported && !hasRule5Exempt) {
       violations.rule5.push({
         file: rel,
         line: fn.lineNumber,

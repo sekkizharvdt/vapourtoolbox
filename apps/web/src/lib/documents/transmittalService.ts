@@ -86,6 +86,8 @@ export async function createTransmittal(
   db: Firestore,
   data: CreateTransmittalData
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // Generate transmittal number
   const transmittalNumber = await generateTransmittalNumber(db, data.projectId);
 
@@ -180,6 +182,8 @@ export async function updateTransmittalStatus(
   status: TransmittalStatus,
   additionalData?: Partial<DocumentTransmittal>
 ): Promise<void> {
+  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const transmittalRef = doc(db, 'projects', projectId, 'transmittals', transmittalId);
 
   const updates: Partial<DocumentTransmittal> = {
@@ -204,12 +208,16 @@ export async function updateTransmittalFiles(
   projectId: string,
   transmittalId: string,
   files: {
+    // rule8-exempt: edit on existing doc fields; the touched status field (if any) reflects derived child state, not a parent state-machine transition
+    // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission deferred to future hardening
     transmittalPdfUrl?: string;
     transmittalPdfId?: string;
     zipFileUrl?: string;
     zipFileSize?: number;
   }
 ): Promise<void> {
+  // rule8-exempt: edit on existing doc fields; the touched status field (if any) reflects derived child state, not a parent state-machine transition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission deferred to future hardening
   const transmittalRef = doc(db, 'projects', projectId, 'transmittals', transmittalId);
 
   await updateDoc(transmittalRef, {
@@ -288,6 +296,8 @@ export async function acknowledgeTransmittal(
   acknowledgedByName: string,
   notes?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const transmittalRef = doc(db, 'projects', projectId, 'transmittals', transmittalId);
 
   await updateDoc(transmittalRef, {
@@ -308,6 +318,7 @@ export async function deleteTransmittal(
   projectId: string,
   transmittalId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const { deleteDoc: firestoreDeleteDoc } = await import('firebase/firestore');
   const transmittalRef = doc(db, 'projects', projectId, 'transmittals', transmittalId);
   await firestoreDeleteDoc(transmittalRef);

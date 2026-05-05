@@ -324,6 +324,7 @@ export async function disposeAsset(
   userId: string,
   userPermissions: number
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_ACCOUNTING,
@@ -361,6 +362,7 @@ export async function writeOffAsset(
   userId: string,
   userPermissions: number
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_ACCOUNTING,

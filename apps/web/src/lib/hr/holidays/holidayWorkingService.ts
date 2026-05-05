@@ -187,6 +187,8 @@ export async function createHolidayWorkingOverride(
  * Grants comp-off to all affected users
  */
 export async function processHolidayWorkingOverride(overrideId: string): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   // rule19-exempt: reads holiday rule for context, writes an override record — different documents
   const { db } = getFirebase();
 

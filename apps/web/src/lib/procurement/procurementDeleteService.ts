@@ -349,6 +349,7 @@ export async function softDeletePackingList(
   db: Firestore,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
   // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { id, userId, userName, userPermissions } = input;
 

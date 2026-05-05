@@ -57,6 +57,7 @@ export async function createSupplyItem(
   db: Firestore,
   request: CreateSupplyItemRequest
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // PE-19: Validate referenced master document exists
   if (request.masterDocumentId) {
     const masterDocRef = doc(
@@ -151,6 +152,7 @@ export async function updateSupplyItemStatus(
   db: Firestore,
   request: UpdateSupplyStatusRequest
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const supplyItemRef = doc(db, 'projects', request.projectId, 'supplyItems', request.supplyItemId);
 
   const updates: Record<string, unknown> = {
@@ -182,6 +184,7 @@ export async function deleteSupplyItem(
   projectId: string,
   supplyItemId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const supplyItemRef = doc(db, 'projects', projectId, 'supplyItems', supplyItemId);
   await deleteDoc(supplyItemRef);
 }

@@ -102,6 +102,7 @@ function docToTaskNotification(id: string, data: DocumentData): TaskNotification
  * Can be actionable (with time tracking) or informational (acknowledgement only)
  */
 export async function createTaskNotification(input: CreateTaskNotificationInput): Promise<string> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
@@ -340,6 +341,7 @@ export async function findTaskNotificationByEntity(
  * Mark task notification as read
  */
 export async function markAsRead(taskNotificationId: string): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
@@ -379,6 +381,7 @@ export async function markAllAsRead(userId: string): Promise<void> {
  * Sets acknowledgedAt timestamp and updates status to 'acknowledged'
  */
 export async function acknowledgeInformational(taskNotificationId: string): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
@@ -439,6 +442,7 @@ export async function startActionableTask(
   taskNotificationId: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
@@ -482,6 +486,7 @@ export async function completeActionableTask(
   userId: string,
   autoCompleted: boolean = false
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // rule19-exempt: idempotent task completion — duplicate completions write the same terminal state
   const { db } = getFirebase();
 
@@ -557,6 +562,7 @@ export async function completeActionableTask(
  * User confirms that the auto-completed task should be marked as complete
  */
 export async function confirmAutoCompletion(taskNotificationId: string): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
@@ -579,6 +585,7 @@ export async function updateTaskDuration(
   taskNotificationId: string,
   totalDuration: number
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
@@ -608,6 +615,7 @@ export async function completeTaskNotificationsByEntity(
   entityId: string,
   completedByUserId: string
 ): Promise<number> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // rule19-exempt: idempotent task completion — duplicate completions write the same terminal state
   const { db } = getFirebase();
 

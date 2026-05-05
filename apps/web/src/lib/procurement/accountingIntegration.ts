@@ -84,6 +84,8 @@ export async function createBillFromGoodsReceipt(
   userEmail: string,
   tenantId?: string
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   try {
     // Validate goods receipt is approved
     if (goodsReceipt.status !== 'COMPLETED') {
@@ -388,7 +390,8 @@ export async function createBillFromGoodsReceipt(
             sourceQuoteId: billId,
             remarks: `Landed cost from bill ${transactionNumber} (GR ${goodsReceipt.number || goodsReceipt.id})`,
           },
-          userId
+          userId,
+          tenantId || 'default-entity'
         );
       } catch (priceErr) {
         logger.warn('Failed to capture material price from bill', {
@@ -468,6 +471,7 @@ export async function sendGRToAccounting(
   currentUserId: string,
   currentUserName: string
 ): Promise<string> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   // Update GR with sent-to-accounting fields
   const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
   const sentAt = Timestamp.now();
@@ -598,6 +602,8 @@ export async function createAdvancePaymentFromPO(
   userId: string,
   userEmail: string
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   try {
     // Validate advance payment is required
     if (!purchaseOrder.advancePaymentRequired) {

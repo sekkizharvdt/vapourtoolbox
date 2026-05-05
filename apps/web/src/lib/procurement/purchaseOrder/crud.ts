@@ -505,7 +505,8 @@ export async function createPOFromOffer(
         poNumber,
         (offer.currency as CurrencyCode) || 'INR',
         'confirmed',
-        userId
+        userId,
+        offer.tenantId || 'default-entity'
       ).catch((err) => logger.error('Failed to record confirmed prices', { poNumber, error: err }));
 
       // Audit log: PO created
@@ -643,6 +644,7 @@ export async function updateDraftPO(
   userName: string,
   userPermissions: number
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
   // rule19-exempt: edit form on a draft PO — read fetches current values for permission/audit; last-write-wins acceptable for user-driven edits
   const { db } = getFirebase();
 

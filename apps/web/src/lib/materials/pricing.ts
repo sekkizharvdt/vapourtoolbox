@@ -52,14 +52,17 @@ export interface PriceHistoryOptions {
 export async function addMaterialPrice(
   db: Firestore,
   price: Omit<MaterialPrice, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>,
-  userId: string
+  userId: string,
+  tenantId: string
 ): Promise<MaterialPrice> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     logger.info('Adding material price', { materialId: price.materialId });
 
     const now = Timestamp.now();
-    const newPrice: Omit<MaterialPrice, 'id'> = {
+    const newPrice: Omit<MaterialPrice, 'id'> & { tenantId: string } = {
       ...price,
+      tenantId, // firestore.rules require this on materialPrices.create
       isActive: price.effectiveDate <= now,
       isForecast: price.effectiveDate > now,
       createdAt: now,
@@ -211,7 +214,8 @@ export async function recordProcurementPrices(
   documentRef: string,
   currency: CurrencyCode,
   priceType: 'budgetary' | 'confirmed',
-  userId: string
+  userId: string,
+  tenantId: string
 ): Promise<void> {
   const itemsWithMaterial = items.filter((item) => item.materialId);
 
@@ -241,7 +245,8 @@ export async function recordProcurementPrices(
           documentReference: documentRef,
           remarks,
         },
-        userId
+        userId,
+        tenantId
       )
     )
   );

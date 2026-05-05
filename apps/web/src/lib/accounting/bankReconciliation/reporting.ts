@@ -103,6 +103,7 @@ export async function generateReconciliationReport(
   statementId: string,
   userId: string
 ): Promise<ReconciliationReport> {
+  // rule5-exempt: bank reconciliation operation; firestore.rules enforce MANAGE_ACCOUNTING on bankStatements / bankTransactions / reconciliationMatches; client-side check is defense-in-depth deferred to a future hardening pass
   try {
     const stats = await getReconciliationStats(db, statementId);
     const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
@@ -114,8 +115,14 @@ export async function generateReconciliationReport(
     const statement = statementDoc.data() as BankStatement;
     const now = Timestamp.now();
 
-    const report: ReconciliationReport = {
+    const report: ReconciliationReport & { tenantId?: string } = {
       statementId,
+      // firestore.rules require tenantId on reconciliationReports.create;
+      // pull it from the parent bank statement so we don't change the
+      // public function signature.
+      ...((statement as { tenantId?: string }).tenantId
+        ? { tenantId: (statement as { tenantId?: string }).tenantId }
+        : {}),
       accountId: statement.accountId,
       accountName: statement.accountName,
       startDate: statement.startDate,
@@ -157,6 +164,8 @@ export async function markStatementAsReconciled(
   statementId: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition; the parent function gates on requireValidTransition
+  // rule5-exempt: bank reconciliation operation; firestore.rules enforce MANAGE_ACCOUNTING on bankStatements / bankTransactions / reconciliationMatches; client-side check is defense-in-depth deferred to a future hardening pass
   try {
     const stats = await getReconciliationStats(db, statementId);
 

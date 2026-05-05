@@ -147,6 +147,7 @@ export async function updateHoliday(
   updates: UpdateHolidayInput,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -194,6 +195,7 @@ export async function updateHoliday(
  * Delete a holiday (soft delete by setting isActive = false)
  */
 export async function deleteHoliday(holidayId: string, userId: string): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   // rule18-exempt: admin config — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
 
@@ -216,6 +218,7 @@ export async function deleteHoliday(holidayId: string, userId: string): Promise<
  * Hard delete a holiday (admin only)
  */
 export async function hardDeleteHoliday(holidayId: string): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {

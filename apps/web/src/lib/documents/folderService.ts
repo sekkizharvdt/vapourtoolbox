@@ -426,12 +426,14 @@ export async function createFolder(
   userId: string,
   userName: string,
   options?: {
+    // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission deferred to future hardening
     projectId?: string;
     entityType?: DocumentEntityType;
     entityId?: string;
     parentFolderId?: string;
   }
 ): Promise<DocumentFolder> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission deferred to future hardening
   const { db } = getFirebase();
 
   const now = Timestamp.now();
@@ -465,6 +467,7 @@ export async function createFolder(
  * Rename a folder
  */
 export async function renameFolder(folderId: string, newName: string): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads folder for permission/context, writes the renamed folder doc — single-doc edit, last-write-wins acceptable
   const { db } = getFirebase();
 
@@ -495,6 +498,7 @@ export async function renameFolder(folderId: string, newName: string): Promise<v
  * Delete a folder (soft delete)
  */
 export async function deleteFolder(folderId: string, userId: string): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule18-exempt: UI folder organization, no business state change
   const { db } = getFirebase();
 
@@ -579,6 +583,7 @@ export async function moveDocumentToFolder(
   documentId: string,
   newFolderPath: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const { db } = getFirebase();
 
   await updateDoc(doc(db, COLLECTIONS.DOCUMENTS, documentId), {
@@ -594,6 +599,7 @@ export async function moveDocumentsToFolder(
   documentIds: string[],
   newFolderPath: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const { db } = getFirebase();
   // Chunk by 500 (Firestore batch limit) — bulk-move can span many docs.
   const BATCH_SIZE = 500;

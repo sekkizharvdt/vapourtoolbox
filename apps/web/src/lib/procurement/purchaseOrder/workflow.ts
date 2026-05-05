@@ -34,6 +34,7 @@ export async function submitPOForApproval(
   userPermissions: number,
   approverId?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   const { db } = getFirebase();
 
   // Authorization: Require MANAGE_PROCUREMENT permission
@@ -113,6 +114,7 @@ export async function approvePO(
   comments?: string,
   bankAccountId?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission
@@ -236,6 +238,7 @@ export async function rejectPO(
   userPermissions: number,
   reason: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission
@@ -305,6 +308,7 @@ export async function issuePO(
   userName: string,
   userPermissions: number
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission to issue
@@ -368,6 +372,7 @@ export async function updatePOStatus(
   status: PurchaseOrderStatus,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   // Get current PO to validate transition

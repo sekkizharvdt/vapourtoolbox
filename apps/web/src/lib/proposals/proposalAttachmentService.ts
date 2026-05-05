@@ -61,6 +61,7 @@ export async function uploadProposalAttachment(
   db: Firestore,
   request: UploadAttachmentRequest
 ): Promise<UploadAttachmentResult> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const {
     proposalId,
     entityId,
@@ -198,6 +199,7 @@ export async function removeProposalAttachment(
   proposalId: string,
   attachment: ProposalAttachment
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   logger.info('Removing proposal attachment', {
     proposalId,
     attachmentId: attachment.id,

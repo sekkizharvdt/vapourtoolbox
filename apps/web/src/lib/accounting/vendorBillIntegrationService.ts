@@ -25,6 +25,7 @@ export async function createVendorBillFromMatch(
   userName: string,
   tenantId?: string
 ): Promise<string> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   try {
     // Get the 3-way match
     const matchDoc = await getDoc(doc(db, COLLECTIONS.THREE_WAY_MATCHES, threeWayMatchId));

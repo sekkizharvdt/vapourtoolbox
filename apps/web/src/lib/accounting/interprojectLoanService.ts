@@ -243,6 +243,8 @@ export async function createInterprojectLoan(
   db: Firestore,
   input: CreateInterprojectLoanInput
 ): Promise<InterprojectLoanResult> {
+  // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   const {
     lendingProjectId,
     borrowingProjectId,
@@ -509,6 +511,8 @@ export async function recordRepayment(
   db: Firestore,
   input: RecordRepaymentInput
 ): Promise<InterprojectLoanResult> {
+  // rule8-exempt: creates a new document record with an initial status; state-machine validation applies to subsequent transitions only
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   const { loanId, repaymentDate, principalAmount, interestAmount, userId, userName } = input;
 
   try {

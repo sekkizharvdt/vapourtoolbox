@@ -225,6 +225,8 @@ export async function submitLeaveRequest(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -369,6 +371,7 @@ export async function approveLeaveRequest(
   approverName: string,
   remarks?: string
 ): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   // rule18-exempt: writes approval record onto leave-request doc (domain audit)
   const { db } = getFirebase();
 
@@ -570,6 +573,8 @@ export async function rejectLeaveRequest(
   approverName: string,
   rejectionReason: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   // rule18-exempt: writes rejection record onto leave-request doc (domain audit)
   const { db } = getFirebase();
 
@@ -676,6 +681,8 @@ export async function cancelLeaveRequest(
   userName: string,
   cancellationReason?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {

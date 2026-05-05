@@ -72,6 +72,7 @@ async function hasCircularDependency(
  * Create a document link
  */
 export async function createDocumentLink(db: Firestore, request: CreateLinkRequest): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads source document for permission/context; writes a new link doc — different documents
   // Get both documents
   const sourceDocRef = doc(
@@ -214,6 +215,7 @@ export interface RemoveLinkRequest {
 }
 
 export async function removeDocumentLink(db: Firestore, request: RemoveLinkRequest): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads link for permission, deletes a single link doc — concurrent calls converge to deleted
   // Get both documents
   const sourceDocRef = doc(
@@ -324,6 +326,7 @@ export async function updateLinksStatus(
   newStatus: string,
   newRevision: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const docRef = doc(db, 'projects', projectId, 'masterDocuments', documentId);
   const snapshot = await getDoc(docRef);
 

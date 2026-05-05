@@ -125,6 +125,7 @@ export async function createEquipment(
   userId: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('createEquipment', { projectId, input });
 
   // PE-14/PE-18: Validate write access
@@ -155,6 +156,7 @@ export async function updateEquipment(
   userId: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('updateEquipment', { projectId, equipmentId, input });
 
   // PE-14/PE-18: Validate write access
@@ -177,6 +179,7 @@ export async function deleteEquipment(
   userId?: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('deleteEquipment', { projectId, equipmentId });
 
   // PE-14/PE-18: Validate write access

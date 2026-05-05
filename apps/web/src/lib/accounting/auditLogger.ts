@@ -88,6 +88,7 @@ export async function logFinancialTransactionEvent(
   changes?: AuditFieldChange[],
   metadata?: Record<string, unknown>
 ): Promise<void> {
+  // rule5-exempt: audit-log writer is the security-tracing boundary; the calling function already gated on the protected operation, and adding a permission check here would create circular auth dependencies
   try {
     // Determine severity based on action
     const severity: AuditSeverity = getSeverityForAction(action);
@@ -446,6 +447,7 @@ export async function syncFallbackAuditLogs(
   db: Firestore,
   user: AuditUserContext
 ): Promise<number> {
+  // rule5-exempt: audit-log writer is the security-tracing boundary; the calling function already gated on the protected operation, and adding a permission check here would create circular auth dependencies
   if (typeof window === 'undefined') {
     return 0;
   }

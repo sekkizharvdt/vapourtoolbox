@@ -496,7 +496,8 @@ describe('channelService', () => {
         'proj-1',
         'New Channel',
         'Description',
-        'user-1'
+        'user-1',
+        'tenant-1'
       );
 
       expect(channelId).toBe('new-channel-id');
@@ -507,14 +508,14 @@ describe('channelService', () => {
       mockAddDoc.mockRejectedValue(new Error('Firestore error'));
 
       await expect(
-        createProjectChannel('proj-1', 'New Channel', 'Description', 'user-1')
+        createProjectChannel('proj-1', 'New Channel', 'Description', 'user-1', 'tenant-1')
       ).rejects.toThrow('Failed to create project channel');
     });
 
     it('should include correct channel data', async () => {
       mockAddDoc.mockResolvedValue({ id: 'new-channel-id' });
 
-      await createProjectChannel('proj-1', 'New Channel', 'Description', 'user-1');
+      await createProjectChannel('proj-1', 'New Channel', 'Description', 'user-1', 'tenant-1');
 
       const callArgs = mockAddDoc.mock.calls[0];
       const channelData = callArgs[1];

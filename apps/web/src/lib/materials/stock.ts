@@ -38,6 +38,7 @@ export async function updateMaterialStock(
   movement: Omit<StockMovement, 'id' | 'materialId' | 'createdAt' | 'createdBy'>,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     logger.info('Updating material stock', { materialId, movementType: movement.movementType });
 

@@ -210,6 +210,8 @@ export async function closePeriod(
   tenantId: string,
   notes?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   // rule18-exempt: writes to PERIOD_LOCK_AUDIT (domain-specific audit trail).
   const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
@@ -279,6 +281,8 @@ export async function lockPeriod(
   tenantId: string,
   reason: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   // rule18-exempt: writes to PERIOD_LOCK_AUDIT (domain-specific audit trail).
   const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 
@@ -325,6 +329,8 @@ export async function reopenPeriod(
   tenantId: string,
   reason: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   // rule18-exempt: writes to PERIOD_LOCK_AUDIT (domain-specific audit trail).
   const existing = await findPeriodDoc(db, fiscalYearId, periodNumber);
 

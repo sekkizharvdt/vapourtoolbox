@@ -83,6 +83,7 @@ export async function issueRFQ(
  * and when all expected offers are received
  */
 export async function incrementOffersReceived(rfqId: string, vendorName?: string): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   const rfq = await getRFQById(rfqId);
@@ -156,6 +157,7 @@ export async function incrementOffersReceived(rfqId: string, vendorName?: string
  * Update RFQ status when offer is evaluated
  */
 export async function incrementOffersEvaluated(rfqId: string): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   const rfq = await getRFQById(rfqId);
@@ -184,6 +186,7 @@ export async function completeRFQ(
   completionNotes: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   // Validate transition

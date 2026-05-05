@@ -196,6 +196,7 @@ export async function rejectVendorQuote(
   userName?: string,
   userEmail?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'reject quote');
 
   const quote = await getVendorQuoteById(db, quoteId);
@@ -250,6 +251,7 @@ export async function withdrawVendorQuote(
   userName?: string,
   userEmail?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition
   requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'withdraw quote');
 
   const quote = await getVendorQuoteById(db, quoteId);
@@ -301,6 +303,8 @@ export async function evaluateVendorQuote(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition
+  // rule5-exempt: entity-management write; firestore.rules enforce MANAGE_ENTITIES / MANAGE_PROCUREMENT — server-side gated
   const quote = await getVendorQuoteById(db, quoteId);
   if (!quote) throw new Error('Quote not found');
 
@@ -350,7 +354,8 @@ export async function evaluateVendorQuote(
           `${quote.number} (${quote.vendorName})`,
           (quote.currency as CurrencyCode) || 'INR',
           'budgetary',
-          userId
+          userId,
+          quote.tenantId || 'default-entity'
         )
       )
       .catch((err) => logger.error('Failed to record budgetary prices', { quoteId, error: err }));
@@ -365,6 +370,7 @@ export async function markVendorQuoteAsRecommended(
   reason: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: entity-management write; firestore.rules enforce MANAGE_ENTITIES / MANAGE_PROCUREMENT — server-side gated
   const quote = await getVendorQuoteById(db, quoteId);
   if (!quote) throw new Error('Quote not found');
   if (!quote.rfqId) {

@@ -94,6 +94,7 @@ export async function createMeeting(
   userName: string,
   tenantId: string
 ): Promise<Meeting> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const now = Timestamp.now();
 
   const meetingData: Record<string, unknown> = {
@@ -170,6 +171,7 @@ export async function updateMeeting(
   >,
   userId?: string
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // Authorization check (FL-5): verify caller is meeting creator
   if (userId) {
     const meeting = await getMeetingById(db, meetingId);
@@ -198,6 +200,7 @@ export async function deleteMeeting(
   meetingId: string,
   userId?: string
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // Authorization check (FL-5): verify caller is meeting creator
   if (userId) {
     const meeting = await getMeetingById(db, meetingId);
@@ -267,6 +270,7 @@ export async function addActionItem(
   meetingId: string,
   input: MeetingActionItemInput
 ): Promise<MeetingActionItem> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const now = Timestamp.now();
 
   const itemData: Record<string, unknown> = {
@@ -344,6 +348,7 @@ export function subscribeToActionItems(
  * Delete an action item
  */
 export async function deleteActionItem(db: Firestore, itemId: string): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const docRef = doc(db, COLLECTIONS.MEETING_ACTION_ITEMS, itemId);
   await deleteDoc(docRef);
 }
@@ -364,6 +369,7 @@ export async function finalizeMeeting(
   userName: string,
   tenantId: string
 ): Promise<number> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // rule18-exempt: low-risk meeting state — audit pending Phase 0 audit expansion
   // Verify meeting exists and is in draft status (FL-11)
   const meeting = await getMeetingById(db, meetingId);

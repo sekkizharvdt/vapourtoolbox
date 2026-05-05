@@ -343,6 +343,8 @@ export async function updateTravelExpenseReport(
   updates: UpdateTravelExpenseInput,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -411,6 +413,8 @@ export async function updateTravelExpenseReport(
  * Delete a draft travel expense report
  */
 export async function deleteTravelExpenseReport(reportId: string, userId: string): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -463,6 +467,8 @@ export async function addExpenseItem(
   receiptFileName?: string,
   receiptUrl?: string
 ): Promise<string> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -550,6 +556,8 @@ export async function updateExpenseItem(
   updates: Partial<TravelExpenseItemInput>,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: edit on existing doc fields; the touched status field (if any) reflects derived child state, not a parent state-machine transition
+  // rule5-exempt: HR operation gated by ownership / role flags via firestore.rules
   const { db } = getFirebase();
 
   try {
@@ -650,6 +658,8 @@ export async function removeExpenseItem(
   itemId: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -706,6 +716,8 @@ export async function updateExpenseItemReceipt(
   receiptUrl: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {

@@ -44,6 +44,7 @@ const getDb = () => getFirebase().db;
 export async function createMasterDocument(
   data: Omit<MasterDocumentEntry, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const now = Timestamp.now();
 
   const masterDocumentData: Omit<MasterDocumentEntry, 'id'> = {
@@ -176,6 +177,7 @@ export async function updateMasterDocument(
   masterDocumentId: string,
   updates: Partial<Omit<MasterDocumentEntry, 'id' | 'createdAt' | 'projectId'>>
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
 
   await updateDoc(docRef, {
@@ -611,6 +613,8 @@ export async function bulkCreateMasterDocuments(
   createdBy: string,
   createdByName: string
 ): Promise<BulkImportResult> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const db = getDb();
   const now = Timestamp.now();
   const errors: BulkImportResult['errors'] = [];

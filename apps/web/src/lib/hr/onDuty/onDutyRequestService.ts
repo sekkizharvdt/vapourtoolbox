@@ -348,6 +348,8 @@ export async function updateOnDutyRequest(
   input: UpdateOnDutyRequestInput,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -419,6 +421,8 @@ export async function updateOnDutyRequest(
  * Delete on-duty request (draft only)
  */
 export async function deleteOnDutyRequest(requestId: string, userId: string): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {

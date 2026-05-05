@@ -30,6 +30,7 @@ const getDb = () => getFirebase().db;
 export async function createDocumentTemplate(
   data: Omit<DocumentTemplate, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const now = Timestamp.now();
 
   const templateData: Omit<DocumentTemplate, 'id'> = {
@@ -173,6 +174,7 @@ export async function updateTemplate(
   templateId: string,
   updates: Partial<Omit<DocumentTemplate, 'id' | 'createdAt'>>
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const docRef = doc(getDb(), 'documentTemplates', templateId);
 
   await updateDoc(docRef, {

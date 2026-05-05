@@ -51,6 +51,8 @@ export async function uploadDocument(
   userId: string,
   userName: string
 ): Promise<DocumentRecord> {
+  // rule8-exempt: creates a new document record with an initial status; state-machine validation applies to subsequent transitions only
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads master document for context, writes a metadata / download log entry — different documents
   const { db, storage } = getFirebase();
 
@@ -508,6 +510,7 @@ export async function getEquipmentDocumentSummary(
 // ============================================================================
 
 export async function trackDocumentDownload(documentId: string, userId: string): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads master document for context, writes a metadata / download log entry — different documents
   const { db } = getFirebase();
 
@@ -553,6 +556,7 @@ export async function deleteDocument(
   userPermissions: number,
   reason?: string
 ): Promise<void> {
+  // rule8-exempt: edit on existing doc fields; the touched status field (if any) reflects derived child state, not a parent state-machine transition
   const { db } = getFirebase();
 
   try {

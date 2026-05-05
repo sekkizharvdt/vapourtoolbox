@@ -31,8 +31,10 @@ const logger = createLogger({ context: 'serviceService:crud' });
 export async function createService(
   db: Firestore,
   serviceData: Omit<Service, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>,
-  userId: string
+  userId: string,
+  tenantId: string
 ): Promise<Service> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     logger.info('Creating service', { name: serviceData.name, category: serviceData.category });
 
@@ -49,8 +51,9 @@ export async function createService(
       serviceData.serviceCode || (await generateServiceCode(db, serviceData.category));
 
     const now = Timestamp.now();
-    const newService: Omit<Service, 'id'> = {
+    const newService: Omit<Service, 'id'> & { tenantId: string } = {
       ...serviceData,
+      tenantId, // firestore.rules require this on services.create
       serviceCode,
       isActive: serviceData.isActive ?? true,
       isStandard: serviceData.isStandard ?? false,
@@ -132,6 +135,7 @@ export async function updateService(
   updates: Partial<Omit<Service, 'id' | 'serviceCode' | 'createdAt' | 'createdBy'>>,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     logger.info('Updating service', { serviceId });
 

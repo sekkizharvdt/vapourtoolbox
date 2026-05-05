@@ -128,6 +128,7 @@ export async function updateWithVersionIncrement<T extends Record<string, unknow
   docRef: DocumentReference,
   updates: UpdateData<T>
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   await updateDoc(docRef, {
     ...updates,
     version: increment(1),

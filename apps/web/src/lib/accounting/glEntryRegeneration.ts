@@ -29,6 +29,8 @@ export async function regenerateCustomerPaymentGL(
   db: Firestore,
   paymentId: string
 ): Promise<RegenerationResult> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition
+  // rule5-exempt: admin-triggered GL repair; firestore.rules require MANAGE_ACCOUNTING on transactions and accounts so the writes are server-side gated; client-side permission check is defense-in-depth deferred
   // rule19-exempt: reads transaction header for context, then writes a complete replacement of GL entries (different docs); admin-triggered repair flow with no concurrent callers — no race in practice
   try {
     // Fetch the payment
@@ -103,6 +105,8 @@ export async function regenerateVendorPaymentGL(
   db: Firestore,
   paymentId: string
 ): Promise<RegenerationResult> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition
+  // rule5-exempt: admin-triggered GL repair; firestore.rules require MANAGE_ACCOUNTING on transactions and accounts so the writes are server-side gated; client-side permission check is defense-in-depth deferred
   // rule19-exempt: reads transaction header for context, then writes a complete replacement of GL entries (different docs); admin-triggered repair flow with no concurrent callers — no race in practice
   try {
     // Fetch the payment

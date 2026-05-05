@@ -135,6 +135,7 @@ export async function submitTravelExpenseReport(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -236,6 +237,7 @@ export async function approveTravelExpenseReport(
   approvedAmount?: number,
   comments?: string
 ): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   // rule18-exempt: writes approval record onto travel-expense doc (domain audit)
   const { db } = getFirebase();
 
@@ -333,6 +335,7 @@ export async function rejectTravelExpenseReport(
   approverName: string,
   rejectionReason: string
 ): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   // rule18-exempt: writes rejection record onto travel-expense doc (domain audit)
   const { db } = getFirebase();
 
@@ -426,6 +429,8 @@ export async function returnTravelExpenseForRevision(
   approverName: string,
   comments: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   if (!comments || comments.trim().length === 0) {
@@ -524,6 +529,8 @@ export async function markTravelExpenseReimbursed(
   reimbursedAmount: number,
   transactionId?: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {

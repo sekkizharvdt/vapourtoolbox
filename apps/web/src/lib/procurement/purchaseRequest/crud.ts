@@ -381,6 +381,7 @@ export async function updatePurchaseRequest(
   userId: string,
   userName?: string
 ): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   // rule19-exempt: edit form on a draft PR — read fetches current values for permission/audit; last-write-wins acceptable for user-driven edits
   const { db } = getFirebase();
 
@@ -429,6 +430,7 @@ export async function updatePurchaseRequest(
  * Uses atomic increment to prevent race conditions when multiple users upload simultaneously
  */
 export async function incrementAttachmentCount(itemId: string): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   try {

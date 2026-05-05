@@ -334,6 +334,7 @@ export async function generateRFQPDFs(
   options: RFQPDFGenerationOptions,
   userId: string
 ): Promise<RFQPDFGenerationResult> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // rule19-exempt: reads RFQ + linked items for PDF content; writes generated PDF metadata — different documents
   const errors: Array<{ vendorId?: string; error: string }> = [];
   let totalFiles = 0;

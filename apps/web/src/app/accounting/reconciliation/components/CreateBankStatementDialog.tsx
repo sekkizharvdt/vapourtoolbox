@@ -18,7 +18,7 @@ interface CreateBankStatementDialogProps {
 }
 
 export function CreateBankStatementDialog({ open, onClose }: CreateBankStatementDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [bankAccounts, setBankAccounts] = useState<Account[]>([]);
@@ -146,7 +146,8 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
           totalCredits: credits,
           notes,
         },
-        user?.uid || 'system'
+        user?.uid || 'system',
+        claims?.tenantId || 'default-entity'
       );
 
       onClose();

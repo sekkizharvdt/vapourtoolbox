@@ -37,6 +37,7 @@ export async function createCostConfiguration(
   data: CreateCostConfigurationInput,
   userId: string
 ): Promise<CostConfiguration> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   const now = Timestamp.now();
 
   const configData = {
@@ -134,6 +135,7 @@ export async function updateCostConfiguration(
   data: UpdateCostConfigurationInput,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   const docRef = doc(db, COLLECTIONS.COST_CONFIGURATIONS, configId);
 
   const updateData: Record<string, unknown> = {

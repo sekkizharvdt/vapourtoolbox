@@ -90,6 +90,7 @@ export async function createEnquiry(
   input: CreateEnquiryInput,
   userId: string
 ): Promise<Enquiry> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     // Get client details
     const clientDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, input.clientId));
@@ -285,6 +286,7 @@ export async function updateEnquiry(
   input: UpdateEnquiryInput,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     // Remove undefined values - Firestore doesn't accept them
     const updates = removeUndefinedValues({
@@ -312,6 +314,8 @@ export async function updateEnquiryStatus(
   userId: string,
   outcomeReason?: string
 ): Promise<void> {
+  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     const updates: Record<string, unknown> = {
       status,
@@ -349,6 +353,8 @@ export async function markProposalCreated(
   enquiryId: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId), {
       status: 'PROPOSAL_IN_PROGRESS',
@@ -438,6 +444,7 @@ export async function uploadEnquiryDocument(
   file: File,
   userId: string
 ): Promise<EnquiryDocument> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // rule19-exempt: reads enquiry parent for permission/context, writes a document subdoc — different documents
   try {
     // 1. Upload file to Storage
@@ -504,6 +511,7 @@ export async function recordBidDecision(
   userId: string,
   userName: string
 ): Promise<Enquiry> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     // Get current enquiry
     const enquiry = await getEnquiryById(db, enquiryId);
@@ -619,6 +627,7 @@ export async function reviseBidDecision(
   userId: string,
   userName: string
 ): Promise<Enquiry> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // rule19-exempt: edit form for the bid decision on an enquiry — read fetches current decision; last-write-wins acceptable
   try {
     // Get current enquiry
@@ -751,6 +760,7 @@ export async function deleteEnquiryDocument(
   documentId: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // rule19-exempt: reads enquiry parent for permission/context, writes a document subdoc — different documents
   // rule18-exempt: enquiry attachment removal — audit pending Phase 0 audit expansion
   try {

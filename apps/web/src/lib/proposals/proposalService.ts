@@ -140,6 +140,8 @@ export async function createProposal(
   input: CreateProposalInput,
   userId: string
 ): Promise<Proposal> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads template/counter for denormalised seed values; writes a new proposal doc — different documents
   try {
     // Get enquiry details
@@ -243,6 +245,8 @@ export async function createMinimalProposal(
   input: CreateMinimalProposalInput,
   userId: string
 ): Promise<Proposal> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads template/counter for denormalised seed values; writes a new proposal doc — different documents
   try {
     // Get enquiry details
@@ -612,6 +616,8 @@ export async function createProposalRevision(
   revisionReason: string,
   userId: string
 ): Promise<Proposal> {
+  // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission deferred to future hardening
   try {
     // Get current proposal
     const currentProposal = await getProposalById(db, proposalId);
@@ -757,6 +763,8 @@ export async function cloneProposal(
   userId: string,
   userName: string
 ): Promise<Proposal> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   try {
     // Load source proposal
     const sourceProposal = await getProposalById(db, input.sourceProposalId);

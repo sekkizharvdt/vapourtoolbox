@@ -54,6 +54,7 @@ export async function addBoughtOutPrice(
   price: Omit<BoughtOutPrice, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>,
   userId: string
 ): Promise<BoughtOutPrice> {
+  // rule5-exempt: entity-management write; firestore.rules enforce MANAGE_ENTITIES / MANAGE_PROCUREMENT — server-side gated
   const now = Timestamp.now();
   const tenantId = price.tenantId;
   const newPrice: Omit<BoughtOutPrice, 'id'> = {

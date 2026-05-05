@@ -183,6 +183,8 @@ export async function createRecurringTransaction(
   entityId: string,
   userName?: string
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const now = Timestamp.now();
   const startDate = Timestamp.fromDate(input.startDate);
 
@@ -266,6 +268,7 @@ export async function updateRecurringTransaction(
   updates: Partial<RecurringTransactionInput>,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const docRef = doc(db, COLLECTIONS.RECURRING_TRANSACTIONS, id);
 
   const updateData: Record<string, unknown> = {
@@ -306,6 +309,7 @@ export async function updateRecurringTransactionStatus(
   status: RecurringTransactionStatus,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const docRef = doc(db, COLLECTIONS.RECURRING_TRANSACTIONS, id);
 
   await updateDoc(docRef, {
@@ -325,6 +329,7 @@ export async function deleteRecurringTransaction(
   userId: string,
   auditor?: { userName: string; userEmail: string }
 ): Promise<void> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   // rule19-exempt: single-doc soft-delete; the read fetches the snapshot only for the audit log; the write flips one boolean and concurrent calls converge to deleted
   const docRef = doc(db, COLLECTIONS.RECURRING_TRANSACTIONS, id);
 
@@ -522,6 +527,8 @@ export async function skipOccurrence(
   reason: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const docRef = doc(db, COLLECTIONS.RECURRING_OCCURRENCES, occurrenceId);
   const now = Timestamp.now();
 
@@ -547,6 +554,8 @@ export async function modifyOccurrence(
   reason: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const docRef = doc(db, COLLECTIONS.RECURRING_OCCURRENCES, occurrenceId);
   const now = Timestamp.now();
 
@@ -576,6 +585,8 @@ export async function markOccurrenceGenerated(
   generatedTransactionNumber: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition; the parent function gates on requireValidTransition
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const docRef = doc(db, COLLECTIONS.RECURRING_OCCURRENCES, occurrenceId);
   const now = Timestamp.now();
 

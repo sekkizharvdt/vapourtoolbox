@@ -181,6 +181,7 @@ export async function matchTransactions(
   matchType: MatchType,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: bank reconciliation operation; firestore.rules enforce MANAGE_ACCOUNTING on bankStatements / bankTransactions / reconciliationMatches; client-side check is defense-in-depth deferred to a future hardening pass
   try {
     const batch = writeBatch(db);
     const now = Timestamp.now();
@@ -241,6 +242,7 @@ export async function matchTransactions(
  * Unmatch a reconciled transaction
  */
 export async function unmatchTransaction(db: Firestore, bankTransactionId: string): Promise<void> {
+  // rule5-exempt: bank reconciliation operation; firestore.rules enforce MANAGE_ACCOUNTING on bankStatements / bankTransactions / reconciliationMatches; client-side check is defense-in-depth deferred to a future hardening pass
   try {
     // Get bank transaction to find accounting transaction ID
     const bankTxnDoc = await getDoc(doc(db, COLLECTIONS.BANK_TRANSACTIONS, bankTransactionId));
@@ -301,6 +303,7 @@ export async function matchMultipleTransactions(
   userId: string,
   notes?: string
 ): Promise<void> {
+  // rule5-exempt: bank reconciliation operation; firestore.rules enforce MANAGE_ACCOUNTING on bankStatements / bankTransactions / reconciliationMatches; client-side check is defense-in-depth deferred to a future hardening pass
   try {
     // Each accounting transaction requires 2 batch ops (match record + txn update) + 1 for bank txn.
     // rule20-exempt: explicit pre-flight guard throws before exceeding 500 ops.

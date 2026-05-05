@@ -61,6 +61,7 @@ export async function createMentionsFromMessage(
   mentionedByUserId: string,
   mentionedByName: string
 ): Promise<TaskMention[]> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   if (!message.mentions || message.mentions.length === 0) {
@@ -204,6 +205,7 @@ export async function getUnreadMentionCount(
  * Mark a single mention as read
  */
 export async function markMentionAsRead(mentionId: string): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   const mentionRef = doc(db, COLLECTIONS.TASK_MENTIONS, mentionId);
@@ -217,6 +219,7 @@ export async function markMentionAsRead(mentionId: string): Promise<void> {
  * Firestore batches support up to 500 operations
  */
 export async function markMentionsAsRead(mentionIds: string[]): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   if (mentionIds.length === 0) return;
 
   const { db } = getFirebase();

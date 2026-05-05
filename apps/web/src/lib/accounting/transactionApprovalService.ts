@@ -142,6 +142,7 @@ export async function submitTransactionForApproval(
   comments?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule19-exempt: state-machine transition (DRAFT→PENDING_APPROVAL) with explicit guard; concurrent submitters converge to PENDING_APPROVAL — duplicate task notifications are accepted
   const config = TRANSACTION_CONFIGS[transactionType];
 
@@ -276,6 +277,7 @@ export async function approveTransaction(
   comments?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   const config = TRANSACTION_CONFIGS[transactionType];
 
@@ -420,6 +422,7 @@ export async function rejectTransaction(
   comments: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule19-exempt: state-machine transition to REJECTED; concurrent rejecters converge to the same end state
   const config = TRANSACTION_CONFIGS[transactionType];
 

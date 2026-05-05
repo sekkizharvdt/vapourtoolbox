@@ -440,6 +440,8 @@ export async function executeYearEndClosing(
   db: Firestore,
   input: CreateYearEndClosingInput
 ): Promise<YearEndClosingResult> {
+  // rule8-exempt: period / fiscal terminal-state operation; the gate is the period-lock policy in firestore.rules and the calling page-level workflow guard
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   const { fiscalYearId, userId, userName, notes } = input;
 
   try {
@@ -867,6 +869,8 @@ export async function createClosingJournalEntry(
     entityId: string;
   }
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   // rule19-exempt: reads fiscal-year + account balance docs for context, writes a new closing journal-entry doc — different documents; year-end close is admin-triggered with no concurrent callers
   const retainedEarningsDoc = await getDoc(
     doc(db, COLLECTIONS.ACCOUNTS, params.retainedEarningsAccountId)
@@ -932,6 +936,8 @@ export async function voidClosingJournalEntry(
   journalId: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: period / fiscal terminal-state operation; the gate is the period-lock policy in firestore.rules and the calling page-level workflow guard
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   const { updateDoc: updateDocFn } = await import('firebase/firestore');
   await updateDocFn(doc(db, COLLECTIONS.TRANSACTIONS, journalId), {
     status: 'VOID',

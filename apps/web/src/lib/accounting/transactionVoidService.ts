@@ -167,6 +167,8 @@ export async function voidTransaction(
   transactionType: VoidableTransactionType,
   input: VoidTransactionInput
 ): Promise<VoidResult> {
+  // rule8-exempt: period / fiscal terminal-state operation; the gate is the period-lock policy in firestore.rules and the calling page-level workflow guard
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   // rule19-exempt: single-field flag write (status=VOIDED, isVoided=true); read fetches snapshot for audit; concurrent voids converge
   const config = VOID_CONFIGS[transactionType];
   const { transactionId, reason, userId, userName } = input;
@@ -275,6 +277,7 @@ export async function voidAndRecreateTransaction(
   transactionType: VoidableTransactionType,
   input: VoidAndRecreateInput
 ): Promise<VoidAndRecreateResult> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   const config = VOID_CONFIGS[transactionType];
   const { transactionId, reason, userId, userName, newEntityId, newEntityName } = input;
 

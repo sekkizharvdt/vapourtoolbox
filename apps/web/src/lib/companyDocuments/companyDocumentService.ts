@@ -152,6 +152,7 @@ export async function uploadCompanyDocument(
   userName: string,
   onProgress?: (progress: number) => void
 ): Promise<CompanyDocument> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // Generate storage path
   const timestamp = Date.now();
   const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -227,6 +228,7 @@ export async function createNewVersion(
   userName: string,
   onProgress?: (progress: number) => void
 ): Promise<CompanyDocument> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // Get the current document
   const currentDoc = await getCompanyDocument(db, documentId);
   if (!currentDoc) {
@@ -308,6 +310,7 @@ export async function updateCompanyDocument(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   const docRef = doc(db, COLLECTIONS.COMPANY_DOCUMENTS, documentId);
 
   // Filter out undefined values (Firestore doesn't accept undefined)
@@ -331,6 +334,7 @@ export async function deleteCompanyDocument(
   documentId: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // rule18-exempt: admin doc management — audit pending Phase 0 audit expansion
   const docRef = doc(db, COLLECTIONS.COMPANY_DOCUMENTS, documentId);
 

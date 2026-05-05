@@ -167,6 +167,7 @@ export async function addMessage(
   content: string,
   userAvatar?: string
 ): Promise<TaskMessage> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   // Parse mentions from content
@@ -214,6 +215,7 @@ export async function editMessage(
   newContent: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // rule19-exempt: edit form on a thread message — read for permission, write the edited content; single-author edit, no concurrent callers
   const { db } = getFirebase();
   const messageRef = doc(db, COLLECTIONS.TASK_MESSAGES, messageId);

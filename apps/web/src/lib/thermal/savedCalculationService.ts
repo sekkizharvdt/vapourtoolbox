@@ -32,6 +32,7 @@ export async function saveCalculation(
   name: string,
   inputs: Record<string, unknown>
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   const docRef = await addDoc(collection(db, COLLECTIONS.SAVED_CALCULATIONS), {
     userId,
     calculatorType,
@@ -88,6 +89,7 @@ export async function deleteCalculation(
   _userId: string,
   calculationId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   // rule18-exempt: user-private calculator state
   const docRef = doc(db, COLLECTIONS.SAVED_CALCULATIONS, calculationId);
   // Firestore rules enforce ownership — if the doc's userId doesn't match,

@@ -93,7 +93,7 @@ describe('bankReconciliation/crud', () => {
     it('should create a bank statement with DRAFT status', async () => {
       mockAddDoc.mockResolvedValue({ id: 'new-statement-id' });
 
-      const result = await createBankStatement(mockDb, validStatementData, 'user-123');
+      const result = await createBankStatement(mockDb, validStatementData, 'user-123', 'tenant-1');
 
       expect(result).toBe('new-statement-id');
       expect(mockAddDoc).toHaveBeenCalledTimes(1);
@@ -109,7 +109,7 @@ describe('bankReconciliation/crud', () => {
     it('should set createdAt and updatedAt timestamps', async () => {
       mockAddDoc.mockResolvedValue({ id: 'new-statement-id' });
 
-      await createBankStatement(mockDb, validStatementData, 'user-123');
+      await createBankStatement(mockDb, validStatementData, 'user-123', 'tenant-1');
 
       const calledWith = mockAddDoc.mock.calls[0][1];
       expect(calledWith.createdAt).toBeDefined();
@@ -119,17 +119,17 @@ describe('bankReconciliation/crud', () => {
     it('should throw error when addDoc fails', async () => {
       mockAddDoc.mockRejectedValue(new Error('Firestore error'));
 
-      await expect(createBankStatement(mockDb, validStatementData, 'user-123')).rejects.toThrow(
-        'Failed to create bank statement: Firestore error'
-      );
+      await expect(
+        createBankStatement(mockDb, validStatementData, 'user-123', 'tenant-1')
+      ).rejects.toThrow('Failed to create bank statement: Firestore error');
     });
 
     it('should handle unknown errors', async () => {
       mockAddDoc.mockRejectedValue('Non-Error rejection');
 
-      await expect(createBankStatement(mockDb, validStatementData, 'user-123')).rejects.toThrow(
-        'Failed to create bank statement: Unknown error'
-      );
+      await expect(
+        createBankStatement(mockDb, validStatementData, 'user-123', 'tenant-1')
+      ).rejects.toThrow('Failed to create bank statement: Unknown error');
     });
 
     it('should preserve all provided statement data', async () => {
@@ -141,7 +141,7 @@ describe('bankReconciliation/crud', () => {
         notes: 'Monthly statement',
       };
 
-      await createBankStatement(mockDb, dataWithOptionalFields, 'user-123');
+      await createBankStatement(mockDb, dataWithOptionalFields, 'user-123', 'tenant-1');
 
       const calledWith = mockAddDoc.mock.calls[0][1];
       expect(calledWith.bankName).toBe('Test Bank');
@@ -174,14 +174,14 @@ describe('bankReconciliation/crud', () => {
     ];
 
     it('should add all transactions with statement ID', async () => {
-      await addBankTransactions(mockDb, 'statement-123', validTransactions);
+      await addBankTransactions(mockDb, 'statement-123', validTransactions, 'tenant-1');
 
       expect(mockBatchSet).toHaveBeenCalledTimes(2);
       expect(mockBatchCommit).toHaveBeenCalledTimes(1);
     });
 
     it('should set isReconciled to false for all transactions', async () => {
-      await addBankTransactions(mockDb, 'statement-123', validTransactions);
+      await addBankTransactions(mockDb, 'statement-123', validTransactions, 'tenant-1');
 
       // Check both calls to batchSet
       validTransactions.forEach((_, index) => {
@@ -191,7 +191,7 @@ describe('bankReconciliation/crud', () => {
     });
 
     it('should set statementId on all transactions', async () => {
-      await addBankTransactions(mockDb, 'statement-123', validTransactions);
+      await addBankTransactions(mockDb, 'statement-123', validTransactions, 'tenant-1');
 
       validTransactions.forEach((_, index) => {
         const setCall = mockBatchSet.mock.calls[index][1];
@@ -200,7 +200,7 @@ describe('bankReconciliation/crud', () => {
     });
 
     it('should set createdAt and updatedAt timestamps', async () => {
-      await addBankTransactions(mockDb, 'statement-123', validTransactions);
+      await addBankTransactions(mockDb, 'statement-123', validTransactions, 'tenant-1');
 
       const firstSetCall = mockBatchSet.mock.calls[0][1];
       expect(firstSetCall.createdAt).toBeDefined();
@@ -208,7 +208,7 @@ describe('bankReconciliation/crud', () => {
     });
 
     it('should handle empty transaction array', async () => {
-      await addBankTransactions(mockDb, 'statement-123', []);
+      await addBankTransactions(mockDb, 'statement-123', [], 'tenant-1');
 
       expect(mockBatchSet).not.toHaveBeenCalled();
       expect(mockBatchCommit).toHaveBeenCalledTimes(1);
@@ -217,21 +217,21 @@ describe('bankReconciliation/crud', () => {
     it('should throw error when batch commit fails', async () => {
       mockBatchCommit.mockRejectedValue(new Error('Batch commit error'));
 
-      await expect(addBankTransactions(mockDb, 'statement-123', validTransactions)).rejects.toThrow(
-        'Failed to add bank transactions: Batch commit error'
-      );
+      await expect(
+        addBankTransactions(mockDb, 'statement-123', validTransactions, 'tenant-1')
+      ).rejects.toThrow('Failed to add bank transactions: Batch commit error');
     });
 
     it('should handle unknown errors in batch operations', async () => {
       mockBatchCommit.mockRejectedValue('Non-Error rejection');
 
-      await expect(addBankTransactions(mockDb, 'statement-123', validTransactions)).rejects.toThrow(
-        'Failed to add bank transactions: Unknown error'
-      );
+      await expect(
+        addBankTransactions(mockDb, 'statement-123', validTransactions, 'tenant-1')
+      ).rejects.toThrow('Failed to add bank transactions: Unknown error');
     });
 
     it('should preserve transaction data', async () => {
-      await addBankTransactions(mockDb, 'statement-123', validTransactions);
+      await addBankTransactions(mockDb, 'statement-123', validTransactions, 'tenant-1');
 
       const firstSetCall = mockBatchSet.mock.calls[0][1];
       expect(firstSetCall.description).toBe('Payment received');

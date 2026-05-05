@@ -31,6 +31,7 @@ export async function submitPurchaseRequestForApproval(
   userName: string,
   userPermissions: number = 0
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule19-exempt: state-machine transition (DRAFT→PENDING_APPROVAL) with explicit guard; concurrent submitters converge to PENDING_APPROVAL — duplicate task notifications are accepted
   const { db } = getFirebase();
 
@@ -162,6 +163,7 @@ export async function approvePurchaseRequest(
   comments?: string,
   userPermissions: number = 0
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   requirePermission(
     userPermissions,
@@ -321,6 +323,7 @@ export async function rejectPurchaseRequest(
   reason: string,
   userPermissions: number = 0
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule19-exempt: state-machine transition to REJECTED; concurrent rejecters converge to the same end state
   requirePermission(
     userPermissions,
@@ -459,6 +462,8 @@ export async function addPurchaseRequestComment(
   userName: string,
   comment: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   // rule19-exempt: reads PR parent for permission/context, writes a comment subdoc — different documents
   const { db } = getFirebase();
 

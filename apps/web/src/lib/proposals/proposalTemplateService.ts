@@ -41,6 +41,7 @@ export async function createProposalTemplate(
   userId: string,
   userName: string
 ): Promise<ProposalTemplate> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   try {
     const now = Timestamp.now();
 
@@ -185,6 +186,7 @@ export async function getProposalTemplateById(
  * Delete a proposal template
  */
 export async function deleteProposalTemplate(db: Firestore, templateId: string): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule18-exempt: template management — audit pending Phase 0 audit expansion
   try {
     const docRef = doc(db, COLLECTION, templateId);
@@ -201,6 +203,7 @@ export async function deleteProposalTemplate(db: Firestore, templateId: string):
  * Increment template usage count
  */
 export async function incrementTemplateUsage(db: Firestore, templateId: string): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   try {
     const docRef = doc(db, COLLECTION, templateId);
     await updateDoc(docRef, {

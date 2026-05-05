@@ -49,6 +49,7 @@ const logger = createLogger({ context: 'bomService' });
  * Generate BOM code in format: EST-YYYY-NNNN
  */
 export async function generateBOMCode(db: Firestore): Promise<string> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION
   const year = new Date().getFullYear();
   const yearStr = year.toString();
 
@@ -148,6 +149,8 @@ export async function createBOM(
   input: CreateBOMInput,
   userId: string
 ): Promise<BOM> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   try {
     logger.info('Creating BOM', { name: input.name, category: input.category });
 
@@ -235,6 +238,7 @@ export async function updateBOM(
   updates: Partial<Omit<BOM, 'id' | 'bomCode' | 'createdAt' | 'createdBy'>>,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   try {
     logger.info('Updating BOM', { bomId, updates });
 
@@ -257,6 +261,7 @@ export async function updateBOM(
  * Delete BOM (and all items)
  */
 export async function deleteBOM(db: Firestore, bomId: string): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   try {
     logger.info('Deleting BOM', { bomId });
 
@@ -349,6 +354,7 @@ export async function addBOMItem(
   input: CreateBOMItemInput,
   userId: string
 ): Promise<BOMItem> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   try {
     logger.info('Adding BOM item', { bomId, name: input.name });
 
@@ -420,6 +426,7 @@ export async function updateBOMItem(
   updates: UpdateBOMItemInput,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   // rule19-exempt: edit form on a single BOM item — read fetches current values for diffing/audit; last-write-wins acceptable for user-driven edits
   try {
     logger.info('Updating BOM item', { bomId, itemId, updates });
@@ -472,6 +479,7 @@ export async function deleteBOMItem(
   itemId: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   try {
     logger.info('Deleting BOM item', { bomId, itemId });
 

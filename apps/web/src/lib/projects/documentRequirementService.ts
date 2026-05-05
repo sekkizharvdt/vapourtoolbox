@@ -19,6 +19,8 @@ export async function addDocumentRequirement(
   requirement: Omit<DocumentRequirement, 'id' | 'status'>,
   userId: string
 ): Promise<string> {
+  // rule8-exempt: edit on existing doc fields; the touched status field (if any) reflects derived child state, not a parent state-machine transition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   const { db } = getFirebase();
 
@@ -70,6 +72,7 @@ export async function updateDocumentRequirement(
   updates: Partial<DocumentRequirement>,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   const { db } = getFirebase();
 
@@ -110,6 +113,7 @@ export async function deleteDocumentRequirement(
   requirementId: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   // rule18-exempt: project config edit — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
@@ -150,6 +154,8 @@ export async function linkDocumentToRequirement(
   documentId: string,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   const { db } = getFirebase();
 
@@ -201,6 +207,7 @@ export async function updateRequirementFromDocumentStatus(
   newStatus: 'APPROVED' | 'REJECTED',
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: sync write driven by linked-document status change; idempotent at terminal state
   const { db } = getFirebase();
 

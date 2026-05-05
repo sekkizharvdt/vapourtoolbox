@@ -840,7 +840,8 @@ export async function acceptQuoteItemPrice(
         sourceQuoteId: quote.id,
         remarks: `Accepted from vendor quote ${quote.number}`,
       },
-      userId
+      userId,
+      quote.tenantId || 'default-entity'
     );
   } else if (item.itemType === 'SERVICE' && item.serviceId) {
     await addDoc(

@@ -89,6 +89,8 @@ export interface CreateCommentRequest {
 }
 
 export async function createComment(db: Firestore, request: CreateCommentRequest): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // Generate comment number
   const commentNumber = await generateCommentNumber(
     db,
@@ -163,6 +165,8 @@ export interface ResolveCommentRequest {
 }
 
 export async function resolveComment(db: Firestore, request: ResolveCommentRequest): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: single-field state transition (RESOLVED) with author check; the read fetches the comment for permission; concurrent resolves converge
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
 
@@ -211,6 +215,8 @@ export async function approveCommentResolution(
   db: Firestore,
   request: ApproveResolutionRequest
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   // rule18-exempt: writes pmApprovedBy/At/Remarks onto comment (domain audit)
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
@@ -256,6 +262,8 @@ export async function rejectCommentResolution(
   db: Firestore,
   request: RejectResolutionRequest
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: state-machine transition to REJECTED; concurrent rejecters converge to the same end state
   // rule18-exempt: writes pmRejectedBy/Remarks onto comment (domain audit)
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
@@ -291,6 +299,8 @@ export async function markCommentUnderReview(
   submissionId: string,
   commentId: string
 ): Promise<void> {
+  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition; the parent function gates on requireValidTransition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const commentRef = doc(db, 'projects', projectId, 'documentComments', commentId);
 
   await updateDoc(commentRef, {

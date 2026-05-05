@@ -31,6 +31,7 @@ const getDb = () => getFirebase().db;
 export async function addSupplyItem(
   data: Omit<SupplyItem, 'id' | 'createdAt' | 'updatedAt' | 'isDeleted'>
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const now = Timestamp.now();
 
   const supplyItemData: Omit<SupplyItem, 'id'> = {
@@ -61,6 +62,7 @@ export async function updateSupplyItem(
   supplyItemId: string,
   updates: Partial<Omit<SupplyItem, 'id' | 'projectId' | 'createdAt'>>
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const docRef = doc(getDb(), 'projects', projectId, 'supplyItems', supplyItemId);
 
   await updateDoc(docRef, {

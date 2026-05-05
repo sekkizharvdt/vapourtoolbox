@@ -160,6 +160,7 @@ export async function createPipeSize(
   userId: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('createPipeSize', { projectId, input });
 
   // PE-14/PE-18: Validate write access
@@ -188,6 +189,7 @@ export async function updatePipeSize(
   userId: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('updatePipeSize', { projectId, pipeId, input });
 
   // PE-14/PE-18: Validate write access
@@ -208,6 +210,7 @@ export async function deletePipeSize(
   userId?: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('deletePipeSize', { projectId, pipeId });
 
   // PE-14/PE-18: Validate write access

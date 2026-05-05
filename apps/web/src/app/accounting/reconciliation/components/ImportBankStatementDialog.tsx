@@ -64,7 +64,7 @@ export function ImportBankStatementDialog({
   accountId: initialAccountId,
   accountName: initialAccountName,
 }: ImportBankStatementDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [csvText, setCsvText] = useState('');
@@ -236,12 +236,18 @@ export function ImportBankStatementDialog({
           totalDebits: parseResult.rows.reduce((sum, r) => sum + r.debitAmount, 0),
           totalCredits: parseResult.rows.reduce((sum, r) => sum + r.creditAmount, 0),
         },
-        user.uid
+        user.uid,
+        claims?.tenantId || 'default-entity'
       );
 
       // Convert and add transactions
       const transactions = convertToBankTransactions(parseResult.rows, statementId, accountId);
-      await addBankTransactions(db, statementId, transactions);
+      await addBankTransactions(
+        db,
+        statementId,
+        transactions,
+        claims?.tenantId || 'default-entity'
+      );
 
       setActiveStep(3);
     } catch (err) {

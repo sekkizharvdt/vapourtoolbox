@@ -113,7 +113,7 @@ describe('Service Catalog CRUD Operations', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 0, docs: [] });
       mockAddDoc.mockResolvedValue({ id: 'svc-new-id' });
 
-      const result = await createService(mockDb, baseServiceData, userId);
+      const result = await createService(mockDb, baseServiceData, userId, 'tenant-1');
 
       expect(result.id).toBe('svc-new-id');
       expect(result.serviceCode).toBe('SVC-TST-001');
@@ -131,7 +131,7 @@ describe('Service Catalog CRUD Operations', () => {
       mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [], size: 0 });
       mockAddDoc.mockResolvedValue({ id: 'svc-new-id' });
 
-      const result = await createService(mockDb, dataWithCode, userId);
+      const result = await createService(mockDb, dataWithCode, userId, 'tenant-1');
 
       expect(result.serviceCode).toBe('CUSTOM-TST-001');
     });
@@ -147,7 +147,7 @@ describe('Service Catalog CRUD Operations', () => {
         docs: docsArr,
       });
 
-      await expect(createService(mockDb, dataWithCode, userId)).rejects.toThrow(
+      await expect(createService(mockDb, dataWithCode, userId, 'tenant-1')).rejects.toThrow(
         'Service with code SVC-TST-001 already exists'
       );
     });
@@ -157,7 +157,7 @@ describe('Service Catalog CRUD Operations', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 3, docs: [] });
       mockAddDoc.mockResolvedValue({ id: 'svc-new-id' });
 
-      const result = await createService(mockDb, baseServiceData, userId);
+      const result = await createService(mockDb, baseServiceData, userId, 'tenant-1');
 
       expect(result.serviceCode).toBe('SVC-TST-004');
     });
@@ -185,7 +185,7 @@ describe('Service Catalog CRUD Operations', () => {
         mockAddDoc.mockResolvedValue({ id: 'svc-id' });
 
         const data = { ...baseServiceData, serviceCode: '', category };
-        const result = await createService(mockDb, data, userId);
+        const result = await createService(mockDb, data, userId, 'tenant-1');
 
         expect(result.serviceCode).toBe(expectedCode);
       }
@@ -202,7 +202,7 @@ describe('Service Catalog CRUD Operations', () => {
       mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [], size: 0 });
       mockAddDoc.mockResolvedValue({ id: 'svc-new-id' });
 
-      const result = await createService(mockDb, data, userId);
+      const result = await createService(mockDb, data, userId, 'tenant-1');
 
       expect(result.isActive).toBe(true);
     });
@@ -218,7 +218,7 @@ describe('Service Catalog CRUD Operations', () => {
       mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [], size: 0 });
       mockAddDoc.mockResolvedValue({ id: 'svc-new-id' });
 
-      const result = await createService(mockDb, data, userId);
+      const result = await createService(mockDb, data, userId, 'tenant-1');
 
       expect(result.isStandard).toBe(false);
     });
@@ -228,7 +228,7 @@ describe('Service Catalog CRUD Operations', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 0, docs: [] });
       mockAddDoc.mockResolvedValue({ id: 'svc-new-id' });
 
-      const result = await createService(mockDb, baseServiceData, userId);
+      const result = await createService(mockDb, baseServiceData, userId, 'tenant-1');
 
       expect(result.unit).toBe('PER SAMPLE');
       expect(result.estimatedTurnaroundDays).toBe(7);

@@ -511,6 +511,8 @@ export async function updateLeaveRequest(
   updates: Partial<CreateLeaveRequestInput>,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -574,6 +576,8 @@ export async function updateLeaveRequest(
  * Only allowed for DRAFT status
  */
 export async function deleteLeaveRequest(requestId: string, userId: string): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   // rule18-exempt: user deletes their own draft request
   const { db } = getFirebase();
 

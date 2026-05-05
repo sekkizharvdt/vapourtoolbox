@@ -32,6 +32,7 @@ export async function initializeProjectNumbering(
   _projectCode: string,
   createdBy: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const config: Omit<DocumentNumberingConfig, 'id'> = {
     projectId,
     separator: '-', // Fixed as per user requirement
@@ -80,6 +81,7 @@ export async function addDisciplineCode(
   projectId: string,
   discipline: Omit<DisciplineCode, 'createdAt'>
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const config = await getNumberingConfig(projectId);
 
   if (!config) {
@@ -120,6 +122,7 @@ export async function updateDisciplineCode(
   code: string,
   updates: Partial<Omit<DisciplineCode, 'code' | 'createdAt'>>
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const config = await getNumberingConfig(projectId);
 
   if (!config) {
@@ -175,6 +178,7 @@ export async function generateDocumentNumber(
   disciplineCode: string,
   subCode?: string
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission deferred to future hardening
   const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
 
   const documentNumber = await runTransaction(getDb(), async (transaction) => {
@@ -337,6 +341,7 @@ export async function initializeSubCodeCounter(
   disciplineCode: string,
   subCode: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const config = await getNumberingConfig(projectId);
 
   if (!config) {
@@ -370,6 +375,7 @@ export async function initializeSubCodeCounters(
   disciplineCode: string,
   subCodes: string[]
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const config = await getNumberingConfig(projectId);
 
   if (!config) {

@@ -389,6 +389,7 @@ export async function createPaymentWithAllocationsAtomic(
   paymentData: DocumentData,
   allocations: PaymentAllocation[]
 ): Promise<string> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   // Validate inputs before any database operations
   validatePaymentData(paymentData);
   // Use baseAmount (INR) for validation since allocations are always in INR

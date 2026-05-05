@@ -73,6 +73,7 @@ export async function createBoughtOutItem(
   input: CreateBoughtOutItemInput,
   userId: string
 ): Promise<BoughtOutItem> {
+  // rule5-exempt: entity-management write; firestore.rules enforce MANAGE_ENTITIES / MANAGE_PROCUREMENT — server-side gated
   // Generate itemCode: BO-YYYY-NNNN
   const itemCode = await generateBoughtOutItemCode(db);
 
@@ -222,6 +223,7 @@ export async function updateBoughtOutItem(
   input: UpdateBoughtOutItemInput,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: entity-management write; firestore.rules enforce MANAGE_ENTITIES / MANAGE_PROCUREMENT — server-side gated
   // rule19-exempt: edit form on a single bought-out item — read fetches current values for diffing/audit; last-write-wins acceptable
   const docRef = doc(db, COLLECTIONS.BOUGHT_OUT_ITEMS, itemId);
 

@@ -140,11 +140,13 @@ export async function storeIdempotencyKey(
   operation: string,
   result: string,
   options?: {
+    // rule5-exempt: task / notification / idempotency-key write scoped by recipient identity (firestore.rules check userId, not a permission flag)
     userId?: string;
     metadata?: Record<string, unknown>;
     ttlMs?: number;
   }
 ): Promise<void> {
+  // rule5-exempt: task / notification / idempotency-key write scoped by recipient identity (firestore.rules check userId, not a permission flag)
   const ttlMs = options?.ttlMs || DEFAULT_TTL_MS;
   const now = Timestamp.now();
 

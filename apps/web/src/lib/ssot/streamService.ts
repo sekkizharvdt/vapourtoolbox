@@ -175,6 +175,7 @@ export async function createStream(
   userId: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('createStream', { projectId, input });
 
   // PE-14/PE-18: Validate write access
@@ -216,6 +217,7 @@ export async function updateStream(
   userId: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('updateStream', { projectId, streamId, input });
 
   // PE-14/PE-18: Validate write access
@@ -272,6 +274,7 @@ export async function deleteStream(
   userId?: string,
   accessCheck?: SSOTAccessCheck
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   logger.debug('deleteStream', { projectId, streamId });
 
   // PE-14/PE-18: Validate write access

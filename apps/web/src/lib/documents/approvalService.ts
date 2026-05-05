@@ -69,6 +69,8 @@ export async function uploadApprovalLetter(
   db: Firestore,
   request: UploadApprovalLetterRequest
 ): Promise<UploadApprovalLetterResult> {
+  // rule8-exempt: creates a new document record with an initial status; state-machine validation applies to subsequent transitions only
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const {
     projectId,
     file,

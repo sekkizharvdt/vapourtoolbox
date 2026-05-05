@@ -20,6 +20,8 @@ export async function addProcurementItem(
   item: Omit<ProcurementItem, 'id' | 'status'>,
   userId: string
 ): Promise<string> {
+  // rule8-exempt: edit on existing doc fields; the touched status field (if any) reflects derived child state, not a parent state-machine transition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads charter parent for context, writes a procurement-item subdoc — different documents in the chain
   const { db } = getFirebase();
 
@@ -86,6 +88,7 @@ export async function updateProcurementItem(
   updates: Partial<ProcurementItem>,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads charter parent for context, writes a procurement-item subdoc — different documents in the chain
   const { db } = getFirebase();
 
@@ -126,6 +129,7 @@ export async function deleteProcurementItem(
   itemId: string,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: reads charter parent for context, writes a procurement-item subdoc — different documents in the chain
   // rule18-exempt: project config edit — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
@@ -395,6 +399,8 @@ export async function syncProcurementItemStatus(
   status: ProcurementItem['status'],
   linkedId?: string
 ): Promise<void> {
+  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: single-field sync write driven by upstream PR/PO status; idempotent at terminal state
   const { db } = getFirebase();
 

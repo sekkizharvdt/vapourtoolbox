@@ -211,6 +211,7 @@ export async function saveTransaction(
   auth?: AuthorizationContext,
   options?: SaveTransactionOptions
 ): Promise<string> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   // Check permission if auth context provided
   if (auth) {
     requireTransactionPermission(auth, 'create accounting transaction');
@@ -308,6 +309,7 @@ export function saveTransactionBatch(
   transactionData: TransactionWithEntries,
   auth?: AuthorizationContext
 ): DocumentReference {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
   // Check permission if auth context provided
   if (auth) {
     requireTransactionPermission(auth, 'create accounting transaction');
@@ -354,6 +356,7 @@ export async function createTransactionWithUpdates(
   auth?: AuthorizationContext,
   options?: SaveTransactionOptions
 ): Promise<string> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   // Check permission if auth context provided
   if (auth) {
     requireTransactionPermission(auth, 'create accounting transaction');

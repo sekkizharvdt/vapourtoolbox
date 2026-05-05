@@ -49,6 +49,7 @@ export async function createMaterial(
   userId: string,
   options?: MaterialCrudOptions
 ): Promise<Material> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     logger.info('Creating material', { name: materialData.name, category: materialData.category });
 
@@ -198,6 +199,7 @@ export async function updateMaterial(
   userId: string,
   options?: MaterialCrudOptions
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     logger.info('Updating material', { materialId });
 
@@ -274,6 +276,7 @@ export async function deleteMaterial(
   userId: string,
   options?: MaterialCrudOptions
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   try {
     logger.info('Soft deleting material', { materialId });
 

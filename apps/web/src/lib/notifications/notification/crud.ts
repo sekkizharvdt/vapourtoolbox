@@ -29,6 +29,7 @@ const logger = createLogger({ context: 'notification/crud' });
  * Create a new in-app notification
  */
 export async function createNotification(input: CreateNotificationInput): Promise<string> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
@@ -127,6 +128,7 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
  * Mark a notification as read
  */
 export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   const { db } = getFirebase();
 
   try {

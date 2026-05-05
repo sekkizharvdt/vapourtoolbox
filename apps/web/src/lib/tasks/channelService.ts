@@ -166,13 +166,16 @@ export async function createProjectChannel(
   projectId: string,
   name: string,
   description: string,
-  createdBy: string
+  createdBy: string,
+  tenantId: string
 ): Promise<string> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   const { db } = getFirebase();
 
   try {
-    const channelData: Omit<ProjectChannel, 'id'> = {
+    const channelData: Omit<ProjectChannel, 'id'> & { tenantId: string } = {
       projectId,
+      tenantId, // firestore.rules require this on projectChannels.create
       name,
       description,
       isDefault: false,

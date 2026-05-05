@@ -104,7 +104,8 @@ export default function NewServicePage() {
           isActive: true,
           isStandard,
         },
-        user.uid
+        user.uid,
+        tenantId
       );
 
       setSnackbar({ open: true, message: 'Service created successfully' });

@@ -196,7 +196,8 @@ export default function ServicePickerDialog({
           isActive: true,
           isStandard: false,
         },
-        user.uid
+        user.uid,
+        tenantId
       );
       onSelect(created);
       onClose();

@@ -36,6 +36,7 @@ export async function initializeChartOfAccounts(
   tenantId: string,
   forceReinit = false
 ): Promise<InitializationResult> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   if (!tenantId) {
     return { success: false, accountsCreated: 0, error: 'tenantId is required' };
   }

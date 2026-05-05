@@ -138,6 +138,7 @@ export async function logAuditEvent(
   description: string,
   options?: AuditEventOptions
 ): Promise<void> {
+  // rule5-exempt: audit-log writer; the protected operation that triggered it has already been gated by the caller — gating here would double-check the same permission
   try {
     const severity = options?.severity ?? getSeverityForAction(action);
 

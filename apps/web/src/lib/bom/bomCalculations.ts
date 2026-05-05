@@ -256,6 +256,7 @@ export async function calculateAndUpdateItemCost(
   item: BOMItem,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
   try {
     const calculation = await calculateItemCost(db, item);
 

@@ -181,6 +181,7 @@ export async function saveTravelExpenseReportPDF(
   userId: string,
   options?: GeneratePDFOptions
 ): Promise<string> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db, storage } = getFirebase();
 
   try {

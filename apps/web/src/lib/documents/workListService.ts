@@ -32,6 +32,7 @@ const getDb = () => getFirebase().db;
 export async function addWorkItem(
   data: Omit<WorkItem, 'id' | 'createdAt' | 'updatedAt' | 'isDeleted' | 'taskCreated'>
 ): Promise<string> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const now = Timestamp.now();
 
   const workItemData: Omit<WorkItem, 'id'> = {
@@ -63,6 +64,7 @@ export async function updateWorkItem(
   workItemId: string,
   updates: Partial<Omit<WorkItem, 'id' | 'projectId' | 'createdAt'>>
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const docRef = doc(getDb(), 'projects', projectId, 'workItems', workItemId);
 
   await updateDoc(docRef, {

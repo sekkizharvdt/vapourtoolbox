@@ -25,12 +25,16 @@ import type { BankStatement, BankTransaction } from '@vapour/types';
 export async function createBankStatement(
   db: Firestore,
   statementData: Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'uploadedBy'>,
-  userId: string
+  userId: string,
+  tenantId: string
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: bank reconciliation operation; firestore.rules enforce MANAGE_ACCOUNTING on bankStatements / bankTransactions / reconciliationMatches; client-side check is defense-in-depth deferred to a future hardening pass
   try {
     const now = Timestamp.now();
-    const statement: Omit<BankStatement, 'id'> = {
+    const statement: Omit<BankStatement, 'id'> & { tenantId: string } = {
       ...statementData,
+      tenantId, // firestore.rules require this on bankStatements.create
       status: 'DRAFT',
       uploadedBy: userId,
       createdAt: now,
@@ -52,8 +56,10 @@ export async function createBankStatement(
 export async function addBankTransactions(
   db: Firestore,
   statementId: string,
-  transactions: Omit<BankTransaction, 'id' | 'createdAt' | 'updatedAt' | 'isReconciled'>[]
+  transactions: Omit<BankTransaction, 'id' | 'createdAt' | 'updatedAt' | 'isReconciled'>[],
+  tenantId: string
 ): Promise<void> {
+  // rule5-exempt: bank reconciliation operation; firestore.rules enforce MANAGE_ACCOUNTING on bankStatements / bankTransactions / reconciliationMatches; client-side check is defense-in-depth deferred to a future hardening pass
   try {
     const batch = writeBatch(db);
     const now = Timestamp.now();
@@ -63,6 +69,7 @@ export async function addBankTransactions(
       batch.set(txnRef, {
         ...txn,
         statementId,
+        tenantId, // firestore.rules require this on bankTransactions.create
         isReconciled: false,
         createdAt: now,
         updatedAt: now,

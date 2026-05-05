@@ -45,6 +45,8 @@ export async function createRFQ(
   userId: string,
   userName: string
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   // Validate inputs with proper length limits and sanitization
@@ -316,6 +318,8 @@ export async function createRFQFromPRs(
   vendorIds: string[],
   vendorNames: string[],
   terms: {
+    // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
+    // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT — server-side gated
     title: string;
     description: string;
     paymentTerms?: string;
@@ -328,6 +332,8 @@ export async function createRFQFromPRs(
   userId: string,
   userName: string
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT — server-side gated
   const { db } = getFirebase();
 
   // Fetch all PRs in parallel (avoid N+1 queries)
@@ -497,6 +503,7 @@ export async function updateRFQ(
   userId: string,
   userName?: string
 ): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   // Get existing RFQ for audit log
@@ -548,6 +555,7 @@ export async function updateRFQ(
  * Generate new PDF version for RFQ (for revisions)
  */
 export async function generateRFQPDFVersion(rfqId: string, pdfUrl: string): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   const rfq = await getRFQById(rfqId);

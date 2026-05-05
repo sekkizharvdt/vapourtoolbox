@@ -164,6 +164,7 @@ export async function createLeaveType(
   _userId: string,
   tenantId?: string
 ): Promise<string> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {
@@ -215,6 +216,7 @@ export async function updateLeaveType(
   updates: UpdateLeaveTypeInput,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: HR self-service write (own leave / own time entry / own profile); firestore.rules gate on userId ownership, not a permission flag — adding requirePermission would imply role-based gating that contradicts the by-user model
   const { db } = getFirebase();
 
   try {

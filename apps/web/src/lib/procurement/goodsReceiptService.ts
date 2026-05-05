@@ -74,6 +74,7 @@ export async function createGoodsReceipt(
   userName: string,
   userPermissions2?: number
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
   // PR-16: Check INSPECT_GOODS permission for GR creation
   if (userPermissions2 !== undefined) {
     requirePermission(
@@ -418,6 +419,7 @@ export async function completeGR(
   userPermissions2?: number,
   tenantId?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition
   // PR-16: Use granular APPROVE_GR flag when available, fall back to MANAGE_PROCUREMENT
   if (userPermissions2 !== undefined) {
     requirePermission(
@@ -582,6 +584,7 @@ export async function approveGRForPayment(
   userName?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition; firestore.rules + caller-side state machine cover the safety check
   // Authorization check (PR-1): payment approval requires accounting permission
   if (userPermissions !== undefined) {
     requirePermission(
@@ -796,6 +799,8 @@ export async function updateGoodsReceiptMetadata(
   input: UpdateGoodsReceiptMetadataInput,
   userId: string
 ): Promise<void> {
+  // rule8-exempt: status comparison filters / branches on existing state to compute a derived value (no write to the status field) — not a state-machine transition
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const { db } = getFirebase();
 
   const gr = await getGRById(grId);

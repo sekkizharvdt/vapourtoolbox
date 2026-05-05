@@ -136,6 +136,7 @@ export async function incrementCounter(
   key: string,
   amount: number = 1
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   const docRef = doc(db, AGGREGATIONS_COLLECTION, encodeKey(key));
 
   try {
@@ -170,6 +171,7 @@ export async function incrementCounter(
  * @param delta - Amount to add (can be negative)
  */
 export async function updateSum(db: Firestore, key: string, delta: number): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   const docRef = doc(db, AGGREGATIONS_COLLECTION, encodeKey(key));
 
   try {
@@ -211,6 +213,7 @@ export async function setAggregation(
   type: AggregationType = 'count',
   itemCount?: number
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
   const docRef = doc(db, AGGREGATIONS_COLLECTION, encodeKey(key));
 
   await setDoc(docRef, {

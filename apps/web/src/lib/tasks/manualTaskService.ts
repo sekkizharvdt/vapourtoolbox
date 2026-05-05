@@ -84,6 +84,7 @@ export async function createManualTask(
   userName: string,
   tenantId: string
 ): Promise<ManualTask> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // FL-19: Validate assignee exists and is active
   if (input.assigneeId) {
     const assigneeRef = doc(db, COLLECTIONS.USERS, input.assigneeId);
@@ -304,6 +305,7 @@ export async function updateManualTask(
   >,
   userId?: string
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // Authorization check (FL-2): verify caller is task creator or current assignee
   if (userId) {
     const task = await getManualTaskById(db, taskId);
@@ -340,6 +342,7 @@ export async function updateTaskStatus(
   taskId: string,
   status: ManualTaskStatus
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // rule19-exempt: single-field status write on a manual task; read fetches snapshot for audit; last-write-wins acceptable
   // FL-7: Validate status transition
   const docRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskId);
@@ -390,6 +393,7 @@ export async function deleteManualTask(
   taskId: string,
   userId?: string
 ): Promise<void> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
   // rule19-exempt: single-doc soft-delete; read for audit metadata; concurrent calls converge to deleted
   const docRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskId);
 

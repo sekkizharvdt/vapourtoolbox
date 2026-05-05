@@ -70,6 +70,8 @@ export async function createAmendment(
   userName: string,
   tenantId?: string
 ): Promise<string> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   try {
     // Get the current PO
     const poDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, purchaseOrderId));
@@ -159,6 +161,8 @@ export async function submitAmendmentForApproval(
   ipAddress?: string,
   userAgent?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validated the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT — server-side gated
   // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   try {
     const amendmentRef = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId);
@@ -234,6 +238,7 @@ export async function approveAmendment(
   userAgent?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   // Authorization check (PR-4)
   if (userPermissions !== undefined) {
@@ -369,6 +374,7 @@ export async function rejectAmendment(
   userAgent?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   // Authorization check (PR-4)
   if (userPermissions !== undefined) {

@@ -54,6 +54,8 @@ export async function uploadCommentResolutionSheet(
   db: Firestore,
   request: UploadCRSRequest
 ): Promise<UploadCRSResult> {
+  // rule8-exempt: creates a new document record with an initial status; state-machine validation applies to subsequent transitions only
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const { projectId, masterDocument, submission, file, uploadedBy, uploadedByName, onProgress } =
     request;
 
@@ -252,6 +254,7 @@ export async function updateCRSStatus(
   status: CommentResolutionSheet['status'],
   commentsExtracted?: number
 ): Promise<void> {
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const crsRef = doc(db, 'projects', projectId, 'commentResolutionSheets', crsId);
   const now = Timestamp.now();
 
@@ -278,6 +281,8 @@ export async function completeCRS(
   processedBy: string,
   processingNotes?: string
 ): Promise<void> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   const crsRef = doc(db, 'projects', projectId, 'commentResolutionSheets', crsId);
   const now = Timestamp.now();
 

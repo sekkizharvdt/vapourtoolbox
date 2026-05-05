@@ -25,6 +25,8 @@ export async function convertProposalToProject(
   userName: string,
   proposal: Proposal
 ): Promise<string> {
+  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   try {
     logger.info('Converting proposal to project', { proposalId, userId });
 

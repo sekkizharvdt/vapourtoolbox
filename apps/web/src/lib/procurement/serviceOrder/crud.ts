@@ -71,6 +71,8 @@ export async function createServiceOrder(
   userName: string,
   tenantId: string
 ): Promise<ServiceOrder> {
+  // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const number = await generateServiceOrderNumber(db);
   const now = Timestamp.now();
 
@@ -163,6 +165,7 @@ export async function updateServiceOrderStatus(
   userId: string,
   updates?: Partial<ServiceOrder>
 ): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   // rule19-exempt: single-field status write driven by user action; read fetches current snapshot for audit; last-write-wins acceptable
   const soRef = doc(db, COLLECTIONS.SERVICE_ORDERS, soId);
   const snap = await getDoc(soRef);
@@ -201,6 +204,7 @@ export async function updateServiceOrder(
   updates: Partial<Omit<ServiceOrder, 'id' | 'number' | 'createdAt' | 'createdBy'>>,
   userId: string
 ): Promise<void> {
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
   const soRef = doc(db, COLLECTIONS.SERVICE_ORDERS, soId);
   await updateDoc(soRef, {
     ...updates,
