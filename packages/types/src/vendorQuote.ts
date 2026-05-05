@@ -181,6 +181,13 @@ export interface VendorQuote {
   /** False when archived / no longer relevant. */
   isActive: boolean;
 
+  // --- Soft delete (matches procurementDeleteService pattern) -------------
+
+  /** True after the user soft-deletes the quote. List views must filter these out client-side per CLAUDE.md rule #3. */
+  isDeleted?: boolean;
+  deletedAt?: Timestamp;
+  deletedBy?: string;
+
   // --- Audit ---------------------------------------------------------------
 
   createdBy: string;

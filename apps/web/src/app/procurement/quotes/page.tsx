@@ -25,6 +25,7 @@ import {
   Card,
   Chip,
   FormControl,
+  IconButton,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -38,11 +39,13 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import {
   Add as AddIcon,
+  Delete as DeleteIcon,
   Search as SearchIcon,
   Home as HomeIcon,
   BookmarkAdded as StandingIcon,
@@ -52,7 +55,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import type { VendorQuote, QuoteStatus, QuoteSourceType } from '@vapour/types';
 import { listVendorQuotes } from '@/lib/vendorQuotes/vendorQuoteService';
-import { canManageEstimation } from '@vapour/constants';
+import { softDeleteVendorQuote } from '@/lib/procurement/procurementDeleteService';
+import { canManageEstimation, canManageProcurement } from '@vapour/constants';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' | 'warning'>> = {
   DRAFT: 'default',
@@ -92,15 +97,18 @@ function formatDate(ts: unknown): string {
 
 export default function QuotesListPage() {
   const router = useRouter();
-  const { claims } = useAuth();
+  const { user, claims } = useAuth();
   const { db } = getFirebase();
+  const { confirm } = useConfirmDialog();
 
   const [quotes, setQuotes] = useState<VendorQuote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'ALL' | QuoteSourceType>('ALL');
 
   const canManage = claims?.permissions ? canManageEstimation(claims.permissions) : false;
+  const canDelete = claims?.permissions ? canManageProcurement(claims.permissions) : false;
 
   const loadQuotes = useCallback(async () => {
     try {
@@ -120,6 +128,47 @@ export default function QuotesListPage() {
   useEffect(() => {
     loadQuotes();
   }, [loadQuotes]);
+
+  const handleDelete = useCallback(
+    async (quote: VendorQuote, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!user) return;
+
+      const confirmed = await confirm({
+        title: 'Delete vendor quote',
+        message: `Move quote ${quote.number} (${quote.vendorName}) to trash? You can restore it later from the Trash page.`,
+        confirmText: 'Delete',
+        confirmColor: 'error',
+        focusConfirm: false,
+      });
+      if (!confirmed) return;
+
+      setDeletingId(quote.id);
+      try {
+        const result = await softDeleteVendorQuote(db, {
+          id: quote.id,
+          userId: user.uid,
+          userName: user.displayName || user.email || 'Unknown',
+          ...(claims?.permissions !== undefined && { userPermissions: claims.permissions }),
+        });
+        if (!result.success) {
+          await confirm({
+            title: 'Delete failed',
+            message: result.error || 'Could not delete the quote.',
+            confirmText: 'OK',
+            cancelText: '',
+            focusConfirm: true,
+          });
+          return;
+        }
+        // Optimistic local removal so the row disappears without a full reload.
+        setQuotes((prev) => prev.filter((q) => q.id !== quote.id));
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [confirm, db, user, claims?.permissions]
+  );
 
   const filtered = quotes.filter((q) => {
     if (sourceFilter !== 'ALL' && q.sourceType !== sourceFilter) return false;
@@ -225,6 +274,7 @@ export default function QuotesListPage() {
                   <TableCell align="center">Accepted</TableCell>
                   <TableCell align="right">Total ({quotes[0]?.currency ?? 'INR'})</TableCell>
                   <TableCell>Status</TableCell>
+                  {canDelete && <TableCell align="right">Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -258,6 +308,23 @@ export default function QuotesListPage() {
                         color={STATUS_COLORS[q.status] ?? 'default'}
                       />
                     </TableCell>
+                    {canDelete && (
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <Tooltip title="Delete quote">
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={deletingId === q.id}
+                              onClick={(e) => handleDelete(q, e)}
+                              aria-label={`Delete quote ${q.number}`}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

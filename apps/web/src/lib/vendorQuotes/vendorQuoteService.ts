@@ -366,6 +366,9 @@ export async function listVendorQuotes(
   if (filters.activeOnly !== false) {
     quotes = quotes.filter((q) => q.isActive !== false);
   }
+  // Soft-deleted quotes are always hidden from regular list views — only the
+  // Trash page surfaces them. Client-side filter per CLAUDE.md rule #3.
+  quotes = quotes.filter((q) => q.isDeleted !== true);
   return quotes;
 }
 

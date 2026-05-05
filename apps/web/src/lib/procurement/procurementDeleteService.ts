@@ -498,6 +498,88 @@ export async function softDeleteAmendment(
   }
 }
 
+// --- Vendor Quote ---
+
+/**
+ * Soft-delete a Vendor Quote. SELECTED (winning) quotes and PO_CREATED
+ * quotes have downstream dependencies (PO line items, accepted prices) and
+ * can't be deleted from the dashboard — those need an explicit "withdraw"
+ * flow. Every other status is fair game during normal trial use.
+ */
+export async function softDeleteVendorQuote(
+  db: Firestore,
+  input: ProcurementSoftDeleteInput
+): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
+  const { id, userId, userName, userPermissions } = input;
+
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'delete vendor quote'
+    );
+  }
+
+  try {
+    const ref = doc(db, COLLECTIONS.VENDOR_QUOTES, id);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      return { success: false, id, error: 'Vendor Quote not found' };
+    }
+
+    const data = snap.data();
+
+    const quoteDeletableStatuses = ['DRAFT', 'UPLOADED', 'UNDER_REVIEW', 'EVALUATED', 'ARCHIVED'];
+    if (!quoteDeletableStatuses.includes(data.status)) {
+      return {
+        success: false,
+        id,
+        error: 'Selected or PO-converted quotes cannot be deleted from the dashboard',
+      };
+    }
+
+    if (data.isDeleted) {
+      return { success: false, id, error: 'Vendor Quote is already deleted' };
+    }
+
+    await updateDoc(ref, {
+      isDeleted: true,
+      deletedAt: Timestamp.now(),
+      deletedBy: userId,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    const auditContext = createAuditContext(userId, '', userName);
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'DOCUMENT_DELETED',
+        'QUOTATION',
+        id,
+        `Vendor Quote moved to trash: ${data.number || id}`,
+        { severity: 'INFO', metadata: { number: data.number, status: data.status } }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to write audit log for vendor quote soft delete', { auditError, id });
+    }
+
+    logger.info('Vendor Quote soft deleted', { id, number: data.number });
+    return { success: true, id };
+  } catch (error) {
+    logger.error('Error soft deleting vendor quote', { id, error });
+    return {
+      success: false,
+      id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
 // --- Restore (generic for all procurement collections) ---
 
 import type { AuditEntityType } from '@vapour/types';
@@ -510,6 +592,7 @@ const COLLECTION_TO_ENTITY_TYPE: Record<string, AuditEntityType> = {
   [COLLECTIONS.GOODS_RECEIPTS]: 'GOODS_RECEIPT',
   [COLLECTIONS.PACKING_LISTS]: 'PACKING_LIST',
   [COLLECTIONS.PURCHASE_ORDER_AMENDMENTS]: 'PURCHASE_ORDER_AMENDMENT',
+  [COLLECTIONS.VENDOR_QUOTES]: 'QUOTATION',
 };
 
 /**
