@@ -64,13 +64,21 @@ import { httpsCallable, getFunctions } from 'firebase/functions';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import type { CurrencyCode, Material, MaterialVariant, RFQ, Service } from '@vapour/types';
+import type {
+  BoughtOutItem,
+  CurrencyCode,
+  Material,
+  MaterialVariant,
+  RFQ,
+  Service,
+} from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { createVendorQuote } from '@/lib/vendorQuotes';
 import type { CreateVendorQuoteItemInput } from '@/lib/vendorQuotes';
 import { listRFQs } from '@/lib/procurement/rfq';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
+import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
 
 interface RFQOption {
   id: string;
@@ -154,6 +162,7 @@ export default function NewProcurementQuotePage() {
   // Picker state
   const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [boughtOutPickerOpen, setBoughtOutPickerOpen] = useState(false);
   const [pickerRowIndex, setPickerRowIndex] = useState<number>(-1);
 
   // Load RFQ options for the optional picker.
@@ -423,8 +432,8 @@ export default function NewProcurementQuotePage() {
     if (!row) return;
     setPickerRowIndex(index);
     if (row.itemType === 'SERVICE') setServicePickerOpen(true);
-    else if (row.itemType === 'MATERIAL' || row.itemType === 'BOUGHT_OUT')
-      setMaterialPickerOpen(true);
+    else if (row.itemType === 'BOUGHT_OUT') setBoughtOutPickerOpen(true);
+    else if (row.itemType === 'MATERIAL') setMaterialPickerOpen(true);
   };
 
   const handleMaterialPicked = (
@@ -464,6 +473,26 @@ export default function NewProcurementQuotePage() {
       return next;
     });
     setServicePickerOpen(false);
+  };
+
+  const handleBoughtOutPicked = (item: BoughtOutItem) => {
+    if (pickerRowIndex < 0) return;
+    setLineItems((prev) => {
+      const next = [...prev];
+      const row = next[pickerRowIndex];
+      if (!row) return prev;
+      next[pickerRowIndex] = {
+        ...row,
+        boughtOutItemId: item.id,
+        linkedItemCode: item.specCode || item.itemCode,
+        linkedItemName: item.name,
+        // Clear AI-resolution flags; user has manually linked.
+        linkStatus: 'linked',
+        linkReason: undefined,
+      };
+      return next;
+    });
+    setBoughtOutPickerOpen(false);
   };
 
   const isRowLinked = (row: LineItemRow): boolean => {
@@ -1135,6 +1164,13 @@ export default function NewProcurementQuotePage() {
             ...(row.unitPrice && { defaultRateValue: row.unitPrice }),
           };
         })()}
+      />
+      <BoughtOutPickerDialog
+        open={boughtOutPickerOpen}
+        onClose={() => setBoughtOutPickerOpen(false)}
+        onSelect={handleBoughtOutPicked}
+        tenantId={claims?.tenantId || 'default-entity'}
+        title="Link line item to bought-out master"
       />
     </>
   );
