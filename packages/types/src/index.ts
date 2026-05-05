@@ -40,3 +40,4 @@ export * from './paymentPlanning';
 export * from './paymentBatch';
 export * from './fixedAsset';
 export * from './vendorQuote';
+export * from './agent';

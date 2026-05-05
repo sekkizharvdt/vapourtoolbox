@@ -161,6 +161,11 @@ export const COLLECTIONS = {
   // System Admin
   SYSTEM_STATUS: 'systemStatus', // Package versions, security status (super-admin only)
   FEEDBACK: 'feedback', // User feedback, bug reports, feature requests
+
+  // AI Agent foundation (AI-AGENT-ROADMAP-2026-04-25.md Phase 0 — Memory store)
+  AGENT_RUNS: 'agentRuns', // One row per orchestrator invocation; pairs with auditLogs.agentRunId
+  AGENT_MEMORY: 'agentMemory', // Long-term facts the agent reads at run start
+  AGENT_SESSIONS: 'agentSessions', // Multi-turn conversation threads
 } as const;
 
 /**

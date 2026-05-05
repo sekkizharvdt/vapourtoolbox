@@ -226,6 +226,11 @@ function checkServiceFiles() {
         '/accounting/entityLedger',
         '/accounting/dataHealth',
         '/pdf/',
+        // Agent memory + run services: entityId here links a memory row
+        // or a run's touched-entity list to a domain entity (vendor /
+        // project / PR / etc.) — same shape as auditLogs.entityId, not
+        // tenant scoping (tenantId is a separate field on these rows).
+        '/agent/',
       ];
 
       const suspicious = lines.filter((l) => !legitimatePaths.some((p) => l.includes(p)));

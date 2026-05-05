@@ -34,6 +34,7 @@ import type {
   TravelExpenseStatus,
   AssetStatus,
   MasterDocumentStatus,
+  AgentRunStatus,
 } from '@vapour/types';
 import type { ProposalStatus } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
@@ -375,6 +376,40 @@ const soConfig: StateTransitionConfig<ServiceOrderStatus> = {
 };
 export const serviceOrderStateMachine: StateMachine<ServiceOrderStatus> =
   createStateMachine(soConfig);
+
+// ============================================================================
+// Agent Run State Machine
+// (AI-AGENT-ROADMAP-2026-04-25.md Phase 0 — Memory store)
+// ============================================================================
+
+/**
+ * Agent run lifecycle:
+ *
+ * PENDING ──► RUNNING ──► AWAITING_HITL ──► RUNNING ──► COMPLETED
+ *                  │            │                  ╲
+ *                  │            └─► CANCELLED       └─► FAILED
+ *                  └─► FAILED, CANCELLED
+ *
+ * - PENDING       — queued; orchestrator hasn't picked it up
+ * - RUNNING       — actively executing tools
+ * - AWAITING_HITL — paused for a human approval request
+ * - COMPLETED     — terminal: succeeded
+ * - FAILED        — terminal: hit an unrecoverable error
+ * - CANCELLED     — terminal: HITL rejection or explicit abort
+ */
+const agentRunConfig: StateTransitionConfig<AgentRunStatus> = {
+  transitions: {
+    PENDING: ['RUNNING', 'CANCELLED'],
+    RUNNING: ['AWAITING_HITL', 'COMPLETED', 'FAILED', 'CANCELLED'],
+    AWAITING_HITL: ['RUNNING', 'CANCELLED', 'FAILED'],
+    COMPLETED: [], // Terminal
+    FAILED: [], // Terminal
+    CANCELLED: [], // Terminal
+  },
+  terminalStates: ['COMPLETED', 'FAILED', 'CANCELLED'],
+};
+export const agentRunStateMachine: StateMachine<AgentRunStatus> =
+  createStateMachine(agentRunConfig);
 
 // ============================================================================
 // Helper Functions
