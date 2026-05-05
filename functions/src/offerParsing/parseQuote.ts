@@ -370,18 +370,18 @@ export const parseQuote = onCall(
     // new ones (flagged needsReview). Non-equipment lines pass through; the
     // user picks manually for materials and services.
     //
-    // Auto-create is gated on MANAGE_BOUGHT_OUT_DB (permissions2 bit 5 = 32):
-    // procurement users can parse and link, but only master-data stewards
-    // can mint a fresh catalog record. A user without the flag still gets
-    // every linked match; misses come back as manual-needed.
+    // Auto-create is unconditional for any authenticated procurement user.
+    // New records are flagged `needsReview: true`; the master-data steward
+    // (MANAGE_BOUGHT_OUT_DB) clears that flag once the spec is verified.
+    // Gating creation itself was rejected because it leaves users stuck
+    // mid-quote when the master is incomplete — the review queue is the
+    // right control surface for keeping the catalog clean.
     const db = admin.firestore();
     let linkedCount = 0;
     let createdCount = 0;
     let manualCount = 0;
     const currency = (header.currency ?? 'INR').toUpperCase();
-    const permissions2 = Number(request.auth.token['permissions2'] ?? 0);
-    const MANAGE_BOUGHT_OUT_DB = 32;
-    const canAutoCreate = (permissions2 & MANAGE_BOUGHT_OUT_DB) === MANAGE_BOUGHT_OUT_DB;
+    const canAutoCreate = true;
 
     for (const item of items) {
       if (!item.boughtOutCategory) continue;
@@ -437,11 +437,6 @@ export const parseQuote = onCall(
     if (createdCount > 0) {
       warnings.push(
         `${createdCount} new bought-out item${createdCount === 1 ? '' : 's'} auto-created from this quote — review them in Bought-Out Items.`
-      );
-    }
-    if (!canAutoCreate && manualCount > 0) {
-      warnings.push(
-        'Auto-create of new bought-out items is disabled for your role — link or skip those rows manually.'
       );
     }
 

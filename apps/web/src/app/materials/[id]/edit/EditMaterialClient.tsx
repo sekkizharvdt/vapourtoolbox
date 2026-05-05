@@ -216,6 +216,10 @@ export default function EditMaterialClient() {
         tags: formData.tags,
         isStandard: formData.isStandard,
         trackInventory: formData.trackInventory,
+        // If this was an AI-auto-created stub waiting on review, the act of
+        // editing it counts as the review — drop the flag so it leaves the
+        // /materials/needs-review queue.
+        ...(material.needsReview === true && { needsReview: false }),
       };
 
       await updateMaterial(db, materialId, updates, user.uid);

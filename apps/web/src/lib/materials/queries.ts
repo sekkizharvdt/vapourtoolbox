@@ -41,6 +41,12 @@ export interface MaterialQueryOptions {
   hasDatasheet?: boolean;
   isActive?: boolean;
   isStandard?: boolean;
+  /**
+   * When true, return only records flagged for human review (AI-auto-created).
+   * Filtered client-side after the base query so we don't need a new
+   * (..., needsReview) composite index — the review queue is small.
+   */
+  needsReviewOnly?: boolean;
   sortField?: MaterialSortField;
   sortDirection?: MaterialSortDirection;
   limitResults?: number;
@@ -130,9 +136,14 @@ export async function queryMaterials(
     logger.debug('Materials query executed', { resultsCount: snapshot.size });
 
     // Extract materials
-    const materials: Material[] = snapshot.docs
+    let materials: Material[] = snapshot.docs
       .slice(0, limitResults)
       .map((doc) => docToTyped<Material>(doc.id, doc.data()));
+
+    // Apply needsReview filter client-side (no composite index needed).
+    if (options.needsReviewOnly) {
+      materials = materials.filter((m) => m.needsReview === true);
+    }
 
     // Check if there are more results
     const hasMore = snapshot.size > limitResults;

@@ -69,6 +69,12 @@ interface ParsedItem {
     overall: number;
   };
   sourceText?: string;
+  // Set by the server-side resolver — when present, the PR row is already
+  // master-linked and the user doesn't need to pick from the materials picker.
+  materialId?: string;
+  materialCode?: string;
+  linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
+  linkReason?: string;
 }
 
 interface ParsedHeader {
@@ -226,6 +232,11 @@ export default function DocumentParseDialog({
       equipmentCode: item.equipmentCode,
       specification: item.specification,
       makeModel: item.makeModel,
+      // Pass the resolved master link through; the PR form skips its picker
+      // requirement when materialId is set. Auto-created stubs show up in
+      // the materials Needs-Review queue.
+      ...(item.materialId && { materialId: item.materialId }),
+      ...(item.materialCode && { materialCode: item.materialCode }),
     }));
 
     onItemsImported(items);
@@ -467,9 +478,38 @@ export default function DocumentParseDialog({
                               autoFocus
                             />
                           ) : (
-                            <Tooltip title={item.sourceText || item.description}>
-                              <span>{item.description}</span>
-                            </Tooltip>
+                            <Stack direction="column" spacing={0.5}>
+                              <Tooltip title={item.sourceText || item.description}>
+                                <span>{item.description}</span>
+                              </Tooltip>
+                              {item.linkStatus === 'linked' && (
+                                <Chip
+                                  size="small"
+                                  variant="outlined"
+                                  color="success"
+                                  label={`Linked: ${item.materialCode ?? 'master'}`}
+                                  sx={{ alignSelf: 'flex-start' }}
+                                />
+                              )}
+                              {item.linkStatus === 'auto-created' && (
+                                <Chip
+                                  size="small"
+                                  variant="outlined"
+                                  color="warning"
+                                  label={`Auto-created · review (${item.materialCode ?? 'new'})`}
+                                  sx={{ alignSelf: 'flex-start' }}
+                                />
+                              )}
+                              {item.linkStatus === 'manual-needed' && (
+                                <Chip
+                                  size="small"
+                                  variant="outlined"
+                                  color="default"
+                                  label={item.linkReason ?? 'Pick from master'}
+                                  sx={{ alignSelf: 'flex-start' }}
+                                />
+                              )}
+                            </Stack>
                           )}
                         </TableCell>
                         <TableCell>

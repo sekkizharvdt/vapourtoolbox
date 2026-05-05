@@ -13,6 +13,7 @@ import {
   Speed as InstrumentsIcon,
   Science as ConsumablesIcon,
   RequestQuote as VendorOffersIcon,
+  RateReview as ReviewIcon,
 } from '@mui/icons-material';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
@@ -35,6 +36,7 @@ interface MaterialCounts {
   structural: number;
   consumables: number;
   vendorOffers: number;
+  needsReview: number;
 }
 
 const VALVE_CATEGORIES = [
@@ -83,6 +85,7 @@ export default function MaterialsPage() {
     structural: 0,
     consumables: 0,
     vendorOffers: 0,
+    needsReview: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -142,7 +145,14 @@ export default function MaterialsPage() {
         );
         const voCount = await getCountFromServer(voQuery);
 
-        const keys = Object.keys(queries) as (keyof MaterialCounts)[];
+        // AI-auto-created records waiting for human review of the spec.
+        const reviewQuery = query(col, where('needsReview', '==', true));
+        const reviewCount = await getCountFromServer(reviewQuery);
+
+        const keys = Object.keys(queries) as Exclude<
+          keyof MaterialCounts,
+          'vendorOffers' | 'needsReview'
+        >[];
         const newCounts: MaterialCounts = {
           plates: 0,
           pipes: 0,
@@ -155,6 +165,7 @@ export default function MaterialsPage() {
           structural: 0,
           consumables: 0,
           vendorOffers: voCount.data().count ?? 0,
+          needsReview: reviewCount.data().count ?? 0,
         };
         keys.forEach((key, i) => {
           newCounts[key] = results[i]?.data().count ?? 0;
@@ -273,6 +284,17 @@ export default function MaterialsPage() {
       path: '/procurement/quotes',
       count: counts.vendorOffers,
       countLabel: 'quotes',
+      countLoading: loading,
+    },
+    {
+      id: 'needs-review',
+      title: 'Needs Review',
+      description:
+        'AI-auto-created materials from PR / quote imports. Open each to normalize the spec and clear the review flag.',
+      icon: <ReviewIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
+      path: '/materials/needs-review',
+      count: counts.needsReview,
+      countLabel: 'pending',
       countLoading: loading,
     },
   ];

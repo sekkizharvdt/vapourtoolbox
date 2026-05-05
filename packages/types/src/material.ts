@@ -95,6 +95,14 @@ export interface Material {
   // Migration flag (old subcollection-based parent docs)
   isMigrated?: boolean;
 
+  /**
+   * Set true when the AI document parser auto-creates this record so a
+   * human verifies the spec before the data spreads. Mirrors the same flag
+   * on `BoughtOutItem`. Cleared on review; the materials list/picker can
+   * filter by this flag to surface the queue.
+   */
+  needsReview?: boolean;
+
   // Audit
   createdAt: Timestamp;
   createdBy: string;
@@ -547,20 +555,13 @@ export const PICKER_CATEGORY_GROUPS: Array<{
     pipingMode: false,
   },
   {
-    key: 'desalination',
-    label: 'Desalination Components',
+    key: 'other',
+    label: 'Other',
     categories: [
       MaterialCategory.RUBBER_GROMMET,
       MaterialCategory.DEMISTER_PAD,
       MaterialCategory.SPRAY_NOZZLE,
       MaterialCategory.EXPANSION_BELLOWS,
-    ],
-    pipingMode: false,
-  },
-  {
-    key: 'other',
-    label: 'Other',
-    categories: [
       MaterialCategory.PUMP_CENTRIFUGAL,
       MaterialCategory.PUMP_POSITIVE_DISPLACEMENT,
       MaterialCategory.MOTORS,

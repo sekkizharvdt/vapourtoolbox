@@ -12,6 +12,7 @@ import { logger } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
 import Anthropic from '@anthropic-ai/sdk';
 import * as admin from 'firebase-admin';
+import { resolveMaterial } from './materialResolver';
 
 // Reuse the same secret the offer parser uses
 export const anthropicApiKey = defineSecret('ANTHROPIC_API_KEY');
@@ -34,6 +35,12 @@ interface ParsedPRLineItem {
     overall: number;
   };
   sourceText?: string;
+  // Resolution against the materials master, attached after Claude returns.
+  materialId?: string;
+  materialCode?: string;
+  /** 'linked' = matched existing master, 'auto-created' = new stub flagged needsReview, 'manual-needed' = neither (rare). */
+  linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
+  linkReason?: string;
 }
 
 interface ParsedPRHeader {
@@ -75,6 +82,8 @@ export interface ClaudePRParseRequest {
     existingEquipmentCodes?: string[];
   };
   userId: string;
+  /** Required for the materials resolver to write tenant-scoped stubs. */
+  tenantId?: string;
 }
 
 const PR_PARSING_PROMPT = `You are a document parsing assistant specialized in extracting structured data from internal Purchase Request source documents (engineering BOMs, material take-offs, spec sheets, drawings) for EPC projects.
@@ -335,6 +344,55 @@ export async function parseDocumentWithClaude(
       warnings.push(`${lowConfidenceItems} item(s) have low confidence and may need review.`);
     }
 
+    // Resolve each parsed line against the materials master — auto-link
+    // existing matches, auto-create stubs (flagged needsReview) for misses.
+    // The PR client uses the returned materialId so save isn't blocked by
+    // an incomplete master. SERVICE items skip the resolver.
+    const db = admin.firestore();
+    let linkedMaterials = 0;
+    let autoCreatedMaterials = 0;
+    let manualMaterials = 0;
+    const isServiceParse = request.context?.category === 'SERVICE';
+
+    if (!isServiceParse) {
+      for (const line of items) {
+        try {
+          const result = await resolveMaterial(db, {
+            name: line.description,
+            ...(line.specification && { specification: line.specification }),
+            baseUnit: line.unit,
+            userId: request.userId,
+            ...(request.tenantId && { tenantId: request.tenantId }),
+          });
+          if (result.status === 'manual-needed') {
+            line.linkStatus = 'manual-needed';
+            line.linkReason = result.reason;
+            manualMaterials++;
+          } else {
+            line.linkStatus = result.status;
+            line.materialId = result.materialId;
+            line.materialCode = result.materialCode;
+            if (result.status === 'linked') linkedMaterials++;
+            else autoCreatedMaterials++;
+          }
+        } catch (err) {
+          logger.warn('[parseDocumentWithClaude] Material resolution failed', {
+            error: err instanceof Error ? err.message : String(err),
+            description: line.description,
+          });
+          line.linkStatus = 'manual-needed';
+          line.linkReason = 'Resolver error — pick from master manually';
+          manualMaterials++;
+        }
+      }
+
+      if (autoCreatedMaterials > 0) {
+        warnings.push(
+          `${autoCreatedMaterials} new material${autoCreatedMaterials === 1 ? '' : 's'} auto-created from this document — review them in Materials.`
+        );
+      }
+    }
+
     const processingTimeMs = Date.now() - startTime;
 
     try {
@@ -368,6 +426,9 @@ export async function parseDocumentWithClaude(
       highConfidenceItems,
       lowConfidenceItems,
       processingTimeMs,
+      materialResolution: isServiceParse
+        ? 'skipped (SERVICE)'
+        : { linked: linkedMaterials, autoCreated: autoCreatedMaterials, manual: manualMaterials },
     });
 
     return {

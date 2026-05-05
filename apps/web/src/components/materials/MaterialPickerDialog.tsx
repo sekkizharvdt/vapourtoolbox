@@ -160,6 +160,15 @@ export default function MaterialPickerDialog({
     return firstCat ? getPipingCategory(firstCat) : 'OTHER';
   }, [selectedGroup]);
 
+  // Scope the inline-create category dropdown to whatever the user is
+  // currently browsing, so a material created from inside a group always
+  // lands in that same group when the user goes looking for it later.
+  const allowedCreateCategories = useMemo<MaterialCategory[]>(() => {
+    if (selectedGroup) return selectedGroup.categories;
+    if (categories && categories.length > 0) return categories;
+    return Object.keys(MATERIAL_CATEGORY_LABELS) as MaterialCategory[];
+  }, [selectedGroup, categories]);
+
   // Reset ALL state when dialog opens
   useEffect(() => {
     if (open) {
@@ -486,9 +495,9 @@ export default function MaterialPickerDialog({
                   label="Category"
                   onChange={(e) => setCreateCategory(e.target.value as MaterialCategory)}
                 >
-                  {Object.entries(MATERIAL_CATEGORY_LABELS).map(([key, label]) => (
-                    <MenuItem key={key} value={key}>
-                      {label}
+                  {allowedCreateCategories.map((cat) => (
+                    <MenuItem key={cat} value={cat}>
+                      {MATERIAL_CATEGORY_LABELS[cat]}
                     </MenuItem>
                   ))}
                 </Select>

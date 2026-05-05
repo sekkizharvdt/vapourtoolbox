@@ -51,6 +51,11 @@ interface ParsedLineItem {
     overall: number;
   };
   sourceText?: string;
+  /** Resolution against the materials master (set server-side after Claude returns). */
+  materialId?: string;
+  materialCode?: string;
+  linkStatus?: 'linked' | 'auto-created' | 'manual-needed';
+  linkReason?: string;
 }
 
 interface ParsedPRHeader {
@@ -575,6 +580,7 @@ export const parseDocumentForPR = onCall(
       }
 
       try {
+        const tenantId = request.auth.token['tenantId'];
         const claudeResult = await parseDocumentWithClaude({
           fileName: data.fileName,
           storagePath: data.storagePath,
@@ -582,6 +588,7 @@ export const parseDocumentForPR = onCall(
           fileSize: data.fileSize,
           context: data.context,
           userId: request.auth.uid,
+          ...(typeof tenantId === 'string' && tenantId ? { tenantId } : {}),
         });
 
         const processingTimeMs = Date.now() - startTime;
