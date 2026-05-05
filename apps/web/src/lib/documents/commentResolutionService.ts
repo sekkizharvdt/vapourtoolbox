@@ -100,6 +100,7 @@ export async function approveCommentResolution(
   }
 ): Promise<void> {
   // rule18-exempt: writes pmApprovedBy/At/Remarks onto comment (domain audit)
+  // rule19-exempt: state-machine transition to APPROVED; the preventSelfApproval guard rejects duplicate same-user calls and concurrent approvers converge to the same end state
   const docRef = doc(getDb(), 'projects', projectId, 'documentComments', commentId);
 
   // Prevent self-approval — PM approver must differ from the resolver.

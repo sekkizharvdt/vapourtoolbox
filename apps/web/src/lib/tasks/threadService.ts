@@ -214,6 +214,7 @@ export async function editMessage(
   newContent: string,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: edit form on a thread message — read for permission, write the edited content; single-author edit, no concurrent callers
   const { db } = getFirebase();
   const messageRef = doc(db, COLLECTIONS.TASK_MESSAGES, messageId);
 

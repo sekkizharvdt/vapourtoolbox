@@ -438,6 +438,7 @@ export async function uploadEnquiryDocument(
   file: File,
   userId: string
 ): Promise<EnquiryDocument> {
+  // rule19-exempt: reads enquiry parent for permission/context, writes a document subdoc — different documents
   try {
     // 1. Upload file to Storage
     const fileName = `${Date.now()}_${file.name}`;
@@ -618,6 +619,7 @@ export async function reviseBidDecision(
   userId: string,
   userName: string
 ): Promise<Enquiry> {
+  // rule19-exempt: edit form for the bid decision on an enquiry — read fetches current decision; last-write-wins acceptable
   try {
     // Get current enquiry
     const enquiry = await getEnquiryById(db, enquiryId);
@@ -749,6 +751,7 @@ export async function deleteEnquiryDocument(
   documentId: string,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: reads enquiry parent for permission/context, writes a document subdoc — different documents
   // rule18-exempt: enquiry attachment removal — audit pending Phase 0 audit expansion
   try {
     // 1. Get enquiry to find file path

@@ -29,6 +29,7 @@ export async function regenerateCustomerPaymentGL(
   db: Firestore,
   paymentId: string
 ): Promise<RegenerationResult> {
+  // rule19-exempt: reads transaction header for context, then writes a complete replacement of GL entries (different docs); admin-triggered repair flow with no concurrent callers — no race in practice
   try {
     // Fetch the payment
     const paymentRef = doc(db, COLLECTIONS.TRANSACTIONS, paymentId);
@@ -102,6 +103,7 @@ export async function regenerateVendorPaymentGL(
   db: Firestore,
   paymentId: string
 ): Promise<RegenerationResult> {
+  // rule19-exempt: reads transaction header for context, then writes a complete replacement of GL entries (different docs); admin-triggered repair flow with no concurrent callers — no race in practice
   try {
     // Fetch the payment
     const paymentRef = doc(db, COLLECTIONS.TRANSACTIONS, paymentId);

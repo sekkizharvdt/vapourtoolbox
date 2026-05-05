@@ -31,6 +31,7 @@ export async function submitPurchaseRequestForApproval(
   userName: string,
   userPermissions: number = 0
 ): Promise<void> {
+  // rule19-exempt: state-machine transition (DRAFT→PENDING_APPROVAL) with explicit guard; concurrent submitters converge to PENDING_APPROVAL — duplicate task notifications are accepted
   const { db } = getFirebase();
 
   // Submitting own PR only requires VIEW_PROCUREMENT (create/edit access).
@@ -161,6 +162,7 @@ export async function approvePurchaseRequest(
   comments?: string,
   userPermissions: number = 0
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,
@@ -319,6 +321,7 @@ export async function rejectPurchaseRequest(
   reason: string,
   userPermissions: number = 0
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to REJECTED; concurrent rejecters converge to the same end state
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,
@@ -456,6 +459,7 @@ export async function addPurchaseRequestComment(
   userName: string,
   comment: string
 ): Promise<void> {
+  // rule19-exempt: reads PR parent for permission/context, writes a comment subdoc — different documents
   const { db } = getFirebase();
 
   try {

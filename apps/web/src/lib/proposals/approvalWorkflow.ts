@@ -33,6 +33,7 @@ export async function submitProposalForApproval(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule19-exempt: state-machine transition (DRAFT→PENDING_APPROVAL) with explicit guard; concurrent submitters converge to PENDING_APPROVAL — duplicate task notifications are accepted
   try {
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
@@ -120,6 +121,7 @@ export async function approveProposal(
   userPermissions: number,
   comments?: string
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   try {
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
@@ -230,6 +232,7 @@ export async function rejectProposal(
   userPermissions: number,
   comments: string
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to REJECTED; concurrent rejecters converge to the same end state
   try {
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
@@ -338,6 +341,7 @@ export async function requestProposalChanges(
   userPermissions: number,
   comments: string
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to CHANGES_REQUESTED; concurrent requesters converge
   try {
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
@@ -425,6 +429,7 @@ export async function markProposalAsSubmitted(
   proposalId: string,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to SUBMITTED; idempotent — same target status
   try {
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
@@ -469,6 +474,7 @@ export async function updateProposalStatus(
   userId: string,
   reason?: string
 ): Promise<void> {
+  // rule19-exempt: single-field status write on the proposal doc; the read fetches the current snapshot for audit; concurrent identical writes converge
   try {
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);

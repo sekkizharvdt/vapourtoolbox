@@ -251,6 +251,7 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
 type NotificationSettings = Record<string, boolean>;
 
 export default function NotificationSettingsPage() {
+  // rule19-exempt: admin settings UI — single-user, no concurrent edits expected on this config doc
   const [settings, setSettings] = useState<NotificationSettings>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

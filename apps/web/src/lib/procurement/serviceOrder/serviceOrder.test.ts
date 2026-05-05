@@ -112,7 +112,7 @@ describe('Service Order CRUD and Workflow', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 0 });
       mockAddDoc.mockResolvedValue({ id: 'so-new-id' });
 
-      const result = await createServiceOrder(mockDb, baseInput, userId, userName);
+      const result = await createServiceOrder(mockDb, baseInput, userId, userName, 'tenant-1');
 
       expect(result.id).toBe('so-new-id');
       expect(result.status).toBe('DRAFT');
@@ -128,7 +128,7 @@ describe('Service Order CRUD and Workflow', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 5 });
       mockAddDoc.mockResolvedValue({ id: 'so-new-id' });
 
-      const result = await createServiceOrder(mockDb, baseInput, userId, userName);
+      const result = await createServiceOrder(mockDb, baseInput, userId, userName, 'tenant-1');
 
       const now = new Date();
       const year = now.getFullYear();
@@ -140,7 +140,7 @@ describe('Service Order CRUD and Workflow', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 0 });
       mockAddDoc.mockResolvedValue({ id: 'so-new-id' });
 
-      const result = await createServiceOrder(mockDb, baseInput, userId, userName);
+      const result = await createServiceOrder(mockDb, baseInput, userId, userName, 'tenant-1');
 
       expect(result.projectId).toBe('project-001');
       expect(result.projectName).toBe('MED Plant');
@@ -163,7 +163,7 @@ describe('Service Order CRUD and Workflow', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 0 });
       mockAddDoc.mockResolvedValue({ id: 'so-new-id' });
 
-      const result = await createServiceOrder(mockDb, minimalInput, userId, userName);
+      const result = await createServiceOrder(mockDb, minimalInput, userId, userName, 'tenant-1');
 
       expect(result.projectId).toBeUndefined();
       expect(result.serviceId).toBeUndefined();
@@ -179,7 +179,7 @@ describe('Service Order CRUD and Workflow', () => {
       mockGetDocs.mockResolvedValueOnce({ size: 0 });
       mockAddDoc.mockResolvedValue({ id: 'so-new-id' });
 
-      await createServiceOrder(mockDb, inputWithDate, userId, userName);
+      await createServiceOrder(mockDb, inputWithDate, userId, userName, 'tenant-1');
 
       expect(mockTimestampFromDate).toHaveBeenCalledWith(new Date('2026-04-01'));
     });

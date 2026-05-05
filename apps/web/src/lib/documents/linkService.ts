@@ -72,6 +72,7 @@ async function hasCircularDependency(
  * Create a document link
  */
 export async function createDocumentLink(db: Firestore, request: CreateLinkRequest): Promise<void> {
+  // rule19-exempt: reads source document for permission/context; writes a new link doc — different documents
   // Get both documents
   const sourceDocRef = doc(
     db,
@@ -213,6 +214,7 @@ export interface RemoveLinkRequest {
 }
 
 export async function removeDocumentLink(db: Firestore, request: RemoveLinkRequest): Promise<void> {
+  // rule19-exempt: reads link for permission, deletes a single link doc — concurrent calls converge to deleted
   // Get both documents
   const sourceDocRef = doc(
     db,

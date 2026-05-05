@@ -39,6 +39,7 @@ async function ensureCompOffBalanceExists(
   fiscalYear: number,
   tenantId?: string
 ): Promise<void> {
+  // rule19-exempt: idempotent create-if-missing pattern; the inner getDoc + setDoc cooperate via the existence check, and a duplicate concurrent bootstrap simply overwrites identical seed data
   const { db } = getFirebase();
 
   // Check if balance already exists

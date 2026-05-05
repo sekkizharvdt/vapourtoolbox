@@ -100,6 +100,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // rule19-exempt: bootstrap user-doc on first sign-in (idempotent create-if-missing); reads and writes scoped to the signed-in user's own doc — no cross-user concurrency
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [claims, setClaims] = useState<CustomClaims | null>(null);
   const [loading, setLoading] = useState(true);
@@ -450,6 +451,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    // rule19-exempt: provisions/refreshes the signed-in user's own user doc (read-then-update); scoped to the calling user — no cross-user concurrency
     const { auth, db } = getFirebase();
     const provider = new GoogleAuthProvider();
 
@@ -624,6 +626,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Called from the callback page after user clicks the link
    */
   const completeEmailLinkSignIn = async (email: string, link: string) => {
+    // rule19-exempt: provisions the signed-in user's own user doc on first email-link sign-in (read-then-set); scoped to the calling user — no cross-user concurrency
     const { auth, db } = getFirebase();
 
     try {

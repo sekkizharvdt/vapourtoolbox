@@ -14,6 +14,7 @@ import {
   where,
   orderBy,
   limit,
+  increment,
   Timestamp,
   Firestore,
 } from 'firebase/firestore';
@@ -202,15 +203,10 @@ export async function deleteProposalTemplate(db: Firestore, templateId: string):
 export async function incrementTemplateUsage(db: Firestore, templateId: string): Promise<void> {
   try {
     const docRef = doc(db, COLLECTION, templateId);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const template = docSnap.data() as ProposalTemplate;
-      await updateDoc(docRef, {
-        usageCount: (template.usageCount || 0) + 1,
-        updatedAt: Timestamp.now(),
-      });
-    }
+    await updateDoc(docRef, {
+      usageCount: increment(1),
+      updatedAt: Timestamp.now(),
+    });
   } catch (error) {
     logger.error('Error incrementing template usage', { error, templateId });
     // Non-critical, don't throw

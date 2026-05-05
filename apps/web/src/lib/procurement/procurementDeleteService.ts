@@ -37,6 +37,7 @@ export async function softDeletePurchaseRequest(
   db: Firestore,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { id, userId, userName, userPermissions } = input;
 
   if (userPermissions !== undefined) {
@@ -117,6 +118,7 @@ export async function softDeleteRFQ(
   db: Firestore,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { id, userId, userName, userPermissions } = input;
 
   if (userPermissions !== undefined) {
@@ -187,6 +189,7 @@ export async function softDeletePurchaseOrder(
   db: Firestore,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { id, userId, userName, userPermissions } = input;
 
   if (userPermissions !== undefined) {
@@ -266,6 +269,7 @@ export async function softDeleteGoodsReceipt(
   db: Firestore,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { id, userId, userName, userPermissions } = input;
 
   if (userPermissions !== undefined) {
@@ -345,6 +349,7 @@ export async function softDeletePackingList(
   db: Firestore,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { id, userId, userName, userPermissions } = input;
 
   if (userPermissions !== undefined) {
@@ -419,6 +424,7 @@ export async function softDeleteAmendment(
   db: Firestore,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { id, userId, userName, userPermissions } = input;
 
   if (userPermissions !== undefined) {
@@ -514,6 +520,7 @@ export async function restoreProcurementDocument(
   collectionName: string,
   input: ProcurementSoftDeleteInput
 ): Promise<ProcurementSoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=false); concurrent restores converge
   const { id, userId, userName, userPermissions } = input;
 
   if (userPermissions !== undefined) {

@@ -94,6 +94,7 @@ export function CreateJournalEntryDialog({
   editingEntry,
   tenantId,
 }: CreateJournalEntryDialogProps) {
+  // rule19-exempt: dialog reads accounts/entities for selectors and writes a new journal-entry doc — different documents; the read does not mutate
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

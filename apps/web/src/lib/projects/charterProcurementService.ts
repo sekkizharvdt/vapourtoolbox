@@ -20,6 +20,7 @@ export async function addProcurementItem(
   item: Omit<ProcurementItem, 'id' | 'status'>,
   userId: string
 ): Promise<string> {
+  // rule19-exempt: reads charter parent for context, writes a procurement-item subdoc — different documents in the chain
   const { db } = getFirebase();
 
   try {
@@ -85,6 +86,7 @@ export async function updateProcurementItem(
   updates: Partial<ProcurementItem>,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: reads charter parent for context, writes a procurement-item subdoc — different documents in the chain
   const { db } = getFirebase();
 
   try {
@@ -124,6 +126,7 @@ export async function deleteProcurementItem(
   itemId: string,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: reads charter parent for context, writes a procurement-item subdoc — different documents in the chain
   // rule18-exempt: project config edit — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
 
@@ -392,6 +395,7 @@ export async function syncProcurementItemStatus(
   status: ProcurementItem['status'],
   linkedId?: string
 ): Promise<void> {
+  // rule19-exempt: single-field sync write driven by upstream PR/PO status; idempotent at terminal state
   const { db } = getFirebase();
 
   try {

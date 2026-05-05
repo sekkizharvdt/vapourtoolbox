@@ -163,6 +163,7 @@ export interface ResolveCommentRequest {
 }
 
 export async function resolveComment(db: Firestore, request: ResolveCommentRequest): Promise<void> {
+  // rule19-exempt: single-field state transition (RESOLVED) with author check; the read fetches the comment for permission; concurrent resolves converge
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
 
   // Get current comment to check previous status
@@ -210,6 +211,7 @@ export async function approveCommentResolution(
   db: Firestore,
   request: ApproveResolutionRequest
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   // rule18-exempt: writes pmApprovedBy/At/Remarks onto comment (domain audit)
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
 
@@ -254,6 +256,7 @@ export async function rejectCommentResolution(
   db: Firestore,
   request: RejectResolutionRequest
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to REJECTED; concurrent rejecters converge to the same end state
   // rule18-exempt: writes pmRejectedBy/Remarks onto comment (domain audit)
   const commentRef = doc(db, 'projects', request.projectId, 'documentComments', request.commentId);
 

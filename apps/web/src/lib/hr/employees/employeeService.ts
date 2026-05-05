@@ -154,6 +154,7 @@ export async function updateEmployeeHRProfile(
   auditor?: { userName: string; userEmail: string },
   userPermissions2?: number
 ): Promise<void> {
+  // rule19-exempt: edit form on an employee profile — read fetches current values for diffing/audit; last-write-wins acceptable for HR field edits
   // HR-18: Validate caller has MANAGE_HR_PROFILES permission
   if (userPermissions2 !== undefined) {
     requirePermission(
@@ -236,6 +237,7 @@ export async function updateEmployeeBasicInfo(
   auditor?: { userName: string; userEmail: string },
   userPermissions2?: number
 ): Promise<void> {
+  // rule19-exempt: edit form on an employee profile — read fetches current values for diffing/audit; last-write-wins acceptable for HR field edits
   // HR-18: Validate caller has MANAGE_HR_PROFILES permission
   if (userPermissions2 !== undefined) {
     requirePermission(

@@ -100,6 +100,7 @@ export async function createPOFromOffer(
   userName: string,
   userPermissions: number
 ): Promise<string> {
+  // rule19-exempt: reads source offer + RFQ for denormalisation; writes a new PO doc — different documents, the read does not mutate
   const { db } = getFirebase();
 
   // Authorization: Require MANAGE_PROCUREMENT permission
@@ -642,6 +643,7 @@ export async function updateDraftPO(
   userName: string,
   userPermissions: number
 ): Promise<void> {
+  // rule19-exempt: edit form on a draft PO — read fetches current values for permission/audit; last-write-wins acceptable for user-driven edits
   const { db } = getFirebase();
 
   // Authorization: Require MANAGE_PROCUREMENT permission

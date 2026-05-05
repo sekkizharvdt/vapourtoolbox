@@ -257,6 +257,15 @@ function checkDocCreationHasTenantId() {
   const nonTenantCollections = [
     'users',
     'taskNotifications',
+    'TASK_NOTIFICATIONS', // firestore.rules scope by userId/assigneeId, not tenantId
+    'taskThreads',
+    'TASK_THREADS', // firestore.rules: isInternalUser() — no tenantId enforcement
+    'taskMessages',
+    'TASK_MESSAGES', // firestore.rules: isInternalUser() + isOwner — no tenantId enforcement
+    'costCentres',
+    'COST_CENTRES', // firestore.rules: isInternalUser() + MANAGE_ACCOUNTING — no tenantId enforcement
+    'recurringOccurrences',
+    'RECURRING_OCCURRENCES', // firestore.rules: MANAGE_ACCOUNTING only — no tenantId enforcement (parent template carries tenantId)
     'entities',
     'entity_contacts',
     'materials',

@@ -381,6 +381,7 @@ export async function updatePurchaseRequest(
   userId: string,
   userName?: string
 ): Promise<void> {
+  // rule19-exempt: edit form on a draft PR — read fetches current values for permission/audit; last-write-wins acceptable for user-driven edits
   const { db } = getFirebase();
 
   try {

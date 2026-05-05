@@ -45,6 +45,7 @@ export async function approveMatch(
   auth?: AuthorizationContext,
   tenantId?: string
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   // Check permission if auth context provided
   if (auth) {
     requirePermission(

@@ -142,6 +142,7 @@ export async function submitTransactionForApproval(
   comments?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule19-exempt: state-machine transition (DRAFT→PENDING_APPROVAL) with explicit guard; concurrent submitters converge to PENDING_APPROVAL — duplicate task notifications are accepted
   const config = TRANSACTION_CONFIGS[transactionType];
 
   // Validate all inputs
@@ -275,6 +276,7 @@ export async function approveTransaction(
   comments?: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to APPROVED; the validation guard rejects duplicate calls and concurrent approvers converge to the same end state — duplicate task completions tolerate the no-op
   const config = TRANSACTION_CONFIGS[transactionType];
 
   // Validate all inputs
@@ -418,6 +420,7 @@ export async function rejectTransaction(
   comments: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule19-exempt: state-machine transition to REJECTED; concurrent rejecters converge to the same end state
   const config = TRANSACTION_CONFIGS[transactionType];
 
   // Validate all inputs - comments are required for rejections

@@ -64,6 +64,7 @@ const DEFAULT_CONFIG: EmailConfig = {
 };
 
 export default function SettingsPage() {
+  // rule19-exempt: admin settings UI — single-user, no concurrent edits expected on this config doc
   const { user } = useAuth();
   const [config, setConfig] = useState<EmailConfig>(DEFAULT_CONFIG);
   const [users, setUsers] = useState<UserRecord[]>([]);

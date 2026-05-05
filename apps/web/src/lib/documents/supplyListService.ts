@@ -15,6 +15,8 @@ import {
   query,
   where,
   orderBy,
+  runTransaction,
+  increment,
   Timestamp,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -183,16 +185,13 @@ async function incrementSupplyItemCount(
   masterDocumentId: string
 ): Promise<void> {
   const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    const currentCount = docSnap.data().supplyItemCount || 0;
-    await updateDoc(docRef, {
-      hasSupplyList: true,
-      supplyItemCount: currentCount + 1,
-      updatedAt: Timestamp.now(),
-    });
-  }
+  // FieldValue.increment is atomic at the Firestore level — no read needed,
+  // no race against concurrent add/remove on the same parent doc.
+  await updateDoc(docRef, {
+    hasSupplyList: true,
+    supplyItemCount: increment(1),
+    updatedAt: Timestamp.now(),
+  });
 }
 
 /**
@@ -203,17 +202,20 @@ async function decrementSupplyItemCount(
   masterDocumentId: string
 ): Promise<void> {
   const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    const currentCount = docSnap.data().supplyItemCount || 0;
+  // Decrement under a transaction because we need the resulting count to
+  // decide whether `hasSupplyList` flips false. Atomic increment alone
+  // can't drive the boolean flag.
+  await runTransaction(getDb(), async (tx) => {
+    const snap = await tx.get(docRef);
+    if (!snap.exists()) return;
+    const currentCount = (snap.data().supplyItemCount as number | undefined) ?? 0;
     const newCount = Math.max(0, currentCount - 1);
-    await updateDoc(docRef, {
+    tx.update(docRef, {
       hasSupplyList: newCount > 0,
       supplyItemCount: newCount,
       updatedAt: Timestamp.now(),
     });
-  }
+  });
 }
 
 /**

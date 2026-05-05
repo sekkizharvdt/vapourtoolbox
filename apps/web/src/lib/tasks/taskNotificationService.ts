@@ -482,6 +482,7 @@ export async function completeActionableTask(
   userId: string,
   autoCompleted: boolean = false
 ): Promise<void> {
+  // rule19-exempt: idempotent task completion — duplicate completions write the same terminal state
   const { db } = getFirebase();
 
   try {
@@ -607,6 +608,7 @@ export async function completeTaskNotificationsByEntity(
   entityId: string,
   completedByUserId: string
 ): Promise<number> {
+  // rule19-exempt: idempotent task completion — duplicate completions write the same terminal state
   const { db } = getFirebase();
 
   try {

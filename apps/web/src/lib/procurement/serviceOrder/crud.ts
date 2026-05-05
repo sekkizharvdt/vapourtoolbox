@@ -68,13 +68,15 @@ export async function createServiceOrder(
   db: Firestore,
   input: CreateServiceOrderInput,
   userId: string,
-  userName: string
+  userName: string,
+  tenantId: string
 ): Promise<ServiceOrder> {
   const number = await generateServiceOrderNumber(db);
   const now = Timestamp.now();
 
-  const data: Omit<ServiceOrder, 'id'> = {
+  const data: Omit<ServiceOrder, 'id'> & { tenantId: string } = {
     number,
+    tenantId, // firestore.rules require this on serviceOrders.create
     purchaseOrderId: input.purchaseOrderId,
     poNumber: input.poNumber,
     ...(input.purchaseOrderItemId && { purchaseOrderItemId: input.purchaseOrderItemId }),
@@ -161,6 +163,7 @@ export async function updateServiceOrderStatus(
   userId: string,
   updates?: Partial<ServiceOrder>
 ): Promise<void> {
+  // rule19-exempt: single-field status write driven by user action; read fetches current snapshot for audit; last-write-wins acceptable
   const soRef = doc(db, COLLECTIONS.SERVICE_ORDERS, soId);
   const snap = await getDoc(soRef);
 

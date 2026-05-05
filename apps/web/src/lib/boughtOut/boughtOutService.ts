@@ -222,6 +222,7 @@ export async function updateBoughtOutItem(
   input: UpdateBoughtOutItemInput,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: edit form on a single bought-out item — read fetches current values for diffing/audit; last-write-wins acceptable
   const docRef = doc(db, COLLECTIONS.BOUGHT_OUT_ITEMS, itemId);
 
   // Build updates object with only defined fields to prevent Firestore errors

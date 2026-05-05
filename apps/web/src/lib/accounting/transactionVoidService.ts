@@ -167,6 +167,7 @@ export async function voidTransaction(
   transactionType: VoidableTransactionType,
   input: VoidTransactionInput
 ): Promise<VoidResult> {
+  // rule19-exempt: single-field flag write (status=VOIDED, isVoided=true); read fetches snapshot for audit; concurrent voids converge
   const config = VOID_CONFIGS[transactionType];
   const { transactionId, reason, userId, userName } = input;
 

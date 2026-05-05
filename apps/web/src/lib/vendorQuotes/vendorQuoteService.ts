@@ -725,6 +725,7 @@ export async function updateVendorQuoteItem(
   userId: string,
   userPermissions: number
 ): Promise<void> {
+  // rule19-exempt: reads vendor-quote parent for permission/context, writes/deletes a line item — different documents inside the quote
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,
@@ -763,6 +764,7 @@ export async function removeVendorQuoteItem(
   userId: string,
   userPermissions: number
 ): Promise<void> {
+  // rule19-exempt: reads vendor-quote parent for permission/context, writes/deletes a line item — different documents inside the quote
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,
@@ -792,6 +794,7 @@ export async function acceptQuoteItemPrice(
   userId: string,
   userPermissions: number
 ): Promise<void> {
+  // rule19-exempt: reads vendor-quote parent for permission/context, writes/deletes a line item — different documents inside the quote
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,

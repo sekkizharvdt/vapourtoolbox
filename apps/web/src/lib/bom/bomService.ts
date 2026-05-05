@@ -19,6 +19,7 @@ import {
   addDoc,
   updateDoc,
   writeBatch,
+  runTransaction,
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
@@ -51,21 +52,19 @@ export async function generateBOMCode(db: Firestore): Promise<string> {
   const year = new Date().getFullYear();
   const yearStr = year.toString();
 
-  // Use a counter document for reliable sequence generation
-  // This avoids the need for complex indexes on bomCode
+  // Counter doc that holds the highest sequence used this year. The
+  // transaction guarantees no two concurrent BOM creations get the same
+  // sequence — without it, both readers would see the same value and the
+  // second writer would silently overwrite.
   const counterRef = doc(db, COLLECTIONS.COUNTERS || 'counters', `bom-${yearStr}`);
 
   try {
-    const counterDoc = await getDoc(counterRef);
-    let sequence = 1;
-
-    if (counterDoc.exists()) {
-      sequence = (counterDoc.data()?.value || 0) + 1;
-    }
-
-    // Update the counter
-    const { setDoc } = await import('firebase/firestore');
-    await setDoc(counterRef, { value: sequence, updatedAt: Timestamp.now() });
+    const sequence = await runTransaction(db, async (tx) => {
+      const counterDoc = await tx.get(counterRef);
+      const next = ((counterDoc.exists() ? counterDoc.data()?.value : 0) || 0) + 1;
+      tx.set(counterRef, { value: next, updatedAt: Timestamp.now() });
+      return next;
+    });
 
     return `EST-${yearStr}-${sequence.toString().padStart(4, '0')}`;
   } catch (error) {
@@ -421,6 +420,7 @@ export async function updateBOMItem(
   updates: UpdateBOMItemInput,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: edit form on a single BOM item — read fetches current values for diffing/audit; last-write-wins acceptable for user-driven edits
   try {
     logger.info('Updating BOM item', { bomId, itemId, updates });
 

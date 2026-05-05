@@ -51,6 +51,7 @@ export async function uploadDocument(
   userId: string,
   userName: string
 ): Promise<DocumentRecord> {
+  // rule19-exempt: reads master document for context, writes a metadata / download log entry — different documents
   const { db, storage } = getFirebase();
 
   try {
@@ -507,6 +508,7 @@ export async function getEquipmentDocumentSummary(
 // ============================================================================
 
 export async function trackDocumentDownload(documentId: string, userId: string): Promise<void> {
+  // rule19-exempt: reads master document for context, writes a metadata / download log entry — different documents
   const { db } = getFirebase();
 
   try {

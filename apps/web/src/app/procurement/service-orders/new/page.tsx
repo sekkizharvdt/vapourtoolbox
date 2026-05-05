@@ -39,7 +39,7 @@ import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 export default function NewServiceOrderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const preselectedPoId = searchParams.get('poId');
 
   const [loading, setLoading] = useState(true);
@@ -164,7 +164,8 @@ export default function NewServiceOrderPage() {
           }),
         },
         user.uid,
-        user.displayName || 'Unknown'
+        user.displayName || 'Unknown',
+        claims?.tenantId || 'default-entity'
       );
 
       router.push(`/procurement/service-orders/${created.id}`);

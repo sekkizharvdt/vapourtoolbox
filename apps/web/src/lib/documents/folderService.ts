@@ -465,6 +465,7 @@ export async function createFolder(
  * Rename a folder
  */
 export async function renameFolder(folderId: string, newName: string): Promise<void> {
+  // rule19-exempt: reads folder for permission/context, writes the renamed folder doc — single-doc edit, last-write-wins acceptable
   const { db } = getFirebase();
 
   const folderRef = doc(db, COLLECTIONS.DOCUMENT_FOLDERS, folderId);

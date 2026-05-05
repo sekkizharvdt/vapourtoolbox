@@ -39,6 +39,14 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
   writeBatch: (...args: unknown[]) => mockWriteBatch(...args),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
+  // runTransaction stub: invokes the callback with a tx object whose get/set
+  // delegate to the existing single-doc mocks. Lets the BOM counter tests
+  // exercise the real runTransaction code path without standing up a full tx.
+  runTransaction: (_db: unknown, fn: (tx: unknown) => Promise<unknown>) =>
+    fn({
+      get: (...args: unknown[]) => mockGetDoc(...args),
+      set: (ref: unknown, data: unknown) => mockSetDoc(ref, data),
+    }),
   Timestamp: {
     now: () => mockTimestampNow(),
   },

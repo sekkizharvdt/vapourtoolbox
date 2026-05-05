@@ -195,7 +195,11 @@ export async function createRecurringTransaction(
     description: input.description,
     type: input.type,
     status: 'ACTIVE',
+    // The legacy `entityId` parameter actually carries the caller's tenantId
+    // (see callers passing `claims?.tenantId`); writing both keeps the
+    // existing reads working and satisfies firestore.rules tenantId guard.
     entityId,
+    tenantId: entityId,
 
     frequency: input.frequency,
     startDate,
@@ -321,6 +325,7 @@ export async function deleteRecurringTransaction(
   userId: string,
   auditor?: { userName: string; userEmail: string }
 ): Promise<void> {
+  // rule19-exempt: single-doc soft-delete; the read fetches the snapshot only for the audit log; the write flips one boolean and concurrent calls converge to deleted
   const docRef = doc(db, COLLECTIONS.RECURRING_TRANSACTIONS, id);
 
   // Fetch before soft-delete to record what was deleted

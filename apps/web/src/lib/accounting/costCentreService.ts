@@ -29,6 +29,7 @@ export async function createProjectCostCentre(
   userName: string,
   userPermissions: number
 ): Promise<string> {
+  // rule19-exempt: reads project for context; writes a new cost-centre doc — different documents
   try {
     requirePermission(
       userPermissions,

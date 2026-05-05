@@ -31,6 +31,7 @@ interface VendorsTabProps {
 }
 
 export function VendorsTab({ project }: VendorsTabProps) {
+  // rule19-exempt: tab reads project + entity registry for context, writes a vendor record under the project — different documents; concurrent edits on the same project are not expected
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);

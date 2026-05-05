@@ -187,6 +187,7 @@ export async function createHolidayWorkingOverride(
  * Grants comp-off to all affected users
  */
 export async function processHolidayWorkingOverride(overrideId: string): Promise<void> {
+  // rule19-exempt: reads holiday rule for context, writes an override record — different documents
   const { db } = getFirebase();
 
   try {

@@ -19,6 +19,7 @@ export async function addDocumentRequirement(
   requirement: Omit<DocumentRequirement, 'id' | 'status'>,
   userId: string
 ): Promise<string> {
+  // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   const { db } = getFirebase();
 
   try {
@@ -69,6 +70,7 @@ export async function updateDocumentRequirement(
   updates: Partial<DocumentRequirement>,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   const { db } = getFirebase();
 
   try {
@@ -108,6 +110,7 @@ export async function deleteDocumentRequirement(
   requirementId: string,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   // rule18-exempt: project config edit — audit pending Phase 0 audit expansion
   const { db } = getFirebase();
 
@@ -147,6 +150,7 @@ export async function linkDocumentToRequirement(
   documentId: string,
   userId: string
 ): Promise<void> {
+  // rule19-exempt: reads project / requirement parent for context, writes a requirement record — different documents
   const { db } = getFirebase();
 
   try {
@@ -197,6 +201,7 @@ export async function updateRequirementFromDocumentStatus(
   newStatus: 'APPROVED' | 'REJECTED',
   userId: string
 ): Promise<void> {
+  // rule19-exempt: sync write driven by linked-document status change; idempotent at terminal state
   const { db } = getFirebase();
 
   try {

@@ -106,6 +106,7 @@ export async function addFollowUpToFeedback(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule19-exempt: reads feedback parent for context, writes a follow-up subdoc — different documents
   try {
     const feedbackRef = doc(db, COLLECTIONS.FEEDBACK, feedbackId);
     const feedbackSnap = await getDoc(feedbackRef);
@@ -153,6 +154,7 @@ export async function closeFeedbackFromTask(
   userId: string,
   userName: string
 ): Promise<void> {
+  // rule19-exempt: reads feedback for state, writes status update + linked task close — secondary writes are idempotent
   // rule18-exempt: workflow nudge from task auto-completion
   try {
     const feedbackRef = doc(db, COLLECTIONS.FEEDBACK, feedbackId);

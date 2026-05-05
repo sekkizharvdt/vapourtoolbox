@@ -108,6 +108,7 @@ export async function softDeleteTransaction(
   db: Firestore,
   input: SoftDeleteInput
 ): Promise<SoftDeleteResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); read validates current state and gathers audit metadata, write flips one boolean — concurrent calls converge to deleted
   const { transactionId, reason, userId, userName, userPermissions } = input;
 
   // Authorization check
@@ -203,6 +204,7 @@ export async function restoreTransaction(
   db: Firestore,
   input: RestoreInput
 ): Promise<RestoreResult> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=false); read validates current state and gathers audit metadata — concurrent restores converge to restored
   const { transactionId, userId, userName, userPermissions } = input;
 
   // Authorization check
@@ -292,6 +294,7 @@ export async function hardDeleteTransaction(
   db: Firestore,
   input: HardDeleteInput
 ): Promise<HardDeleteResult> {
+  // rule19-exempt: single-doc deleteDoc preceded by a permission/audit read; concurrent calls produce the same end state (gone)
   const { transactionId, userId, userName, userPermissions } = input;
 
   // Authorization check

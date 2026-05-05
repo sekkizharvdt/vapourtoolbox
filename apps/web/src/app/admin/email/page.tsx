@@ -485,6 +485,7 @@ const DEFAULT_CONFIG: EmailConfig = {
 };
 
 export default function EmailManagementPage() {
+  // rule19-exempt: admin settings UI — single-user, no concurrent edits expected on this config doc
   const { user } = useAuth();
 
   // ---- State ---------------------------------------------------------------

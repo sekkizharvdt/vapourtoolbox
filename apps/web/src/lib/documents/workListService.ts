@@ -15,6 +15,8 @@ import {
   query,
   where,
   orderBy,
+  runTransaction,
+  increment,
   Timestamp,
   type QueryConstraint,
 } from 'firebase/firestore';
@@ -219,16 +221,11 @@ export async function deleteWorkItem(projectId: string, workItemId: string): Pro
  */
 async function incrementWorkItemCount(projectId: string, masterDocumentId: string): Promise<void> {
   const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    const currentCount = docSnap.data().workItemCount || 0;
-    await updateDoc(docRef, {
-      hasWorkList: true,
-      workItemCount: currentCount + 1,
-      updatedAt: Timestamp.now(),
-    });
-  }
+  await updateDoc(docRef, {
+    hasWorkList: true,
+    workItemCount: increment(1),
+    updatedAt: Timestamp.now(),
+  });
 }
 
 /**
@@ -236,17 +233,20 @@ async function incrementWorkItemCount(projectId: string, masterDocumentId: strin
  */
 async function decrementWorkItemCount(projectId: string, masterDocumentId: string): Promise<void> {
   const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    const currentCount = docSnap.data().workItemCount || 0;
+  // Decrement under a transaction because we need the resulting count to
+  // decide whether `hasWorkList` flips false. Atomic increment alone
+  // can't drive the boolean flag.
+  await runTransaction(getDb(), async (tx) => {
+    const snap = await tx.get(docRef);
+    if (!snap.exists()) return;
+    const currentCount = (snap.data().workItemCount as number | undefined) ?? 0;
     const newCount = Math.max(0, currentCount - 1);
-    await updateDoc(docRef, {
+    tx.update(docRef, {
       hasWorkList: newCount > 0,
       workItemCount: newCount,
       updatedAt: Timestamp.now(),
     });
-  }
+  });
 }
 
 /**

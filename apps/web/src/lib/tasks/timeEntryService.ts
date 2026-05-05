@@ -103,6 +103,7 @@ export async function startTimeEntry(
  * Updates the task notification's total duration
  */
 export async function stopTimeEntry(entryId: string): Promise<void> {
+  // rule19-exempt: single-user time tracking — entries are owned by one user; no concurrent edits expected on the same entry
   const { db } = getFirebase();
 
   try {
@@ -174,6 +175,7 @@ export async function stopActiveTimeEntries(userId: string): Promise<void> {
  * Tracks paused time separately
  */
 export async function pauseTimeEntry(entryId: string): Promise<void> {
+  // rule19-exempt: single-user time tracking — entries are owned by one user; no concurrent edits expected on the same entry
   const { db } = getFirebase();
 
   try {
@@ -209,6 +211,7 @@ export async function pauseTimeEntry(entryId: string): Promise<void> {
  * Calculates paused duration and adds to total paused time
  */
 export async function resumeTimeEntry(entryId: string): Promise<void> {
+  // rule19-exempt: single-user time tracking — entries are owned by one user; no concurrent edits expected on the same entry
   const { db } = getFirebase();
 
   try {

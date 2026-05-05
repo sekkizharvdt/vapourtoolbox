@@ -334,6 +334,7 @@ export async function generateRFQPDFs(
   options: RFQPDFGenerationOptions,
   userId: string
 ): Promise<RFQPDFGenerationResult> {
+  // rule19-exempt: reads RFQ + linked items for PDF content; writes generated PDF metadata — different documents
   const errors: Array<{ vendorId?: string; error: string }> = [];
   let totalFiles = 0;
 

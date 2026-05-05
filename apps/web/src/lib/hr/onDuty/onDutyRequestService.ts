@@ -17,6 +17,7 @@ import {
   query,
   where,
   orderBy,
+  runTransaction,
   Timestamp,
   type QueryConstraint,
 } from 'firebase/firestore';
@@ -94,19 +95,19 @@ async function generateOnDutyRequestNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const yearStr = year.toString();
 
-  // Use a counter document for reliable sequence generation
+  // Counter doc that holds the highest sequence used this year. The
+  // transaction guarantees no two concurrent on-duty submissions get the
+  // same number — without it both readers see the same value and one
+  // silently overwrites the other.
   const counterRef = doc(db, COLLECTIONS.COUNTERS, `on-duty-request-${yearStr}`);
 
   try {
-    const counterDoc = await getDoc(counterRef);
-    let sequence = 1;
-
-    if (counterDoc.exists()) {
-      sequence = (counterDoc.data()?.value || 0) + 1;
-    }
-
-    // Update the counter
-    await setDoc(counterRef, { value: sequence, updatedAt: Timestamp.now() });
+    const sequence = await runTransaction(db, async (tx) => {
+      const counterDoc = await tx.get(counterRef);
+      const next = ((counterDoc.exists() ? counterDoc.data()?.value : 0) || 0) + 1;
+      tx.set(counterRef, { value: next, updatedAt: Timestamp.now() });
+      return next;
+    });
 
     return `OD-${yearStr}-${sequence.toString().padStart(4, '0')}`;
   } catch (error) {

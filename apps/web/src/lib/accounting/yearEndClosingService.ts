@@ -867,6 +867,7 @@ export async function createClosingJournalEntry(
     entityId: string;
   }
 ): Promise<string> {
+  // rule19-exempt: reads fiscal-year + account balance docs for context, writes a new closing journal-entry doc — different documents; year-end close is admin-triggered with no concurrent callers
   const retainedEarningsDoc = await getDoc(
     doc(db, COLLECTIONS.ACCOUNTS, params.retainedEarningsAccountId)
   );

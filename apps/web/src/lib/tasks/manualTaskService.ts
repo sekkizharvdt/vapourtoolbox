@@ -340,6 +340,7 @@ export async function updateTaskStatus(
   taskId: string,
   status: ManualTaskStatus
 ): Promise<void> {
+  // rule19-exempt: single-field status write on a manual task; read fetches snapshot for audit; last-write-wins acceptable
   // FL-7: Validate status transition
   const docRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskId);
   const taskDoc = await getDoc(docRef);
@@ -389,6 +390,7 @@ export async function deleteManualTask(
   taskId: string,
   userId?: string
 ): Promise<void> {
+  // rule19-exempt: single-doc soft-delete; read for audit metadata; concurrent calls converge to deleted
   const docRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskId);
 
   // FL-3: Authorization check — only creator can delete

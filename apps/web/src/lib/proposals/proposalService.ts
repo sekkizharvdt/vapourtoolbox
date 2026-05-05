@@ -140,6 +140,7 @@ export async function createProposal(
   input: CreateProposalInput,
   userId: string
 ): Promise<Proposal> {
+  // rule19-exempt: reads template/counter for denormalised seed values; writes a new proposal doc — different documents
   try {
     // Get enquiry details
     const enquiryDoc = await getDoc(doc(db, COLLECTIONS.ENQUIRIES, input.enquiryId));
@@ -242,6 +243,7 @@ export async function createMinimalProposal(
   input: CreateMinimalProposalInput,
   userId: string
 ): Promise<Proposal> {
+  // rule19-exempt: reads template/counter for denormalised seed values; writes a new proposal doc — different documents
   try {
     // Get enquiry details
     const enquiryDoc = await getDoc(doc(db, COLLECTIONS.ENQUIRIES, input.enquiryId));

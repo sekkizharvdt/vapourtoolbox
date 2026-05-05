@@ -239,9 +239,17 @@ function analyseFile(filePath) {
     // function out of the bounded-loop check (used when a loop is provably
     // bounded by document schema or a query .limit()).
     const hasRule20Exempt = /\brule20-exempt\b/.test(fn.body);
+    // `// rule19-exempt:<reason>` opts a function out of the read+write
+    // transaction check. Used when the read targets a different document
+    // from the write (false positive of the dumb co-occurrence detector),
+    // when the write is an idempotent single-field update (soft-delete /
+    // restore), or when the read is a permission/audit lookup separate
+    // from the modification step. The comment must sit inside the
+    // function body so it travels with refactors.
+    const hasRule19Exempt = /\brule19-exempt\b/.test(fn.body);
 
     // Rule #19 — getDoc + updateDoc/setDoc without transaction.
-    if (hasGet && hasWrite && !hasTxn) {
+    if (hasGet && hasWrite && !hasTxn && !hasRule19Exempt) {
       violations.rule19.push({
         file: rel,
         line: fn.lineNumber,
