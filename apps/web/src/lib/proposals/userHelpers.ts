@@ -56,30 +56,56 @@ export async function getUsersWithPermission(
 }
 
 /**
- * Get users who can approve proposals
+ * Get users who can approve proposals (id-only).
  *
- * Uses APPROVE_ESTIMATES permission as proposal approval authority
- * (Proposals are related to estimates/costing)
- *
- * @param db Firestore instance
- * @param tenantId Tenant ID
- * @returns Array of user IDs who can approve proposals
+ * Used internally; the picker UI uses {@link getProposalApproverCandidates}
+ * for richer user info.
  */
 export async function getProposalApprovers(db: Firestore, tenantId: string): Promise<string[]> {
-  return getUsersWithPermission(db, tenantId, PERMISSION_FLAGS.MANAGE_ESTIMATION);
+  return getUsersWithPermission(db, tenantId, PERMISSION_FLAGS.MANAGE_PROPOSALS);
 }
 
 /**
- * Get the first available proposal approver
- *
- * @param db Firestore instance
- * @param tenantId Tenant ID
- * @returns User ID of first approver, or null if none found
+ * Approver candidate — minimum fields the submit-for-approval dialog needs.
  */
-export async function getFirstProposalApprover(
+export interface ProposalApproverCandidate {
+  id: string;
+  displayName: string;
+  email: string;
+}
+
+/**
+ * Get users who can approve proposals, with display name + email so the
+ * submit-for-approval dialog can render a useful picker. The submitter is
+ * excluded (you can't be your own approver — the server-side
+ * preventSelfApproval guard would reject the call anyway).
+ */
+export async function getProposalApproverCandidates(
   db: Firestore,
-  tenantId: string
-): Promise<string | null> {
-  const approvers = await getProposalApprovers(db, tenantId);
-  return approvers[0] ?? null;
+  tenantId: string,
+  excludeUserId?: string
+): Promise<ProposalApproverCandidate[]> {
+  try {
+    const usersRef = collection(db, COLLECTIONS.USERS);
+    const q = query(usersRef, where('tenantId', '==', tenantId), where('isActive', '==', true));
+    const snapshot = await getDocs(q);
+    const candidates: ProposalApproverCandidate[] = [];
+    snapshot.forEach((d) => {
+      const u = d.data() as User;
+      if (!u.permissions || !hasPermission(u.permissions, PERMISSION_FLAGS.MANAGE_PROPOSALS)) {
+        return;
+      }
+      if (excludeUserId && d.id === excludeUserId) return;
+      candidates.push({
+        id: d.id,
+        displayName: u.displayName || u.email || d.id,
+        email: u.email || '',
+      });
+    });
+    candidates.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return candidates;
+  } catch (error) {
+    logger.error('Error getting proposal approver candidates', { tenantId, error });
+    return [];
+  }
 }

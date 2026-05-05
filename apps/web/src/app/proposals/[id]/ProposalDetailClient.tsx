@@ -78,6 +78,8 @@ import ConvertToProjectDialog from './components/ConvertToProjectDialog';
 import ProposalAttachments from './components/ProposalAttachments';
 import { CloneProposalDialog } from './components/CloneProposalDialog';
 import { SaveAsTemplateDialog } from './components/SaveAsTemplateDialog';
+import SubmitForApprovalDialog from './components/SubmitForApprovalDialog';
+import type { ProposalApproverCandidate } from '@/lib/proposals/userHelpers';
 
 // Tab editors
 import { UnifiedScopeEditor } from './scope/UnifiedScopeEditor';
@@ -128,12 +130,20 @@ export default function ProposalDetailClient() {
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Two distinct error channels:
+  //  - loadError: the proposal failed to load → page collapses to a
+  //    "Proposal Not Found" empty state (recoverable only by retrying)
+  //  - actionError: an action (approve/reject/PDF/etc.) failed → renders
+  //    as a dismissible Alert at the top of the page; content stays
+  //    usable so the user can see what happened and try something else
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [submitForApprovalDialogOpen, setSubmitForApprovalDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
@@ -186,13 +196,13 @@ export default function ProposalDetailClient() {
         setLoading(true);
         const data = await getProposalById(db, proposalId);
         if (!data) {
-          setError('Proposal not found');
+          setLoadError('Proposal not found');
         } else {
           setProposal(data);
         }
       } catch (err) {
         logger.error('Error loading proposal', { proposalId, error: err });
-        setError('Failed to load proposal details');
+        setLoadError('Failed to load proposal details');
       } finally {
         setLoading(false);
       }
@@ -237,22 +247,31 @@ export default function ProposalDetailClient() {
       }
     } catch (err) {
       logger.error('Error generating PDF', { error: err });
-      setError('Failed to generate PDF');
+      setActionError('Failed to generate PDF');
     } finally {
       setPdfGenerating(false);
     }
   };
 
-  const handleSubmitForApproval = async () => {
+  const handleSubmitForApproval = () => {
+    setSubmitForApprovalDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleConfirmSubmitForApproval = async (approver: ProposalApproverCandidate) => {
     if (!db || !proposal || !user) return;
+    setActionLoading(true);
     try {
-      setActionLoading(true);
-      await submitProposalForApproval(db, proposal.id, user.uid, user.displayName || 'Unknown');
+      await submitProposalForApproval(db, proposal.id, user.uid, user.displayName || 'Unknown', {
+        userId: approver.id,
+        userName: approver.displayName,
+      });
       await reloadProposal();
-      handleMenuClose();
+      setSubmitForApprovalDialogOpen(false);
     } catch (err) {
       logger.error('Error submitting for approval', { error: err });
-      setError('Failed to submit proposal for approval');
+      // Re-throw so the dialog can surface the message inline.
+      throw err;
     } finally {
       setActionLoading(false);
     }
@@ -341,7 +360,11 @@ export default function ProposalDetailClient() {
       await reloadProposal();
     } catch (err) {
       logger.error(`Error ${commentDialog.action} proposal`, { error: err });
-      setError(`Failed to ${commentDialog.action} proposal`);
+      // Surface the underlying server error so the user can act on it
+      // (e.g. self-approval blocked, permission denied) rather than a
+      // generic "Failed to approve proposal" message.
+      const fallback = `Failed to ${commentDialog.action} proposal`;
+      setActionError(err instanceof Error ? err.message : fallback);
     } finally {
       setActionLoading(false);
     }
@@ -363,12 +386,16 @@ export default function ProposalDetailClient() {
 
   if (loading) return <LoadingState message="Loading proposal details..." />;
 
-  if (error || !proposal) {
+  // Only collapse the page on a genuine load failure. Action errors stay
+  // inline as a dismissible Alert so the rest of the page remains usable.
+  if (loadError || !proposal) {
     return (
       <Box sx={{ p: 3 }}>
         <EmptyState
           title="Proposal Not Found"
-          message={error || "The proposal you're looking for doesn't exist or has been deleted."}
+          message={
+            loadError || "The proposal you're looking for doesn't exist or has been deleted."
+          }
           action={<Button onClick={() => router.push('/proposals')}>Back to Proposals</Button>}
         />
       </Box>
@@ -377,6 +404,14 @@ export default function ProposalDetailClient() {
 
   const actions = getAvailableActions(proposal.status);
   const canConvert = canConvertToProject(proposal);
+
+  // Approval actions (Approve / Reject / Request Changes) must NOT be
+  // visible to the proposal's submitter — the server-side
+  // preventSelfApproval guard would reject the call anyway. Hiding the
+  // buttons keeps the submitter from clicking and seeing a confusing
+  // "Failed to approve" toast.
+  const isSubmitter = !!proposal.submittedByUserId && proposal.submittedByUserId === user?.uid;
+  const canAct = !isSubmitter;
 
   return (
     <Box>
@@ -388,9 +423,9 @@ export default function ProposalDetailClient() {
         ]}
       />
 
-      {error && (
-        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
-          {error}
+      {actionError && (
+        <Alert severity="error" onClose={() => setActionError(null)} sx={{ mb: 2 }}>
+          {actionError}
         </Alert>
       )}
 
@@ -446,8 +481,9 @@ export default function ProposalDetailClient() {
               </Button>
             )}
 
-            {/* Approve */}
-            {actions.canApprove && (
+            {/* Approve — hidden from the submitter to enforce
+                separation-of-duty (matches the server-side guard) */}
+            {actions.canApprove && canAct && (
               <Button
                 variant="contained"
                 color="success"
@@ -476,7 +512,7 @@ export default function ProposalDetailClient() {
               <MoreIcon />
             </IconButton>
             <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-              {actions.canReject && (
+              {actions.canReject && canAct && (
                 <MenuItem onClick={handleReject} disabled={actionLoading}>
                   <ListItemIcon>
                     <RejectIcon fontSize="small" color="error" />
@@ -484,7 +520,7 @@ export default function ProposalDetailClient() {
                   <ListItemText>Reject</ListItemText>
                 </MenuItem>
               )}
-              {actions.canRequestChanges && (
+              {actions.canRequestChanges && canAct && (
                 <MenuItem onClick={handleRequestChanges} disabled={actionLoading}>
                   <ListItemIcon>
                     <ChangesIcon fontSize="small" />
@@ -521,6 +557,15 @@ export default function ProposalDetailClient() {
         <StatusBadge status={proposal.status} />
         {proposal.revision > 1 && (
           <Chip label={`Rev ${proposal.revision}`} variant="outlined" sx={{ ml: 1 }} />
+        )}
+        {proposal.status === 'PENDING_APPROVAL' && proposal.approverUserName && (
+          <Chip
+            label={`Pending with ${proposal.approverUserName}`}
+            variant="outlined"
+            color="warning"
+            size="small"
+            sx={{ ml: 1 }}
+          />
         )}
         {proposal.workComponents?.map((c) => (
           <Chip
@@ -675,6 +720,20 @@ export default function ProposalDetailClient() {
           onComplete={() => {
             setTemplateDialogOpen(false);
           }}
+        />
+      )}
+
+      {/* Submit For Approval Dialog — picks the approver who'll receive
+          the task notification. */}
+      {proposal && user && (
+        <SubmitForApprovalDialog
+          open={submitForApprovalDialogOpen}
+          tenantId={proposal.tenantId}
+          submitterUserId={user.uid}
+          proposalNumber={proposal.proposalNumber}
+          proposalTitle={proposal.title}
+          onClose={() => setSubmitForApprovalDialogOpen(false)}
+          onSubmit={handleConfirmSubmitForApproval}
         />
       )}
     </Box>

@@ -101,7 +101,7 @@ describe('approvalWorkflow', () => {
   const mockDb = {} as unknown as Firestore;
   const mockUserId = 'user-123';
   const mockUserName = 'Test User';
-  const mockPermissions = PERMISSION_FLAGS.MANAGE_ESTIMATION;
+  const mockPermissions = PERMISSION_FLAGS.MANAGE_PROPOSALS;
 
   const mockProposal: Partial<Proposal> = {
     id: 'proposal-123',
@@ -180,7 +180,7 @@ describe('approvalWorkflow', () => {
 
       expect(requirePermission).toHaveBeenCalledWith(
         mockPermissions,
-        PERMISSION_FLAGS.MANAGE_ESTIMATION,
+        PERMISSION_FLAGS.MANAGE_PROPOSALS,
         mockUserId,
         'approve proposal'
       );
@@ -263,7 +263,7 @@ describe('approvalWorkflow', () => {
 
       expect(requirePermission).toHaveBeenCalledWith(
         mockPermissions,
-        PERMISSION_FLAGS.MANAGE_ESTIMATION,
+        PERMISSION_FLAGS.MANAGE_PROPOSALS,
         mockUserId,
         'reject proposal'
       );

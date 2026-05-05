@@ -31,7 +31,8 @@ export async function submitProposalForApproval(
   db: Firestore,
   proposalId: string,
   userId: string,
-  userName: string
+  userName: string,
+  approver?: { userId: string; userName: string }
 ): Promise<void> {
   // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
@@ -45,6 +46,12 @@ export async function submitProposalForApproval(
     }
 
     const proposal = proposalSnap.data() as Proposal;
+
+    // The submitter cannot pick themselves as the approver — separation
+    // of duty. Mirrors the preventSelfApproval guard on approveProposal.
+    if (approver && approver.userId === userId) {
+      throw new Error('You cannot submit a proposal to yourself for approval.');
+    }
 
     // Validate state machine transition
     const transitionResult = proposalStateMachine.validateTransition(
@@ -62,13 +69,22 @@ export async function submitProposalForApproval(
       submittedAt: Timestamp.now(),
       submittedByUserId: userId,
       submittedByUserName: userName,
+      ...(approver && {
+        approverUserId: approver.userId,
+        approverUserName: approver.userName,
+      }),
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
 
-    // Create actionable task for approvers (users with APPROVE_ESTIMATES permission)
+    // Send the approval task to the explicitly-selected approver when one
+    // is given. Falls back to broadcasting to every user with
+    // MANAGE_PROPOSALS in the tenant for proposals submitted via legacy
+    // call sites without an approver pick.
     if (proposal.tenantId) {
-      const approverIds = await getProposalApprovers(db, proposal.tenantId);
+      const approverIds: string[] = approver
+        ? [approver.userId]
+        : await getProposalApprovers(db, proposal.tenantId);
 
       for (const approverId of approverIds) {
         await createTaskNotification({
@@ -90,6 +106,7 @@ export async function submitProposalForApproval(
       logger.debug('Created approval tasks', {
         proposalId,
         approverCount: approverIds.length,
+        targeted: !!approver,
       });
     }
 
@@ -129,7 +146,7 @@ export async function approveProposal(
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
       userPermissions,
-      PERMISSION_FLAGS.MANAGE_ESTIMATION,
+      PERMISSION_FLAGS.MANAGE_PROPOSALS,
       userId,
       'approve proposal'
     );
@@ -241,7 +258,7 @@ export async function rejectProposal(
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
       userPermissions,
-      PERMISSION_FLAGS.MANAGE_ESTIMATION,
+      PERMISSION_FLAGS.MANAGE_PROPOSALS,
       userId,
       'reject proposal'
     );
@@ -351,7 +368,7 @@ export async function requestProposalChanges(
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
       userPermissions,
-      PERMISSION_FLAGS.MANAGE_ESTIMATION,
+      PERMISSION_FLAGS.MANAGE_PROPOSALS,
       userId,
       'request changes to proposal'
     );

@@ -905,6 +905,11 @@ export interface Proposal extends TimestampFields {
   submittedAt?: Timestamp;
   submittedByUserId?: string;
   submittedByUserName?: string;
+  // The user the submitter explicitly chose as the approver. Drives the
+  // task-notification target and the "pending with [name]" indicator on
+  // the proposal detail page.
+  approverUserId?: string;
+  approverUserName?: string;
   approvalHistory: ApprovalRecord[];
 
   // Client submission tracking
