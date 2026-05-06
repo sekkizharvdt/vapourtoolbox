@@ -238,6 +238,14 @@ export default function AdminDashboardPage() {
       path: '/admin/agent-tasks',
     },
     {
+      id: 'agent-runs',
+      title: 'Agent Runs',
+      description:
+        'Observability — every orchestrator invocation with cost, status, and tool transcript',
+      icon: <AgentIcon sx={{ fontSize: 48, color: 'info.main' }} />,
+      path: '/admin/agent-runs',
+    },
+    {
       id: 'system-status',
       title: 'System Status',
       description: 'Package versions, security vulnerabilities, and updates',

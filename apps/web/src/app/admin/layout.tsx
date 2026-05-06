@@ -50,6 +50,7 @@ function getAdminBreadcrumbs(pathname: string): BreadcrumbItem[] {
     settings: 'Settings',
     'task-analytics': 'Task Analytics',
     'agent-tasks': 'Agent Inbox',
+    'agent-runs': 'Agent Runs',
   };
 
   // Add subsequent segments

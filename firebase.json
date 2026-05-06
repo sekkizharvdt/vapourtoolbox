@@ -64,6 +64,10 @@
         "destination": "/feedback/placeholder.html"
       },
       {
+        "source": "/admin/agent-runs/*",
+        "destination": "/admin/agent-runs/placeholder.html"
+      },
+      {
         "source": "/flow/meetings/*",
         "destination": "/flow/meetings/placeholder.html"
       },
