@@ -24,3 +24,11 @@ export {
   listAgentMemory,
   type ListAgentMemoryOptions,
 } from './agentMemoryService';
+
+export {
+  AGENT_EMAIL,
+  AGENT_DISPLAY_NAME,
+  AGENT_PERMISSIONS,
+  AGENT_PERMISSIONS_BITFIELD,
+  isAgentUser,
+} from './identity';

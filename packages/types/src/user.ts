@@ -16,6 +16,20 @@ export interface CustomClaims {
   permissions2?: number; // Extended permissions (see PERMISSION_FLAGS_2 in permissions.ts)
   domain: 'internal' | 'external'; // vapourdesal.com vs external domains
   allowedModules?: string[]; // Module IDs user can access (empty = all modules)
+
+  /**
+   * AI-AGENT-ROADMAP-2026-04-25.md Phase 0 — Agent identity.
+   *
+   * Set to `true` only on the orchestrator's Firebase user
+   * (agent@vapourtoolbox.internal). Drives:
+   *   - the `isAgent()` helper in firestore.rules — destructive ops are
+   *     denied even when the permission bitfield would otherwise allow,
+   *     and audit rows claiming actorType='agent' must come from this uid;
+   *   - the `isAgentUser()` helper in apps/web/src/lib/agent/identity.ts.
+   *
+   * Provisioned by scripts/provision-agent-identity.js.
+   */
+  agent?: boolean;
 }
 
 /**

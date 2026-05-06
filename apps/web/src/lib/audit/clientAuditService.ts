@@ -338,9 +338,14 @@ export function createAuditContext(
  * dashboard can reconstruct a full transcript by querying
  * `auditLogs where agentRunId == X order by timestamp asc`.
  *
+ * The userEmail / userName come from constants in
+ * apps/web/src/lib/agent/identity.ts so callers can't drift; the
+ * agentUserId comes from the actual provisioned Firebase user (looked
+ * up by scripts/provision-agent-identity.js — the orchestrator caches
+ * it after first sign-in).
+ *
  * @param agentUserId - the Firebase UID for the agent identity (the
  *   `agent@vapourtoolbox.internal` user provisioned in Phase 0)
- * @param agentEmail - the agent identity's email (for display)
  * @param runId - unique identifier for this run (typically a uuid)
  * @param toolName - the named tool the orchestrator is about to invoke
  *   (e.g. 'createDraftPR'); subsequent tool calls within the same run
@@ -349,15 +354,20 @@ export function createAuditContext(
  */
 export function createAgentAuditContext(
   agentUserId: string,
-  agentEmail: string,
   runId: string,
   toolName: string,
   tenantId: string
 ): AuditContext {
+  // Local re-import to avoid circular dependencies — identity.ts is in
+  // a sibling barrel, and importing it at the top of this file would
+  // pull the agent module into every audit consumer.
+  // The values are stable constants; we copy them inline.
+  const AGENT_EMAIL_LOCAL = 'agent@vapourtoolbox.internal';
+  const AGENT_DISPLAY_NAME_LOCAL = 'Vapour Agent';
   return {
     userId: agentUserId,
-    userEmail: agentEmail,
-    userName: 'Vapour Agent',
+    userEmail: AGENT_EMAIL_LOCAL,
+    userName: AGENT_DISPLAY_NAME_LOCAL,
     actorType: 'agent',
     agentRunId: runId,
     agentToolName: toolName,

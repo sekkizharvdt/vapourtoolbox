@@ -86,6 +86,25 @@ service cloud.firestore {
              math.floor(request.auth.token.permissions2 / permissionBit) % 2 == 1;
     }
 
+    /**
+     * Check if the caller is the AI agent identity.
+     *
+     * AI-AGENT-ROADMAP-2026-04-25.md Phase 0 — Agent identity. Only the
+     * Firebase user provisioned by scripts/provision-agent-identity.js
+     * carries the `agent: true` custom claim, so this helper is the
+     * single discriminator across the rules file.
+     *
+     * Use cases (typical pattern: `&& !isAgent()` on destructive ops):
+     *   - block hard-deletes on financial / audit / GL collections;
+     *   - block soft-deletes (writes that set isDeleted: true);
+     *   - require agentRunId on auditLogs rows that claim
+     *     actorType: 'agent' (see /auditLogs match block).
+     */
+    function isAgent() {
+      return isAuthenticated() &&
+             request.auth.token.agent == true;
+    }
+
     // ============================================
     // Users Collection
     // ============================================
@@ -390,10 +409,17 @@ service cloud.firestore {
     match /transactions/{transactionId} {
       // Unified transactions collection for all transaction types
       // Includes: CUSTOMER_INVOICE, VENDOR_BILL, JOURNAL_ENTRY, CUSTOMER_PAYMENT, VENDOR_PAYMENT
+      //
+      // Agent identity (AI-AGENT-ROADMAP Phase 0): the agent is BLOCKED from
+      // every write path on this collection — create / update / delete /
+      // soft-delete — even if the permission bitfield would otherwise
+      // allow. Financial postings are the most sensitive surface in the
+      // app; the agent must propose them through a HITL queue (Phase 0
+      // follow-up — agentTasks) where a human approver writes the row.
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
-      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
-      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
-      allow delete: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING - hard delete (archives first)
+      allow create: if hasPermission(16384) && isInternalUser() && !isAgent(); // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser() && !isAgent(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if hasPermission(16384) && isInternalUser() && !isAgent(); // MANAGE_ACCOUNTING - hard delete (archives first)
     }
 
     match /deletedTransactions/{archivedId} {
@@ -836,14 +862,15 @@ service cloud.firestore {
       // legacy rows. Rows that claim actorType='agent' must also carry an
       // agentRunId — that's the foundation for Phase 0 of the AI agent
       // rollout (see AI-AGENT-ROADMAP-2026-04-25.md).
-      // TODO (AI-AGENT-ROADMAP Phase 0): once `agent@vapourtoolbox.internal`
-      // is provisioned, tighten the agent branch to
-      //   request.auth.uid == 'agent-firebase-uid'
-      // so only the agent identity can write actorType='agent'.
+      // The agent branch is gated by the `agent: true` custom claim on the
+      // caller — set only on the Firebase user provisioned by
+      // scripts/provision-agent-identity.js. So a human user can no longer
+      // spoof actorType='agent', and the agent must always carry an
+      // agentRunId so the row joins back to the run record.
       allow create: if isInternalUser() &&
                        request.resource.data.actorType in ['user', 'agent', 'system'] &&
                        (request.resource.data.actorType != 'agent' ||
-                        request.resource.data.agentRunId is string);
+                        (isAgent() && request.resource.data.agentRunId is string));
       allow update, delete: if false; // Audit logs are immutable
     }
 
@@ -1919,29 +1946,32 @@ service cloud.firestore {
     // ── Accounting domain ──────────────────────────
 
     // Fiscal years (bookkeeping reference; mostly derived from txn dates)
+    // Period boundary doc — period-close / lock / reopen mutations are
+    // among the highest-impact ops in the app. The agent is denied write
+    // access entirely; humans must perform fiscal-year transitions.
     match /fiscalYears/{fyId} {
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
-      allow create: if hasPermission(16384) && isInternalUser() &&
+      allow create: if hasPermission(16384) && isInternalUser() && !isAgent() &&
                        request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
-      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser() && !isAgent(); // MANAGE_ACCOUNTING (bit 14)
       allow delete: if isSuperAdmin();
     }
 
     // Interproject loans (cross-project cost centre transfers)
     match /interprojectLoans/{loanId} {
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
-      allow create: if hasPermission(16384) && isInternalUser() &&
+      allow create: if hasPermission(16384) && isInternalUser() && !isAgent() &&
                        request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
-      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser() && !isAgent(); // MANAGE_ACCOUNTING (bit 14)
       allow delete: if isSuperAdmin();
     }
 
     // Year-end closing entries (immutable once posted; soft-archive only)
     match /yearEndClosingEntries/{entryId} {
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
-      allow create: if hasPermission(16384) && isInternalUser() &&
+      allow create: if hasPermission(16384) && isInternalUser() && !isAgent() &&
                        request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
-      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser() && !isAgent(); // MANAGE_ACCOUNTING (bit 14)
       allow delete: if isSuperAdmin();
     }
 
@@ -2132,20 +2162,19 @@ service cloud.firestore {
      * agentRuns — one document per orchestrator invocation.
      * Pairs with auditLogs.agentRunId to reconstruct a full transcript.
      *
-     * Read: any internal user (admin dashboard surfaces these to the team).
-     * Create: any internal user for now — flips to "agent identity only"
-     *         once `agent@vapourtoolbox.internal` is provisioned.
-     * Update: status/result fields tracked through agentRunStateMachine
-     *         in apps/web/src/lib/workflow/stateMachines.ts. We allow
-     *         updates from internal users; the agent identity will be the
-     *         only legitimate writer once provisioned.
-     * Delete: super-admin only — runs are audit history, not editable docs.
+     * Read:   any internal user (admin dashboard surfaces these).
+     * Create: the agent identity, OR an internal user (a human can kick
+     *         off a 'human'-trigger run from the admin dashboard).
+     * Update: the agent (its own runs) OR a super-admin (cancel button).
+     *         Non-agent humans cannot touch in-flight runs to keep the
+     *         orchestrator's view of the world consistent.
+     * Delete: super-admin only — runs are audit history.
      */
     match /agentRuns/{runId} {
       allow read: if isInternalUser();
       allow create: if isInternalUser() &&
                        request.resource.data.tenantId == request.auth.token.tenantId;
-      allow update: if isInternalUser() &&
+      allow update: if (isAgent() || isSuperAdmin()) &&
                        resource.data.tenantId == request.auth.token.tenantId;
       allow delete: if isSuperAdmin();
     }
