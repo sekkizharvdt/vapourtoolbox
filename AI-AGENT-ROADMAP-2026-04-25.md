@@ -1,9 +1,61 @@
 # AI Agent Roadmap — Vapour Toolbox
 
-**Goal:** Turn the existing Vapour Toolbox codebase into the backbone for an AI agent that operates as an internal employee — with scoped access to the application and Firestore, capable of executing multi-step procurement / accounting / project workflows, hosted on-premises at the office.
+**Goal:** Turn the existing Vapour Toolbox codebase into the backbone for an AI agent that operates as an internal employee — with scoped access to the application and Firestore, capable of executing multi-step procurement / accounting / project workflows.
 
 **Date:** 2026-04-25
 **Scope:** Whole codebase — 1 web app, 8 packages, 50+ Cloud Functions, ~25 Firestore collections, 20 module routes, 2 existing MCP servers.
+
+---
+
+## Status — Phase 0 COMPLETE, paused 2026-05-06
+
+The agent project is parked. Phase 0 (foundations) is fully implemented; the user is going back to building / refining the rest of the application before committing to Phase 1 (orchestrator runtime + read-only assistant).
+
+**Completed Phase 0 workstreams** (with the commits that landed each):
+
+| Workstream                                                                                                 | Commit     |
+| ---------------------------------------------------------------------------------------------------------- | ---------- |
+| Module completeness (rule #28)                                                                             | `85e571db` |
+| State machine fixes (rule #8)                                                                              | `a3d691dc` |
+| Audit trail expansion (`actorType` / `agentRunId` / `agentToolName`)                                       | `600ac3f0` |
+| Memory store (`agentRuns` / `agentMemory` / `agentSessions`)                                               | `ea330e36` |
+| Agent identity (`agent@vapourtoolbox.internal` + `isAgent()` rules)                                        | `cc94d752` |
+| Tool framework (`@vapour/agent-tools` package) + HITL infrastructure (`agentTasks` + `/admin/agent-tasks`) | `459ab6d4` |
+| Observability dashboard (`/admin/agent-runs`) + scheduled HITL expiry                                      | `98baf9e6` |
+
+Audit suite: **14 enforced rules clean** (#3, #4, #5, #6, #7, #8, #17, #18, #19, #20, #21, #24, #28, #30).
+
+**Hosting decision (revised 2026-05-06):** the original "on-premises orchestrator" plan was dropped — the agent will run on **GCP Cloud Run** alongside the existing Firebase stack. See the "Hosting" section below.
+
+**Not yet done:**
+
+- The agent's Firebase Auth user has not been provisioned in production. To activate: `node scripts/provision-agent-identity.js`.
+- Gmail polling watcher + the `agentTasks` queue worker that picks up runs are deferred — they need the orchestrator runtime to act on input. Only the cron-based HITL expiry sweep is deployed (`functions/src/agentTaskExpiry.ts`).
+- The MCP server skeleton at `mcp-servers/agent-core/` is not yet built.
+
+**To resume Phase 1** when ready:
+
+1. Build the orchestrator: a Node.js process using the Claude Agent SDK, packaged as a Docker image, deployed to Cloud Run.
+2. Stand up the 5 read-only MCP servers from § 6.2.
+3. Wire the orchestrator to consume `@vapour/agent-tools` (write a server-side `ToolRuntime` adapter that uses `firebase-admin` rather than the client SDK).
+4. Run the agent-identity provisioning script in production.
+5. Curate the 20-question accuracy benchmark (Phase 1 exit criterion).
+
+The data layer, identity, audit, HITL queue, and observability surfaces are all in code already. Phase 1 is primarily an orchestrator + MCP server scaffolding job.
+
+## Hosting (decided 2026-05-06) — cloud, not on-prem
+
+| Component                                                             | Where it runs                                         |
+| --------------------------------------------------------------------- | ----------------------------------------------------- |
+| Orchestrator runtime (Node.js + Claude Agent SDK)                     | 1× Cloud Run service (1 vCPU / 1 GB, scale-to-zero)   |
+| Scheduled triggers (cron expiry, daily digests, future Gmail polling) | Existing Firebase Cloud Functions                     |
+| State / memory / runs / HITL queue / audit logs / sessions            | Existing Firestore                                    |
+| LLM inference                                                         | Anthropic API (no local LLM)                          |
+| Email I/O                                                             | Gmail API via Google Workspace domain-wide delegation |
+
+**Estimated monthly cost:** ~$25–65 at light use, ~$240 at heavy use; Anthropic API dominates the bill — Phase 0 already wired `cachedInputTokens` on `agentRuns` so cache hit rate can be tuned.
+
+**No GPU, no Kubernetes, no self-managed VM, no local LLM.** The orchestrator is one Cloud Run service deployed from a Dockerfile.
 
 ---
 
