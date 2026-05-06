@@ -22,6 +22,7 @@ import {
   Backup as BackupIcon,
   Email as EmailIcon,
   PendingActions as PendingIcon,
+  SmartToy as AgentIcon,
 } from '@mui/icons-material';
 import { collection, query, where, onSnapshot, getCountFromServer } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -228,6 +229,13 @@ export default function AdminDashboardPage() {
       description: 'Track task assignments, completion rates, and user performance',
       icon: <AnalyticsIcon sx={{ fontSize: 48, color: 'success.main' }} />,
       path: '/admin/task-analytics',
+    },
+    {
+      id: 'agent-tasks',
+      title: 'Agent Inbox',
+      description: 'Approve or reject pending AI agent actions (HITL queue)',
+      icon: <AgentIcon sx={{ fontSize: 48, color: 'secondary.main' }} />,
+      path: '/admin/agent-tasks',
     },
     {
       id: 'system-status',

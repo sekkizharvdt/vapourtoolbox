@@ -35,6 +35,7 @@ import type {
   AssetStatus,
   MasterDocumentStatus,
   AgentRunStatus,
+  AgentTaskStatus,
 } from '@vapour/types';
 import type { ProposalStatus } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
@@ -410,6 +411,35 @@ const agentRunConfig: StateTransitionConfig<AgentRunStatus> = {
 };
 export const agentRunStateMachine: StateMachine<AgentRunStatus> =
   createStateMachine(agentRunConfig);
+
+// ============================================================================
+// Agent Task (HITL) State Machine
+// (AI-AGENT-ROADMAP-2026-04-25.md Phase 0 — HITL infrastructure)
+// ============================================================================
+
+/**
+ * Lifecycle of an HITL approval request:
+ *
+ *   PENDING ──► APPROVED  (human said yes)
+ *           ├─► REJECTED  (human said no)
+ *           ├─► EXPIRED   (TTL elapsed without a decision)
+ *           └─► CANCELLED (orchestrator pulled the request)
+ *
+ * All non-PENDING states are terminal — agentTasks rows are append-only
+ * once decided.
+ */
+const agentTaskConfig: StateTransitionConfig<AgentTaskStatus> = {
+  transitions: {
+    PENDING: ['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED'],
+    APPROVED: [],
+    REJECTED: [],
+    EXPIRED: [],
+    CANCELLED: [],
+  },
+  terminalStates: ['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED'],
+};
+export const agentTaskStateMachine: StateMachine<AgentTaskStatus> =
+  createStateMachine(agentTaskConfig);
 
 // ============================================================================
 // Helper Functions

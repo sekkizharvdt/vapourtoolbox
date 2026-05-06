@@ -32,3 +32,18 @@ export {
   AGENT_PERMISSIONS_BITFIELD,
   isAgentUser,
 } from './identity';
+
+export {
+  requestApproval,
+  approveAgentTask,
+  rejectAgentTask,
+  cancelAgentTask,
+  expireAgentTask,
+  awaitApproval,
+  getAgentTaskById,
+  listAgentTasks,
+  type AwaitApprovalOptions,
+  type ListAgentTasksOptions,
+} from './hitl';
+
+export { createWebToolRuntime } from './toolRuntime';

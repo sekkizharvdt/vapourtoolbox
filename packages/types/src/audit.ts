@@ -223,7 +223,14 @@ export type AuditAction =
   | 'BOUGHT_OUT_ITEM_DELETED'
   // Proposals (extras)
   | 'PROPOSAL_TEMPLATE_DELETED'
-  | 'ENQUIRY_DOCUMENT_DELETED';
+  | 'ENQUIRY_DOCUMENT_DELETED'
+  // AI agent (AI-AGENT-ROADMAP-2026-04-25.md Phase 0)
+  | 'AGENT_TOOL_INVOKED'
+  | 'AGENT_TOOL_COMPLETED'
+  | 'AGENT_TOOL_FAILED'
+  | 'AGENT_HITL_REQUESTED'
+  | 'AGENT_HITL_APPROVED'
+  | 'AGENT_HITL_REJECTED';
 
 /**
  * Entity types that can be audited
@@ -296,7 +303,12 @@ export type AuditEntityType =
   // Documents / projects (extras)
   | 'COMPANY_DOCUMENT'
   | 'DOCUMENT_REQUIREMENT'
-  | 'PROJECT_PROCUREMENT_ITEM';
+  | 'PROJECT_PROCUREMENT_ITEM'
+  // AI agent (AI-AGENT-ROADMAP-2026-04-25.md Phase 0)
+  | 'AGENT_TOOL'
+  | 'AGENT_RUN'
+  | 'AGENT_TASK'
+  | 'AGENT_MEMORY';
 
 /**
  * Audit log severity levels

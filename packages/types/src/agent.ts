@@ -277,3 +277,113 @@ export interface UpsertAgentMemoryInput {
   /** uid of the writer (human admin or agent) */
   writtenBy: string;
 }
+
+// ─── AgentTask (HITL queue) ───────────────────────────────────────────────
+
+/**
+ * Lifecycle of a Human-In-The-Loop approval request.
+ *
+ * - PENDING   — waiting for a human to decide
+ * - APPROVED  — human said yes; orchestrator resumes the run
+ * - REJECTED  — human said no; orchestrator cancels the run (or the run
+ *               handles the rejection however it wants)
+ * - EXPIRED   — TTL elapsed without a decision; orchestrator must
+ *               retry or fail the run
+ * - CANCELLED — orchestrator pulled the request (e.g. it figured the
+ *               action out a different way, or the run was aborted)
+ */
+export type AgentTaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+
+/**
+ * Risk class drives default UI treatment + logging severity.
+ *
+ * - LOW    — routine, idempotent ops (e.g. send a draft vendor email)
+ * - MEDIUM — non-financial state changes (e.g. transition PR DRAFT → SUBMITTED)
+ * - HIGH   — financial postings, deletions, irreversible state changes
+ *
+ * The orchestrator writes this; the admin UI surfaces it as a chip.
+ */
+export type AgentTaskRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface AgentTask {
+  id: string;
+
+  // Tenant scoping (CLAUDE.md rule #1)
+  tenantId: string;
+
+  // Origin: which run is awaiting this approval, and which tool fired the request
+  agentRunId: string;
+  toolName: string;
+
+  // Human-readable summary the approver sees in the inbox
+  // ("Create PR for ₹50,000 to ACME Pumps for project P-2026-008")
+  description: string;
+
+  // Verbose proposed action — the full tool input the agent intends to
+  // execute on approval. Stored as a JSON-stringified payload so the
+  // schema is open-ended; the admin UI renders it pretty-printed.
+  proposedAction: string;
+
+  risk: AgentTaskRiskLevel;
+
+  // Optional context — used by the inbox to show "this is about <doc>"
+  // and let the approver click through to the entity's detail page.
+  entityType?: string;
+  entityId?: string;
+  entityName?: string;
+
+  status: AgentTaskStatus;
+
+  // Permission / approver gating
+  // - requiredPermission: the bitwise flag the approver must hold (e.g.
+  //   PERMISSION_FLAGS.MANAGE_PROCUREMENT for procurement tools)
+  // - allowedApproverIds: optional explicit list (e.g. routing to a
+  //   specific user); takes precedence over requiredPermission when set.
+  requiredPermission?: number;
+  allowedApproverIds?: string[];
+
+  // Timing
+  requestedAt: Timestamp;
+  /** uid of the agent identity (or human user, for chained workflows) */
+  requestedBy: string;
+  expiresAt?: Timestamp;
+  decidedAt?: Timestamp;
+  decidedBy?: string;
+  decidedByName?: string;
+  decisionReason?: string;
+
+  // Optional free-form context the orchestrator attaches
+  metadata?: Record<string, unknown>;
+
+  // Audit
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface CreateAgentTaskInput {
+  tenantId: string;
+  agentRunId: string;
+  toolName: string;
+  description: string;
+  proposedAction: string;
+  risk: AgentTaskRiskLevel;
+  entityType?: string;
+  entityId?: string;
+  entityName?: string;
+  requiredPermission?: number;
+  allowedApproverIds?: string[];
+  expiresAt?: Timestamp;
+  metadata?: Record<string, unknown>;
+  /** uid of the requester — the agent identity in the canonical case */
+  requestedBy: string;
+}
+
+export interface DecideAgentTaskInput {
+  taskId: string;
+  /** uid of the human approver */
+  decidedBy: string;
+  /** display name (cached on the row so the inbox doesn't have to re-fetch) */
+  decidedByName: string;
+  /** optional rationale; required for REJECT in the UI but not in the type */
+  reason?: string;
+}

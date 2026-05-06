@@ -49,6 +49,7 @@ function getAdminBreadcrumbs(pathname: string): BreadcrumbItem[] {
     notifications: 'Notification Settings',
     settings: 'Settings',
     'task-analytics': 'Task Analytics',
+    'agent-tasks': 'Agent Inbox',
   };
 
   // Add subsequent segments

@@ -2219,6 +2219,36 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    /**
+     * agentTasks — Human-In-The-Loop approval queue.
+     *
+     * Phase 0 of AI-AGENT-ROADMAP — every risky tool call routes through
+     * this queue; a human decision unblocks (or terminates) the agent run.
+     *
+     * Read:   any internal user — the inbox surfaces these to the team.
+     * Create: the agent identity (or a super-admin for testing) — only
+     *         orchestrator runtime should mint approval requests; humans
+     *         creating their own requests would defeat the gate.
+     * Update: any internal user — humans approve/reject; the agent can
+     *         CANCEL its own pending request (e.g. on run abort). Updates
+     *         must keep tenantId stable.
+     * Delete: super-admin only — tasks are decision history.
+     *
+     * The agentTaskStateMachine in apps/web/src/lib/workflow/stateMachines.ts
+     * enforces that only PENDING rows can transition; the rule is the
+     * server-side belt to that suspenders.
+     */
+    match /agentTasks/{taskId} {
+      allow read: if isInternalUser();
+      allow create: if (isAgent() || isSuperAdmin()) &&
+                       request.resource.data.tenantId == request.auth.token.tenantId &&
+                       request.resource.data.status == 'PENDING';
+      allow update: if isInternalUser() &&
+                       resource.data.tenantId == request.auth.token.tenantId &&
+                       request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if isSuperAdmin();
+    }
+
     // ============================================
     // Default: Deny all
     // ============================================

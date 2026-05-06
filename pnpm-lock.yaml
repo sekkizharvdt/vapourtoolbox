@@ -150,6 +150,9 @@ importers:
       '@tanstack/react-query-devtools':
         specifier: ^5.90.2
         version: 5.90.2(@tanstack/react-query@5.90.8(react@19.2.1))(react@19.2.1)
+      '@vapour/agent-tools':
+        specifier: workspace:*
+        version: link:../../packages/agent-tools
       '@vapour/constants':
         specifier: workspace:*
         version: link:../../packages/constants
@@ -313,6 +316,19 @@ importers:
         version: 8.57.1
       typescript:
         specifier: ^5.2.0
+        version: 5.9.3
+
+  packages/agent-tools:
+    dependencies:
+      '@vapour/types':
+        specifier: workspace:*
+        version: link:../types
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
         version: 5.9.3
 
   packages/constants:
