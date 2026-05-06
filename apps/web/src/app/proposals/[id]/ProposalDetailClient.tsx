@@ -42,6 +42,7 @@ import {
   OpenInNew as OpenIcon,
   ContentCopy as CloneIcon,
   BookmarkAdd as TemplateIcon,
+  History as RevisionIcon,
   Dashboard as OverviewIcon,
   GridView as ScopeIcon,
   Schedule as DeliveryIcon,
@@ -79,6 +80,8 @@ import ProposalAttachments from './components/ProposalAttachments';
 import { CloneProposalDialog } from './components/CloneProposalDialog';
 import { SaveAsTemplateDialog } from './components/SaveAsTemplateDialog';
 import SubmitForApprovalDialog from './components/SubmitForApprovalDialog';
+import CreateRevisionDialog from './components/CreateRevisionDialog';
+import RevisionHistoryCard from './components/RevisionHistoryCard';
 import type { ProposalApproverCandidate } from '@/lib/proposals/userHelpers';
 
 // Tab editors
@@ -144,6 +147,7 @@ export default function ProposalDetailClient() {
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [submitForApprovalDialogOpen, setSubmitForApprovalDialogOpen] = useState(false);
+  const [revisionDialogOpen, setRevisionDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
@@ -413,6 +417,17 @@ export default function ProposalDetailClient() {
   const isSubmitter = !!proposal.submittedByUserId && proposal.submittedByUserId === user?.uid;
   const canAct = !isSubmitter;
 
+  // Revisions are how client feedback / post-approval changes get folded
+  // back in. Gated to states past the initial draft — once the proposal
+  // has been approved, sent to the client, or come back rejected, a new
+  // revision is the right move (rather than editing the live record).
+  // Only the latest revision can spawn a new one to keep the chain linear.
+  const canCreateRevision =
+    proposal.isLatestRevision &&
+    ['APPROVED', 'SUBMITTED', 'UNDER_NEGOTIATION', 'REJECTED', 'ACCEPTED', 'EXPIRED'].includes(
+      proposal.status
+    );
+
   return (
     <Box>
       {/* Breadcrumbs */}
@@ -550,6 +565,23 @@ export default function ProposalDetailClient() {
                 </ListItemIcon>
                 <ListItemText>Save as Template</ListItemText>
               </MenuItem>
+              {/* Create Revision — once a proposal has been seen by the
+                  client (or rejected internally), revisions are how
+                  feedback gets folded in. Gated to states where it makes
+                  sense; not shown on a brand-new draft (just edit it). */}
+              {canCreateRevision && (
+                <MenuItem
+                  onClick={() => {
+                    setRevisionDialogOpen(true);
+                    handleMenuClose();
+                  }}
+                >
+                  <ListItemIcon>
+                    <RevisionIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Create Revision</ListItemText>
+                </MenuItem>
+              )}
             </Menu>
           </Box>
         }
@@ -736,6 +768,20 @@ export default function ProposalDetailClient() {
           onSubmit={handleConfirmSubmitForApproval}
         />
       )}
+
+      {/* Create Revision Dialog — captures the reason then forks a new
+          DRAFT revision pre-filled with everything from this proposal. */}
+      {proposal && (
+        <CreateRevisionDialog
+          open={revisionDialogOpen}
+          proposal={proposal}
+          onClose={() => setRevisionDialogOpen(false)}
+          onComplete={(newProposalId) => {
+            setRevisionDialogOpen(false);
+            router.push(`/proposals/${newProposalId}`);
+          }}
+        />
+      )}
     </Box>
   );
 }
@@ -918,6 +964,12 @@ function OverviewTab({ proposal, formatDate, formatCurrency, reloadProposal }: O
             </CardContent>
           </Card>
         )}
+
+        {/* Revision History — auto-hides when there's only one revision. */}
+        <RevisionHistoryCard
+          proposalNumber={proposal.proposalNumber}
+          currentProposalId={proposal.id}
+        />
 
         {/* Attachments */}
         <ProposalAttachments
