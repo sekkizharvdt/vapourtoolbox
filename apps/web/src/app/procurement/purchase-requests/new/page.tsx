@@ -160,7 +160,9 @@ export default function NewPurchaseRequestPage() {
       updatedItems[materialPickerIndex] = {
         ...item,
         description: material.name,
-        specification: fullCode || material.materialCode || '',
+        specification: item.specification?.trim()
+          ? item.specification
+          : fullCode || material.materialCode || '',
         unit: (material.baseUnit || 'NOS').toUpperCase(),
         materialId: material.id,
         materialCode: material.materialCode,

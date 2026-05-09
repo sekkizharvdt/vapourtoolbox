@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
-import { MaterialCategory, Material, MATERIAL_CATEGORY_LABELS } from '@vapour/types';
+import { MaterialCategory, Material, MATERIAL_CATEGORY_LABELS, MaterialType } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMaterialById, updateMaterial } from '@/lib/materials/materialService';
 
@@ -65,6 +65,7 @@ export default function EditMaterialClient() {
     name: '',
     description: '',
     customCode: '',
+    materialType: 'RAW_MATERIAL' as MaterialType,
     standard: '',
     grade: '',
     finish: '',
@@ -132,6 +133,7 @@ export default function EditMaterialClient() {
         name: data.name || '',
         description: data.description || '',
         customCode: data.customCode || '',
+        materialType: data.materialType || 'RAW_MATERIAL',
         standard: data.specification?.standard || '',
         grade: data.specification?.grade || '',
         finish: data.specification?.finish || '',
@@ -191,6 +193,7 @@ export default function EditMaterialClient() {
       const updates: Partial<Material> = {
         name: formData.name,
         description: formData.description,
+        materialType: formData.materialType,
         ...(formData.customCode && { customCode: formData.customCode }),
 
         specification: {
@@ -357,6 +360,19 @@ export default function EditMaterialClient() {
             placeholder="e.g., PL-CS-A36"
             helperText="Optional short code for internal reference"
           />
+
+          <FormControl fullWidth required>
+            <InputLabel>Material Type</InputLabel>
+            <Select
+              value={formData.materialType}
+              onChange={(e) => handleChange('materialType', e.target.value as MaterialType)}
+              label="Material Type"
+            >
+              <MenuItem value="RAW_MATERIAL">Raw Material</MenuItem>
+              <MenuItem value="BOUGHT_OUT_COMPONENT">Bought-out Component</MenuItem>
+              <MenuItem value="CONSUMABLE">Consumable</MenuItem>
+            </Select>
+          </FormControl>
 
           <TextField
             fullWidth

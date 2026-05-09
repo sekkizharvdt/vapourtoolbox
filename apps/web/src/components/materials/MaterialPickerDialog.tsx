@@ -34,7 +34,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import type { Material, MaterialVariant, MaterialCategory } from '@vapour/types';
+import type { Material, MaterialVariant, MaterialCategory, MaterialType } from '@vapour/types';
 import {
   PICKER_CATEGORY_GROUPS,
   MATERIAL_CATEGORY_LABELS,
@@ -128,6 +128,7 @@ export default function MaterialPickerDialog({
   const [createName, setCreateName] = useState('');
   const [createDescription, setCreateDescription] = useState('');
   const [createCategory, setCreateCategory] = useState<MaterialCategory | ''>('');
+  const [createMaterialType, setCreateMaterialType] = useState<MaterialType>('RAW_MATERIAL');
   const [createGrade, setCreateGrade] = useState('');
   const [createStandard, setCreateStandard] = useState('');
   const [createBaseUnit, setCreateBaseUnit] = useState('NOS');
@@ -193,6 +194,7 @@ export default function MaterialPickerDialog({
       setCreateName(createDefaults?.name ?? '');
       setCreateDescription(createDefaults?.description ?? '');
       setCreateCategory(createDefaults?.category ?? '');
+      setCreateMaterialType('RAW_MATERIAL');
       setCreateBaseUnit((createDefaults?.unit ?? 'NOS').toUpperCase());
       setCreateGrade('');
       setCreateStandard('');
@@ -412,7 +414,7 @@ export default function MaterialPickerDialog({
         name: createName.trim(),
         description: createDescription.trim(),
         category: createCategory as MaterialCategory,
-        materialType: 'RAW_MATERIAL',
+        materialType: createMaterialType,
         specification: {
           grade: createGrade.trim(),
           ...(createStandard.trim() && { standard: createStandard.trim() }),
@@ -489,6 +491,18 @@ export default function MaterialPickerDialog({
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <FormControl fullWidth size="small" required>
+                <InputLabel>Material Type</InputLabel>
+                <Select
+                  value={createMaterialType}
+                  label="Material Type"
+                  onChange={(e) => setCreateMaterialType(e.target.value as MaterialType)}
+                >
+                  <MenuItem value="RAW_MATERIAL">Raw Material</MenuItem>
+                  <MenuItem value="BOUGHT_OUT_COMPONENT">Bought-out Component</MenuItem>
+                  <MenuItem value="CONSUMABLE">Consumable</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small" required>
                 <InputLabel>Category</InputLabel>
                 <Select
                   value={createCategory}
@@ -502,6 +516,8 @@ export default function MaterialPickerDialog({
                   ))}
                 </Select>
               </FormControl>
+            </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
                 label="Grade"
                 value={createGrade}
