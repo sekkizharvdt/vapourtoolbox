@@ -207,11 +207,11 @@ export async function submitAmendmentForApproval(
         actionDate: serverTimestamp(),
         actionBy: userId,
         actionByName: userName,
-        comments,
         previousStatus: 'DRAFT',
         newStatus: 'PENDING_APPROVAL',
-        ipAddress,
-        userAgent,
+        ...(comments !== undefined && { comments }),
+        ...(ipAddress !== undefined && { ipAddress }),
+        ...(userAgent !== undefined && { userAgent }),
       };
 
       const historyRef = doc(collection(db, COLLECTIONS.AMENDMENT_APPROVAL_HISTORY));
@@ -330,11 +330,11 @@ export async function approveAmendment(
       actionDate: serverTimestamp(),
       actionBy: userId,
       actionByName: userName,
-      comments,
       previousStatus: 'PENDING_APPROVAL',
       newStatus: 'APPROVED',
-      ipAddress,
-      userAgent,
+      ...(comments !== undefined && { comments }),
+      ...(ipAddress !== undefined && { ipAddress }),
+      ...(userAgent !== undefined && { userAgent }),
       fieldChanges: amendment.changes.map((change) => ({
         field: change.field,
         fieldLabel: change.fieldLabel,
@@ -430,8 +430,8 @@ export async function rejectAmendment(
       comments: reason,
       previousStatus: 'PENDING_APPROVAL',
       newStatus: 'REJECTED',
-      ipAddress,
-      userAgent,
+      ...(ipAddress !== undefined && { ipAddress }),
+      ...(userAgent !== undefined && { userAgent }),
     };
 
     const historyRef = doc(collection(db, COLLECTIONS.AMENDMENT_APPROVAL_HISTORY));
