@@ -301,8 +301,17 @@ export const parseQuote = onCall(
       }
       parsed = JSON.parse(jsonMatch[0]);
     } catch (err) {
+      // Capture full diagnostic context — stop_reason tells us about truncation,
+      // content block types reveal refusal/tool_use returns, usage shows token spend.
       logger.error('[parseQuote] Failed to parse Claude response as JSON', {
-        responseText: responseText.slice(0, 500),
+        fileName: data.fileName,
+        stopReason: response.stop_reason,
+        contentBlockTypes: response.content.map((b) => b.type),
+        textBlockPresent: !!textBlock,
+        responseTextLength: responseText.length,
+        responseTextHead: responseText.slice(0, 2000),
+        responseTextTail: responseText.slice(-2000),
+        usage: response.usage,
         error: err instanceof Error ? err.message : String(err),
       });
       return {
