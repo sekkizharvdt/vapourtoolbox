@@ -53,6 +53,7 @@ import {
   Mail as CoverLetterIcon,
   Subject as DescriptionTabIcon,
   Verified as QualificationsIcon,
+  FactCheck as ComplianceIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
@@ -84,6 +85,7 @@ import SubmitForApprovalDialog from './components/SubmitForApprovalDialog';
 import CreateRevisionDialog from './components/CreateRevisionDialog';
 import RevisionHistoryCard from './components/RevisionHistoryCard';
 import QualificationsEditor from './components/QualificationsEditor';
+import ComplianceMatrixEditor from './components/ComplianceMatrixEditor';
 import type { ProposalApproverCandidate } from '@/lib/proposals/userHelpers';
 
 // Tab editors
@@ -97,17 +99,19 @@ import ProjectBriefEditor from './components/ProjectBriefEditor';
 import PreviewClient from './preview/PreviewClient';
 
 // Tab indices — order matches the natural authoring flow:
-//   Overview → Description → Qualifications → Scope → Costing → Pricing → Delivery → Terms → Cover Letter → Preview
+//   Overview → Description → Qualifications → Scope → Compliance → Costing →
+//   Pricing → Delivery → Terms → Cover Letter → Preview
 const TAB_OVERVIEW = 0;
 const TAB_DESCRIPTION = 1;
 const TAB_QUALIFICATIONS = 2;
 const TAB_SCOPE = 3;
-const TAB_COSTING = 4;
-const TAB_PRICING = 5;
-const TAB_DELIVERY = 6;
-const TAB_TERMS = 7;
-const TAB_COVER_LETTER = 8;
-const TAB_PREVIEW = 9;
+const TAB_COMPLIANCE = 4;
+const TAB_COSTING = 5;
+const TAB_PRICING = 6;
+const TAB_DELIVERY = 7;
+const TAB_TERMS = 8;
+const TAB_COVER_LETTER = 9;
+const TAB_PREVIEW = 10;
 
 // URL-driven tab selection: ?tab=description maps onto the activeTab index.
 // Used by post-scope redirects and any external bookmark.
@@ -116,6 +120,7 @@ const TAB_NAMES = [
   'description',
   'qualifications',
   'scope',
+  'compliance',
   'costing',
   'pricing',
   'delivery',
@@ -634,6 +639,7 @@ export default function ProposalDetailClient() {
           <Tab icon={<DescriptionTabIcon />} iconPosition="start" label="Description" />
           <Tab icon={<QualificationsIcon />} iconPosition="start" label="Qualifications" />
           <Tab icon={<ScopeIcon />} iconPosition="start" label="Scope" />
+          <Tab icon={<ComplianceIcon />} iconPosition="start" label="Compliance" />
           <Tab icon={<CostingIcon />} iconPosition="start" label="Costing" />
           <Tab icon={<PricingIcon />} iconPosition="start" label="Pricing" />
           <Tab icon={<DeliveryIcon />} iconPosition="start" label="Delivery" />
@@ -662,6 +668,10 @@ export default function ProposalDetailClient() {
       )}
 
       {activeTab === TAB_SCOPE && proposalId && <UnifiedScopeEditor proposalId={proposalId} />}
+
+      {activeTab === TAB_COMPLIANCE && proposalId && (
+        <ComplianceMatrixEditor proposalId={proposalId} />
+      )}
 
       {activeTab === TAB_COSTING && proposalId && (
         <CostingBlocksEditor proposalId={proposalId} embedded />

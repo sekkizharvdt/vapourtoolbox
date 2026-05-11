@@ -713,6 +713,39 @@ export interface ProposalTermsBlock {
 }
 
 /**
+ * One row in the technical compliance matrix — a buyer-spec line and our
+ * response. Used on EPC tenders that enumerate 20-100 detailed specs
+ * (material of construction, design pressure, tube length, etc.).
+ */
+export type ComplianceStatus = 'COMPLIES' | 'DEVIATION' | 'NA';
+
+export interface ProposalComplianceItem {
+  id: string;
+  /** Section/clause reference from the tender (e.g. "7.2.1"). Optional. */
+  clauseRef?: string;
+  /** What the tender requires (verbatim or paraphrased). */
+  requirement: string;
+  /** What we're offering. */
+  offered?: string;
+  status: ComplianceStatus;
+  /** Justification / explanation, especially required for deviations. */
+  remarks?: string;
+  order: number;
+}
+
+/**
+ * Technical compliance matrix block. Renders after Scope, before the
+ * Commercial Summary on the customer PDF. Optional; only enable on
+ * spec-heavy tenders. Auto-hides when there are no items.
+ */
+export interface ProposalComplianceMatrix {
+  /** Optional preamble paragraph above the table. */
+  preamble?: string;
+  items?: ProposalComplianceItem[];
+  included?: boolean;
+}
+
+/**
  * One person on the proposal's key-personnel list — typically the
  * deliverable team a tender requires to be named with CV / experience.
  */
@@ -955,6 +988,11 @@ export interface Proposal extends TimestampFields {
   // Qualifications tab.
   qualifications?: ProposalQualifications;
 
+  // Technical compliance matrix — clause-by-clause response on
+  // spec-heavy tenders. Edited on the Compliance tab. Auto-hides when
+  // there are no items.
+  complianceMatrix?: ProposalComplianceMatrix;
+
   // Status & Workflow
   status: ProposalStatus;
   workflowStage?: ProposalWorkflowStage; // Optional for backward compatibility
@@ -1052,6 +1090,7 @@ export interface UpdateProposalInput {
   coverLetter?: ProposalCoverLetter;
   projectBrief?: ProposalProjectBrief;
   qualifications?: ProposalQualifications;
+  complianceMatrix?: ProposalComplianceMatrix;
   status?: ProposalStatus;
   negotiationNotes?: string;
   // Work components / currency (editable post-creation)

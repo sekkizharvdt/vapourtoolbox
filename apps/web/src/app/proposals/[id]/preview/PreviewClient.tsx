@@ -640,6 +640,74 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           </Card>
         ) : null}
 
+        {/* Technical Compliance Matrix — mirrors the PDF table. */}
+        {(() => {
+          const cm = proposal.complianceMatrix;
+          if (!cm || cm.included === false) return null;
+          const items = (cm.items ?? []).filter((it) => it.requirement.trim().length > 0);
+          if (items.length === 0) return null;
+          const sorted = [...items].sort((a, b) => a.order - b.order);
+          return (
+            <Card variant="outlined" sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Technical Compliance
+                </Typography>
+                {cm.preamble?.trim() && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ whiteSpace: 'pre-line', mb: 2 }}
+                  >
+                    {cm.preamble}
+                  </Typography>
+                )}
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold', width: 90 }}>Clause</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Requirement</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Our Offer</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold', width: 110 }}>Status</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Remarks</TableCell>
+                      </TableRow>
+                      {sorted.map((it) => (
+                        <TableRow key={it.id}>
+                          <TableCell>{it.clauseRef || '—'}</TableCell>
+                          <TableCell>{it.requirement}</TableCell>
+                          <TableCell>{it.offered || '—'}</TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={
+                                it.status === 'COMPLIES'
+                                  ? 'Complies'
+                                  : it.status === 'DEVIATION'
+                                    ? 'Deviation'
+                                    : 'N/A'
+                              }
+                              color={
+                                it.status === 'COMPLIES'
+                                  ? 'success'
+                                  : it.status === 'DEVIATION'
+                                    ? 'warning'
+                                    : 'default'
+                              }
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>{it.remarks || ''}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         {/* Commercial Summary — mirrors the customer-facing PDF.
             Internal markup percentages (overhead / contingency / profit) are
             rolled into a single priced "scope of work" line so what the user

@@ -759,6 +759,51 @@ export const ProposalPDFDocument = ({
           </ReportSection>
         ) : null}
 
+        {/* Technical Compliance Matrix (Stage 2.5s) — optional, prints
+            only when included and there are items. Tenders typically
+            enumerate 20-100 specs and demand a clause-by-clause response. */}
+        {proposal.complianceMatrix &&
+          proposal.complianceMatrix.included !== false &&
+          proposal.complianceMatrix.items &&
+          proposal.complianceMatrix.items.length > 0 && (
+            <ReportSection title="Technical Compliance">
+              {proposal.complianceMatrix.preamble?.trim() && (
+                <View style={{ marginBottom: 8 }}>
+                  {proposal.complianceMatrix.preamble.split('\n\n').map((para, idx) => (
+                    <Text key={idx} style={{ marginBottom: 4, lineHeight: 1.4 }}>
+                      {para}
+                    </Text>
+                  ))}
+                </View>
+              )}
+              <ReportTable
+                fontSize={8}
+                columns={[
+                  { key: 'clause', header: 'Clause', width: '10%', align: 'center' },
+                  { key: 'requirement', header: 'Requirement', width: '34%' },
+                  { key: 'offered', header: 'Our Offer', width: '28%' },
+                  { key: 'status', header: 'Status', width: '12%', align: 'center' },
+                  { key: 'remarks', header: 'Remarks', width: '16%' },
+                ]}
+                rows={proposal.complianceMatrix.items
+                  .filter((it) => it.requirement.trim().length > 0)
+                  .sort((a, b) => a.order - b.order)
+                  .map((it) => ({
+                    clause: it.clauseRef ?? '—',
+                    requirement: it.requirement,
+                    offered: it.offered ?? '—',
+                    status:
+                      it.status === 'COMPLIES'
+                        ? 'Complies'
+                        : it.status === 'DEVIATION'
+                          ? 'Deviation'
+                          : 'N/A',
+                    remarks: it.remarks ?? '',
+                  }))}
+              />
+            </ReportSection>
+          )}
+
         {/* Commercial Summary — customer-facing.
             Driven by clientPricing.priceSections (Stage 2.5r). Each
             included section prints as its own row. For foreign-currency
