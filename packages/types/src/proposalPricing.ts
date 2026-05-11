@@ -118,13 +118,41 @@ export type PricingBlock =
 
 /**
  * A single client-facing lump-sum line on the Pricing tab.
- * e.g. "MED Process System — supply, install, commission",
- *      "Admin charges", "Profit", "Mobilisation".
+ *
+ * @deprecated Use {@link PriceSection} instead. Retained for read
+ * compatibility with proposals authored before stage 2.5r.
  */
 export interface PricingLumpSumRow {
   id: string;
   description: string;
   amount: number;
+}
+
+/**
+ * One section on the customer-facing Commercial Summary. Each section
+ * is a flat priced row (the user enters the amount based on their
+ * internal costing). The Pricing tab renders the section list, the PDF
+ * sums them as a subtotal, applies tax, and prints the total.
+ *
+ * Examples on an EPC bid table:
+ *   { title: "MED Process System",   amount: 5000000 }
+ *   { title: "Solar Thermal System", amount: 2500000 }
+ *   { title: "O&M for 1 year",       amount:  600000 }
+ *
+ * For a survey or single-deliverable proposal, a single section
+ * (e.g. "Survey of MED Plant") is the simplest form.
+ */
+export interface PriceSection {
+  id: string;
+  title: string;
+  /** Optional fine-print line under the title. */
+  description?: string;
+  /** Section amount in INR (the base/native currency for all inputs). */
+  amount: number;
+  /** Whether the section prints on the customer PDF. */
+  included: boolean;
+  /** 0-based render order; lower numbers print first. */
+  order: number;
 }
 
 /**
@@ -150,12 +178,28 @@ export interface PricingLumpSumRow {
  *   = Total in `currency`
  */
 export interface ClientPricing {
-  // Markup % on cost basis (cost basis is INR)
+  // Markup % on cost basis (cost basis is INR) — internal-only, never
+  // shown to the client. Used by Costing tab + rolled into the seeded
+  // "Scope of Work" priceSection price on new proposals.
   overheadPercent: number;
   contingencyPercent: number;
   profitPercent: number;
 
-  // Client-facing lump-sum lines (amounts in INR, regardless of quote currency)
+  /**
+   * Customer-facing price sections (Stage 2.5r). Each section prints as
+   * its own row in the Commercial Summary. Sum + tax + total. For an
+   * EPC bid this lets you split into "MED Process System" / "Solar
+   * Thermal System" / "O&M 1 year" / etc.; for a survey, a single
+   * section works.
+   */
+  priceSections?: PriceSection[];
+
+  /**
+   * @deprecated Replaced by {@link priceSections}. Retained for read
+   * compatibility with proposals authored before stage 2.5r — the
+   * editor and PDF lift any non-empty `lumpSumLines` into sections on
+   * first open.
+   */
   lumpSumLines: PricingLumpSumRow[];
 
   // Tax

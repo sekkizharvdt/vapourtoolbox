@@ -648,16 +648,45 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
         {(() => {
           const cp = proposal.clientPricing;
           if (!cp) return null;
+          // Lift legacy proposals (no priceSections yet) into a synthesised
+          // section list so the preview mirrors what the PDF will print.
           const costBasis = (proposal.pricingBlocks ?? []).reduce(
             (s, b) => s + (b.subtotal || 0),
             0
           );
-          const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
-          const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
-          const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
-          const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
-          const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0);
-          const subtotal = scopeLinePrice + lumpSumTotal;
+          let sections: { id: string; title: string; description?: string; amount: number }[] = [];
+          if (cp.priceSections && cp.priceSections.length > 0) {
+            sections = cp.priceSections
+              .filter((sec) => sec.included)
+              .sort((a, b) => a.order - b.order)
+              .map((sec) => ({
+                id: sec.id,
+                title: sec.title || 'Section',
+                description: sec.description,
+                amount: sec.amount || 0,
+              }));
+          } else {
+            const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
+            const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
+            const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
+            const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
+            if (scopeLinePrice > 0) {
+              sections.push({
+                id: 'legacy-scope',
+                title: proposal.title || 'Scope of Work',
+                amount: scopeLinePrice,
+              });
+            }
+            (cp.lumpSumLines ?? []).forEach((row, idx) => {
+              if (!row.description?.trim() && !(row.amount > 0)) return;
+              sections.push({
+                id: row.id || `legacy-ls-${idx}`,
+                title: row.description || `Line ${idx + 1}`,
+                amount: row.amount || 0,
+              });
+            });
+          }
+          const subtotal = sections.reduce((s, sec) => s + sec.amount, 0);
           const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
           const totalInr = subtotal + taxAmount;
           const fxRate = cp.fxRate ?? 1;
@@ -677,32 +706,58 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                   <Table size="small">
                     <TableBody>
                       {isForeignQuote ? (
-                        // Foreign-currency quote: GST is baked into the
-                        // single total, INR breakdown and conversion line
-                        // hidden (per direct user instruction).
-                        <TableRow sx={{ bgcolor: 'primary.50' }}>
-                          <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                            {proposal.title || 'Scope of Work'}
-                          </TableCell>
-                          <TableCell
-                            align="right"
-                            sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
-                          >
-                            {fmtQuote(totalQuote)}
-                          </TableCell>
-                        </TableRow>
+                        // Foreign-currency quote: each section converted to
+                        // the quote currency with tax baked in; no INR
+                        // breakdown, no fxRate disclosure.
+                        <>
+                          {sections.map((sec) => (
+                            <TableRow key={sec.id}>
+                              <TableCell>
+                                {sec.title}
+                                {sec.description && (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ display: 'block' }}
+                                  >
+                                    {sec.description}
+                                  </Typography>
+                                )}
+                              </TableCell>
+                              <TableCell align="right">
+                                {fmtQuote((sec.amount * (1 + (cp.taxRate || 0) / 100)) / fxRate)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow sx={{ bgcolor: 'primary.50' }}>
+                            <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                              Total ({cp.currency})
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
+                            >
+                              {fmtQuote(totalQuote)}
+                            </TableCell>
+                          </TableRow>
+                        </>
                       ) : (
                         <>
-                          {scopeLinePrice > 0 && (
-                            <TableRow>
-                              <TableCell>{proposal.title || 'Scope of Work'}</TableCell>
-                              <TableCell align="right">{fmt(scopeLinePrice)}</TableCell>
-                            </TableRow>
-                          )}
-                          {cp.lumpSumLines.map((row) => (
-                            <TableRow key={row.id}>
-                              <TableCell>{row.description || '—'}</TableCell>
-                              <TableCell align="right">{fmt(row.amount ?? 0)}</TableCell>
+                          {sections.map((sec) => (
+                            <TableRow key={sec.id}>
+                              <TableCell>
+                                {sec.title}
+                                {sec.description && (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ display: 'block' }}
+                                  >
+                                    {sec.description}
+                                  </Typography>
+                                )}
+                              </TableCell>
+                              <TableCell align="right">{fmt(sec.amount)}</TableCell>
                             </TableRow>
                           ))}
                           <TableRow>

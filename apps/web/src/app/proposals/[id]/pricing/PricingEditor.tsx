@@ -53,7 +53,7 @@ import { getProposalById, updateProposal } from '@/lib/proposals/proposalService
 import { createDefaultClientPricing } from '@/lib/proposals/pricingBlocks';
 import { useToast } from '@/components/common/Toast';
 import { CURRENCIES } from '@vapour/constants';
-import type { ClientPricing, CurrencyCode, PricingLumpSumRow, Proposal } from '@vapour/types';
+import type { ClientPricing, CurrencyCode, PriceSection, Proposal } from '@vapour/types';
 
 interface Props {
   proposalId?: string;
@@ -112,7 +112,42 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
           return;
         }
         setProposal(p);
-        setPricing(p.clientPricing ?? createDefaultClientPricing());
+        // Stage 2.5r migration: if a proposal predates priceSections, lift
+        // its legacy lump-sum lines + cost-basis-with-markups into
+        // sections so the editor opens with a populated section list.
+        const rawPricing = p.clientPricing ?? createDefaultClientPricing();
+        const hasSections =
+          Array.isArray(rawPricing.priceSections) && rawPricing.priceSections.length > 0;
+        if (!hasSections) {
+          const seeded: PriceSection[] = [];
+          const cb = (p.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0);
+          const overhead = (cb * (rawPricing.overheadPercent || 0)) / 100;
+          const contingency = (cb * (rawPricing.contingencyPercent || 0)) / 100;
+          const profit = (cb * (rawPricing.profitPercent || 0)) / 100;
+          const scopeLineAmount = cb + overhead + contingency + profit;
+          if (scopeLineAmount > 0) {
+            seeded.push({
+              id: newId(),
+              title: p.title || 'Scope of Work',
+              amount: round2(scopeLineAmount),
+              included: true,
+              order: 0,
+            });
+          }
+          (rawPricing.lumpSumLines ?? []).forEach((row, idx) => {
+            if (!row.description?.trim() && !(row.amount > 0)) return;
+            seeded.push({
+              id: row.id || newId(),
+              title: row.description || `Line ${idx + 1}`,
+              amount: row.amount || 0,
+              included: true,
+              order: seeded.length,
+            });
+          });
+          setPricing({ ...rawPricing, priceSections: seeded });
+        } else {
+          setPricing(rawPricing);
+        }
       } catch (err) {
         if (!cancelled) {
           console.error('[PricingEditor] load failed', err);
@@ -146,32 +181,43 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         overheadAmount: 0,
         contingencyAmount: 0,
         profitAmount: 0,
-        lumpSumTotal: 0,
+        sectionsTotal: 0,
         subtotal: 0,
         taxAmount: 0,
         totalInr: 0,
         totalQuote: 0,
+        margin: 0,
       };
     }
+    // Markup percentages are kept as a *helper* for the user (they show
+    // what overhead/contingency/profit on the cost basis would look like)
+    // but they no longer feed the subtotal — the customer-facing subtotal
+    // is the sum of the section amounts the user has typed in.
     const overheadAmount = round2((costBasis * (pricing.overheadPercent || 0)) / 100);
     const contingencyAmount = round2((costBasis * (pricing.contingencyPercent || 0)) / 100);
     const profitAmount = round2((costBasis * (pricing.profitPercent || 0)) / 100);
-    const lumpSumTotal = round2(pricing.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0));
-    const subtotal = round2(
-      costBasis + overheadAmount + contingencyAmount + profitAmount + lumpSumTotal
+    const sectionsTotal = round2(
+      (pricing.priceSections ?? [])
+        .filter((sec) => sec.included)
+        .reduce((s, sec) => s + (sec.amount || 0), 0)
     );
+    const subtotal = sectionsTotal;
     const taxAmount = round2((subtotal * (pricing.taxRate || 0)) / 100);
     const totalInr = round2(subtotal + taxAmount);
     const totalQuote = isForeignQuote && fxRate > 0 ? round2(totalInr / fxRate) : totalInr;
+    // Margin = customer revenue (before tax) minus internal cost basis.
+    // Shown to the user as a sanity check while pricing.
+    const margin = round2(subtotal - costBasis);
     return {
       overheadAmount,
       contingencyAmount,
       profitAmount,
-      lumpSumTotal,
+      sectionsTotal,
       subtotal,
       taxAmount,
       totalInr,
       totalQuote,
+      margin,
     };
   }, [pricing, costBasis, fxRate, isForeignQuote]);
 
@@ -180,9 +226,24 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
     setDirty(true);
   };
 
-  const setLumpSum = (rows: PricingLumpSumRow[]) => {
-    setPricing((prev) => (prev ? { ...prev, lumpSumLines: rows } : prev));
+  const setSections = (rows: PriceSection[]) => {
+    setPricing((prev) => (prev ? { ...prev, priceSections: rows } : prev));
     setDirty(true);
+  };
+  const updateSection = (id: string, patch: Partial<PriceSection>) => {
+    const list = pricing?.priceSections ?? [];
+    setSections(list.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+  const addSection = () => {
+    const list = pricing?.priceSections ?? [];
+    setSections([
+      ...list,
+      { id: newId(), title: '', amount: 0, included: true, order: list.length },
+    ]);
+  };
+  const removeSection = (id: string) => {
+    const list = pricing?.priceSections ?? [];
+    setSections(list.filter((s) => s.id !== id));
   };
 
   const handleSave = async () => {
@@ -295,15 +356,19 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         </CardContent>
       </Card>
 
-      {/* Lump-sum lines */}
+      {/* Customer Price Sections — the rows the buyer sees on the Commercial
+          Summary. Independent of the scope matrix: scope can list 10+ items,
+          customer sees the breakdown they want (e.g. MED System / Solar /
+          O&M). Each section is a flat priced row the user types in. */}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
             <Box>
-              <Typography variant="subtitle1">Lump-sum lines</Typography>
+              <Typography variant="subtitle1">Customer Price Sections</Typography>
               <Typography variant="body2" color="text.secondary">
-                Each line appears as its own row on the client PDF. Use for headline prices, admin
-                charges, mobilisation, etc.
+                Each section prints as its own row on the customer PDF. Use one for a single-line
+                offer, or split EPC bids into named groups (MED Process System, Solar System, O&M,
+                etc.). Sub-total + tax + total follow.
               </Typography>
             </Box>
           </Stack>
@@ -311,35 +376,54 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Description</TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                  <TableCell align="right" />
+                  <TableCell sx={{ width: 100, textAlign: 'center' }}>Include</TableCell>
+                  <TableCell>Title</TableCell>
+                  <TableCell sx={{ width: '30%' }}>Sub-line (optional)</TableCell>
+                  <TableCell align="right" sx={{ width: 180 }}>
+                    Amount (INR)
+                  </TableCell>
+                  <TableCell align="right" sx={{ width: 50 }} />
                 </TableRow>
               </TableHead>
               <TableBody>
-                {pricing.lumpSumLines.length === 0 && (
+                {(pricing.priceSections ?? []).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={5} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                        No lines yet — add one below.
+                        No sections yet — add one below. For a single-line offer (e.g. a survey),
+                        one section is enough.
                       </Typography>
                     </TableCell>
                   </TableRow>
                 )}
-                {pricing.lumpSumLines.map((row, idx) => (
+                {(pricing.priceSections ?? []).map((row) => (
                   <TableRow key={row.id}>
+                    <TableCell align="center">
+                      <input
+                        type="checkbox"
+                        checked={row.included}
+                        onChange={(e) => updateSection(row.id, { included: e.target.checked })}
+                        aria-label="Include section"
+                      />
+                    </TableCell>
                     <TableCell>
                       <TextField
                         fullWidth
                         size="small"
                         variant="standard"
-                        value={row.description}
-                        onChange={(e) => {
-                          const rows = [...pricing.lumpSumLines];
-                          rows[idx] = { ...row, description: e.target.value };
-                          setLumpSum(rows);
-                        }}
-                        placeholder="e.g. MED Process System — supply, install, commission"
+                        value={row.title}
+                        onChange={(e) => updateSection(row.id, { title: e.target.value })}
+                        placeholder="e.g. MED Process System"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="standard"
+                        value={row.description ?? ''}
+                        onChange={(e) => updateSection(row.id, { description: e.target.value })}
+                        placeholder="optional fine print"
                       />
                     </TableCell>
                     <TableCell align="right">
@@ -348,11 +432,9 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
                         variant="standard"
                         type="number"
                         value={row.amount || ''}
-                        onChange={(e) => {
-                          const rows = [...pricing.lumpSumLines];
-                          rows[idx] = { ...row, amount: parseFloat(e.target.value) || 0 };
-                          setLumpSum(rows);
-                        }}
+                        onChange={(e) =>
+                          updateSection(row.id, { amount: parseFloat(e.target.value) || 0 })
+                        }
                         sx={{ width: 160 }}
                         inputProps={{ min: 0, step: 'any', style: { textAlign: 'right' } }}
                       />
@@ -360,9 +442,8 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
                     <TableCell align="right">
                       <IconButton
                         size="small"
-                        onClick={() =>
-                          setLumpSum(pricing.lumpSumLines.filter((r) => r.id !== row.id))
-                        }
+                        onClick={() => removeSection(row.id)}
+                        aria-label="Remove section"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -373,16 +454,34 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
             </Table>
           </TableContainer>
           <Box sx={{ mt: 1 }}>
-            <Button
-              startIcon={<AddRowIcon />}
-              size="small"
-              onClick={() =>
-                setLumpSum([...pricing.lumpSumLines, { id: newId(), description: '', amount: 0 }])
-              }
-            >
-              Add line
+            <Button startIcon={<AddRowIcon />} size="small" onClick={addSection}>
+              Add section
             </Button>
           </Box>
+          {costBasis > 0 && (
+            <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                <strong>Internal margin check:</strong>{' '}
+                {formatMoney(computed.subtotal, inrCurrency)} (sum of included sections)
+                {' − '}
+                {formatMoney(costBasis, inrCurrency)} (cost basis from Costing tab)
+                {' = '}
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: computed.margin >= 0 ? 'inherit' : '#b71c1c',
+                  }}
+                >
+                  {formatMoney(computed.margin, inrCurrency)}
+                </span>
+                {' ('}
+                {computed.subtotal > 0
+                  ? `${((computed.margin / computed.subtotal) * 100).toFixed(1)}%`
+                  : '—'}
+                {' margin)'}
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
 
@@ -472,38 +571,22 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         </CardContent>
       </Card>
 
-      {/* Final total */}
+      {/* Final total — mirrors what the customer sees on the PDF
+          Commercial Summary, driven by the price sections above. */}
       <Paper
         variant="outlined"
         sx={{ p: 2.5, bgcolor: 'primary.light', color: 'primary.contrastText' }}
       >
         <Stack spacing={0.5}>
-          <Row label="Cost basis" value={formatMoney(costBasis, inrCurrency)} />
-          {pricing.overheadPercent > 0 && (
-            <Row
-              label={`Overhead (${pricing.overheadPercent}%)`}
-              value={formatMoney(computed.overheadAmount, inrCurrency)}
-            />
-          )}
-          {pricing.contingencyPercent > 0 && (
-            <Row
-              label={`Contingency (${pricing.contingencyPercent}%)`}
-              value={formatMoney(computed.contingencyAmount, inrCurrency)}
-            />
-          )}
-          {pricing.profitPercent > 0 && (
-            <Row
-              label={`Profit (${pricing.profitPercent}%)`}
-              value={formatMoney(computed.profitAmount, inrCurrency)}
-            />
-          )}
-          {pricing.lumpSumLines.map((r) => (
-            <Row
-              key={r.id}
-              label={r.description || '(unnamed lump sum)'}
-              value={formatMoney(r.amount ?? 0, inrCurrency)}
-            />
-          ))}
+          {(pricing.priceSections ?? [])
+            .filter((sec) => sec.included)
+            .map((sec) => (
+              <Row
+                key={sec.id}
+                label={sec.title || '(untitled section)'}
+                value={formatMoney(sec.amount ?? 0, inrCurrency)}
+              />
+            ))}
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
           <Row label="Subtotal" value={formatMoney(computed.subtotal, inrCurrency)} bold />
           {pricing.taxRate > 0 && (

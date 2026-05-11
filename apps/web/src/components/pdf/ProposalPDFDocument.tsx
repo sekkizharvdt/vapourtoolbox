@@ -275,19 +275,55 @@ export const ProposalPDFDocument = ({
   const costBasis = (proposal.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0);
   const cpComputed = cp
     ? (() => {
-        const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
-        const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
-        const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
-        // What the client sees as the price for the scope of work — markups
-        // are rolled in here so they're invisible to the buyer.
-        const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
-        const lumpSumTotal = cp.lumpSumLines.reduce((s, r) => s + (r.amount ?? 0), 0);
-        const subtotal = scopeLinePrice + lumpSumTotal;
+        // Customer-facing rows come from priceSections (Stage 2.5r). If a
+        // proposal predates sections, lift legacy data on the fly so the
+        // PDF stays printable:
+        //   - cost basis + overhead + contingency + profit → one rolled
+        //     "Scope of Work" row (using the proposal title)
+        //   - each non-empty lump-sum line → its own row
+        const fallbackSections: { id: string; title: string; amount: number }[] = [];
+        if (!cp.priceSections || cp.priceSections.length === 0) {
+          const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
+          const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
+          const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
+          const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
+          if (scopeLinePrice > 0) {
+            fallbackSections.push({
+              id: 'fallback-scope',
+              title: proposal.title || 'Scope of Work',
+              amount: scopeLinePrice,
+            });
+          }
+          (cp.lumpSumLines ?? []).forEach((row, idx) => {
+            if (!row.description?.trim() && !(row.amount > 0)) return;
+            fallbackSections.push({
+              id: row.id || `fallback-ls-${idx}`,
+              title: row.description || `Line ${idx + 1}`,
+              amount: row.amount || 0,
+            });
+          });
+        }
+        const renderedSections =
+          cp.priceSections && cp.priceSections.length > 0
+            ? cp.priceSections
+                .filter((sec) => sec.included)
+                .sort((a, b) => a.order - b.order)
+                .map((sec) => ({
+                  id: sec.id,
+                  title: sec.title || 'Section',
+                  description: sec.description,
+                  amount: sec.amount || 0,
+                }))
+            : fallbackSections.map((sec) => ({
+                ...sec,
+                description: undefined as string | undefined,
+              }));
+        const subtotal = renderedSections.reduce((s, sec) => s + sec.amount, 0);
         const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
         const totalInr = subtotal + taxAmount;
         const totalQuote = isForeignQuote ? totalInr / fxRate : totalInr;
         return {
-          scopeLinePrice,
+          renderedSections,
           subtotal,
           taxAmount,
           totalInr,
@@ -724,27 +760,38 @@ export const ProposalPDFDocument = ({
         ) : null}
 
         {/* Commercial Summary — customer-facing.
-            The cost basis + overhead + contingency + profit are rolled into a
-            SINGLE priced line (described by the proposal title) so internal
-            markup percentages never reach the client.
-            For INR quotes: line items, subtotal, GST, total.
-            For foreign-currency quotes: a single Total line with GST baked
-            in — no INR breakdown, no fxRate disclosure (per direct user
-            instruction: taxes are included in the foreign price, not extra). */}
+            Driven by clientPricing.priceSections (Stage 2.5r). Each
+            included section prints as its own row. For foreign-currency
+            offers, the section subtotal is converted via fxRate; tax is
+            considered included in the quoted price (Indian GST is zero-
+            rated on exports). For INR offers, sections + GST line + total
+            in INR. */}
         {hasClientPricing && cp && cpComputed ? (
           isForeignQuote ? (
             <View style={local.costSummary}>
               <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
                 Commercial Summary
               </Text>
+              {cpComputed.renderedSections.map((sec) => (
+                <View key={sec.id} style={local.costRow}>
+                  <Text style={local.costLabel}>{sec.title}</Text>
+                  <Text style={local.costValue}>
+                    {formatPdfMoney(
+                      (sec.amount * (1 + (cp.taxRate || 0) / 100)) / fxRate,
+                      quoteCurrency
+                    )}
+                  </Text>
+                </View>
+              ))}
               <View
                 style={{
                   ...local.costRow,
-                  marginTop: 4,
-                  paddingTop: 4,
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: '1pt solid #ccc',
                 }}
               >
-                <Text style={local.costLabel}>{proposal.title || 'Scope of Work'}</Text>
+                <Text style={local.costLabel}>Total ({quoteCurrency}):</Text>
                 <Text style={local.totalCost}>
                   {formatPdfMoney(cpComputed.totalQuote, quoteCurrency)}
                 </Text>
@@ -755,20 +802,19 @@ export const ProposalPDFDocument = ({
               <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
                 Commercial Summary
               </Text>
-              {cpComputed.scopeLinePrice > 0 && (
-                <View style={local.costRow}>
-                  <Text style={local.costLabel}>{proposal.title || 'Scope of Work'}</Text>
-                  <Text style={local.costValue}>
-                    {formatPdfMoney(cpComputed.scopeLinePrice, inrCurrency)}
-                  </Text>
-                </View>
-              )}
-              {cp.lumpSumLines.map((row) => (
-                <View key={row.id} style={local.costRow}>
-                  <Text style={local.costLabel}>{row.description || '—'}</Text>
-                  <Text style={local.costValue}>
-                    {formatPdfMoney(row.amount ?? 0, inrCurrency)}
-                  </Text>
+              {cpComputed.renderedSections.map((sec) => (
+                <View key={sec.id} style={local.costRow}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={local.costLabel}>{sec.title}</Text>
+                    {sec.description && (
+                      <Text
+                        style={{ fontSize: 9, color: REPORT_THEME.textSecondary, marginTop: 1 }}
+                      >
+                        {sec.description}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={local.costValue}>{formatPdfMoney(sec.amount, inrCurrency)}</Text>
                 </View>
               ))}
               <View
