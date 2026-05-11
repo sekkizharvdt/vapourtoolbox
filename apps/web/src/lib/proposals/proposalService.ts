@@ -358,6 +358,17 @@ export async function createMinimalProposal(
       // bodies as needed; nothing is set in stone here.
       termsBlocks: buildDefaultTermsBlocks(),
 
+      // Vendor qualifications — empty by default. The user fills the
+      // capability statement, key personnel, and past-project list on
+      // the Qualifications tab. Section auto-hides when blank.
+      qualifications: {
+        statement: '',
+        experienceHighlights: '',
+        keyPersonnel: [],
+        pastProjects: [],
+        included: true,
+      },
+
       // Project brief — empty by default; the engineer fills the
       // narrative on the Description tab. `included` defaults to true
       // so the section renders on the PDF as soon as there's content;

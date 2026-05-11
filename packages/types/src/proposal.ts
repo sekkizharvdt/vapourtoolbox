@@ -713,6 +713,60 @@ export interface ProposalTermsBlock {
 }
 
 /**
+ * One person on the proposal's key-personnel list — typically the
+ * deliverable team a tender requires to be named with CV / experience.
+ */
+export interface ProposalKeyPerson {
+  id: string;
+  name: string;
+  role?: string;
+  qualification?: string;
+  /** Years of relevant industry experience. */
+  experienceYears?: number;
+  /** Short bio / highlight reel (1-3 lines). */
+  bio?: string;
+  included: boolean;
+  order: number;
+}
+
+/**
+ * One row in the past-projects / references table. Tenders typically
+ * demand 3-5 such references with project value, year, scope summary.
+ */
+export interface ProposalPastProject {
+  id: string;
+  name: string;
+  client?: string;
+  /** Calendar year of completion (or "Ongoing" / a range). */
+  year?: string;
+  /** Project value in any currency / unit — free-form so "₹5 Cr",
+   *  "USD 2 M", "1 MLD" all work. */
+  value?: string;
+  /** One-paragraph summary of what we did. */
+  scopeSummary?: string;
+  /** Our role on the project (Prime contractor / Consultant / etc.). */
+  role?: string;
+  included: boolean;
+  order: number;
+}
+
+/**
+ * Vendor qualifications block. Renders between the covering letter
+ * and the scope on the customer PDF. Every tender demands this in
+ * some form — years of experience, similar projects, named team.
+ */
+export interface ProposalQualifications {
+  /** Free-form opening statement on capability. */
+  statement?: string;
+  /** "Established in 2015 — over 10 years of MED expertise" etc. */
+  experienceHighlights?: string;
+  keyPersonnel?: ProposalKeyPerson[];
+  pastProjects?: ProposalPastProject[];
+  /** Whether the section prints on the PDF. */
+  included?: boolean;
+}
+
+/**
  * Single row in the project brief's input-data parameter table
  * (e.g. flow rate, density, temperature on an engineering proposal).
  */
@@ -896,6 +950,11 @@ export interface Proposal extends TimestampFields {
   // clarifications). Edited on the Description tab.
   projectBrief?: ProposalProjectBrief;
 
+  // Vendor qualifications block — capability statement, named team,
+  // past projects. Demanded by every tender. Edited on the
+  // Qualifications tab.
+  qualifications?: ProposalQualifications;
+
   // Status & Workflow
   status: ProposalStatus;
   workflowStage?: ProposalWorkflowStage; // Optional for backward compatibility
@@ -992,6 +1051,7 @@ export interface UpdateProposalInput {
   termsBlocks?: ProposalTermsBlock[];
   coverLetter?: ProposalCoverLetter;
   projectBrief?: ProposalProjectBrief;
+  qualifications?: ProposalQualifications;
   status?: ProposalStatus;
   negotiationNotes?: string;
   // Work components / currency (editable post-creation)

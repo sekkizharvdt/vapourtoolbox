@@ -449,6 +449,98 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           </CardContent>
         </Card>
 
+        {/* Qualifications — capability statement + key personnel + past
+            projects. Renders only when something has been authored. */}
+        {(() => {
+          const q = proposal.qualifications;
+          if (!q || q.included === false) return null;
+          const personnel = (q.keyPersonnel ?? []).filter((p) => p.included && p.name);
+          const projects = (q.pastProjects ?? []).filter((p) => p.included && p.name);
+          const hasAny =
+            !!q.statement?.trim() ||
+            !!q.experienceHighlights?.trim() ||
+            personnel.length > 0 ||
+            projects.length > 0;
+          if (!hasAny) return null;
+          return (
+            <Card variant="outlined" sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Our Qualifications
+                </Typography>
+                {q.statement?.trim() && (
+                  <Typography
+                    variant="body2"
+                    sx={{ whiteSpace: 'pre-line', mb: q.experienceHighlights ? 1 : 2 }}
+                  >
+                    {q.statement}
+                  </Typography>
+                )}
+                {q.experienceHighlights?.trim() && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ whiteSpace: 'pre-line', mb: 2 }}
+                  >
+                    {q.experienceHighlights}
+                  </Typography>
+                )}
+                {personnel.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Key Personnel
+                    </Typography>
+                    {personnel
+                      .sort((a, b) => a.order - b.order)
+                      .map((p) => (
+                        <Box key={p.id} sx={{ mb: 1 }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {p.name}
+                            {p.role ? ` — ${p.role}` : ''}
+                            {p.experienceYears != null ? ` (${p.experienceYears} yrs)` : ''}
+                          </Typography>
+                          {p.qualification && (
+                            <Typography variant="caption" color="text.secondary">
+                              {p.qualification}
+                            </Typography>
+                          )}
+                          {p.bio && (
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                              {p.bio}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                  </Box>
+                )}
+                {projects.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Past Projects
+                    </Typography>
+                    {projects
+                      .sort((a, b) => a.order - b.order)
+                      .map((p, idx) => (
+                        <Box key={p.id} sx={{ mb: 1 }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {idx + 1}. {p.name}
+                            {p.client ? ` — ${p.client}` : ''}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {[p.year, p.value, p.role].filter(Boolean).join(' · ')}
+                          </Typography>
+                          {p.scopeSummary && (
+                            <Typography variant="body2">{p.scopeSummary}</Typography>
+                          )}
+                        </Box>
+                      ))}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         {/* Scope of Work — Unified Scope Matrix */}
         {proposal.unifiedScopeMatrix &&
         proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0) ? (

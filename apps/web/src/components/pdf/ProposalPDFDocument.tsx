@@ -525,6 +525,86 @@ export const ProposalPDFDocument = ({
           {clientEmail && <Text>Email: {clientEmail}</Text>}
         </ReportSection>
 
+        {/* Qualifications — capability statement + team + past projects.
+            Renders between TO and the project description so the buyer
+            sees who we are before reading the technical write-up. Each
+            piece is independently optional. */}
+        {proposal.qualifications && proposal.qualifications.included !== false && (
+          <>
+            {(proposal.qualifications.statement?.trim() ||
+              proposal.qualifications.experienceHighlights?.trim()) && (
+              <ReportSection title="Our Qualifications">
+                {proposal.qualifications.statement?.trim() && (
+                  <View style={{ marginBottom: 8 }}>
+                    {proposal.qualifications.statement.split('\n\n').map((para, idx) => (
+                      <Text key={idx} style={{ marginBottom: 6, lineHeight: 1.5 }}>
+                        {para}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                {proposal.qualifications.experienceHighlights?.trim() && (
+                  <View style={{ marginBottom: 4 }}>
+                    {proposal.qualifications.experienceHighlights.split('\n\n').map((para, idx) => (
+                      <Text key={idx} style={{ marginBottom: 4, fontSize: 9 }}>
+                        {para}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </ReportSection>
+            )}
+            {proposal.qualifications.keyPersonnel &&
+              proposal.qualifications.keyPersonnel.filter((p) => p.included && p.name).length >
+                0 && (
+                <ReportSection title="Key Personnel">
+                  <ReportTable
+                    columns={[
+                      { key: 'name', header: 'Name', width: '24%' },
+                      { key: 'role', header: 'Role', width: '24%' },
+                      { key: 'qualification', header: 'Qualification', width: '28%' },
+                      { key: 'exp', header: 'Exp (yrs)', width: '12%', align: 'center' },
+                      { key: 'bio', header: 'Highlights', width: '12%' },
+                    ]}
+                    rows={proposal.qualifications.keyPersonnel
+                      .filter((p) => p.included && p.name)
+                      .sort((a, b) => a.order - b.order)
+                      .map((p) => ({
+                        name: p.name,
+                        role: p.role ?? '—',
+                        qualification: p.qualification ?? '—',
+                        exp: p.experienceYears != null ? `${p.experienceYears}` : '—',
+                        bio: p.bio ?? '',
+                      }))}
+                  />
+                </ReportSection>
+              )}
+            {proposal.qualifications.pastProjects &&
+              proposal.qualifications.pastProjects.filter((p) => p.included && p.name).length >
+                0 && (
+                <ReportSection title="Past Projects">
+                  {proposal.qualifications.pastProjects
+                    .filter((p) => p.included && p.name)
+                    .sort((a, b) => a.order - b.order)
+                    .map((p, idx) => (
+                      <View key={p.id} style={{ marginBottom: 8 }}>
+                        <Text style={{ fontWeight: 'bold' }}>
+                          {idx + 1}. {p.name}
+                          {p.client ? ` — ${p.client}` : ''}
+                        </Text>
+                        <Text style={{ fontSize: 9, color: REPORT_THEME.textSecondary }}>
+                          {[p.year, p.value, p.role].filter(Boolean).join(' · ')}
+                        </Text>
+                        {p.scopeSummary && (
+                          <Text style={{ marginTop: 2, lineHeight: 1.4 }}>{p.scopeSummary}</Text>
+                        )}
+                      </View>
+                    ))}
+                </ReportSection>
+              )}
+          </>
+        )}
+
         {/* Project Brief — narrative + input data + clarifications. Each
             piece is independently optional and skipped when empty. The
             whole section is hidden when included === false. */}
