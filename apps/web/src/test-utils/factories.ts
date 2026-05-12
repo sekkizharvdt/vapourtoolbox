@@ -312,23 +312,6 @@ export function createMockProject(overrides?: Record<string, unknown>) {
 /**
  * Transaction fixtures
  */
-export function createMockBankTransaction(overrides?: Record<string, unknown>) {
-  return {
-    id: 'bank-txn-123',
-    statementId: 'statement-123',
-    date: Timestamp.now(),
-    description: 'Test bank transaction',
-    debit: 0,
-    credit: 10000,
-    balance: 50000,
-    referenceNumber: 'REF12345',
-    matched: false,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-    ...overrides,
-  };
-}
-
 export function createMockAccountingTransaction(overrides?: Record<string, unknown>) {
   return {
     id: 'acc-txn-123',

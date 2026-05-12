@@ -23,6 +23,7 @@ import ThermostatIcon from '@mui/icons-material/Thermostat';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import HistoryIcon from '@mui/icons-material/History';
+import FeedbackIcon from '@mui/icons-material/Feedback';
 
 import type { GuideSection } from './types';
 import { GettingStartedSection } from './GettingStartedSection';
@@ -34,6 +35,7 @@ import { MaterialsSection } from './MaterialsSection';
 import { AccountingSection } from './AccountingSection';
 import { HRSection } from './HRSection';
 import { ThermalCalculatorsSection } from './ThermalCalculatorsSection';
+import { FeedbackSection } from './FeedbackSection';
 import { KeyboardShortcutsSection } from './KeyboardShortcutsSection';
 import { TipsSection } from './TipsSection';
 import { ChangelogSection } from './ChangelogSection';
@@ -106,6 +108,12 @@ export function UserGuide({ defaultSection }: { defaultSection?: string }) {
       title: 'Thermal Calculators',
       icon: <ThermostatIcon />,
       content: <ThermalCalculatorsSection />,
+    },
+    {
+      id: 'feedback',
+      title: 'Feedback (Bugs & Feature Requests)',
+      icon: <FeedbackIcon />,
+      content: <FeedbackSection />,
     },
     {
       id: 'shortcuts',

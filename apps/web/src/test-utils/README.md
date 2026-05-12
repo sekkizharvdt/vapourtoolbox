@@ -137,16 +137,11 @@ const project = createMockProject({
 ### Transaction Factories
 
 ```tsx
-import { createMockAccountingTransaction, createMockBankTransaction } from '@/test-utils';
+import { createMockAccountingTransaction } from '@/test-utils';
 
 const payment = createMockAccountingTransaction({
   type: 'VENDOR_PAYMENT',
   amount: 10000,
-});
-
-const bankTxn = createMockBankTransaction({
-  credit: 10000,
-  description: 'Payment received',
 });
 ```
 

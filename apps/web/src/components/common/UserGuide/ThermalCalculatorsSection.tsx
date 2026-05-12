@@ -3,7 +3,7 @@
 /**
  * Thermal Calculators Section
  *
- * User guide for thermal engineering calculators — siphon sizing, etc.
+ * User guide for thermal engineering calculators.
  */
 
 import {
@@ -30,14 +30,131 @@ export function ThermalCalculatorsSection() {
     <Box>
       <Typography variant="body1" paragraph>
         Thermal Calculators provide engineering tools for MED (Multi-Effect Distillation) thermal
-        desalination plant design. The Siphon Sizing Calculator is the primary tool, used to size
-        inter-effect siphon pipes, determine minimum U-bend heights, and analyse pressure drop and
-        flash vapor.
+        desalination plant design and balance-of-plant sizing. The full catalog covers steam &amp;
+        seawater properties, heat exchanger design, MED-specific tools (siphon sizing, MED designer,
+        GOR, falling film), hydraulics (pipe / pressure drop / pump / NPSHa), vapour systems (TVC,
+        vacuum, desuperheating), and mechanical sizing (demister, strainer, spray nozzle). The two
+        tools documented below in detail are Thermal Expansion (newest) and Siphon Sizing (most
+        battle-tested). Every other calculator is summarised in the Full Calculator Catalog section
+        at the bottom.
       </Typography>
 
-      {/* Key Features */}
-      <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-        Key Features
+      <Divider sx={{ my: 3 }} />
+
+      {/* Thermal Expansion Calculator */}
+      <Typography variant="h6" gutterBottom>
+        Thermal Expansion Calculator
+      </Typography>
+      <Typography variant="body2" paragraph>
+        Navigate to <strong>Thermal &rarr; Calculators &rarr; Thermal Expansion</strong>. Use this
+        to size expansion loops/bellows or to verify restrained stress against material yield when a
+        pipe or vessel section sees a temperature swing.
+      </Typography>
+
+      <Typography variant="subtitle2" gutterBottom>
+        Supported Materials
+      </Typography>
+      <Typography variant="body2" paragraph>
+        Carbon Steel (A106 / A53), Stainless Steel 304/304L, Stainless Steel 316/316L, Duplex 2205,
+        Copper, Cupronickel 90/10, and Cupronickel 70/30. Each material ships with temperature-band
+        thermal expansion coefficients, Young&apos;s modulus, and yield strength sourced from ASME
+        BPVC Section II / ASM Handbook.
+      </Typography>
+
+      <Typography variant="subtitle2" gutterBottom>
+        Constraint Modes
+      </Typography>
+      <TableContainer sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Mode</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>When to Use</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Primary Output</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>Free</TableCell>
+              <TableCell>
+                Pipe is free to grow — used to size loops, bellows, or anchor offsets
+              </TableCell>
+              <TableCell>&Delta;L (mm), strain</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Restrained</TableCell>
+              <TableCell>
+                Pipe is anchored at both ends — used to check induced stress against yield
+              </TableCell>
+              <TableCell>Thermal stress (MPa), yield utilisation (%)</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <StepGuide
+        steps={[
+          {
+            title: 'Pick the Material',
+            description:
+              'Select from the supported list. The calculator reads the material&apos;s temperature-banded coefficient of expansion plus Young&apos;s modulus and yield strength from the material database.',
+          },
+          {
+            title: 'Enter the Geometry',
+            description:
+              'Enter the installed pipe length in mm. This is the length you measure today at installation temperature; the calculator will tell you how much it grows or shrinks.',
+          },
+          {
+            title: 'Set Temperatures',
+            description:
+              'Installation temperature (°C, what it was when the pipe was anchored) and operating temperature (°C, the worst case during normal operation). The delta drives the calculation.',
+          },
+          {
+            title: 'Choose Constraint Mode',
+            description:
+              'Free for sizing loops/bellows; Restrained for checking stress on a pin-anchored line.',
+          },
+          {
+            title: 'Read the Results',
+            description:
+              'Free mode reports ΔL and strain. Restrained mode reports thermal stress and yield utilisation — a value above 100 % means the line will yield and you need a flexibility provision.',
+          },
+        ]}
+      />
+
+      <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+        <Typography variant="body2">
+          <strong>Yield utilisation thresholds:</strong> &lt;50 % is comfortable, 50–80 % warrants a
+          formal flexibility analysis, &gt;80 % means add bellows / loops / offsets. The calculator
+          does not include pressure stress — combine with hoop stress separately for a full ASME B31
+          check.
+        </Typography>
+      </Alert>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        <Typography variant="body2">
+          <strong>SS 316/316L &amp; Duplex 2205</strong> were added in v1.6.0 (2026-05-12) for
+          desalination service. Duplex 2205&apos;s lower thermal expansion (~13 ×10⁻⁶ /°C) makes it
+          significantly easier to restrain than austenitic stainless (~17 ×10⁻⁶ /°C) for the same
+          temperature swing.
+        </Typography>
+      </Alert>
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* Siphon Sizing Calculator */}
+      <Typography variant="h6" gutterBottom>
+        Siphon Sizing Calculator
+      </Typography>
+      <Typography variant="body2" paragraph>
+        The Siphon Sizing Calculator is the most-used tool in this module. It sizes inter-effect
+        siphon pipes for MED trains, computes minimum U-bend heights, and analyses pressure drop and
+        flash vapour for each transition. Use Single Siphon mode for spot checks and Batch mode when
+        designing or auditing a full train.
+      </Typography>
+
+      {/* Siphon Sizing — Key Features */}
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        Siphon Sizing — Key Features
       </Typography>
 
       <Box
@@ -427,6 +544,287 @@ export function ThermalCalculatorsSection() {
         saturation temperature at downstream pressure, partial flashing occurs. The flash fraction
         is calculated from an enthalpy balance between inlet conditions and downstream equilibrium.
       </Typography>
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* Full Calculator Catalog */}
+      <Typography variant="h6" gutterBottom>
+        Full Calculator Catalog
+      </Typography>
+      <Typography variant="body2" paragraph>
+        Every active thermal calculator with its purpose, typical inputs, and primary outputs.
+        Detailed walk-throughs exist for Thermal Expansion and Siphon Sizing above; the rest follow
+        the same input-on-the-left, results-on-the-right layout with Save / Load / PDF where it
+        applies.
+      </Typography>
+
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        Fluid Properties &amp; Reference Data
+      </Typography>
+      <TableContainer sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Calculator</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Inputs</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Outputs / Use</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>Steam Tables</TableCell>
+              <TableCell>Pressure or temperature (saturation), or P+T (superheated)</TableCell>
+              <TableCell>
+                Saturation T/P, enthalpy, entropy, density, specific volume — IAPWS-IF97
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Seawater Properties</TableCell>
+              <TableCell>Temperature, salinity, optional pressure</TableCell>
+              <TableCell>
+                Density, Cp, enthalpy, BPE, viscosity — MIT seawater correlations (0&ndash;120,000
+                ppm)
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>NCG Properties</TableCell>
+              <TableCell>Pressure, temperature, NCG composition, dissolved fraction</TableCell>
+              <TableCell>
+                Density, viscosity, thermal conductivity, partial pressure — Weiss 1970 + Wilke
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Fouling &amp; Scaling</TableCell>
+              <TableCell>Top brine temperature, salinity, pH</TableCell>
+              <TableCell>
+                CaSO₄ &amp; CaCO₃ saturation indices, T_max for scaling, fouling recommendations
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        Heat Transfer &amp; Exchangers
+      </Typography>
+      <TableContainer sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Calculator</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Inputs</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Outputs / Use</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>Heat Exchanger</TableCell>
+              <TableCell>Both-side fluids, temps, flows, fouling, tube geometry</TableCell>
+              <TableCell>Iterative U, area, velocity check, tube count</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Heat Duty</TableCell>
+              <TableCell>Inlet/outlet T, flow, sensible vs latent split</TableCell>
+              <TableCell>Q (kW), LMTD, area at typical HTC</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Falling Film</TableCell>
+              <TableCell>Tube OD, length, brine flow, T, wetting rate</TableCell>
+              <TableCell>HTC, film thickness, minimum wetted length, tube count</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Single Tube</TableCell>
+              <TableCell>Inlet/outlet T, flow, film mode, material</TableCell>
+              <TableCell>Film thickness, inside/outside HTC, energy balance</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Custom / Lateral / Central Bundle</TableCell>
+              <TableCell>Shell ID, tube OD, pitch, count, nozzle layout</TableCell>
+              <TableCell>Tube count, surface area, vapour-lane geometry</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        MED-Specific Tools
+      </Typography>
+      <TableContainer sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Calculator</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Inputs</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Outputs / Use</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>MED Designer</TableCell>
+              <TableCell>
+                Production target, GOR target, brine concentration, source water T
+              </TableCell>
+              <TableCell>
+                Effect count, steam load, equipment list, weights — single-shot pre-feasibility
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>MED Plant</TableCell>
+              <TableCell>Effect count, steam P/T, flows, vapour bleed config</TableCell>
+              <TableCell>
+                Per-effect energy &amp; mass balance, GOR, equipment sizing — El-Dessouky model
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>GOR</TableCell>
+              <TableCell>Configuration, N_effects, steam load</TableCell>
+              <TableCell>
+                GOR, productivity curves vs steam temperature — empirical plant data overlay
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Siphon Sizing</TableCell>
+              <TableCell>Effect pressures, flow, fluid, geometry</TableCell>
+              <TableCell>Pipe size, min height, ΔP, flash % (detailed above)</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Desuperheating</TableCell>
+              <TableCell>Steam P, T_super, T_target, spray water T &amp; flow</TableCell>
+              <TableCell>Spray water demand, outlet enthalpy</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        Vapour, Vacuum, and Ejector Systems
+      </Typography>
+      <TableContainer sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Calculator</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Inputs</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Outputs / Use</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>TVC (Thermo-Vapour Compressor)</TableCell>
+              <TableCell>Motive P/T, suction &amp; discharge P, flow</TableCell>
+              <TableCell>Entrainment ratio, discharge flow, efficiency — Huang 1999</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>MVC (Mechanical Vapour Compressor)</TableCell>
+              <TableCell>—</TableCell>
+              <TableCell>
+                Coming soon — placeholder UI in place; the calc engine is the next thermal item on
+                the roadmap
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Vacuum Breaker</TableCell>
+              <TableCell>DN size, valve type, mode, ΔP</TableCell>
+              <TableCell>Cv, orifice diameter, time-to-vent steps — HEI / ISO 9300</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Vacuum System</TableCell>
+              <TableCell>NCG load, leak rate, train configuration</TableCell>
+              <TableCell>
+                Per-stage pressures, motive steam load, power — HEI standards + LRVP correlations
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        Hydraulics &amp; Pumps
+      </Typography>
+      <TableContainer sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Calculator</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Inputs</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Outputs / Use</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>Pipe Sizing</TableCell>
+              <TableCell>Flow rate, velocity target, schedule (Sch 10 / 40 / 80)</TableCell>
+              <TableCell>Selected pipe (NPS/DN), velocity, area — ASME B36.10</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Pressure Drop</TableCell>
+              <TableCell>Flow, fluid, pipe, fittings, equivalent length</TableCell>
+              <TableCell>
+                ΔP, Reynolds, friction factor, fitting loss breakdown — Darcy-Weisbach
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Pump Sizing</TableCell>
+              <TableCell>Flow, ΔP, efficiency, motor margin</TableCell>
+              <TableCell>TDH, hydraulic/brake power, motor kW — Hydraulic Institute</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>NPSHa</TableCell>
+              <TableCell>Suction vessel pressure, holdup, friction losses</TableCell>
+              <TableCell>NPSHa, holdup time, margin vs NPSHr — Crane TP-410</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        Mechanical &amp; Chemistry
+      </Typography>
+      <TableContainer sx={{ mb: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Calculator</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Inputs</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Outputs / Use</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>Demister</TableCell>
+              <TableCell>Vessel geometry, vapour flow, fluid, pad type</TableCell>
+              <TableCell>Area, vapour velocity, efficiency, ΔP — Souders-Brown / GPSA</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Strainer Sizing</TableCell>
+              <TableCell>Flow, fluid, mesh, line size</TableCell>
+              <TableCell>Clean &amp; clogged ΔP, recommended type — Crane TP-410</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Spray Nozzle</TableCell>
+              <TableCell>Flow, supply pressure, coverage area</TableCell>
+              <TableCell>Nozzle model, spray pattern, layout count</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Chemical Dosing</TableCell>
+              <TableCell>Flow rate, dosing rate, tank height</TableCell>
+              <TableCell>
+                Daily consumption, tank dimensions, pump P — Belgard EV 2050 / Belite M8 presets
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Alert severity="info" sx={{ mt: 2 }}>
+        <Typography variant="body2">
+          All calculators load instantly (no Firestore dependency), accept SI inputs, and report
+          warnings on values outside the validated range. Save / Load is per-user and works across
+          sessions; PDF Report and Excel Export are available where applicable. Use the calculators
+          landing page at <strong>Thermal &rarr; Calculators</strong> to browse the full grid with
+          status chips.
+        </Typography>
+      </Alert>
     </Box>
   );
 }

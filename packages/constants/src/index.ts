@@ -14,3 +14,4 @@ export * from './indianStates';
 export * from './transactions';
 export * from './fields';
 export * from './labels';
+export * from './changelog';

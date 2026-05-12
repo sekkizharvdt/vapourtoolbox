@@ -1065,21 +1065,6 @@ service cloud.firestore {
     }
 
     // ============================================
-    // Bank Reconciliation (Accounting Module)
-    // ============================================
-
-    match /bankReconciliation/{recordId} {
-      // Read: Users with VIEW_ACCOUNTING permission
-      allow read: if hasPermission(32768); // VIEW_ACCOUNTING
-
-      // Create/Update: Users with MANAGE_ACCOUNTING permission
-      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING
-
-      // Delete: Super admins only
-      allow delete: if isSuperAdmin();
-    }
-
-    // ============================================
     // Module Integrations (Super Admin Only)
     // ============================================
 
@@ -1978,39 +1963,6 @@ service cloud.firestore {
       allow create: if hasPermission(16384) && isInternalUser() && !isAgent() &&
                        request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING (bit 14)
       allow update: if hasPermission(16384) && isInternalUser() && !isAgent(); // MANAGE_ACCOUNTING (bit 14)
-      allow delete: if isSuperAdmin();
-    }
-
-    // Bank reconciliation: statements + line transactions + match results
-    match /bankStatements/{stmtId} {
-      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
-      allow create: if hasPermission(16384) && isInternalUser() &&
-                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
-      allow update: if hasPermission(16384) && isInternalUser();
-      allow delete: if isSuperAdmin();
-    }
-
-    match /bankTransactions/{lineId} {
-      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
-      allow create: if hasPermission(16384) && isInternalUser() &&
-                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
-      allow update: if hasPermission(16384) && isInternalUser();
-      allow delete: if isSuperAdmin();
-    }
-
-    match /reconciliationMatches/{matchId} {
-      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
-      allow create: if hasPermission(16384) && isInternalUser() &&
-                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
-      allow update: if hasPermission(16384) && isInternalUser();
-      allow delete: if isSuperAdmin();
-    }
-
-    match /reconciliationReports/{reportId} {
-      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING
-      allow create: if hasPermission(16384) && isInternalUser() &&
-                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ACCOUNTING
-      allow update: if hasPermission(16384) && isInternalUser();
       allow delete: if isSuperAdmin();
     }
 

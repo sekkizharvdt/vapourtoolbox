@@ -1,6 +1,6 @@
 {
   "name": "vapour-toolbox",
-  "version": "0.1.0",
+  "version": "1.6.0",
   "private": true,
   "description": "Vapour Toolbox - Unified Business Management Platform",
   "workspaces": [
@@ -17,6 +17,8 @@
     "check-rules": "node scripts/audit/check-rules.js",
     "check-rules:report": "node scripts/audit/check-rules.js --advisory",
     "check-rules:snapshot": "node scripts/audit/check-rules.js --advisory --quiet --md",
+    "changelog:sync": "tsx scripts/sync-changelog.ts",
+    "check:last-updated": "tsx scripts/check-last-updated.ts",
     "clean": "turbo clean && rm -rf node_modules",
     "prepare": "husky",
     "emulator": "firebase emulators:start",

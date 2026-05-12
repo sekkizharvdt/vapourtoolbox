@@ -207,6 +207,36 @@ export default function ActivityFeedPage() {
 
   const [userFilter, setUserFilter] = useState<string>('all');
 
+  // Summary stats over the loaded window
+  const summary = useMemo(() => {
+    const moduleCounts = new Map<string, number>();
+    const actorCounts = new Map<string, number>();
+    let critical = 0;
+    let failed = 0;
+    let agentEntries = 0;
+
+    auditLogs.forEach((log) => {
+      const mod = getModuleForEntity(log.entityType);
+      moduleCounts.set(mod, (moduleCounts.get(mod) ?? 0) + 1);
+      if (log.actorName) actorCounts.set(log.actorName, (actorCounts.get(log.actorName) ?? 0) + 1);
+      if (log.severity === 'CRITICAL') critical += 1;
+      if (log.success === false) failed += 1;
+      if (log.actorType === 'agent') agentEntries += 1;
+    });
+
+    const topModule = [...moduleCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+    const topActor = [...actorCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+
+    return {
+      total: auditLogs.length,
+      critical,
+      failed,
+      agentEntries,
+      topModule: topModule ? `${topModule[0]} (${topModule[1]})` : '—',
+      topActor: topActor ? `${topActor[0]} (${topActor[1]})` : '—',
+    };
+  }, [auditLogs]);
+
   // Filter and group logs
   const groupedLogs = useMemo(() => {
     const filtered = auditLogs.filter((log) => {
@@ -279,6 +309,77 @@ export default function ActivityFeedPage() {
         <Typography variant="body1" color="text.secondary">
           Recent organization-wide activity and changes
         </Typography>
+      </Box>
+
+      {/* Summary stats (window = most recent 100 audit log entries) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' },
+          gap: 1.5,
+          mb: 3,
+        }}
+      >
+        <Paper variant="outlined" sx={{ p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            Entries (window)
+          </Typography>
+          <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+            {summary.total}
+          </Typography>
+        </Paper>
+        <Paper
+          variant="outlined"
+          sx={{ p: 1.5, ...(summary.critical > 0 && { borderColor: 'error.main' }) }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Critical
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{ lineHeight: 1.2, color: summary.critical > 0 ? 'error.main' : 'inherit' }}
+          >
+            {summary.critical}
+          </Typography>
+        </Paper>
+        <Paper
+          variant="outlined"
+          sx={{ p: 1.5, ...(summary.failed > 0 && { borderColor: 'warning.main' }) }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Failed
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{ lineHeight: 1.2, color: summary.failed > 0 ? 'warning.main' : 'inherit' }}
+          >
+            {summary.failed}
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            Agent actions
+          </Typography>
+          <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+            {summary.agentEntries}
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            Top module
+          </Typography>
+          <Typography variant="subtitle1" sx={{ lineHeight: 1.2 }}>
+            {summary.topModule}
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            Top actor
+          </Typography>
+          <Typography variant="subtitle1" sx={{ lineHeight: 1.2 }}>
+            {summary.topActor}
+          </Typography>
+        </Paper>
       </Box>
 
       {/* Filters */}

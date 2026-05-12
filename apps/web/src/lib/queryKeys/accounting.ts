@@ -80,14 +80,3 @@ export const fiscalYearKeys = {
   list: () => [...fiscalYearKeys.all, 'list'] as const,
   detail: (year: number) => [...fiscalYearKeys.all, 'detail', year] as const,
 };
-
-/**
- * Bank Reconciliation query keys
- */
-export const bankReconciliationKeys = {
-  all: ['bankReconciliation'] as const,
-  statements: () => [...bankReconciliationKeys.all, 'statements'] as const,
-  statement: (id: string) => [...bankReconciliationKeys.statements(), id] as const,
-  unmatched: (accountId: string) =>
-    [...bankReconciliationKeys.all, 'unmatched', accountId] as const,
-};

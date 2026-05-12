@@ -1393,38 +1393,6 @@
       ]
     },
     {
-      "collectionGroup": "bankStatements",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "accountId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "bankStatements",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "accountId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "reconciledStatus",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "glEntries",
       "queryScope": "COLLECTION",
       "fields": [
@@ -3158,24 +3126,6 @@
         },
         {
           "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "bankTransactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "statementId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isReconciled",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "transactionDate",
           "order": "DESCENDING"
         }
       ]

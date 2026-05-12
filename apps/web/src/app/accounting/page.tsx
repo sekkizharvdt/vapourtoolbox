@@ -10,7 +10,6 @@ import {
   RequestQuote as BillIcon,
   List as TransactionsIcon,
   Payment as PaymentIcon,
-  AccountBalanceWallet as ReconciliationIcon,
   Folder as FolderIcon,
   Repeat as RecurringIcon,
   CalendarMonth as PlanningIcon,
@@ -128,13 +127,6 @@ export default function AccountingPage() {
           description: 'Manage recurring invoices, bills, salaries, and journal entries',
           icon: <RecurringIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
           path: '/accounting/recurring',
-        },
-        {
-          id: 'reconciliation',
-          title: 'Bank Reconciliation',
-          description: 'Match bank statements with accounting records',
-          icon: <ReconciliationIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
-          path: '/accounting/reconciliation',
         },
         {
           id: 'trash',

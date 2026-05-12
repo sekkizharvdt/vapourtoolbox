@@ -62,7 +62,6 @@ export {
   createMockVendor,
   createMockCustomer,
   createMockProject,
-  createMockBankTransaction,
   createMockAccountingTransaction,
   createMockPurchaseRequest,
   createMockRFQ,

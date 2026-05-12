@@ -21,9 +21,6 @@ export * from './auditLogger';
 // Tax calculators
 export * from './gstCalculator';
 
-// Bank operations
-export * from './bankStatementParser';
-
 // Generators
 export * from './gstReportGenerator';
 
@@ -35,8 +32,6 @@ export * from './costCentreService';
 export * from './vendorBillIntegrationService';
 
 // Submodule exports (these have their own index.ts files)
-// Note: autoMatching re-exports types that overlap with bankReconciliation, import directly to avoid conflicts
-export * from './bankReconciliation';
 export * from './glEntry';
 export * from './gstReports';
 

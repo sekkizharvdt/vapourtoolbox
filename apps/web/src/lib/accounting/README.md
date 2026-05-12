@@ -10,23 +10,15 @@ The accounting module provides:
 2. **Transactions** - Journal entries and ledger management
 3. **Cost Centres** - Department/project cost tracking
 4. **Fiscal Years** - Period management and closing
-5. **Bank Reconciliation** - Statement matching and reconciliation
-6. **Forex** - Currency exchange and gain/loss tracking
-7. **Bill Management** - Vendor bill processing and approval
-8. **Invoice Management** - Customer invoice processing
+5. **Forex** - Currency exchange and gain/loss tracking
+6. **Bill Management** - Vendor bill processing and approval
+7. **Invoice Management** - Customer invoice processing
 
 ## Directory Structure
 
 ```
 accounting/
 ├── index.ts                      # Main barrel export
-│
-├── bankReconciliation/           # Bank statement reconciliation
-│   ├── autoMatching.ts          # Auto-matching algorithms
-│   ├── crud.ts                  # Statement CRUD operations
-│   ├── matching.ts              # Manual matching logic
-│   ├── reporting.ts             # Reconciliation reports
-│   └── types.ts
 │
 ├── reports/                      # Financial reports
 │   ├── balanceSheet.ts
@@ -61,16 +53,6 @@ import { createTransaction, getTransactionById } from '@/lib/accounting';
 import { generateGLEntries } from '@/lib/accounting';
 ```
 
-### Bank Reconciliation
-
-```typescript
-import {
-  createBankStatement,
-  runAutoMatching,
-  matchTransactions,
-} from '@/lib/accounting/bankReconciliation';
-```
-
 ## Account Types
 
 - **ASSET** - Assets (Cash, Inventory, Equipment)
@@ -86,14 +68,6 @@ import {
 3. Close periods after review
 4. Year-end closing entries
 5. Carry forward balances
-
-## Bank Reconciliation Flow
-
-1. Import bank statement (CSV/manual)
-2. Auto-match transactions (configurable thresholds)
-3. Manual matching for unmatched items
-4. Generate adjustment entries
-5. Complete reconciliation report
 
 ## Integration Points
 

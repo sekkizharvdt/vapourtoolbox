@@ -446,4 +446,15 @@ Cancellation            → Return Balance, Close Request
 
 ---
 
-_Last Updated: January 2026_
+## Recent Changes (v1.6.0 — 2026-05-12)
+
+- **Email notifications for leave-approved** route through configured recipients (admin setting in `hrConfig/notifications`)
+- **PR rejection emails** added — useful for HR-adjacent procurement requests that fail approval
+- **Holiday working overrides** documented above in §3.3 (already implemented, no behaviour change)
+- **Comp-off limits** documented in §2.5 (already enforced, no behaviour change)
+
+The leave / on-duty / travel-expense workflows are otherwise unchanged from the v1.5.0 baseline. Submit any bugs or enhancement requests via the in-app Feedback module (`/feedback`) — they'll land in the same triage queue as everything else.
+
+---
+
+_Last Updated: 2026-05-12_

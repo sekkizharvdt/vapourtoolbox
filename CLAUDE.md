@@ -163,7 +163,7 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
 17. **State machines go in `stateMachines.ts`**, not inline in service files. Status types come from `@vapour/types`.
 
-18. **Sensitive operations need audit trails** — permission changes, employee updates, hard deletes, and financial approvals should log to an `auditLogs` collection (pattern in progress).
+18. **Sensitive operations need audit trails** — permission changes, employee updates, hard deletes, financial approvals (PO / payment / invoice / journal post), and workflow status transitions MUST log to the `auditLogs` collection via `logAuditEvent()` from `@/lib/audit`. Read surface is the admin Activity Feed at `/admin/activity`. Agent runs and HITL approvals carry `actorType: 'agent'`, `agentRunId`, and `agentToolName` so human and automated actions are queryable side by side.
 
 ## Concurrency & Transactions
 

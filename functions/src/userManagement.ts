@@ -101,7 +101,6 @@ const PERMISSION_FLAGS = {
   VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608 - View P&L, Balance Sheet, etc.
   MANAGE_COST_CENTRES: 1 << 24, // 16777216 - Manage project cost centres
   MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
-  RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
 
   // Document Management (bits 27-30)
   MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports
