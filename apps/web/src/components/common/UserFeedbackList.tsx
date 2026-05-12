@@ -343,8 +343,8 @@ export function UserFeedbackList() {
                     </Typography>
                   )}
 
-                  {/* Action button for resolved items */}
-                  {item.status === 'resolved' && (
+                  {/* Action button for non-terminal items — opens detail page where reporter can close or follow up */}
+                  {['new', 'in_progress', 'resolved'].includes(item.status) && (
                     <Button
                       variant="contained"
                       size="small"
@@ -355,7 +355,7 @@ export function UserFeedbackList() {
                       }}
                       sx={{ mt: 1 }}
                     >
-                      Review & Close or Follow Up
+                      {item.status === 'resolved' ? 'Review & Close or Follow Up' : 'Open / Close'}
                     </Button>
                   )}
                 </Stack>
