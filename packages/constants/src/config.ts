@@ -80,10 +80,15 @@ export const APP_META = {
   VERSION: '1.6.0',
   DESCRIPTION: 'Unified Business Management Platform',
   /**
-   * Last updated date in ISO format (YYYY-MM-DD)
-   * Update this whenever significant changes are deployed
+   * Last updated date in ISO format (YYYY-MM-DD).
+   *
+   * Resolved at bundle time from `NEXT_PUBLIC_BUILD_DATE`, which `next.config.ts`
+   * sets to the HEAD commit date via `git log -1 --format=%cs`. Drift is structurally
+   * impossible — every production build picks up the date of the commit being deployed.
+   * The fallback below is only consumed when neither Next.js nor git is available
+   * (tests, ad-hoc Node scripts).
    */
-  LAST_UPDATED: '2026-05-12',
+  LAST_UPDATED: process.env.NEXT_PUBLIC_BUILD_DATE ?? '2026-05-12',
   /**
    * Changelog/release notes URL (optional)
    */

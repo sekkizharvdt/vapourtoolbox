@@ -18,7 +18,7 @@
     "check-rules:report": "node scripts/audit/check-rules.js --advisory",
     "check-rules:snapshot": "node scripts/audit/check-rules.js --advisory --quiet --md",
     "changelog:sync": "tsx scripts/sync-changelog.ts",
-    "check:last-updated": "tsx scripts/check-last-updated.ts",
+    "release:cut": "tsx scripts/release-cut.ts",
     "clean": "turbo clean && rm -rf node_modules",
     "prepare": "husky",
     "emulator": "firebase emulators:start",

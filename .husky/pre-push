@@ -1,9 +1,0 @@
-echo "🔍 Running pre-push checks..."
-
-# Verify APP_META.LAST_UPDATED hasn't drifted too far behind HEAD
-pnpm check:last-updated
-if [ $? -ne 0 ]; then
-  echo "❌ APP_META.LAST_UPDATED is stale. Bump it (and add a changelog entry) before pushing."
-  echo "   Override with: git push --no-verify"
-  exit 1
-fi

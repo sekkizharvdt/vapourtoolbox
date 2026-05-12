@@ -1,5 +1,16 @@
+import { execSync } from 'node:child_process';
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
+
+// Derive build date from HEAD commit so the in-app "Last updated" never drifts.
+// Falls back to today if git isn't available (e.g. a deploy from a tarball).
+function resolveBuildDate(): string {
+  try {
+    return execSync('git log -1 --format=%cs HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
 
 const nextConfig: NextConfig = {
   // Static export for Firebase Hosting
@@ -13,6 +24,9 @@ const nextConfig: NextConfig = {
     '@vapour/ui',
     '@vapour/validation',
   ],
+  env: {
+    NEXT_PUBLIC_BUILD_DATE: resolveBuildDate(),
+  },
   eslint: {
     ignoreDuringBuilds: false,
   },

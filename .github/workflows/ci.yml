@@ -40,9 +40,6 @@ jobs:
       - name: Run TypeScript type check
         run: pnpm type-check
 
-      - name: Check APP_META.LAST_UPDATED freshness
-        run: pnpm check:last-updated
-
       - name: Check for prohibited type casts
         run: |
           echo "🔍 Checking for 'as any' usage..."
