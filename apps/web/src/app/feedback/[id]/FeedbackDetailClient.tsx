@@ -240,7 +240,12 @@ export default function FeedbackDetailClient() {
 
   // Check if user owns this feedback
   const isOwner = feedback?.userId === user?.uid;
-  const canTakeAction = isOwner && feedback?.status === 'resolved';
+  const isNonTerminal =
+    feedback?.status === 'new' ||
+    feedback?.status === 'in_progress' ||
+    feedback?.status === 'resolved';
+  const canClose = isOwner && isNonTerminal;
+  const canFollowUp = isOwner && feedback?.status === 'resolved';
 
   // Show loading while auth OR data is loading
   // NOTE: Don't wrap in AuthenticatedLayout here - it has its own loading check
@@ -297,10 +302,10 @@ export default function FeedbackDetailClient() {
           />
         </Stack>
 
-        {/* Action Banner for Resolved Feedback */}
-        {canTakeAction && (
+        {/* Action Banner — owner can close from any non-terminal status, follow up only from resolved */}
+        {canClose && (
           <Alert
-            severity="info"
+            severity={feedback.status === 'resolved' ? 'info' : 'warning'}
             sx={{ mb: 3 }}
             action={
               <Stack direction="row" spacing={1}>
@@ -311,21 +316,25 @@ export default function FeedbackDetailClient() {
                   startIcon={<CheckCircleIcon />}
                   onClick={() => setCloseDialogOpen(true)}
                 >
-                  Close - Resolved
+                  {feedback.status === 'resolved' ? 'Close - Resolved' : 'Close'}
                 </Button>
-                <Button
-                  color="warning"
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ReplayIcon />}
-                  onClick={() => setFollowUpDialogOpen(true)}
-                >
-                  Follow Up
-                </Button>
+                {canFollowUp && (
+                  <Button
+                    color="warning"
+                    variant="outlined"
+                    size="small"
+                    startIcon={<ReplayIcon />}
+                    onClick={() => setFollowUpDialogOpen(true)}
+                  >
+                    Follow Up
+                  </Button>
+                )}
               </Stack>
             }
           >
-            This issue has been marked as resolved. Please verify and close or provide follow-up.
+            {feedback.status === 'resolved'
+              ? 'This issue has been marked as resolved. Please verify and close or provide follow-up.'
+              : 'You can close this feedback if it no longer needs attention.'}
           </Alert>
         )}
 
@@ -486,8 +495,9 @@ export default function FeedbackDetailClient() {
           <DialogTitle>Close Feedback</DialogTitle>
           <DialogContent>
             <Typography>
-              Are you satisfied with the resolution? Closing this feedback will mark it as resolved
-              to your satisfaction.
+              {feedback.status === 'resolved'
+                ? 'Are you satisfied with the resolution? Closing this feedback will mark it as resolved to your satisfaction.'
+                : 'Closing this feedback will mark it as no longer needing attention. You can submit new feedback later if needed.'}
             </Typography>
           </DialogContent>
           <DialogActions>
