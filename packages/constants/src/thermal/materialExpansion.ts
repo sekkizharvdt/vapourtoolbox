@@ -102,6 +102,40 @@ export const MATERIAL_THERMAL_PROPERTIES: Record<string, MaterialThermalProperti
     source: 'ASM Handbook Vol. 1; ASME B31.3 Table C-1',
   },
 
+  stainless_316: {
+    key: 'stainless_316',
+    label: 'Stainless Steel 316 / 316L',
+    description: 'Mo-bearing austenitic SS — AISI 316/316L (UNS S31600/S31603)',
+    referenceTemperature: 20,
+    validRange: { min: 20, max: 600 },
+    data: [
+      { T: 20, alphaMean: 16.0, E: 193, sigmaY: 170 },
+      { T: 100, alphaMean: 16.5, E: 192, sigmaY: 145 },
+      { T: 200, alphaMean: 17.0, E: 183, sigmaY: 125 },
+      { T: 300, alphaMean: 17.5, E: 173, sigmaY: 115 },
+      { T: 400, alphaMean: 17.7, E: 167, sigmaY: 105 },
+      { T: 500, alphaMean: 18.0, E: 158, sigmaY: 100 },
+      { T: 600, alphaMean: 18.3, E: 148, sigmaY: 95 },
+    ],
+    source: 'ASM Handbook Vol. 1; ASME B31.3 Table C-1 (316L yield basis)',
+  },
+
+  duplex_2205: {
+    key: 'duplex_2205',
+    label: 'Duplex Stainless 2205',
+    description:
+      'Duplex SS UNS S32205 / S31803 — operating limit ≈ 300 °C (475 °C embrittlement above ~315 °C)',
+    referenceTemperature: 20,
+    validRange: { min: 20, max: 300 },
+    data: [
+      { T: 20, alphaMean: 13.0, E: 200, sigmaY: 450 },
+      { T: 100, alphaMean: 13.5, E: 190, sigmaY: 360 },
+      { T: 200, alphaMean: 14.0, E: 180, sigmaY: 330 },
+      { T: 300, alphaMean: 14.5, E: 170, sigmaY: 310 },
+    ],
+    source: 'ASM Handbook Vol. 1; ASTM A240 / ASME II-D Table U',
+  },
+
   aluminium_5052: {
     key: 'aluminium_5052',
     label: 'Aluminium 5052-O',
@@ -141,6 +175,8 @@ export const MATERIAL_THERMAL_PROPERTIES: Record<string, MaterialThermalProperti
 export const MATERIAL_THERMAL_KEYS = [
   'carbon_steel',
   'stainless_304',
+  'stainless_316',
+  'duplex_2205',
   'aluminium_5052',
   'titanium_sb338_gr2',
 ] as const;

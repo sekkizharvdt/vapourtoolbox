@@ -99,6 +99,35 @@ describe('Thermal Expansion Calculator', () => {
       expect(r.alphaMeanOperating).toBeCloseTo(8.8, 5);
       expect(r.deltaL).toBeCloseTo(0.704, 3); // 8.8e-6 × 80 × 1000
     });
+
+    it('SS 316 — α_mean(100) ≈ 16.5 × 10⁻⁶ /°C (slightly less than 304)', () => {
+      const r316 = calculateThermalExpansion(baseInput({ materialKey: 'stainless_316' }));
+      const r304 = calculateThermalExpansion(baseInput({ materialKey: 'stainless_304' }));
+      expect(r316.alphaMeanOperating).toBeCloseTo(16.5, 5);
+      // δ/L = 16.5e-6 × 80 = 1.320e-3 → ΔL = 1.320 mm
+      expect(r316.deltaL).toBeCloseTo(1.32, 3);
+      // 316 expands slightly less than 304 at 100 °C (16.5 vs 17.2)
+      expect(r316.deltaL).toBeLessThan(r304.deltaL);
+    });
+
+    it('Duplex 2205 — α_mean(100) ≈ 13.5 × 10⁻⁶ /°C (between CS and austenitic SS)', () => {
+      const cs = calculateThermalExpansion(baseInput());
+      const dx = calculateThermalExpansion(baseInput({ materialKey: 'duplex_2205' }));
+      const ss = calculateThermalExpansion(baseInput({ materialKey: 'stainless_304' }));
+      expect(dx.alphaMeanOperating).toBeCloseTo(13.5, 5);
+      // δ/L = 13.5e-6 × 80 = 1.080e-3 → ΔL = 1.080 mm
+      expect(dx.deltaL).toBeCloseTo(1.08, 3);
+      // Duplex sits between carbon steel and 304 in expansion
+      expect(dx.deltaL).toBeGreaterThan(cs.deltaL);
+      expect(dx.deltaL).toBeLessThan(ss.deltaL);
+    });
+
+    it('Duplex 2205 — warns above 300 °C operating limit', () => {
+      const r = calculateThermalExpansion(
+        baseInput({ materialKey: 'duplex_2205', operatingTemperature: 400 })
+      );
+      expect(r.warnings.some((w) => /outside the tabulated range/.test(w))).toBe(true);
+    });
   });
 
   describe('temperature-dependent α', () => {
