@@ -8,3 +8,4 @@ export * from './steamTables';
 export * from './seawaterTables';
 export * from './engineeringData';
 export * from './medConstants';
+export * from './materialExpansion';

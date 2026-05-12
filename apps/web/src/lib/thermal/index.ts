@@ -120,6 +120,14 @@ export {
   type DesuperheatingResult,
 } from './desuperheatingCalculator';
 
+// Thermal Expansion Calculator
+export {
+  calculateThermalExpansion,
+  type ConstraintMode,
+  type ThermalExpansionInput,
+  type ThermalExpansionResult,
+} from './thermalExpansionCalculator';
+
 // Thermo Vapour Compressor (TVC)
 export { calculateTVC, type TVCInput, type TVCResult } from './tvcCalculator';
 
