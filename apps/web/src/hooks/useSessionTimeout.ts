@@ -10,14 +10,14 @@ const logger = createLogger('SessionTimeout');
  * Session timeout configuration
  */
 const SESSION_CONFIG = {
-  // Time before warning modal appears (25 minutes)
-  WARNING_TIME: 25 * 60 * 1000,
+  // Time before warning modal appears (8 hours)
+  WARNING_TIME: 8 * 60 * 60 * 1000,
 
-  // Time until auto-logout after warning (5 minutes)
-  LOGOUT_TIME: 5 * 60 * 1000,
+  // Time until auto-logout after warning (30 minutes)
+  LOGOUT_TIME: 30 * 60 * 1000,
 
-  // Total idle time before logout (30 minutes)
-  TOTAL_IDLE_TIME: 30 * 60 * 1000,
+  // Total idle time before logout (8.5 hours)
+  TOTAL_IDLE_TIME: 8.5 * 60 * 60 * 1000,
 
   // Token refresh interval (check every 5 minutes)
   TOKEN_CHECK_INTERVAL: 5 * 60 * 1000,
