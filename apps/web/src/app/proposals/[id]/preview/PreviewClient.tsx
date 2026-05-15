@@ -712,8 +712,8 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
         {/* Commercial Summary — mirrors the customer-facing PDF. All
             numbers come from the shared computeCommercialSummary helper
             so this card, the PDF, and the Pricing editor always agree.
-            Section amounts are in the quote currency; tax is shown for
-            INR quotes only (foreign exports are zero-rated). */}
+            Section amounts and tax are in the quote currency; the tax
+            row only prints when the user has set a non-zero rate. */}
         {(() => {
           const summary = computeCommercialSummary(proposal);
           if (!summary) return null;
@@ -729,24 +729,29 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                 <TableContainer>
                   <Table size="small">
                     <TableBody>
-                      {summary.sections.map((sec) => (
-                        <TableRow key={sec.id}>
-                          <TableCell>
-                            {sec.title}
-                            {sec.description && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ display: 'block' }}
-                              >
-                                {sec.description}
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell align="right">{fmt(sec.amount)}</TableCell>
-                        </TableRow>
-                      ))}
-                      {summary.taxRate > 0 && (
+                      {summary.sections.map((sec) => {
+                        const displayed = summary.rollTaxIntoSections
+                          ? sec.amount * (1 + summary.taxRate / 100)
+                          : sec.amount;
+                        return (
+                          <TableRow key={sec.id}>
+                            <TableCell>
+                              {sec.title}
+                              {sec.description && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ display: 'block' }}
+                                >
+                                  {sec.description}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell align="right">{fmt(displayed)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {!summary.rollTaxIntoSections && summary.taxRate > 0 && (
                         <>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 'bold' }}>Subtotal</TableCell>

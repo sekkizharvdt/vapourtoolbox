@@ -12,6 +12,13 @@
  *   priceSections (amounts in quote currency) distribute that target.
  *     • 1 included section  → amount auto-tracks the target
  *     • N included sections → user splits; banner shows target vs sum
+ *
+ * Tax handling: the user sets a tax rate and label. For INR quotes the
+ * customer PDF prints a separate "Tax / GST" line. For foreign-currency
+ * quotes with a non-zero rate (`rollTaxIntoSections === true`), the PDF
+ * bakes the tax into each section's printed amount and suppresses the
+ * tax line — the customer sees one rolled number per row plus a single
+ * total in the quote currency.
  */
 
 import type { CurrencyCode, Proposal } from '@vapour/types';
@@ -51,10 +58,18 @@ export interface CommercialSummary {
 
   taxRate: number;
   taxLabel: string;
-  /** Tax amount in quote currency. Always 0 for foreign quotes. */
+  /** Tax amount in quote currency. */
   taxAmount: number;
   /** Grand total in quote currency. */
   total: number;
+  /**
+   * True when the customer PDF should bake tax into each section amount
+   * and hide the separate Subtotal + Tax rows. Used for foreign-currency
+   * export quotes where the customer sees a single rolled total, not a
+   * line-item GST disclosure. For INR quotes this stays false and the
+   * PDF prints the normal subtotal + tax + total breakdown.
+   */
+  rollTaxIntoSections: boolean;
 }
 
 /**
@@ -103,13 +118,15 @@ export function computeCommercialSummary(proposal: Proposal): CommercialSummary 
   const delta = round2(sectionsSum - targetRevenue);
   const hasDelta = Math.abs(delta) > 0.01;
 
-  // Tax applies to INR quotes only — Indian GST is zero-rated on
-  // exports, so foreign quotes show no tax row and no GST disclosure
-  // on the PDF.
-  const taxRate = isForeignQuote ? 0 : cp.taxRate || 0;
+  // Tax is whatever the user has set. Indian GST is typically zero-rated
+  // on exports under LUT, but the user — not the helper — decides whether
+  // to apply tax on a foreign-currency quote (place-of-supply rules,
+  // missing LUT, destination-country VAT all have edge cases).
+  const taxRate = cp.taxRate || 0;
   const taxLabel = cp.taxLabel || 'Tax';
   const taxAmount = round2((sectionsSum * taxRate) / 100);
   const total = round2(sectionsSum + taxAmount);
+  const rollTaxIntoSections = isForeignQuote && taxRate > 0;
 
   return {
     currency,
@@ -127,5 +144,6 @@ export function computeCommercialSummary(proposal: Proposal): CommercialSummary 
     taxLabel,
     taxAmount,
     total,
+    rollTaxIntoSections,
   };
 }

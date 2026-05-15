@@ -119,8 +119,8 @@ export type PricingBlock =
 /**
  * One section on the customer-facing Commercial Summary. Each section
  * is a flat priced row the customer sees on the PDF. The Pricing tab
- * renders the list, the PDF sums them, applies tax (INR quotes only),
- * and prints the total.
+ * renders the list, the PDF sums them, applies tax, and prints the
+ * total.
  *
  * Single-section mode is special: when the included section list has
  * exactly one row, its amount auto-syncs to the cost-basis-times-markup
@@ -167,7 +167,8 @@ export interface PriceSection {
  *
  *   priceSections (each amount stored in quote currency)
  *     sum = subtotal
- *     + tax (INR quotes only; foreign exports are zero-rated)
+ *     + tax (whatever the user sets; typically 0 for foreign exports
+ *            under LUT, but the user decides per-quote)
  *     = Total (quote currency)
  *
  * Single-section behaviour: when there is exactly one included section,

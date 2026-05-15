@@ -15,9 +15,11 @@
  *                                     shows target vs sum vs delta and
  *                                     a "rebalance last row" button.
  *
- * Tax applies to INR quotes only (Indian GST is zero-rated on exports).
- * For single-section proposals the editor persists the computed target
- * on save so the saved value matches what the PDF will print.
+ * Tax is whatever the user sets (Indian GST is typically zero-rated on
+ * exports under LUT, but the user decides — the editor exposes the
+ * input on every currency). For single-section proposals the editor
+ * persists the computed target on save so the saved value matches what
+ * the PDF will print.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -427,6 +429,16 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
             </Box>
           </Stack>
 
+          {/* Foreign-quote tax-rolling notice — explain what the
+              customer will see vs what the editor is showing. */}
+          {summary.rollTaxIntoSections && (
+            <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+              Foreign-currency quote with {summary.taxRate}% tax: each section row is shown here at
+              the <strong>pre-tax</strong> amount. The customer PDF rolls {summary.taxRate}% into
+              each row and prints a single total — no separate tax line.
+            </Alert>
+          )}
+
           {/* Reconciliation banner — only when splitting */}
           {includedSections.length >= 2 && (
             <Alert
@@ -564,46 +576,52 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         </CardContent>
       </Card>
 
-      {/* Tax — INR only. Foreign exports are zero-rated, so the card is
-          hidden entirely when the quote currency isn't INR. */}
-      {!isForeignQuote && (
-        <Card variant="outlined" sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>
-              Tax
+      {/* Tax — visible for all quote currencies. Indian GST is typically
+          zero-rated on exports under LUT, but place-of-supply rules,
+          missing LUT, or destination-country VAT all have edge cases.
+          The user decides; set rate to 0 to suppress on the PDF. */}
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+            Tax
+          </Typography>
+          {isForeignQuote && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              GST is typically zero-rated on exports under LUT — leave at 0 unless your case differs
+              (place-of-supply rules, missing LUT, destination-country VAT, etc.).
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Tax label"
-                size="small"
-                value={pricing.taxLabel}
-                onChange={(e) => update({ taxLabel: e.target.value })}
-                placeholder="e.g. GST 18%"
-                sx={{ minWidth: 200 }}
-              />
-              <TextField
-                label="Tax rate"
-                size="small"
-                type="number"
-                value={pricing.taxRate || ''}
-                onChange={(e) => update({ taxRate: parseFloat(e.target.value) || 0 })}
-                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-                sx={{ width: 160 }}
-                inputProps={{ min: 0, step: 'any' }}
-              />
-              <Box sx={{ flex: 1 }} />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Tax amount
-                </Typography>
-                <Typography variant="body1">
-                  {formatMoney(summary.taxAmount, quoteCurrency)}
-                </Typography>
-              </Box>
-            </Stack>
-          </CardContent>
-        </Card>
-      )}
+          )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="Tax label"
+              size="small"
+              value={pricing.taxLabel}
+              onChange={(e) => update({ taxLabel: e.target.value })}
+              placeholder="e.g. GST 18%"
+              sx={{ minWidth: 200 }}
+            />
+            <TextField
+              label="Tax rate"
+              size="small"
+              type="number"
+              value={pricing.taxRate || ''}
+              onChange={(e) => update({ taxRate: parseFloat(e.target.value) || 0 })}
+              InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+              sx={{ width: 160 }}
+              inputProps={{ min: 0, step: 'any' }}
+            />
+            <Box sx={{ flex: 1 }} />
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Tax amount
+              </Typography>
+              <Typography variant="body1">
+                {formatMoney(summary.taxAmount, quoteCurrency)}
+              </Typography>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
 
       {/* Final total — mirrors what the customer sees on the PDF. */}
       <Paper

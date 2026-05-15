@@ -748,27 +748,38 @@ export const ProposalPDFDocument = ({
         {/* Commercial Summary — customer-facing.
             Sections, subtotal, tax, total all come from the shared
             computeCommercialSummary helper. Amounts are in the quote
-            currency. Foreign quotes (currency ≠ INR) hide the tax line
-            entirely (Indian GST is zero-rated on exports). */}
+            currency. The tax row prints whenever summary.taxRate > 0 —
+            the user decides; for an export quote under LUT they set
+            rate to 0 to suppress it. */}
         {hasClientPricing && summary ? (
           <View style={local.costSummary}>
             <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
               Commercial Summary
             </Text>
-            {summary.sections.map((sec) => (
-              <View key={sec.id} style={local.costRow}>
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={local.costLabel}>{sec.title}</Text>
-                  {sec.description && (
-                    <Text style={{ fontSize: 9, color: REPORT_THEME.textSecondary, marginTop: 1 }}>
-                      {sec.description}
-                    </Text>
-                  )}
+            {summary.sections.map((sec) => {
+              // For foreign-currency export quotes we bake tax into each
+              // row so the customer sees one rolled number per section,
+              // and the Subtotal/GST rows below are suppressed.
+              const displayed = summary.rollTaxIntoSections
+                ? sec.amount * (1 + summary.taxRate / 100)
+                : sec.amount;
+              return (
+                <View key={sec.id} style={local.costRow}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={local.costLabel}>{sec.title}</Text>
+                    {sec.description && (
+                      <Text
+                        style={{ fontSize: 9, color: REPORT_THEME.textSecondary, marginTop: 1 }}
+                      >
+                        {sec.description}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={local.costValue}>{formatPdfMoney(displayed, quoteCurrency)}</Text>
                 </View>
-                <Text style={local.costValue}>{formatPdfMoney(sec.amount, quoteCurrency)}</Text>
-              </View>
-            ))}
-            {summary.taxRate > 0 && (
+              );
+            })}
+            {!summary.rollTaxIntoSections && summary.taxRate > 0 && (
               <>
                 <View
                   style={{
