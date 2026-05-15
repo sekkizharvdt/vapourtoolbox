@@ -629,20 +629,30 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         sx={{ p: 2.5, bgcolor: 'primary.light', color: 'primary.contrastText' }}
       >
         <Stack spacing={0.5}>
-          {summary.sections.map((sec) => (
-            <Row
-              key={sec.id}
-              label={sec.title || '(untitled section)'}
-              value={formatMoney(sec.amount, quoteCurrency)}
-            />
-          ))}
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
-          <Row label="Subtotal" value={formatMoney(summary.sectionsSum, quoteCurrency)} bold />
-          {summary.taxRate > 0 && (
-            <Row
-              label={`${summary.taxLabel} (${summary.taxRate}%)`}
-              value={formatMoney(summary.taxAmount, quoteCurrency)}
-            />
+          {summary.sections.map((sec) => {
+            // Mirror the customer PDF: when tax is rolled into rows
+            // (foreign quotes) each row prints tax-inclusive and the
+            // subtotal/tax rows below disappear.
+            const displayed = summary.rollTaxIntoSections
+              ? sec.amount * (1 + summary.taxRate / 100)
+              : sec.amount;
+            return (
+              <Row
+                key={sec.id}
+                label={sec.title || '(untitled section)'}
+                value={formatMoney(displayed, quoteCurrency)}
+              />
+            );
+          })}
+          {!summary.rollTaxIntoSections && summary.taxRate > 0 && (
+            <>
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
+              <Row label="Subtotal" value={formatMoney(summary.sectionsSum, quoteCurrency)} bold />
+              <Row
+                label={`${summary.taxLabel} (${summary.taxRate}%)`}
+                value={formatMoney(summary.taxAmount, quoteCurrency)}
+              />
+            </>
           )}
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
           <Row
