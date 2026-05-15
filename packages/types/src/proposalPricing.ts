@@ -117,18 +117,6 @@ export type PricingBlock =
 /* ─── Pricing tab — client-facing pricing ─────────────────────────────── */
 
 /**
- * A single client-facing lump-sum line on the Pricing tab.
- *
- * @deprecated Use {@link PriceSection} instead. Retained for read
- * compatibility with proposals authored before stage 2.5r.
- */
-export interface PricingLumpSumRow {
-  id: string;
-  description: string;
-  amount: number;
-}
-
-/**
  * One section on the customer-facing Commercial Summary. Each section
  * is a flat priced row the customer sees on the PDF. The Pricing tab
  * renders the list, the PDF sums them, applies tax (INR quotes only),
@@ -198,35 +186,14 @@ export interface ClientPricing {
   profitPercent: number;
 
   /**
-   * Customer-facing price sections (Stage 2.5r). Each section prints as
-   * its own row in the Commercial Summary. For an EPC bid this lets
-   * you split into "MED Process System" / "Solar Thermal System" /
-   * "O&M 1 year" / etc.; for a survey, one section is enough.
+   * Customer-facing price sections. Each prints as its own row in the
+   * Commercial Summary. For an EPC bid this lets you split into "MED
+   * Process System" / "Solar Thermal System" / "O&M 1 year" / etc.;
+   * for a survey, one section is enough.
    *
    * Amounts are in `currency` (the quote currency), not INR.
    */
   priceSections?: PriceSection[];
-
-  /**
-   * Schema version for priceSections.
-   *   undefined or 1 = legacy. Section amounts were stored in INR
-   *     regardless of quote currency; foreign-quote PDFs divided by
-   *     fxRate at render time.
-   *   2 = current. Section amounts are stored in the quote currency
-   *     directly.
-   * The PricingEditor and the shared computeCommercialSummary helper
-   * migrate version-1 records on read (divide by fxRate when foreign);
-   * the next save stamps version 2.
-   */
-  priceSectionsVersion?: number;
-
-  /**
-   * @deprecated Replaced by {@link priceSections}. Retained for read
-   * compatibility with proposals authored before stage 2.5r — the
-   * editor and PDF lift any non-empty `lumpSumLines` into sections on
-   * first open.
-   */
-  lumpSumLines: PricingLumpSumRow[];
 
   // Tax
   taxRate: number; // percent, e.g. 18 for GST 18%

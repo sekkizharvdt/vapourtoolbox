@@ -1,5 +1,5 @@
 /**
- * Commercial Summary computation (Stage 2.5t).
+ * Commercial Summary computation.
  *
  * Single source of truth for the customer-facing pricing rollup, shared
  * by the Pricing editor, the Preview, and the PDF. Drives the rule:
@@ -12,10 +12,6 @@
  *   priceSections (amounts in quote currency) distribute that target.
  *     • 1 included section  → amount auto-tracks the target
  *     • N included sections → user splits; banner shows target vs sum
- *
- * Also migrates legacy (priceSectionsVersion < 2) records on read:
- * if the quote currency is foreign and section amounts are stored in
- * INR, divide each by fxRate. INR-quote records need no value change.
  */
 
 import type { CurrencyCode, Proposal } from '@vapour/types';
@@ -28,9 +24,6 @@ export interface CommercialSummarySection {
   description?: string;
   /** Amount in quote currency. */
   amount: number;
-  /** True when this row was synthesised because no real sections exist
-   *  (used for legacy proposals without a saved section list). */
-  synthetic?: boolean;
 }
 
 export interface CommercialSummary {
@@ -86,13 +79,6 @@ export function computeCommercialSummary(proposal: Proposal): CommercialSummary 
   const targetRevenueInr = round2(costBasisInr * (1 + markupPercent / 100));
   const targetRevenue = isForeignQuote ? round2(targetRevenueInr / fxRate) : targetRevenueInr;
 
-  // Migrate legacy section amounts (stored in INR) into quote currency
-  // on the fly. The editor stamps priceSectionsVersion=2 on the next
-  // save; this in-memory migration keeps the PDF/Preview correct in
-  // the meantime.
-  const version = cp.priceSectionsVersion ?? 1;
-  const needsLegacyDivide = version < 2 && isForeignQuote && fxRate > 0;
-
   const included = (cp.priceSections ?? [])
     .filter((s) => s.included)
     .sort((a, b) => a.order - b.order)
@@ -100,7 +86,7 @@ export function computeCommercialSummary(proposal: Proposal): CommercialSummary 
       id: s.id,
       title: s.title || 'Section',
       description: s.description,
-      amount: round2(needsLegacyDivide ? (s.amount || 0) / fxRate : s.amount || 0),
+      amount: round2(s.amount || 0),
     }));
 
   let sections = included;
@@ -111,19 +97,6 @@ export function computeCommercialSummary(proposal: Proposal): CommercialSummary 
   const lone = sections[0];
   if (sections.length === 1 && lone) {
     sections = [{ ...lone, amount: targetRevenue }];
-  }
-
-  // Legacy fallback: a proposal with no sections at all still needs a
-  // visible row. Synthesise one from the proposal title.
-  if (sections.length === 0 && targetRevenue > 0) {
-    sections = [
-      {
-        id: 'auto-target',
-        title: proposal.title || 'Scope of Work',
-        amount: targetRevenue,
-        synthetic: true,
-      },
-    ];
   }
 
   const sectionsSum = round2(sections.reduce((s, sec) => s + sec.amount, 0));

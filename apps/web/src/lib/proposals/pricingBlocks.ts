@@ -69,8 +69,6 @@ export function createDefaultClientPricing(): ClientPricing {
     contingencyPercent: 0,
     profitPercent: 0,
     priceSections: [],
-    priceSectionsVersion: 2,
-    lumpSumLines: [],
     taxRate: 18,
     taxLabel: 'GST 18%',
     currency: 'INR',

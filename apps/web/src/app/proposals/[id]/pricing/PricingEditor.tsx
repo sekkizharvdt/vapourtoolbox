@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * Pricing Editor (Stage 2.5t — single source of truth rebuild)
- *
- * Markup drives revenue. Sections distribute it.
+ * Pricing Editor — markup drives revenue, sections distribute it.
  *
  *   Cost basis (INR, internal, from Costing)
  *     × (1 + overhead% + contingency% + profit%)
@@ -18,11 +16,8 @@
  *                                     a "rebalance last row" button.
  *
  * Tax applies to INR quotes only (Indian GST is zero-rated on exports).
- *
- * On save, the editor normalises stored section amounts to match what
- * the customer will see — for single-section proposals it persists the
- * computed target, and it stamps `priceSectionsVersion: 2` so the
- * PDF / Preview can rely on amounts being in quote currency.
+ * For single-section proposals the editor persists the computed target
+ * on save so the saved value matches what the PDF will print.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -123,28 +118,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         }
         setProposal(p);
 
-        // Initial state: keep legacy lump-sum content visible by lifting
-        // it into the section list (one-time on first open of the new
-        // editor). Currency conversion for legacy (version<1) foreign
-        // proposals is handled by computeCommercialSummary on render and
-        // baked in by handleSave.
-        const rawPricing = p.clientPricing ?? createDefaultClientPricing();
-        const hasSections =
-          Array.isArray(rawPricing.priceSections) && rawPricing.priceSections.length > 0;
-        if (!hasSections && (rawPricing.lumpSumLines ?? []).length > 0) {
-          const lifted: PriceSection[] = (rawPricing.lumpSumLines ?? [])
-            .filter((row) => (row.description ?? '').trim() || (row.amount || 0) > 0)
-            .map((row, idx) => ({
-              id: row.id || newId(),
-              title: row.description || `Line ${idx + 1}`,
-              amount: row.amount || 0,
-              included: true,
-              order: idx,
-            }));
-          setPricing({ ...rawPricing, priceSections: lifted });
-        } else {
-          setPricing(rawPricing);
-        }
+        setPricing(p.clientPricing ?? createDefaultClientPricing());
       } catch (err) {
         if (!cancelled) {
           console.error('[PricingEditor] load failed', err);
@@ -236,27 +210,15 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
     try {
       setSaving(true);
 
-      // 1) Apply legacy v1 → v2 currency migration for stored section
-      //    amounts (foreign-quote proposals that were typed in INR
-      //    before stage 2.5t).
-      const version = pricing.priceSectionsVersion ?? 1;
-      const needsLegacyDivide = version < 2 && isForeignQuote && fxRate > 0;
-      let sectionsToSave: PriceSection[] = (pricing.priceSections ?? []).map((s) =>
-        needsLegacyDivide ? { ...s, amount: round2((s.amount || 0) / fxRate) } : s
+      // Single-section auto-sync: persist the target so the saved value
+      // matches what the PDF will print.
+      const sectionsToSave: PriceSection[] = (pricing.priceSections ?? []).map((s) =>
+        s.id === singleIncludedId ? { ...s, amount: summary.targetRevenue } : s
       );
-
-      // 2) Single-section auto-sync: persist the target so the next
-      //    render (anywhere) sees the same number.
-      if (singleIncludedId) {
-        sectionsToSave = sectionsToSave.map((s) =>
-          s.id === singleIncludedId ? { ...s, amount: summary.targetRevenue } : s
-        );
-      }
 
       const toSave: ClientPricing = {
         ...pricing,
         priceSections: sectionsToSave,
-        priceSectionsVersion: 2,
       };
 
       await updateProposal(
@@ -523,17 +485,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
                 )}
                 {(pricing.priceSections ?? []).map((row) => {
                   const isAutoSync = row.id === singleIncludedId;
-                  // Displayed amount: when this row is the lone included
-                  // one, show the live target; otherwise show whatever is
-                  // typed/saved. Foreign-quote v1 records need migration
-                  // on display too.
-                  const legacyDivide =
-                    (pricing.priceSectionsVersion ?? 1) < 2 && isForeignQuote && fxRate > 0;
-                  const displayedAmount = isAutoSync
-                    ? summary.targetRevenue
-                    : legacyDivide
-                      ? round2((row.amount || 0) / fxRate)
-                      : row.amount || 0;
+                  const displayedAmount = isAutoSync ? summary.targetRevenue : row.amount || 0;
                   return (
                     <TableRow key={row.id}>
                       <TableCell align="center">
