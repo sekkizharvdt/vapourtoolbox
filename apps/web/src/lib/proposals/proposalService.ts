@@ -820,90 +820,112 @@ export async function cloneProposal(
       }
     }
 
-    // Build cloned proposal
+    // Build cloned proposal — spread the source so every Stage-2+ field
+    // (termsBlocks, clientPricing, pricingBlocks, coverLetter, projectBrief,
+    // qualifications, complianceMatrix, workComponents, nativeCurrency,
+    // displayCurrency, displayFxRate, …) is carried without enumeration.
+    // Mirrors the createProposalRevision pattern. Explicit overrides reset
+    // the workflow fields and apply the user's copy toggles.
+    const { id: _sourceId, ...sourceForClone } = sourceProposal;
+    void _sourceId;
+
+    const emptyScopeOfWork = {
+      summary: '',
+      objectives: [],
+      deliverables: [],
+      inclusions: [],
+      exclusions: [],
+      assumptions: [],
+    };
+    const emptyPricing = {
+      currency: 'INR' as const,
+      lineItems: [],
+      subtotal: { amount: 0, currency: 'INR' as const },
+      taxItems: [],
+      totalAmount: { amount: 0, currency: 'INR' as const },
+      paymentTerms: sourceProposal.pricing?.paymentTerms || '',
+    };
+
     const clonedProposal: Omit<Proposal, 'id'> = {
+      ...sourceForClone,
+
+      // Identity reset — new doc, new number, fresh draft
       proposalNumber,
       revision: 1,
+      status: 'DRAFT',
+      preparationDate: now,
+      isLatestRevision: true,
+
+      // Source's workflow lifecycle doesn't carry over
+      submittedAt: undefined,
+      submittedByUserId: undefined,
+      submittedByUserName: undefined,
+      approverUserId: undefined,
+      approverUserName: undefined,
+      acceptedAt: undefined,
+      rejectedAt: undefined,
+      rejectionReason: undefined,
+      generatedPdfUrl: undefined,
+      approvalHistory: [],
+      previousRevisionId: undefined,
+      revisionReason: undefined,
+
+      // User-provided overrides
+      title: input.newTitle,
       enquiryId,
       enquiryNumber,
-      tenantId: sourceProposal.tenantId,
       clientId,
       clientName,
       clientContactPerson,
       clientEmail,
       clientAddress,
-      title: input.newTitle,
-      validityDate: Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-      ),
-      preparationDate: now,
 
-      // Conditionally copy sections
-      scopeOfWork:
-        input.copyScope !== false && sourceProposal.scopeOfWork
-          ? sourceProposal.scopeOfWork
-          : {
-              summary: '',
-              objectives: [],
-              deliverables: [],
-              inclusions: [],
-              exclusions: [],
-              assumptions: [],
-            },
-      scopeOfSupply: input.copyScope !== false ? sourceProposal.scopeOfSupply : [],
+      // Reset completion flags on copied stateful sections — the cloner
+      // hasn't reviewed them yet.
+      ...(sourceForClone.unifiedScopeMatrix &&
+        input.copyScope !== false && {
+          unifiedScopeMatrix: {
+            ...sourceForClone.unifiedScopeMatrix,
+            isComplete: false,
+            lastUpdatedAt: now,
+            lastUpdatedBy: userId,
+          },
+        }),
+      ...(sourceForClone.pricingConfig &&
+        input.copyPricing !== false && {
+          pricingConfig: {
+            ...sourceForClone.pricingConfig,
+            isComplete: false,
+            lastUpdatedAt: now,
+            lastUpdatedBy: userId,
+          },
+        }),
 
-      // Copy unified scope matrix if present
-      unifiedScopeMatrix:
-        input.copyScope !== false && sourceProposal.unifiedScopeMatrix
-          ? {
-              ...sourceProposal.unifiedScopeMatrix,
-              isComplete: false, // Reset completion status
-              lastUpdatedAt: now,
-              lastUpdatedBy: userId,
-            }
-          : undefined,
+      // Conditional drops — empty the section when the user opted out
+      ...(input.copyScope === false && {
+        scopeOfWork: emptyScopeOfWork,
+        scopeOfSupply: [],
+        unifiedScopeMatrix: undefined,
+      }),
+      ...(input.copyPricing === false && {
+        pricing: emptyPricing,
+        pricingConfig: undefined,
+        pricingBlocks: [],
+        clientPricing: undefined,
+      }),
+      ...(input.copyTerms === false && {
+        terms: {},
+        termsBlocks: undefined,
+      }),
+      // Attachments are opt-in (copied only when explicitly true).
+      ...(!input.copyAttachments && { attachments: [] }),
 
-      deliveryPeriod: sourceProposal.deliveryPeriod,
-
-      pricing:
-        input.copyPricing !== false
-          ? {
-              ...sourceProposal.pricing,
-            }
-          : {
-              currency: 'INR',
-              lineItems: [],
-              subtotal: { amount: 0, currency: 'INR' },
-              taxItems: [],
-              totalAmount: { amount: 0, currency: 'INR' },
-              paymentTerms: sourceProposal.pricing?.paymentTerms || '',
-            },
-
-      pricingConfig:
-        input.copyPricing !== false && sourceProposal.pricingConfig
-          ? {
-              ...sourceProposal.pricingConfig,
-              isComplete: false, // Reset completion status
-              lastUpdatedAt: now,
-              lastUpdatedBy: userId,
-            }
-          : undefined,
-
-      terms: input.copyTerms !== false ? sourceProposal.terms : {},
-
-      // Reset status and workflow
-      status: 'DRAFT',
-      approvalHistory: [],
-      attachments: input.copyAttachments ? sourceProposal.attachments : [],
-
-      // Metadata
+      // Metadata for the new document
       createdAt: now,
       createdBy: userId,
       updatedAt: now,
       updatedBy: userId,
-      isLatestRevision: true,
 
-      // Track cloning
       clonedFrom: {
         proposalId: sourceProposal.id,
         proposalNumber: sourceProposal.proposalNumber,
@@ -913,7 +935,12 @@ export async function cloneProposal(
       },
     };
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.PROPOSALS), clonedProposal);
+    // Firestore rejects undefined values — strip before write.
+    const cleaned = Object.fromEntries(
+      Object.entries(clonedProposal).filter(([, value]) => value !== undefined)
+    );
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.PROPOSALS), cleaned);
 
     logger.info('Proposal cloned', {
       newProposalId: docRef.id,
