@@ -381,6 +381,26 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
     The pre-commit `check-structure.js` audit flags any `useParams()` call under `apps/web/src/app/**/[id*]/*.tsx`.
 
+## Engineering Discipline (anti-over-engineering)
+
+31. **Verify before writing migration or backwards-compatibility code** — schema-version fields (`*Version: N`), v1→v2 conversion branches, legacy-shape lift-on-load, and `(field ?? legacyField)` fallback chains are only justified when real records would need them. Before adding any of these:
+    - Count the records that would actually need it. Query the Firestore collection via the service account at `mcp-servers/firebase-feedback/service-account-key.json`, or ask the user.
+    - If the answer is 0 or 1, do not write migration code — edit the one record or accept a re-entry.
+    - Default position: this is a solo-developer app with a small test dataset. Assume no legacy data unless verified otherwise.
+
+    Recent failure: a Pricing tab rebuild shipped a `priceSectionsVersion` schema field plus v1→v2 currency-conversion branches in three files, for one INR-only test proposal with no legacy records anywhere. Net ~110 LOC of dead defensive code stripped in a follow-up commit.
+
+32. **One canonical implementation per concept; don't build a parallel** — before creating a new collection, route, page, service, type, or utility, search the codebase for the same concept under a slightly different name and extend (or rename) what exists. Two implementations of the same thing always end with a painful consolidation. Examples from this repo's history where days were spent unwinding parallel implementations:
+    - `offers` collection vs `vendorQuotes` collection — same concept, two schemas. Required four porting stages (3a–g, then stage 4) across multiple commits to land on one.
+    - `/materials/vendor-offers` and `/procurement/quotes` UIs over the same `vendorQuotes` collection — quotes vanished from both depending on `sourceType`. Unified into one `/procurement/quotes` later.
+    - 8 redundant void/approval service files → one generic `transactionVoidService`.
+    - 4 duplicate procurement-number generators → one `generateProcurementNumber`.
+    - 5 dead scope-editor components (~2,221 LOC) + 3 parallel scope-rendering paths in proposals.
+    - `PermissionFlag` enum (incompatible bit assignments from bit 5) vs canonical `PERMISSION_FLAGS` — 25+ files had to migrate.
+    - 6+ inline `formatCurrency` / `formatDate` reimplementations → shared `formatters.ts`.
+
+    Before writing the new thing, grep for adjacent names (e.g. `*Quote*`, `*Offer*`, `*Permission*`, `formatCurrency`, `submitForApproval`) and read the matches. If the concept already exists, the work is "rename + extend the existing", not "add the new one alongside". This rule extends rule 16 (one implementation per function) to collections, routes, components, types, and services.
+
 ## Data Dictionary — Key Collections
 
 | Collection                      | Entity-scoped              | Key Fields                                                                                                                                     | Written By                                             | Read By                                            |
