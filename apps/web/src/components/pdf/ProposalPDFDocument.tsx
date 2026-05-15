@@ -15,7 +15,6 @@ import React from 'react';
 import { Document, Image, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { Proposal, UnifiedScopeItem } from '@vapour/types';
 import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
-import { Timestamp } from 'firebase/firestore';
 import { formatDate } from '@/lib/utils/formatters';
 import { buildDefaultTermsBlocks } from '@/lib/proposals/termsBlocks';
 import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
@@ -289,12 +288,14 @@ export const ProposalPDFDocument = ({
 
   // Cover-page metadata — assembled once so the layout stays declarative.
   const docNumber = `${proposal.proposalNumber}/R${proposal.revision}`;
-  // Date of Submission — once the proposal has actually been submitted to
-  // the client, preserve that historical date. Until then, stamp today's
-  // date so a draft re-downloaded right before sending reflects the day
-  // it's going out (preparationDate stays as the original create date for
-  // internal tracking but doesn't drive what the customer sees).
-  const submissionDate = formatDate(proposal.submittedAt ?? Timestamp.now());
+  // Date of Submission — only stamped on the formal submittedAt. While
+  // the proposal is still DRAFT / PENDING_APPROVAL / APPROVED the date
+  // reads as "Not yet submitted" so an internally-shared PDF doesn't
+  // claim a submission date that isn't real. The same proposal
+  // downloaded a week before and on submission day will both look right.
+  const submissionDate = proposal.submittedAt
+    ? formatDate(proposal.submittedAt)
+    : 'Not yet submitted';
   const contactPersonText = company.primaryContactName
     ? `${company.primaryContactName}${
         company.primaryContactRole ? ', ' + company.primaryContactRole : ''
