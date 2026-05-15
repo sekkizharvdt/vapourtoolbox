@@ -1,21 +1,28 @@
 'use client';
 
 /**
- * Pricing Editor (Stage 2.5)
+ * Pricing Editor (Stage 2.5t — single source of truth rebuild)
  *
- * The client-facing Pricing tab. Reads the cost basis from the Costing tab
- * (sum of `proposal.pricingBlocks` subtotals), then layers:
+ * Markup drives revenue. Sections distribute it.
  *
- *   Cost basis
- *   + Overhead %     × Cost basis
- *   + Contingency %  × Cost basis
- *   + Profit %       × Cost basis
- *   + Lump-sum lines (each visible on the client PDF)
- *   = Subtotal
- *   + Tax %          × Subtotal
- *   = Total price
+ *   Cost basis (INR, internal, from Costing)
+ *     × (1 + overhead% + contingency% + profit%)
+ *     = Revenue target (INR)
+ *     ÷ fxRate                            ← only if currency ≠ INR
+ *     = Revenue target (quote currency)
  *
- * The Costing tab is internal — never seen by the client. This tab is.
+ *   Sections (amounts in quote currency) distribute the target:
+ *     • exactly 1 included section  → amount auto-syncs to the target
+ *     • multiple included sections → user types each amount; banner
+ *                                     shows target vs sum vs delta and
+ *                                     a "rebalance last row" button.
+ *
+ * Tax applies to INR quotes only (Indian GST is zero-rated on exports).
+ *
+ * On save, the editor normalises stored section amounts to match what
+ * the customer will see — for single-section proposals it persists the
+ * computed target, and it stamps `priceSectionsVersion: 2` so the
+ * PDF / Preview can rely on amounts being in quote currency.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -40,10 +47,12 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
   AddCircleOutline as AddRowIcon,
+  AutoFixHigh as RebalanceIcon,
   Delete as DeleteIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
@@ -51,6 +60,7 @@ import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { createDefaultClientPricing } from '@/lib/proposals/pricingBlocks';
+import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import { useToast } from '@/components/common/Toast';
 import { CURRENCIES } from '@vapour/constants';
 import type { ClientPricing, CurrencyCode, PriceSection, Proposal } from '@vapour/types';
@@ -112,39 +122,26 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
           return;
         }
         setProposal(p);
-        // Stage 2.5r migration: if a proposal predates priceSections, lift
-        // its legacy lump-sum lines + cost-basis-with-markups into
-        // sections so the editor opens with a populated section list.
+
+        // Initial state: keep legacy lump-sum content visible by lifting
+        // it into the section list (one-time on first open of the new
+        // editor). Currency conversion for legacy (version<1) foreign
+        // proposals is handled by computeCommercialSummary on render and
+        // baked in by handleSave.
         const rawPricing = p.clientPricing ?? createDefaultClientPricing();
         const hasSections =
           Array.isArray(rawPricing.priceSections) && rawPricing.priceSections.length > 0;
-        if (!hasSections) {
-          const seeded: PriceSection[] = [];
-          const cb = (p.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0);
-          const overhead = (cb * (rawPricing.overheadPercent || 0)) / 100;
-          const contingency = (cb * (rawPricing.contingencyPercent || 0)) / 100;
-          const profit = (cb * (rawPricing.profitPercent || 0)) / 100;
-          const scopeLineAmount = cb + overhead + contingency + profit;
-          if (scopeLineAmount > 0) {
-            seeded.push({
-              id: newId(),
-              title: p.title || 'Scope of Work',
-              amount: round2(scopeLineAmount),
-              included: true,
-              order: 0,
-            });
-          }
-          (rawPricing.lumpSumLines ?? []).forEach((row, idx) => {
-            if (!row.description?.trim() && !(row.amount > 0)) return;
-            seeded.push({
+        if (!hasSections && (rawPricing.lumpSumLines ?? []).length > 0) {
+          const lifted: PriceSection[] = (rawPricing.lumpSumLines ?? [])
+            .filter((row) => (row.description ?? '').trim() || (row.amount || 0) > 0)
+            .map((row, idx) => ({
               id: row.id || newId(),
               title: row.description || `Line ${idx + 1}`,
               amount: row.amount || 0,
               included: true,
-              order: seeded.length,
-            });
-          });
-          setPricing({ ...rawPricing, priceSections: seeded });
+              order: idx,
+            }));
+          setPricing({ ...rawPricing, priceSections: lifted });
         } else {
           setPricing(rawPricing);
         }
@@ -163,63 +160,24 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
     };
   }, [db, proposalId]);
 
-  // Internal cost basis is always INR. Quote currency on Pricing only
-  // affects the very last conversion of the final total.
+  // Live summary — drives every readout on this screen and is what the
+  // PDF will print. Same helper, same numbers.
+  const summary = useMemo(() => {
+    if (!proposal || !pricing) return null;
+    return computeCommercialSummary({ ...proposal, clientPricing: pricing });
+  }, [proposal, pricing]);
+
   const inrCurrency: CurrencyCode = 'INR';
-  const quoteCurrency: CurrencyCode = pricing?.currency ?? 'INR';
-  const fxRate = pricing?.fxRate ?? 1;
-  const isForeignQuote = quoteCurrency !== 'INR';
+  const quoteCurrency: CurrencyCode = summary?.currency ?? 'INR';
+  const isForeignQuote = summary?.isForeignQuote ?? false;
+  const fxRate = summary?.fxRate ?? 1;
 
-  const costBasis = useMemo(
-    () => (proposal?.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0),
-    [proposal?.pricingBlocks]
-  );
-
-  const computed = useMemo(() => {
-    if (!pricing) {
-      return {
-        overheadAmount: 0,
-        contingencyAmount: 0,
-        profitAmount: 0,
-        sectionsTotal: 0,
-        subtotal: 0,
-        taxAmount: 0,
-        totalInr: 0,
-        totalQuote: 0,
-        margin: 0,
-      };
-    }
-    // Markup percentages are kept as a *helper* for the user (they show
-    // what overhead/contingency/profit on the cost basis would look like)
-    // but they no longer feed the subtotal — the customer-facing subtotal
-    // is the sum of the section amounts the user has typed in.
-    const overheadAmount = round2((costBasis * (pricing.overheadPercent || 0)) / 100);
-    const contingencyAmount = round2((costBasis * (pricing.contingencyPercent || 0)) / 100);
-    const profitAmount = round2((costBasis * (pricing.profitPercent || 0)) / 100);
-    const sectionsTotal = round2(
-      (pricing.priceSections ?? [])
-        .filter((sec) => sec.included)
-        .reduce((s, sec) => s + (sec.amount || 0), 0)
-    );
-    const subtotal = sectionsTotal;
-    const taxAmount = round2((subtotal * (pricing.taxRate || 0)) / 100);
-    const totalInr = round2(subtotal + taxAmount);
-    const totalQuote = isForeignQuote && fxRate > 0 ? round2(totalInr / fxRate) : totalInr;
-    // Margin = customer revenue (before tax) minus internal cost basis.
-    // Shown to the user as a sanity check while pricing.
-    const margin = round2(subtotal - costBasis);
-    return {
-      overheadAmount,
-      contingencyAmount,
-      profitAmount,
-      sectionsTotal,
-      subtotal,
-      taxAmount,
-      totalInr,
-      totalQuote,
-      margin,
-    };
-  }, [pricing, costBasis, fxRate, isForeignQuote]);
+  // Section editing rules:
+  //   - exactly one INCLUDED section ⇒ that row's amount auto-syncs
+  //     to target (read-only in UI).
+  //   - 0 or 2+ included ⇒ amounts are user-controlled.
+  const includedSections = (pricing?.priceSections ?? []).filter((s) => s.included);
+  const singleIncludedId = includedSections.length === 1 ? (includedSections[0]?.id ?? null) : null;
 
   const update = (patch: Partial<ClientPricing>) => {
     setPricing((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -236,9 +194,19 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
   };
   const addSection = () => {
     const list = pricing?.priceSections ?? [];
+    // Default the first ever section to the proposal title so single-
+    // line offers don't need any typing — the auto-sync gives them a
+    // priced line out of the box.
+    const defaultTitle = list.length === 0 ? (proposal?.title ?? 'Scope of Work') : '';
     setSections([
       ...list,
-      { id: newId(), title: '', amount: 0, included: true, order: list.length },
+      {
+        id: newId(),
+        title: defaultTitle,
+        amount: 0,
+        included: true,
+        order: list.length,
+      },
     ]);
   };
   const removeSection = (id: string) => {
@@ -246,17 +214,59 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
     setSections(list.filter((s) => s.id !== id));
   };
 
+  // When the user is splitting a target across multiple sections and
+  // their typed amounts don't quite hit the target, "Rebalance" puts the
+  // remainder on the last included row. Common quick fix.
+  const rebalanceLastRow = () => {
+    if (!summary || includedSections.length < 2) return;
+    const list = pricing?.priceSections ?? [];
+    const lastIncluded = [...includedSections].sort((a, b) => a.order - b.order).slice(-1)[0];
+    if (!lastIncluded) return;
+    const otherSum = round2(
+      includedSections
+        .filter((s) => s.id !== lastIncluded.id)
+        .reduce((acc, s) => acc + (s.amount || 0), 0)
+    );
+    const newAmount = round2(Math.max(summary.targetRevenue - otherSum, 0));
+    setSections(list.map((s) => (s.id === lastIncluded.id ? { ...s, amount: newAmount } : s)));
+  };
+
   const handleSave = async () => {
-    if (!db || !user || !proposal || !pricing) return;
+    if (!db || !user || !proposal || !pricing || !summary) return;
     try {
       setSaving(true);
+
+      // 1) Apply legacy v1 → v2 currency migration for stored section
+      //    amounts (foreign-quote proposals that were typed in INR
+      //    before stage 2.5t).
+      const version = pricing.priceSectionsVersion ?? 1;
+      const needsLegacyDivide = version < 2 && isForeignQuote && fxRate > 0;
+      let sectionsToSave: PriceSection[] = (pricing.priceSections ?? []).map((s) =>
+        needsLegacyDivide ? { ...s, amount: round2((s.amount || 0) / fxRate) } : s
+      );
+
+      // 2) Single-section auto-sync: persist the target so the next
+      //    render (anywhere) sees the same number.
+      if (singleIncludedId) {
+        sectionsToSave = sectionsToSave.map((s) =>
+          s.id === singleIncludedId ? { ...s, amount: summary.targetRevenue } : s
+        );
+      }
+
+      const toSave: ClientPricing = {
+        ...pricing,
+        priceSections: sectionsToSave,
+        priceSectionsVersion: 2,
+      };
+
       await updateProposal(
         db,
         proposal.id,
-        { clientPricing: pricing },
+        { clientPricing: toSave },
         user.uid,
         claims?.permissions ?? 0
       );
+      setPricing(toSave);
       setDirty(false);
       toast.success('Pricing saved');
     } catch (err) {
@@ -275,7 +285,9 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
     );
   }
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!proposal || !pricing) return null;
+  if (!proposal || !pricing || !summary) return null;
+
+  const currencyCfg = CURRENCIES[quoteCurrency];
 
   return (
     <Box>
@@ -290,8 +302,8 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         <Box>
           <Typography variant="h6">Pricing</Typography>
           <Typography variant="body2" color="text.secondary">
-            What the customer sees on the offer. All inputs below are in ₹ INR — pick the quote
-            currency at the bottom if the offer is going to a foreign client.
+            Cost basis × markup = revenue target. Sections distribute the target — one section
+            tracks it automatically, two or more let you split it across named line items.
           </Typography>
         </Box>
         <Button
@@ -304,16 +316,16 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         </Button>
       </Stack>
 
-      {/* Cost basis read-out */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
+      {/* Cost basis */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'action.hover' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Cost basis (from Costing tab)
+              Cost basis (internal, INR — from Costing tab)
             </Typography>
-            <Typography variant="h6">{formatMoney(costBasis, inrCurrency)}</Typography>
+            <Typography variant="h6">{formatMoney(summary.costBasisInr, inrCurrency)}</Typography>
           </Box>
-          {costBasis === 0 && (
+          {summary.costBasisInr === 0 && (
             <Alert severity="info" sx={{ ml: 2 }}>
               No costs entered yet. Fill the Costing tab first.
             </Alert>
@@ -328,211 +340,53 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
             Markup
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Each percentage is applied independently to the cost basis above.
+            Each percentage is applied to the cost basis above. The three sum to the total markup on
+            which the revenue target is built.
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <PercentField
               label="Overhead"
               value={pricing.overheadPercent}
               onChange={(v) => update({ overheadPercent: v })}
-              amount={computed.overheadAmount}
+              amount={round2((summary.costBasisInr * (pricing.overheadPercent || 0)) / 100)}
               currency={inrCurrency}
             />
             <PercentField
               label="Contingency"
               value={pricing.contingencyPercent}
               onChange={(v) => update({ contingencyPercent: v })}
-              amount={computed.contingencyAmount}
+              amount={round2((summary.costBasisInr * (pricing.contingencyPercent || 0)) / 100)}
               currency={inrCurrency}
             />
             <PercentField
               label="Profit"
               value={pricing.profitPercent}
               onChange={(v) => update({ profitPercent: v })}
-              amount={computed.profitAmount}
+              amount={round2((summary.costBasisInr * (pricing.profitPercent || 0)) / 100)}
               currency={inrCurrency}
             />
           </Stack>
-        </CardContent>
-      </Card>
-
-      {/* Customer Price Sections — the rows the buyer sees on the Commercial
-          Summary. Independent of the scope matrix: scope can list 10+ items,
-          customer sees the breakdown they want (e.g. MED System / Solar /
-          O&M). Each section is a flat priced row the user types in. */}
-      <Card variant="outlined" sx={{ mb: 2 }}>
-        <CardContent>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Box>
-              <Typography variant="subtitle1">Customer Price Sections</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Each section prints as its own row on the customer PDF. Use one for a single-line
-                offer, or split EPC bids into named groups (MED Process System, Solar System, O&M,
-                etc.). Sub-total + tax + total follow.
-              </Typography>
-            </Box>
-          </Stack>
-          <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 100, textAlign: 'center' }}>Include</TableCell>
-                  <TableCell>Title</TableCell>
-                  <TableCell sx={{ width: '30%' }}>Sub-line (optional)</TableCell>
-                  <TableCell align="right" sx={{ width: 180 }}>
-                    Amount (INR)
-                  </TableCell>
-                  <TableCell align="right" sx={{ width: 50 }} />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(pricing.priceSections ?? []).length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                        No sections yet — add one below. For a single-line offer (e.g. a survey),
-                        one section is enough.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-                {(pricing.priceSections ?? []).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell align="center">
-                      <input
-                        type="checkbox"
-                        checked={row.included}
-                        onChange={(e) => updateSection(row.id, { included: e.target.checked })}
-                        aria-label="Include section"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        variant="standard"
-                        value={row.title}
-                        onChange={(e) => updateSection(row.id, { title: e.target.value })}
-                        placeholder="e.g. MED Process System"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        variant="standard"
-                        value={row.description ?? ''}
-                        onChange={(e) => updateSection(row.id, { description: e.target.value })}
-                        placeholder="optional fine print"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <TextField
-                        size="small"
-                        variant="standard"
-                        type="number"
-                        value={row.amount || ''}
-                        onChange={(e) =>
-                          updateSection(row.id, { amount: parseFloat(e.target.value) || 0 })
-                        }
-                        sx={{ width: 160 }}
-                        inputProps={{ min: 0, step: 'any', style: { textAlign: 'right' } }}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() => removeSection(row.id)}
-                        aria-label="Remove section"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Box sx={{ mt: 1 }}>
-            <Button startIcon={<AddRowIcon />} size="small" onClick={addSection}>
-              Add section
-            </Button>
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Total markup: <strong>{summary.markupPercent.toFixed(2)}%</strong> →{' '}
+              {formatMoney(summary.targetRevenueInr - summary.costBasisInr, inrCurrency)} added to
+              cost basis.
+            </Typography>
           </Box>
-          {costBasis > 0 && (
-            <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                <strong>Internal margin check:</strong>{' '}
-                {formatMoney(computed.subtotal, inrCurrency)} (sum of included sections)
-                {' − '}
-                {formatMoney(costBasis, inrCurrency)} (cost basis from Costing tab)
-                {' = '}
-                <span
-                  style={{
-                    fontWeight: 600,
-                    color: computed.margin >= 0 ? 'inherit' : '#b71c1c',
-                  }}
-                >
-                  {formatMoney(computed.margin, inrCurrency)}
-                </span>
-                {' ('}
-                {computed.subtotal > 0
-                  ? `${((computed.margin / computed.subtotal) * 100).toFixed(1)}%`
-                  : '—'}
-                {' margin)'}
-              </Typography>
-            </Box>
-          )}
         </CardContent>
       </Card>
 
-      {/* Tax */}
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Tax
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              label="Tax label"
-              size="small"
-              value={pricing.taxLabel}
-              onChange={(e) => update({ taxLabel: e.target.value })}
-              placeholder="e.g. GST 18%"
-              sx={{ minWidth: 200 }}
-            />
-            <TextField
-              label="Tax rate"
-              size="small"
-              type="number"
-              value={pricing.taxRate || ''}
-              onChange={(e) => update({ taxRate: parseFloat(e.target.value) || 0 })}
-              InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-              sx={{ width: 160 }}
-              inputProps={{ min: 0, step: 'any' }}
-            />
-            <Box sx={{ flex: 1 }} />
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Tax amount
-              </Typography>
-              <Typography variant="body1">
-                {formatMoney(computed.taxAmount, inrCurrency)}
-              </Typography>
-            </Box>
-          </Stack>
-        </CardContent>
-      </Card>
-
-      {/* Quote currency */}
-      <Card variant="outlined" sx={{ mb: 3 }}>
+      {/* Quote currency — placed before the revenue target so the unit
+          of the target headline is established. */}
+      <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
             Quote currency
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            The currency the customer sees on the offer. Defaults to ₹ INR. Pick something else for
-            foreign clients and snapshot the exchange rate; the conversion only happens on the final
-            total.
+            What the customer sees on the offer. Defaults to ₹ INR. Pick something else for foreign
+            clients and snapshot the exchange rate; the conversion happens once on the way from cost
+            basis (INR) to revenue target (quote currency).
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
             <TextField
@@ -571,39 +425,261 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
         </CardContent>
       </Card>
 
-      {/* Final total — mirrors what the customer sees on the PDF
-          Commercial Summary, driven by the price sections above. */}
+      {/* Revenue target — headline of the whole tab. */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'primary.50' }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={1.5}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Revenue target (before tax) — cost basis × (1 + markup), in quote currency
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              {formatMoney(summary.targetRevenue, quoteCurrency)}
+            </Typography>
+            {isForeignQuote && (
+              <Typography variant="caption" color="text.secondary">
+                {formatMoney(summary.targetRevenueInr, inrCurrency)} ÷ {fxRate} ={' '}
+                {formatMoney(summary.targetRevenue, quoteCurrency)}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      </Paper>
+
+      {/* Customer Price Sections. Single-section ⇒ amount = target.
+          Multi-section ⇒ user splits, banner reconciles. */}
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Box>
+              <Typography variant="subtitle1">Customer Price Sections</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Each section prints as its own row on the customer PDF. One section for a single-
+                line offer (the amount auto-tracks the target above). Two or more to split an EPC
+                bid into named groups (MED System, Solar, O&M, …).
+              </Typography>
+            </Box>
+          </Stack>
+
+          {/* Reconciliation banner — only when splitting */}
+          {includedSections.length >= 2 && (
+            <Alert
+              severity={summary.hasDelta ? 'warning' : 'success'}
+              sx={{ mt: 2, mb: 1 }}
+              action={
+                summary.hasDelta ? (
+                  <Tooltip title="Put the remainder on the last included row.">
+                    <Button
+                      color="inherit"
+                      size="small"
+                      startIcon={<RebalanceIcon fontSize="small" />}
+                      onClick={rebalanceLastRow}
+                    >
+                      Rebalance
+                    </Button>
+                  </Tooltip>
+                ) : null
+              }
+            >
+              <Typography variant="body2">
+                <strong>Target:</strong> {formatMoney(summary.targetRevenue, quoteCurrency)} •{' '}
+                <strong>Sum of sections:</strong> {formatMoney(summary.sectionsSum, quoteCurrency)}{' '}
+                • <strong>Delta:</strong>{' '}
+                <span style={{ fontWeight: 600 }}>
+                  {summary.delta >= 0 ? '+' : ''}
+                  {formatMoney(summary.delta, quoteCurrency)}
+                </span>
+              </Typography>
+            </Alert>
+          )}
+
+          <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 100, textAlign: 'center' }}>Include</TableCell>
+                  <TableCell>Title</TableCell>
+                  <TableCell sx={{ width: '30%' }}>Sub-line (optional)</TableCell>
+                  <TableCell align="right" sx={{ width: 180 }}>
+                    Amount ({currencyCfg.symbol} {quoteCurrency})
+                  </TableCell>
+                  <TableCell align="right" sx={{ width: 50 }} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(pricing.priceSections ?? []).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                        No sections yet — add one below. For a single-line offer (e.g. a survey),
+                        one section is enough; its amount will track the revenue target above.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {(pricing.priceSections ?? []).map((row) => {
+                  const isAutoSync = row.id === singleIncludedId;
+                  // Displayed amount: when this row is the lone included
+                  // one, show the live target; otherwise show whatever is
+                  // typed/saved. Foreign-quote v1 records need migration
+                  // on display too.
+                  const legacyDivide =
+                    (pricing.priceSectionsVersion ?? 1) < 2 && isForeignQuote && fxRate > 0;
+                  const displayedAmount = isAutoSync
+                    ? summary.targetRevenue
+                    : legacyDivide
+                      ? round2((row.amount || 0) / fxRate)
+                      : row.amount || 0;
+                  return (
+                    <TableRow key={row.id}>
+                      <TableCell align="center">
+                        <input
+                          type="checkbox"
+                          checked={row.included}
+                          onChange={(e) => updateSection(row.id, { included: e.target.checked })}
+                          aria-label="Include section"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          variant="standard"
+                          value={row.title}
+                          onChange={(e) => updateSection(row.id, { title: e.target.value })}
+                          placeholder="e.g. MED Process System"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          variant="standard"
+                          value={row.description ?? ''}
+                          onChange={(e) => updateSection(row.id, { description: e.target.value })}
+                          placeholder="optional fine print"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Tooltip
+                          title={
+                            isAutoSync
+                              ? 'Single included section — amount auto-tracks the revenue target. Add a second section to split.'
+                              : ''
+                          }
+                        >
+                          <TextField
+                            size="small"
+                            variant="standard"
+                            type="number"
+                            value={isAutoSync ? displayedAmount : row.amount || ''}
+                            onChange={(e) =>
+                              updateSection(row.id, {
+                                amount: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            disabled={isAutoSync}
+                            sx={{ width: 160 }}
+                            inputProps={{ min: 0, step: 'any', style: { textAlign: 'right' } }}
+                            helperText={isAutoSync ? 'auto = target' : ' '}
+                          />
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          onClick={() => removeSection(row.id)}
+                          aria-label="Remove section"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Box sx={{ mt: 1 }}>
+            <Button startIcon={<AddRowIcon />} size="small" onClick={addSection}>
+              Add section
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Tax — INR only. Foreign exports are zero-rated, so the card is
+          hidden entirely when the quote currency isn't INR. */}
+      {!isForeignQuote && (
+        <Card variant="outlined" sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>
+              Tax
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="Tax label"
+                size="small"
+                value={pricing.taxLabel}
+                onChange={(e) => update({ taxLabel: e.target.value })}
+                placeholder="e.g. GST 18%"
+                sx={{ minWidth: 200 }}
+              />
+              <TextField
+                label="Tax rate"
+                size="small"
+                type="number"
+                value={pricing.taxRate || ''}
+                onChange={(e) => update({ taxRate: parseFloat(e.target.value) || 0 })}
+                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                sx={{ width: 160 }}
+                inputProps={{ min: 0, step: 'any' }}
+              />
+              <Box sx={{ flex: 1 }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Tax amount
+                </Typography>
+                <Typography variant="body1">
+                  {formatMoney(summary.taxAmount, quoteCurrency)}
+                </Typography>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Final total — mirrors what the customer sees on the PDF. */}
       <Paper
         variant="outlined"
         sx={{ p: 2.5, bgcolor: 'primary.light', color: 'primary.contrastText' }}
       >
         <Stack spacing={0.5}>
-          {(pricing.priceSections ?? [])
-            .filter((sec) => sec.included)
-            .map((sec) => (
-              <Row
-                key={sec.id}
-                label={sec.title || '(untitled section)'}
-                value={formatMoney(sec.amount ?? 0, inrCurrency)}
-              />
-            ))}
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
-          <Row label="Subtotal" value={formatMoney(computed.subtotal, inrCurrency)} bold />
-          {pricing.taxRate > 0 && (
+          {summary.sections.map((sec) => (
             <Row
-              label={`${pricing.taxLabel || 'Tax'} (${pricing.taxRate}%)`}
-              value={formatMoney(computed.taxAmount, inrCurrency)}
+              key={sec.id}
+              label={sec.title || '(untitled section)'}
+              value={formatMoney(sec.amount, quoteCurrency)}
+            />
+          ))}
+          <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
+          <Row label="Subtotal" value={formatMoney(summary.sectionsSum, quoteCurrency)} bold />
+          {summary.taxRate > 0 && (
+            <Row
+              label={`${summary.taxLabel} (${summary.taxRate}%)`}
+              value={formatMoney(summary.taxAmount, quoteCurrency)}
             />
           )}
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
-          <Row label="Total (INR)" value={formatMoney(computed.totalInr, inrCurrency)} large />
-          {isForeignQuote && fxRate > 0 && (
-            <Row
-              label={`Total quoted as ${quoteCurrency} (at 1 ${quoteCurrency} = ${fxRate} INR)`}
-              value={formatMoney(computed.totalQuote, quoteCurrency)}
-              large
-            />
-          )}
+          <Row
+            label={`Total (${quoteCurrency})`}
+            value={formatMoney(summary.total, quoteCurrency)}
+            large
+          />
         </Stack>
       </Paper>
     </Box>

@@ -130,24 +130,33 @@ export interface PricingLumpSumRow {
 
 /**
  * One section on the customer-facing Commercial Summary. Each section
- * is a flat priced row (the user enters the amount based on their
- * internal costing). The Pricing tab renders the section list, the PDF
- * sums them as a subtotal, applies tax, and prints the total.
+ * is a flat priced row the customer sees on the PDF. The Pricing tab
+ * renders the list, the PDF sums them, applies tax (INR quotes only),
+ * and prints the total.
+ *
+ * Single-section mode is special: when the included section list has
+ * exactly one row, its amount auto-syncs to the cost-basis-times-markup
+ * target. As soon as the user adds a second section, both amounts
+ * become user-controlled and the editor surfaces a reconciliation
+ * banner against the target.
  *
  * Examples on an EPC bid table:
  *   { title: "MED Process System",   amount: 5000000 }
  *   { title: "Solar Thermal System", amount: 2500000 }
  *   { title: "O&M for 1 year",       amount:  600000 }
  *
- * For a survey or single-deliverable proposal, a single section
- * (e.g. "Survey of MED Plant") is the simplest form.
+ * For a survey or single-deliverable proposal, one section is enough.
  */
 export interface PriceSection {
   id: string;
   title: string;
   /** Optional fine-print line under the title. */
   description?: string;
-  /** Section amount in INR (the base/native currency for all inputs). */
+  /**
+   * Section amount in the proposal's *quote* currency (ClientPricing.currency).
+   * For INR quotes this is INR; for foreign quotes (USD/EUR/…) this is
+   * already converted — no further fxRate division happens at render time.
+   */
   amount: number;
   /** Whether the section prints on the customer PDF. */
   included: boolean;
@@ -158,41 +167,58 @@ export interface PriceSection {
 /**
  * The Pricing tab's full state. Stored on `Proposal.clientPricing`.
  *
- * INR is the base currency for every input on this tab — internal costing,
- * markup percentages, lump-sum lines, and tax are all in INR. The
- * `currency` field is the *quote* currency the customer sees on the PDF;
- * if it's not INR, the final total (and only the final total) is converted
- * via `fxRate` at the very end. The conversion rate is captured at quote
- * time so the PDF doesn't shift as exchange rates move.
+ * Single source of truth: cost basis (INR, from Costing) × (1 + markup%)
+ * = total revenue target. Convert to quote currency via fxRate. The
+ * priceSections distribute that target across customer-facing rows.
  *
- * Layout:
- *   Cost basis (INR, sum of pricingBlocks — never shown to client)
- *   + Overhead     (overheadPercent × cost basis)
- *   + Contingency  (contingencyPercent × cost basis)
- *   + Profit       (profitPercent × cost basis)
- *   + Lump-sum lines (each rendered as its own line on the PDF)
- *   = Subtotal (INR)
- *   + Tax (taxRate × subtotal)
- *   = Total (INR)
- *   ÷ fxRate
- *   = Total in `currency`
+ *   Cost basis (INR, sum of pricingBlocks — internal-only)
+ *     × (1 + overheadPercent + contingencyPercent + profitPercent)
+ *     = Revenue target (INR)
+ *     ÷ fxRate                        ← only if currency ≠ INR
+ *     = Revenue target (quote currency)
+ *
+ *   priceSections (each amount stored in quote currency)
+ *     sum = subtotal
+ *     + tax (INR quotes only; foreign exports are zero-rated)
+ *     = Total (quote currency)
+ *
+ * Single-section behaviour: when there is exactly one included section,
+ * its amount auto-syncs to the revenue target so changing markup % flows
+ * straight through to the customer PDF. As soon as a second section is
+ * added, amounts become user-controlled and the editor shows the gap
+ * between the target and the sum.
  */
 export interface ClientPricing {
-  // Markup % on cost basis (cost basis is INR) — internal-only, never
-  // shown to the client. Used by Costing tab + rolled into the seeded
-  // "Scope of Work" priceSection price on new proposals.
+  // Markup % applied to cost basis (INR). Each percentage applies to
+  // cost basis independently; the three sum to define the total markup.
+  // Markup is internal context but it drives the customer-facing
+  // section total via the revenue target.
   overheadPercent: number;
   contingencyPercent: number;
   profitPercent: number;
 
   /**
    * Customer-facing price sections (Stage 2.5r). Each section prints as
-   * its own row in the Commercial Summary. Sum + tax + total. For an
-   * EPC bid this lets you split into "MED Process System" / "Solar
-   * Thermal System" / "O&M 1 year" / etc.; for a survey, a single
-   * section works.
+   * its own row in the Commercial Summary. For an EPC bid this lets
+   * you split into "MED Process System" / "Solar Thermal System" /
+   * "O&M 1 year" / etc.; for a survey, one section is enough.
+   *
+   * Amounts are in `currency` (the quote currency), not INR.
    */
   priceSections?: PriceSection[];
+
+  /**
+   * Schema version for priceSections.
+   *   undefined or 1 = legacy. Section amounts were stored in INR
+   *     regardless of quote currency; foreign-quote PDFs divided by
+   *     fxRate at render time.
+   *   2 = current. Section amounts are stored in the quote currency
+   *     directly.
+   * The PricingEditor and the shared computeCommercialSummary helper
+   * migrate version-1 records on read (divide by fxRate when foreign);
+   * the next save stamps version 2.
+   */
+  priceSectionsVersion?: number;
 
   /**
    * @deprecated Replaced by {@link priceSections}. Retained for read

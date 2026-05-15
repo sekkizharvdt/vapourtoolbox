@@ -18,6 +18,7 @@ import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { formatDate } from '@/lib/utils/formatters';
 import { buildDefaultTermsBlocks } from '@/lib/proposals/termsBlocks';
+import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import {
   ReportPage,
   ReportHeader,
@@ -265,72 +266,12 @@ export const ProposalPDFDocument = ({
   // shown to clients (internal-only data).
   const hasClientPricing = Boolean(proposal.clientPricing);
 
-  // Internal cost basis is always INR. Quote currency lives on clientPricing.
-  // The conversion (INR → quote currency) is applied only to the final total.
-  const cp = proposal.clientPricing;
-  const inrCurrency = 'INR' as const;
-  const quoteCurrency = cp?.currency ?? 'INR';
-  const fxRate = cp?.fxRate ?? 1;
-  const isForeignQuote = quoteCurrency !== 'INR' && fxRate > 0;
-  const costBasis = (proposal.pricingBlocks ?? []).reduce((s, b) => s + (b.subtotal || 0), 0);
-  const cpComputed = cp
-    ? (() => {
-        // Customer-facing rows come from priceSections (Stage 2.5r). If a
-        // proposal predates sections, lift legacy data on the fly so the
-        // PDF stays printable:
-        //   - cost basis + overhead + contingency + profit → one rolled
-        //     "Scope of Work" row (using the proposal title)
-        //   - each non-empty lump-sum line → its own row
-        const fallbackSections: { id: string; title: string; amount: number }[] = [];
-        if (!cp.priceSections || cp.priceSections.length === 0) {
-          const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
-          const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
-          const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
-          const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
-          if (scopeLinePrice > 0) {
-            fallbackSections.push({
-              id: 'fallback-scope',
-              title: proposal.title || 'Scope of Work',
-              amount: scopeLinePrice,
-            });
-          }
-          (cp.lumpSumLines ?? []).forEach((row, idx) => {
-            if (!row.description?.trim() && !(row.amount > 0)) return;
-            fallbackSections.push({
-              id: row.id || `fallback-ls-${idx}`,
-              title: row.description || `Line ${idx + 1}`,
-              amount: row.amount || 0,
-            });
-          });
-        }
-        const renderedSections =
-          cp.priceSections && cp.priceSections.length > 0
-            ? cp.priceSections
-                .filter((sec) => sec.included)
-                .sort((a, b) => a.order - b.order)
-                .map((sec) => ({
-                  id: sec.id,
-                  title: sec.title || 'Section',
-                  description: sec.description,
-                  amount: sec.amount || 0,
-                }))
-            : fallbackSections.map((sec) => ({
-                ...sec,
-                description: undefined as string | undefined,
-              }));
-        const subtotal = renderedSections.reduce((s, sec) => s + sec.amount, 0);
-        const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
-        const totalInr = subtotal + taxAmount;
-        const totalQuote = isForeignQuote ? totalInr / fxRate : totalInr;
-        return {
-          renderedSections,
-          subtotal,
-          taxAmount,
-          totalInr,
-          totalQuote,
-        };
-      })()
-    : null;
+  // Single source of truth for the customer rollup — same helper that
+  // the Pricing editor uses, so what the user sees on screen and what
+  // the customer sees in the PDF are guaranteed to agree.
+  const summary = computeCommercialSummary(proposal);
+  const quoteCurrency = summary?.currency ?? 'INR';
+  const isForeignQuote = summary?.isForeignQuote ?? false;
 
   const unifiedServices: UnifiedScopeItem[] = hasUnifiedScopeMatrix
     ? proposal.unifiedScopeMatrix!.categories.flatMap((c) =>
@@ -805,99 +746,65 @@ export const ProposalPDFDocument = ({
           )}
 
         {/* Commercial Summary — customer-facing.
-            Driven by clientPricing.priceSections (Stage 2.5r). Each
-            included section prints as its own row. For foreign-currency
-            offers, the section subtotal is converted via fxRate; tax is
-            considered included in the quoted price (Indian GST is zero-
-            rated on exports). For INR offers, sections + GST line + total
-            in INR. */}
-        {hasClientPricing && cp && cpComputed ? (
-          isForeignQuote ? (
-            <View style={local.costSummary}>
-              <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
-                Commercial Summary
-              </Text>
-              {cpComputed.renderedSections.map((sec) => (
-                <View key={sec.id} style={local.costRow}>
+            Sections, subtotal, tax, total all come from the shared
+            computeCommercialSummary helper. Amounts are in the quote
+            currency. Foreign quotes (currency ≠ INR) hide the tax line
+            entirely (Indian GST is zero-rated on exports). */}
+        {hasClientPricing && summary ? (
+          <View style={local.costSummary}>
+            <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
+              Commercial Summary
+            </Text>
+            {summary.sections.map((sec) => (
+              <View key={sec.id} style={local.costRow}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={local.costLabel}>{sec.title}</Text>
+                  {sec.description && (
+                    <Text style={{ fontSize: 9, color: REPORT_THEME.textSecondary, marginTop: 1 }}>
+                      {sec.description}
+                    </Text>
+                  )}
+                </View>
+                <Text style={local.costValue}>{formatPdfMoney(sec.amount, quoteCurrency)}</Text>
+              </View>
+            ))}
+            {summary.taxRate > 0 && (
+              <>
+                <View
+                  style={{
+                    ...local.costRow,
+                    marginTop: 6,
+                    paddingTop: 6,
+                    borderTop: '0.5pt solid #ccc',
+                  }}
+                >
+                  <Text style={local.costLabel}>Subtotal:</Text>
                   <Text style={local.costValue}>
-                    {formatPdfMoney(
-                      (sec.amount * (1 + (cp.taxRate || 0) / 100)) / fxRate,
-                      quoteCurrency
-                    )}
+                    {formatPdfMoney(summary.sectionsSum, quoteCurrency)}
                   </Text>
                 </View>
-              ))}
-              <View
-                style={{
-                  ...local.costRow,
-                  marginTop: 10,
-                  paddingTop: 10,
-                  borderTop: '1pt solid #ccc',
-                }}
-              >
-                <Text style={local.costLabel}>Total ({quoteCurrency}):</Text>
-                <Text style={local.totalCost}>
-                  {formatPdfMoney(cpComputed.totalQuote, quoteCurrency)}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={local.costSummary}>
-              <Text style={[s.sectionTitle, { borderBottom: 'none', marginBottom: 10 }]}>
-                Commercial Summary
-              </Text>
-              {cpComputed.renderedSections.map((sec) => (
-                <View key={sec.id} style={local.costRow}>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={local.costLabel}>{sec.title}</Text>
-                    {sec.description && (
-                      <Text
-                        style={{ fontSize: 9, color: REPORT_THEME.textSecondary, marginTop: 1 }}
-                      >
-                        {sec.description}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={local.costValue}>{formatPdfMoney(sec.amount, inrCurrency)}</Text>
-                </View>
-              ))}
-              <View
-                style={{
-                  ...local.costRow,
-                  marginTop: 6,
-                  paddingTop: 6,
-                  borderTop: '0.5pt solid #ccc',
-                }}
-              >
-                <Text style={local.costLabel}>Subtotal:</Text>
-                <Text style={local.costValue}>
-                  {formatPdfMoney(cpComputed.subtotal, inrCurrency)}
-                </Text>
-              </View>
-              {cp.taxRate > 0 && (
                 <View style={local.costRow}>
-                  <Text style={local.costLabel}>{cp.taxLabel || `Tax (${cp.taxRate}%)`}:</Text>
+                  <Text style={local.costLabel}>
+                    {summary.taxLabel || `Tax (${summary.taxRate}%)`}:
+                  </Text>
                   <Text style={local.costValue}>
-                    {formatPdfMoney(cpComputed.taxAmount, inrCurrency)}
+                    {formatPdfMoney(summary.taxAmount, quoteCurrency)}
                   </Text>
                 </View>
-              )}
-              <View
-                style={{
-                  ...local.costRow,
-                  marginTop: 10,
-                  paddingTop: 10,
-                  borderTop: '1pt solid #ccc',
-                }}
-              >
-                <Text style={local.costLabel}>Total Amount:</Text>
-                <Text style={local.totalCost}>
-                  {formatPdfMoney(cpComputed.totalInr, inrCurrency)}
-                </Text>
-              </View>
+              </>
+            )}
+            <View
+              style={{
+                ...local.costRow,
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1pt solid #ccc',
+              }}
+            >
+              <Text style={local.costLabel}>Total ({quoteCurrency}):</Text>
+              <Text style={local.totalCost}>{formatPdfMoney(summary.total, quoteCurrency)}</Text>
             </View>
-          )
+          </View>
         ) : null}
 
         {/* Delivery Schedule */}

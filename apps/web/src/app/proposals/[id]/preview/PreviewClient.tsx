@@ -50,6 +50,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { downloadProposalPDF, saveProposalPDF } from '@/lib/proposals/proposalPDF';
 import { buildDefaultTermsBlocks } from '@/lib/proposals/termsBlocks';
+import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
 import type { Proposal, Money } from '@vapour/types';
@@ -708,60 +709,15 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           );
         })()}
 
-        {/* Commercial Summary — mirrors the customer-facing PDF.
-            Internal markup percentages (overhead / contingency / profit) are
-            rolled into a single priced "scope of work" line so what the user
-            sees here matches what the buyer will see. The markup breakdown
-            stays on the Costing tab for internal review only. */}
+        {/* Commercial Summary — mirrors the customer-facing PDF. All
+            numbers come from the shared computeCommercialSummary helper
+            so this card, the PDF, and the Pricing editor always agree.
+            Section amounts are in the quote currency; tax is shown for
+            INR quotes only (foreign exports are zero-rated). */}
         {(() => {
-          const cp = proposal.clientPricing;
-          if (!cp) return null;
-          // Lift legacy proposals (no priceSections yet) into a synthesised
-          // section list so the preview mirrors what the PDF will print.
-          const costBasis = (proposal.pricingBlocks ?? []).reduce(
-            (s, b) => s + (b.subtotal || 0),
-            0
-          );
-          let sections: { id: string; title: string; description?: string; amount: number }[] = [];
-          if (cp.priceSections && cp.priceSections.length > 0) {
-            sections = cp.priceSections
-              .filter((sec) => sec.included)
-              .sort((a, b) => a.order - b.order)
-              .map((sec) => ({
-                id: sec.id,
-                title: sec.title || 'Section',
-                description: sec.description,
-                amount: sec.amount || 0,
-              }));
-          } else {
-            const overheadAmount = (costBasis * (cp.overheadPercent || 0)) / 100;
-            const contingencyAmount = (costBasis * (cp.contingencyPercent || 0)) / 100;
-            const profitAmount = (costBasis * (cp.profitPercent || 0)) / 100;
-            const scopeLinePrice = costBasis + overheadAmount + contingencyAmount + profitAmount;
-            if (scopeLinePrice > 0) {
-              sections.push({
-                id: 'legacy-scope',
-                title: proposal.title || 'Scope of Work',
-                amount: scopeLinePrice,
-              });
-            }
-            (cp.lumpSumLines ?? []).forEach((row, idx) => {
-              if (!row.description?.trim() && !(row.amount > 0)) return;
-              sections.push({
-                id: row.id || `legacy-ls-${idx}`,
-                title: row.description || `Line ${idx + 1}`,
-                amount: row.amount || 0,
-              });
-            });
-          }
-          const subtotal = sections.reduce((s, sec) => s + sec.amount, 0);
-          const taxAmount = (subtotal * (cp.taxRate || 0)) / 100;
-          const totalInr = subtotal + taxAmount;
-          const fxRate = cp.fxRate ?? 1;
-          const isForeignQuote = cp.currency !== 'INR' && fxRate > 0;
-          const totalQuote = isForeignQuote ? totalInr / fxRate : totalInr;
-          const fmt = (n: number) => formatCurrency({ amount: n, currency: 'INR' });
-          const fmtQuote = (n: number) => formatCurrency({ amount: n, currency: cp.currency });
+          const summary = computeCommercialSummary(proposal);
+          if (!summary) return null;
+          const fmt = (n: number) => formatCurrency({ amount: n, currency: summary.currency });
           return (
             <Card variant="outlined" sx={{ mb: 3 }}>
               <CardContent>
@@ -773,90 +729,52 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                 <TableContainer>
                   <Table size="small">
                     <TableBody>
-                      {isForeignQuote ? (
-                        // Foreign-currency quote: each section converted to
-                        // the quote currency with tax baked in; no INR
-                        // breakdown, no fxRate disclosure.
+                      {summary.sections.map((sec) => (
+                        <TableRow key={sec.id}>
+                          <TableCell>
+                            {sec.title}
+                            {sec.description && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'block' }}
+                              >
+                                {sec.description}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right">{fmt(sec.amount)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {summary.taxRate > 0 && (
                         <>
-                          {sections.map((sec) => (
-                            <TableRow key={sec.id}>
-                              <TableCell>
-                                {sec.title}
-                                {sec.description && (
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ display: 'block' }}
-                                  >
-                                    {sec.description}
-                                  </Typography>
-                                )}
-                              </TableCell>
-                              <TableCell align="right">
-                                {fmtQuote((sec.amount * (1 + (cp.taxRate || 0) / 100)) / fxRate)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          <TableRow sx={{ bgcolor: 'primary.50' }}>
-                            <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                              Total ({cp.currency})
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}
-                            >
-                              {fmtQuote(totalQuote)}
-                            </TableCell>
-                          </TableRow>
-                        </>
-                      ) : (
-                        <>
-                          {sections.map((sec) => (
-                            <TableRow key={sec.id}>
-                              <TableCell>
-                                {sec.title}
-                                {sec.description && (
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ display: 'block' }}
-                                  >
-                                    {sec.description}
-                                  </Typography>
-                                )}
-                              </TableCell>
-                              <TableCell align="right">{fmt(sec.amount)}</TableCell>
-                            </TableRow>
-                          ))}
                           <TableRow>
                             <TableCell sx={{ fontWeight: 'bold' }}>Subtotal</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                              {fmt(subtotal)}
+                              {fmt(summary.sectionsSum)}
                             </TableCell>
                           </TableRow>
-                          {cp.taxRate > 0 && (
-                            <TableRow>
-                              <TableCell>{cp.taxLabel || `Tax (${cp.taxRate}%)`}</TableCell>
-                              <TableCell align="right">{fmt(taxAmount)}</TableCell>
-                            </TableRow>
-                          )}
-                          <TableRow sx={{ bgcolor: 'primary.50' }}>
-                            <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                              Total Amount
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              sx={{
-                                fontWeight: 'bold',
-                                fontSize: '1.1rem',
-                                color: 'primary.main',
-                              }}
-                            >
-                              {fmt(totalInr)}
-                            </TableCell>
+                          <TableRow>
+                            <TableCell>{summary.taxLabel || `Tax (${summary.taxRate}%)`}</TableCell>
+                            <TableCell align="right">{fmt(summary.taxAmount)}</TableCell>
                           </TableRow>
                         </>
                       )}
+                      <TableRow sx={{ bgcolor: 'primary.50' }}>
+                        <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                          Total ({summary.currency})
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            fontWeight: 'bold',
+                            fontSize: '1.1rem',
+                            color: 'primary.main',
+                          }}
+                        >
+                          {fmt(summary.total)}
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -865,7 +783,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2">
                       <strong>Payment Terms:</strong>{' '}
-                      {isForeignQuote
+                      {summary.isForeignQuote
                         ? proposal.pricing.paymentTerms.replace(
                             /\s*\((?:Incl|Excl)\.\s*Tax\)/gi,
                             ''
