@@ -288,14 +288,18 @@ export const ProposalPDFDocument = ({
 
   // Cover-page metadata — assembled once so the layout stays declarative.
   const docNumber = `${proposal.proposalNumber}/R${proposal.revision}`;
-  // Date of Submission — only stamped on the formal submittedAt. While
-  // the proposal is still DRAFT / PENDING_APPROVAL / APPROVED the date
-  // reads as "Not yet submitted" so an internally-shared PDF doesn't
-  // claim a submission date that isn't real. The same proposal
-  // downloaded a week before and on submission day will both look right.
-  const submissionDate = proposal.submittedAt
-    ? formatDate(proposal.submittedAt)
-    : 'Not yet submitted';
+  // Date of Submission — only stamped once the proposal has actually
+  // been sent to the client (status SUBMITTED or later). Pre-submission
+  // statuses read as "Not yet submitted" so an internally-shared draft
+  // PDF doesn't claim a submission date that isn't real. We gate on
+  // status AND submittedAt so any stale submittedAt left over from
+  // older code paths is ignored until the formal send-to-client step.
+  const POST_SUBMIT_STATUSES = ['SUBMITTED', 'ACCEPTED', 'REJECTED', 'LOST'] as const;
+  const isPostSubmit = POST_SUBMIT_STATUSES.includes(
+    proposal.status as (typeof POST_SUBMIT_STATUSES)[number]
+  );
+  const submissionDate =
+    isPostSubmit && proposal.submittedAt ? formatDate(proposal.submittedAt) : 'Not yet submitted';
   const contactPersonText = company.primaryContactName
     ? `${company.primaryContactName}${
         company.primaryContactRole ? ', ' + company.primaryContactRole : ''

@@ -64,9 +64,12 @@ export async function submitProposalForApproval(
       );
     }
 
+    // NB: submittedAt is the date the proposal was SENT TO THE CLIENT
+    // (written by handleSubmitToClient in PreviewClient). Do not write
+    // it here — submitting for internal approval is a different event,
+    // tracked by status=PENDING_APPROVAL plus the audit log below.
     await updateDoc(proposalRef, {
       status: 'PENDING_APPROVAL',
-      submittedAt: Timestamp.now(),
       submittedByUserId: userId,
       submittedByUserName: userName,
       ...(approver && {

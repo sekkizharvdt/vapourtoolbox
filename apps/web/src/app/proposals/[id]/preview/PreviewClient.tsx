@@ -278,7 +278,9 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
     );
   }
 
-  const isReadyForSubmission = proposal.pricingConfig?.isComplete && proposal.status === 'DRAFT';
+  // "Submit to Client" appears once the proposal has been approved.
+  // (Skipping the approval flow needs a state-machine change first.)
+  const isReadyForSubmission = proposal.status === 'APPROVED';
   const isAlreadySubmitted = proposal.status === 'SUBMITTED';
 
   return (
