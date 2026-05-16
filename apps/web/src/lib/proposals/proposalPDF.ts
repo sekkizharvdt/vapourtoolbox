@@ -78,7 +78,8 @@ function formatEntityBillingAddress(addr: unknown): string | undefined {
 async function loadClientProfile(
   clientId?: string
 ): Promise<
-  { address?: string; contactPerson?: string; email?: string; phone?: string } | undefined
+  | { name?: string; address?: string; contactPerson?: string; email?: string; phone?: string }
+  | undefined
 > {
   if (!clientId) return undefined;
   try {
@@ -86,6 +87,7 @@ async function loadClientProfile(
     const snap = await getDoc(doc(db, 'entities', clientId));
     if (!snap.exists()) return undefined;
     const data = snap.data() as {
+      name?: string;
       billingAddress?: unknown;
       primaryContact?: { name?: string; email?: string; phone?: string };
       email?: string;
@@ -93,6 +95,7 @@ async function loadClientProfile(
     };
     const address = formatEntityBillingAddress(data.billingAddress);
     return {
+      ...(data.name && { name: data.name }),
       ...(address && { address }),
       contactPerson: data.primaryContact?.name,
       email: data.primaryContact?.email || data.email,

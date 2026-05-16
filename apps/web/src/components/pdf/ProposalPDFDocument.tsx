@@ -75,6 +75,7 @@ export interface ProposalPDFCompany {
  * needing a backfill on every proposal.
  */
 export interface ProposalPDFClient {
+  name?: string;
   address?: string;
   contactPerson?: string;
   email?: string;
@@ -252,6 +253,7 @@ export const ProposalPDFDocument = ({
   // Prefer the live entity address over the proposal's denormalised
   // clientAddress so old proposals with a corrupted "null, null" string
   // still render cleanly. Same for clientContactPerson.
+  const clientName = clientProfile?.name || proposal.clientName;
   const clientAddress = clientProfile?.address || proposal.clientAddress;
   const clientContactPerson = clientProfile?.contactPerson || proposal.clientContactPerson;
   const clientEmail = clientProfile?.email || proposal.clientEmail;
@@ -346,14 +348,14 @@ export const ProposalPDFDocument = ({
         <View style={local.coverTitleBlock}>
           <Text style={local.coverTitle}>{proposal.title || 'Techno-Commercial Proposal'}</Text>
           <Text style={local.coverFor}>for</Text>
-          <Text style={local.coverClientName}>{proposal.clientName}</Text>
+          <Text style={local.coverClientName}>{clientName}</Text>
         </View>
 
         {/* Metadata table */}
         <View style={local.coverMetaBlock}>
           <View style={local.coverMetaRow}>
             <Text style={local.coverMetaLabel}>End User</Text>
-            <Text style={local.coverMetaValue}>{proposal.clientName}</Text>
+            <Text style={local.coverMetaValue}>{clientName}</Text>
           </View>
           {proposal.enquiryNumber && (
             <View style={local.coverMetaRow}>
@@ -501,7 +503,7 @@ export const ProposalPDFDocument = ({
 
         {/* Client Information */}
         <ReportSection title="TO">
-          <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>{proposal.clientName}</Text>
+          <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>{clientName}</Text>
           {clientAddress && <Text>{clientAddress}</Text>}
           {clientContactPerson && <Text>Attention: {clientContactPerson}</Text>}
           {clientEmail && <Text>Email: {clientEmail}</Text>}
