@@ -167,6 +167,24 @@ service firebase.storage {
       allow delete: if hasPermission(65536);
     }
 
+    // Proposal generated PDFs — output of "Save PDF" on the customer-facing
+    // proposal Preview. Saved per tenant + proposal so the saved PDF can be
+    // re-linked from the proposal record (Firestore proposal.generatedPdfUrl).
+    // Path: entities/{tenantId}/proposals/{proposalId}/generated/{filename}
+    //
+    // Read: any authenticated user (link is shared internally via Firestore).
+    // Write/Delete: gated on MANAGE_PROPOSALS (bit 21 = 2097152) so a
+    // viewer-only account can't overwrite the customer-facing PDF.
+    match /entities/{tenantId}/proposals/{proposalId}/generated/{allPaths=**} {
+      allow read: if isAuthenticated();
+
+      allow write: if hasPermission(2097152) &&
+                     request.resource.size < 25 * 1024 * 1024 &&
+                     request.resource.contentType == 'application/pdf';
+
+      allow delete: if hasPermission(2097152);
+    }
+
     // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;
