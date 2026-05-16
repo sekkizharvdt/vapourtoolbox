@@ -124,7 +124,13 @@ describe('approvalWorkflow', () => {
         data: () => ({ ...mockProposal, status: 'DRAFT' }),
       });
 
-      await submitProposalForApproval(mockDb, 'proposal-123', mockUserId, mockUserName);
+      await submitProposalForApproval(
+        mockDb,
+        'proposal-123',
+        mockUserId,
+        mockUserName,
+        mockPermissions
+      );
 
       expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
       const updateCall = mockUpdateDoc.mock.calls[0][1];
@@ -142,7 +148,7 @@ describe('approvalWorkflow', () => {
       });
 
       await expect(
-        submitProposalForApproval(mockDb, 'non-existent', mockUserId, mockUserName)
+        submitProposalForApproval(mockDb, 'non-existent', mockUserId, mockUserName, mockPermissions)
       ).rejects.toThrow('Proposal not found');
     });
 
@@ -153,7 +159,7 @@ describe('approvalWorkflow', () => {
       });
 
       await expect(
-        submitProposalForApproval(mockDb, 'proposal-123', mockUserId, mockUserName)
+        submitProposalForApproval(mockDb, 'proposal-123', mockUserId, mockUserName, mockPermissions)
       ).rejects.toThrow();
     });
   });

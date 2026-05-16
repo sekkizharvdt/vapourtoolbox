@@ -276,10 +276,17 @@ export default function ProposalDetailClient() {
     if (!db || !proposal || !user) return;
     setActionLoading(true);
     try {
-      await submitProposalForApproval(db, proposal.id, user.uid, user.displayName || 'Unknown', {
-        userId: approver.id,
-        userName: approver.displayName,
-      });
+      await submitProposalForApproval(
+        db,
+        proposal.id,
+        user.uid,
+        user.displayName || 'Unknown',
+        claims?.permissions ?? 0,
+        {
+          userId: approver.id,
+          userName: approver.displayName,
+        }
+      );
       await reloadProposal();
       setSubmitForApprovalDialogOpen(false);
     } catch (err) {

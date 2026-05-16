@@ -100,8 +100,8 @@ export const proposalStateMachine: StateMachine<ProposalStatus> = createStateMac
     EXPIRED: [], // Terminal
   },
   transitionPermissions: {
-    PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_ESTIMATION,
-    PENDING_APPROVAL_DRAFT: PERMISSION_FLAGS.MANAGE_ESTIMATION, // Return for revision
+    PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_PROPOSALS,
+    PENDING_APPROVAL_DRAFT: PERMISSION_FLAGS.MANAGE_PROPOSALS, // Return for revision
   },
   terminalStates: ['ACCEPTED', 'EXPIRED', 'REJECTED'],
 });

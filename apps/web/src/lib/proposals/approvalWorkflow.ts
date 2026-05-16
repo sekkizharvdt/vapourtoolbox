@@ -32,12 +32,19 @@ export async function submitProposalForApproval(
   proposalId: string,
   userId: string,
   userName: string,
+  userPermissions: number,
   approver?: { userId: string; userName: string }
 ): Promise<void> {
   // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
-  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: state-machine transition (DRAFT→PENDING_APPROVAL) with explicit guard; concurrent submitters converge to PENDING_APPROVAL — duplicate task notifications are accepted
   try {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROPOSALS,
+      userId,
+      'submit proposal for approval'
+    );
+
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
 
@@ -524,6 +531,16 @@ export async function requestProposalChanges(
     }
 
     logger.info('Changes requested for proposal', { proposalId, userId });
+
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'PROPOSAL_CHANGES_REQUESTED',
+      'PROPOSAL',
+      proposalId,
+      `Changes requested on proposal ${proposal.proposalNumber}: ${comments}`,
+      { entityName: proposal.proposalNumber }
+    ).catch((err) => logger.error('Failed to log audit event', { error: err }));
   } catch (error) {
     logger.error('Error requesting proposal changes', { proposalId, error });
     throw error;

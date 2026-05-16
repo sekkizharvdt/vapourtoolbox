@@ -191,6 +191,8 @@ Everything else is housekeeping.
 | 20 (clone hardcodes +30 days validity)                                 | Cluster D     |
 | 1 (editors save freely against any status)                             | edit-lock     |
 | (new) submitter has no way back from PENDING_APPROVAL                  | `07ea9752`    |
+| 7 (clientName stale on PDF)                                            | Cluster E     |
+| 5, 6, 9, 18 (approval/conversion/audit integrity)                      | Cluster C     |
 
 The pricing rebuild commits (`fe709769`, `123c58ed`, `bebb612a`,
 `56888c45`) also indirectly closed earlier holes — section amounts now

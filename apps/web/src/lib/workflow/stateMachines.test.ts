@@ -154,9 +154,9 @@ describe('proposalStateMachine', () => {
   });
 
   describe('permissions', () => {
-    it('should require APPROVE_ESTIMATES for approval', () => {
+    it('should require MANAGE_PROPOSALS for approval', () => {
       expect(proposalStateMachine.getRequiredPermission('PENDING_APPROVAL', 'APPROVED')).toBe(
-        PERMISSION_FLAGS.MANAGE_ESTIMATION
+        PERMISSION_FLAGS.MANAGE_PROPOSALS
       );
     });
   });

@@ -4,7 +4,7 @@
  * Converts accepted proposals into active projects with linked data.
  */
 
-import { collection, doc, addDoc, updateDoc, Timestamp, type Firestore } from 'firebase/firestore';
+import { collection, doc, runTransaction, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, Project, CharterBudgetLineItem } from '@vapour/types';
@@ -27,6 +27,9 @@ export async function convertProposalToProject(
 ): Promise<string> {
   // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
+  // The project create + proposal projectId-link are wrapped in a single
+  // runTransaction below so a double-click on "Convert to Project" can't
+  // produce two project documents racing to write back the same proposal.
   try {
     logger.info('Converting proposal to project', { proposalId, userId });
 
@@ -187,18 +190,32 @@ export async function convertProposalToProject(
       Object.entries(newProject).filter(([, value]) => value !== undefined)
     );
 
-    // Add project to Firestore
-    const projectRef = await addDoc(collection(db, COLLECTIONS.PROJECTS), cleanedProject);
-
-    // Update proposal with project link
+    // Pre-allocate the project document id so the transaction can set
+    // both the new project and the proposal->projectId link atomically.
+    const projectRef = doc(collection(db, COLLECTIONS.PROJECTS));
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
-    await updateDoc(proposalRef, {
-      projectId: projectRef.id,
-      projectNumber,
-      convertedToProjectAt: Timestamp.now(),
-      convertedToProjectBy: userId,
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
+
+    await runTransaction(db, async (tx) => {
+      // Re-read the proposal inside the transaction so a parallel call
+      // (e.g. a double-click) that already set projectId is caught.
+      const freshSnap = await tx.get(proposalRef);
+      if (!freshSnap.exists()) {
+        throw new Error('Proposal not found');
+      }
+      const fresh = freshSnap.data() as Proposal;
+      if (fresh.projectId) {
+        throw new Error('Proposal has already been converted to a project');
+      }
+
+      tx.set(projectRef, cleanedProject);
+      tx.update(proposalRef, {
+        projectId: projectRef.id,
+        projectNumber,
+        convertedToProjectAt: Timestamp.now(),
+        convertedToProjectBy: userId,
+        updatedAt: Timestamp.now(),
+        updatedBy: userId,
+      });
     });
 
     logger.info('Proposal converted to project', {

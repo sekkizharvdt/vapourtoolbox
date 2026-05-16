@@ -18,12 +18,21 @@ jest.mock('@vapour/firebase', () => ({
 
 const mockAddDoc = jest.fn();
 const mockUpdateDoc = jest.fn();
+const mockRunTransaction = jest.fn();
+// Captured by the mocked `doc(collection(...))` overload when no id is
+// supplied so each transactional create gets a fresh predictable id.
+let nextProjectDocId = 'new-project-123';
 
 jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(),
-  doc: jest.fn((_db, _collection, id) => ({ id, path: `proposals/${id}` })),
+  collection: jest.fn(() => ({})),
+  doc: jest.fn((_db, _collection, id) =>
+    id !== undefined
+      ? { id, path: `proposals/${id}` }
+      : { id: nextProjectDocId, path: `projects/${nextProjectDocId}` }
+  ),
   addDoc: (...args: unknown[]) => mockAddDoc(...args),
   updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
+  runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
   Timestamp: {
     now: jest.fn(() => ({
       seconds: Date.now() / 1000,
@@ -159,6 +168,25 @@ describe('projectConversion', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    nextProjectDocId = 'new-project-123';
+    // Default: runTransaction invokes its callback with a tx whose get()
+    // returns a fresh proposal (no projectId) and whose set/update bridge
+    // to the existing mockAddDoc / mockUpdateDoc so test assertions on
+    // those continue to work after the addDoc+updateDoc → tx.set+tx.update
+    // refactor. Tests that want a different tx.get can re-override.
+    mockRunTransaction.mockImplementation(
+      async (_db: unknown, cb: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          get: jest.fn(async () => ({
+            exists: () => true,
+            data: () => ({ projectId: undefined }),
+          })),
+          set: (...args: unknown[]) => mockAddDoc(...args),
+          update: (...args: unknown[]) => mockUpdateDoc(...args),
+        };
+        return await cb(tx);
+      }
+    );
   });
 
   describe('canConvertToProject', () => {
