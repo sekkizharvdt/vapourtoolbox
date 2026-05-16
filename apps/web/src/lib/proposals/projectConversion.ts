@@ -9,6 +9,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, Project, CharterBudgetLineItem } from '@vapour/types';
 import { deriveIncludedByClassification, deriveExclusions } from './proposalHelpers';
+import { computeCommercialSummary } from './commercialSummary';
 
 const logger = createLogger({ context: 'projectConversion' });
 
@@ -121,9 +122,17 @@ export async function convertProposalToProject(
         endDate: estimatedEndDate,
       },
 
-      // Budget (prefer pricingConfig, fall back to legacy pricing)
+      // Budget — read from the canonical commercial summary so new-style
+      // proposals (priced via the Pricing tab / clientPricing) carry their
+      // real total into the project. Falls back to 0 when the proposal
+      // genuinely has no pricing yet (caller should have caught that).
+      // We use targetRevenueInr (pre-tax revenue in INR) — that's what
+      // the project earns; tax is the customer's separate problem.
       budget: {
-        estimated: proposal.pricingConfig?.totalPrice ?? proposal.pricing.totalAmount,
+        estimated: {
+          amount: computeCommercialSummary(proposal)?.targetRevenueInr ?? 0,
+          currency: 'INR' as const,
+        },
         currency: 'INR',
       },
 

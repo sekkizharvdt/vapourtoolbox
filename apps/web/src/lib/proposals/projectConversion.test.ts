@@ -341,17 +341,33 @@ describe('projectConversion', () => {
       expect(projectData?.team?.[0]?.isActive).toBe(true);
     });
 
-    it('should set budget from proposal pricing', async () => {
+    it('should set budget from proposal pricing (canonical commercial summary)', async () => {
+      // Budget now reads from computeCommercialSummary's targetRevenueInr
+      // (cost basis × (1 + markup)), not the legacy pricing.totalAmount.
       const proposal = createMockProposal({
-        pricing: {
+        pricingBlocks: [
+          {
+            id: 'block-1',
+            kind: 'LUMP_SUM_LINES',
+            label: 'Equipment',
+            audience: 'INTERNAL',
+            currency: 'INR',
+            subtotal: 200000,
+            rows: [{ id: 'r1', description: 'Pumps', amount: 200000 }],
+          },
+        ],
+        clientPricing: {
+          overheadPercent: 0,
+          contingencyPercent: 0,
+          profitPercent: 18,
+          priceSections: [{ id: 's1', title: 'Scope', amount: 236000, included: true, order: 0 }],
+          lumpSumLines: [],
+          taxRate: 0,
+          taxLabel: '',
           currency: 'INR',
-          lineItems: [],
-          subtotal: { amount: 200000, currency: 'INR' },
-          taxItems: [],
-          totalAmount: { amount: 236000, currency: 'INR' },
-          paymentTerms: '30% advance',
+          fxRate: 1,
         },
-      });
+      } as Partial<Proposal>);
 
       mockAddDoc.mockResolvedValueOnce({ id: 'new-project-123' });
       mockUpdateDoc.mockResolvedValueOnce(undefined);
@@ -359,6 +375,7 @@ describe('projectConversion', () => {
       await convertProposalToProject(mockDb, 'proposal-123', mockUserId, mockUserName, proposal);
 
       const projectData = mockAddDoc.mock.calls[0]?.[1];
+      // 200000 × (1 + 0.18) = 236000 INR
       expect(projectData?.budget?.estimated).toEqual({
         amount: 236000,
         currency: 'INR',

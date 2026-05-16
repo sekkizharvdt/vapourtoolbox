@@ -60,6 +60,7 @@ import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
+import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import {
   submitProposalForApproval,
@@ -1046,55 +1047,46 @@ function OverviewTab({ proposal, formatDate, formatCurrency, reloadProposal }: O
           </Card>
         ) : null}
 
-        {/* Pricing Summary */}
-        {(proposal.pricingConfig || proposal.pricing) && (
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Pricing Summary
-              </Typography>
-              {proposal.pricingConfig ? (
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Estimation Subtotal
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(proposal.pricingConfig.estimationSubtotal)}
-                    </Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Total Price (incl. tax)
-                    </Typography>
-                    <Typography variant="h6" color="primary">
-                      {formatCurrency(proposal.pricingConfig.totalPrice)}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              ) : (
+        {/* Pricing Summary — read from the canonical commercial summary
+            (matches what the customer sees on the PDF and the Pricing tab).
+            Falls back gracefully when the proposal has no pricing yet. */}
+        {(() => {
+          const summary = computeCommercialSummary(proposal);
+          if (!summary) return null;
+          return (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Pricing Summary
+                </Typography>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 6 }}>
                     <Typography variant="subtitle2" color="text.secondary">
                       Subtotal
                     </Typography>
                     <Typography variant="body1">
-                      {formatCurrency(proposal.pricing.subtotal)}
+                      {formatCurrency({
+                        amount: summary.sectionsSum,
+                        currency: summary.currency,
+                      })}
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 6 }}>
                     <Typography variant="subtitle2" color="text.secondary">
-                      Total Amount
+                      Total ({summary.currency})
                     </Typography>
                     <Typography variant="h6" color="primary">
-                      {formatCurrency(proposal.pricing.totalAmount)}
+                      {formatCurrency({
+                        amount: summary.total,
+                        currency: summary.currency,
+                      })}
                     </Typography>
                   </Grid>
                 </Grid>
-              )}
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Delivery Summary */}
         {proposal.deliveryPeriod && proposal.deliveryPeriod.milestones.length > 0 && (

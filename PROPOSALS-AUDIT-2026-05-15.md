@@ -199,6 +199,7 @@ Everything else is housekeeping.
 | 17 (clone dialog selector callback)                                    | not a real bug — clone dialog has no client selector         |
 | 19 (annexures filter drops empty fileName)                             | won't fix — defensive filter is correct                      |
 | 21 (PDF hardcoded "Phone:"/"Email:" labels)                            | YAGNI — universal English terms, not localisation candidates |
+| 2, 4, 12, 14 (legacy pricing fields swept)                             | Cluster A                                                    |
 
 The pricing rebuild commits (`fe709769`, `123c58ed`, `bebb612a`,
 `56888c45`) also indirectly closed earlier holes — section amounts now

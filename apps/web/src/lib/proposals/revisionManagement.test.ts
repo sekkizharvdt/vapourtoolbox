@@ -135,76 +135,97 @@ describe('revisionManagement', () => {
   });
 
   describe('compareRevisions', () => {
-    it('should detect pricing changes via pricingConfig', () => {
-      const oldRevision = createMockProposal({
-        pricingConfig: {
-          estimationSubtotal: { amount: 100000, currency: 'INR' },
-          overheadPercent: 10,
-          contingencyPercent: 5,
-          profitMarginPercent: 15,
-          overheadAmount: { amount: 10000, currency: 'INR' },
-          contingencyAmount: { amount: 5000, currency: 'INR' },
-          profitAmount: { amount: 15000, currency: 'INR' },
-          subtotalBeforeTax: { amount: 130000, currency: 'INR' },
-          taxPercent: 18,
-          taxAmount: { amount: 23400, currency: 'INR' },
-          totalPrice: { amount: 153400, currency: 'INR' },
-          validityDays: 30,
-          isComplete: true,
-        },
-      });
-
-      const newRevision = createMockProposal({
-        pricingConfig: {
-          estimationSubtotal: { amount: 120000, currency: 'INR' },
-          overheadPercent: 10,
-          contingencyPercent: 5,
-          profitMarginPercent: 15,
-          overheadAmount: { amount: 12000, currency: 'INR' },
-          contingencyAmount: { amount: 6000, currency: 'INR' },
-          profitAmount: { amount: 18000, currency: 'INR' },
-          subtotalBeforeTax: { amount: 156000, currency: 'INR' },
-          taxPercent: 18,
-          taxAmount: { amount: 28080, currency: 'INR' },
-          totalPrice: { amount: 184080, currency: 'INR' },
-          validityDays: 30,
-          isComplete: true,
-        },
-      });
-
-      const result = compareRevisions(oldRevision, newRevision);
-
-      expect(result.pricingChanged).toBe(true);
-      expect(result.changes).toContain('Total amount changed from 153400 to 184080');
+    // Helper: build a minimal clientPricing with a single included
+    // section at the given total. Mirrors what computeCommercialSummary
+    // reads.
+    const pricingWith = (sectionAmount: number, taxRate = 0) => ({
+      overheadPercent: 0,
+      contingencyPercent: 0,
+      profitPercent: 0,
+      priceSections: [
+        { id: 's1', title: 'Scope', amount: sectionAmount, included: true, order: 0 },
+      ],
+      lumpSumLines: [],
+      taxRate,
+      taxLabel: '',
+      currency: 'INR' as const,
+      fxRate: 1,
     });
 
-    it('should fall back to legacy pricing when pricingConfig is absent', () => {
+    it('should detect pricing changes via clientPricing', () => {
+      // Both revisions have cost basis so the single-section auto-sync
+      // takes the user-typed amount × markup. We use markup = 0 so the
+      // section amount IS the total.
       const oldRevision = createMockProposal({
-        pricing: {
-          currency: 'INR',
-          lineItems: [],
-          subtotal: { amount: 100000, currency: 'INR' },
-          taxItems: [],
-          totalAmount: { amount: 118000, currency: 'INR' },
-          paymentTerms: '50% advance',
-        },
-      });
+        pricingBlocks: [
+          {
+            id: 'b1',
+            kind: 'LUMP_SUM_LINES',
+            label: 'X',
+            audience: 'INTERNAL',
+            currency: 'INR',
+            subtotal: 153400,
+            rows: [],
+          },
+        ],
+        clientPricing: pricingWith(153400),
+      } as Partial<Proposal>);
 
       const newRevision = createMockProposal({
-        pricing: {
-          currency: 'INR',
-          lineItems: [],
-          subtotal: { amount: 120000, currency: 'INR' },
-          taxItems: [],
-          totalAmount: { amount: 141600, currency: 'INR' },
-          paymentTerms: '50% advance',
-        },
-      });
+        pricingBlocks: [
+          {
+            id: 'b1',
+            kind: 'LUMP_SUM_LINES',
+            label: 'X',
+            audience: 'INTERNAL',
+            currency: 'INR',
+            subtotal: 184080,
+            rows: [],
+          },
+        ],
+        clientPricing: pricingWith(184080),
+      } as Partial<Proposal>);
 
       const result = compareRevisions(oldRevision, newRevision);
 
       expect(result.pricingChanged).toBe(true);
-      expect(result.changes).toContain('Total amount changed from 118000 to 141600');
+      expect(result.changes.some((c) => /153400.*184080/.test(c))).toBe(true);
+    });
+
+    it('should report no pricing change when totals match', () => {
+      const oldRevision = createMockProposal({
+        pricingBlocks: [
+          {
+            id: 'b1',
+            kind: 'LUMP_SUM_LINES',
+            label: 'X',
+            audience: 'INTERNAL',
+            currency: 'INR',
+            subtotal: 118000,
+            rows: [],
+          },
+        ],
+        clientPricing: pricingWith(118000),
+      } as Partial<Proposal>);
+
+      const newRevision = createMockProposal({
+        pricingBlocks: [
+          {
+            id: 'b1',
+            kind: 'LUMP_SUM_LINES',
+            label: 'X',
+            audience: 'INTERNAL',
+            currency: 'INR',
+            subtotal: 118000,
+            rows: [],
+          },
+        ],
+        clientPricing: pricingWith(118000),
+      } as Partial<Proposal>);
+
+      const result = compareRevisions(oldRevision, newRevision);
+
+      expect(result.pricingChanged).toBe(false);
     });
 
     it('should detect unified scope matrix changes', () => {
@@ -308,42 +329,36 @@ describe('revisionManagement', () => {
 
     it('should detect multiple changes at once', () => {
       const oldRevision = createMockProposal({
-        pricingConfig: {
-          estimationSubtotal: { amount: 100000, currency: 'INR' },
-          overheadPercent: 10,
-          contingencyPercent: 5,
-          profitMarginPercent: 15,
-          overheadAmount: { amount: 10000, currency: 'INR' },
-          contingencyAmount: { amount: 5000, currency: 'INR' },
-          profitAmount: { amount: 15000, currency: 'INR' },
-          subtotalBeforeTax: { amount: 130000, currency: 'INR' },
-          taxPercent: 18,
-          taxAmount: { amount: 23400, currency: 'INR' },
-          totalPrice: { amount: 153400, currency: 'INR' },
-          validityDays: 30,
-          isComplete: true,
-        },
+        pricingBlocks: [
+          {
+            id: 'b1',
+            kind: 'LUMP_SUM_LINES',
+            label: 'X',
+            audience: 'INTERNAL',
+            currency: 'INR',
+            subtotal: 153400,
+            rows: [],
+          },
+        ],
+        clientPricing: pricingWith(153400),
         terms: { warranty: '12 months' },
-      });
+      } as Partial<Proposal>);
 
       const newRevision = createMockProposal({
-        pricingConfig: {
-          estimationSubtotal: { amount: 150000, currency: 'INR' },
-          overheadPercent: 10,
-          contingencyPercent: 5,
-          profitMarginPercent: 15,
-          overheadAmount: { amount: 15000, currency: 'INR' },
-          contingencyAmount: { amount: 7500, currency: 'INR' },
-          profitAmount: { amount: 22500, currency: 'INR' },
-          subtotalBeforeTax: { amount: 195000, currency: 'INR' },
-          taxPercent: 18,
-          taxAmount: { amount: 35100, currency: 'INR' },
-          totalPrice: { amount: 230100, currency: 'INR' },
-          validityDays: 30,
-          isComplete: true,
-        },
+        pricingBlocks: [
+          {
+            id: 'b1',
+            kind: 'LUMP_SUM_LINES',
+            label: 'X',
+            audience: 'INTERNAL',
+            currency: 'INR',
+            subtotal: 230100,
+            rows: [],
+          },
+        ],
+        clientPricing: pricingWith(230100),
         terms: { warranty: '24 months' },
-      });
+      } as Partial<Proposal>);
 
       const result = compareRevisions(oldRevision, newRevision);
 

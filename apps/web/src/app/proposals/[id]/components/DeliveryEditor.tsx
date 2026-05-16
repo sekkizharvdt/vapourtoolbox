@@ -140,8 +140,12 @@ export default function DeliveryEditor({ proposalId }: DeliveryEditorProps) {
             description,
             milestones,
           },
+          // Spread the existing pricing object so saving the payment
+          // terms doesn't wipe currency/subtotal/totalAmount/lineItems/etc.
+          // Firestore replaces nested maps wholesale on updateDoc, so a
+          // bare `pricing: { paymentTerms }` would blow the rest away.
           ...(paymentTerms && {
-            pricing: { paymentTerms },
+            pricing: { ...(proposal.pricing ?? {}), paymentTerms },
           }),
         },
         user.uid,

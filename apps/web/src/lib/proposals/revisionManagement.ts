@@ -11,6 +11,7 @@
 import type { Firestore } from 'firebase/firestore';
 import type { Proposal } from '@vapour/types';
 import { getProposalRevisions } from './proposalService';
+import { computeCommercialSummary } from './commercialSummary';
 
 /**
  * Get latest revision of a proposal
@@ -42,14 +43,17 @@ export function compareRevisions(
 } {
   const changes: string[] = [];
 
-  // Check pricing changes (prefer pricingConfig, fall back to legacy pricing)
-  const oldTotal =
-    oldRevision.pricingConfig?.totalPrice?.amount ?? oldRevision.pricing?.totalAmount?.amount;
-  const newTotal =
-    newRevision.pricingConfig?.totalPrice?.amount ?? newRevision.pricing?.totalAmount?.amount;
+  // Check pricing changes — read from the canonical commercial summary
+  // so new-style proposals (priced via clientPricing / priceSections)
+  // surface their real total changes in the revision diff.
+  const oldSummary = computeCommercialSummary(oldRevision);
+  const newSummary = computeCommercialSummary(newRevision);
+  const oldTotal = oldSummary?.total ?? 0;
+  const newTotal = newSummary?.total ?? 0;
   const pricingChanged = oldTotal !== newTotal;
   if (pricingChanged) {
-    changes.push(`Total amount changed from ${oldTotal} to ${newTotal}`);
+    const ccy = newSummary?.currency ?? oldSummary?.currency ?? 'INR';
+    changes.push(`Total amount changed from ${ccy} ${oldTotal} to ${ccy} ${newTotal}`);
   }
 
   // Check scope changes (prefer unifiedScopeMatrix, fall back to scopeOfSupply)
