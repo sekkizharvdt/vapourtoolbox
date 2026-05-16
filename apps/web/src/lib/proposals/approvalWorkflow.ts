@@ -131,6 +131,92 @@ export async function submitProposalForApproval(
 }
 
 /**
+ * Cancel a pending approval — the submitter takes their own proposal back
+ * to DRAFT so they can keep editing or re-submit to a different approver.
+ *
+ * Without this, a submitter who picked an unavailable approver (or
+ * themselves, before the separation-of-duty guard) has no way out
+ * except waiting for the approver to "Request Changes." The state
+ * machine already permits PENDING_APPROVAL → DRAFT; this exposes it as
+ * a submitter-driven action.
+ *
+ * Authorisation: only the original submitter may cancel. An admin could
+ * always edit the Firestore doc directly for an override.
+ */
+export async function cancelProposalSubmission(
+  db: Firestore,
+  proposalId: string,
+  userId: string,
+  userName: string
+): Promise<void> {
+  // rule8-exempt: explicit state-machine validation is performed below.
+  // rule5-exempt: access control is the submitter check below (only the
+  // original submitter may cancel). The MANAGE_PROPOSALS gate already
+  // applied at submission time; a separate flag check here would block
+  // VIEW_PROPOSALS-only submitters who legitimately need to take back
+  // their own submission.
+  // rule19-exempt: PENDING_APPROVAL → DRAFT, single-writer guard via the
+  // status check + submitter check; concurrent cancels converge.
+  try {
+    const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
+    const proposalSnap = await getDoc(proposalRef);
+    if (!proposalSnap.exists()) {
+      throw new Error('Proposal not found');
+    }
+    const proposal = proposalSnap.data() as Proposal;
+
+    if (proposal.submittedByUserId !== userId) {
+      throw new Error(
+        'Only the submitter can cancel a pending approval. Ask the approver to Request Changes instead.'
+      );
+    }
+
+    const transitionResult = proposalStateMachine.validateTransition(proposal.status, 'DRAFT');
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason || `Cannot cancel submission from status: ${proposal.status}`
+      );
+    }
+
+    await updateDoc(proposalRef, {
+      status: 'DRAFT',
+      submittedByUserId: null,
+      submittedByUserName: null,
+      approverUserId: null,
+      approverUserName: null,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    // Dismiss the approver's pending task notification, if any.
+    const pendingTask = await findTaskNotificationByEntity(
+      'PROPOSAL',
+      proposalId,
+      'PROPOSAL_SUBMITTED',
+      'in_progress'
+    );
+    if (pendingTask) {
+      await completeActionableTask(pendingTask.id, userId, true);
+    }
+
+    logger.info('Proposal submission cancelled', { proposalId, userId });
+
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'PROPOSAL_SUBMISSION_CANCELLED',
+      'PROPOSAL',
+      proposalId,
+      `Submission of proposal ${proposal.proposalNumber} cancelled by submitter; returned to DRAFT`,
+      { entityName: proposal.proposalNumber }
+    ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+  } catch (error) {
+    logger.error('Error cancelling proposal submission', { proposalId, error });
+    throw error;
+  }
+}
+
+/**
  * Approve proposal
  *
  * Changes status from PENDING_APPROVAL → APPROVED

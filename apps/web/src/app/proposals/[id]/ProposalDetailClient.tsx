@@ -63,6 +63,7 @@ import { getProposalById } from '@/lib/proposals/proposalService';
 import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import {
   submitProposalForApproval,
+  cancelProposalSubmission,
   approveProposal,
   rejectProposal,
   requestProposalChanges,
@@ -290,6 +291,28 @@ export default function ProposalDetailClient() {
     }
   };
 
+  const handleCancelSubmission = async () => {
+    if (!db || !proposal || !user) return;
+    const confirmed = window.confirm(
+      'Cancel this submission and return the proposal to DRAFT?\n\n' +
+        'You will be able to edit it again and re-submit to a different approver.'
+    );
+    if (!confirmed) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await cancelProposalSubmission(db, proposal.id, user.uid, user.displayName || 'Unknown');
+      await reloadProposal();
+    } catch (err) {
+      logger.error('Error cancelling proposal submission', { error: err });
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to cancel the submission. Try again.'
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleApprove = () => {
     setCommentDialog({
       open: true,
@@ -502,6 +525,21 @@ export default function ProposalDetailClient() {
                 disabled={actionLoading}
               >
                 Submit for Approval
+              </Button>
+            )}
+
+            {/* Cancel Submission — visible only to the submitter while
+                the proposal is still PENDING_APPROVAL. Closes the gap
+                where a submitter who picked an unavailable approver
+                (or themselves) had no way back to DRAFT without help. */}
+            {proposal.status === 'PENDING_APPROVAL' && isSubmitter && (
+              <Button
+                variant="outlined"
+                color="warning"
+                onClick={handleCancelSubmission}
+                disabled={actionLoading}
+              >
+                Cancel Submission
               </Button>
             )}
 
