@@ -897,9 +897,15 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
             <Typography variant="body2">
               <strong>Client:</strong> {proposal.clientName}
             </Typography>
-            <Typography variant="body2">
-              <strong>Total Price:</strong> {formatCurrency(proposal.pricingConfig?.totalPrice)}
-            </Typography>
+            {(() => {
+              const s = computeCommercialSummary(proposal);
+              return s ? (
+                <Typography variant="body2">
+                  <strong>Total Price:</strong>{' '}
+                  {formatCurrency({ amount: s.total, currency: s.currency })}
+                </Typography>
+              ) : null;
+            })()}
           </Box>
         </DialogContent>
         <DialogActions>
