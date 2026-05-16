@@ -439,7 +439,7 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
           startIcon={<SaveIcon />}
           onClick={() => handleSave(false)}
           loading={saving}
-          disabled={!hasChanges}
+          disabled={!hasChanges || proposal?.status !== 'DRAFT'}
         >
           Save Draft
         </LoadingButton>
@@ -460,7 +460,7 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
             startIcon={<CompleteIcon />}
             onClick={() => handleSave(true)}
             loading={saving}
-            disabled={totalItems === 0}
+            disabled={totalItems === 0 || proposal?.status !== 'DRAFT'}
           >
             Mark Complete
           </LoadingButton>

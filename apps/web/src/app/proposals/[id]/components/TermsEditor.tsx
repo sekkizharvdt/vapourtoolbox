@@ -347,7 +347,7 @@ export default function TermsEditor({ proposalId }: TermsEditorProps) {
           startIcon={<SaveIcon />}
           onClick={handleSave}
           loading={saving}
-          disabled={!hasChanges}
+          disabled={!hasChanges || proposal?.status !== 'DRAFT'}
         >
           Save Terms
         </LoadingButton>

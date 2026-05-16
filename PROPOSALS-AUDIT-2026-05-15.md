@@ -189,6 +189,8 @@ Everything else is housekeeping.
 | (new) `submittedAt` overload between approval-submit and client-submit | `097875ff`    |
 | 3 (`cloneProposal` drops Stage 2+ fields)                              | Cluster D     |
 | 20 (clone hardcodes +30 days validity)                                 | Cluster D     |
+| 1 (editors save freely against any status)                             | edit-lock     |
+| (new) submitter has no way back from PENDING_APPROVAL                  | `07ea9752`    |
 
 The pricing rebuild commits (`fe709769`, `123c58ed`, `bebb612a`,
 `56888c45`) also indirectly closed earlier holes — section amounts now

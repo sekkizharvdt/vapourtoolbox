@@ -243,7 +243,7 @@ export default function CoverLetterEditor({ proposalId }: CoverLetterEditorProps
           startIcon={<SaveIcon />}
           onClick={handleSave}
           loading={saving}
-          disabled={!hasChanges}
+          disabled={!hasChanges || proposal?.status !== 'DRAFT'}
         >
           Save Cover Letter
         </LoadingButton>

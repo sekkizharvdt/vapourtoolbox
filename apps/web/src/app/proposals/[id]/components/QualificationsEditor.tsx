@@ -490,7 +490,7 @@ export default function QualificationsEditor({ proposalId }: QualificationsEdito
           startIcon={<SaveIcon />}
           onClick={handleSave}
           loading={saving}
-          disabled={!hasChanges}
+          disabled={!hasChanges || proposal?.status !== 'DRAFT'}
         >
           Save Qualifications
         </LoadingButton>

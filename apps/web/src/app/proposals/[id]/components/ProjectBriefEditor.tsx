@@ -310,7 +310,7 @@ export default function ProjectBriefEditor({ proposalId }: ProjectBriefEditorPro
           startIcon={<SaveIcon />}
           onClick={handleSave}
           loading={saving}
-          disabled={!hasChanges}
+          disabled={!hasChanges || proposal?.status !== 'DRAFT'}
         >
           Save Description
         </LoadingButton>

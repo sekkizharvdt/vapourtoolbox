@@ -460,6 +460,12 @@ export default function ProposalDetailClient() {
       proposal.status
     );
 
+  // Edit lock: once a proposal leaves DRAFT (submitted for approval,
+  // approved, sent to client, …) the content is frozen. Editors disable
+  // their Save buttons; updateProposal throws on the server side. A
+  // banner explains the state so the user isn't left guessing.
+  const isLocked = proposal.status !== 'DRAFT';
+
   return (
     <Box>
       {/* Breadcrumbs */}
@@ -473,6 +479,18 @@ export default function ProposalDetailClient() {
       {actionError && (
         <Alert severity="error" onClose={() => setActionError(null)} sx={{ mb: 2 }}>
           {actionError}
+        </Alert>
+      )}
+
+      {isLocked && (
+        <Alert severity="info" sx={{ mb: 2 }} icon={false}>
+          <strong>Proposal is locked for edits.</strong> Status is{' '}
+          <strong>{proposal.status.replace(/_/g, ' ')}</strong> — tabs are read-only. To make
+          changes,{' '}
+          {isSubmitter && proposal.status === 'PENDING_APPROVAL'
+            ? 'Cancel Submission to return to DRAFT'
+            : 'create a new Revision'}
+          .
         </Alert>
       )}
 

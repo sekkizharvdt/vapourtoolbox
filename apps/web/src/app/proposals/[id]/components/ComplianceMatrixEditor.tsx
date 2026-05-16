@@ -358,7 +358,7 @@ export default function ComplianceMatrixEditor({ proposalId }: ComplianceMatrixE
           startIcon={<SaveIcon />}
           onClick={handleSave}
           loading={saving}
-          disabled={!hasChanges}
+          disabled={!hasChanges || proposal?.status !== 'DRAFT'}
         >
           Save Compliance Matrix
         </LoadingButton>

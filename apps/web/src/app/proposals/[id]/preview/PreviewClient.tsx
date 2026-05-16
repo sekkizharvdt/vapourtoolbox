@@ -186,7 +186,8 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           submittedByUserName: user.displayName || user.email || 'Unknown',
         },
         user.uid,
-        claims?.permissions ?? 0
+        claims?.permissions ?? 0,
+        { allowWorkflowChange: true }
       );
 
       toast.success('Proposal submitted to client successfully');

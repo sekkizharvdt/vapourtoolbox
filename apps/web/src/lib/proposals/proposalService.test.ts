@@ -522,7 +522,13 @@ describe('proposalService', () => {
   });
 
   describe('updateProposal', () => {
-    it('should update proposal successfully', async () => {
+    it('should update proposal successfully when status is DRAFT', async () => {
+      // updateProposal now reads the current doc to enforce the
+      // status === 'DRAFT' edit lock before writing.
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ ...mockProposal, status: 'DRAFT' }),
+      });
       mockUpdateDoc.mockResolvedValueOnce(undefined);
 
       await updateProposal(
@@ -537,6 +543,41 @@ describe('proposalService', () => {
       const updateCall = mockUpdateDoc.mock.calls[0]?.[1];
       expect(updateCall?.title).toBe('Updated Title');
       expect(updateCall?.updatedBy).toBe(mockUserId);
+    });
+
+    it('should throw when proposal is not in DRAFT', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ ...mockProposal, status: 'PENDING_APPROVAL' }),
+      });
+
+      await expect(
+        updateProposal(
+          mockDb,
+          'proposal-123',
+          { title: 'Should fail' },
+          mockUserId,
+          PERMISSION_FLAGS.MANAGE_PROPOSALS
+        )
+      ).rejects.toThrow(/cannot be edited/);
+      expect(mockUpdateDoc).not.toHaveBeenCalled();
+    });
+
+    it('should bypass the lock when allowWorkflowChange is set', async () => {
+      // PreviewClient's "Submit to Client" passes allowWorkflowChange:true.
+      mockUpdateDoc.mockResolvedValueOnce(undefined);
+
+      await updateProposal(
+        mockDb,
+        'proposal-123',
+        { status: 'SUBMITTED' },
+        mockUserId,
+        PERMISSION_FLAGS.MANAGE_PROPOSALS,
+        { allowWorkflowChange: true }
+      );
+
+      expect(mockGetDoc).not.toHaveBeenCalled();
+      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
     });
   });
 

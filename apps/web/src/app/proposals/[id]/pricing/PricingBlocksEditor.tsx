@@ -234,7 +234,7 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSave}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || proposal?.status !== 'DRAFT'}
           >
             {saving ? 'Saving…' : 'Save'}
           </Button>

@@ -346,6 +346,7 @@ export default function DeliveryEditor({ proposalId }: DeliveryEditorProps) {
           startIcon={<SaveIcon />}
           onClick={handleSave}
           loading={saving}
+          disabled={proposal?.status !== 'DRAFT'}
         >
           Save Delivery Timeline
         </LoadingButton>

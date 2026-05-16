@@ -582,15 +582,31 @@ export async function listProposals(
 }
 
 /**
- * Update proposal
+ * Update proposal.
+ *
+ * Edit lock: content updates are only accepted while status === DRAFT.
+ * Workflow status transitions (e.g. "Submit to Client") pass
+ * `allowWorkflowChange: true` to bypass the lock — those callers carry
+ * their own state-machine validation. Everything else (Pricing, Scope,
+ * Terms, Description, etc.) is locked once the proposal leaves DRAFT.
  */
 export async function updateProposal(
   db: Firestore,
   proposalId: string,
   input: UpdateProposalInput,
   userId: string,
-  userPermissions: number
+  userPermissions: number,
+  options?: { allowWorkflowChange?: boolean }
 ): Promise<void> {
+  // rule8-exempt: this is a content update path, not a status transition.
+  // The status field may be passed by trusted callers via allowWorkflowChange
+  // (e.g. handleSubmitToClient in PreviewClient), which is the workflow's
+  // responsibility — the dedicated workflow functions in approvalWorkflow.ts
+  // perform requireValidTransition for the actual state-machine moves.
+  // rule19-exempt: the read here only enforces the DRAFT edit-lock; the
+  // write that follows is independent and can converge under concurrent
+  // edits to the same value (Firestore last-writer-wins on field-level
+  // updates is acceptable for content edits).
   try {
     requirePermission(
       userPermissions,
@@ -598,6 +614,20 @@ export async function updateProposal(
       userId,
       'update proposal'
     );
+
+    if (!options?.allowWorkflowChange) {
+      const snap = await getDoc(doc(db, COLLECTIONS.PROPOSALS, proposalId));
+      if (!snap.exists()) {
+        throw new Error('Proposal not found');
+      }
+      const current = snap.data() as Proposal;
+      if (current.status !== 'DRAFT') {
+        throw new Error(
+          `Proposal is in status ${current.status} and cannot be edited. ` +
+            `Cancel the submission (or have the approver Request Changes) to return it to DRAFT.`
+        );
+      }
+    }
 
     const updates: Record<string, unknown> = {
       ...input,
