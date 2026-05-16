@@ -39,6 +39,7 @@ import { PageHeader, FilterBar, LoadingState, EmptyState, TableActionCell } from
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { listProposals } from '@/lib/proposals/proposalService';
+import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import type { Proposal, ProposalStatus } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { formatDate, formatCurrency } from '@/lib/utils/formatters';
@@ -271,12 +272,10 @@ export default function ProposalListPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    {proposal.pricing?.totalAmount
-                      ? formatCurrency(
-                          proposal.pricing.totalAmount.amount,
-                          proposal.pricing.totalAmount.currency
-                        )
-                      : '-'}
+                    {(() => {
+                      const s = computeCommercialSummary(proposal);
+                      return s && s.total > 0 ? formatCurrency(s.total, s.currency) : '-';
+                    })()}
                   </TableCell>
                   <TableCell>{formatDate(proposal.createdAt)}</TableCell>
                   <TableActionCell

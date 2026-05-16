@@ -25,6 +25,7 @@ import {
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { convertProposalToProject } from '@/lib/proposals/projectConversion';
+import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import type { Proposal } from '@vapour/types';
 import { logger } from '@vapour/logger';
 
@@ -118,7 +119,10 @@ export default function ConvertToProjectDialog({
             </ListItemIcon>
             <ListItemText
               primary="Budget"
-              secondary={formatCurrency(proposal.pricing?.totalAmount)}
+              secondary={(() => {
+                const s = computeCommercialSummary(proposal);
+                return s ? formatCurrency({ amount: s.total, currency: s.currency }) : '—';
+              })()}
             />
           </ListItem>
 
