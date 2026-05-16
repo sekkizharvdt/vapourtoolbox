@@ -25,6 +25,7 @@ import {
 import { Save as SaveIcon } from '@mui/icons-material';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
@@ -63,6 +64,7 @@ export default function CoverLetterEditor({ proposalId }: CoverLetterEditorProps
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  useUnsavedChangesWarning(hasChanges);
 
   useEffect(() => {
     if (!db || !proposalId || proposalId === 'placeholder') return;

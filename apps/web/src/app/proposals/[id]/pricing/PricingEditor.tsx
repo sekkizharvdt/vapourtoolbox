@@ -55,6 +55,7 @@ import {
 } from '@mui/icons-material';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { createDefaultClientPricing } from '@/lib/proposals/pricingBlocks';
 import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
@@ -105,6 +106,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useUnsavedChangesWarning(dirty);
 
   useEffect(() => {
     if (!db || !proposalId) return;

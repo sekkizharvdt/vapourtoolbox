@@ -182,17 +182,23 @@ Everything else is housekeeping.
 
 ## What's already fixed (since this audit was run)
 
-| Audit #                                                                | Fixing commit |
-| ---------------------------------------------------------------------- | ------------- |
-| 11 (`isReadyForSubmission` dead)                                       | `097875ff`    |
-| 13 (PDF date stamps today)                                             | `25bd0a37`    |
-| (new) `submittedAt` overload between approval-submit and client-submit | `097875ff`    |
-| 3 (`cloneProposal` drops Stage 2+ fields)                              | Cluster D     |
-| 20 (clone hardcodes +30 days validity)                                 | Cluster D     |
-| 1 (editors save freely against any status)                             | edit-lock     |
-| (new) submitter has no way back from PENDING_APPROVAL                  | `07ea9752`    |
-| 7 (clientName stale on PDF)                                            | Cluster E     |
-| 5, 6, 9, 18 (approval/conversion/audit integrity)                      | Cluster C     |
+| Audit #                                                                | Fixing commit                                                |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 11 (`isReadyForSubmission` dead)                                       | `097875ff`                                                   |
+| 13 (PDF date stamps today)                                             | `25bd0a37`                                                   |
+| (new) `submittedAt` overload between approval-submit and client-submit | `097875ff`                                                   |
+| 3 (`cloneProposal` drops Stage 2+ fields)                              | Cluster D                                                    |
+| 20 (clone hardcodes +30 days validity)                                 | Cluster D                                                    |
+| 1 (editors save freely against any status)                             | edit-lock                                                    |
+| (new) submitter has no way back from PENDING_APPROVAL                  | `07ea9752`                                                   |
+| 7 (clientName stale on PDF)                                            | Cluster E                                                    |
+| 5, 6, 9, 18 (approval/conversion/audit integrity)                      | Cluster C                                                    |
+| 8 (validityDate has no edit UI)                                        | Cluster F                                                    |
+| 15 (no dirty guard — browser-close part)                               | Cluster F                                                    |
+| 16 (Save PDF stamps click date)                                        | resolved by #13 — PDF blob is stable post-status-gating      |
+| 17 (clone dialog selector callback)                                    | not a real bug — clone dialog has no client selector         |
+| 19 (annexures filter drops empty fileName)                             | won't fix — defensive filter is correct                      |
+| 21 (PDF hardcoded "Phone:"/"Email:" labels)                            | YAGNI — universal English terms, not localisation candidates |
 
 The pricing rebuild commits (`fe709769`, `123c58ed`, `bebb612a`,
 `56888c45`) also indirectly closed earlier holes — section amounts now

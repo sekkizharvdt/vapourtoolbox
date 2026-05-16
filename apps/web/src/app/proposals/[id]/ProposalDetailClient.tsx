@@ -59,7 +59,7 @@ import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProposalById } from '@/lib/proposals/proposalService';
+import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import {
   submitProposalForApproval,
@@ -158,6 +158,8 @@ export default function ProposalDetailClient() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [submitForApprovalDialogOpen, setSubmitForApprovalDialogOpen] = useState(false);
   const [revisionDialogOpen, setRevisionDialogOpen] = useState(false);
+  const [extendValidityOpen, setExtendValidityOpen] = useState(false);
+  const [extendValidityDraft, setExtendValidityDraft] = useState<string>('');
   const [actionLoading, setActionLoading] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
@@ -315,6 +317,48 @@ export default function ProposalDetailClient() {
       setActionError(
         err instanceof Error ? err.message : 'Failed to cancel the submission. Try again.'
       );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openExtendValidity = () => {
+    if (!proposal) return;
+    const current = proposal.validityDate;
+    const asDate =
+      current && typeof current === 'object' && 'toDate' in current
+        ? (current as { toDate: () => Date }).toDate()
+        : new Date();
+    setExtendValidityDraft(asDate.toISOString().slice(0, 10));
+    setExtendValidityOpen(true);
+    handleMenuClose();
+  };
+
+  const handleExtendValiditySave = async () => {
+    if (!db || !proposal || !user || !extendValidityDraft) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const newDate = new Date(extendValidityDraft);
+      if (Number.isNaN(newDate.getTime())) {
+        setActionError('Invalid date.');
+        return;
+      }
+      // validityDate is a workflow field (offer expiry), editable even
+      // after a proposal leaves DRAFT — pass allowWorkflowChange.
+      await updateProposal(
+        db,
+        proposal.id,
+        { validityDate: Timestamp.fromDate(newDate) },
+        user.uid,
+        claims?.permissions ?? 0,
+        { allowWorkflowChange: true }
+      );
+      setExtendValidityOpen(false);
+      await reloadProposal();
+    } catch (err) {
+      logger.error('Error extending validity', { error: err });
+      setActionError(err instanceof Error ? err.message : 'Failed to extend validity.');
     } finally {
       setActionLoading(false);
     }
@@ -615,6 +659,12 @@ export default function ProposalDetailClient() {
                   <ListItemText>Request Changes</ListItemText>
                 </MenuItem>
               )}
+              <MenuItem onClick={openExtendValidity}>
+                <ListItemIcon>
+                  <DateIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Extend Validity</ListItemText>
+              </MenuItem>
               <MenuItem
                 onClick={() => {
                   setCloneDialogOpen(true);
@@ -755,6 +805,43 @@ export default function ProposalDetailClient() {
       {activeTab === TAB_PREVIEW && proposalId && (
         <PreviewClient proposalId={proposalId} embedded />
       )}
+
+      {/* Extend Validity Dialog */}
+      <Dialog
+        open={extendValidityOpen}
+        onClose={() => setExtendValidityOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Extend Proposal Validity</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Change the &quot;valid until&quot; date the customer sees on the offer. Editable at any
+            status (it&apos;s an offer-expiry field, not content).
+          </Typography>
+          <TextField
+            autoFocus
+            type="date"
+            fullWidth
+            label="Valid Until"
+            value={extendValidityDraft}
+            onChange={(e) => setExtendValidityDraft(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExtendValidityOpen(false)} disabled={actionLoading}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleExtendValiditySave}
+            disabled={actionLoading || !extendValidityDraft}
+          >
+            {actionLoading ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Comment Dialog for Approval Actions */}
       <Dialog open={commentDialog.open} onClose={handleCommentDialogClose} maxWidth="sm" fullWidth>

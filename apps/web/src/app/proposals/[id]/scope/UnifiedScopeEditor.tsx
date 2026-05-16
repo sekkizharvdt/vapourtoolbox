@@ -30,6 +30,7 @@ import {
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import { getEnquiryById } from '@/lib/enquiry/enquiryService';
 import { Timestamp } from 'firebase/firestore';
@@ -82,6 +83,7 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  useUnsavedChangesWarning(hasChanges);
 
   // Add item dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
