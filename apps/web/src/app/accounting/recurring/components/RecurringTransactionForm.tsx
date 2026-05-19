@@ -373,7 +373,14 @@ export default function RecurringTransactionForm({
               label="End Date (Optional)"
               value={formData.endDate || null}
               onChange={(date) => handleChange('endDate', date || undefined)}
-              slotProps={{ textField: { fullWidth: true } }}
+              minDate={formData.startDate}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  helperText: 'Leave blank to run indefinitely',
+                },
+                field: { clearable: true },
+              }}
             />
           </Grid>
 
