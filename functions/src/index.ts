@@ -113,6 +113,12 @@ export { aiHelp } from './aiHelp';
 // Import backup functions
 export { scheduledBackup, manualBackup } from './backup/scheduledBackup';
 
+// Import recurring transaction generation (daily scheduler + manual trigger)
+export {
+  scheduledRecurringGeneration,
+  manualRecurringGeneration,
+} from './recurringTransactions/generateOccurrences';
+
 // Import email notification functions
 export {
   onPRSubmittedNotify,

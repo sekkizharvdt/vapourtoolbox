@@ -20,6 +20,7 @@ import {
   ToggleButtonGroup,
   Card,
   CardContent,
+  Button,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -27,9 +28,11 @@ import {
   CalendarMonth as CalendarIcon,
   TrendingUp as InflowIcon,
   TrendingDown as OutflowIcon,
+  PlayArrow as PlayIcon,
 } from '@mui/icons-material';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewAccounting } from '@vapour/constants';
+import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import { getUpcomingOccurrences } from '@/lib/accounting/recurringTransactionService';
 import type { RecurringOccurrence, RecurringTransactionType } from '@vapour/types';
@@ -57,8 +60,15 @@ export default function UpcomingOccurrencesPage() {
   const [occurrences, setOccurrences] = useState<RecurringOccurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>('30');
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState<{
+    severity: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
+  const hasManageAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
 
   useEffect(() => {
     if (!hasViewAccess) {
@@ -84,7 +94,39 @@ export default function UpcomingOccurrencesPage() {
     };
 
     loadData();
-  }, [hasViewAccess, dateRange]);
+  }, [hasViewAccess, dateRange, reloadKey]);
+
+  const handleGenerateNow = async () => {
+    setGenerating(true);
+    setGenerateResult(null);
+    try {
+      const { functions } = getFirebase();
+      const generate = httpsCallable<
+        Record<string, never>,
+        { success: boolean; created: number; templatesProcessed: number; errors: string[] }
+      >(functions, 'manualRecurringGeneration');
+      const { data } = await generate({});
+      if (data.created === 0) {
+        setGenerateResult({
+          severity: 'info',
+          message: `No occurrences due — checked ${data.templatesProcessed} active template${data.templatesProcessed === 1 ? '' : 's'}.`,
+        });
+      } else {
+        setGenerateResult({
+          severity: 'success',
+          message: `Generated ${data.created} occurrence${data.created === 1 ? '' : 's'} from ${data.templatesProcessed} template${data.templatesProcessed === 1 ? '' : 's'}${data.errors.length ? ` (${data.errors.length} error${data.errors.length === 1 ? '' : 's'})` : ''}.`,
+        });
+      }
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setGenerateResult({
+        severity: 'error',
+        message: err instanceof Error ? err.message : 'Failed to generate occurrences',
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const formatCurrency = (amount: number, currency = 'INR') => {
     return `${amount.toLocaleString('en-IN', {
@@ -157,18 +199,42 @@ export default function UpcomingOccurrencesPage() {
             </Typography>
           </Box>
 
-          <ToggleButtonGroup
-            value={dateRange}
-            exclusive
-            onChange={(_, value) => value && setDateRange(value)}
-            size="small"
-          >
-            <ToggleButton value="7">7 Days</ToggleButton>
-            <ToggleButton value="14">14 Days</ToggleButton>
-            <ToggleButton value="30">30 Days</ToggleButton>
-            <ToggleButton value="60">60 Days</ToggleButton>
-          </ToggleButtonGroup>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            {hasManageAccess && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PlayIcon />}
+                onClick={handleGenerateNow}
+                disabled={generating}
+              >
+                {generating ? 'Generating…' : 'Generate now'}
+              </Button>
+            )}
+
+            <ToggleButtonGroup
+              value={dateRange}
+              exclusive
+              onChange={(_, value) => value && setDateRange(value)}
+              size="small"
+            >
+              <ToggleButton value="7">7 Days</ToggleButton>
+              <ToggleButton value="14">14 Days</ToggleButton>
+              <ToggleButton value="30">30 Days</ToggleButton>
+              <ToggleButton value="60">60 Days</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
         </Box>
+
+        {generateResult && (
+          <Alert
+            severity={generateResult.severity}
+            sx={{ mb: 2 }}
+            onClose={() => setGenerateResult(null)}
+          >
+            {generateResult.message}
+          </Alert>
+        )}
 
         {/* Summary Cards */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
