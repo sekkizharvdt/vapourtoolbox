@@ -49,7 +49,6 @@ const BACKUP_COLLECTIONS = [
   'costCentres',
   'recurringTransactions',
   'paymentBatches',
-  'exchangeRates',
 
   // HR
   'hrLeaveRequests',

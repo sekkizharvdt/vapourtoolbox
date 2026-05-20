@@ -275,7 +275,6 @@ function checkDocCreationHasTenantId() {
     'entity_contacts',
     'materials',
     'shapes',
-    'boughtOutItems',
     'bought_out_items',
     'auditLogs',
     'notificationSettings',
@@ -285,8 +284,6 @@ function checkDocCreationHasTenantId() {
     'aggregations',
     'materialPrices',
     'stockMovements',
-    'exchangeRates',
-    'exchange_rates', // system-wide RBI rates; written by Cloud Function, no tenant scope
     'documentFolders', // firestore.rules allow any internal user — no tenantId enforcement
     'DOCUMENT_FOLDERS',
     'savedCalculations', // user-private; firestore.rules scope by userId

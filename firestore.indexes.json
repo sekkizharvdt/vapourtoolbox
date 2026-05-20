@@ -1361,38 +1361,6 @@
       ]
     },
     {
-      "collectionGroup": "exchangeRates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "fromCurrency",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "toCurrency",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "effectiveFrom",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "exchangeRates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "effectiveFrom",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "glEntries",
       "queryScope": "COLLECTION",
       "fields": [
@@ -4693,25 +4661,6 @@
         { "fieldPath": "tenantId", "order": "ASCENDING" },
         { "fieldPath": "risk", "order": "ASCENDING" },
         { "fieldPath": "requestedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "boughtOutItems",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "tenantId", "order": "ASCENDING" },
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "boughtOutItems",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "tenantId", "order": "ASCENDING" },
-        { "fieldPath": "category", "order": "ASCENDING" },
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],

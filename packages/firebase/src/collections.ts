@@ -73,7 +73,6 @@ export const COLLECTIONS = {
   RECONCILIATION_ADJUSTMENTS: 'reconciliationAdjustments',
 
   // Currency & Forex
-  EXCHANGE_RATES: 'exchangeRates',
   FOREX_GAIN_LOSS: 'forexGainLoss',
   CURRENCY_CONFIG: 'currencyConfig',
 
