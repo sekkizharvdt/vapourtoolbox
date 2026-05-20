@@ -245,6 +245,10 @@ export async function createRecurringTransaction(
     }));
   }
   if (input.journalTemplate) data.journalTemplate = input.journalTemplate;
+  if (input.projectId) data.projectId = input.projectId;
+  if (input.projectName) data.projectName = input.projectName;
+  if (input.costCentreId) data.costCentreId = input.costCentreId;
+  if (input.costCentreName) data.costCentreName = input.costCentreName;
 
   const docRef = await addDoc(collection(db, COLLECTIONS.RECURRING_TRANSACTIONS), data);
 
@@ -294,6 +298,10 @@ export async function updateRecurringTransaction(
     updateData.daysBeforeToGenerate = updates.daysBeforeToGenerate;
   if (updates.requiresApproval !== undefined)
     updateData.requiresApproval = updates.requiresApproval;
+  if (updates.projectId !== undefined) updateData.projectId = updates.projectId;
+  if (updates.projectName !== undefined) updateData.projectName = updates.projectName;
+  if (updates.costCentreId !== undefined) updateData.costCentreId = updates.costCentreId;
+  if (updates.costCentreName !== undefined) updateData.costCentreName = updates.costCentreName;
 
   await updateDoc(docRef, updateData);
 
@@ -622,8 +630,10 @@ export async function getRecurringTransactionSummary(
     byType: {
       salary: 0,
       vendorBill: 0,
+      vendorPayment: 0,
       customerInvoice: 0,
       journalEntry: 0,
+      directPayment: 0,
     },
     upcomingThisWeek: 0,
     upcomingThisMonth: 0,
@@ -649,11 +659,17 @@ export async function getRecurringTransactionSummary(
       case 'VENDOR_BILL':
         summary.byType.vendorBill++;
         break;
+      case 'VENDOR_PAYMENT':
+        summary.byType.vendorPayment++;
+        break;
       case 'CUSTOMER_INVOICE':
         summary.byType.customerInvoice++;
         break;
       case 'JOURNAL_ENTRY':
         summary.byType.journalEntry++;
+        break;
+      case 'DIRECT_PAYMENT':
+        summary.byType.directPayment++;
         break;
     }
 
@@ -669,9 +685,15 @@ export async function getRecurringTransactionSummary(
 
     if (tx.type === 'CUSTOMER_INVOICE') {
       summary.monthlyInflow.amount += monthlyAmount;
-    } else if (tx.type === 'VENDOR_BILL' || tx.type === 'SALARY') {
+    } else if (
+      tx.type === 'VENDOR_BILL' ||
+      tx.type === 'SALARY' ||
+      tx.type === 'VENDOR_PAYMENT' ||
+      tx.type === 'DIRECT_PAYMENT'
+    ) {
       summary.monthlyOutflow.amount += monthlyAmount;
     }
+    // JOURNAL_ENTRY is an accounting entry, not a cash flow — excluded from both.
   }
 
   return summary;

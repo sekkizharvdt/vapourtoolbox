@@ -40,17 +40,23 @@ import type { RecurringOccurrence, RecurringTransactionType } from '@vapour/type
 const TYPE_LABELS: Record<RecurringTransactionType, string> = {
   SALARY: 'Salary',
   VENDOR_BILL: 'Vendor Bill',
+  VENDOR_PAYMENT: 'Vendor Payment',
   CUSTOMER_INVOICE: 'Customer Invoice',
   JOURNAL_ENTRY: 'Journal Entry',
+  DIRECT_PAYMENT: 'Direct Payment',
 };
 
-const TYPE_COLORS: Record<RecurringTransactionType, 'primary' | 'secondary' | 'success' | 'info'> =
-  {
-    SALARY: 'secondary',
-    VENDOR_BILL: 'primary',
-    CUSTOMER_INVOICE: 'success',
-    JOURNAL_ENTRY: 'info',
-  };
+const TYPE_COLORS: Record<
+  RecurringTransactionType,
+  'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'default'
+> = {
+  SALARY: 'secondary',
+  VENDOR_BILL: 'primary',
+  VENDOR_PAYMENT: 'warning',
+  CUSTOMER_INVOICE: 'success',
+  JOURNAL_ENTRY: 'info',
+  DIRECT_PAYMENT: 'default',
+};
 
 type DateRange = '7' | '14' | '30' | '60';
 
@@ -141,7 +147,12 @@ export default function UpcomingOccurrencesPage() {
       if (occ.type === 'CUSTOMER_INVOICE') {
         acc.inflow += occ.finalAmount.amount;
         acc.inflowCount++;
-      } else if (occ.type === 'VENDOR_BILL' || occ.type === 'SALARY') {
+      } else if (
+        occ.type === 'VENDOR_BILL' ||
+        occ.type === 'SALARY' ||
+        occ.type === 'VENDOR_PAYMENT' ||
+        occ.type === 'DIRECT_PAYMENT'
+      ) {
         acc.outflow += occ.finalAmount.amount;
         acc.outflowCount++;
       }
@@ -380,7 +391,10 @@ export default function UpcomingOccurrencesPage() {
                                 color={
                                   occ.type === 'CUSTOMER_INVOICE'
                                     ? 'success.main'
-                                    : occ.type === 'VENDOR_BILL' || occ.type === 'SALARY'
+                                    : occ.type === 'VENDOR_BILL' ||
+                                        occ.type === 'SALARY' ||
+                                        occ.type === 'VENDOR_PAYMENT' ||
+                                        occ.type === 'DIRECT_PAYMENT'
                                       ? 'error.main'
                                       : 'text.primary'
                                 }

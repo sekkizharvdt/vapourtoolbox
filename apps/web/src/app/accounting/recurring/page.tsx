@@ -72,17 +72,23 @@ function toJsDate(val: unknown): Date | null {
 const TYPE_LABELS: Record<RecurringTransactionType, string> = {
   SALARY: 'Salary',
   VENDOR_BILL: 'Vendor Bill',
+  VENDOR_PAYMENT: 'Vendor Payment',
   CUSTOMER_INVOICE: 'Customer Invoice',
   JOURNAL_ENTRY: 'Journal Entry',
+  DIRECT_PAYMENT: 'Direct Payment',
 };
 
-const TYPE_COLORS: Record<RecurringTransactionType, 'primary' | 'secondary' | 'success' | 'info'> =
-  {
-    SALARY: 'secondary',
-    VENDOR_BILL: 'primary',
-    CUSTOMER_INVOICE: 'success',
-    JOURNAL_ENTRY: 'info',
-  };
+const TYPE_COLORS: Record<
+  RecurringTransactionType,
+  'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'default'
+> = {
+  SALARY: 'secondary',
+  VENDOR_BILL: 'primary',
+  VENDOR_PAYMENT: 'warning',
+  CUSTOMER_INVOICE: 'success',
+  JOURNAL_ENTRY: 'info',
+  DIRECT_PAYMENT: 'default',
+};
 
 const FREQUENCY_LABELS: Record<string, string> = {
   DAILY: 'Daily',
@@ -357,7 +363,9 @@ export default function RecurringTransactionsPage() {
             <ToggleButton value="ALL">All</ToggleButton>
             <ToggleButton value="SALARY">Salaries</ToggleButton>
             <ToggleButton value="VENDOR_BILL">Bills</ToggleButton>
+            <ToggleButton value="VENDOR_PAYMENT">Vendor Pmts</ToggleButton>
             <ToggleButton value="CUSTOMER_INVOICE">Invoices</ToggleButton>
+            <ToggleButton value="DIRECT_PAYMENT">Direct Pmts</ToggleButton>
             <ToggleButton value="JOURNAL_ENTRY">Journal</ToggleButton>
           </ToggleButtonGroup>
         </Box>
@@ -435,7 +443,10 @@ export default function RecurringTransactionsPage() {
                           color={
                             tx.type === 'CUSTOMER_INVOICE'
                               ? 'success.main'
-                              : tx.type === 'VENDOR_BILL' || tx.type === 'SALARY'
+                              : tx.type === 'VENDOR_BILL' ||
+                                  tx.type === 'SALARY' ||
+                                  tx.type === 'VENDOR_PAYMENT' ||
+                                  tx.type === 'DIRECT_PAYMENT'
                                 ? 'error.main'
                                 : 'text.primary'
                           }

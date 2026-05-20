@@ -24,8 +24,10 @@ export type RecurrenceFrequency =
 export type RecurringTransactionType =
   | 'SALARY' // Employee salaries
   | 'VENDOR_BILL' // Recurring vendor bills (rent, subscriptions)
+  | 'VENDOR_PAYMENT' // Recurring vendor payments (rent payout, retainers)
   | 'CUSTOMER_INVOICE' // Recurring customer invoices (retainers)
-  | 'JOURNAL_ENTRY'; // Recurring journal entries (depreciation)
+  | 'JOURNAL_ENTRY' // Recurring journal entries (depreciation, TDS)
+  | 'DIRECT_PAYMENT'; // Recurring direct payments (salary payouts, ad-hoc)
 
 /**
  * Status of a recurring transaction template
@@ -126,6 +128,12 @@ export interface RecurringTransaction extends TimestampFields {
   // For JOURNAL_ENTRY type
   journalTemplate?: JournalEntryTemplate;
 
+  // Cost allocation (optional, any type) — denormalized names for display (rule 26)
+  projectId?: string;
+  projectName?: string;
+  costCentreId?: string;
+  costCentreName?: string;
+
   // Auto-generation settings
   autoGenerate: boolean; // Auto-create or just notify
   daysBeforeToGenerate: number; // Generate N days before due
@@ -199,8 +207,10 @@ export interface RecurringTransactionSummary {
   byType: {
     salary: number;
     vendorBill: number;
+    vendorPayment: number;
     customerInvoice: number;
     journalEntry: number;
+    directPayment: number;
   };
 
   upcomingThisWeek: number;
@@ -251,6 +261,12 @@ export interface RecurringTransactionInput {
   lineItems?: Omit<RecurringLineItem, 'id'>[];
   journalTemplate?: JournalEntryTemplate;
   paymentTermDays?: number;
+
+  // Cost allocation (optional, any type)
+  projectId?: string;
+  projectName?: string;
+  costCentreId?: string;
+  costCentreName?: string;
 
   // Settings
   autoGenerate: boolean;

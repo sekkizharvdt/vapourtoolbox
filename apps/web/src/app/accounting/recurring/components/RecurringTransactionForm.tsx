@@ -63,15 +63,25 @@ const TYPE_OPTIONS: { value: RecurringTransactionType; label: string; descriptio
     description: 'Recurring bills like rent, subscriptions, utilities',
   },
   {
+    value: 'VENDOR_PAYMENT',
+    label: 'Vendor Payment',
+    description: 'Recurring payments to a vendor — rent payout, retainers',
+  },
+  {
     value: 'CUSTOMER_INVOICE',
     label: 'Customer Invoice',
     description: 'Recurring invoices for retainers, maintenance contracts',
   },
   { value: 'SALARY', label: 'Salary', description: 'Monthly employee salary payments' },
   {
+    value: 'DIRECT_PAYMENT',
+    label: 'Direct Payment',
+    description: 'Recurring direct payouts — salary payments, ad-hoc',
+  },
+  {
     value: 'JOURNAL_ENTRY',
     label: 'Journal Entry',
-    description: 'Recurring journal entries like depreciation',
+    description: 'Recurring journal entries like depreciation, TDS',
   },
 ];
 
@@ -119,6 +129,10 @@ export default function RecurringTransactionForm({
     expenseAccountId: initialData?.expenseAccountId,
     revenueAccountId: initialData?.revenueAccountId,
     paymentTermDays: initialData?.paymentTermDays || 30,
+    projectId: initialData?.projectId,
+    projectName: initialData?.projectName,
+    costCentreId: initialData?.costCentreId,
+    costCentreName: initialData?.costCentreName,
     autoGenerate: initialData?.autoGenerate ?? true,
     daysBeforeToGenerate: initialData?.daysBeforeToGenerate ?? 5,
     requiresApproval: initialData?.requiresApproval ?? false,
@@ -129,6 +143,8 @@ export default function RecurringTransactionForm({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<Account[]>([]);
   const [revenueAccounts, setRevenueAccounts] = useState<Account[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [costCentres, setCostCentres] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Load entities and accounts
@@ -221,6 +237,21 @@ export default function RecurringTransactionForm({
             };
           })
         );
+
+        // Load projects and cost centres for optional cost allocation
+        const projectSnap = await getDocs(
+          query(collection(db, COLLECTIONS.PROJECTS), orderBy('name', 'asc'))
+        );
+        setProjects(
+          projectSnap.docs.map((doc) => ({ id: doc.id, name: doc.data().name as string }))
+        );
+
+        const costCentreSnap = await getDocs(
+          query(collection(db, COLLECTIONS.COST_CENTRES), orderBy('name', 'asc'))
+        );
+        setCostCentres(
+          costCentreSnap.docs.map((doc) => ({ id: doc.id, name: doc.data().name as string }))
+        );
       } catch (err) {
         console.error('[RecurringForm] Error loading data:', err);
       }
@@ -251,7 +282,10 @@ export default function RecurringTransactionForm({
       return;
     }
 
-    if (formData.type === 'VENDOR_BILL' && !formData.vendorId) {
+    if (
+      (formData.type === 'VENDOR_BILL' || formData.type === 'VENDOR_PAYMENT') &&
+      !formData.vendorId
+    ) {
       setError('Please select a vendor');
       return;
     }
@@ -458,7 +492,7 @@ export default function RecurringTransactionForm({
         <Divider sx={{ my: 3 }} />
 
         {/* Type-specific fields */}
-        {formData.type === 'VENDOR_BILL' && (
+        {(formData.type === 'VENDOR_BILL' || formData.type === 'VENDOR_PAYMENT') && (
           <>
             <Typography variant="h6" gutterBottom>
               Vendor Details
@@ -470,7 +504,9 @@ export default function RecurringTransactionForm({
                   options={vendors}
                   getOptionLabel={(option) => option.name}
                   value={vendors.find((v) => v.id === formData.vendorId) || null}
-                  onChange={(_, value) => handleChange('vendorId', value?.id)}
+                  onChange={(_, value) => {
+                    handleChange('vendorId', value?.id);
+                  }}
                   renderInput={(params) => (
                     <TextField {...params} label="Vendor" required fullWidth />
                   )}
@@ -485,6 +521,39 @@ export default function RecurringTransactionForm({
                   onChange={(_, value) => handleChange('expenseAccountId', value?.id)}
                   renderInput={(params) => (
                     <TextField {...params} label="Expense Account" fullWidth />
+                  )}
+                />
+              </Grid>
+            </Grid>
+          </>
+        )}
+
+        {formData.type === 'DIRECT_PAYMENT' && (
+          <>
+            <Typography variant="h6" gutterBottom>
+              Payment Details
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Autocomplete
+                  options={expenseAccounts}
+                  getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                  value={expenseAccounts.find((a) => a.id === formData.expenseAccountId) || null}
+                  onChange={(_, value) => handleChange('expenseAccountId', value?.id)}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Expense Account" fullWidth />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Autocomplete
+                  options={vendors}
+                  getOptionLabel={(option) => option.name}
+                  value={vendors.find((v) => v.id === formData.vendorId) || null}
+                  onChange={(_, value) => handleChange('vendorId', value?.id)}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Payee / Vendor (optional)" fullWidth />
                   )}
                 />
               </Grid>
@@ -581,6 +650,41 @@ export default function RecurringTransactionForm({
             creation.
           </Alert>
         )}
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Cost Allocation (optional, any type) */}
+        <Typography variant="h6" gutterBottom>
+          Cost Allocation (optional)
+        </Typography>
+
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Autocomplete
+              options={projects}
+              getOptionLabel={(option) => option.name}
+              value={projects.find((p) => p.id === formData.projectId) || null}
+              onChange={(_, value) => {
+                handleChange('projectId', value?.id);
+                handleChange('projectName', value?.name);
+              }}
+              renderInput={(params) => <TextField {...params} label="Project" fullWidth />}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Autocomplete
+              options={costCentres}
+              getOptionLabel={(option) => option.name}
+              value={costCentres.find((c) => c.id === formData.costCentreId) || null}
+              onChange={(_, value) => {
+                handleChange('costCentreId', value?.id);
+                handleChange('costCentreName', value?.name);
+              }}
+              renderInput={(params) => <TextField {...params} label="Cost Centre" fullWidth />}
+            />
+          </Grid>
+        </Grid>
 
         <Divider sx={{ my: 3 }} />
 
