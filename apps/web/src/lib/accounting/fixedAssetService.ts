@@ -617,6 +617,20 @@ export async function runDepreciation(
     month: 'long',
     year: 'numeric',
   });
+  const jeNumber = `DEP-${year}-${String(month).padStart(2, '0')}`;
+
+  // Idempotency guard (rule 9, rule 23): a depreciation run is identified by its
+  // deterministic DEP-YYYY-MM number. Refuse to post twice for the same month —
+  // a double-click or a second user would otherwise double-depreciate every asset.
+  // Soft-deleted/voided runs are ignored so a voided month can be re-run.
+  const existing = await getDocs(
+    query(collection(db, COLLECTIONS.TRANSACTIONS), where('transactionNumber', '==', jeNumber))
+  );
+  if (existing.docs.some((d) => !d.data().isDeleted)) {
+    throw new Error(
+      `Depreciation for ${monthName} has already been posted (${jeNumber}). Void the existing entry before re-running.`
+    );
+  }
 
   // Resolve depreciation expense account
   const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE, tenantId);
@@ -663,7 +677,6 @@ export async function runDepreciation(
     })),
   ];
 
-  const jeNumber = `DEP-${year}-${String(month).padStart(2, '0')}`;
   const depDate = new Date(year, month - 1, 28);
 
   const journalEntryId = await saveTransaction(db, {
