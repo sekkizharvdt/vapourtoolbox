@@ -298,7 +298,7 @@ export default function UpcomingOccurrencesPage() {
                   {formatCurrency(summary.outflow)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {summary.outflowCount} bills/salaries
+                  {summary.outflowCount} outflows
                 </Typography>
               </CardContent>
             </Card>

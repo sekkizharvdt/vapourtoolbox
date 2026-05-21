@@ -325,7 +325,7 @@ export default function RecurringTransactionsPage() {
                     {formatCurrency(summary.monthlyOutflow.amount, summary.monthlyOutflow.currency)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    bills + salaries
+                    bills, salaries &amp; payments
                   </Typography>
                 </CardContent>
               </Card>
