@@ -12,10 +12,7 @@ async function forcePermissionRecalculation() {
     const email = 'sekkizhar@vapourdesal.com';
 
     // Find user by email
-    const usersSnapshot = await db.collection('users')
-      .where('email', '==', email)
-      .limit(1)
-      .get();
+    const usersSnapshot = await db.collection('users').where('email', '==', email).limit(1).get();
 
     if (usersSnapshot.empty) {
       console.error('User not found with email:', email);
@@ -38,23 +35,23 @@ async function forcePermissionRecalculation() {
 
     console.log('\n⏳ Step 1: Temporarily changing status to trigger Cloud Function...');
     await db.collection('users').doc(userId).update({
-      status: 'pending_update'
+      status: 'pending_update',
     });
 
     console.log('✅ Status changed to "pending_update"');
     console.log('⏳ Waiting 3 seconds for Cloud Function to process...');
 
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     console.log('\n⏳ Step 2: Restoring status to "active"...');
     await db.collection('users').doc(userId).update({
-      status: 'active'
+      status: 'active',
     });
 
     console.log('✅ Status restored to "active"');
     console.log('⏳ Waiting 3 seconds for Cloud Function to process...');
 
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     // Check the updated permissions
     console.log('\n⏳ Step 3: Checking updated permissions...');
@@ -84,7 +81,6 @@ async function forcePermissionRecalculation() {
       console.log('   Got:', updatedData.permissions);
       console.log('   Difference:', expectedPermissions - updatedData.permissions);
     }
-
   } catch (error) {
     console.error('\n❌ Error:', error);
     console.error('\nIf you see authentication errors, try running:');

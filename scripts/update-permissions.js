@@ -12,10 +12,7 @@ async function updatePermissions() {
     const email = 'sekkizhar@vapourdesal.com';
 
     // Find user by email
-    const usersSnapshot = await db.collection('users')
-      .where('email', '==', email)
-      .limit(1)
-      .get();
+    const usersSnapshot = await db.collection('users').where('email', '==', email).limit(1).get();
 
     if (usersSnapshot.empty) {
       console.error('User not found with email:', email);
@@ -38,7 +35,7 @@ async function updatePermissions() {
     // Update Firestore
     await db.collection('users').doc(userId).update({
       permissions: newPerms,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log('✅ Updated permissions in Firestore');
@@ -47,12 +44,11 @@ async function updatePermissions() {
     const userRecord = await admin.auth().getUserByEmail(email);
     await admin.auth().setCustomUserClaims(userRecord.uid, {
       ...userRecord.customClaims,
-      permissions: newPerms
+      permissions: newPerms,
     });
 
     console.log('✅ Updated custom claims');
     console.log('User needs to refresh their browser or re-login for changes to take effect');
-
   } catch (error) {
     console.error('Error:', error);
   } finally {

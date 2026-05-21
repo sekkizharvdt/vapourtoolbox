@@ -6,25 +6,25 @@ Enterprise resource planning system for Vapour Desal Technologies.
 
 ## Modules
 
-| Module              | Status     | Description                                                                                                                                    |
-| ------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Procurement         | Production | Purchase requests, RFQs, POs, Goods receipts, Three-way match, Vendor bills & payments, Amendments                                             |
-| Accounting          | Production | Multi-currency GL, Chart of accounts, Fixed assets, Recurring transactions, Payment batches, Cost centres, Tax compliance, Bank reconciliation |
-| Projects            | Production | Project management, Charters, Objectives, Transmittals                                                                                         |
-| Proposals           | Production | Enquiries, Proposals, Estimation linkage, Contract generation                                                                                  |
-| Estimation          | Production | BOM editor, Cost estimation, Equipment & components                                                                                            |
-| Materials           | Production | ASME/ASTM materials database — pipes, plates, fittings, flanges                                                                                |
-| Shapes              | Production | Parametric shapes & components with automated weight/cost calculations                                                                         |
-| Bought-Out Items    | Production | Valves, pumps, instruments, strainers, separation equipment with spec codes & pricing                                                          |
-| Documents           | Production | Company-wide documents: SOPs, policies, templates, CRS, transmittals                                                                           |
-| Entities            | Production | Vendors, customers, and partners                                                                                                               |
-| Admin               | Production | Users, permissions, company settings, feedback                                                                                                 |
-| Flow                | Beta       | Tasks, notifications, meetings, team collaboration                                                                                             |
-| Services            | Beta       | Service catalog — engineering, fabrication, lab testing, inspection, consulting                                                                |
-| HR                  | Beta       | Leave management, travel expenses, attendance, employee directory                                                                              |
-| Process Data (SSOT) | Beta       | Single source of truth for process engineering data — streams, equipment, lines, instruments, valves                                           |
-| Thermal Desal       | Alpha      | Design calculations for thermal desalination (MED/MSF)                                                                                         |
-| Thermal Calculators | Alpha      | Steam tables, seawater properties, pipe sizing, heat duty                                                                                      |
+| Module              | Status     | Description                                                                                                               |
+| ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Procurement         | Production | Purchase requests, RFQs, POs, Goods receipts, Three-way match, Vendor bills & payments, Amendments                        |
+| Accounting          | Production | Multi-currency GL, Chart of accounts, Fixed assets, Recurring transactions, Payment batches, Cost centres, Tax compliance |
+| Projects            | Production | Project management, Charters, Objectives, Transmittals                                                                    |
+| Proposals           | Production | Enquiries, Proposals, Estimation linkage, Contract generation                                                             |
+| Estimation          | Production | BOM editor, Cost estimation, Equipment & components                                                                       |
+| Materials           | Production | ASME/ASTM materials database — pipes, plates, fittings, flanges                                                           |
+| Shapes              | Production | Parametric shapes & components with automated weight/cost calculations                                                    |
+| Bought-Out Items    | Production | Valves, pumps, instruments, strainers, separation equipment with spec codes & pricing                                     |
+| Documents           | Production | Company-wide documents: SOPs, policies, templates, CRS, transmittals                                                      |
+| Entities            | Production | Vendors, customers, and partners                                                                                          |
+| Admin               | Production | Users, permissions, company settings, feedback                                                                            |
+| Flow                | Beta       | Tasks, notifications, meetings, team collaboration                                                                        |
+| Services            | Beta       | Service catalog — engineering, fabrication, lab testing, inspection, consulting                                           |
+| HR                  | Beta       | Leave management, travel expenses, attendance, employee directory                                                         |
+| Process Data (SSOT) | Beta       | Single source of truth for process engineering data — streams, equipment, lines, instruments, valves                      |
+| Thermal Desal       | Alpha      | Design calculations for thermal desalination (MED/MSF)                                                                    |
+| Thermal Calculators | Alpha      | Steam tables, seawater properties, pipe sizing, heat duty                                                                 |
 
 ## Tech Stack
 

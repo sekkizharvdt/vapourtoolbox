@@ -19,7 +19,7 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
    **Global (non-entity-scoped) collections:**
    - `users`, `taskNotifications` — scoped by `userId` instead
    - `entities` — the entity registry itself (queried by admins)
-   - `materials`, `shapes`, `boughtOutItems` — shared reference data
+   - `materials`, `shapes`, `bought_out_items` — shared reference data
 
 2. **Every `where()` + `orderBy()` combo MUST have a composite index** in `firestore.indexes.json`. Queries will silently fail in production without them.
 

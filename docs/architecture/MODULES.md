@@ -2,19 +2,19 @@
 
 ## Module Status
 
-| Module      | Status     | Route                  | Key Collections                                                         | Tests |
-| ----------- | ---------- | ---------------------- | ----------------------------------------------------------------------- | ----- |
-| Accounting  | Production | `/accounting/*`        | transactions, accounts, bankReconciliations, fixedAssets                | 42    |
-| Procurement | Production | `/procurement/*`       | purchaseRequests, rfqs, purchaseOrders, goodsReceipts, packingLists     | 21    |
-| Thermal     | Production | `/thermal/*`           | (client-side calculators only)                                          | 27    |
-| Projects    | Production | `/projects/*`          | projects, projectCharters, transmittals, masterDocuments                | 6     |
-| HR          | Production | `/hr/*`                | hrLeaveRequests, hrTravelExpenses, hrLeaveTypes, hrHolidays             | 7     |
-| Documents   | Production | `/documents/*`         | documents, companyDocuments, folders, documentTemplates                 | 6     |
-| Admin       | Production | `/admin/*`, `/users/*` | users, entities, auditLogs, emailConfig, backups                        | 6     |
-| Proposals   | Production | `/proposals/*`         | proposals, enquiries                                                    | 4     |
-| Materials   | Production | `/materials/*`         | materials, pipes, plates, fittings, flanges, pumps, valves, instruments | 3     |
-| Flow        | Production | `/flow/*`              | manualTasks, meetingMinutes                                             | 0     |
-| Estimation  | Production | `/estimation/*`        | boms                                                                    | -     |
+| Module      | Status     | Route                  | Key Collections                                                                         | Tests |
+| ----------- | ---------- | ---------------------- | --------------------------------------------------------------------------------------- | ----- |
+| Accounting  | Production | `/accounting/*`        | transactions, accounts, fixedAssets, recurringTransactions, costCentres, paymentBatches | 42    |
+| Procurement | Production | `/procurement/*`       | purchaseRequests, rfqs, purchaseOrders, goodsReceipts, packingLists                     | 21    |
+| Thermal     | Production | `/thermal/*`           | (client-side calculators only)                                                          | 27    |
+| Projects    | Production | `/projects/*`          | projects, projectCharters, transmittals, masterDocuments                                | 6     |
+| HR          | Production | `/hr/*`                | hrLeaveRequests, hrTravelExpenses, hrLeaveTypes, hrHolidays                             | 7     |
+| Documents   | Production | `/documents/*`         | documents, companyDocuments, folders, documentTemplates                                 | 6     |
+| Admin       | Production | `/admin/*`, `/users/*` | users, entities, auditLogs, emailConfig, backups                                        | 6     |
+| Proposals   | Production | `/proposals/*`         | proposals, enquiries                                                                    | 4     |
+| Materials   | Production | `/materials/*`         | materials, pipes, plates, fittings, flanges, pumps, valves, instruments                 | 3     |
+| Flow        | Production | `/flow/*`              | manualTasks, meetingMinutes                                                             | 0     |
+| Estimation  | Production | `/estimation/*`        | boms                                                                                    | -     |
 
 ## Module Structure
 
@@ -43,17 +43,17 @@ apps/web/src/
 
 ## Accounting Module
 
-**Routes**: `/accounting/transactions`, `/accounting/chart-of-accounts`, `/accounting/reconciliation`, `/accounting/reports`, `/accounting/entity-ledger`, `/accounting/fixed-assets`, `/accounting/payment-planning`, `/accounting/data-health`
+**Routes**: `/accounting/transactions`, `/accounting/chart-of-accounts`, `/accounting/invoices`, `/accounting/bills`, `/accounting/payments`, `/accounting/journal-entries`, `/accounting/recurring`, `/accounting/payment-batches`, `/accounting/cost-centres`, `/accounting/fixed-assets`, `/accounting/tax-compliance`, `/accounting/payment-planning`, `/accounting/reports`, `/accounting/data-health`
 
 **Transaction Types** (9): CUSTOMER_INVOICE, CUSTOMER_PAYMENT, VENDOR_BILL, VENDOR_PAYMENT, JOURNAL_ENTRY, BANK_TRANSFER, EXPENSE_CLAIM, DIRECT_PAYMENT, DIRECT_RECEIPT
 
 **Features**:
 
-- Multi-currency with daily exchange rates and INR base amount
+- Multi-currency with per-transaction bank conversion rate and INR base amount
 - Double-entry bookkeeping with GL drill-down
-- Bank reconciliation with auto-matching
+- Recurring transactions with daily scheduled generation (bills, payments, salaries, journal entries)
 - Fixed asset registry with depreciation engine (SLM/WDV)
-- Payment planning with cash flow forecasting
+- Payment batches and payment planning with cash flow forecasting
 - Entity ledger with opening balance support
 - Soft delete + trash page
 - TDS rate categories
@@ -63,7 +63,7 @@ apps/web/src/
 - Excel/CSV export on all list pages
 - Stale payments tracker
 
-**Key Files**: `lib/accounting/transactionService.ts`, `lib/accounting/fixedAssets/`, `lib/accounting/paymentPlanning/`, `lib/accounting/bankReconciliationService.ts`
+**Key Files**: `lib/accounting/transactionService.ts`, `lib/accounting/fixedAssetService.ts`, `lib/accounting/recurringTransactionService.ts`, `lib/accounting/paymentPlanning/`
 
 ## Procurement Module
 

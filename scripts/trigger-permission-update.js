@@ -12,10 +12,7 @@ async function triggerPermissionUpdate() {
     const email = 'sekkizhar@vapourdesal.com';
 
     // Find user by email
-    const usersSnapshot = await db.collection('users')
-      .where('email', '==', email)
-      .limit(1)
-      .get();
+    const usersSnapshot = await db.collection('users').where('email', '==', email).limit(1).get();
 
     if (usersSnapshot.empty) {
       console.error('User not found with email:', email);
@@ -31,12 +28,15 @@ async function triggerPermissionUpdate() {
     // Touch the document to trigger the onUserUpdate Cloud Function
     // We'll update the lastClaimUpdate field
     await db.collection('users').doc(userId).update({
-      lastClaimUpdate: admin.firestore.FieldValue.serverTimestamp()
+      lastClaimUpdate: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    console.log('✅ Update triggered! The Cloud Function will recalculate permissions in a few seconds.');
-    console.log('Wait 5-10 seconds, then refresh your browser and check the permissions value in Firestore.');
-
+    console.log(
+      '✅ Update triggered! The Cloud Function will recalculate permissions in a few seconds.'
+    );
+    console.log(
+      'Wait 5-10 seconds, then refresh your browser and check the permissions value in Firestore.'
+    );
   } catch (error) {
     console.error('Error:', error);
   } finally {
