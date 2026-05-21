@@ -675,10 +675,16 @@ export async function createProposalRevision(
         updatedBy: userId,
       });
 
-      // Create new revision
+      // Create new revision. Destructure `id` out of the source before
+      // spreading — otherwise the parent's id is written as a FIELD inside
+      // the new document, and any later read that trusts that field
+      // resolves the revision to the wrong record. (The Omit<Proposal,'id'>
+      // annotation is compile-time only; it does not strip id at runtime.)
       const now = Timestamp.now();
+      const { id: _omitParentId, ...sourceWithoutId } = currentProposal;
+      void _omitParentId;
       const newRevision: Omit<Proposal, 'id'> = {
-        ...currentProposal,
+        ...sourceWithoutId,
         revision: currentProposal.revision + 1,
         status: 'DRAFT',
         previousRevisionId: proposalId,

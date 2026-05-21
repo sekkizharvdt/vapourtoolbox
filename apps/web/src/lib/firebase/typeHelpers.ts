@@ -408,7 +408,12 @@ export function docToTyped<T extends { id: string }>(
   id: string,
   data: Record<string, unknown> | undefined
 ): T {
-  const result: { id: string } & Record<string, unknown> = { id, ...data };
+  // Spread data FIRST, then set id LAST so the real Firestore document id
+  // always wins. Some documents carry a stale `id` field in their data
+  // (e.g. a revision/clone created by spreading a source object whose id
+  // leaked through) — the document id must override it, or every lookup
+  // resolves to the wrong record.
+  const result: { id: string } & Record<string, unknown> = { ...data, id };
   return result as T;
 }
 
