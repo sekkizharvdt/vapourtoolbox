@@ -6,14 +6,14 @@
 | ----------- | ---------- | ---------------------- | --------------------------------------------------------------------------------------- | ----- |
 | Accounting  | Production | `/accounting/*`        | transactions, accounts, fixedAssets, recurringTransactions, costCentres, paymentBatches | 42    |
 | Procurement | Production | `/procurement/*`       | purchaseRequests, rfqs, purchaseOrders, goodsReceipts, packingLists                     | 21    |
-| Thermal     | Production | `/thermal/*`           | (client-side calculators only)                                                          | 27    |
+| Thermal     | Alpha      | `/thermal/*`           | (client-side calculators only)                                                          | 27    |
 | Projects    | Production | `/projects/*`          | projects, projectCharters, transmittals, masterDocuments                                | 6     |
-| HR          | Production | `/hr/*`                | hrLeaveRequests, hrTravelExpenses, hrLeaveTypes, hrHolidays                             | 7     |
+| HR          | Beta       | `/hr/*`                | hrLeaveRequests, hrTravelExpenses, hrLeaveTypes, hrHolidays                             | 7     |
 | Documents   | Production | `/documents/*`         | documents, companyDocuments, folders, documentTemplates                                 | 6     |
 | Admin       | Production | `/admin/*`, `/users/*` | users, entities, auditLogs, emailConfig, backups                                        | 6     |
 | Proposals   | Production | `/proposals/*`         | proposals, enquiries                                                                    | 4     |
 | Materials   | Production | `/materials/*`         | materials, pipes, plates, fittings, flanges, pumps, valves, instruments                 | 3     |
-| Flow        | Production | `/flow/*`              | manualTasks, meetingMinutes                                                             | 0     |
+| Flow        | Beta       | `/flow/*`              | manualTasks, meetingMinutes                                                             | 0     |
 | Estimation  | Production | `/estimation/*`        | boms                                                                                    | -     |
 
 ## Module Structure
