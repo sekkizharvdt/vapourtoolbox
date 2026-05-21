@@ -234,9 +234,23 @@ export interface VendorQuoteItem {
   quantity: number;
   unit: string;
   unitPrice: number;
+  /**
+   * Net line value AFTER any per-line discount, BEFORE GST
+   * (`amount = quantity × unitPrice − discountAmount`). GST is computed on
+   * this net figure. Equals `quantity × unitPrice` when there's no discount.
+   */
   amount: number;
   gstRate?: number;
   gstAmount?: number;
+
+  // --- Per-line discount (applied before GST) -----------------------------
+
+  /** How `discountValue` is interpreted. Defaults to PERCENT in the UI. */
+  discountType?: 'PERCENT' | 'ABSOLUTE';
+  /** Percentage (0-100) when type is PERCENT, else an absolute amount in the quote currency. */
+  discountValue?: number;
+  /** Resolved absolute discount in the quote currency (`gross − amount`). Stored for display/audit. */
+  discountAmount?: number;
 
   // --- Delivery (RFQ-response) -------------------------------------------
 

@@ -32,6 +32,23 @@ export const OFFER_COMMERCIAL_LABELS = {
 } as const;
 
 // ============================================================================
+// PROCUREMENT — vendor-quote line items + capture form
+// ============================================================================
+
+/** Labels for the vendor-quote line-item tables and the Log Quote form. */
+export const QUOTE_LINE_LABELS = {
+  /** Per-line discount column header / field label. */
+  discount: 'Discount',
+  /** Discount type selector (percentage vs absolute amount). */
+  discountType: 'Disc. Type',
+  /** Heading for the extra-attachments section, separate from the parse source. */
+  supportingDocuments: 'Supporting Documents',
+  addAttachments: 'Add Attachments',
+  /** Save-as-draft action on the Log Quote form. */
+  saveAsDraft: 'Save as Draft',
+} as const;
+
+// ============================================================================
 // PROCUREMENT — payment lifecycle (review #36)
 // ============================================================================
 

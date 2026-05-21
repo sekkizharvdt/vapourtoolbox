@@ -29,6 +29,14 @@ export type {
 } from './vendorQuoteService';
 
 export {
+  computeQuoteLineAmounts,
+  roundToPaisa as roundLineToPaisa,
+  type LineDiscountType,
+  type LineMathInput,
+  type LineMathResult,
+} from './lineMath';
+
+export {
   // Workflow
   selectVendorQuote,
   rejectVendorQuote,

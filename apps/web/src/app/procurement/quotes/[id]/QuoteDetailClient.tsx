@@ -41,7 +41,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { PdfViewer } from '@/components/common/PdfViewer';
 import type { VendorQuote, VendorQuoteItem, QuoteStatus, QuoteItemType } from '@vapour/types';
-import { canManageEstimation } from '@vapour/constants';
+import { canManageEstimation, QUOTE_LINE_LABELS } from '@vapour/constants';
 import {
   getVendorQuoteById,
   getVendorQuoteItems,
@@ -120,6 +120,8 @@ export default function QuoteDetailClient() {
   const [newUnit, setNewUnit] = useState('');
   const [newUnitPrice, setNewUnitPrice] = useState('');
   const [newGstRate, setNewGstRate] = useState('');
+  const [newDiscountValue, setNewDiscountValue] = useState('');
+  const [newDiscountType, setNewDiscountType] = useState<'PERCENT' | 'ABSOLUTE'>('PERCENT');
   const [newNotes, setNewNotes] = useState('');
   const [addingItem, setAddingItem] = useState(false);
 
@@ -197,6 +199,9 @@ export default function QuoteDetailClient() {
           unit: newUnit.trim(),
           unitPrice: price,
           ...(newGstRate ? { gstRate: parseFloat(newGstRate) } : {}),
+          ...(newDiscountValue
+            ? { discountValue: parseFloat(newDiscountValue), discountType: newDiscountType }
+            : {}),
           ...(newNotes.trim() ? { notes: newNotes.trim() } : {}),
         },
         user!.uid,
@@ -208,6 +213,8 @@ export default function QuoteDetailClient() {
       setNewUnit('');
       setNewUnitPrice('');
       setNewGstRate('');
+      setNewDiscountValue('');
+      setNewDiscountType('PERCENT');
       setNewNotes('');
       setShowAddForm(false);
       await loadData();
@@ -516,6 +523,30 @@ export default function QuoteDetailClient() {
                   onChange={(e) => setNewGstRate(e.target.value)}
                 />
               </Grid>
+              <Grid size={{ xs: 6, md: 1.5 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={QUOTE_LINE_LABELS.discount}
+                  type="number"
+                  value={newDiscountValue}
+                  onChange={(e) => setNewDiscountValue(e.target.value)}
+                  inputProps={{ min: 0, step: '0.01' }}
+                />
+              </Grid>
+              <Grid size={{ xs: 6, md: 1.5 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{QUOTE_LINE_LABELS.discountType}</InputLabel>
+                  <Select
+                    value={newDiscountType}
+                    label={QUOTE_LINE_LABELS.discountType}
+                    onChange={(e) => setNewDiscountType(e.target.value as 'PERCENT' | 'ABSOLUTE')}
+                  >
+                    <MenuItem value="PERCENT">%</MenuItem>
+                    <MenuItem value="ABSOLUTE">{offer?.currency ?? 'INR'}</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
@@ -565,6 +596,7 @@ export default function QuoteDetailClient() {
                   <TableCell align="right">Qty</TableCell>
                   <TableCell>Unit</TableCell>
                   <TableCell align="right">Unit Price</TableCell>
+                  <TableCell align="right">{QUOTE_LINE_LABELS.discount}</TableCell>
                   <TableCell align="right">Amount</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -606,6 +638,21 @@ export default function QuoteDetailClient() {
                     <TableCell>{item.unit}</TableCell>
                     <TableCell align="right">
                       {item.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell align="right">
+                      {item.discountValue ? (
+                        <Typography variant="body2" fontSize="0.8rem">
+                          {item.discountType === 'ABSOLUTE'
+                            ? item.discountValue.toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                              })
+                            : `${item.discountValue}%`}
+                        </Typography>
+                      ) : (
+                        <Typography variant="caption" color="text.disabled">
+                          —
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell align="right">
                       {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}

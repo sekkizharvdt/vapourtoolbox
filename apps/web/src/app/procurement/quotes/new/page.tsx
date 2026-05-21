@@ -18,7 +18,7 @@
  * Line items get added on the detail page after the quote is created.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -73,8 +73,9 @@ import type {
   Service,
 } from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
-import { createVendorQuote } from '@/lib/vendorQuotes';
+import { createVendorQuote, computeQuoteLineAmounts } from '@/lib/vendorQuotes';
 import type { CreateVendorQuoteItemInput } from '@/lib/vendorQuotes';
+import { QUOTE_LINE_LABELS } from '@vapour/constants';
 import { listRFQs } from '@/lib/procurement/rfq';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
@@ -88,6 +89,38 @@ interface RFQOption {
   projectIds?: string[];
   projectNames?: string[];
 }
+
+/** Serializable shape of the autosaved quote draft (localStorage). */
+interface QuoteDraftSnapshot {
+  useEntitySelector?: boolean;
+  vendorId?: string | null;
+  vendorName?: string;
+  selectedRfq?: RFQOption | null;
+  vendorOfferNumber?: string;
+  offerDate?: string;
+  validityDate?: string;
+  currency?: CurrencyCode;
+  remarks?: string;
+  isUnsolicited?: boolean;
+  /** Cast back to LineItemRow on restore (LineItemRow is component-local). */
+  lineItems?: unknown[];
+  stagedFile?: {
+    storagePath: string;
+    downloadUrl: string;
+    fileName: string;
+    mimeType: string;
+    fileSize: number;
+  } | null;
+  additionalDocs?: { downloadUrl: string; fileName: string }[];
+  savedAt?: number;
+}
+
+/**
+ * localStorage key for the in-progress quote. Autosaved on every edit and
+ * cleared on successful create — protects against refresh / tab-close / a
+ * failed AI parse forcing a reload (the data-loss complaint in the feedback).
+ */
+const QUOTE_DRAFT_KEY = 'vapour:new-quote-draft:v1';
 
 /**
  * Convert Claude's "DD/MM/YYYY" output into a YYYY-MM-DD string suitable for
@@ -144,6 +177,14 @@ export default function NewProcurementQuotePage() {
     fileSize: number;
   } | null>(null);
 
+  // Supporting documents — separate from the parse-source file above. These
+  // are stored as URLs in the quote's `additionalDocuments` field and are not
+  // sent to the AI parser. The user can attach several (datasheets, T&Cs, etc.).
+  const [additionalDocs, setAdditionalDocs] = useState<{ downloadUrl: string; fileName: string }[]>(
+    []
+  );
+  const [attachingDocs, setAttachingDocs] = useState(false);
+
   // AI parser state
   const [parsing, setParsing] = useState(false);
 
@@ -164,6 +205,112 @@ export default function NewProcurementQuotePage() {
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [boughtOutPickerOpen, setBoughtOutPickerOpen] = useState(false);
   const [pickerRowIndex, setPickerRowIndex] = useState<number>(-1);
+
+  // --- Autosave / restore (data-loss protection) ---------------------------
+  // Form state is plain React state; a refresh, tab close, or a reload after a
+  // failed AI parse used to wipe everything. We mirror it to localStorage and
+  // restore on mount. `hydratedRef` gates the save effect so the initial
+  // restore isn't immediately overwritten by an empty snapshot.
+  const hydratedRef = useRef(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' && window.localStorage.getItem(QUOTE_DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw) as QuoteDraftSnapshot;
+        if (typeof d.useEntitySelector === 'boolean') setUseEntitySelector(d.useEntitySelector);
+        if (d.vendorId !== undefined) setVendorId(d.vendorId);
+        if (typeof d.vendorName === 'string') setVendorName(d.vendorName);
+        if (d.selectedRfq !== undefined) setSelectedRfq(d.selectedRfq);
+        if (typeof d.vendorOfferNumber === 'string') setVendorOfferNumber(d.vendorOfferNumber);
+        if (typeof d.offerDate === 'string') setOfferDate(d.offerDate);
+        if (typeof d.validityDate === 'string') setValidityDate(d.validityDate);
+        if (typeof d.currency === 'string') setCurrency(d.currency);
+        if (typeof d.remarks === 'string') setRemarks(d.remarks);
+        if (typeof d.isUnsolicited === 'boolean') setIsUnsolicited(d.isUnsolicited);
+        if (Array.isArray(d.lineItems)) setLineItems(d.lineItems as LineItemRow[]);
+        if (d.stagedFile !== undefined) setStagedFile(d.stagedFile);
+        if (Array.isArray(d.additionalDocs)) setAdditionalDocs(d.additionalDocs);
+        setDraftRestored(true);
+      }
+    } catch (err) {
+      console.warn('[NewQuotePage] failed to restore draft', err);
+    } finally {
+      hydratedRef.current = true;
+    }
+    // Mount-only — restore once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    try {
+      const snapshot: QuoteDraftSnapshot = {
+        useEntitySelector,
+        vendorId,
+        vendorName,
+        selectedRfq,
+        vendorOfferNumber,
+        offerDate,
+        validityDate,
+        currency,
+        remarks,
+        isUnsolicited,
+        lineItems,
+        stagedFile,
+        additionalDocs,
+        savedAt: Date.now(),
+      };
+      window.localStorage.setItem(QUOTE_DRAFT_KEY, JSON.stringify(snapshot));
+    } catch (err) {
+      // Quota / serialization failure — non-fatal; autosave just won't persist.
+      console.warn('[NewQuotePage] failed to autosave draft', err);
+    }
+  }, [
+    useEntitySelector,
+    vendorId,
+    vendorName,
+    selectedRfq,
+    vendorOfferNumber,
+    offerDate,
+    validityDate,
+    currency,
+    remarks,
+    isUnsolicited,
+    lineItems,
+    stagedFile,
+    additionalDocs,
+  ]);
+
+  const clearDraft = () => {
+    try {
+      window.localStorage.removeItem(QUOTE_DRAFT_KEY);
+    } catch {
+      // Best-effort — ignore storage errors on cleanup.
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setDraftRestored(false);
+    setUseEntitySelector(true);
+    setVendorId(null);
+    setVendorName('');
+    setSelectedRfq(null);
+    setVendorOfferNumber('');
+    setOfferDate('');
+    setValidityDate('');
+    setCurrency('INR');
+    setRemarks('');
+    setIsUnsolicited(false);
+    setLineItems([]);
+    setStagedFile(null);
+    setFile(null);
+    setAdditionalDocs([]);
+    setParseHint('');
+    setError('');
+  };
 
   // Load RFQ options for the optional picker.
   useEffect(() => {
@@ -249,6 +396,42 @@ export default function NewProcurementQuotePage() {
     });
   };
 
+  const handleAdditionalFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    // Allow re-picking the same file later.
+    e.target.value = '';
+    if (selected.length === 0 || !storage) return;
+
+    const oversize = selected.find((f) => f.size > 10 * 1024 * 1024);
+    if (oversize) {
+      setError(`"${oversize.name}" exceeds the 10 MB limit`);
+      return;
+    }
+
+    setAttachingDocs(true);
+    setError('');
+    try {
+      for (const f of selected) {
+        const storagePath = `vendor-quotes/staging/${Date.now()}_${f.name}`;
+        const storageRef = ref(storage, storagePath);
+        const task = uploadBytesResumable(storageRef, f);
+        // eslint-disable-next-line no-await-in-loop
+        await task;
+        // eslint-disable-next-line no-await-in-loop
+        const url = await getDownloadURL(task.snapshot.ref);
+        setAdditionalDocs((prev) => [...prev, { downloadUrl: url, fileName: f.name }]);
+      }
+    } catch (err) {
+      console.error('[NewQuotePage] additional document upload failed', err);
+      setError('Could not upload one of the attachments — please try again.');
+    } finally {
+      setAttachingDocs(false);
+    }
+  };
+
+  const handleRemoveAdditionalDoc = (url: string) =>
+    setAdditionalDocs((prev) => prev.filter((d) => d.downloadUrl !== url));
+
   const newRow = (overrides: Partial<CreateVendorQuoteItemInput> = {}): LineItemRow => ({
     tempKey: `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     itemType: 'MATERIAL',
@@ -296,6 +479,8 @@ export default function NewProcurementQuotePage() {
             unit: string;
             unitPrice: number;
             gstRate?: number;
+            discountType?: 'PERCENT' | 'ABSOLUTE';
+            discountValue?: number;
             deliveryPeriod?: string;
             makeModel?: string;
             vendorNotes?: string;
@@ -358,6 +543,11 @@ export default function NewProcurementQuotePage() {
           unit: item.unit,
           unitPrice: item.unitPrice,
           ...(item.gstRate != null && { gstRate: item.gstRate }),
+          ...(item.discountValue != null &&
+            item.discountValue > 0 && {
+              discountType: item.discountType ?? 'PERCENT',
+              discountValue: item.discountValue,
+            }),
           ...(item.deliveryPeriod && { deliveryPeriod: item.deliveryPeriod }),
           ...(item.makeModel && { makeModel: item.makeModel }),
           ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
@@ -421,6 +611,8 @@ export default function NewProcurementQuotePage() {
         updated.linkedItemName = undefined;
         updated.linkedItemCode = undefined;
         updated.gstRate = undefined;
+        updated.discountType = undefined;
+        updated.discountValue = undefined;
       }
       next[index] = updated;
       return next;
@@ -503,13 +695,23 @@ export default function NewProcurementQuotePage() {
     return false;
   };
 
-  const grandTotal = lineItems.reduce((sum, r) => {
-    const base = (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0);
-    const gst = r.gstRate ? base * (r.gstRate / 100) : 0;
-    return sum + base + gst;
-  }, 0);
+  const grandTotal = lineItems.reduce(
+    (sum, r) =>
+      sum +
+      computeQuoteLineAmounts({
+        quantity: r.quantity,
+        unitPrice: r.unitPrice,
+        gstRate: r.gstRate,
+        discountType: r.discountType,
+        discountValue: r.discountValue,
+      }).total,
+    0
+  );
 
-  const handleSubmit = async () => {
+  // `asDraft` saves partial work as DRAFT, skipping the master-link
+  // requirement so the user never gets stuck mid-entry (the original
+  // complaint). A normal save enforces full linking and promotes to UPLOADED.
+  const handleSubmit = async (asDraft = false) => {
     const name = useEntitySelector ? vendorName : vendorName.trim();
     if (!useEntitySelector && !name) {
       setError('Vendor name is required');
@@ -526,14 +728,15 @@ export default function NewProcurementQuotePage() {
 
     // Validate line items. Empty items array is allowed (user may save the
     // header now and add lines later from the detail page) — but if there
-    // ARE rows, every non-NOTE row must be linked to a master record.
+    // ARE rows, every non-NOTE row must be linked to a master record. Draft
+    // saves skip the link check so unfinished rows can be parked.
     for (let i = 0; i < lineItems.length; i++) {
       const r = lineItems[i]!;
       if (!(r.description ?? '').trim()) {
         setError(`Line ${i + 1}: description is required.`);
         return;
       }
-      if (!isRowLinked(r)) {
+      if (!asDraft && !isRowLinked(r)) {
         setError(`Line ${i + 1}: pick a ${r.itemType.toLowerCase()} from the master.`);
         return;
       }
@@ -546,6 +749,7 @@ export default function NewProcurementQuotePage() {
       const quoteId = await createVendorQuote(
         db,
         {
+          ...(asDraft && { status: 'DRAFT' as const }),
           // Classification: an RFQ link upgrades to OFFLINE_RFQ (linked).
           // Otherwise default to OFFLINE_RFQ (vendor replied to an offline
           // conversation we initiated) unless the user explicitly opts into
@@ -569,6 +773,9 @@ export default function NewProcurementQuotePage() {
           currency,
           ...(remarks ? { remarks } : {}),
           ...(stagedFile ? { fileUrl: stagedFile.downloadUrl, fileName: stagedFile.fileName } : {}),
+          ...(additionalDocs.length > 0 && {
+            additionalDocuments: additionalDocs.map((d) => d.downloadUrl),
+          }),
         },
         // Strip the UI-only `tempKey` before persisting.
         lineItems.map(({ tempKey: _t, ...rest }) => rest),
@@ -577,6 +784,7 @@ export default function NewProcurementQuotePage() {
         claims?.permissions ?? 0
       );
 
+      clearDraft();
       router.push(`/procurement/quotes/${quoteId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create quote');
@@ -605,6 +813,20 @@ export default function NewProcurementQuotePage() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {draftRestored && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={handleDiscardDraft}>
+              Discard
+            </Button>
+          }
+        >
+          Restored your unsaved quote from this device. Continue editing, or discard to start fresh.
         </Alert>
       )}
 
@@ -817,6 +1039,47 @@ export default function NewProcurementQuotePage() {
                 </Alert>
               )}
             </Grid>
+
+            {/* Supporting documents — extra attachments stored on the quote,
+                independent of the parse-source file above. */}
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {QUOTE_LINE_LABELS.supportingDocuments} (optional)
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={attachingDocs ? <CircularProgress size={16} /> : <UploadIcon />}
+                  disabled={attachingDocs}
+                >
+                  {attachingDocs ? 'Uploading…' : QUOTE_LINE_LABELS.addAttachments}
+                  <input
+                    type="file"
+                    hidden
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                    onChange={handleAdditionalFilesSelect}
+                  />
+                </Button>
+                <Typography variant="caption" color="text.secondary">
+                  Datasheets, terms, drawings — not sent to the AI parser.
+                </Typography>
+              </Box>
+              {additionalDocs.length > 0 && (
+                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
+                  {additionalDocs.map((doc) => (
+                    <Chip
+                      key={doc.downloadUrl}
+                      label={doc.fileName}
+                      variant="outlined"
+                      size="small"
+                      onDelete={() => handleRemoveAdditionalDoc(doc.downloadUrl)}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </Grid>
           </Grid>
 
           {/* Line items section */}
@@ -871,6 +1134,9 @@ export default function NewProcurementQuotePage() {
                       <TableCell width={130} align="right">
                         Unit Price
                       </TableCell>
+                      <TableCell width={150} align="right">
+                        {QUOTE_LINE_LABELS.discount}
+                      </TableCell>
                       <TableCell width={80} align="right">
                         GST %
                       </TableCell>
@@ -883,10 +1149,15 @@ export default function NewProcurementQuotePage() {
                   <TableBody>
                     {lineItems.map((row, index) => {
                       const linked = isRowLinked(row);
-                      const lineBase = (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
-                      const lineWithGst =
-                        lineBase + (row.gstRate ? lineBase * (row.gstRate / 100) : 0);
                       const isNote = row.itemType === 'NOTE';
+                      const math = computeQuoteLineAmounts({
+                        quantity: row.quantity,
+                        unitPrice: row.unitPrice,
+                        gstRate: row.gstRate,
+                        discountType: row.discountType,
+                        discountValue: row.discountValue,
+                      });
+                      const lineWithGst = math.total;
                       return (
                         <TableRow key={row.tempKey} hover>
                           <TableCell>{index + 1}</TableCell>
@@ -1054,6 +1325,48 @@ export default function NewProcurementQuotePage() {
                                 —
                               </Typography>
                             ) : (
+                              <Stack direction="row" spacing={0.5}>
+                                <TextField
+                                  type="number"
+                                  value={row.discountValue ?? ''}
+                                  onChange={(e) =>
+                                    handleRowChange(
+                                      index,
+                                      'discountValue',
+                                      e.target.value === ''
+                                        ? undefined
+                                        : parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  size="small"
+                                  placeholder="0"
+                                  inputProps={{ step: '0.01', min: 0 }}
+                                  sx={{ '& input': { textAlign: 'right' }, width: 80 }}
+                                />
+                                <Select
+                                  size="small"
+                                  value={row.discountType ?? 'PERCENT'}
+                                  onChange={(e) =>
+                                    handleRowChange(
+                                      index,
+                                      'discountType',
+                                      e.target.value as 'PERCENT' | 'ABSOLUTE'
+                                    )
+                                  }
+                                  sx={{ minWidth: 56 }}
+                                >
+                                  <MenuItem value="PERCENT">%</MenuItem>
+                                  <MenuItem value="ABSOLUTE">{currency}</MenuItem>
+                                </Select>
+                              </Stack>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isNote ? (
+                              <Typography variant="caption" color="text.disabled">
+                                —
+                              </Typography>
+                            ) : (
                               <TextField
                                 type="number"
                                 value={row.gstRate ?? ''}
@@ -1132,10 +1445,18 @@ export default function NewProcurementQuotePage() {
               Cancel
             </Button>
             <Button
+              variant="outlined"
+              startIcon={<SaveIcon />}
+              onClick={() => handleSubmit(true)}
+              disabled={saving || uploading || attachingDocs}
+            >
+              {QUOTE_LINE_LABELS.saveAsDraft}
+            </Button>
+            <Button
               variant="contained"
               startIcon={<SaveIcon />}
-              onClick={handleSubmit}
-              disabled={saving || uploading}
+              onClick={() => handleSubmit(false)}
+              disabled={saving || uploading || attachingDocs}
             >
               {saving ? 'Creating...' : 'Create Quote'}
             </Button>

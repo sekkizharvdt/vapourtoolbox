@@ -32,6 +32,7 @@ import {
 } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { listBoughtOutItems } from '@/lib/boughtOut/boughtOutService';
+import { getFriendlyQueryError } from '@/lib/utils/errorHandling';
 
 interface BoughtOutPickerDialogProps {
   open: boolean;
@@ -92,8 +93,12 @@ export default function BoughtOutPickerDialog({
         });
         if (!cancelled) setItems(list);
       } catch (err) {
+        // Never surface the raw Firestore error (it leaks the index-creation
+        // URL and internal codes). Log it for devs, show a friendly message.
+        console.error('[BoughtOutPickerDialog] failed to load items', err);
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load bought-out items');
+          setItems([]);
+          setError(getFriendlyQueryError(err));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -170,7 +175,7 @@ export default function BoughtOutPickerDialog({
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
           </Box>
-        ) : filteredItems.length === 0 ? (
+        ) : error ? null : filteredItems.length === 0 ? (
           <Alert severity="info">
             {searchText
               ? 'No bought-out items match your search.'

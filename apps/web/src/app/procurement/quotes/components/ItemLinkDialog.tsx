@@ -21,12 +21,14 @@ import {
   Typography,
   Box,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Firestore } from 'firebase/firestore';
 import type { QuoteItemType } from '@vapour/types';
+import { getFriendlyQueryError } from '@/lib/utils/errorHandling';
 
 export interface LinkedItem {
   itemType: QuoteItemType;
@@ -63,11 +65,13 @@ export function ItemLinkDialog({
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setSearchTerm('');
       setResults([]);
+      setSearchError(null);
       setTab(TAB_MAP.indexOf(initialTab));
     }
   }, [open, initialTab]);
@@ -79,6 +83,7 @@ export function ItemLinkDialog({
     }
 
     setLoading(true);
+    setSearchError(null);
     try {
       const term = searchTerm.toLowerCase();
       const itemType = TAB_MAP[tab];
@@ -156,7 +161,10 @@ export function ItemLinkDialog({
 
       setResults(items.slice(0, 20));
     } catch (err) {
-      console.error('Search error:', err);
+      // Surface a friendly message; keep the raw error in the console for devs.
+      console.error('[ItemLinkDialog] search failed', err);
+      setResults([]);
+      setSearchError(getFriendlyQueryError(err));
     } finally {
       setLoading(false);
     }
@@ -206,11 +214,17 @@ export function ItemLinkDialog({
           sx={{ mb: 2 }}
         />
 
+        {searchError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSearchError(null)}>
+            {searchError}
+          </Alert>
+        )}
+
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress size={24} />
           </Box>
-        ) : results.length === 0 ? (
+        ) : searchError ? null : results.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             {searchTerm ? 'No results found.' : 'Type to search...'}
           </Typography>

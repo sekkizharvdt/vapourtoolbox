@@ -300,3 +300,27 @@ export function getErrorMessage(error: unknown): string {
   }
   return 'Unknown error';
 }
+
+/**
+ * Map a Firestore query/read error to a short, user-facing message — never
+ * surface the raw SDK text (which leaks `console.firebase.google.com/...
+ * create_composite=...` index URLs and internal codes to end users).
+ *
+ * The original error should still be logged for developers at the call site.
+ */
+export function getFriendlyQueryError(error: unknown): string {
+  const code = (error as { code?: string })?.code ?? '';
+  const raw = getErrorMessage(error).toLowerCase();
+
+  if (code === 'failed-precondition' || raw.includes('requires an index')) {
+    // Missing composite index — usually a freshly-deployed index still building.
+    return 'Search is temporarily unavailable while the database finishes preparing. Please try again in a few minutes.';
+  }
+  if (code === 'permission-denied' || raw.includes('insufficient permissions')) {
+    return 'You don’t have permission to search this list.';
+  }
+  if (code === 'unavailable' || raw.includes('network') || raw.includes('offline')) {
+    return 'Network error — check your connection and try again.';
+  }
+  return 'Could not load results. Please try again.';
+}

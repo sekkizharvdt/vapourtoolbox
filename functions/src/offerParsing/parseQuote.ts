@@ -60,6 +60,9 @@ interface ParsedQuoteItem {
   /** May be negative for footer discounts emitted as NOTE rows. */
   amount: number;
   gstRate?: number;
+  /** Per-line discount captured separately from unitPrice (applied before GST). */
+  discountType?: 'PERCENT' | 'ABSOLUTE';
+  discountValue?: number;
   deliveryPeriod?: string;
   makeModel?: string;
   vendorNotes?: string;
@@ -91,6 +94,65 @@ interface ParseQuoteResult {
   error?: string;
 }
 
+type ParsedQuotePayload = { header?: ParsedQuoteHeader; items?: ParsedQuoteItem[] };
+
+/**
+ * Pull a JSON object out of a model response that may be wrapped in prose or
+ * markdown code fences. Scans for the first balanced `{...}` object, ignoring
+ * braces inside string literals, so trailing commentary doesn't break parsing.
+ * Returns the parsed payload or null (caller decides whether to retry).
+ */
+function extractQuoteJson(text: string): ParsedQuotePayload | null {
+  if (!text) return null;
+
+  // Strip a ```json ... ``` (or bare ```) fence if Claude wrapped the output.
+  let cleaned = text.trim();
+  const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence?.[1]) cleaned = fence[1].trim();
+
+  const start = cleaned.indexOf('{');
+  if (start === -1) return null;
+
+  // Walk the string tracking brace depth, skipping over string contents.
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(cleaned.slice(start, i + 1)) as ParsedQuotePayload;
+        } catch {
+          break; // balanced but invalid — fall through to the lenient attempt
+        }
+      }
+    }
+  }
+
+  // Fallback: parse from the first brace to the end (handles already-clean JSON).
+  try {
+    return JSON.parse(cleaned.slice(start)) as ParsedQuotePayload;
+  } catch {
+    return null;
+  }
+}
+
 const PROMPT = `You are a document-parsing assistant for vendor quotations / offers (often Indian EPC vendors).
 
 Extract the header and line-item pricing from the document. Do NOT invent data — return null / empty arrays if a field isn't present.
@@ -118,6 +180,8 @@ Return ONLY valid JSON in this exact shape (no prose before or after):
       "unitPrice": number,
       "amount": number,
       "gstRate": number or null,
+      "discountType": "PERCENT | ABSOLUTE | null",
+      "discountValue": number or null,
       "deliveryPeriod": "string or null",
       "makeModel": "string or null",
       "vendorNotes": "string or null",
@@ -161,7 +225,7 @@ Return ONLY valid JSON in this exact shape (no prose before or after):
 Critical rules:
 1. ALWAYS include EVERY priced line from the document.
 2. If validity is given as "30 days from offer date", compute the absolute date (DD/MM/YYYY) using vendorOfferDate.
-3. Per-line discounts: fold into the line's unitPrice. E.g. "list 100, net 95" → unitPrice = 95. Do NOT emit a separate row.
+3. Per-line discounts: keep unitPrice as the vendor's LIST price and capture the discount separately on the SAME row. If the vendor shows a percentage ("10% off", "less 10%"), set discountType="PERCENT" and discountValue=10. If they show an absolute amount per line ("less Rs. 500"), set discountType="ABSOLUTE" and discountValue=500. If there's no per-line discount, set both to null. Do NOT emit a separate row and do NOT bake the discount into unitPrice.
 4. Footer discounts: emit a separate row with itemType "NOTE", description like "Discount – 5% on subtotal", quantity 1, unit "LOT", unitPrice = NEGATIVE value of the discount. Same for any "Less:" lines.
 5. Footer charges (freight, P&F, packing, insurance, transportation, erection, installation when listed separately): emit as itemType "NOTE" rows with positive unitPrice.
 6. GST stays per-line on gstRate — never emit GST as its own NOTE row.
@@ -253,11 +317,13 @@ export const parseQuote = onCall(
 
     const client = new Anthropic({ apiKey });
 
-    let response;
-    try {
-      response = await client.messages.create({
+    // One Claude call. `strictNote` swaps the user instruction on the retry to
+    // demand bare JSON. max_tokens is generous (8192) so large quotes don't get
+    // truncated mid-array — the most common cause of unparseable output.
+    const runParse = (strictNote?: string) =>
+      client.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: PROMPT,
         messages: [
           {
@@ -273,12 +339,23 @@ export const parseQuote = onCall(
               },
               {
                 type: 'text',
-                text: 'Parse this vendor quotation. Return only the JSON described in the system prompt.',
+                text:
+                  strictNote ??
+                  'Parse this vendor quotation. Return only the JSON described in the system prompt.',
               },
             ],
           },
         ],
       });
+
+    const responseTextOf = (resp: Anthropic.Message): string => {
+      const block = resp.content.find((b) => b.type === 'text');
+      return block?.type === 'text' ? block.text : '';
+    };
+
+    let response: Anthropic.Message;
+    try {
+      response = await runParse();
     } catch (err) {
       logger.error('[parseQuote] Claude API call failed', {
         error: err instanceof Error ? err.message : String(err),
@@ -290,37 +367,59 @@ export const parseQuote = onCall(
       );
     }
 
-    const textBlock = response.content.find((b) => b.type === 'text');
-    const responseText = textBlock?.type === 'text' ? textBlock.text : '';
+    let responseText = responseTextOf(response);
+    let parsed = extractQuoteJson(responseText);
 
-    let parsed: { header?: ParsedQuoteHeader; items?: ParsedQuoteItem[] };
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON object found in Claude response');
+    // Bounded retry: if the first reply was prose / fenced / truncated, ask once
+    // more for bare JSON. Only fires on failure, so the common path stays single-call.
+    if (!parsed) {
+      logger.warn('[parseQuote] first response unparseable — retrying with strict instruction', {
+        fileName: data.fileName,
+        stopReason: response.stop_reason,
+        responseTextLength: responseText.length,
+      });
+      try {
+        response = await runParse(
+          'Your previous reply could not be parsed as JSON. Re-read the document and output ONLY the JSON object described in the system prompt — no prose, no explanation, no markdown code fences, nothing before or after the JSON.'
+        );
+        responseText = responseTextOf(response);
+        parsed = extractQuoteJson(responseText);
+      } catch (err) {
+        logger.error('[parseQuote] retry Claude call failed', {
+          error: err instanceof Error ? err.message : String(err),
+          fileName: data.fileName,
+        });
       }
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch (err) {
+    }
+
+    if (!parsed) {
       // Capture full diagnostic context — stop_reason tells us about truncation,
       // content block types reveal refusal/tool_use returns, usage shows token spend.
-      logger.error('[parseQuote] Failed to parse Claude response as JSON', {
+      logger.error('[parseQuote] Failed to parse Claude response as JSON (after retry)', {
         fileName: data.fileName,
         stopReason: response.stop_reason,
         contentBlockTypes: response.content.map((b) => b.type),
-        textBlockPresent: !!textBlock,
         responseTextLength: responseText.length,
         responseTextHead: responseText.slice(0, 2000),
         responseTextTail: responseText.slice(-2000),
         usage: response.usage,
-        error: err instanceof Error ? err.message : String(err),
       });
       return {
         success: false,
         header: {},
         items: [],
         warnings: [],
-        error: 'Could not parse the document — Claude returned an unexpected response.',
+        error:
+          'Could not parse the document — the AI returned an unexpected response. Please try again, or enter the line items manually.',
       };
+    }
+
+    // If the model stopped because it hit the token ceiling, the tail of the
+    // item list may be missing — warn the user to spot-check.
+    if (response.stop_reason === 'max_tokens') {
+      warnings.push(
+        'The document was long and AI extraction may be incomplete — please verify the last few line items.'
+      );
     }
 
     const header: ParsedQuoteHeader = parsed.header ?? {};
@@ -353,6 +452,13 @@ export const parseQuote = onCall(
         amount: validAmount,
         ...(item.gstRate != null &&
           Number.isFinite(Number(item.gstRate)) && { gstRate: Number(item.gstRate) }),
+        ...((item.discountType === 'PERCENT' || item.discountType === 'ABSOLUTE') &&
+          item.discountValue != null &&
+          Number.isFinite(Number(item.discountValue)) &&
+          Number(item.discountValue) > 0 && {
+            discountType: item.discountType,
+            discountValue: Number(item.discountValue),
+          }),
         ...(item.deliveryPeriod && { deliveryPeriod: item.deliveryPeriod }),
         ...(item.makeModel && { makeModel: item.makeModel }),
         ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),

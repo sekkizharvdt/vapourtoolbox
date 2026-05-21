@@ -39,6 +39,7 @@ import { requirePermission } from '@/lib/auth';
 import { addMaterialPrice } from '@/lib/materials/pricing';
 import { updateBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 import { addBoughtOutPrice } from '@/lib/boughtOut/pricing';
+import { computeQuoteLineAmounts } from './lineMath';
 
 const logger = createLogger({ context: 'vendorQuoteService' });
 
@@ -86,6 +87,13 @@ export interface CreateVendorQuoteInput {
   erectionAfterPurchase?: string;
   inspection?: string;
 
+  /**
+   * Force the initial lifecycle status. Defaults to UPLOADED when items are
+   * supplied, DRAFT otherwise. Pass 'DRAFT' explicitly to save partial work
+   * (e.g. unlinked line items) without promoting the quote.
+   */
+  status?: QuoteStatus;
+
   /** Technical deviations flagged against the PR/RFQ spec (RFQ_RESPONSE only). */
   deviations?: OfferDeviation[];
 }
@@ -109,6 +117,10 @@ export interface CreateVendorQuoteItemInput {
   unit: string;
   unitPrice: number;
   gstRate?: number;
+
+  /** Per-line discount applied before GST. Defaults to PERCENT in the UI. */
+  discountType?: 'PERCENT' | 'ABSOLUTE';
+  discountValue?: number;
 
   deliveryPeriod?: string;
   deliveryDate?: Date;
@@ -206,11 +218,19 @@ export async function createVendorQuote(
   const number = await generateQuoteNumber(db);
   const now = Timestamp.now();
 
-  // If items were supplied, use their subtotal. Otherwise start at zero (DRAFT).
-  const subtotal = input.subtotal ?? items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const taxAmount =
-    input.taxAmount ??
-    items.reduce((s, i) => s + (i.gstRate ? i.quantity * i.unitPrice * (i.gstRate / 100) : 0), 0);
+  // If items were supplied, derive subtotal/tax from net-of-discount line math
+  // (rule 21). Otherwise start at zero (DRAFT).
+  const itemMath = items.map((i) =>
+    computeQuoteLineAmounts({
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      gstRate: i.gstRate,
+      discountType: i.discountType,
+      discountValue: i.discountValue,
+    })
+  );
+  const subtotal = input.subtotal ?? itemMath.reduce((s, m) => s + m.amount, 0);
+  const taxAmount = input.taxAmount ?? itemMath.reduce((s, m) => s + (m.gstAmount ?? 0), 0);
   // rule21-exempt: caller may supply totalAmount explicitly; if absent, derive from parts.
   const totalAmount = input.totalAmount ?? subtotal + taxAmount;
 
@@ -258,7 +278,7 @@ export async function createVendorQuote(
 
     deviations: input.deviations && input.deviations.length > 0 ? input.deviations : undefined,
 
-    status: (items.length > 0 ? 'UPLOADED' : 'DRAFT') as QuoteStatus,
+    status: (input.status ?? (items.length > 0 ? 'UPLOADED' : 'DRAFT')) as QuoteStatus,
     isRecommended: false,
 
     itemCount: items.length,
@@ -278,9 +298,13 @@ export async function createVendorQuote(
     const batch = writeBatch(db);
     items.forEach((item, idx) => {
       const itemRef = doc(collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS));
-      const amount = roundToPaisa(item.quantity * item.unitPrice);
-      const gstAmount =
-        item.gstRate !== undefined ? roundToPaisa(amount * (item.gstRate / 100)) : undefined;
+      const math = computeQuoteLineAmounts({
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        gstRate: item.gstRate,
+        discountType: item.discountType,
+        discountValue: item.discountValue,
+      });
 
       batch.set(
         itemRef,
@@ -304,9 +328,12 @@ export async function createVendorQuote(
           quantity: item.quantity,
           unit: item.unit,
           unitPrice: item.unitPrice,
-          amount,
+          amount: math.amount,
           gstRate: item.gstRate,
-          gstAmount,
+          gstAmount: math.gstAmount,
+          discountType: item.discountValue ? (item.discountType ?? 'PERCENT') : undefined,
+          discountValue: item.discountValue || undefined,
+          discountAmount: math.discountAmount || undefined,
 
           deliveryPeriod: item.deliveryPeriod,
           deliveryDate: dateToTimestamp(item.deliveryDate),
@@ -646,9 +673,13 @@ export async function addVendorQuoteItem(
 
   const existing = await getVendorQuoteItems(db, quoteId);
   const lineNumber = input.lineNumber ?? existing.length + 1;
-  const amount = roundToPaisa(input.quantity * input.unitPrice);
-  const gstAmount =
-    input.gstRate !== undefined ? roundToPaisa(amount * (input.gstRate / 100)) : undefined;
+  const math = computeQuoteLineAmounts({
+    quantity: input.quantity,
+    unitPrice: input.unitPrice,
+    gstRate: input.gstRate,
+    discountType: input.discountType,
+    discountValue: input.discountValue,
+  });
   const now = Timestamp.now();
 
   const itemData = stripUndefined({
@@ -671,9 +702,12 @@ export async function addVendorQuoteItem(
     quantity: input.quantity,
     unit: input.unit,
     unitPrice: input.unitPrice,
-    amount,
+    amount: math.amount,
     gstRate: input.gstRate,
-    gstAmount,
+    gstAmount: math.gstAmount,
+    discountType: input.discountValue ? (input.discountType ?? 'PERCENT') : undefined,
+    discountValue: input.discountValue || undefined,
+    discountAmount: math.discountAmount || undefined,
 
     deliveryPeriod: input.deliveryPeriod,
     deliveryDate: dateToTimestamp(input.deliveryDate),
@@ -710,6 +744,8 @@ export async function updateVendorQuoteItem(
       | 'unit'
       | 'unitPrice'
       | 'gstRate'
+      | 'discountType'
+      | 'discountValue'
       | 'notes'
       | 'vendorNotes'
       | 'materialId'
@@ -748,14 +784,22 @@ export async function updateVendorQuoteItem(
     if (v !== undefined) data[k] = v;
   }
 
+  // Recompute net amount / GST / discount from the merged values (rule 21).
   const qty = updates.quantity ?? current.quantity;
   const price = updates.unitPrice ?? current.unitPrice;
-  data.amount = roundToPaisa(qty * price);
-
   const gstRate = updates.gstRate ?? current.gstRate;
-  if (gstRate) {
-    data.gstAmount = roundToPaisa((data.amount as number) * (gstRate / 100));
-  }
+  const discountType = updates.discountType ?? current.discountType;
+  const discountValue = updates.discountValue ?? current.discountValue;
+  const math = computeQuoteLineAmounts({
+    quantity: qty,
+    unitPrice: price,
+    gstRate,
+    discountType,
+    discountValue,
+  });
+  data.amount = math.amount;
+  data.gstAmount = math.gstAmount ?? 0;
+  data.discountAmount = math.discountAmount;
 
   await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId), data);
   await recalculateQuoteTotals(db, current.quoteId, userId);
