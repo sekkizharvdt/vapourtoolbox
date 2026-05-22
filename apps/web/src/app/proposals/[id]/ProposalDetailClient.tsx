@@ -196,12 +196,28 @@ export default function ProposalDetailClient() {
     if (idx !== null) setActiveTab(idx);
   }, [pathname]);
 
+  const reloadProposal = async () => {
+    if (!db || !proposalId) return;
+    try {
+      const data = await getProposalById(db, proposalId);
+      if (data) setProposal(data);
+    } catch (err) {
+      logger.error('Error reloading proposal', { error: err });
+    }
+  };
+
   const handleTabChange = (next: number) => {
     setActiveTab(next);
     if (typeof window !== 'undefined' && proposalId) {
       const url = new URL(window.location.href);
       url.searchParams.set('tab', TAB_NAMES[next] ?? 'overview');
       window.history.replaceState(null, '', url.toString());
+    }
+    // Overview and Preview aggregate data edited in the other tabs (each
+    // editor loads + saves its own copy of the proposal). Re-fetch when
+    // landing on them so they don't show a stale in-memory total.
+    if (next === TAB_OVERVIEW || next === TAB_PREVIEW) {
+      void reloadProposal();
     }
   };
 
@@ -234,16 +250,6 @@ export default function ProposalDetailClient() {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-  };
-
-  const reloadProposal = async () => {
-    if (!db || !proposalId) return;
-    try {
-      const data = await getProposalById(db, proposalId);
-      if (data) setProposal(data);
-    } catch (err) {
-      logger.error('Error reloading proposal', { error: err });
-    }
   };
 
   const handleDownloadPDF = async (saveToStorage: boolean = false) => {
