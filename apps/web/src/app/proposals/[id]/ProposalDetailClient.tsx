@@ -213,12 +213,13 @@ export default function ProposalDetailClient() {
       url.searchParams.set('tab', TAB_NAMES[next] ?? 'overview');
       window.history.replaceState(null, '', url.toString());
     }
-    // Overview and Preview aggregate data edited in the other tabs (each
-    // editor loads + saves its own copy of the proposal). Re-fetch when
-    // landing on them so they don't show a stale in-memory total.
-    if (next === TAB_OVERVIEW || next === TAB_PREVIEW) {
-      void reloadProposal();
-    }
+    // Re-fetch on every tab switch. The header chips (status, quote
+    // currency, "pending with", work components) and the lock banner are
+    // visible on ALL tabs and read the parent proposal; the Overview /
+    // Preview tabs also aggregate data edited elsewhere. Each editor saves
+    // its own copy, so a fresh fetch on tab change keeps the header and
+    // summary views current regardless of which tab you land on.
+    void reloadProposal();
   };
 
   useEffect(() => {
