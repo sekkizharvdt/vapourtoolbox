@@ -474,6 +474,7 @@ export default function NewProcurementQuotePage() {
           };
           items: Array<{
             description: string;
+            specification?: string;
             itemType: 'MATERIAL' | 'SERVICE' | 'BOUGHT_OUT' | 'NOTE';
             quantity: number;
             unit: string;
@@ -539,6 +540,7 @@ export default function NewProcurementQuotePage() {
         const row = newRow({
           itemType: item.itemType,
           description: item.description,
+          ...(item.specification && { specification: item.specification }),
           quantity: item.quantity,
           unit: item.unit,
           unitPrice: item.unitPrice,
@@ -613,6 +615,7 @@ export default function NewProcurementQuotePage() {
         updated.gstRate = undefined;
         updated.discountType = undefined;
         updated.discountValue = undefined;
+        updated.specification = undefined;
       }
       next[index] = updated;
       return next;
@@ -1182,16 +1185,36 @@ export default function NewProcurementQuotePage() {
                           </TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={0.5} alignItems="flex-start">
-                              <TextField
-                                value={row.description}
-                                onChange={(e) =>
-                                  handleRowChange(index, 'description', e.target.value)
-                                }
-                                size="small"
-                                fullWidth
-                                multiline
-                                maxRows={3}
-                              />
+                              <Stack spacing={0.5} sx={{ flex: 1 }}>
+                                <TextField
+                                  value={row.description}
+                                  onChange={(e) =>
+                                    handleRowChange(index, 'description', e.target.value)
+                                  }
+                                  size="small"
+                                  fullWidth
+                                  multiline
+                                  maxRows={3}
+                                  placeholder="Item name"
+                                />
+                                {!isNote && (
+                                  <TextField
+                                    value={row.specification ?? ''}
+                                    onChange={(e) =>
+                                      handleRowChange(
+                                        index,
+                                        'specification',
+                                        e.target.value || undefined
+                                      )
+                                    }
+                                    size="small"
+                                    fullWidth
+                                    multiline
+                                    maxRows={4}
+                                    placeholder="Specification (size, rating, material, model…)"
+                                  />
+                                )}
+                              </Stack>
                               {!isNote && (
                                 <Tooltip
                                   title={

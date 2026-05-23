@@ -71,9 +71,15 @@ keyed off the row's `itemType`. `ServicePickerDialog` already exists.
 
 ---
 
-## Phase 4 — Description / Specification split + backfill (feedback 2.3)
+## Phase 4 — Description / Specification split (feedback 2.3)
 
-**Decision (per user): split + backfill.**
+**Decision (revised 2026-05-23, per user): additive split, NO bulk backfill.**
+The split is additive and safe; a heuristic bulk backfill of the 94 existing
+rows is unnecessary and risks overwriting good `description` data with a wrong
+guess (CLAUDE.md rule 31 — tiny, mostly-historical dataset). Old rows keep their
+single `description`; users can split name/spec via the Phase-3 edit form if they
+ever revisit a quote. Nothing downstream (Phase 5 codegen/dedup) requires the old
+rows to be split.
 
 **4.1 Schema** — add `specification?: string` to:
 
@@ -83,18 +89,21 @@ keyed off the row's `itemType`. `ServicePickerDialog` already exists.
 
 **4.2 Parser** — update the `parseQuote` PROMPT so `description` = the general
 item name (e.g. "Centrifugal Pump", "Motorized Control Valve") and
-`specification` = the detailed technical text. Map both through.
+`specification` = the detailed technical text. Map both through. (Side benefit:
+Phase-5 auto-create can then use the short `description` as the item name,
+addressing the long-name complaint.)
 
-**4.3 UI** — split the single Description column into **Description** +
-**Specification** on: the new-quote line-item table, the detail Add-Item /
-edit form, and the detail items table. Labels via `@vapour/constants`.
+**4.3 UI** — surface **Description** + **Specification** on: the new-quote
+line-item table (two inputs), the detail Add/Edit form (two fields), and the
+detail items table (spec shown under the description). Old rows render exactly
+as today (full text in Description, empty Specification). Labels via
+`@vapour/constants`.
 
-**4.4 Backfill (94 vendorQuoteItems)** — one-off script:
+**4.4 No backfill.** Existing rows are left untouched. If a one-off split is ever
+wanted later, the safe recipe (preserve original in `specification`, dry-run
+preview, JSON backup, idempotent) is recorded here but not built.
 
-- `specification` ← the original full `description` (the detailed text).
-- `description` ← the general name: the linked item's name when `linkedItemName`/`materialName` is set, else the text before the first comma/dash.
-- Items where the split is ambiguous are left for the user to fix via the new Phase-3 edit. Script lives in `scripts/`, run once after deploy; reports a per-row summary.
-- Effort: **L** (schema + parser + 3 UI surfaces + migration).
+Effort: **M** (schema + parser + 3 UI surfaces; no migration).
 
 This split feeds Phase 5: a clean general-name + spec improves both code
 generation and duplicate detection.

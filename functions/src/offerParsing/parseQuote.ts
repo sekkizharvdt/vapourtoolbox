@@ -51,7 +51,10 @@ type QuoteItemType = 'MATERIAL' | 'SERVICE' | 'BOUGHT_OUT' | 'NOTE';
 
 interface ParsedQuoteItem {
   lineNumber: number;
+  /** General item name only, e.g. "Centrifugal Pump", "Motorized Control Valve". */
   description: string;
+  /** Detailed technical specification text, kept separate from the name. */
+  specification?: string;
   /** Best-effort category guess from the description. The user can override. */
   itemType: QuoteItemType;
   quantity: number;
@@ -173,7 +176,8 @@ Return ONLY valid JSON in this exact shape (no prose before or after):
   "items": [
     {
       "lineNumber": 1,
-      "description": "exactly as the vendor wrote it",
+      "description": "the GENERAL item name only — e.g. Centrifugal Pump, Motorized Control Valve, Expansion Joint",
+      "specification": "the detailed technical spec text (size, rating, material, model, tag, etc.) or null",
       "itemType": "MATERIAL | SERVICE | BOUGHT_OUT | NOTE",
       "quantity": number,
       "unit": "NOS | KG | MTR | SET | LOT | EA | HR | DAY",
@@ -224,6 +228,7 @@ Return ONLY valid JSON in this exact shape (no prose before or after):
 
 Critical rules:
 1. ALWAYS include EVERY priced line from the document.
+1a. SPLIT each line's text into two fields: "description" = the short general item name (Centrifugal Pump, Motorized Control Valve, Expansion Joint, Pressure Gauge, etc.); "specification" = everything else (size, pressure rating, material/grade, end connection, model/tag numbers, make, technical detail). Put the GENERIC name in description and the DETAIL in specification. If a line has no separable detail, set specification to null. For NOTE rows, keep the text in description and set specification null.
 2. If validity is given as "30 days from offer date", compute the absolute date (DD/MM/YYYY) using vendorOfferDate.
 3. Per-line discounts: keep unitPrice as the vendor's LIST price and capture the discount separately on the SAME row. If the vendor shows a percentage ("10% off", "less 10%"), set discountType="PERCENT" and discountValue=10. If they show an absolute amount per line ("less Rs. 500"), set discountType="ABSOLUTE" and discountValue=500. If there's no per-line discount, set both to null. Do NOT emit a separate row and do NOT bake the discount into unitPrice.
 4. Footer discounts: emit a separate row with itemType "NOTE", description like "Discount – 5% on subtotal", quantity 1, unit "LOT", unitPrice = NEGATIVE value of the discount. Same for any "Less:" lines.
@@ -445,6 +450,8 @@ export const parseQuote = onCall(
       return {
         lineNumber: idx + 1,
         description: (item.description ?? '').trim() || `Line ${idx + 1}`,
+        ...(typeof item.specification === 'string' &&
+          item.specification.trim() && { specification: item.specification.trim() }),
         itemType,
         quantity: validQty,
         unit: (item.unit ?? 'NOS').toUpperCase(),

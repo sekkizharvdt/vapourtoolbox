@@ -215,7 +215,10 @@ export interface VendorQuoteItem {
 
   itemType: QuoteItemType;
   lineNumber: number;
+  /** General item name, e.g. "Centrifugal Pump", "Motorized Control Valve". */
   description: string;
+  /** Detailed technical specification text (optional; absent on pre-split rows). */
+  specification?: string;
 
   // --- Master-data links --------------------------------------------------
 

@@ -37,6 +37,10 @@ export const OFFER_COMMERCIAL_LABELS = {
 
 /** Labels for the vendor-quote line-item tables and the Log Quote form. */
 export const QUOTE_LINE_LABELS = {
+  /** General item name column / field label. */
+  description: 'Description',
+  /** Detailed technical specification column / field label. */
+  specification: 'Specification',
   /** Per-line discount column header / field label. */
   discount: 'Discount',
   /** Discount type selector (percentage vs absolute amount). */

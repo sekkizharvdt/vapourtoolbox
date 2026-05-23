@@ -103,6 +103,8 @@ export interface CreateVendorQuoteItemInput {
   itemType: QuoteItemType;
   lineNumber?: number;
   description: string;
+  /** Detailed technical spec, separate from the general-name description. */
+  specification?: string;
 
   materialId?: string;
   materialCode?: string;
@@ -315,6 +317,7 @@ export async function createVendorQuote(
           itemType: item.itemType,
           lineNumber: item.lineNumber ?? idx + 1,
           description: item.description,
+          specification: item.specification,
 
           materialId: item.materialId,
           materialCode: item.materialCode,
@@ -689,6 +692,7 @@ export async function addVendorQuoteItem(
     itemType: input.itemType,
     lineNumber,
     description: input.description,
+    specification: input.specification,
 
     materialId: input.materialId,
     materialCode: input.materialCode,
@@ -740,6 +744,7 @@ export async function updateVendorQuoteItem(
       VendorQuoteItem,
       | 'itemType'
       | 'description'
+      | 'specification'
       | 'quantity'
       | 'unit'
       | 'unitPrice'

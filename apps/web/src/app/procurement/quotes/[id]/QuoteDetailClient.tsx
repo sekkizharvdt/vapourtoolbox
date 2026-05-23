@@ -66,6 +66,11 @@ import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
 import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
 import { AcceptPriceDialog } from '../components/AcceptPriceDialog';
+import {
+  EditQuoteHeaderDialog,
+  type EditQuoteHeaderInput,
+} from '../components/EditQuoteHeaderDialog';
+import { offerStateMachine } from '@/lib/workflow/stateMachines';
 
 /** Normalized shape passed to the shared link writer, regardless of source picker. */
 interface LinkedItem {
@@ -74,11 +79,6 @@ interface LinkedItem {
   name: string;
   code: string;
 }
-import {
-  EditQuoteHeaderDialog,
-  type EditQuoteHeaderInput,
-} from '../components/EditQuoteHeaderDialog';
-import { offerStateMachine } from '@/lib/workflow/stateMachines';
 
 /**
  * Plain-text labels for the button face. Status names like UNDER_REVIEW
@@ -157,6 +157,7 @@ export default function QuoteDetailClient() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newItemType, setNewItemType] = useState<QuoteItemType>('MATERIAL');
   const [newDescription, setNewDescription] = useState('');
+  const [newSpecification, setNewSpecification] = useState('');
   const [newQuantity, setNewQuantity] = useState('');
   const [newUnit, setNewUnit] = useState('');
   const [newUnitPrice, setNewUnitPrice] = useState('');
@@ -220,6 +221,7 @@ export default function QuoteDetailClient() {
     setEditingItemId(null);
     setNewItemType('MATERIAL');
     setNewDescription('');
+    setNewSpecification('');
     setNewQuantity('');
     setNewUnit('');
     setNewUnitPrice('');
@@ -238,6 +240,7 @@ export default function QuoteDetailClient() {
     setEditingItemId(item.id);
     setNewItemType(item.itemType);
     setNewDescription(item.description ?? '');
+    setNewSpecification(item.specification ?? '');
     setNewQuantity(String(item.quantity ?? ''));
     setNewUnit(item.unit ?? '');
     setNewUnitPrice(String(item.unitPrice ?? ''));
@@ -274,6 +277,7 @@ export default function QuoteDetailClient() {
           {
             itemType: newItemType,
             description: newDescription.trim(),
+            specification: newSpecification.trim(),
             quantity: qty,
             unit: newUnit.trim(),
             unitPrice: price,
@@ -292,6 +296,7 @@ export default function QuoteDetailClient() {
           {
             itemType: newItemType,
             description: newDescription.trim(),
+            ...(newSpecification.trim() ? { specification: newSpecification.trim() } : {}),
             quantity: qty,
             unit: newUnit.trim(),
             unitPrice: price,
@@ -597,10 +602,11 @@ export default function QuoteDetailClient() {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Description"
+                  label={QUOTE_LINE_LABELS.description}
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   required
+                  helperText="General item name"
                 />
               </Grid>
               <Grid size={{ xs: 6, md: 1.5 }}>
@@ -670,6 +676,20 @@ export default function QuoteDetailClient() {
                   </Select>
                 </FormControl>
               </Grid>
+              {newItemType !== 'NOTE' && (
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={QUOTE_LINE_LABELS.specification}
+                    value={newSpecification}
+                    onChange={(e) => setNewSpecification(e.target.value)}
+                    multiline
+                    maxRows={4}
+                    helperText="Technical detail — size, rating, material, model, tag, etc."
+                  />
+                </Grid>
+              )}
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
@@ -748,7 +768,14 @@ export default function QuoteDetailClient() {
                         sx={{ minWidth: 32 }}
                       />
                     </TableCell>
-                    <TableCell>{item.description}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{item.description}</Typography>
+                      {item.specification && (
+                        <Typography variant="caption" color="text.secondary">
+                          {item.specification}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {item.linkedItemName ? (
                         <Box>
