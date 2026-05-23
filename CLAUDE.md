@@ -401,6 +401,16 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
     Before writing the new thing, grep for adjacent names (e.g. `*Quote*`, `*Offer*`, `*Permission*`, `formatCurrency`, `submitForApproval`) and read the matches. If the concept already exists, the work is "rename + extend the existing", not "add the new one alongside". This rule extends rule 16 (one implementation per function) to collections, routes, components, types, and services.
 
+## Deployment
+
+33. **Never run `firebase deploy` locally — deploys ship through CI.** Production deploys are handled by the GitHub Actions **"Deploy - Production"** workflow ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)), triggered manually (`workflow_dispatch`). It diffs against the last `prod-deployed` git tag and auto-selects targets from changed paths:
+    - `firestore.indexes.json` → Firestore indexes
+    - `functions/**` → Cloud Functions
+    - `apps/web/**`, `packages/**`, `firebase.json` → Hosting
+    - `firestore.rules` → rules; `storage.rules` → storage
+
+    CI (`ci.yml`) runs on every push to `main`/`develop` and builds the deploy artifact, but does NOT auto-deploy — deploy is a separate manual dispatch. After committing index/function/hosting changes, the correct statement is "ships on the next Deploy dispatch (auto-detected target)" — do **not** suggest or run a local `firebase deploy`, and don't treat the deploy as a manual TODO the developer must do by hand. Only mention manual deploy if the user explicitly asks to deploy outside CI.
+
 ## Data Dictionary — Key Collections
 
 | Collection                      | Entity-scoped              | Key Fields                                                                                                                                     | Written By                                             | Read By                                            |
