@@ -49,6 +49,7 @@ import {
   searchMaterials,
 } from '@/lib/materials/materialService';
 import { createMaterial } from '@/lib/materials/crud';
+import { rankByNameSimilarity } from '@/lib/catalog/similarity';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialVariantSelector from './MaterialVariantSelector';
 import PipingMaterialTable from './PipingMaterialTable';
@@ -134,6 +135,8 @@ export default function MaterialPickerDialog({
   const [createBaseUnit, setCreateBaseUnit] = useState('NOS');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // Possible-duplicate candidates surfaced before creating (5C — "always ask").
+  const [dupCandidates, setDupCandidates] = useState<Material[] | null>(null);
 
   // Derived: which groups are available based on the categories prop
   const availableGroups = useMemo(() => {
@@ -191,6 +194,7 @@ export default function MaterialPickerDialog({
       setShowCreate(false);
       setCreateError(null);
       setCreating(false);
+      setDupCandidates(null);
       setCreateName(createDefaults?.name ?? '');
       setCreateDescription(createDefaults?.description ?? '');
       setCreateCategory(createDefaults?.category ?? '');
@@ -383,7 +387,7 @@ export default function MaterialPickerDialog({
 
   const showingDetail = isPipingMode ? !!selectedFamily : !!selectedMaterial;
 
-  const handleCreate = async () => {
+  const handleCreate = async (force = false) => {
     if (!user?.uid || !db) {
       setCreateError('You must be signed in to create a material.');
       return;
@@ -399,6 +403,28 @@ export default function MaterialPickerDialog({
     if (!createGrade.trim()) {
       setCreateError('Grade is required (used to generate the material code).');
       return;
+    }
+    // Duplicate gate (5C — "always ask"): look for existing same-category
+    // materials with a similar name and let the user reuse one before creating.
+    if (!force) {
+      try {
+        const { materials: sameCategory } = await queryMaterials(db, {
+          categories: [createCategory as MaterialCategory],
+          limitResults: 200,
+        });
+        const similar = rankByNameSimilarity(
+          sameCategory.filter((m) => m.isActive !== false),
+          (m) => m.name,
+          createName.trim()
+        ).map((c) => c.item);
+        if (similar.length > 0) {
+          setDupCandidates(similar);
+          return;
+        }
+      } catch (err) {
+        // Non-fatal: if the lookup fails, fall through to create (don't block).
+        console.warn('[MaterialPickerDialog] duplicate check failed', err);
+      }
     }
     setCreating(true);
     setCreateError(null);
@@ -475,7 +501,43 @@ export default function MaterialPickerDialog({
         )}
       </DialogTitle>
       <DialogContent>
-        {showCreate ? (
+        {showCreate && dupCandidates ? (
+          /* Possible-duplicate gate (5C) — surfaced before creating. */
+          <Stack spacing={1} sx={{ pt: 1 }}>
+            <Alert severity="warning">
+              {dupCandidates.length === 1
+                ? 'A similar material already exists. Use it instead of creating a duplicate?'
+                : `${dupCandidates.length} similar materials already exist. Use one instead of creating a duplicate?`}
+            </Alert>
+            <List sx={{ maxHeight: 360, overflow: 'auto' }}>
+              {dupCandidates.map((m) => (
+                <ListItem key={m.id} disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      onSelect(m, undefined, m.materialCode);
+                      onClose();
+                    }}
+                    sx={{ borderRadius: 1, mb: 0.5 }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                        >
+                          <Typography variant="body2" fontWeight="medium" fontFamily="monospace">
+                            {m.materialCode}
+                          </Typography>
+                          <Chip label={m.category} size="small" variant="outlined" />
+                        </Box>
+                      }
+                      secondary={m.name}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Stack>
+        ) : showCreate ? (
           /* Inline create form — minimum required fields. The full Materials
              page is the place to set properties, variants, vendor links, etc. */
           <Stack spacing={2} sx={{ pt: 1 }}>
@@ -896,12 +958,29 @@ export default function MaterialPickerDialog({
         )}
       </DialogContent>
       <DialogActions>
-        {showCreate ? (
+        {showCreate && dupCandidates ? (
+          <>
+            <Button onClick={() => setDupCandidates(null)} disabled={creating}>
+              Back to edit
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={() => {
+                setDupCandidates(null);
+                void handleCreate(true);
+              }}
+              disabled={creating}
+            >
+              {creating ? 'Creating…' : 'Create new anyway'}
+            </Button>
+          </>
+        ) : showCreate ? (
           <>
             <Button onClick={() => setShowCreate(false)} disabled={creating}>
               Cancel
             </Button>
-            <Button variant="contained" onClick={handleCreate} disabled={creating}>
+            <Button variant="contained" onClick={() => handleCreate()} disabled={creating}>
               {creating ? 'Creating…' : 'Create & Use'}
             </Button>
           </>
