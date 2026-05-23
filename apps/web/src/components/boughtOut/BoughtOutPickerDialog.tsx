@@ -41,6 +41,7 @@ import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { listBoughtOutItems, createBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 import { getFriendlyQueryError } from '@/lib/utils/errorHandling';
+import { rankByNameSimilarity } from '@/lib/catalog/similarity';
 
 interface BoughtOutPickerDialogProps {
   open: boolean;
@@ -89,6 +90,9 @@ export default function BoughtOutPickerDialog({
   const [createSpec, setCreateSpec] = useState('');
   const [createPrice, setCreatePrice] = useState('');
   const [createCurrency, setCreateCurrency] = useState<CurrencyCode>('INR');
+  // Possible-duplicate candidates surfaced before creating (5C — "always ask").
+  // Non-null means the confirm panel is showing; the user picks one or proceeds.
+  const [dupCandidates, setDupCandidates] = useState<BoughtOutItem[] | null>(null);
 
   // Reset state on open and re-apply external category hint.
   useEffect(() => {
@@ -104,11 +108,12 @@ export default function BoughtOutPickerDialog({
       setCreateSpec('');
       setCreatePrice('');
       setCreateCurrency('INR');
+      setDupCandidates(null);
       setCategoryFilter(category ?? 'ALL');
     }
   }, [open, category]);
 
-  const handleCreate = async () => {
+  const handleCreate = async (force = false) => {
     if (!user?.uid) {
       setCreateError('You must be signed in to create a bought-out item.');
       return;
@@ -116,6 +121,19 @@ export default function BoughtOutPickerDialog({
     if (!createName.trim()) {
       setCreateError('Name is required.');
       return;
+    }
+    // Duplicate gate: unless the user already chose "create anyway", look for
+    // existing same-category items with a similar name and ask first.
+    if (!force) {
+      const similar = rankByNameSimilarity(
+        items.filter((i) => i.category === createCategory),
+        (i) => i.name,
+        createName.trim()
+      ).map((c) => c.item);
+      if (similar.length > 0) {
+        setDupCandidates(similar);
+        return;
+      }
     }
     setCreating(true);
     setCreateError(null);
@@ -219,7 +237,50 @@ export default function BoughtOutPickerDialog({
         )}
       </DialogTitle>
       <DialogContent>
-        {showCreate ? (
+        {showCreate && dupCandidates ? (
+          /* Possible-duplicate gate (5C) — surfaced before creating. */
+          <Stack spacing={1} sx={{ pt: 1 }}>
+            <Alert severity="warning">
+              {dupCandidates.length === 1
+                ? 'A similar item already exists. Use it instead of creating a duplicate?'
+                : `${dupCandidates.length} similar items already exist. Use one instead of creating a duplicate?`}
+            </Alert>
+            <List sx={{ maxHeight: 360, overflow: 'auto' }}>
+              {dupCandidates.map((item) => (
+                <ListItem key={item.id} disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      onSelect(item);
+                      onClose();
+                    }}
+                    sx={{ borderRadius: 1, mb: 0.5 }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                        >
+                          <Typography variant="body2" fontWeight="medium">
+                            {item.itemCode}
+                          </Typography>
+                          <Chip
+                            label={BOUGHT_OUT_CATEGORY_LABELS[item.category] ?? item.category}
+                            size="small"
+                            variant="outlined"
+                          />
+                          {item.needsReview && (
+                            <Chip label="Needs review" size="small" color="warning" />
+                          )}
+                        </Box>
+                      }
+                      secondary={item.name}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Stack>
+        ) : showCreate ? (
           /* Inline create — minimum fields; refine specs later on the Bought-Out page. */
           <Stack spacing={2} sx={{ pt: 1 }}>
             {createError && <Alert severity="error">{createError}</Alert>}
@@ -401,12 +462,29 @@ export default function BoughtOutPickerDialog({
         )}
       </DialogContent>
       <DialogActions>
-        {showCreate ? (
+        {showCreate && dupCandidates ? (
+          <>
+            <Button onClick={() => setDupCandidates(null)} disabled={creating}>
+              Back to edit
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={() => {
+                setDupCandidates(null);
+                void handleCreate(true);
+              }}
+              disabled={creating}
+            >
+              {creating ? 'Creating…' : 'Create new anyway'}
+            </Button>
+          </>
+        ) : showCreate ? (
           <>
             <Button onClick={() => setShowCreate(false)} disabled={creating}>
               Cancel
             </Button>
-            <Button variant="contained" onClick={handleCreate} disabled={creating}>
+            <Button variant="contained" onClick={() => handleCreate()} disabled={creating}>
               {creating ? 'Creating…' : 'Create & Use'}
             </Button>
           </>
