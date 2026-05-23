@@ -49,6 +49,7 @@ import {
   Search as SearchIcon,
   Home as HomeIcon,
   BookmarkAdded as StandingIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,7 +57,7 @@ import { getFirebase } from '@/lib/firebase';
 import type { VendorQuote, QuoteStatus, QuoteSourceType } from '@vapour/types';
 import { listVendorQuotes } from '@/lib/vendorQuotes/vendorQuoteService';
 import { softDeleteVendorQuote } from '@/lib/procurement/procurementDeleteService';
-import { canManageEstimation, canManageProcurement } from '@vapour/constants';
+import { canManageEstimation, canManageProcurement, QUOTE_STATUS_LABELS } from '@vapour/constants';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' | 'warning'>> = {
@@ -106,6 +107,14 @@ export default function QuotesListPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'ALL' | QuoteSourceType>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | QuoteStatus>('ALL');
+
+  const hasActiveFilters = searchTerm !== '' || sourceFilter !== 'ALL' || statusFilter !== 'ALL';
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSourceFilter('ALL');
+    setStatusFilter('ALL');
+  };
 
   const canManage = claims?.permissions ? canManageEstimation(claims.permissions) : false;
   const canDelete = claims?.permissions ? canManageProcurement(claims.permissions) : false;
@@ -172,6 +181,7 @@ export default function QuotesListPage() {
 
   const filtered = quotes.filter((q) => {
     if (sourceFilter !== 'ALL' && q.sourceType !== sourceFilter) return false;
+    if (statusFilter !== 'ALL' && q.status !== statusFilter) return false;
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return q.number.toLowerCase().includes(term) || q.vendorName.toLowerCase().includes(term);
@@ -227,6 +237,28 @@ export default function QuotesListPage() {
           </Select>
         </FormControl>
 
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(e) => setStatusFilter(e.target.value as 'ALL' | QuoteStatus)}
+          >
+            <MenuItem value="ALL">All Statuses</MenuItem>
+            {(Object.keys(QUOTE_STATUS_LABELS) as QuoteStatus[]).map((s) => (
+              <MenuItem key={s} value={s}>
+                {QUOTE_STATUS_LABELS[s]}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {hasActiveFilters && (
+          <Button variant="text" size="small" startIcon={<ClearIcon />} onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+
         <Box sx={{ flexGrow: 1 }} />
 
         {canManage && (
@@ -255,8 +287,8 @@ export default function QuotesListPage() {
         <EmptyState
           title="No quotes found"
           message={
-            searchTerm || sourceFilter !== 'ALL'
-              ? 'Try adjusting your search or filter.'
+            hasActiveFilters
+              ? 'Try adjusting your search or filters.'
               : 'Log your first vendor quote to start tracking prices.'
           }
         />
@@ -303,7 +335,7 @@ export default function QuotesListPage() {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={q.status}
+                        label={QUOTE_STATUS_LABELS[q.status] ?? q.status}
                         size="small"
                         color={STATUS_COLORS[q.status] ?? 'default'}
                       />

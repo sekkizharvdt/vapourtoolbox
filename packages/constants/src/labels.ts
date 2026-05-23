@@ -48,6 +48,19 @@ export const QUOTE_LINE_LABELS = {
   saveAsDraft: 'Save as Draft',
 } as const;
 
+/** Friendly labels for the `QuoteStatus` lifecycle — chips and the dashboard filter. */
+export const QUOTE_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  UPLOADED: 'Uploaded',
+  UNDER_REVIEW: 'Under Review',
+  EVALUATED: 'Evaluated',
+  SELECTED: 'Selected',
+  PO_CREATED: 'PO Created',
+  REJECTED: 'Rejected',
+  WITHDRAWN: 'Withdrawn',
+  ARCHIVED: 'Archived',
+} as const;
+
 // ============================================================================
 // PROCUREMENT — payment lifecycle (review #36)
 // ============================================================================

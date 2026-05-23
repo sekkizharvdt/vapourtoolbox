@@ -35,6 +35,8 @@ import {
   CheckCircle as AcceptedIcon,
   PriceCheck as AcceptPriceIcon,
   Edit as EditIcon,
+  InsertDriveFile as FileIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -88,6 +90,24 @@ function formatDate(ts: unknown): string {
   }
   if (ts instanceof Date) return ts.toLocaleDateString('en-IN');
   return '-';
+}
+
+/**
+ * Derive a readable label for a supporting-document URL. `additionalDocuments`
+ * stores Firebase Storage download URLs only (no filename), so we recover the
+ * original name from the encoded storage path, falling back to a generic label.
+ */
+function attachmentLabel(url: string, index: number): string {
+  try {
+    const path = decodeURIComponent(new URL(url).pathname);
+    const last = path.split('/').pop() ?? '';
+    // Staging paths are `<timestamp>_<originalName>` — strip the timestamp prefix.
+    const name = last.replace(/^\d+_/, '');
+    if (name) return name;
+  } catch {
+    // Malformed URL — fall through to the generic label.
+  }
+  return `Attachment ${index + 1}`;
 }
 
 export default function QuoteDetailClient() {
@@ -421,6 +441,35 @@ export default function QuoteDetailClient() {
         <Box sx={{ mb: 3 }}>
           <PdfViewer url={offer.fileUrl} fileName={offer.fileName} />
         </Box>
+      )}
+
+      {/* Supporting documents — extra attachments captured on the quote form,
+          separate from the primary (parsed) document above. */}
+      {offer.additionalDocuments && offer.additionalDocuments.length > 0 && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+              {QUOTE_LINE_LABELS.supportingDocuments} ({offer.additionalDocuments.length})
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {offer.additionalDocuments.map((url, i) => (
+                <Button
+                  key={url}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FileIcon fontSize="small" />}
+                  endIcon={<OpenInNewIcon fontSize="small" />}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ textTransform: 'none' }}
+                >
+                  {attachmentLabel(url, i)}
+                </Button>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
       )}
 
       {/* Line Items */}
