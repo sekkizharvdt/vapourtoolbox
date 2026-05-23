@@ -153,6 +153,8 @@ export default function QuoteDetailClient() {
 
   // Add item form
   const [showAddForm, setShowAddForm] = useState(false);
+  // Non-null when the form is editing an existing row rather than adding a new one.
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newItemType, setNewItemType] = useState<QuoteItemType>('MATERIAL');
   const [newDescription, setNewDescription] = useState('');
   const [newQuantity, setNewQuantity] = useState('');
@@ -212,7 +214,41 @@ export default function QuoteDetailClient() {
     if (offerId) loadData();
   }, [offerId, loadData]);
 
-  const handleAddItem = async () => {
+  // Clear the line-item form fields and exit edit mode. Does not toggle the
+  // form's visibility — callers decide whether to show or hide it.
+  const resetItemForm = () => {
+    setEditingItemId(null);
+    setNewItemType('MATERIAL');
+    setNewDescription('');
+    setNewQuantity('');
+    setNewUnit('');
+    setNewUnitPrice('');
+    setNewGstRate('');
+    setNewDiscountValue('');
+    setNewDiscountType('PERCENT');
+    setNewNotes('');
+  };
+
+  const handleStartAdd = () => {
+    resetItemForm();
+    setShowAddForm(true);
+  };
+
+  const handleStartEdit = (item: VendorQuoteItem) => {
+    setEditingItemId(item.id);
+    setNewItemType(item.itemType);
+    setNewDescription(item.description ?? '');
+    setNewQuantity(String(item.quantity ?? ''));
+    setNewUnit(item.unit ?? '');
+    setNewUnitPrice(String(item.unitPrice ?? ''));
+    setNewGstRate(item.gstRate != null ? String(item.gstRate) : '');
+    setNewDiscountValue(item.discountValue != null ? String(item.discountValue) : '');
+    setNewDiscountType(item.discountType ?? 'PERCENT');
+    setNewNotes(item.notes ?? '');
+    setShowAddForm(true);
+  };
+
+  const handleSaveItem = async () => {
     if (!offerId) return;
     const qty = parseFloat(newQuantity);
     const price = parseFloat(newUnitPrice);
@@ -229,37 +265,51 @@ export default function QuoteDetailClient() {
 
     try {
       setAddingItem(true);
-      await addVendorQuoteItem(
-        db,
-        offerId,
-        {
-          itemType: newItemType,
-          description: newDescription.trim(),
-          quantity: qty,
-          unit: newUnit.trim(),
-          unitPrice: price,
-          ...(newGstRate ? { gstRate: parseFloat(newGstRate) } : {}),
-          ...(newDiscountValue
-            ? { discountValue: parseFloat(newDiscountValue), discountType: newDiscountType }
-            : {}),
-          ...(newNotes.trim() ? { notes: newNotes.trim() } : {}),
-        },
-        user!.uid,
-        claims?.permissions ?? 0
-      );
-      // Reset form
-      setNewDescription('');
-      setNewQuantity('');
-      setNewUnit('');
-      setNewUnitPrice('');
-      setNewGstRate('');
-      setNewDiscountValue('');
-      setNewDiscountType('PERCENT');
-      setNewNotes('');
+      if (editingItemId) {
+        // Edit: pass explicit values so clearing GST/discount actually clears
+        // them (0). updateVendorQuoteItem recomputes amount/gst/discount.
+        await updateVendorQuoteItem(
+          db,
+          editingItemId,
+          {
+            itemType: newItemType,
+            description: newDescription.trim(),
+            quantity: qty,
+            unit: newUnit.trim(),
+            unitPrice: price,
+            gstRate: newGstRate.trim() === '' ? 0 : parseFloat(newGstRate) || 0,
+            discountValue: newDiscountValue.trim() === '' ? 0 : parseFloat(newDiscountValue) || 0,
+            discountType: newDiscountType,
+            notes: newNotes.trim(),
+          },
+          user!.uid,
+          claims?.permissions ?? 0
+        );
+      } else {
+        await addVendorQuoteItem(
+          db,
+          offerId,
+          {
+            itemType: newItemType,
+            description: newDescription.trim(),
+            quantity: qty,
+            unit: newUnit.trim(),
+            unitPrice: price,
+            ...(newGstRate ? { gstRate: parseFloat(newGstRate) } : {}),
+            ...(newDiscountValue
+              ? { discountValue: parseFloat(newDiscountValue), discountType: newDiscountType }
+              : {}),
+            ...(newNotes.trim() ? { notes: newNotes.trim() } : {}),
+          },
+          user!.uid,
+          claims?.permissions ?? 0
+        );
+      }
+      resetItemForm();
       setShowAddForm(false);
       await loadData();
     } catch (err) {
-      console.error('Error adding item:', err);
+      console.error('Error saving item:', err);
     } finally {
       setAddingItem(false);
     }
@@ -513,24 +563,19 @@ export default function QuoteDetailClient() {
             />
           )}
         </Typography>
-        {canManage && (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => setShowAddForm(true)}
-          >
+        {canManage && !offerStateMachine.isTerminal(offer.status) && (
+          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleStartAdd}>
             Add Item
           </Button>
         )}
       </Box>
 
-      {/* Add Item Form */}
+      {/* Add / Edit Item Form */}
       {showAddForm && (
         <Card sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2" sx={{ mb: 2 }}>
-              New Line Item
+              {editingItemId ? 'Edit Line Item' : 'New Line Item'}
             </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 2 }}>
@@ -544,6 +589,7 @@ export default function QuoteDetailClient() {
                     <MenuItem value="MATERIAL">Material</MenuItem>
                     <MenuItem value="SERVICE">Service</MenuItem>
                     <MenuItem value="BOUGHT_OUT">Bought Out</MenuItem>
+                    <MenuItem value="NOTE">Note / Charge</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -635,16 +681,28 @@ export default function QuoteDetailClient() {
               </Grid>
             </Grid>
             <Box sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-              <Button size="small" onClick={() => setShowAddForm(false)}>
+              <Button
+                size="small"
+                onClick={() => {
+                  resetItemForm();
+                  setShowAddForm(false);
+                }}
+              >
                 Cancel
               </Button>
               <Button
                 size="small"
                 variant="contained"
-                onClick={handleAddItem}
+                onClick={handleSaveItem}
                 disabled={addingItem}
               >
-                {addingItem ? 'Adding...' : 'Add'}
+                {addingItem
+                  ? editingItemId
+                    ? 'Saving...'
+                    : 'Adding...'
+                  : editingItemId
+                    ? 'Save'
+                    : 'Add'}
               </Button>
             </Box>
           </CardContent>
@@ -738,18 +796,27 @@ export default function QuoteDetailClient() {
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                         {canManage && (
                           <>
-                            <Tooltip title={item.linkedItemName ? 'Re-link' : 'Link to item'}>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleLinkItem(item.id, item.itemType)}
-                              >
-                                {item.linkedItemName ? (
-                                  <LinkIcon fontSize="small" />
-                                ) : (
-                                  <LinkOffIcon fontSize="small" />
-                                )}
-                              </IconButton>
-                            </Tooltip>
+                            {!offerStateMachine.isTerminal(offer.status) && (
+                              <Tooltip title="Edit line item">
+                                <IconButton size="small" onClick={() => handleStartEdit(item)}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {item.itemType !== 'NOTE' && (
+                              <Tooltip title={item.linkedItemName ? 'Re-link' : 'Link to item'}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleLinkItem(item.id, item.itemType)}
+                                >
+                                  {item.linkedItemName ? (
+                                    <LinkIcon fontSize="small" />
+                                  ) : (
+                                    <LinkOffIcon fontSize="small" />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+                            )}
                             {item.priceAccepted ? (
                               <Tooltip title="Price accepted">
                                 <AcceptedIcon fontSize="small" color="success" sx={{ ml: 0.5 }} />
