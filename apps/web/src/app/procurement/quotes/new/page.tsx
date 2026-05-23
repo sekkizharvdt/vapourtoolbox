@@ -679,7 +679,8 @@ export default function NewProcurementQuotePage() {
       next[pickerRowIndex] = {
         ...row,
         boughtOutItemId: item.id,
-        linkedItemCode: item.specCode || item.itemCode,
+        // Show the short itemCode (BO-YYYY-NNNN); specCode is an internal match key (5A).
+        linkedItemCode: item.itemCode,
         linkedItemName: item.name,
         // Clear AI-resolution flags; user has manually linked.
         linkStatus: 'linked',

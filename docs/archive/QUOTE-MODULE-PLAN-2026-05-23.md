@@ -112,32 +112,48 @@ generation and duplicate detection.
 
 ## Phase 5 — Material / Bought-Out module (feedback 3.x)
 
-**5.1 AI + manual material creation parity (feedback 1.1, 3.1)**
+**Approved design (2026-05-23): "AI proposes, the human disposes."** Nothing
+reaches the catalog without a person confirming it, and there is **one create
+path** with a duplicate check on it. This replaces the earlier auto-create
+approach. Root cause of the 67% duplicates: the parser's `boughtOutResolver`
+matches on an _exact_ `specCode` string, so trivial wording differences
+(`SS316` vs `SS316L`, `PN10-16/CL150` vs `/CLASS150`) miss and spawn a new
+entry. Key lever: the resolver already has a `canAutoCreate` flag — when
+`false` it keeps the exact-match auto-**link** but returns "needs linking"
+instead of creating. `parseQuote` currently hard-codes it `true`.
 
-- Today the parser auto-creates **bought-out** items only; MATERIAL lines are manual-pick, so manually-picked-but-not-in-catalog items never land in the DB.
-- Build: when the parser classifies a line as MATERIAL with enough detail, auto-create a Material (`needsReview: true`) and link it — reusing the existing [materialResolver.ts](functions/src/documentParsing/materialResolver.ts) from PR parsing (rule 32, don't write a parallel), but routing its code through `generateMaterialCode` instead of the `RV-{ts}` stub codes.
-- Effort: **M-L**.
+**5A — Display the short code, hide the long one (feedback 3.3).**
 
-**5.2 Similarity / dedup before creating a new code (feedback 3.2)** — _highest value_
+- New items created through the normal path get the short `BO-YYYY-NNNN` `itemCode`; the long `specCode` becomes an internal **match key**, never shown.
+- Surface `itemCode` everywhere a bought-out code is displayed; stop showing `specCode` in the pickers / quote line / detail.
+- Legacy note: the 62 parser-auto-created items currently store the _long_ specCode as their `itemCode` too — they keep it (no migration). Only new items are clean. Material codes (`PL-SS-304`) are already short.
+- Effort: **S** (display only). Lowest risk — do first.
 
-- This is the documented 67%-duplicate problem.
-- Build a `findSimilar` step invoked at both AI-resolve time and manual Create-New time:
-  - **Bought-out:** compute the candidate `specCode`, then query for existing items matching the _major_ axes (category + type + material + size) while ignoring _minor_ axes (rating / end / operation). Surface matches.
-  - **Material:** match on category + material + grade (and fuzzy name).
-- UX (decided 2026-05-23, per user): **Always ask — never auto-link.** Whenever `findSimilar` returns any candidate above the similarity threshold, stop and show a confirmation dialog listing the match(es): the user picks **"Use this existing item"** or **"Create new anyway."** This applies to both the manual Create-New path and the AI-parse path (AI surfaces the possible match for the user to confirm before any new code is created). No silent auto-reuse — keeps a human in the loop on every potential duplicate, matching the feedback ("highlight the similarity to the user for review and confirmation before creating a new material code").
-- Effort: **L** (service + confirmation dialog + wire into both create paths).
+**5B — Parser: link-or-flag, never create (feedback 3.1, kills the dup generator).**
 
-**5.3 Simplify the displayed code (feedback 3.3)**
-
-- bought_out_items already carry BOTH a short `itemCode` (e.g. `INST-PI-0002`) and the long deterministic `specCode` (e.g. `VLV-CHECK_DUAL_PLATE-SS316-DN200-PN10-16/CLASS150-FLG-SA`). The screenshots show the long `specCode`.
-- Decision: **display `itemCode` everywhere; keep `specCode` internal** for matching/dedup only. Verify `itemCode` is always generated (short, sequential per category). Material codes (`PL-SS-304`) are already short — no change.
-- Effort: **S-M** (display audit + ensure itemCode generation).
-
-**5.4 "Needs Review" + edit for all AI-parsed items (feedback 3.4, 3.5)**
-
-- Infra already exists: `/materials/needs-review`, `/materials/[id]/edit`, `/bought-out?reviewOnly=true`, inline edit on `BoughtOutDetailClient`. All 62 bought-out are `needsReview`; 5 materials are.
-- Build: ensure every AI-created item (incl. Phase-5.1 materials) is flagged `needsReview: true`, and surface the edit affordance clearly. Confirm manual (non-review) items are editable too (they are). Mostly verification + flag-consistency, not new infrastructure.
+- Flip `canAutoCreate` to `false` in `parseQuote`. Exact spec match → auto-link (reuse, no dupe); no match → line flagged `manual-needed` for the user to link/create. Same stance for materials (already manual-pick).
+- Deletes the silent duplicate generator with a near-one-line change. Keep the structured spec extraction (needed for pre-suggesting matches + the 5C match key).
+- Pre-suggest convenience: a flagged line still carries the parser's best-guess so the picker can pre-highlight it (one-click confirm) — never auto-applied.
 - Effort: **S-M**.
+
+**5C — `findSimilar` + "always ask" confirmation on the one create path (feedback 3.2)** — _the main build_
+
+- All creation now flows through the picker's **Create New** (materials/services/bought-out — all have it after Phase 2). Before creating, run `findSimilar`:
+  - **Bought-out:** normalized match on major axes (category + type + material + size), tolerant of minor formatting (rating / end / operation; `CL150`=`CLASS150`=`150#`).
+  - **Material:** category + material + grade + fuzzy name.
+- UX: **Always ask — never auto-reuse.** Any candidate → dialog _"This looks like the existing **X** — use it, or create new anyway?"_ User decides. Kept simple (normalized field match, no fuzzy-string/ML).
+- Effort: **M-L** (one `findSimilar` service + one confirmation dialog + wire into Create-New).
+
+**5D — Review/edit coverage (feedback 3.4, 3.5).**
+
+- With auto-create gone, the `needsReview` backlog stops growing. Manual creates are still flagged `needsReview`; existing queues (`/materials/needs-review`, `/bought-out?reviewOnly=true`) + edit pages cover them. Mostly verification + flag-consistency, not new infrastructure.
+- Effort: **S**.
+
+**Dropped:** the original "5.1 auto-create materials" — we're going the opposite
+(better) direction. **Trade-off:** equipment-heavy quotes need a per-line
+confirm instead of silent creation; mitigated by 5B's pre-suggest (most lines
+are one-click). Existing 62 legacy bought-out dupes are left as-is (no
+migration); a future cleanup could merge them but is out of scope.
 
 ---
 

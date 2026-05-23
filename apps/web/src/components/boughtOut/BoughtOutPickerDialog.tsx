@@ -368,14 +368,7 @@ export default function BoughtOutPickerDialog({
                             <Typography variant="body2" fontWeight="medium">
                               {item.itemCode}
                             </Typography>
-                            {item.specCode && (
-                              <Chip
-                                label={item.specCode}
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                              />
-                            )}
+                            {/* specCode is an internal match key — not shown (5A). */}
                             <Chip
                               label={BOUGHT_OUT_CATEGORY_LABELS[item.category] ?? item.category}
                               size="small"
