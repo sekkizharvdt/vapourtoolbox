@@ -19,8 +19,6 @@ import {
   Science as TestIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { useSearchParams, useRouter } from 'next/navigation';
-
 import CalculatorSidebar from '@/components/shapes/calculator/CalculatorSidebar';
 import CalculationResults from '@/components/shapes/CalculationResults';
 import FormulaTester from '@/components/shapes/FormulaTester';
@@ -32,8 +30,6 @@ import { useToast } from '@/components/common/Toast';
 type CalculationResult = Record<string, unknown>;
 
 export default function ShapeCalculatorPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   // State management
@@ -108,7 +104,11 @@ export default function ShapeCalculatorPage() {
     return () => clearTimeout(timer);
   }, [performCalculation]);
 
-  // URL state management - sync state to URL
+  // URL state management - sync state to URL for shareable links.
+  // Uses history.replaceState (NOT router.replace) so updating the query string
+  // does not trigger a Next.js navigation. router.replace re-focuses the page root
+  // for accessibility on every call, which scrolls the viewport to the top on each
+  // keystroke. history.replaceState updates the URL bar with no navigation side effects.
   useEffect(() => {
     const params = new URLSearchParams();
 
@@ -122,19 +122,15 @@ export default function ShapeCalculatorPage() {
       params.set('params', JSON.stringify(parameterValues));
     }
 
-    const newUrl = params.toString() ? `?${params.toString()}` : '';
-    if (newUrl !== `?${searchParams.toString()}`) {
-      router.replace(`/dashboard/shapes/calculator${newUrl}`, { scroll: false });
+    const query = params.toString();
+    if (query !== window.location.search.replace(/^\?/, '')) {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `/dashboard/shapes/calculator${query ? `?${query}` : ''}`
+      );
     }
-  }, [
-    selectedCategory,
-    selectedShape,
-    selectedMaterial,
-    parameterValues,
-    quantity,
-    router,
-    searchParams,
-  ]);
+  }, [selectedCategory, selectedShape, selectedMaterial, parameterValues, quantity]);
 
   // Handlers
   const handleCategoryChange = (category: string | null) => {
@@ -171,7 +167,7 @@ export default function ShapeCalculatorPage() {
     setQuantity(1);
     setCalculationResult(null);
     setError(null);
-    router.replace('/dashboard/shapes/calculator', { scroll: false });
+    // The URL-sync effect clears the query string once the state resets above.
   };
 
   const handleSave = async () => {
