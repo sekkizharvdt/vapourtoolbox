@@ -155,6 +155,9 @@ export default function BoughtOutPickerDialog({
           currency: createCurrency,
         },
         ...(createSpec.trim() && { description: createSpec.trim() }),
+        // Quick mid-quote create captures minimal spec — flag for later refinement
+        // on the Bought-Out page (surfaces in the needs-review queue). 5D.
+        needsReview: true,
       };
       const created = await createBoughtOutItem(db, input, user.uid);
       onSelect(created);

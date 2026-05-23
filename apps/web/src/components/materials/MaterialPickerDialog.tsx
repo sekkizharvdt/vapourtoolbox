@@ -454,6 +454,8 @@ export default function MaterialPickerDialog({
         tags: [],
         isActive: true,
         isStandard: false,
+        // Quick mid-quote create — flag for later refinement (needs-review queue). 5D.
+        needsReview: true,
         ...(tenantId && { tenantId }),
       };
       const created = await createMaterial(db, materialData, user.uid);

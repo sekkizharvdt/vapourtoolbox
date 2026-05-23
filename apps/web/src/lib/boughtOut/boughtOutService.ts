@@ -95,6 +95,7 @@ export async function createBoughtOutItem(
     category: input.category,
     tenantId: input.tenantId,
     specifications: input.specifications,
+    ...(input.needsReview && { needsReview: true }),
     isActive: true,
     createdAt: now,
     createdBy: userId,

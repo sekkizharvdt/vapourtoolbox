@@ -525,6 +525,8 @@ export interface CreateBoughtOutItemInput {
   attachments?: BoughtOutItem['attachments'];
   tags?: string[];
   projectId?: string;
+  /** Flag for human review — set by quick mid-quote creates that capture minimal spec. */
+  needsReview?: boolean;
 }
 
 /**
