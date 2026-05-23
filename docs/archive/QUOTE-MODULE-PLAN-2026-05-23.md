@@ -124,8 +124,8 @@ generation and duplicate detection.
 - Build a `findSimilar` step invoked at both AI-resolve time and manual Create-New time:
   - **Bought-out:** compute the candidate `specCode`, then query for existing items matching the _major_ axes (category + type + material + size) while ignoring _minor_ axes (rating / end / operation). Surface matches.
   - **Material:** match on category + material + grade (and fuzzy name).
-- UX: a "Possible duplicate — use existing or create new?" confirmation dialog. AI-path: if a strong match exists, link instead of create; if a near-match, flag for review rather than silently creating.
-- Effort: **L** (service + dialog + wire into both create paths).
+- UX (decided 2026-05-23, per user): **Always ask — never auto-link.** Whenever `findSimilar` returns any candidate above the similarity threshold, stop and show a confirmation dialog listing the match(es): the user picks **"Use this existing item"** or **"Create new anyway."** This applies to both the manual Create-New path and the AI-parse path (AI surfaces the possible match for the user to confirm before any new code is created). No silent auto-reuse — keeps a human in the loop on every potential duplicate, matching the feedback ("highlight the similarity to the user for review and confirmation before creating a new material code").
+- Effort: **L** (service + confirmation dialog + wire into both create paths).
 
 **5.3 Simplify the displayed code (feedback 3.3)**
 
