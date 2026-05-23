@@ -500,10 +500,15 @@ export const parseQuote = onCall(
     // right control surface for keeping the catalog clean.
     const db = admin.firestore();
     let linkedCount = 0;
-    let createdCount = 0;
     let manualCount = 0;
     const currency = (header.currency ?? 'INR').toUpperCase();
-    const canAutoCreate = true;
+    // AI proposes, the human disposes (Phase 5B). The resolver still auto-LINKS
+    // a line to an existing item on an exact spec match (reuse, no duplicate),
+    // but never silently CREATES a new catalog record — an unmatched line is
+    // flagged 'manual-needed' so the user creates/links it via the picker,
+    // where the duplicate-check (5C) runs. This is the only call site, so this
+    // flag fully disables silent auto-create.
+    const canAutoCreate = false;
 
     for (const item of items) {
       if (!item.boughtOutCategory) continue;
@@ -548,25 +553,19 @@ export const parseQuote = onCall(
         item.linkReason = result.reason;
         manualCount++;
       } else {
-        item.linkStatus = result.status;
+        // Only 'linked' is reachable now (canAutoCreate is false).
+        item.linkStatus = 'linked';
         item.boughtOutItemId = result.itemId;
         item.boughtOutCode = result.specCode;
-        if (result.status === 'linked') linkedCount++;
-        else createdCount++;
+        linkedCount++;
       }
-    }
-
-    if (createdCount > 0) {
-      warnings.push(
-        `${createdCount} new bought-out item${createdCount === 1 ? '' : 's'} auto-created from this quote — review them in Bought-Out Items.`
-      );
     }
 
     logger.info('[parseQuote] Parsed successfully', {
       fileName: data.fileName,
       itemCount: items.length,
       hasHeader: Object.keys(header).length > 0,
-      boughtOutResolution: { linked: linkedCount, autoCreated: createdCount, manual: manualCount },
+      boughtOutResolution: { linked: linkedCount, manual: manualCount },
       usage: response.usage,
     });
 

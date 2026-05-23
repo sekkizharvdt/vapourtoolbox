@@ -567,15 +567,14 @@ export default function NewProcurementQuotePage() {
       });
       setLineItems(parsedRows);
 
-      // Build hint summarizing auto-resolution counts.
-      const autoCreated = parsedRows.filter((r) => r.linkStatus === 'auto-created').length;
+      // Build hint summarizing auto-resolution counts. The parser auto-LINKS
+      // exact matches but never creates — unmatched lines need a manual pick.
       const linked = parsedRows.filter((r) => r.linkStatus === 'linked').length;
       const manual = parsedRows.filter(
         (r) => r.itemType !== 'NOTE' && !r.materialId && !r.serviceId && !r.boughtOutItemId
       ).length;
       const parts = [`AI extracted ${parsedRows.length} item${parsedRows.length === 1 ? '' : 's'}`];
       if (linked > 0) parts.push(`${linked} linked to existing bought-out item`);
-      if (autoCreated > 0) parts.push(`${autoCreated} auto-created (review in Bought-Out)`);
       if (manual > 0) parts.push(`${manual} need manual pick`);
       const warningText = data.warnings.length > 0 ? ` · ${data.warnings.join(' ')}` : '';
       setParseHint(parts.join(' · ') + warningText);
@@ -1101,24 +1100,6 @@ export default function NewProcurementQuotePage() {
               </Button>
             </Stack>
 
-            {/* Auto-created summary — surfaces new master records the parser
-                wrote, so users can spot-check before the data spreads. */}
-            {(() => {
-              const autoCreated = lineItems.filter((r) => r.linkStatus === 'auto-created');
-              if (autoCreated.length === 0) return null;
-              return (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <strong>
-                    {autoCreated.length} new bought-out item
-                    {autoCreated.length === 1 ? '' : 's'} auto-created from this quote.
-                  </strong>{' '}
-                  The AI parser couldn&apos;t find a matching record by spec, so it generated one
-                  for each. Open Bought-Out Items and verify the spec — these are flagged for
-                  review.
-                </Alert>
-              );
-            })()}
-
             {lineItems.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
                 Use <strong>Parse with AI</strong> to extract items from the uploaded document, or
@@ -1271,16 +1252,6 @@ export default function NewProcurementQuotePage() {
                                 color="success"
                                 sx={{ mt: 0.5, mr: 0.5 }}
                               />
-                            )}
-                            {row.linkStatus === 'auto-created' && (
-                              <Tooltip title="New material created. Open Materials → Review to verify the spec.">
-                                <Chip
-                                  label="Auto-created · review"
-                                  size="small"
-                                  color="info"
-                                  sx={{ mt: 0.5, mr: 0.5 }}
-                                />
-                              </Tooltip>
                             )}
                             {row.linkStatus === 'manual-needed' && row.linkReason && (
                               <Tooltip title={row.linkReason}>
