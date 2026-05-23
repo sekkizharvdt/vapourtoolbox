@@ -381,6 +381,24 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
     The pre-commit `check-structure.js` audit flags any `useParams()` call under `apps/web/src/app/**/[id*]/*.tsx`.
 
+30b. **Syncing component state to the URL query string MUST use `window.history.replaceState()`, NOT `router.replace()`/`router.push()`** — calculators and filterable lists keep their inputs in the URL so the page is shareable. `router.replace()` performs a Next.js navigation, and the App Router re-focuses the page root for accessibility on every navigation, which scrolls the viewport to the **top on every keystroke**. `{ scroll: false }` does NOT fix this — it only disables scroll _restoration_, not the focus jump. `history.replaceState()` updates the address bar with no navigation, no focus change, no scroll jump, and no re-render from `useSearchParams` changing.
+
+    Canonical pattern (follow [`/thermal/(protected)/flash-chamber/FlashChamberClient.tsx`](apps/web/src/app/thermal/(protected)/flash-chamber/FlashChamberClient.tsx) and [`/dashboard/shapes/calculator/page.tsx`](apps/web/src/app/dashboard/shapes/calculator/page.tsx)):
+
+    ```typescript
+    // Sync inputs to URL for shareable links — no navigation side effects.
+    useEffect(() => {
+      const params = new URLSearchParams();
+      params.set('params', JSON.stringify(inputs));
+      const query = params.toString();
+      if (query !== window.location.search.replace(/^\?/, '')) {
+        window.history.replaceState(window.history.state, '', `/path${query ? `?${query}` : ''}`);
+      }
+    }, [inputs]);
+    ```
+
+    `router.replace()`/`push()` remain correct for **deliberate one-shot navigation** (clicking a row, redirecting after create, stripping a `?new=true` flag once on mount) — the bug is only triggered when the navigation fires repeatedly during user input. This bit the shapes calculator and the flash-chamber calculator independently before it was caught.
+
 ## Engineering Discipline (anti-over-engineering)
 
 31. **Verify before writing migration or backwards-compatibility code** — schema-version fields (`*Version: N`), v1→v2 conversion branches, legacy-shape lift-on-load, and `(field ?? legacyField)` fallback chains are only justified when real records would need them. Before adding any of these:
