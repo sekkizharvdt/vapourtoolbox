@@ -23,15 +23,23 @@ import {
   Select,
   MenuItem,
   Stack,
+  IconButton,
 } from '@mui/material';
-import { Search as SearchIcon } from '@mui/icons-material';
+import {
+  Search as SearchIcon,
+  ArrowBack as ArrowBackIcon,
+  Add as AddIcon,
+} from '@mui/icons-material';
 import {
   type BoughtOutItem,
   type BoughtOutCategory,
+  type CreateBoughtOutItemInput,
+  type CurrencyCode,
   BOUGHT_OUT_CATEGORY_LABELS,
 } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
-import { listBoughtOutItems } from '@/lib/boughtOut/boughtOutService';
+import { useAuth } from '@/contexts/AuthContext';
+import { listBoughtOutItems, createBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 import { getFriendlyQueryError } from '@/lib/utils/errorHandling';
 
 interface BoughtOutPickerDialogProps {
@@ -58,6 +66,7 @@ export default function BoughtOutPickerDialog({
   title = 'Select Bought-Out Item',
 }: BoughtOutPickerDialogProps) {
   const { db } = getFirebase();
+  const { user } = useAuth();
 
   const [items, setItems] = useState<BoughtOutItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,14 +76,78 @@ export default function BoughtOutPickerDialog({
     category ?? 'ALL'
   );
 
+  // Inline-create state — toggled by "Create New". Mirrors MaterialPickerDialog
+  // so both pickers behave the same. Detailed specs are added later from the
+  // Bought-Out page; here we capture the minimum to get the item into the catalog.
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createName, setCreateName] = useState('');
+  const [createCategory, setCreateCategory] = useState<BoughtOutCategory>('OTHER');
+  const [createManufacturer, setCreateManufacturer] = useState('');
+  const [createModel, setCreateModel] = useState('');
+  const [createSpec, setCreateSpec] = useState('');
+  const [createPrice, setCreatePrice] = useState('');
+  const [createCurrency, setCreateCurrency] = useState<CurrencyCode>('INR');
+
   // Reset state on open and re-apply external category hint.
   useEffect(() => {
     if (open) {
       setSearchText('');
       setError(null);
+      setShowCreate(false);
+      setCreateError(null);
+      setCreateName('');
+      setCreateCategory(category ?? 'OTHER');
+      setCreateManufacturer('');
+      setCreateModel('');
+      setCreateSpec('');
+      setCreatePrice('');
+      setCreateCurrency('INR');
       setCategoryFilter(category ?? 'ALL');
     }
   }, [open, category]);
+
+  const handleCreate = async () => {
+    if (!user?.uid) {
+      setCreateError('You must be signed in to create a bought-out item.');
+      return;
+    }
+    if (!createName.trim()) {
+      setCreateError('Name is required.');
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const input: CreateBoughtOutItemInput = {
+        tenantId,
+        name: createName.trim(),
+        category: createCategory,
+        // Minimal spec — manufacturer/model/free-text; the deterministic spec
+        // code is only built when structured fields exist, so this stays
+        // un-deduped until refined on the Bought-Out page (acceptable).
+        specifications: {
+          ...(createManufacturer.trim() && { manufacturer: createManufacturer.trim() }),
+          ...(createModel.trim() && { model: createModel.trim() }),
+          ...(createSpec.trim() && { specification: createSpec.trim() }),
+        },
+        pricing: {
+          listPrice: { amount: parseFloat(createPrice) || 0, currency: createCurrency },
+          currency: createCurrency,
+        },
+        ...(createSpec.trim() && { description: createSpec.trim() }),
+      };
+      const created = await createBoughtOutItem(db, input, user.uid);
+      onSelect(created);
+      onClose();
+    } catch (err) {
+      console.error('[BoughtOutPickerDialog] createBoughtOutItem failed', err);
+      setCreateError(err instanceof Error ? err.message : 'Failed to create bought-out item.');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   // Load items when the dialog opens or filters change.
   useEffect(() => {
@@ -131,112 +204,227 @@ export default function BoughtOutPickerDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search by code, name, manufacturer, model..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={categoryFilter}
-              label="Category"
-              onChange={(e) => setCategoryFilter(e.target.value as BoughtOutCategory | 'ALL')}
-            >
-              <MenuItem value="ALL">All Categories</MenuItem>
-              {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
-                <MenuItem key={key} value={key}>
-                  {label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Stack>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress />
-          </Box>
-        ) : error ? null : filteredItems.length === 0 ? (
-          <Alert severity="info">
-            {searchText
-              ? 'No bought-out items match your search.'
-              : 'No bought-out items in the master. Add one from the Bought-Out page first.'}
-          </Alert>
+      <DialogTitle>
+        {showCreate ? (
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <IconButton size="small" onClick={() => setShowCreate(false)} disabled={creating}>
+              <ArrowBackIcon fontSize="small" />
+            </IconButton>
+            <Typography variant="h6" component="span">
+              Create New Bought-Out Item
+            </Typography>
+          </Stack>
         ) : (
-          <List sx={{ maxHeight: 480, overflow: 'auto' }}>
-            {filteredItems.map((item) => (
-              <ListItem key={item.id} disablePadding>
-                <ListItemButton
-                  onClick={() => {
-                    onSelect(item);
-                    onClose();
-                  }}
-                  sx={{ borderRadius: 1, mb: 0.5 }}
+          title
+        )}
+      </DialogTitle>
+      <DialogContent>
+        {showCreate ? (
+          /* Inline create — minimum fields; refine specs later on the Bought-Out page. */
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {createError && <Alert severity="error">{createError}</Alert>}
+            <TextField
+              label="Name"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              fullWidth
+              required
+              autoFocus
+              size="small"
+              helperText="General item name, e.g. Centrifugal Pump, Motorized Control Valve"
+            />
+            <FormControl fullWidth size="small" required>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={createCategory}
+                label="Category"
+                onChange={(e) => setCreateCategory(e.target.value as BoughtOutCategory)}
+              >
+                {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
+                  <MenuItem key={key} value={key}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="Manufacturer (optional)"
+                value={createManufacturer}
+                onChange={(e) => setCreateManufacturer(e.target.value)}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Model (optional)"
+                value={createModel}
+                onChange={(e) => setCreateModel(e.target.value)}
+                fullWidth
+                size="small"
+              />
+            </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="List Price (optional)"
+                type="number"
+                value={createPrice}
+                onChange={(e) => setCreatePrice(e.target.value)}
+                fullWidth
+                size="small"
+                inputProps={{ min: 0, step: '0.01' }}
+              />
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  value={createCurrency}
+                  label="Currency"
+                  onChange={(e) => setCreateCurrency(e.target.value as CurrencyCode)}
                 >
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <Typography variant="body2" fontWeight="medium">
-                          {item.itemCode}
-                        </Typography>
-                        {item.specCode && (
-                          <Chip
-                            label={item.specCode}
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                          />
-                        )}
-                        <Chip
-                          label={BOUGHT_OUT_CATEGORY_LABELS[item.category] ?? item.category}
-                          size="small"
-                          variant="outlined"
-                        />
-                        {item.needsReview && (
-                          <Chip label="Needs review" size="small" color="warning" />
-                        )}
-                      </Box>
-                    }
-                    secondary={
-                      <>
-                        <Typography variant="body2">{item.name}</Typography>
-                        {(item.specifications?.manufacturer || item.specifications?.model) && (
-                          <Typography variant="caption" color="text.secondary">
-                            {[item.specifications?.manufacturer, item.specifications?.model]
-                              .filter(Boolean)
-                              .join(' — ')}
-                          </Typography>
-                        )}
-                      </>
-                    }
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
+                  {(['INR', 'USD', 'EUR', 'GBP', 'SGD', 'AED'] as CurrencyCode[]).map((c) => (
+                    <MenuItem key={c} value={c}>
+                      {c}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              label="Specification (optional)"
+              value={createSpec}
+              onChange={(e) => setCreateSpec(e.target.value)}
+              fullWidth
+              size="small"
+              multiline
+              rows={2}
+              helperText="Technical details — you can refine these from the Bought-Out page later."
+            />
+          </Stack>
+        ) : (
+          <>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search by code, name, manufacturer, model..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={categoryFilter}
+                  label="Category"
+                  onChange={(e) => setCategoryFilter(e.target.value as BoughtOutCategory | 'ALL')}
+                >
+                  <MenuItem value="ALL">All Categories</MenuItem>
+                  {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
+                    <MenuItem key={key} value={key}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                <CircularProgress />
+              </Box>
+            ) : error ? null : filteredItems.length === 0 ? (
+              <Alert severity="info">
+                {searchText
+                  ? 'No bought-out items match your search.'
+                  : 'No bought-out items in the master. Add one from the Bought-Out page first.'}
+              </Alert>
+            ) : (
+              <List sx={{ maxHeight: 480, overflow: 'auto' }}>
+                {filteredItems.map((item) => (
+                  <ListItem key={item.id} disablePadding>
+                    <ListItemButton
+                      onClick={() => {
+                        onSelect(item);
+                        onClose();
+                      }}
+                      sx={{ borderRadius: 1, mb: 0.5 }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Box
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                          >
+                            <Typography variant="body2" fontWeight="medium">
+                              {item.itemCode}
+                            </Typography>
+                            {item.specCode && (
+                              <Chip
+                                label={item.specCode}
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                              />
+                            )}
+                            <Chip
+                              label={BOUGHT_OUT_CATEGORY_LABELS[item.category] ?? item.category}
+                              size="small"
+                              variant="outlined"
+                            />
+                            {item.needsReview && (
+                              <Chip label="Needs review" size="small" color="warning" />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <>
+                            <Typography variant="body2">{item.name}</Typography>
+                            {(item.specifications?.manufacturer || item.specifications?.model) && (
+                              <Typography variant="caption" color="text.secondary">
+                                {[item.specifications?.manufacturer, item.specifications?.model]
+                                  .filter(Boolean)
+                                  .join(' — ')}
+                              </Typography>
+                            )}
+                          </>
+                        }
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        {showCreate ? (
+          <>
+            <Button onClick={() => setShowCreate(false)} disabled={creating}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleCreate} disabled={creating}>
+              {creating ? 'Creating…' : 'Create & Use'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setShowCreate(true)}>
+              Create New
+            </Button>
+          </>
+        )}
       </DialogActions>
     </Dialog>
   );

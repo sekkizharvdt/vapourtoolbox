@@ -1,4 +1,4 @@
-// rule28-exempt: header edits via EditQuoteHeaderDialog on the detail page; line items linked/edited inline through ItemLinkDialog and AcceptPriceDialog — no separate edit route
+// rule28-exempt: header edits via EditQuoteHeaderDialog on the detail page; line items linked/edited inline through the per-type picker dialogs and AcceptPriceDialog — no separate edit route
 
 'use client';
 

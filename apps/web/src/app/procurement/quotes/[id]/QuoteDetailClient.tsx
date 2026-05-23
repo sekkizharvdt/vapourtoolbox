@@ -42,7 +42,16 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { PdfViewer } from '@/components/common/PdfViewer';
-import type { VendorQuote, VendorQuoteItem, QuoteStatus, QuoteItemType } from '@vapour/types';
+import type {
+  VendorQuote,
+  VendorQuoteItem,
+  QuoteStatus,
+  QuoteItemType,
+  Material,
+  MaterialVariant,
+  Service,
+  BoughtOutItem,
+} from '@vapour/types';
 import { canManageEstimation, QUOTE_LINE_LABELS } from '@vapour/constants';
 import {
   getVendorQuoteById,
@@ -53,8 +62,18 @@ import {
   acceptQuoteItemPrice,
   updateVendorQuote,
 } from '@/lib/vendorQuotes/vendorQuoteService';
-import { ItemLinkDialog, type LinkedItem } from '../components/ItemLinkDialog';
+import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
+import ServicePickerDialog from '@/components/services/ServicePickerDialog';
+import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
 import { AcceptPriceDialog } from '../components/AcceptPriceDialog';
+
+/** Normalized shape passed to the shared link writer, regardless of source picker. */
+interface LinkedItem {
+  itemType: QuoteItemType;
+  id: string;
+  name: string;
+  code: string;
+}
 import {
   EditQuoteHeaderDialog,
   type EditQuoteHeaderInput,
@@ -146,9 +165,10 @@ export default function QuoteDetailClient() {
   const [addingItem, setAddingItem] = useState(false);
 
   // Link dialog
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  // The row being (re)linked and which per-type picker is open. `linkingItemType`
+  // doubles as the open-signal: non-null means a picker is showing.
   const [linkingItemId, setLinkingItemId] = useState<string | null>(null);
-  const [linkingItemType, setLinkingItemType] = useState<QuoteItemType>('MATERIAL');
+  const [linkingItemType, setLinkingItemType] = useState<QuoteItemType | null>(null);
 
   // Accept price dialog
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
@@ -254,18 +274,26 @@ export default function QuoteDetailClient() {
     }
   };
 
+  // NOTE rows have no master link; the others open their per-type picker.
   const handleLinkItem = (itemId: string, itemType: QuoteItemType) => {
+    if (itemType === 'NOTE') return;
     setLinkingItemId(itemId);
     setLinkingItemType(itemType);
-    setLinkDialogOpen(true);
+  };
+
+  const closeLinkPicker = () => {
+    setLinkingItemId(null);
+    setLinkingItemType(null);
   };
 
   const handleLinked = async (linked: LinkedItem) => {
-    if (!linkingItemId) return;
+    const itemId = linkingItemId;
+    closeLinkPicker();
+    if (!itemId) return;
     try {
       await updateVendorQuoteItem(
         db,
-        linkingItemId,
+        itemId,
         {
           itemType: linked.itemType,
           ...(linked.itemType === 'MATERIAL' ? { materialId: linked.id } : {}),
@@ -770,13 +798,47 @@ export default function QuoteDetailClient() {
         </Card>
       )}
 
-      {/* Dialogs */}
-      <ItemLinkDialog
-        open={linkDialogOpen}
-        onClose={() => setLinkDialogOpen(false)}
-        onSelect={handleLinked}
-        db={db}
-        initialTab={linkingItemType}
+      {/* Dialogs — per-type pickers (same components the new-quote page uses).
+          Routed by the row's itemType; each adapts its result to handleLinked. */}
+      <MaterialPickerDialog
+        open={linkingItemType === 'MATERIAL'}
+        onClose={closeLinkPicker}
+        onSelect={(material: Material, _variant?: MaterialVariant, fullCode?: string) =>
+          handleLinked({
+            itemType: 'MATERIAL',
+            id: material.id,
+            name: material.name,
+            code: fullCode || material.materialCode,
+          })
+        }
+        title="Link line item to material"
+        requireVariantSelection={false}
+      />
+      <ServicePickerDialog
+        open={linkingItemType === 'SERVICE'}
+        onClose={closeLinkPicker}
+        onSelect={(service: Service) =>
+          handleLinked({
+            itemType: 'SERVICE',
+            id: service.id,
+            name: service.name,
+            code: service.serviceCode,
+          })
+        }
+      />
+      <BoughtOutPickerDialog
+        open={linkingItemType === 'BOUGHT_OUT'}
+        onClose={closeLinkPicker}
+        onSelect={(item: BoughtOutItem) =>
+          handleLinked({
+            itemType: 'BOUGHT_OUT',
+            id: item.id,
+            name: item.name,
+            code: item.itemCode,
+          })
+        }
+        tenantId={claims?.tenantId || 'default-entity'}
+        title="Link line item to bought-out master"
       />
 
       <AcceptPriceDialog
