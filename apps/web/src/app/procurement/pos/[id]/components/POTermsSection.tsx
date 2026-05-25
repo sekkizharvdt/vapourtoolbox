@@ -152,6 +152,9 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                 </Typography>
                 <Typography variant="body2">
                   {PRICE_BASIS_LABELS[terms.priceBasis] || terms.priceBasis}
+                  {terms.priceBasis === 'EX_WORKS' && terms.priceBasisLocation && (
+                    <> — {terms.priceBasisLocation}</>
+                  )}
                 </Typography>
               </Box>
 
@@ -257,6 +260,9 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   </Typography>
                   <Typography variant="body2">
                     {SCOPE_LABELS[terms.freightScope] || terms.freightScope}
+                    {terms.freightScope === 'CUSTOMER' && terms.freightPaymentType && (
+                      <> — {terms.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}</>
+                    )}
                   </Typography>
                 </Box>
                 <Box>
@@ -265,7 +271,15 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   </Typography>
                   <Typography variant="body2">
                     {SCOPE_LABELS[terms.transportScope] || terms.transportScope}
+                    {terms.deliveryType && (
+                      <> — {terms.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery</>
+                    )}
                   </Typography>
+                  {terms.transporterName && (
+                    <Typography variant="caption" color="text.secondary">
+                      Transporter: {terms.transporterName}
+                    </Typography>
+                  )}
                 </Box>
                 <Box>
                   <Typography variant="subtitle2" color="text.secondary">
@@ -276,6 +290,16 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   </Typography>
                 </Box>
               </Stack>
+              {terms.transitInsuranceInstruction && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Transit Insurance Instruction
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {terms.transitInsuranceInstruction}
+                  </Typography>
+                </Box>
+              )}
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
                   Erection & Commissioning
@@ -285,6 +309,15 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   {terms.erectionScope === 'CUSTOM' && terms.erectionCustomText && (
                     <> - {terms.erectionCustomText}</>
                   )}
+                  {terms.erectionScope === 'VENDOR' &&
+                    (() => {
+                      const inc = [
+                        terms.erectionIncludesTransport && 'transportation',
+                        terms.erectionIncludesFood && 'food',
+                        terms.erectionIncludesAccommodation && 'accommodation',
+                      ].filter(Boolean);
+                      return inc.length > 0 ? <> — incl. {inc.join(', ')}</> : null;
+                    })()}
                 </Typography>
               </Box>
             </Stack>

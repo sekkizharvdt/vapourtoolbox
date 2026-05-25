@@ -18,6 +18,7 @@ import {
   FormControl,
   InputLabel,
   FormControlLabel,
+  FormLabel,
   Switch,
   Checkbox,
   Stack,
@@ -192,6 +193,17 @@ export function CommercialTermsForm({
                 Defines who bears freight costs and when ownership transfers
               </FormHelperText>
             </FormControl>
+
+            {terms.priceBasis === 'EX_WORKS' && (
+              <TextField
+                label="Ex-Works Location"
+                value={terms.priceBasisLocation ?? ''}
+                onChange={(e) => handleChange('priceBasisLocation', e.target.value)}
+                disabled={disabled}
+                fullWidth
+                placeholder="e.g. Chennai, Bangalore"
+              />
+            )}
 
             {/* 2. Payment Schedule */}
             <Box>
@@ -419,6 +431,23 @@ export function CommercialTermsForm({
               </Select>
             </FormControl>
 
+            {terms.freightScope === 'CUSTOMER' && (
+              <FormControl fullWidth disabled={disabled}>
+                <InputLabel>Freight Payment</InputLabel>
+                <Select
+                  value={terms.freightPaymentType ?? ''}
+                  label="Freight Payment"
+                  onChange={(e) =>
+                    handleChange('freightPaymentType', e.target.value as 'PREPAID' | 'TO_PAY')
+                  }
+                >
+                  <MenuItem value="TO_PAY">To-Pay (paid on receipt)</MenuItem>
+                  <MenuItem value="PREPAID">Prepaid (vendor pays, claims via invoice)</MenuItem>
+                </Select>
+                <FormHelperText>How customer-scope freight is settled</FormHelperText>
+              </FormControl>
+            )}
+
             {/* 7. Transport */}
             <FormControl fullWidth disabled={disabled}>
               <InputLabel>Transport</InputLabel>
@@ -436,6 +465,30 @@ export function CommercialTermsForm({
                 ))}
               </Select>
             </FormControl>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="Transporter Name (optional)"
+                value={terms.transporterName ?? ''}
+                onChange={(e) => handleChange('transporterName', e.target.value)}
+                disabled={disabled}
+                fullWidth
+                placeholder="e.g. VRL Logistics"
+              />
+              <FormControl sx={{ minWidth: 200 }} disabled={disabled}>
+                <InputLabel>Delivery Type</InputLabel>
+                <Select
+                  value={terms.deliveryType ?? ''}
+                  label="Delivery Type"
+                  onChange={(e) =>
+                    handleChange('deliveryType', e.target.value as 'GODOWN' | 'DOOR')
+                  }
+                >
+                  <MenuItem value="DOOR">Door Delivery</MenuItem>
+                  <MenuItem value="GODOWN">Godown Delivery</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
 
             {/* 8. Transit Insurance */}
             <FormControl fullWidth disabled={disabled}>
@@ -455,6 +508,17 @@ export function CommercialTermsForm({
               </Select>
             </FormControl>
 
+            <TextField
+              label="Transit Insurance Instruction (optional)"
+              value={terms.transitInsuranceInstruction ?? ''}
+              onChange={(e) => handleChange('transitInsuranceInstruction', e.target.value)}
+              disabled={disabled}
+              multiline
+              rows={2}
+              fullWidth
+              placeholder="e.g. Vendor to share dispatch details for transit insurance; open policy no. ... to be referenced on dispatch documents"
+            />
+
             {/* 9. Erection & Commissioning */}
             <FormControl fullWidth disabled={disabled}>
               <InputLabel>Erection & Commissioning</InputLabel>
@@ -470,6 +534,47 @@ export function CommercialTermsForm({
                 ))}
               </Select>
             </FormControl>
+
+            {terms.erectionScope === 'VENDOR' && (
+              <FormControl component="fieldset" disabled={disabled}>
+                <FormLabel component="legend" sx={{ fontSize: '0.875rem' }}>
+                  Vendor scope includes
+                </FormLabel>
+                <Stack direction="row" flexWrap="wrap">
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={terms.erectionIncludesTransport ?? false}
+                        onChange={(e) =>
+                          handleChange('erectionIncludesTransport', e.target.checked)
+                        }
+                      />
+                    }
+                    label="Transportation"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={terms.erectionIncludesFood ?? false}
+                        onChange={(e) => handleChange('erectionIncludesFood', e.target.checked)}
+                      />
+                    }
+                    label="Food"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={terms.erectionIncludesAccommodation ?? false}
+                        onChange={(e) =>
+                          handleChange('erectionIncludesAccommodation', e.target.checked)
+                        }
+                      />
+                    }
+                    label="Accommodation"
+                  />
+                </Stack>
+              </FormControl>
+            )}
 
             {terms.erectionScope === 'CUSTOM' && (
               <TextField

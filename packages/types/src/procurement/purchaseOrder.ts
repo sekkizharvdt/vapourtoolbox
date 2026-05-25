@@ -270,6 +270,8 @@ export type POInspectorType = 'VDT' | 'VDT_CONSULTANT' | 'THIRD_PARTY';
 export interface POCommercialTerms {
   // 1. Price Basis
   priceBasis: POPriceBasis;
+  /** Named location for the price basis, e.g. "Chennai" — relevant for EX_WORKS (review 2.3). */
+  priceBasisLocation?: string;
 
   // 2. Payment Terms (structured table)
   paymentSchedule: PaymentMilestone[];
@@ -295,12 +297,24 @@ export interface POCommercialTerms {
 
   // 6-8. Scope assignments
   freightScope: POScopeAssignment;
+  /** When freight is in the customer's scope, whether it is prepaid or to-pay (review 2.3). */
+  freightPaymentType?: 'PREPAID' | 'TO_PAY';
   transportScope: POScopeAssignment;
+  /** Optional named transporter (review 2.3). */
+  transporterName?: string;
+  /** Delivery type — to the vendor's godown or to the destination door (review 2.3). */
+  deliveryType?: 'GODOWN' | 'DOOR';
   transitInsuranceScope: POScopeAssignment;
+  /** Free-text instruction, e.g. share dispatch details / open-policy details (review 2.3). */
+  transitInsuranceInstruction?: string;
 
   // 9. Erection & Commissioning
   erectionScope: POErectionScope;
   erectionCustomText?: string;
+  /** Vendor-scope erection sub-items: whether the vendor covers these (review 2.3). */
+  erectionIncludesTransport?: boolean;
+  erectionIncludesFood?: boolean;
+  erectionIncludesAccommodation?: boolean;
 
   // 10. Billing Address (fixed VDT)
   billingAddress: string;

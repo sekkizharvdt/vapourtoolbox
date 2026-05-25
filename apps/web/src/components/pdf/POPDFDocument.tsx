@@ -400,11 +400,15 @@ export function POPDFDocument({
                     {
                       label: 'Price Basis',
                       value:
-                        po.commercialTerms.priceBasis === 'FOR_SITE'
+                        (po.commercialTerms.priceBasis === 'FOR_SITE'
                           ? 'FOR Site'
                           : po.commercialTerms.priceBasis === 'EX_WORKS'
                             ? 'Ex-Works'
-                            : 'FOR Destination',
+                            : 'FOR Destination') +
+                        (po.commercialTerms.priceBasis === 'EX_WORKS' &&
+                        po.commercialTerms.priceBasisLocation
+                          ? ` (${po.commercialTerms.priceBasisLocation})`
+                          : ''),
                     },
                     { label: 'Currency', value: po.commercialTerms.currency },
                   ]
@@ -451,16 +455,26 @@ export function POPDFDocument({
                     {
                       label: 'Freight',
                       value:
-                        po.commercialTerms.freightScope === 'VENDOR'
+                        (po.commercialTerms.freightScope === 'VENDOR'
                           ? "Vendor's scope"
-                          : "Buyer's scope",
+                          : "Buyer's scope") +
+                        (po.commercialTerms.freightScope === 'CUSTOMER' &&
+                        po.commercialTerms.freightPaymentType
+                          ? ` — ${po.commercialTerms.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}`
+                          : ''),
                     },
                     {
                       label: 'Transport',
                       value:
-                        po.commercialTerms.transportScope === 'VENDOR'
+                        (po.commercialTerms.transportScope === 'VENDOR'
                           ? "Vendor's scope"
-                          : "Buyer's scope",
+                          : "Buyer's scope") +
+                        (po.commercialTerms.deliveryType
+                          ? ` — ${po.commercialTerms.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery`
+                          : '') +
+                        (po.commercialTerms.transporterName
+                          ? ` (${po.commercialTerms.transporterName})`
+                          : ''),
                     },
                     {
                       label: 'Transit Insurance',
@@ -469,11 +483,27 @@ export function POPDFDocument({
                           ? "Vendor's scope"
                           : "Buyer's scope",
                     },
+                    ...(po.commercialTerms.transitInsuranceInstruction
+                      ? [
+                          {
+                            label: 'Transit Insurance Note',
+                            value: po.commercialTerms.transitInsuranceInstruction,
+                          },
+                        ]
+                      : []),
                     {
                       label: 'Erection & Commissioning',
                       value:
                         po.commercialTerms.erectionScope === 'VENDOR'
-                          ? "Vendor's scope"
+                          ? "Vendor's scope" +
+                            (() => {
+                              const inc = [
+                                po.commercialTerms.erectionIncludesTransport && 'transportation',
+                                po.commercialTerms.erectionIncludesFood && 'food',
+                                po.commercialTerms.erectionIncludesAccommodation && 'accommodation',
+                              ].filter(Boolean);
+                              return inc.length > 0 ? ` (incl. ${inc.join(', ')})` : '';
+                            })()
                           : po.commercialTerms.erectionScope === 'NA'
                             ? 'Not in scope'
                             : po.commercialTerms.erectionCustomText || 'Custom',
