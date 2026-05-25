@@ -12,6 +12,12 @@ import type { PurchaseOrder, PurchaseOrderItem } from './purchaseOrder';
 // ============================================================================
 
 /**
+ * Amendment workflow status. Centralised here so the state machine
+ * (stateMachines.ts) and UI helpers reference one source of truth.
+ */
+export type AmendmentStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+
+/**
  * Purchase Order Amendment
  * Tracks changes to an approved purchase order with full version history
  */
@@ -47,7 +53,13 @@ export interface PurchaseOrderAmendment {
   totalChange: number; // Can be positive or negative
 
   // Approval workflow
-  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  status: AmendmentStatus;
+
+  // Designated approver assigned at submit time. Without this the amendment has
+  // no one to approve it (the requester is blocked by separation-of-duties),
+  // which is what left amendments stuck in PENDING_APPROVAL.
+  approverId?: string;
+  approverName?: string;
 
   submittedForApprovalAt?: Timestamp;
   submittedBy?: string;

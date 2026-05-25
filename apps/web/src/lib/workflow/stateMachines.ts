@@ -25,6 +25,7 @@ import {
 } from '@/lib/utils/stateMachine';
 import type {
   PurchaseOrderStatus,
+  AmendmentStatus,
   QuoteStatus as OfferStatus,
   GoodsReceiptStatus,
   PackingListStatus,
@@ -75,6 +76,34 @@ export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = crea
   },
   terminalStates: ['COMPLETED', 'CANCELLED'],
 });
+
+// ============================================================================
+// PO Amendment State Machine
+// ============================================================================
+
+/**
+ * PO Amendment workflow states:
+ *
+ * DRAFT -> PENDING_APPROVAL -> APPROVED (applied to PO)
+ *                          \-> REJECTED
+ *
+ * APPROVED and REJECTED are terminal — a rejected amendment is re-raised as a
+ * new amendment rather than re-opened.
+ */
+export const amendmentStateMachine: StateMachine<AmendmentStatus> =
+  createStateMachine<AmendmentStatus>({
+    transitions: {
+      DRAFT: ['PENDING_APPROVAL'],
+      PENDING_APPROVAL: ['APPROVED', 'REJECTED'],
+      APPROVED: [], // Terminal — changes applied to the PO
+      REJECTED: [], // Terminal — raise a new amendment instead
+    },
+    transitionPermissions: {
+      PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      PENDING_APPROVAL_REJECTED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    },
+    terminalStates: ['APPROVED', 'REJECTED'],
+  });
 
 // ============================================================================
 // Proposal State Machine

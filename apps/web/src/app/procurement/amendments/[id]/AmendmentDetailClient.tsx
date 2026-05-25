@@ -37,8 +37,10 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Send as SendIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import type { PurchaseOrderAmendment, AmendmentApprovalHistory } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import {
@@ -74,6 +76,8 @@ export default function AmendmentDetailClient() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [approvalComments, setApprovalComments] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [approverId, setApproverId] = useState<string | null>(null);
+  const [approverName, setApproverName] = useState('');
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -120,14 +124,29 @@ export default function AmendmentDetailClient() {
     }
   };
 
+  const openSubmitDialog = () => {
+    setApproverId(null);
+    setApproverName('');
+    setSubmitDialogOpen(true);
+  };
+
   const handleSubmit = async () => {
-    if (!user || !amendment || !amendmentId) return;
+    if (!user || !amendment || !amendmentId || !approverId) return;
 
     setActionLoading(true);
     try {
       const { db } = getFirebase();
-      await submitAmendmentForApproval(db, amendmentId, user.uid, user.displayName || '');
+      await submitAmendmentForApproval(
+        db,
+        amendmentId,
+        user.uid,
+        user.displayName || '',
+        approverId,
+        approverName
+      );
       setSubmitDialogOpen(false);
+      setApproverId(null);
+      setApproverName('');
       await loadAmendment();
     } catch (err) {
       console.error('[AmendmentDetailClient] Error submitting amendment:', err);
@@ -244,12 +263,17 @@ export default function AmendmentDetailClient() {
             </Box>
 
             <Stack direction="row" spacing={1}>
-              {actions.canSubmit && (
+              {actions.canEdit && (
                 <Button
-                  variant="contained"
-                  startIcon={<SendIcon />}
-                  onClick={() => setSubmitDialogOpen(true)}
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => router.push(`/procurement/amendments/${amendmentId}/edit`)}
                 >
+                  Edit
+                </Button>
+              )}
+              {actions.canSubmit && (
+                <Button variant="contained" startIcon={<SendIcon />} onClick={openSubmitDialog}>
                   Submit for Approval
                 </Button>
               )}
@@ -438,6 +462,14 @@ export default function AmendmentDetailClient() {
                   </Typography>
                   <Chip label={getAmendmentTypeText(amendment.amendmentType)} size="small" />
                 </Box>
+                {amendment.approverName && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Approver
+                    </Typography>
+                    <Typography variant="body1">{amendment.approverName}</Typography>
+                  </Box>
+                )}
                 <Box>
                   <Typography variant="body2" color="text.secondary">
                     Applied to PO
@@ -512,7 +544,23 @@ export default function AmendmentDetailClient() {
       >
         <DialogTitle>Submit for Approval</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to submit this amendment for approval?</Typography>
+          <Typography sx={{ mb: 2 }}>
+            Select the approver who will review this amendment. You cannot approve your own
+            amendment, so the requester is excluded from the list.
+          </Typography>
+          <ApproverSelector
+            approvalType="po"
+            value={approverId}
+            onChange={(id) => setApproverId(id)}
+            onChangeWithName={(id, name) => {
+              setApproverId(id);
+              setApproverName(name);
+            }}
+            excludeUserIds={amendment.requestedBy ? [amendment.requestedBy] : []}
+            required
+            label="Approver"
+            helperText="Only users with procurement approval permission are listed."
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSubmitDialogOpen(false)} disabled={actionLoading}>
@@ -521,7 +569,7 @@ export default function AmendmentDetailClient() {
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={actionLoading}
+            disabled={actionLoading || !approverId}
             startIcon={actionLoading ? <CircularProgress size={20} /> : <SendIcon />}
           >
             Submit

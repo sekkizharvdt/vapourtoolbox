@@ -77,6 +77,7 @@ export { type ProcurementNotificationType, type ProcurementNotification } from '
 
 // Amendment types
 export {
+  type AmendmentStatus,
   type PurchaseOrderAmendment,
   type PurchaseOrderChange,
   type PurchaseOrderVersion,

@@ -23,6 +23,7 @@ export type {
 // Export CRUD operations
 export {
   createAmendment,
+  updateAmendment,
   submitAmendmentForApproval,
   approveAmendment,
   rejectAmendment,

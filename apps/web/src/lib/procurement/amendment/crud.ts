@@ -21,7 +21,13 @@ import { determineAmendmentType } from './helpers';
 import { getAmendmentHistory } from './queries';
 import { createVersionSnapshot } from './versioning';
 import { PERMISSION_FLAGS } from '@vapour/constants';
-import { requirePermission, preventSelfApproval } from '@/lib/auth/authorizationService';
+import {
+  requirePermission,
+  preventSelfApproval,
+  requireApprover,
+} from '@/lib/auth/authorizationService';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
+import { amendmentStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'amendmentService' });
 
@@ -150,22 +156,117 @@ export async function createAmendment(
 }
 
 /**
- * Submit amendment for approval
+ * Update a DRAFT amendment.
+ *
+ * Only draft amendments can be edited — once submitted the change set is locked.
+ * Recomputes the financial impact and amendment type from the new changes,
+ * re-reading the PO so `previousGrandTotal` reflects the PO's current total.
+ */
+export async function updateAmendment(
+  db: Firestore,
+  amendmentId: string,
+  changes: PurchaseOrderChange[],
+  reason: string,
+  userId: string,
+  userPermissions?: number
+): Promise<void> {
+  // rule8-exempt: edits draft content only — the DRAFT guard is an editability
+  // precondition, not a status transition (status is unchanged), so there is no
+  // transition to validate against the state machine.
+  // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on update.
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'edit amendment'
+    );
+  }
+
+  try {
+    const amendmentRef = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId);
+
+    await runTransaction(db, async (transaction) => {
+      const amendmentDoc = await transaction.get(amendmentRef);
+      if (!amendmentDoc.exists()) {
+        throw new Error('Amendment not found');
+      }
+
+      const amendment = { id: amendmentDoc.id, ...amendmentDoc.data() } as PurchaseOrderAmendment;
+
+      // Only drafts are editable
+      if (amendment.status !== 'DRAFT') {
+        throw new Error('Only draft amendments can be edited');
+      }
+
+      // Re-read the PO inside the transaction so the financial baseline is current
+      const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, amendment.purchaseOrderId);
+      const poDoc = await transaction.get(poRef);
+      if (!poDoc.exists()) {
+        throw new Error('Purchase order not found');
+      }
+      const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
+
+      const previousGrandTotal = po.grandTotal;
+      let newGrandTotal = po.grandTotal;
+      changes
+        .filter((c) => c.category === 'FINANCIAL')
+        .forEach((change) => {
+          if (change.field.includes('grandTotal') || change.field.includes('subtotal')) {
+            newGrandTotal = typeof change.newValue === 'number' ? change.newValue : newGrandTotal;
+          }
+        });
+
+      transaction.update(amendmentRef, {
+        reason,
+        changes,
+        amendmentType: determineAmendmentType(changes),
+        previousGrandTotal,
+        newGrandTotal,
+        totalChange: newGrandTotal - previousGrandTotal,
+        updatedAt: serverTimestamp(),
+        updatedBy: userId,
+      });
+    });
+
+    logger.info('Amendment updated', { amendmentId });
+  } catch (error) {
+    logger.error('Failed to update amendment', { error, amendmentId });
+    throw error;
+  }
+}
+
+/**
+ * Submit amendment for approval.
+ *
+ * An `approverId` MUST be supplied — it is the designated approver who can
+ * action the amendment. The requester is blocked from approving their own
+ * amendment (separation of duties), so without a distinct approver the
+ * amendment would be stuck in PENDING_APPROVAL forever (the original bug).
  */
 export async function submitAmendmentForApproval(
   db: Firestore,
   amendmentId: string,
   userId: string,
   userName: string,
+  approverId: string,
+  approverName: string,
   comments?: string,
   ipAddress?: string,
   userAgent?: string
 ): Promise<void> {
-  // rule8-exempt: workflow function called by an upstream gate that already validated the transition; firestore.rules + caller-side state machine cover the safety check
   // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT — server-side gated
   // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
+  if (!approverId) {
+    throw new Error('An approver must be selected before submitting for approval');
+  }
+
   try {
     const amendmentRef = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId);
+
+    // Track whether this call actually performed the submission (vs. an
+    // idempotent no-op) so we only fire the approver notification once.
+    let submittedAmendment: PurchaseOrderAmendment | null = null;
 
     // PR-14: Use transaction for atomic read-then-write (idempotent submission)
     await runTransaction(db, async (transaction) => {
@@ -183,17 +284,30 @@ export async function submitAmendmentForApproval(
       // Idempotency: already-submitted amendments are silently accepted
       if (amendment.status === 'PENDING_APPROVAL') {
         logger.info('Amendment already submitted, skipping', { amendmentId });
+        submittedAmendment = null;
         return;
       }
 
-      if (amendment.status !== 'DRAFT') {
-        throw new Error('Only draft amendments can be submitted for approval');
+      // Separation of duties: the requester cannot be the approver.
+      if (approverId === amendment.requestedBy) {
+        throw new Error('The amendment requester cannot be assigned as the approver');
       }
 
-      // Update amendment status
+      // Validate the DRAFT -> PENDING_APPROVAL transition (rule 8)
+      requireValidTransition(
+        amendmentStateMachine,
+        amendment.status,
+        'PENDING_APPROVAL',
+        'Amendment'
+      );
+
+      // Update amendment status + designated approver
       transaction.update(amendmentRef, {
         status: 'PENDING_APPROVAL',
+        approverId,
+        approverName,
         submittedForApprovalAt: serverTimestamp(),
+        submittedBy: userId,
         updatedAt: serverTimestamp(),
         updatedBy: userId,
       });
@@ -216,9 +330,32 @@ export async function submitAmendmentForApproval(
 
       const historyRef = doc(collection(db, COLLECTIONS.AMENDMENT_APPROVAL_HISTORY));
       transaction.set(historyRef, historyData);
+
+      submittedAmendment = amendment;
     });
 
-    logger.info('Amendment submitted for approval', { amendmentId });
+    // Notify the designated approver (outside the transaction). Only on a real
+    // submission, not an idempotent retry.
+    if (submittedAmendment) {
+      const amendment: PurchaseOrderAmendment = submittedAmendment;
+      const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+      await createTaskNotification({
+        type: 'actionable',
+        category: 'AMENDMENT_PENDING_APPROVAL',
+        userId: approverId,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Review Amendment #${amendment.amendmentNumber} on ${amendment.purchaseOrderNumber}`,
+        message: `${userName} submitted PO amendment #${amendment.amendmentNumber} for your approval.`,
+        entityType: 'PURCHASE_ORDER_AMENDMENT',
+        entityId: amendmentId,
+        linkUrl: `/procurement/amendments/${amendmentId}`,
+        priority: 'HIGH',
+        autoCompletable: true,
+      });
+    }
+
+    logger.info('Amendment submitted for approval', { amendmentId, approverId });
   } catch (error) {
     logger.error('Failed to submit amendment for approval', { error, amendmentId });
     throw error;
@@ -238,7 +375,6 @@ export async function approveAmendment(
   userAgent?: string,
   userPermissions?: number
 ): Promise<void> {
-  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   // Authorization check (PR-4)
   if (userPermissions !== undefined) {
@@ -260,9 +396,8 @@ export async function approveAmendment(
 
     const amendment = { id: amendmentDoc.id, ...amendmentDoc.data() } as PurchaseOrderAmendment;
 
-    if (amendment.status !== 'PENDING_APPROVAL') {
-      throw new Error('Only pending amendments can be approved');
-    }
+    // Validate the PENDING_APPROVAL -> APPROVED transition (rule 8)
+    requireValidTransition(amendmentStateMachine, amendment.status, 'APPROVED', 'Amendment');
 
     // Idempotency guard (PR-8): prevent double-approval of already-applied amendments
     if (amendment.applied) {
@@ -271,6 +406,12 @@ export async function approveAmendment(
 
     // Prevent self-approval (PR-6): requester cannot approve their own amendment
     preventSelfApproval(userId, amendment.requestedBy, 'approve amendment');
+
+    // Honour the designated approver assigned at submit time: only that user may
+    // approve (mirrors the PO approval flow).
+    if (amendment.approverId && amendment.approverId !== userId) {
+      requireApprover(userId, [amendment.approverId], 'approve this amendment');
+    }
 
     // Create version snapshot before applying changes
     await createVersionSnapshot(db, amendment.purchaseOrderId, amendmentId, userId);
@@ -374,7 +515,6 @@ export async function rejectAmendment(
   userAgent?: string,
   userPermissions?: number
 ): Promise<void> {
-  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   // rule18-exempt: writes to AMENDMENT_APPROVAL_HISTORY (domain audit trail).
   // Authorization check (PR-4)
   if (userPermissions !== undefined) {
@@ -396,9 +536,8 @@ export async function rejectAmendment(
 
     const amendment = { id: amendmentDoc.id, ...amendmentDoc.data() } as PurchaseOrderAmendment;
 
-    if (amendment.status !== 'PENDING_APPROVAL') {
-      throw new Error('Only pending amendments can be rejected');
-    }
+    // Validate the PENDING_APPROVAL -> REJECTED transition (rule 8)
+    requireValidTransition(amendmentStateMachine, amendment.status, 'REJECTED', 'Amendment');
 
     // Prevent self-rejection — separation of duties (mirror of approveAmendment).
     if (amendment.requestedBy) {
