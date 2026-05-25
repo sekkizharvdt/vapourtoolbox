@@ -27,7 +27,11 @@ import {
 } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import type { PurchaseOrder } from '@vapour/types';
-import { getTemplateById, getDefaultTemplate } from '@/lib/procurement/commercialTerms';
+import {
+  getTemplateById,
+  getDefaultTemplate,
+  buildWarrantyClause,
+} from '@/lib/procurement/commercialTerms';
 
 // Labels for display
 const PRICE_BASIS_LABELS: Record<string, string> = {
@@ -350,9 +354,7 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   Warranty
                 </Typography>
                 <Alert severity="info" sx={{ mt: 1 }}>
-                  {terms.warrantyMonthsFromSupply} months from supply or{' '}
-                  {terms.warrantyMonthsFromCommissioning} months from commissioning, whichever is
-                  later
+                  {buildWarrantyClause(terms)}
                 </Alert>
               </Box>
             </Stack>

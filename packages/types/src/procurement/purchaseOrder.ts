@@ -327,8 +327,19 @@ export interface POCommercialTerms {
   // These are stored in the template's fixedTexts
 
   // 18. Warranty
+  /**
+   * When false, the warranty clause renders "Not applicable" instead of a
+   * "0 months from supply..." string. Undefined is treated as applicable
+   * (back-compat with POs created before this field existed).
+   */
+  warrantyApplicable?: boolean;
   warrantyMonthsFromSupply: number; // Default 18
   warrantyMonthsFromCommissioning: number; // Default 12
+  /**
+   * VDT's standard is "whichever is later"; some vendors agree "whichever is
+   * earlier". Undefined is treated as 'LATER' (back-compat).
+   */
+  warrantyComparison?: 'EARLIER' | 'LATER';
 
   // 19. Buyer Contact
   buyerContactName: string;

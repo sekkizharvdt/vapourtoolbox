@@ -42,6 +42,7 @@ import {
   deriveCommercialTermsFromOffer,
   validatePaymentSchedule,
   buildBillingAddressFromCompany,
+  buildWarrantyClause,
 } from '@/lib/procurement/commercialTerms';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -238,7 +239,7 @@ export default function NewPOPage() {
           ? `Ready Stock - items available immediately. Price basis: ${commercialTerms.priceBasis}`
           : `${commercialTerms.deliveryPeriod ?? commercialTerms.deliveryWeeks ?? 8} ${deliveryUnitLabel} from ${deliveryTriggerLabel}. Price basis: ${commercialTerms.priceBasis}`;
 
-      const warrantyTermsText = `${commercialTerms.warrantyMonthsFromSupply} months from supply or ${commercialTerms.warrantyMonthsFromCommissioning} months from commissioning, whichever is later`;
+      const warrantyTermsText = buildWarrantyClause(commercialTerms);
 
       const penaltyClauseText = `${commercialTerms.ldPerWeekPercent}% per week of delay, maximum ${commercialTerms.ldMaxPercent}% of order value`;
 

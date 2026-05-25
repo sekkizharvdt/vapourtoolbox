@@ -278,8 +278,10 @@ export function createCommercialTermsFromTemplate(
     mdccRequired: defaults.mdccRequired ?? true,
     ldPerWeekPercent: defaults.ldPerWeekPercent ?? 0.5,
     ldMaxPercent: defaults.ldMaxPercent ?? 5,
+    warrantyApplicable: defaults.warrantyApplicable ?? true,
     warrantyMonthsFromSupply: defaults.warrantyMonthsFromSupply ?? 18,
     warrantyMonthsFromCommissioning: defaults.warrantyMonthsFromCommissioning ?? 12,
+    warrantyComparison: defaults.warrantyComparison ?? 'LATER',
     buyerContactName: defaults.buyerContactName || DEFAULT_BUYER_CONTACT.buyerContactName,
     buyerContactPhone: defaults.buyerContactPhone || DEFAULT_BUYER_CONTACT.buyerContactPhone,
     buyerContactEmail: defaults.buyerContactEmail || DEFAULT_BUYER_CONTACT.buyerContactEmail,
@@ -378,4 +380,36 @@ export function getWarrantyText(
   return template.fixedTexts.warranty
     .replace('{warrantyMonthsFromSupply}', String(terms.warrantyMonthsFromSupply))
     .replace('{warrantyMonthsFromCommissioning}', String(terms.warrantyMonthsFromCommissioning));
+}
+
+/**
+ * Build the human-readable warranty period clause from structured terms.
+ *
+ * Omits zero terms and honours the earlier/later choice, so it never produces
+ * the "0 months from supply or 0 months from commissioning, whichever is later"
+ * garbage (procurement review round 3, item 2.3). Returns "Not applicable" when
+ * warranty is disabled or no period is set. Undefined `warrantyApplicable` /
+ * `warrantyComparison` are treated as applicable / LATER for back-compat.
+ */
+export function buildWarrantyClause(
+  terms: Pick<
+    POCommercialTerms,
+    | 'warrantyApplicable'
+    | 'warrantyMonthsFromSupply'
+    | 'warrantyMonthsFromCommissioning'
+    | 'warrantyComparison'
+  >
+): string {
+  if (terms.warrantyApplicable === false) return 'Not applicable';
+
+  const hasSupply = (terms.warrantyMonthsFromSupply ?? 0) > 0;
+  const hasCommissioning = (terms.warrantyMonthsFromCommissioning ?? 0) > 0;
+  const comparison = terms.warrantyComparison === 'EARLIER' ? 'earlier' : 'later';
+
+  if (hasSupply && hasCommissioning) {
+    return `${terms.warrantyMonthsFromSupply} months from supply or ${terms.warrantyMonthsFromCommissioning} months from commissioning, whichever is ${comparison}`;
+  }
+  if (hasSupply) return `${terms.warrantyMonthsFromSupply} months from supply`;
+  if (hasCommissioning) return `${terms.warrantyMonthsFromCommissioning} months from commissioning`;
+  return 'Not applicable';
 }

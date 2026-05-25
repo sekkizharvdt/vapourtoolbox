@@ -22,6 +22,7 @@ export {
   createCommercialTermsFromTemplate,
   deriveCommercialTermsFromOffer,
   getWarrantyText,
+  buildWarrantyClause,
   // Billing address utility
   buildBillingAddressFromCompany,
 } from './defaults';

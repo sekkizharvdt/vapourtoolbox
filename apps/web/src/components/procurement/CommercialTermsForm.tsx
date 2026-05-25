@@ -43,7 +43,7 @@ import type {
   POInspectorType,
 } from '@vapour/types';
 import { PaymentScheduleEditor } from './PaymentScheduleEditor';
-import { validatePaymentSchedule } from '@/lib/procurement/commercialTerms';
+import { validatePaymentSchedule, buildWarrantyClause } from '@/lib/procurement/commercialTerms';
 
 // Labels for display
 const PRICE_BASIS_LABELS: Record<POPriceBasis, string> = {
@@ -683,37 +683,61 @@ export function CommercialTermsForm({
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={3}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Warranty from Supply"
-                type="number"
-                value={terms.warrantyMonthsFromSupply}
-                onChange={(e) => handleChange('warrantyMonthsFromSupply', Number(e.target.value))}
-                disabled={disabled}
-                inputProps={{ min: 0, max: 60 }}
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">months</InputAdornment>,
-                }}
-                sx={{ width: 200 }}
-              />
-              <TextField
-                label="Warranty from Commissioning"
-                type="number"
-                value={terms.warrantyMonthsFromCommissioning}
-                onChange={(e) =>
-                  handleChange('warrantyMonthsFromCommissioning', Number(e.target.value))
-                }
-                disabled={disabled}
-                inputProps={{ min: 0, max: 36 }}
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">months</InputAdornment>,
-                }}
-                sx={{ width: 200 }}
-              />
-            </Stack>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={terms.warrantyApplicable !== false}
+                  onChange={(e) => handleChange('warrantyApplicable', e.target.checked)}
+                  disabled={disabled}
+                />
+              }
+              label="Warranty applicable"
+            />
+            {terms.warrantyApplicable !== false && (
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label="Warranty from Supply"
+                  type="number"
+                  value={terms.warrantyMonthsFromSupply}
+                  onChange={(e) => handleChange('warrantyMonthsFromSupply', Number(e.target.value))}
+                  disabled={disabled}
+                  inputProps={{ min: 0, max: 60 }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">months</InputAdornment>,
+                  }}
+                  sx={{ width: 200 }}
+                />
+                <TextField
+                  label="Warranty from Commissioning"
+                  type="number"
+                  value={terms.warrantyMonthsFromCommissioning}
+                  onChange={(e) =>
+                    handleChange('warrantyMonthsFromCommissioning', Number(e.target.value))
+                  }
+                  disabled={disabled}
+                  inputProps={{ min: 0, max: 36 }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">months</InputAdornment>,
+                  }}
+                  sx={{ width: 200 }}
+                />
+                <FormControl size="small" sx={{ minWidth: 180 }} disabled={disabled}>
+                  <InputLabel>Whichever is</InputLabel>
+                  <Select
+                    value={terms.warrantyComparison ?? 'LATER'}
+                    label="Whichever is"
+                    onChange={(e) =>
+                      handleChange('warrantyComparison', e.target.value as 'EARLIER' | 'LATER')
+                    }
+                  >
+                    <MenuItem value="LATER">Later</MenuItem>
+                    <MenuItem value="EARLIER">Earlier</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+            )}
             <Alert severity="info" sx={{ mt: 1 }}>
-              Warranty: {terms.warrantyMonthsFromSupply} months from supply or{' '}
-              {terms.warrantyMonthsFromCommissioning} months from commissioning, whichever is later
+              Warranty: {buildWarrantyClause(terms)}
             </Alert>
           </Stack>
         </AccordionDetails>
