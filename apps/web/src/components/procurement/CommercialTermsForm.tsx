@@ -78,7 +78,7 @@ const ERECTION_LABELS: Record<POErectionScope, string> = {
 };
 
 const DOCUMENT_LABELS: Record<PORequiredDocument, string> = {
-  DRAWING: 'Drawing',
+  DRAWING: 'GA Drawing (GAD)',
   DATA_SHEET: 'Data Sheet',
   QAP: 'Quality Assurance Plan (QAP)',
   OTHER: 'Other Documents',
@@ -114,6 +114,9 @@ export function CommercialTermsForm({
 
   // Local state for Other Documents text input (process on blur, not every keystroke)
   const [otherDocsText, setOtherDocsText] = useState((terms.otherDocuments || []).join(', '));
+  const [inspectionDocsText, setInspectionDocsText] = useState(
+    (terms.inspectionDocuments || []).join(', ')
+  );
 
   const handleSectionToggle = (section: string) => {
     setExpandedSections((prev) =>
@@ -631,10 +634,13 @@ export function CommercialTermsForm({
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={3}>
-            {/* 12. Document Submission */}
+            {/* 12. Post Order Documents */}
             <Box>
               <Typography variant="subtitle2" gutterBottom>
-                Required Documents
+                Post Order Documents
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Documents the vendor must submit before starting production (GAD, datasheet, QAP, …)
               </Typography>
               <FormGroup row>
                 {(Object.keys(DOCUMENT_LABELS) as PORequiredDocument[]).map((doc) => (
@@ -688,6 +694,40 @@ export function CommercialTermsForm({
               </Select>
               <FormHelperText>{template.fixedTexts.inspection.substring(0, 100)}...</FormHelperText>
             </FormControl>
+
+            <FormControl fullWidth disabled={disabled}>
+              <InputLabel>Inspection Type</InputLabel>
+              <Select
+                value={terms.inspectionType ?? ''}
+                label="Inspection Type"
+                onChange={(e) =>
+                  handleChange('inspectionType', e.target.value as 'STAGE' | 'FINAL')
+                }
+              >
+                <MenuItem value="FINAL">Final Inspection</MenuItem>
+                <MenuItem value="STAGE">Stage Inspection</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Inspection Documents (comma-separated)"
+              value={inspectionDocsText}
+              onChange={(e) => setInspectionDocsText(e.target.value)}
+              onBlur={() =>
+                handleChange(
+                  'inspectionDocuments',
+                  inspectionDocsText
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                )
+              }
+              disabled={disabled}
+              fullWidth
+              size="small"
+              placeholder="Documents the vendor must submit with the inspection call, e.g. Test Certificate, IR, MTC"
+              helperText="Listed in the inspection clause so the supplier submits them along with the inspection call"
+            />
 
             {/* 14. MDCC Required */}
             <FormControlLabel

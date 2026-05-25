@@ -335,9 +335,9 @@ export function POTermsSection({ po }: POTermsSectionProps) {
             <Stack spacing={2}>
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Required Documents
+                  Post Order Documents
                 </Typography>
-                <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                <Stack direction="row" spacing={1} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap>
                   {terms.requiredDocuments.map((doc) => (
                     <Chip key={doc} label={DOCUMENT_LABELS[doc] || doc} size="small" />
                   ))}
@@ -352,8 +352,23 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                 </Typography>
                 <Typography variant="body2">
                   {INSPECTOR_LABELS[terms.inspectorType] || terms.inspectorType}
+                  {terms.inspectionType && (
+                    <> — {terms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection</>
+                  )}
                 </Typography>
               </Box>
+              {terms.inspectionDocuments && terms.inspectionDocuments.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Inspection Documents
+                  </Typography>
+                  <Stack direction="row" spacing={1} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap>
+                    {terms.inspectionDocuments.map((doc) => (
+                      <Chip key={doc} label={doc} size="small" variant="outlined" />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
                   MDCC Required

@@ -322,12 +322,17 @@ export interface POCommercialTerms {
   // 11. Delivery Address
   deliveryAddress: string;
 
-  // 12. Document Submission
+  // 12. Document Submission — "post order documents" (GAD, datasheet, QAP, ...)
+  // the vendor must submit before starting production (review 2.3).
   requiredDocuments: PORequiredDocument[];
   otherDocuments?: string[];
 
   // 13. Inspection
   inspectorType: POInspectorType;
+  /** Stage inspection vs final inspection (review 2.3). */
+  inspectionType?: 'STAGE' | 'FINAL';
+  /** Documents the vendor must submit along with the inspection call (review 2.3). */
+  inspectionDocuments?: string[];
 
   // 14. MDCC Required
   mdccRequired: boolean;

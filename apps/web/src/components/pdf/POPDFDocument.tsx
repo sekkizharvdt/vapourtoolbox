@@ -511,12 +511,45 @@ export function POPDFDocument({
                     {
                       label: 'Inspection',
                       value:
-                        po.commercialTerms.inspectorType === 'THIRD_PARTY'
+                        (po.commercialTerms.inspectorType === 'THIRD_PARTY'
                           ? 'Third-party inspection'
                           : po.commercialTerms.inspectorType === 'VDT'
                             ? 'VDT / VDT consultant'
-                            : 'VDT consultant',
+                            : 'VDT consultant') +
+                        (po.commercialTerms.inspectionType
+                          ? ` — ${po.commercialTerms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection`
+                          : ''),
                     },
+                    ...(po.commercialTerms.inspectionDocuments &&
+                    po.commercialTerms.inspectionDocuments.length > 0
+                      ? [
+                          {
+                            label: 'Inspection Documents',
+                            value: po.commercialTerms.inspectionDocuments.join(', '),
+                          },
+                        ]
+                      : []),
+                    ...(po.commercialTerms.requiredDocuments.length > 0 ||
+                    (po.commercialTerms.otherDocuments &&
+                      po.commercialTerms.otherDocuments.length > 0)
+                      ? [
+                          {
+                            label: 'Post Order Documents',
+                            value: [
+                              ...po.commercialTerms.requiredDocuments.map((d) =>
+                                d === 'DRAWING'
+                                  ? 'GA Drawing (GAD)'
+                                  : d === 'DATA_SHEET'
+                                    ? 'Data Sheet'
+                                    : d === 'QAP'
+                                      ? 'QAP'
+                                      : 'Other'
+                              ),
+                              ...(po.commercialTerms.otherDocuments ?? []),
+                            ].join(', '),
+                          },
+                        ]
+                      : []),
                   ]
                 : []),
               ...(po.warrantyTerms ? [{ label: 'Warranty', value: po.warrantyTerms }] : []),
