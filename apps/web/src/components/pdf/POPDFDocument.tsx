@@ -339,6 +339,14 @@ export function POPDFDocument({
               </Text>
             </View>
           )}
+          {po.packingForwardingAmount !== undefined && po.packingForwardingAmount > 0 && (
+            <View style={local.summaryRow}>
+              <Text style={local.summaryLabel}>Packing &amp; Forwarding:</Text>
+              <Text style={local.summaryValue}>
+                {`+ ${formatCurrency(po.packingForwardingAmount, po.currency)}`}
+              </Text>
+            </View>
+          )}
           {po.cgst > 0 && (
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>CGST:</Text>

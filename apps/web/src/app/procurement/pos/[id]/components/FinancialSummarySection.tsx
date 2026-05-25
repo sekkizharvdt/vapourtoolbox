@@ -26,6 +26,20 @@ export function FinancialSummarySection({ po }: FinancialSummarySectionProps) {
           <Typography>Subtotal</Typography>
           <Typography fontWeight="medium">{formatCurrency(po.subtotal, po.currency)}</Typography>
         </Stack>
+        {po.discount !== undefined && po.discount > 0 && (
+          <Stack direction="row" justifyContent="space-between">
+            <Typography>Discount</Typography>
+            <Typography color="error.main">
+              {`- ${formatCurrency(po.discount, po.currency)}`}
+            </Typography>
+          </Stack>
+        )}
+        {po.packingForwardingAmount !== undefined && po.packingForwardingAmount > 0 && (
+          <Stack direction="row" justifyContent="space-between">
+            <Typography>Packing &amp; Forwarding</Typography>
+            <Typography>{`+ ${formatCurrency(po.packingForwardingAmount, po.currency)}`}</Typography>
+          </Stack>
+        )}
         {po.cgst > 0 && (
           <Stack direction="row" justifyContent="space-between">
             <Typography>CGST</Typography>

@@ -47,6 +47,7 @@ import { requirePermission } from '@/lib/auth';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
 import { rfqStateMachine } from '@/lib/workflow/stateMachines';
 import { removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
+import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -174,16 +175,38 @@ export async function createPOFromOffer(
       const poNumber = await generatePONumber();
       const now = Timestamp.now();
 
-      // Calculate totals
-      const subtotal = offer.subtotal;
-      const totalTax = offer.taxAmount;
+      // Calculate totals (rule 21 — round at every step).
+      //
+      // Basic price (pre-discount, pre-P&F) from the vendor's quote.
+      const subtotal = roundToPaisa(offer.subtotal);
 
-      // For now, split tax equally into CGST and SGST (intra-state)
-      const cgst = totalTax / 2;
-      const sgst = totalTax / 2;
+      // Header discount reduces the taxable value (pre-tax — review decision 2.2a).
+      const discount = offer.discount && offer.discount > 0 ? roundToPaisa(offer.discount) : 0;
+
+      // Packing & forwarding, when charged separately, is part of the taxable
+      // value (GST applies to it). When included in the line prices it is 0.
+      const ct = terms.commercialTerms;
+      let packingForwardingAmount = 0;
+      if (ct && !ct.packingForwardingIncluded && ct.pfChargeValue && ct.pfChargeValue > 0) {
+        packingForwardingAmount =
+          ct.pfChargeType === 'PERCENTAGE'
+            ? roundToPaisa((subtotal * ct.pfChargeValue) / 100)
+            : roundToPaisa(ct.pfChargeValue);
+      }
+
+      // Taxable value, then recompute GST on it using the quote's blended
+      // effective rate (handles mixed line-item rates; exact for single-rate POs).
+      const taxableValue = roundToPaisa(subtotal - discount + packingForwardingAmount);
+      const effectiveTaxRate = offer.subtotal > 0 ? offer.taxAmount / offer.subtotal : 0;
+      const totalTax = roundToPaisa(taxableValue * effectiveTaxRate);
+
+      // Split tax equally into CGST and SGST (intra-state); sgst takes the
+      // rounding residue so cgst + sgst === totalTax exactly.
+      const cgst = roundToPaisa(totalTax / 2);
+      const sgst = roundToPaisa(totalTax - cgst);
       const igst = 0; // Inter-state
 
-      const grandTotal = offer.totalAmount;
+      const grandTotal = roundToPaisa(taxableValue + totalTax);
 
       // Calculate advance amount if required
       let advanceAmount = 0;
@@ -263,11 +286,14 @@ export async function createPOFromOffer(
       if (offer.vendorOfferNumber) poData.vendorOfferNumber = offer.vendorOfferNumber;
       if (offer.vendorOfferDate) poData.vendorOfferDate = offer.vendorOfferDate;
 
-      // Propagate the offer's discount so the PO PDF can show it as a separate
-      // line in the financial summary (review #28). Grand total stays at the
-      // vendor's quoted total for audit reconciliation.
-      if (offer.discount !== undefined && offer.discount > 0) {
-        poData.discount = offer.discount;
+      // Discount and P&F are baked into the taxable value / grand total above
+      // (review 2.2a/2.2b); store the amounts so the financial summary and PDF
+      // can show them as explicit rows.
+      if (discount > 0) {
+        poData.discount = discount;
+      }
+      if (packingForwardingAmount > 0) {
+        poData.packingForwardingAmount = packingForwardingAmount;
       }
       if (terms.advancePercentage !== undefined) {
         poData.advancePercentage = terms.advancePercentage;

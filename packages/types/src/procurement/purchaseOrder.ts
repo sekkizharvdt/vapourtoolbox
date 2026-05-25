@@ -53,19 +53,25 @@ export interface PurchaseOrder {
   title: string;
   description?: string;
 
-  // Financial
+  // Financial — `subtotal` is the basic price (pre-discount, pre-P&F). The
+  // taxable value GST is computed on is `subtotal - discount + packingForwardingAmount`.
   subtotal: number;
 
   /**
-   * Discount amount in `currency` (absolute), propagated from the selected
-   * offer on PO creation (procurement review #28). Shown as a separate row
-   * on the PO PDF financial summary; does NOT re-derive `grandTotal` —
-   * `grandTotal` remains the vendor's quoted final total so reconciliation
-   * with the offer is unambiguous.
+   * Header discount amount in `currency` (absolute). Applied PRE-TAX: it
+   * reduces the taxable value before GST, so `grandTotal` IS net of the
+   * discount (procurement review round 3, item 2.2a).
    */
   discount?: number;
 
-  // Tax breakdown
+  /**
+   * Packing & forwarding charge in `currency`, when not included in the line
+   * prices (`commercialTerms.packingForwardingIncluded === false`). Added to
+   * the taxable value before GST, so it flows into `grandTotal` (item 2.2b).
+   */
+  packingForwardingAmount?: number;
+
+  // Tax breakdown — computed on the taxable value above (not the raw subtotal)
   cgst: number;
   sgst: number;
   igst: number;
