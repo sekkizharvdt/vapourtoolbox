@@ -65,6 +65,7 @@ import {
   type CreateVendorQuoteInput,
   type CreateVendorQuoteItemInput,
 } from '@/lib/vendorQuotes';
+import { computeQuoteLineAmounts } from '@/lib/vendorQuotes/lineMath';
 import type { RFQ, RFQItem, OfferDeviation } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
 import {
@@ -110,6 +111,8 @@ interface OfferItemData {
   unit: string;
   unitPrice: number;
   gstRate: number;
+  discountType?: 'PERCENT' | 'ABSOLUTE';
+  discountValue?: number;
   deliveryPeriod: string;
   makeModel: string;
   meetsSpec: boolean;
@@ -207,7 +210,10 @@ export default function UploadOfferDialog({
   const [erectionAfterPurchase, setErectionAfterPurchase] = useState('');
   const [inspection, setInspection] = useState('');
   // Discount is stored as a string to preserve "" (blank) vs 0; parsed numerically on submit.
+  // `discountType` lets the user enter either a percentage of subtotal or an
+  // absolute amount; the resolved absolute is what gets stored (review 1.3).
   const [discount, setDiscount] = useState('');
+  const [discountType, setDiscountType] = useState<'PERCENT' | 'ABSOLUTE'>('ABSOLUTE');
 
   // Technical deviations from comparing the offer against PR/RFQ attachments
   const [deviations, setDeviations] = useState<OfferDeviation[]>([]);
@@ -276,10 +282,15 @@ export default function UploadOfferDialog({
     let taxAmount = 0;
 
     offerItems.forEach((item) => {
-      const lineAmount = item.unitPrice * item.quotedQuantity;
-      const lineTax = (lineAmount * item.gstRate) / 100;
-      subtotal += lineAmount;
-      taxAmount += lineTax;
+      const line = computeQuoteLineAmounts({
+        quantity: item.quotedQuantity,
+        unitPrice: item.unitPrice,
+        gstRate: item.gstRate,
+        discountType: item.discountType,
+        discountValue: item.discountValue,
+      });
+      subtotal += line.amount;
+      taxAmount += line.gstAmount ?? 0;
     });
 
     return {
@@ -666,7 +677,7 @@ export default function UploadOfferDialog({
   const handleItemChange = (
     index: number,
     field: keyof OfferItemData,
-    value: string | number | boolean
+    value: string | number | boolean | undefined
   ) => {
     setOfferItems((prev) =>
       prev.map((item, i) => {
@@ -719,7 +730,12 @@ export default function UploadOfferDialog({
         ...(erectionAfterPurchase && { erectionAfterPurchase }),
         ...(inspection && { inspection }),
         ...(discount.trim() && Number.isFinite(Number(discount)) && Number(discount) > 0
-          ? { discount: Number(discount) }
+          ? {
+              discount:
+                discountType === 'PERCENT'
+                  ? Math.round(((totals.subtotal * Number(discount)) / 100) * 100) / 100
+                  : Number(discount),
+            }
           : {}),
         ...(deviations.length > 0 ? { deviations } : {}),
         subtotal: totals.subtotal,
@@ -736,6 +752,9 @@ export default function UploadOfferDialog({
         unit: item.unit,
         unitPrice: item.unitPrice,
         gstRate: item.gstRate,
+        ...(item.discountType && { discountType: item.discountType }),
+        ...(item.discountValue !== undefined &&
+          item.discountValue > 0 && { discountValue: item.discountValue }),
         ...(item.deliveryPeriod && { deliveryPeriod: item.deliveryPeriod }),
         ...(item.makeModel && { makeModel: item.makeModel }),
         meetsSpec: item.meetsSpec,
@@ -789,6 +808,7 @@ export default function UploadOfferDialog({
     setErectionAfterPurchase('');
     setInspection('');
     setDiscount('');
+    setDiscountType('ABSOLUTE');
     setDeviations([]);
     setDeviationDocsConsidered([]);
     setDeviationDocsSkipped([]);
@@ -1423,17 +1443,28 @@ export default function UploadOfferDialog({
                       placeholder="e.g., TPI by buyer / At works by vendor"
                     />
                   </Stack>
-                  <TextField
-                    label="Discount (absolute ₹)"
-                    type="number"
-                    value={discount}
-                    onChange={(e) => setDiscount(e.target.value)}
-                    size="small"
-                    placeholder="e.g., 5000"
-                    inputProps={{ min: 0, step: 0.01 }}
-                    helperText="Auto-populated by Claude when the quotation shows a discount. Carried on to the PO for reference."
-                    sx={{ maxWidth: 280 }}
-                  />
+                  <Stack direction="row" spacing={1} sx={{ maxWidth: 360 }}>
+                    <TextField
+                      label="Discount"
+                      type="number"
+                      value={discount}
+                      onChange={(e) => setDiscount(e.target.value)}
+                      size="small"
+                      placeholder={discountType === 'PERCENT' ? 'e.g., 5' : 'e.g., 5000'}
+                      inputProps={{ min: 0, step: 0.01 }}
+                      helperText="Auto-populated by Claude when the quotation shows a discount. Applied pre-tax and carried to the PO."
+                      fullWidth
+                    />
+                    <Select
+                      size="small"
+                      value={discountType}
+                      onChange={(e) => setDiscountType(e.target.value as 'PERCENT' | 'ABSOLUTE')}
+                      sx={{ width: 90, height: 40 }}
+                    >
+                      <MenuItem value="ABSOLUTE">₹</MenuItem>
+                      <MenuItem value="PERCENT">% of subtotal</MenuItem>
+                    </Select>
+                  </Stack>
                 </Stack>
               </AccordionDetails>
             </Accordion>
@@ -1458,6 +1489,7 @@ export default function UploadOfferDialog({
                       <TableCell width={80}>Qty</TableCell>
                       <TableCell width={80}>Unit</TableCell>
                       <TableCell width={120}>Unit Price</TableCell>
+                      <TableCell width={150}>Discount</TableCell>
                       <TableCell width={80}>GST %</TableCell>
                       <TableCell width={120}>Amount</TableCell>
                       <TableCell width={80}>Match</TableCell>
@@ -1465,9 +1497,14 @@ export default function UploadOfferDialog({
                   </TableHead>
                   <TableBody>
                     {offerItems.map((item, index) => {
-                      const lineAmount = item.unitPrice * item.quotedQuantity;
-                      const lineTax = (lineAmount * item.gstRate) / 100;
-                      const lineTotal = lineAmount + lineTax;
+                      const line = computeQuoteLineAmounts({
+                        quantity: item.quotedQuantity,
+                        unitPrice: item.unitPrice,
+                        gstRate: item.gstRate,
+                        discountType: item.discountType,
+                        discountValue: item.discountValue,
+                      });
+                      const lineTotal = line.total;
 
                       return (
                         <TableRow
@@ -1519,6 +1556,39 @@ export default function UploadOfferDialog({
                               }}
                               error={item.unitPrice <= 0}
                             />
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={0.5}>
+                              <TextField
+                                type="number"
+                                size="small"
+                                value={item.discountValue ?? ''}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    'discountValue',
+                                    e.target.value === '' ? undefined : Number(e.target.value)
+                                  )
+                                }
+                                sx={{ width: 70 }}
+                                inputProps={{ min: 0, step: 0.01 }}
+                              />
+                              <Select
+                                size="small"
+                                value={item.discountType ?? 'PERCENT'}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    'discountType',
+                                    e.target.value as 'PERCENT' | 'ABSOLUTE'
+                                  )
+                                }
+                                sx={{ width: 64 }}
+                              >
+                                <MenuItem value="PERCENT">%</MenuItem>
+                                <MenuItem value="ABSOLUTE">₹</MenuItem>
+                              </Select>
+                            </Stack>
                           </TableCell>
                           <TableCell>
                             <TextField
