@@ -22,8 +22,20 @@ describe('purchaseOrderStateMachine', () => {
       expect(purchaseOrderStateMachine.canTransitionTo('DRAFT', 'PENDING_APPROVAL')).toBe(true);
     });
 
-    it('should allow PENDING_APPROVAL -> APPROVED', () => {
-      expect(purchaseOrderStateMachine.canTransitionTo('PENDING_APPROVAL', 'APPROVED')).toBe(true);
+    it('should allow PENDING_APPROVAL -> PENDING_DIRECTOR_APPROVAL (manager approval)', () => {
+      expect(
+        purchaseOrderStateMachine.canTransitionTo('PENDING_APPROVAL', 'PENDING_DIRECTOR_APPROVAL')
+      ).toBe(true);
+    });
+
+    it('should allow PENDING_DIRECTOR_APPROVAL -> APPROVED (director final)', () => {
+      expect(
+        purchaseOrderStateMachine.canTransitionTo('PENDING_DIRECTOR_APPROVAL', 'APPROVED')
+      ).toBe(true);
+    });
+
+    it('should NOT allow PENDING_APPROVAL -> APPROVED directly (two-tier)', () => {
+      expect(purchaseOrderStateMachine.canTransitionTo('PENDING_APPROVAL', 'APPROVED')).toBe(false);
     });
 
     it('should allow PENDING_APPROVAL -> REJECTED', () => {
@@ -93,10 +105,19 @@ describe('purchaseOrderStateMachine', () => {
   });
 
   describe('permissions', () => {
-    it('should require APPROVE_PO for approval', () => {
-      expect(purchaseOrderStateMachine.getRequiredPermission('PENDING_APPROVAL', 'APPROVED')).toBe(
-        PERMISSION_FLAGS.MANAGE_PROCUREMENT
-      );
+    it('should require MANAGE_PROCUREMENT for manager approval (tier 1)', () => {
+      expect(
+        purchaseOrderStateMachine.getRequiredPermission(
+          'PENDING_APPROVAL',
+          'PENDING_DIRECTOR_APPROVAL'
+        )
+      ).toBe(PERMISSION_FLAGS.MANAGE_PROCUREMENT);
+    });
+
+    it('should require APPROVE_PO_AS_DIRECTOR for final approval (tier 2)', () => {
+      expect(
+        purchaseOrderStateMachine.getRequiredPermission('PENDING_DIRECTOR_APPROVAL', 'APPROVED')
+      ).toBe(PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR);
     });
 
     it('should require APPROVE_PO for rejection', () => {

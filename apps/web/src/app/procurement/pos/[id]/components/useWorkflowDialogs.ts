@@ -19,6 +19,8 @@ export interface WorkflowDialogState {
   rejectionReason: string;
   cancellationReason: string;
   selectedApproverId: string | null;
+  /** Director chosen by the manager at tier-1 approval (two-tier flow). */
+  selectedDirectorApproverId: string | null;
 
   // Actions
   setSubmitDialogOpen: (open: boolean) => void;
@@ -30,6 +32,7 @@ export interface WorkflowDialogState {
   setRejectionReason: (reason: string) => void;
   setCancellationReason: (reason: string) => void;
   setSelectedApproverId: (id: string | null) => void;
+  setSelectedDirectorApproverId: (id: string | null) => void;
 
   // Reset functions
   resetApprovalForm: () => void;
@@ -49,9 +52,11 @@ export function useWorkflowDialogs(): WorkflowDialogState {
   const [rejectionReason, setRejectionReason] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
   const [selectedApproverId, setSelectedApproverId] = useState<string | null>(null);
+  const [selectedDirectorApproverId, setSelectedDirectorApproverId] = useState<string | null>(null);
 
   const resetApprovalForm = () => {
     setApprovalComments('');
+    setSelectedDirectorApproverId(null);
     setApproveDialogOpen(false);
   };
 
@@ -80,6 +85,7 @@ export function useWorkflowDialogs(): WorkflowDialogState {
     rejectionReason,
     cancellationReason,
     selectedApproverId,
+    selectedDirectorApproverId,
     setSubmitDialogOpen,
     setApproveDialogOpen,
     setRejectDialogOpen,
@@ -89,6 +95,7 @@ export function useWorkflowDialogs(): WorkflowDialogState {
     setRejectionReason,
     setCancellationReason,
     setSelectedApproverId,
+    setSelectedDirectorApproverId,
     resetApprovalForm,
     resetRejectionForm,
     resetCancellationForm,

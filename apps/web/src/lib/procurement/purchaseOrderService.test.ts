@@ -455,8 +455,10 @@ describe('purchaseOrderService', () => {
   // ========================================================================
   // approvePO Tests
   // ========================================================================
-  describe('approvePO', () => {
-    const APPROVE_PO_PERMISSION = PERMISSION_FLAGS.MANAGE_PROCUREMENT;
+  describe('approvePO (Director final approval)', () => {
+    // approvePO is now the second tier — it requires the Director flag and a PO
+    // already at PENDING_DIRECTOR_APPROVAL (two-tier flow, review 2.3).
+    const APPROVE_PO_PERMISSION = PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR;
 
     beforeEach(() => {
       mockRunTransaction.mockImplementation(async (_db, callback) => {
@@ -466,7 +468,7 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_APPROVAL',
+                status: 'PENDING_DIRECTOR_APPROVAL',
                 createdBy: 'other-user',
               }),
           }),
@@ -476,9 +478,9 @@ describe('purchaseOrderService', () => {
       });
     });
 
-    it('should require APPROVE_PO permission', async () => {
+    it('should require Director approval permission', async () => {
       mockRequirePermission.mockImplementation(() => {
-        throw new Error('Permission denied: requires APPROVE_PO');
+        throw new Error('Permission denied: requires APPROVE_PO_AS_DIRECTOR');
       });
 
       await expect(
@@ -489,7 +491,7 @@ describe('purchaseOrderService', () => {
         0,
         APPROVE_PO_PERMISSION,
         'user-1',
-        'approve purchase order'
+        'give final approval to purchase order'
       );
     });
 
@@ -507,7 +509,7 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_APPROVAL',
+                status: 'PENDING_DIRECTOR_APPROVAL',
                 createdBy: 'user-1', // Same as approver
               }),
           }),
@@ -561,9 +563,9 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_APPROVAL',
+                status: 'PENDING_DIRECTOR_APPROVAL',
                 createdBy: 'other-user',
-                approverId: 'specific-approver', // Different from user-1
+                directorApproverId: 'specific-approver', // Different from user-1
               }),
           }),
           update: jest.fn(),
@@ -589,7 +591,7 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_APPROVAL',
+                status: 'PENDING_DIRECTOR_APPROVAL',
                 createdBy: 'other-user',
               }),
           }),
@@ -632,13 +634,11 @@ describe('purchaseOrderService', () => {
   describe('rejectPO', () => {
     const APPROVE_PO_PERMISSION = PERMISSION_FLAGS.MANAGE_PROCUREMENT;
 
-    it('should require APPROVE_PO permission', async () => {
-      mockRequirePermission.mockImplementation(() => {
-        throw new Error('Permission denied');
-      });
-
+    it('should require manager or director permission', async () => {
+      // rejectPO checks hasPermission directly (manager OR director); with no
+      // permissions it throws its own message.
       await expect(rejectPO('po-1', 'user-1', 'John Doe', 0, 'Not meeting specs')).rejects.toThrow(
-        'Permission denied'
+        'do not have permission'
       );
     });
 

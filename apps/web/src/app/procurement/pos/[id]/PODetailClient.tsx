@@ -17,6 +17,7 @@ import {
   getPOById,
   getPOItems,
   submitPOForApproval,
+  managerApprovePO,
   approvePO,
   rejectPO,
   issuePO,
@@ -113,15 +114,32 @@ export default function PODetailPage() {
   const handleApprove = async () => {
     if (!user || !po || !poId || !claims) return;
 
+    // Tier 1 (Manager) requires picking the Director for final approval.
+    if (po.status === 'PENDING_APPROVAL' && !dialogState.selectedDirectorApproverId) {
+      setError('Select a Director to give final approval');
+      return;
+    }
+
     setActionLoading(true);
     try {
-      await approvePO(
-        poId,
-        user.uid,
-        user.displayName || 'Unknown',
-        claims.permissions,
-        dialogState.approvalComments
-      );
+      if (po.status === 'PENDING_APPROVAL') {
+        await managerApprovePO(
+          poId,
+          user.uid,
+          user.displayName || 'Unknown',
+          claims.permissions,
+          dialogState.selectedDirectorApproverId!,
+          dialogState.approvalComments
+        );
+      } else {
+        await approvePO(
+          poId,
+          user.uid,
+          user.displayName || 'Unknown',
+          claims.permissions,
+          dialogState.approvalComments
+        );
+      }
       dialogState.resetApprovalForm();
       await loadPO();
     } catch (err) {
@@ -270,6 +288,7 @@ export default function PODetailPage() {
       <POWorkflowDialogs
         dialogState={dialogState}
         actionLoading={actionLoading}
+        approvalStage={po.status === 'PENDING_APPROVAL' ? 'MANAGER' : 'DIRECTOR'}
         onSubmitForApproval={handleSubmitForApproval}
         onApprove={handleApprove}
         onReject={handleReject}

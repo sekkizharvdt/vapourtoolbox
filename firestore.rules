@@ -616,7 +616,9 @@ service cloud.firestore {
 
       allow create: if hasPermission(65536) && isInternalUser() &&
                        request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
-      allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      // Update: Procurement Manager (bit 16) OR Director (bit 26) — the Director
+      // needs write access to record their final approval in the two-tier flow.
+      allow update: if (hasPermission(65536) || hasPermission(67108864)) && isInternalUser();
       allow delete: if isSuperAdmin();
     }
 

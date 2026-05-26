@@ -19,10 +19,13 @@ import {
 } from '@mui/material';
 import type { WorkflowDialogState } from './useWorkflowDialogs';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 interface POWorkflowDialogsProps {
   dialogState: WorkflowDialogState;
   actionLoading: boolean;
+  /** Which approval tier the PO is at — drives the Approve dialog (review 2.3). */
+  approvalStage: 'MANAGER' | 'DIRECTOR';
   onSubmitForApproval: () => void;
   onApprove: () => void;
   onReject: () => void;
@@ -33,6 +36,7 @@ interface POWorkflowDialogsProps {
 export function POWorkflowDialogs({
   dialogState,
   actionLoading,
+  approvalStage,
   onSubmitForApproval,
   onApprove,
   onReject,
@@ -81,11 +85,27 @@ export function POWorkflowDialogs({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Approve Purchase Order</DialogTitle>
+        <DialogTitle>
+          {approvalStage === 'MANAGER' ? 'Approve & Send for Final Approval' : 'Final Approval'}
+        </DialogTitle>
         <DialogContent>
           <Typography gutterBottom>
-            Are you sure you want to approve this Purchase Order?
+            {approvalStage === 'MANAGER'
+              ? 'Approve this Purchase Order and assign a Director to give final approval.'
+              : 'Give final (Director) approval to this Purchase Order?'}
           </Typography>
+          {approvalStage === 'MANAGER' && (
+            <Box sx={{ mt: 2 }}>
+              <ApproverSelector
+                value={dialogState.selectedDirectorApproverId}
+                onChange={(userId) => dialogState.setSelectedDirectorApproverId(userId)}
+                label="Assign Director (final approver)"
+                customPermissions={PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR}
+                required
+                helperText="Only users with Director (final PO approval) permission are listed"
+              />
+            </Box>
+          )}
           <TextField
             label="Comments (Optional)"
             value={dialogState.approvalComments}
@@ -100,8 +120,22 @@ export function POWorkflowDialogs({
           <Button onClick={() => dialogState.setApproveDialogOpen(false)} disabled={actionLoading}>
             Cancel
           </Button>
-          <Button onClick={onApprove} variant="contained" color="success" disabled={actionLoading}>
-            {actionLoading ? <CircularProgress size={20} /> : 'Approve'}
+          <Button
+            onClick={onApprove}
+            variant="contained"
+            color="success"
+            disabled={
+              actionLoading ||
+              (approvalStage === 'MANAGER' && !dialogState.selectedDirectorApproverId)
+            }
+          >
+            {actionLoading ? (
+              <CircularProgress size={20} />
+            ) : approvalStage === 'MANAGER' ? (
+              'Approve & Send'
+            ) : (
+              'Approve'
+            )}
           </Button>
         </DialogActions>
       </Dialog>

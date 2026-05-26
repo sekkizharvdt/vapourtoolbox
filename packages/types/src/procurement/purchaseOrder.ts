@@ -12,7 +12,8 @@ import type { Timestamp } from 'firebase/firestore';
 
 export type PurchaseOrderStatus =
   | 'DRAFT'
-  | 'PENDING_APPROVAL'
+  | 'PENDING_APPROVAL' // first tier — Procurement Manager review
+  | 'PENDING_DIRECTOR_APPROVAL' // second tier — Director final approval
   | 'APPROVED'
   | 'REJECTED'
   | 'ISSUED'
@@ -113,9 +114,18 @@ export interface PurchaseOrder {
   submittedForApprovalAt?: Timestamp;
   submittedBy?: string;
 
-  // Selected approver (optional - if specified, creates task notification)
+  // Tier-1 (Manager) approver, assigned at submit time.
   approverId?: string;
 
+  // Tier-1 (Manager) approval record — set when the manager approves and the PO
+  // moves to PENDING_DIRECTOR_APPROVAL (two-tier approval, review 2.3).
+  managerApprovedBy?: string;
+  managerApprovedByName?: string;
+  managerApprovedAt?: Timestamp;
+  // Tier-2 (Director) approver, assigned by the manager at the first approval.
+  directorApproverId?: string;
+
+  // Final (Director) approval record.
   approvedBy?: string;
   approvedByName?: string;
   approvedAt?: Timestamp;

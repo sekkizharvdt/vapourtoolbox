@@ -13,7 +13,8 @@ import type { PurchaseOrder, PurchaseOrderStatus } from '@vapour/types';
 export function getPOStatusText(status: PurchaseOrderStatus): string {
   const statusMap: Record<PurchaseOrderStatus, string> = {
     DRAFT: 'Draft',
-    PENDING_APPROVAL: 'Pending Approval',
+    PENDING_APPROVAL: 'Pending Manager Approval',
+    PENDING_DIRECTOR_APPROVAL: 'Pending Director Approval',
     APPROVED: 'Approved',
     REJECTED: 'Rejected',
     ISSUED: 'Issued',
@@ -36,6 +37,7 @@ export function getPOStatusColor(
   > = {
     DRAFT: 'default',
     PENDING_APPROVAL: 'warning',
+    PENDING_DIRECTOR_APPROVAL: 'warning',
     APPROVED: 'info',
     REJECTED: 'error',
     ISSUED: 'primary',
@@ -62,11 +64,11 @@ export function canSubmitForApproval(po: PurchaseOrder): boolean {
 }
 
 export function canApprovePO(po: PurchaseOrder): boolean {
-  return po.status === 'PENDING_APPROVAL';
+  return po.status === 'PENDING_APPROVAL' || po.status === 'PENDING_DIRECTOR_APPROVAL';
 }
 
 export function canRejectPO(po: PurchaseOrder): boolean {
-  return po.status === 'PENDING_APPROVAL';
+  return po.status === 'PENDING_APPROVAL' || po.status === 'PENDING_DIRECTOR_APPROVAL';
 }
 
 export function canIssuePO(po: PurchaseOrder): boolean {
@@ -74,7 +76,9 @@ export function canIssuePO(po: PurchaseOrder): boolean {
 }
 
 export function canCancelPO(po: PurchaseOrder): boolean {
-  return ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ISSUED'].includes(po.status);
+  return ['DRAFT', 'PENDING_APPROVAL', 'PENDING_DIRECTOR_APPROVAL', 'APPROVED', 'ISSUED'].includes(
+    po.status
+  );
 }
 
 /** Goods receipt can be created once the PO has been issued to (and optionally
@@ -228,6 +232,7 @@ export function calculatePOStats(pos: PurchaseOrder[]) {
         stats.draft++;
         break;
       case 'PENDING_APPROVAL':
+      case 'PENDING_DIRECTOR_APPROVAL':
         stats.pendingApproval++;
         break;
       case 'APPROVED':

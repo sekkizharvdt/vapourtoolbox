@@ -54,13 +54,18 @@ export const PERMISSION_FLAGS = {
   VIEW_PROPOSALS: 1 << 20, // 1048576 - View proposals and enquiries
   MANAGE_PROPOSALS: 1 << 21, // 2097152 - Create/edit proposals and enquiries
 
-  // DEPRECATED: Granular Accounting Permissions (bits 22-26) - No longer used
+  // DEPRECATED: Granular Accounting Permissions (bits 22-25) - No longer used
   // These flags existed in old code but are now superseded by VIEW_ACCOUNTING/MANAGE_ACCOUNTING
   // Keeping the bit assignments documented for backward compatibility during migration
   // _DEPRECATED_APPROVE_TRANSACTIONS: 1 << 22, // 4194304
   // _DEPRECATED_VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608
   // _DEPRECATED_MANAGE_COST_CENTRES: 1 << 24, // 16777216
   // _DEPRECATED_MANAGE_FOREX: 1 << 25, // 33554432
+
+  // Procurement — Director final approval (bit 26).
+  // Second tier of PO approval: a PO goes Manager (MANAGE_PROCUREMENT) →
+  // Director (this flag). Granted to whoever signs off POs at the final gate.
+  APPROVE_PO_AS_DIRECTOR: 1 << 26, // 67108864
 
   // Document Management (bits 27-30)
   MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports
@@ -155,6 +160,11 @@ export function canViewProcurement(permissions: number): boolean {
 
 export function canManageProcurement(permissions: number): boolean {
   return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT);
+}
+
+/** Director-level (second-tier) PO approval. */
+export function canApprovePOAsDirector(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR);
 }
 
 /**

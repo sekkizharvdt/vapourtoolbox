@@ -17,4 +17,11 @@ export {
 } from './crud';
 
 // Workflow operations
-export { submitPOForApproval, approvePO, rejectPO, issuePO, updatePOStatus } from './workflow';
+export {
+  submitPOForApproval,
+  managerApprovePO,
+  approvePO,
+  rejectPO,
+  issuePO,
+  updatePOStatus,
+} from './workflow';

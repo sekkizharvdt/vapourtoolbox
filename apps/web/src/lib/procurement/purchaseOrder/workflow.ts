@@ -13,7 +13,7 @@ import { doc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PurchaseOrderStatus } from '@vapour/types';
-import { PERMISSION_FLAGS } from '@vapour/constants';
+import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import { formatCurrency } from '../purchaseOrderHelpers';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
@@ -103,7 +103,119 @@ export async function submitPOForApproval(
 }
 
 // ============================================================================
-// APPROVE PO
+// MANAGER APPROVE PO (tier 1) → sends to Director for final approval
+// ============================================================================
+
+export async function managerApprovePO(
+  poId: string,
+  userId: string,
+  userName: string,
+  userPermissions: number,
+  directorId: string,
+  comments?: string
+): Promise<void> {
+  // rule8-exempt: transition is validated against the state machine inside the transaction below.
+  const { db } = getFirebase();
+
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'approve purchase order (manager)'
+  );
+
+  if (!directorId) {
+    throw new Error('A Director must be selected for final approval');
+  }
+
+  const po = await runTransaction(db, async (transaction) => {
+    const now = Timestamp.now();
+    const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, poId);
+
+    const poDoc = await transaction.get(poRef);
+    if (!poDoc.exists()) {
+      throw new Error('Purchase Order not found');
+    }
+
+    const poData = { id: poDoc.id, ...poDoc.data() } as ReturnType<
+      typeof getPOById
+    > extends Promise<infer T>
+      ? NonNullable<T>
+      : never;
+
+    const transitionResult = purchaseOrderStateMachine.validateTransition(
+      poData.status,
+      'PENDING_DIRECTOR_APPROVAL'
+    );
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason || `Cannot manager-approve PO with status: ${poData.status}`
+      );
+    }
+
+    // Separation of duties: the manager can't be the PO creator, and the
+    // chosen director can't be the creator or the approving manager.
+    preventSelfApproval(userId, poData.createdBy, 'approve purchase order');
+    if (poData.approverId && poData.approverId !== userId) {
+      requireApprover(userId, [poData.approverId], 'approve this purchase order');
+    }
+    if (directorId === poData.createdBy || directorId === userId) {
+      throw new Error(
+        'The Director must be different from the PO creator and the approving manager'
+      );
+    }
+
+    transaction.update(poRef, {
+      status: 'PENDING_DIRECTOR_APPROVAL',
+      managerApprovedBy: userId,
+      managerApprovedByName: userName,
+      managerApprovedAt: now,
+      directorApproverId: directorId,
+      ...(comments && { approvalComments: comments }),
+      updatedAt: now,
+      updatedBy: userId,
+    });
+
+    return poData;
+  });
+
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'PO_UPDATED',
+    'PURCHASE_ORDER',
+    poId,
+    `Manager approved Purchase Order ${po.number}; sent to Director for final approval`,
+    {
+      entityName: po.number,
+      metadata: { vendorName: po.vendorName, grandTotal: po.grandTotal, directorId },
+    }
+  );
+
+  // Notify the Director that final approval is pending.
+  const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+  await createTaskNotification({
+    type: 'actionable',
+    category: 'PO_PENDING_APPROVAL',
+    userId: directorId,
+    assignedBy: userId,
+    assignedByName: userName,
+    title: `Final approval: Purchase Order ${po.number}`,
+    message: `${userName} (Manager) approved a purchase order needing your final approval: ${po.vendorName} - ${formatCurrency(po.grandTotal, po.currency)}`,
+    entityType: 'PURCHASE_ORDER',
+    entityId: poId,
+    linkUrl: `/procurement/pos/${poId}`,
+    priority: 'HIGH',
+    autoCompletable: true,
+    ...(po.projectIds[0] && { projectId: po.projectIds[0] }),
+  });
+
+  logger.info('PO manager-approved, pending director', { poId, directorId });
+}
+
+// ============================================================================
+// DIRECTOR APPROVE PO (tier 2 — final)
 // ============================================================================
 
 export async function approvePO(
@@ -114,15 +226,15 @@ export async function approvePO(
   comments?: string,
   bankAccountId?: string
 ): Promise<void> {
-  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule8-exempt: transition is validated against the state machine inside the transaction below.
   const { db } = getFirebase();
 
-  // Authorization: Require APPROVE_PO permission
+  // Authorization: final approval requires the Director flag (review 2.3).
   requirePermission(
     userPermissions,
-    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR,
     userId,
-    'approve purchase order'
+    'give final approval to purchase order'
   );
 
   // Atomically approve PO to prevent race conditions
@@ -141,7 +253,7 @@ export async function approvePO(
       ? NonNullable<T>
       : never;
 
-    // Validate state machine transition
+    // Validate state machine transition (only valid from PENDING_DIRECTOR_APPROVAL)
     const transitionResult = purchaseOrderStateMachine.validateTransition(
       poData.status,
       'APPROVED'
@@ -150,12 +262,22 @@ export async function approvePO(
       throw new Error(transitionResult.reason || `Cannot approve PO with status: ${poData.status}`);
     }
 
-    // Authorization: Prevent self-approval
+    // Separation of duties: director can't be the creator, nor the manager who
+    // gave tier-1 approval.
     preventSelfApproval(userId, poData.createdBy, 'approve purchase order');
+    if (poData.managerApprovedBy && poData.managerApprovedBy === userId) {
+      throw new Error(
+        'The Director giving final approval must be different from the approving Manager'
+      );
+    }
 
-    // Authorization: Check designated approver if set
-    if (poData.approverId && poData.approverId !== userId) {
-      requireApprover(userId, [poData.approverId], 'approve this purchase order');
+    // Authorization: honour the designated director if one was assigned
+    if (poData.directorApproverId && poData.directorApproverId !== userId) {
+      requireApprover(
+        userId,
+        [poData.directorApproverId],
+        'give final approval to this purchase order'
+      );
     }
 
     // Update PO status atomically
@@ -238,16 +360,20 @@ export async function rejectPO(
   userPermissions: number,
   reason: string
 ): Promise<void> {
-  // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
+  // rule8-exempt: transition is validated against the state machine below.
+  // rule5-exempt: permission IS enforced here, but via an explicit either-of
+  // check (Manager OR Director) rather than the single-flag requirePermission
+  // helper — a PO can be rejected at either approval tier.
   const { db } = getFirebase();
 
-  // Authorization: Require APPROVE_PO permission
-  requirePermission(
-    userPermissions,
-    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
-    userId,
-    'reject purchase order'
-  );
+  // Authorization: either the Manager (tier 1) or the Director (tier 2) may
+  // reject a PO that's pending at their stage.
+  if (
+    !hasPermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT) &&
+    !hasPermission(userPermissions, PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR)
+  ) {
+    throw new Error('You do not have permission to reject this purchase order');
+  }
 
   // Get PO for validation and audit log
   const po = await getPOById(poId);

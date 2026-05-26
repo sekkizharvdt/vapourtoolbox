@@ -21,6 +21,7 @@ export {
   type CreatePOFromOfferTerms,
   // Workflow
   submitPOForApproval,
+  managerApprovePO,
   approvePO,
   rejectPO,
   issuePO,
