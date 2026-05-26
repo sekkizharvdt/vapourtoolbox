@@ -1,7 +1,7 @@
 /**
  * Parse Vendor Quote (no RFQ context)
  *
- * Lighter sibling of `parseOfferDocument` for the "Log Vendor Quote" flow.
+ * Lighter sibling of `parseOffer` for the "Log Vendor Quote" flow.
  * Used when a quote is received outside the in-app RFQ flow (phone, email,
  * WhatsApp, walk-in, trade show), and so there's no RFQ items array to match
  * against. Returns extracted header metadata plus free-text line items.

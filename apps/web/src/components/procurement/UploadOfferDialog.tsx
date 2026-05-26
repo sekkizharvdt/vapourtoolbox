@@ -3,11 +3,8 @@
 /**
  * Upload Offer Dialog
  *
- * Upload and parse vendor offer documents (PDF/DOC) using either:
- * - Google Document AI
- * - Claude AI
- *
- * Supports side-by-side comparison of both parsers for evaluation.
+ * Upload and parse vendor offer documents (PDF/DOC) with Claude AI, then match
+ * the extracted line items to the RFQ items.
  */
 
 import { useState, useMemo, useEffect } from 'react';
@@ -51,10 +48,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   Link as LinkIcon,
   LinkOff as LinkOffIcon,
-  Compare as CompareIcon,
-  Speed as SpeedIcon,
+  AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
-import { ParserComparisonView } from '@/components/shared/ParserComparisonView';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -158,15 +153,6 @@ interface SingleParserResult {
   modelUsed: string;
 }
 
-interface CompareParsingResult {
-  success: boolean;
-  googleDocumentAI: SingleParserResult;
-  claudeAI: SingleParserResult;
-  sourceFileName: string;
-  sourceFileSize: number;
-  totalProcessingTimeMs: number;
-}
-
 export default function UploadOfferDialog({
   open,
   onClose,
@@ -189,12 +175,7 @@ export default function UploadOfferDialog({
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [parseResult, setParseResult] = useState<OfferParsingResult | null>(null);
-  const [compareResult, setCompareResult] = useState<CompareParsingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Comparison view state
-  const [showComparison, setShowComparison] = useState(false);
-  const [selectedParser, setSelectedParser] = useState<'google' | 'claude' | null>(null);
 
   // Parsed header data
   const [vendorOfferNumber, setVendorOfferNumber] = useState('');
@@ -352,7 +333,7 @@ export default function UploadOfferDialog({
     }
   };
 
-  const handleCompareWithBothParsers = async () => {
+  const handleParseWithClaude = async () => {
     if (!file || !user) return;
 
     const vendor = getSelectedVendorInfo();
@@ -362,12 +343,10 @@ export default function UploadOfferDialog({
     setParsing(true);
     setProgress(10);
     setError(null);
-    setShowComparison(true);
-    setCompareResult(null);
 
     try {
       const { storage, app } = getFirebase();
-      // Use asia-south1 region where compareOfferParsers is deployed
+      // parseOffer is deployed to asia-south1.
       const functionsAsiaSouth1 = getFunctions(app, 'asia-south1');
 
       let storagePath = '';
@@ -402,7 +381,7 @@ export default function UploadOfferDialog({
         unit: item.unit,
       }));
 
-      const compareParsersFn = httpsCallable<
+      const parseOfferFn = httpsCallable<
         {
           fileName: string;
           storagePath: string;
@@ -414,11 +393,11 @@ export default function UploadOfferDialog({
           vendorName: string;
           rfqItems: typeof rfqItemsForParsing;
         },
-        CompareParsingResult
-      >(functionsAsiaSouth1, 'compareOfferParsers');
+        SingleParserResult
+      >(functionsAsiaSouth1, 'parseOffer');
 
       setProgress(50);
-      const result = await compareParsersFn({
+      const result = await parseOfferFn({
         fileName: file.name,
         storagePath,
         mimeType: file.type,
@@ -431,12 +410,20 @@ export default function UploadOfferDialog({
       });
 
       setProgress(100);
-      setCompareResult(result.data);
+
+      if (!result.data.success) {
+        setError(
+          result.data.error ||
+            'AI parsing did not return any data. Please enter the offer details manually.'
+        );
+        return;
+      }
+
+      // Apply Claude's results straight into the form.
+      applyParsedData(result.data);
     } catch (err) {
-      console.error('[UploadOfferDialog] Compare error:', err);
-      setError(
-        err instanceof Error ? `Comparison failed: ${err.message}` : 'Failed to compare parsers'
-      );
+      console.error('[UploadOfferDialog] Parse error:', err);
+      setError(err instanceof Error ? `Parsing failed: ${err.message}` : 'Failed to parse offer');
     } finally {
       setParsing(false);
     }
@@ -582,24 +569,6 @@ export default function UploadOfferDialog({
     }
   };
 
-  const handleSelectParser = (parser: 'google' | 'claude') => {
-    if (!compareResult) return;
-
-    setSelectedParser(parser);
-    const result = parser === 'google' ? compareResult.googleDocumentAI : compareResult.claudeAI;
-
-    if (!result.success) {
-      setError(
-        `${parser === 'google' ? 'Google' : 'Claude'} parser failed. Please try the other parser or enter data manually.`
-      );
-      return;
-    }
-
-    // Apply the selected parser's results
-    applyParsedData(result);
-    setShowComparison(false);
-  };
-
   const applyParsedData = (result: SingleParserResult) => {
     if (result.header) {
       if (result.header.vendorOfferNumber) setVendorOfferNumber(result.header.vendorOfferNumber);
@@ -669,8 +638,8 @@ export default function UploadOfferDialog({
       warnings: result.warnings,
       processingTimeMs: result.processingTimeMs,
       modelUsed: result.modelUsed,
-      sourceFileName: compareResult?.sourceFileName || file?.name || '',
-      sourceFileSize: compareResult?.sourceFileSize || file?.size || 0,
+      sourceFileName: file?.name || '',
+      sourceFileSize: file?.size || 0,
     });
   };
 
@@ -791,9 +760,6 @@ export default function UploadOfferDialog({
     setParsing(false);
     setProgress(0);
     setParseResult(null);
-    setCompareResult(null);
-    setShowComparison(false);
-    setSelectedParser(null);
     setError(null);
     setVendorOfferNumber('');
     setVendorOfferDate('');
@@ -825,7 +791,7 @@ export default function UploadOfferDialog({
   };
 
   const selectedVendorInfo = getSelectedVendorInfo();
-  const canCompare = file && !!selectedVendorInfo && !parsing && !uploading;
+  const canParse = file && !!selectedVendorInfo && !parsing && !uploading;
 
   // Track items missing prices (shown as warning — partial quotations are allowed)
   const itemsMissingPrice = offerItems.filter((item) => item.unitPrice <= 0);
@@ -844,97 +810,6 @@ export default function UploadOfferDialog({
       return 'Please enter a unit price for at least one item';
     }
     return '';
-  };
-
-  // Render offer parser detail rows (items found, matched, total amount, processing time)
-  const renderOfferParserDetails = (result: SingleParserResult) => (
-    <>
-      <Stack spacing={1} sx={{ mb: 2 }}>
-        <Stack direction="row" justifyContent="space-between">
-          <Typography variant="body2" color="text.secondary">
-            Items Found:
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {result.totalItemsFound}
-          </Typography>
-        </Stack>
-        <Stack direction="row" justifyContent="space-between">
-          <Typography variant="body2" color="text.secondary">
-            Matched to RFQ:
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {result.matchedItems}
-          </Typography>
-        </Stack>
-        <Stack direction="row" justifyContent="space-between">
-          <Typography variant="body2" color="text.secondary">
-            Total Amount:
-          </Typography>
-          <Typography variant="body2" fontWeight={600}>
-            {formatCurrency(result.calculatedTotal)}
-          </Typography>
-        </Stack>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="body2" color="text.secondary">
-            Processing Time:
-          </Typography>
-          <Chip
-            size="small"
-            icon={<SpeedIcon />}
-            label={`${result.processingTimeMs}ms`}
-            variant="outlined"
-          />
-        </Stack>
-      </Stack>
-
-      {result.warnings && result.warnings.length > 0 && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          {result.warnings.length} warning(s)
-        </Alert>
-      )}
-
-      {result.items.length > 0 && (
-        <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-          <Typography variant="caption" color="text.secondary" gutterBottom>
-            Extracted Items Preview:
-          </Typography>
-          {result.items.slice(0, 5).map((item, idx) => (
-            <Box key={idx} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 0.5 }}>
-              <Typography variant="caption" noWrap>
-                {item.description}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                Qty: {item.quantity} | Price: {formatCurrency(item.unitPrice)}
-              </Typography>
-            </Box>
-          ))}
-          {result.items.length > 5 && (
-            <Typography variant="caption" color="text.secondary">
-              +{result.items.length - 5} more items...
-            </Typography>
-          )}
-        </Box>
-      )}
-    </>
-  );
-
-  // Render comparison view using shared component
-  const renderComparisonView = () => {
-    if (!compareResult) return null;
-
-    return (
-      <Box sx={{ mt: 2 }}>
-        <ParserComparisonView
-          googleResult={compareResult.googleDocumentAI}
-          claudeResult={compareResult.claudeAI}
-          selectedParser={selectedParser}
-          onSelectParser={handleSelectParser}
-          totalProcessingTimeMs={compareResult.totalProcessingTimeMs}
-          renderGoogleDetails={() => renderOfferParserDetails(compareResult.googleDocumentAI)}
-          renderClaudeDetails={() => renderOfferParserDetails(compareResult.claudeAI)}
-        />
-      </Box>
-    );
   };
 
   return (
@@ -1026,9 +901,9 @@ export default function UploadOfferDialog({
           {/* Instructions */}
           <Alert severity="info">
             <Typography variant="body2">
-              Upload the vendor&apos;s quotation document (PDF or Word). Click &quot;Compare AI
-              Parsers&quot; to analyze the document with both Google Document AI and Claude AI, then
-              choose which results to use.
+              Upload the vendor&apos;s quotation document (PDF or Word) and click &quot;Parse with
+              AI&quot; — Claude extracts the offer details and matches the line items to the RFQ.
+              Review and edit the results before creating the offer.
             </Typography>
           </Alert>
 
@@ -1083,14 +958,14 @@ export default function UploadOfferDialog({
                   </Box>
                 </Stack>
                 <Stack direction="row" spacing={1}>
-                  {canCompare && !showComparison && !parseResult && (
+                  {canParse && !parseResult && (
                     <Button
                       variant="contained"
                       size="small"
-                      startIcon={<CompareIcon />}
-                      onClick={handleCompareWithBothParsers}
+                      startIcon={<AutoAwesomeIcon />}
+                      onClick={handleParseWithClaude}
                     >
-                      Compare AI Parsers
+                      Parse with AI
                     </Button>
                   )}
                   <Button
@@ -1098,8 +973,6 @@ export default function UploadOfferDialog({
                       setFile(null);
                       setFileUrl('');
                       setParseResult(null);
-                      setCompareResult(null);
-                      setShowComparison(false);
                     }}
                     size="small"
                     disabled={uploading || parsing}
@@ -1131,11 +1004,8 @@ export default function UploadOfferDialog({
             </Alert>
           )}
 
-          {/* Comparison View */}
-          {showComparison && compareResult && renderComparisonView()}
-
-          {/* Parse Result Summary (after selection) */}
-          {parseResult && !showComparison && (
+          {/* Parse Result Summary */}
+          {parseResult && (
             <Paper sx={{ p: 2 }}>
               <Stack spacing={1}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -1188,7 +1058,7 @@ export default function UploadOfferDialog({
           )}
 
           {/* Technical Spec Check (review #27) */}
-          {parseResult && !showComparison && (
+          {parseResult && (
             <Paper sx={{ p: 2 }}>
               <Stack
                 direction={{ xs: 'column', md: 'row' }}
@@ -1325,7 +1195,7 @@ export default function UploadOfferDialog({
           )}
 
           {/* Offer Header Details */}
-          {(fileUrl || parseResult) && !showComparison && (
+          {(fileUrl || parseResult) && (
             <Accordion defaultExpanded={!!parseResult}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="subtitle1">Offer Details</Typography>
@@ -1471,7 +1341,7 @@ export default function UploadOfferDialog({
           )}
 
           {/* Offer Items Table */}
-          {offerItems.length > 0 && !showComparison && (
+          {offerItems.length > 0 && (
             <Box>
               <Typography variant="subtitle1" gutterBottom>
                 Line Items ({offerItems.length})

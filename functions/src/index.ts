@@ -77,8 +77,7 @@ export { getTransmittalDownloadUrl } from './transmittals';
 export { parseDocumentForPR } from './documentParsing';
 
 // Import offer parsing functions
-export { parseOfferDocument } from './offerParsing/parseOfferDocument';
-export { compareOfferParsers } from './offerParsing/compareOfferParsers';
+export { parseOffer } from './offerParsing/parseOffer';
 export { compareOfferWithSpecs } from './offerParsing/compareOfferWithSpecs';
 export { parseQuote } from './offerParsing/parseQuote';
 
