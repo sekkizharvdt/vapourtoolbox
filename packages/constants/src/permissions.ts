@@ -61,11 +61,7 @@ export const PERMISSION_FLAGS = {
   // _DEPRECATED_VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608
   // _DEPRECATED_MANAGE_COST_CENTRES: 1 << 24, // 16777216
   // _DEPRECATED_MANAGE_FOREX: 1 << 25, // 33554432
-
-  // Procurement — Director final approval (bit 26).
-  // Second tier of PO approval: a PO goes Manager (MANAGE_PROCUREMENT) →
-  // Director (this flag). Granted to whoever signs off POs at the final gate.
-  APPROVE_PO_AS_DIRECTOR: 1 << 26, // 67108864
+  // bit 26 free
 
   // Document Management (bits 27-30)
   MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports
@@ -160,11 +156,6 @@ export function canViewProcurement(permissions: number): boolean {
 
 export function canManageProcurement(permissions: number): boolean {
   return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT);
-}
-
-/** Director-level (second-tier) PO approval. */
-export function canApprovePOAsDirector(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR);
 }
 
 /**

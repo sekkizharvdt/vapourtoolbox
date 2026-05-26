@@ -32,12 +32,15 @@ export async function submitPOForApproval(
   userId: string,
   userName: string,
   userPermissions: number,
-  approverId?: string
+  approverId: string,
+  secondApproverId: string,
+  approverName?: string,
+  secondApproverName?: string
 ): Promise<void> {
   // rule8-exempt: workflow function called by an upstream gate that already validates the transition; firestore.rules + caller-side state machine cover the safety check
   const { db } = getFirebase();
 
-  // Authorization: Require MANAGE_PROCUREMENT permission
+  // Authorization: the submitter must be a procurement user.
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,
@@ -45,17 +48,33 @@ export async function submitPOForApproval(
     'submit purchase order for approval'
   );
 
+  // The submitter chooses two distinct approvers (review 2.3).
+  if (!approverId || !secondApproverId) {
+    throw new Error('Select both the first and second approvers before submitting');
+  }
+  if (approverId === secondApproverId) {
+    throw new Error('The two approvers must be different people');
+  }
+
   // Get PO for notification details
   const po = await getPOById(poId);
   if (!po) {
     throw new Error('Purchase Order not found');
   }
 
+  // Separation of duties: neither approver can be the PO creator.
+  if (approverId === po.createdBy || secondApproverId === po.createdBy) {
+    throw new Error('An approver cannot be the person who created the PO');
+  }
+
   await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
     status: 'PENDING_APPROVAL',
     submittedForApprovalAt: Timestamp.now(),
     submittedBy: userId,
-    ...(approverId && { approverId }),
+    approverId,
+    secondApproverId,
+    ...(approverName && { approverName }),
+    ...(secondApproverName && { secondApproverName }),
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   });
@@ -75,58 +94,46 @@ export async function submitPOForApproval(
         vendorName: po.vendorName,
         grandTotal: po.grandTotal,
         approverId,
+        secondApproverId,
       },
     }
   );
 
-  // Create task notification for selected approver
-  if (approverId) {
-    const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
-    await createTaskNotification({
-      type: 'actionable',
-      category: 'PO_PENDING_APPROVAL',
-      userId: approverId,
-      assignedBy: userId,
-      assignedByName: userName,
-      title: `Review Purchase Order ${po.number}`,
-      message: `${userName} submitted a purchase order for your approval: ${po.vendorName} - ${formatCurrency(po.grandTotal, po.currency)}`,
-      entityType: 'PURCHASE_ORDER',
-      entityId: poId,
-      linkUrl: `/procurement/pos/${poId}`,
-      priority: 'HIGH',
-      autoCompletable: true,
-      projectId: po.projectIds[0], // Use first project ID
-    });
-  }
+  // Notify the first approver that it's their turn.
+  const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+  await createTaskNotification({
+    type: 'actionable',
+    category: 'PO_PENDING_APPROVAL',
+    userId: approverId,
+    assignedBy: userId,
+    assignedByName: userName,
+    title: `Review Purchase Order ${po.number}`,
+    message: `${userName} submitted a purchase order for your approval: ${po.vendorName} - ${formatCurrency(po.grandTotal, po.currency)}`,
+    entityType: 'PURCHASE_ORDER',
+    entityId: poId,
+    linkUrl: `/procurement/pos/${poId}`,
+    priority: 'HIGH',
+    autoCompletable: true,
+    ...(po.projectIds[0] && { projectId: po.projectIds[0] }),
+  });
 
-  logger.info('PO submitted for approval', { poId, approverId });
+  logger.info('PO submitted for approval', { poId, approverId, secondApproverId });
 }
 
 // ============================================================================
-// MANAGER APPROVE PO (tier 1) → sends to Director for final approval
+// FIRST APPROVAL → sends to the second/final approver
 // ============================================================================
 
-export async function managerApprovePO(
+export async function firstApprovePO(
   poId: string,
   userId: string,
   userName: string,
-  userPermissions: number,
-  directorId: string,
   comments?: string
 ): Promise<void> {
   // rule8-exempt: transition is validated against the state machine inside the transaction below.
+  // rule5-exempt: gated by approver IDENTITY (requireApprover below) — any user the
+  // submitter named as the first approver may approve; no permission flag applies.
   const { db } = getFirebase();
-
-  requirePermission(
-    userPermissions,
-    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
-    userId,
-    'approve purchase order (manager)'
-  );
-
-  if (!directorId) {
-    throw new Error('A Director must be selected for final approval');
-  }
 
   const po = await runTransaction(db, async (transaction) => {
     const now = Timestamp.now();
@@ -145,32 +152,25 @@ export async function managerApprovePO(
 
     const transitionResult = purchaseOrderStateMachine.validateTransition(
       poData.status,
-      'PENDING_DIRECTOR_APPROVAL'
+      'PENDING_FINAL_APPROVAL'
     );
     if (!transitionResult.allowed) {
-      throw new Error(
-        transitionResult.reason || `Cannot manager-approve PO with status: ${poData.status}`
-      );
+      throw new Error(transitionResult.reason || `Cannot approve PO with status: ${poData.status}`);
     }
 
-    // Separation of duties: the manager can't be the PO creator, and the
-    // chosen director can't be the creator or the approving manager.
+    // Only the designated first approver may approve; never the creator.
     preventSelfApproval(userId, poData.createdBy, 'approve purchase order');
-    if (poData.approverId && poData.approverId !== userId) {
-      requireApprover(userId, [poData.approverId], 'approve this purchase order');
-    }
-    if (directorId === poData.createdBy || directorId === userId) {
-      throw new Error(
-        'The Director must be different from the PO creator and the approving manager'
-      );
-    }
+    requireApprover(
+      userId,
+      poData.approverId ? [poData.approverId] : [],
+      'approve this purchase order'
+    );
 
     transaction.update(poRef, {
-      status: 'PENDING_DIRECTOR_APPROVAL',
-      managerApprovedBy: userId,
-      managerApprovedByName: userName,
-      managerApprovedAt: now,
-      directorApproverId: directorId,
+      status: 'PENDING_FINAL_APPROVAL',
+      firstApprovedBy: userId,
+      firstApprovedByName: userName,
+      firstApprovedAt: now,
       ...(comments && { approvalComments: comments }),
       updatedAt: now,
       updatedBy: userId,
@@ -186,56 +186,51 @@ export async function managerApprovePO(
     'PO_UPDATED',
     'PURCHASE_ORDER',
     poId,
-    `Manager approved Purchase Order ${po.number}; sent to Director for final approval`,
+    `First approval given for Purchase Order ${po.number}; sent for final approval`,
     {
       entityName: po.number,
-      metadata: { vendorName: po.vendorName, grandTotal: po.grandTotal, directorId },
+      metadata: { vendorName: po.vendorName, grandTotal: po.grandTotal },
     }
   );
 
-  // Notify the Director that final approval is pending.
-  const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
-  await createTaskNotification({
-    type: 'actionable',
-    category: 'PO_PENDING_APPROVAL',
-    userId: directorId,
-    assignedBy: userId,
-    assignedByName: userName,
-    title: `Final approval: Purchase Order ${po.number}`,
-    message: `${userName} (Manager) approved a purchase order needing your final approval: ${po.vendorName} - ${formatCurrency(po.grandTotal, po.currency)}`,
-    entityType: 'PURCHASE_ORDER',
-    entityId: poId,
-    linkUrl: `/procurement/pos/${poId}`,
-    priority: 'HIGH',
-    autoCompletable: true,
-    ...(po.projectIds[0] && { projectId: po.projectIds[0] }),
-  });
+  // Notify the second/final approver that it's their turn.
+  if (po.secondApproverId) {
+    const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+    await createTaskNotification({
+      type: 'actionable',
+      category: 'PO_PENDING_APPROVAL',
+      userId: po.secondApproverId,
+      assignedBy: userId,
+      assignedByName: userName,
+      title: `Final approval: Purchase Order ${po.number}`,
+      message: `${userName} gave first approval to a purchase order needing your final approval: ${po.vendorName} - ${formatCurrency(po.grandTotal, po.currency)}`,
+      entityType: 'PURCHASE_ORDER',
+      entityId: poId,
+      linkUrl: `/procurement/pos/${poId}`,
+      priority: 'HIGH',
+      autoCompletable: true,
+      ...(po.projectIds[0] && { projectId: po.projectIds[0] }),
+    });
+  }
 
-  logger.info('PO manager-approved, pending director', { poId, directorId });
+  logger.info('PO first-approved, pending final approval', { poId });
 }
 
 // ============================================================================
-// DIRECTOR APPROVE PO (tier 2 — final)
+// FINAL APPROVAL (second approver)
 // ============================================================================
 
 export async function approvePO(
   poId: string,
   userId: string,
   userName: string,
-  userPermissions: number,
   comments?: string,
   bankAccountId?: string
 ): Promise<void> {
   // rule8-exempt: transition is validated against the state machine inside the transaction below.
+  // rule5-exempt: gated by approver IDENTITY (requireApprover below) — only the
+  // submitter-designated second approver may give final approval.
   const { db } = getFirebase();
-
-  // Authorization: final approval requires the Director flag (review 2.3).
-  requirePermission(
-    userPermissions,
-    PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR,
-    userId,
-    'give final approval to purchase order'
-  );
 
   // Atomically approve PO to prevent race conditions
   const po = await runTransaction(db, async (transaction) => {
@@ -253,7 +248,7 @@ export async function approvePO(
       ? NonNullable<T>
       : never;
 
-    // Validate state machine transition (only valid from PENDING_DIRECTOR_APPROVAL)
+    // Validate state machine transition (only valid from PENDING_FINAL_APPROVAL)
     const transitionResult = purchaseOrderStateMachine.validateTransition(
       poData.status,
       'APPROVED'
@@ -262,23 +257,19 @@ export async function approvePO(
       throw new Error(transitionResult.reason || `Cannot approve PO with status: ${poData.status}`);
     }
 
-    // Separation of duties: director can't be the creator, nor the manager who
-    // gave tier-1 approval.
+    // Separation of duties: the final approver can't be the creator, nor the
+    // person who gave first approval.
     preventSelfApproval(userId, poData.createdBy, 'approve purchase order');
-    if (poData.managerApprovedBy && poData.managerApprovedBy === userId) {
-      throw new Error(
-        'The Director giving final approval must be different from the approving Manager'
-      );
+    if (poData.firstApprovedBy && poData.firstApprovedBy === userId) {
+      throw new Error('The final approver must be different from the first approver');
     }
 
-    // Authorization: honour the designated director if one was assigned
-    if (poData.directorApproverId && poData.directorApproverId !== userId) {
-      requireApprover(
-        userId,
-        [poData.directorApproverId],
-        'give final approval to this purchase order'
-      );
-    }
+    // Only the submitter-designated second approver may give final approval.
+    requireApprover(
+      userId,
+      poData.secondApproverId ? [poData.secondApproverId] : [],
+      'give final approval to this purchase order'
+    );
 
     // Update PO status atomically
     transaction.update(poRef, {
@@ -361,24 +352,23 @@ export async function rejectPO(
   reason: string
 ): Promise<void> {
   // rule8-exempt: transition is validated against the state machine below.
-  // rule5-exempt: permission IS enforced here, but via an explicit either-of
-  // check (Manager OR Director) rather than the single-flag requirePermission
-  // helper — a PO can be rejected at either approval tier.
+  // rule5-exempt: a PO can be rejected by a procurement manager OR by one of the
+  // two designated approvers (identity check below) — not a single permission flag.
   const { db } = getFirebase();
-
-  // Authorization: either the Manager (tier 1) or the Director (tier 2) may
-  // reject a PO that's pending at their stage.
-  if (
-    !hasPermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT) &&
-    !hasPermission(userPermissions, PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR)
-  ) {
-    throw new Error('You do not have permission to reject this purchase order');
-  }
 
   // Get PO for validation and audit log
   const po = await getPOById(poId);
   if (!po) {
     throw new Error('Purchase Order not found');
+  }
+
+  // Authorization: a procurement manager, or either designated approver, may reject.
+  const isDesignatedApprover = userId === po.approverId || userId === po.secondApproverId;
+  if (
+    !hasPermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT) &&
+    !isDesignatedApprover
+  ) {
+    throw new Error('You do not have permission to reject this purchase order');
   }
 
   // Validate state machine transition

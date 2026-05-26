@@ -159,9 +159,9 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         description: 'When a purchase order is submitted for Manager approval',
       },
       {
-        id: 'po_pending_director',
-        label: 'PO Awaiting Director Approval',
-        description: 'When a Manager approves a PO and it needs final Director approval',
+        id: 'po_pending_final',
+        label: 'PO Awaiting Final Approval',
+        description: 'When the first approver signs off and the PO needs final approval',
       },
       { id: 'po_approved', label: 'PO Approved', description: 'When a purchase order is approved' },
       {

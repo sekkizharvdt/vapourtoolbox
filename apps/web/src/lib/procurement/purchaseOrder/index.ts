@@ -19,7 +19,7 @@ export {
 // Workflow operations
 export {
   submitPOForApproval,
-  managerApprovePO,
+  firstApprovePO,
   approvePO,
   rejectPO,
   issuePO,

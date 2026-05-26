@@ -63,8 +63,8 @@ describe('Purchase Order Helpers', () => {
   describe('getPOStatusText', () => {
     it.each<[PurchaseOrderStatus, string]>([
       ['DRAFT', 'Draft'],
-      ['PENDING_APPROVAL', 'Pending Manager Approval'],
-      ['PENDING_DIRECTOR_APPROVAL', 'Pending Director Approval'],
+      ['PENDING_APPROVAL', 'Pending First Approval'],
+      ['PENDING_FINAL_APPROVAL', 'Pending Final Approval'],
       ['APPROVED', 'Approved'],
       ['REJECTED', 'Rejected'],
       ['ISSUED', 'Issued'],

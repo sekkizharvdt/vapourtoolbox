@@ -57,9 +57,9 @@ import { PERMISSION_FLAGS } from '@vapour/constants';
 export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = createStateMachine({
   transitions: {
     DRAFT: ['PENDING_APPROVAL', 'CANCELLED'],
-    // Two-tier approval (review 2.3): Manager → Director → Approved.
-    PENDING_APPROVAL: ['PENDING_DIRECTOR_APPROVAL', 'REJECTED', 'CANCELLED'],
-    PENDING_DIRECTOR_APPROVAL: ['APPROVED', 'REJECTED', 'CANCELLED'],
+    // Two named approvers, sequential (review 2.3): first → final → approved.
+    PENDING_APPROVAL: ['PENDING_FINAL_APPROVAL', 'REJECTED', 'CANCELLED'],
+    PENDING_FINAL_APPROVAL: ['APPROVED', 'REJECTED', 'CANCELLED'],
     APPROVED: ['ISSUED', 'CANCELLED'],
     REJECTED: ['DRAFT'], // Allow revision
     ISSUED: ['ACKNOWLEDGED', 'IN_PROGRESS', 'CANCELLED', 'AMENDED'],
@@ -71,11 +71,9 @@ export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = crea
     AMENDED: ['DRAFT'], // Amended PO can be revised
   },
   transitionPermissions: {
-    // Key format: "FROM_TO"
-    PENDING_APPROVAL_PENDING_DIRECTOR_APPROVAL: PERMISSION_FLAGS.MANAGE_PROCUREMENT, // Manager
-    PENDING_DIRECTOR_APPROVAL_APPROVED: PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR, // Director
-    PENDING_APPROVAL_REJECTED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
-    PENDING_DIRECTOR_APPROVAL_REJECTED: PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR,
+    // Key format: "FROM_TO". Approval transitions are gated by APPROVER IDENTITY
+    // (the two designated approvers), not a permission flag, so they're not
+    // listed here — see requireApprover() in the workflow.
     APPROVED_ISSUED: PERMISSION_FLAGS.MANAGE_PROCUREMENT, // Or could be CREATE_PO
   },
   terminalStates: ['COMPLETED', 'CANCELLED'],

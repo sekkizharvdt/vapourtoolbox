@@ -69,6 +69,9 @@ interface ApproverSelectorProps {
   approvalType?: ApprovalType;
   /** Custom permission flag(s) to filter by (overrides approvalType) */
   customPermissions?: number | number[];
+  /** List ALL active users, bypassing the permission filter (e.g. PO approvers
+   *  who can be any user — review 2.3). */
+  allowAnyUser?: boolean;
   /** Placeholder text */
   placeholder?: string;
   /** Show department in dropdown */
@@ -125,6 +128,7 @@ function ApproverSelectorComponent({
   helperText,
   approvalType = 'any',
   customPermissions,
+  allowAnyUser = false,
   placeholder = 'Select an approver...',
   showDepartment = true,
   excludeUserIds = [],
@@ -180,8 +184,9 @@ function ApproverSelectorComponent({
             updatedAt: data.updatedAt,
           };
 
-          // Filter by required permissions (client-side)
-          if (userHasRequiredPermission(user.permissions, requiredPermissions)) {
+          // Filter by required permissions (client-side), unless any active
+          // user is allowed (e.g. PO approvers — review 2.3).
+          if (allowAnyUser || userHasRequiredPermission(user.permissions, requiredPermissions)) {
             // Exclude specific users if needed
             if (!excludedSet.has(user.uid)) {
               usersData.push(user);
@@ -199,7 +204,7 @@ function ApproverSelectorComponent({
     );
 
     return () => unsubscribe();
-  }, [requiredPermissions, excludedSet]);
+  }, [requiredPermissions, excludedSet, allowAnyUser]);
 
   // Update selected user when value changes
   useEffect(() => {

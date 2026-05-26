@@ -17,7 +17,7 @@ import {
   getPOById,
   getPOItems,
   submitPOForApproval,
-  managerApprovePO,
+  firstApprovePO,
   approvePO,
   rejectPO,
   issuePO,
@@ -92,6 +92,11 @@ export default function PODetailPage() {
   const handleSubmitForApproval = async () => {
     if (!user || !po || !poId) return;
 
+    if (!dialogState.selectedApproverId || !dialogState.selectedSecondApproverId) {
+      setError('Select both the first and second approvers');
+      return;
+    }
+
     setActionLoading(true);
     try {
       await submitPOForApproval(
@@ -99,44 +104,49 @@ export default function PODetailPage() {
         user.uid,
         user.displayName || 'Unknown',
         claims?.permissions || 0,
-        dialogState.selectedApproverId || undefined
+        dialogState.selectedApproverId,
+        dialogState.selectedSecondApproverId,
+        dialogState.selectedApproverName || undefined,
+        dialogState.selectedSecondApproverName || undefined
       );
       dialogState.resetSubmitForm();
       await loadPO();
     } catch (err) {
       console.error('[PODetailPage] Error submitting PO:', err);
-      setError('Failed to submit PO for approval');
+      setError(err instanceof Error ? err.message : 'Failed to submit PO for approval');
     } finally {
       setActionLoading(false);
     }
   };
 
+  const openSubmitDialog = () => {
+    // Pre-fill the first approver with the source PR's requester (editable).
+    // Skip if the requester is the PO creator — an approver can't be the creator.
+    if (po?.requestedBy && po.requestedBy !== po.createdBy) {
+      dialogState.setSelectedApprover(po.requestedBy, po.requestedByName || '');
+    }
+    dialogState.setSubmitDialogOpen(true);
+  };
+
   const handleApprove = async () => {
     if (!user || !po || !poId || !claims) return;
-
-    // Tier 1 (Manager) requires picking the Director for final approval.
-    if (po.status === 'PENDING_APPROVAL' && !dialogState.selectedDirectorApproverId) {
-      setError('Select a Director to give final approval');
-      return;
-    }
 
     setActionLoading(true);
     try {
       if (po.status === 'PENDING_APPROVAL') {
-        await managerApprovePO(
+        // First approver.
+        await firstApprovePO(
           poId,
           user.uid,
           user.displayName || 'Unknown',
-          claims.permissions,
-          dialogState.selectedDirectorApproverId!,
           dialogState.approvalComments
         );
       } else {
+        // Second / final approver.
         await approvePO(
           poId,
           user.uid,
           user.displayName || 'Unknown',
-          claims.permissions,
           dialogState.approvalComments
         );
       }
@@ -262,7 +272,7 @@ export default function PODetailPage() {
           po={po}
           onBack={() => router.push('/procurement/pos')}
           onEdit={() => router.push(`/procurement/pos/${poId}/edit`)}
-          onSubmitForApproval={() => dialogState.setSubmitDialogOpen(true)}
+          onSubmitForApproval={openSubmitDialog}
           onApprove={() => dialogState.setApproveDialogOpen(true)}
           onReject={() => dialogState.setRejectDialogOpen(true)}
           onIssue={() => dialogState.setIssueDialogOpen(true)}
@@ -288,7 +298,7 @@ export default function PODetailPage() {
       <POWorkflowDialogs
         dialogState={dialogState}
         actionLoading={actionLoading}
-        approvalStage={po.status === 'PENDING_APPROVAL' ? 'MANAGER' : 'DIRECTOR'}
+        approvalStage={po.status === 'PENDING_APPROVAL' ? 'FIRST' : 'FINAL'}
         onSubmitForApproval={handleSubmitForApproval}
         onApprove={handleApprove}
         onReject={handleReject}

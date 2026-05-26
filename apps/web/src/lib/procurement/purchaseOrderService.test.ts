@@ -389,7 +389,14 @@ describe('purchaseOrderService', () => {
         data: () => mockPO,
       });
 
-      await submitPOForApproval('po-1', 'user-1', 'John Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT);
+      await submitPOForApproval(
+        'po-1',
+        'user-1',
+        'John Doe',
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+        'approver-1',
+        'approver-2'
+      );
 
       expect(mockUpdateDoc).toHaveBeenCalled();
       const updateCall = mockUpdateDoc.mock.calls[0][1];
@@ -405,12 +412,14 @@ describe('purchaseOrderService', () => {
           'non-existent',
           'user-1',
           'John Doe',
-          PERMISSION_FLAGS.MANAGE_PROCUREMENT
+          PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+          'approver-1',
+          'approver-2'
         )
       ).rejects.toThrow('Purchase Order not found');
     });
 
-    it('should set approverId when provided', async () => {
+    it('should set both approvers when provided', async () => {
       const mockPO = createMockPO();
       mockGetDoc.mockResolvedValue({
         exists: () => true,
@@ -423,11 +432,13 @@ describe('purchaseOrderService', () => {
         'user-1',
         'John Doe',
         PERMISSION_FLAGS.MANAGE_PROCUREMENT,
-        'approver-1'
+        'approver-1',
+        'approver-2'
       );
 
       const updateCall = mockUpdateDoc.mock.calls[0][1];
       expect(updateCall.approverId).toBe('approver-1');
+      expect(updateCall.secondApproverId).toBe('approver-2');
     });
 
     it('should log audit event', async () => {
@@ -438,7 +449,14 @@ describe('purchaseOrderService', () => {
         data: () => mockPO,
       });
 
-      await submitPOForApproval('po-1', 'user-1', 'John Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT);
+      await submitPOForApproval(
+        'po-1',
+        'user-1',
+        'John Doe',
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+        'approver-1',
+        'approver-2'
+      );
 
       expect(mockLogAuditEvent).toHaveBeenCalledWith(
         expect.anything(),
@@ -455,11 +473,9 @@ describe('purchaseOrderService', () => {
   // ========================================================================
   // approvePO Tests
   // ========================================================================
-  describe('approvePO (Director final approval)', () => {
-    // approvePO is now the second tier — it requires the Director flag and a PO
-    // already at PENDING_DIRECTOR_APPROVAL (two-tier flow, review 2.3).
-    const APPROVE_PO_PERMISSION = PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR;
-
+  describe('approvePO (final / second-approver approval)', () => {
+    // approvePO is the final step — gated by approver IDENTITY (requireApprover),
+    // valid only from PENDING_FINAL_APPROVAL (review 2.3).
     beforeEach(() => {
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const mockTransaction = {
@@ -468,8 +484,9 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_DIRECTOR_APPROVAL',
+                status: 'PENDING_FINAL_APPROVAL',
                 createdBy: 'other-user',
+                secondApproverId: 'user-1',
               }),
           }),
           update: jest.fn(),
@@ -478,25 +495,17 @@ describe('purchaseOrderService', () => {
       });
     });
 
-    it('should require Director approval permission', async () => {
-      mockRequirePermission.mockImplementation(() => {
-        throw new Error('Permission denied: requires APPROVE_PO_AS_DIRECTOR');
+    it('should require the caller to be the designated second approver', async () => {
+      mockPreventSelfApproval.mockImplementation(() => {});
+      mockValidateTransition.mockReturnValue({ allowed: true });
+      mockRequireApprover.mockImplementation(() => {
+        throw new Error('You are not authorized to approve this purchase order');
       });
 
-      await expect(
-        approvePO('po-1', 'user-1', 'John Doe', 0) // No permissions
-      ).rejects.toThrow('Permission denied');
-
-      expect(mockRequirePermission).toHaveBeenCalledWith(
-        0,
-        APPROVE_PO_PERMISSION,
-        'user-1',
-        'give final approval to purchase order'
-      );
+      await expect(approvePO('po-1', 'user-1', 'John Doe')).rejects.toThrow('not authorized');
     });
 
     it('should prevent self-approval', async () => {
-      mockRequirePermission.mockImplementation(() => {});
       mockPreventSelfApproval.mockImplementation(() => {
         throw new Error('Cannot approve purchase order your own request');
       });
@@ -509,7 +518,7 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_DIRECTOR_APPROVAL',
+                status: 'PENDING_FINAL_APPROVAL',
                 createdBy: 'user-1', // Same as approver
               }),
           }),
@@ -518,13 +527,10 @@ describe('purchaseOrderService', () => {
         return callback(mockTransaction);
       });
 
-      await expect(approvePO('po-1', 'user-1', 'John Doe', APPROVE_PO_PERMISSION)).rejects.toThrow(
-        'Cannot approve'
-      );
+      await expect(approvePO('po-1', 'user-1', 'John Doe')).rejects.toThrow('Cannot approve');
     });
 
     it('should validate state machine transition', async () => {
-      mockRequirePermission.mockImplementation(() => {});
       mockPreventSelfApproval.mockImplementation(() => {});
       mockValidateTransition.mockReturnValue({
         allowed: false,
@@ -543,17 +549,13 @@ describe('purchaseOrderService', () => {
         return callback(mockTransaction);
       });
 
-      await expect(approvePO('po-1', 'user-1', 'John Doe', APPROVE_PO_PERMISSION)).rejects.toThrow(
+      await expect(approvePO('po-1', 'user-1', 'John Doe')).rejects.toThrow(
         'Cannot approve PO with status: DRAFT'
       );
     });
 
-    it('should check designated approver when set', async () => {
-      mockRequirePermission.mockImplementation(() => {});
+    it('should block the first approver from also giving final approval', async () => {
       mockPreventSelfApproval.mockImplementation(() => {});
-      mockRequireApprover.mockImplementation(() => {
-        throw new Error('You are not authorized to approve this purchase order');
-      });
       mockValidateTransition.mockReturnValue({ allowed: true });
 
       mockRunTransaction.mockImplementation(async (_db, callback) => {
@@ -563,9 +565,10 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_DIRECTOR_APPROVAL',
+                status: 'PENDING_FINAL_APPROVAL',
                 createdBy: 'other-user',
-                directorApproverId: 'specific-approver', // Different from user-1
+                firstApprovedBy: 'user-1', // same as final approver
+                secondApproverId: 'user-1',
               }),
           }),
           update: jest.fn(),
@@ -573,15 +576,15 @@ describe('purchaseOrderService', () => {
         return callback(mockTransaction);
       });
 
-      await expect(approvePO('po-1', 'user-1', 'John Doe', APPROVE_PO_PERMISSION)).rejects.toThrow(
-        'not authorized'
+      await expect(approvePO('po-1', 'user-1', 'John Doe')).rejects.toThrow(
+        'must be different from the first approver'
       );
     });
 
     it('should approve PO successfully', async () => {
-      mockRequirePermission.mockImplementation(() => {});
       mockPreventSelfApproval.mockImplementation(() => {});
       mockValidateTransition.mockReturnValue({ allowed: true });
+      mockRequireApprover.mockImplementation(() => {});
 
       const mockTransactionUpdate = jest.fn();
       mockRunTransaction.mockImplementation(async (_db, callback) => {
@@ -591,8 +594,9 @@ describe('purchaseOrderService', () => {
             id: 'po-1',
             data: () =>
               createMockPO({
-                status: 'PENDING_DIRECTOR_APPROVAL',
+                status: 'PENDING_FINAL_APPROVAL',
                 createdBy: 'other-user',
+                secondApproverId: 'user-1',
               }),
           }),
           update: mockTransactionUpdate,
@@ -600,7 +604,7 @@ describe('purchaseOrderService', () => {
         return callback(mockTransaction);
       });
 
-      await approvePO('po-1', 'user-1', 'John Doe', APPROVE_PO_PERMISSION);
+      await approvePO('po-1', 'user-1', 'John Doe');
 
       expect(mockTransactionUpdate).toHaveBeenCalled();
       const updateData = mockTransactionUpdate.mock.calls[0][1];
@@ -610,8 +614,6 @@ describe('purchaseOrderService', () => {
     });
 
     it('should throw error when PO not found', async () => {
-      mockRequirePermission.mockImplementation(() => {});
-
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const mockTransaction = {
           get: jest.fn().mockResolvedValue({
@@ -622,9 +624,9 @@ describe('purchaseOrderService', () => {
         return callback(mockTransaction);
       });
 
-      await expect(
-        approvePO('non-existent', 'user-1', 'John Doe', APPROVE_PO_PERMISSION)
-      ).rejects.toThrow('Purchase Order not found');
+      await expect(approvePO('non-existent', 'user-1', 'John Doe')).rejects.toThrow(
+        'Purchase Order not found'
+      );
     });
   });
 
@@ -857,12 +859,13 @@ describe('purchaseOrderService', () => {
       let callCount = 0;
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         callCount++;
-        const status = callCount === 1 ? 'PENDING_APPROVAL' : 'APPROVED';
+        const status = callCount === 1 ? 'PENDING_FINAL_APPROVAL' : 'APPROVED';
         const mockTransaction = {
           get: jest.fn().mockResolvedValue({
             exists: () => true,
             id: 'po-1',
-            data: () => createMockPO({ status, createdBy: 'other-user' }),
+            data: () =>
+              createMockPO({ status, createdBy: 'other-user', secondApproverId: 'user-1' }),
           }),
           update: jest.fn(),
         };
@@ -870,7 +873,7 @@ describe('purchaseOrderService', () => {
       });
 
       // First approval should succeed
-      await approvePO('po-1', 'user-1', 'John Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT);
+      await approvePO('po-1', 'user-1', 'John Doe');
 
       // Second call - state machine should block
       mockValidateTransition.mockReturnValue({
@@ -878,9 +881,7 @@ describe('purchaseOrderService', () => {
         reason: 'Cannot approve PO with status: APPROVED',
       });
 
-      await expect(
-        approvePO('po-1', 'user-2', 'Jane Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT)
-      ).rejects.toThrow('Cannot approve');
+      await expect(approvePO('po-1', 'user-2', 'Jane Doe')).rejects.toThrow('Cannot approve');
     });
 
     it('should handle PO with all optional fields', async () => {

@@ -22,16 +22,16 @@ describe('purchaseOrderStateMachine', () => {
       expect(purchaseOrderStateMachine.canTransitionTo('DRAFT', 'PENDING_APPROVAL')).toBe(true);
     });
 
-    it('should allow PENDING_APPROVAL -> PENDING_DIRECTOR_APPROVAL (manager approval)', () => {
+    it('should allow PENDING_APPROVAL -> PENDING_FINAL_APPROVAL (first approval)', () => {
       expect(
-        purchaseOrderStateMachine.canTransitionTo('PENDING_APPROVAL', 'PENDING_DIRECTOR_APPROVAL')
+        purchaseOrderStateMachine.canTransitionTo('PENDING_APPROVAL', 'PENDING_FINAL_APPROVAL')
       ).toBe(true);
     });
 
-    it('should allow PENDING_DIRECTOR_APPROVAL -> APPROVED (director final)', () => {
-      expect(
-        purchaseOrderStateMachine.canTransitionTo('PENDING_DIRECTOR_APPROVAL', 'APPROVED')
-      ).toBe(true);
+    it('should allow PENDING_FINAL_APPROVAL -> APPROVED (final approval)', () => {
+      expect(purchaseOrderStateMachine.canTransitionTo('PENDING_FINAL_APPROVAL', 'APPROVED')).toBe(
+        true
+      );
     });
 
     it('should NOT allow PENDING_APPROVAL -> APPROVED directly (two-tier)', () => {
@@ -105,25 +105,24 @@ describe('purchaseOrderStateMachine', () => {
   });
 
   describe('permissions', () => {
-    it('should require MANAGE_PROCUREMENT for manager approval (tier 1)', () => {
+    it('should require MANAGE_PROCUREMENT to issue an approved PO', () => {
+      expect(purchaseOrderStateMachine.getRequiredPermission('APPROVED', 'ISSUED')).toBe(
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT
+      );
+    });
+
+    it('approval transitions are identity-gated, not permission-gated', () => {
+      // Both approvers are named per-PO; the workflow enforces identity via
+      // requireApprover, so the state machine has no permission for these.
       expect(
         purchaseOrderStateMachine.getRequiredPermission(
           'PENDING_APPROVAL',
-          'PENDING_DIRECTOR_APPROVAL'
+          'PENDING_FINAL_APPROVAL'
         )
-      ).toBe(PERMISSION_FLAGS.MANAGE_PROCUREMENT);
-    });
-
-    it('should require APPROVE_PO_AS_DIRECTOR for final approval (tier 2)', () => {
+      ).toBeUndefined();
       expect(
-        purchaseOrderStateMachine.getRequiredPermission('PENDING_DIRECTOR_APPROVAL', 'APPROVED')
-      ).toBe(PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR);
-    });
-
-    it('should require APPROVE_PO for rejection', () => {
-      expect(purchaseOrderStateMachine.getRequiredPermission('PENDING_APPROVAL', 'REJECTED')).toBe(
-        PERMISSION_FLAGS.MANAGE_PROCUREMENT
-      );
+        purchaseOrderStateMachine.getRequiredPermission('PENDING_FINAL_APPROVAL', 'APPROVED')
+      ).toBeUndefined();
     });
   });
 });

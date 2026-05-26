@@ -18,9 +18,11 @@ export interface WorkflowDialogState {
   approvalComments: string;
   rejectionReason: string;
   cancellationReason: string;
+  // Two approvers, both chosen by the submitter at submit time (review 2.3).
   selectedApproverId: string | null;
-  /** Director chosen by the manager at tier-1 approval (two-tier flow). */
-  selectedDirectorApproverId: string | null;
+  selectedApproverName: string;
+  selectedSecondApproverId: string | null;
+  selectedSecondApproverName: string;
 
   // Actions
   setSubmitDialogOpen: (open: boolean) => void;
@@ -31,8 +33,8 @@ export interface WorkflowDialogState {
   setApprovalComments: (comments: string) => void;
   setRejectionReason: (reason: string) => void;
   setCancellationReason: (reason: string) => void;
-  setSelectedApproverId: (id: string | null) => void;
-  setSelectedDirectorApproverId: (id: string | null) => void;
+  setSelectedApprover: (id: string | null, name: string) => void;
+  setSelectedSecondApprover: (id: string | null, name: string) => void;
 
   // Reset functions
   resetApprovalForm: () => void;
@@ -52,11 +54,21 @@ export function useWorkflowDialogs(): WorkflowDialogState {
   const [rejectionReason, setRejectionReason] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
   const [selectedApproverId, setSelectedApproverId] = useState<string | null>(null);
-  const [selectedDirectorApproverId, setSelectedDirectorApproverId] = useState<string | null>(null);
+  const [selectedApproverName, setSelectedApproverName] = useState('');
+  const [selectedSecondApproverId, setSelectedSecondApproverId] = useState<string | null>(null);
+  const [selectedSecondApproverName, setSelectedSecondApproverName] = useState('');
+
+  const setSelectedApprover = (id: string | null, name: string) => {
+    setSelectedApproverId(id);
+    setSelectedApproverName(name);
+  };
+  const setSelectedSecondApprover = (id: string | null, name: string) => {
+    setSelectedSecondApproverId(id);
+    setSelectedSecondApproverName(name);
+  };
 
   const resetApprovalForm = () => {
     setApprovalComments('');
-    setSelectedDirectorApproverId(null);
     setApproveDialogOpen(false);
   };
 
@@ -71,7 +83,8 @@ export function useWorkflowDialogs(): WorkflowDialogState {
   };
 
   const resetSubmitForm = () => {
-    setSelectedApproverId(null);
+    setSelectedApprover(null, '');
+    setSelectedSecondApprover(null, '');
     setSubmitDialogOpen(false);
   };
 
@@ -85,7 +98,9 @@ export function useWorkflowDialogs(): WorkflowDialogState {
     rejectionReason,
     cancellationReason,
     selectedApproverId,
-    selectedDirectorApproverId,
+    selectedApproverName,
+    selectedSecondApproverId,
+    selectedSecondApproverName,
     setSubmitDialogOpen,
     setApproveDialogOpen,
     setRejectDialogOpen,
@@ -94,8 +109,8 @@ export function useWorkflowDialogs(): WorkflowDialogState {
     setApprovalComments,
     setRejectionReason,
     setCancellationReason,
-    setSelectedApproverId,
-    setSelectedDirectorApproverId,
+    setSelectedApprover,
+    setSelectedSecondApprover,
     resetApprovalForm,
     resetRejectionForm,
     resetCancellationForm,

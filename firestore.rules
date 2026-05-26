@@ -616,9 +616,14 @@ service cloud.firestore {
 
       allow create: if hasPermission(65536) && isInternalUser() &&
                        request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
-      // Update: Procurement Manager (bit 16) OR Director (bit 26) — the Director
-      // needs write access to record their final approval in the two-tier flow.
-      allow update: if (hasPermission(65536) || hasPermission(67108864)) && isInternalUser();
+      // Update: a Procurement Manager (bit 16), OR one of the two approvers the
+      // submitter named on this PO (so a non-procurement approver can record
+      // their approval in the two-approver flow — review 2.3).
+      allow update: if isInternalUser() && (
+                       hasPermission(65536) ||
+                       request.auth.uid == resource.data.approverId ||
+                       request.auth.uid == resource.data.secondApproverId
+                     );
       allow delete: if isSuperAdmin();
     }
 

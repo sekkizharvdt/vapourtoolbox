@@ -220,14 +220,39 @@ export async function createPOFromOffer(
       // rather than vendor-oriented. Example: "RFQ for Valves" → "PO for Valves".
       // Users can override via the `terms.title` input.
       let defaultTitle = `Purchase Order for ${offer.vendorName}`;
+      // Requester of the primary source PR — denormalised so the submit flow can
+      // pre-fill the first approver (review 2.3). Best-effort; never blocks PO creation.
+      let requestedBy: string | undefined;
+      let requestedByName: string | undefined;
       if (offer.rfqId) {
         try {
           const rfqSnap = await getDoc(doc(db, COLLECTIONS.RFQS, offer.rfqId));
           if (rfqSnap.exists()) {
-            const rfqTitle = (rfqSnap.data() as { title?: string }).title?.trim();
+            const rfqData = rfqSnap.data() as {
+              title?: string;
+              purchaseRequestIds?: string[];
+            };
+            const rfqTitle = rfqData.title?.trim();
             if (rfqTitle) {
               const match = rfqTitle.match(/^RFQ\s*(?:for|[-–])\s*(.+)$/i);
               defaultTitle = match && match[1] ? `PO for ${match[1].trim()}` : `PO - ${rfqTitle}`;
+            }
+            // Resolve the requester from the primary source PR.
+            const primaryPrId = rfqData.purchaseRequestIds?.[0];
+            if (primaryPrId) {
+              try {
+                const prSnap = await getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, primaryPrId));
+                if (prSnap.exists()) {
+                  const prData = prSnap.data() as { createdBy?: string; submittedByName?: string };
+                  requestedBy = prData.createdBy;
+                  requestedByName = prData.submittedByName;
+                }
+              } catch (prErr) {
+                logger.warn('Failed to resolve PR requester for PO default approver', {
+                  primaryPrId,
+                  error: prErr,
+                });
+              }
             }
           }
         } catch (err) {
@@ -294,6 +319,12 @@ export async function createPOFromOffer(
       }
       if (packingForwardingAmount > 0) {
         poData.packingForwardingAmount = packingForwardingAmount;
+      }
+      if (requestedBy) {
+        poData.requestedBy = requestedBy;
+      }
+      if (requestedByName) {
+        poData.requestedByName = requestedByName;
       }
       if (terms.advancePercentage !== undefined) {
         poData.advancePercentage = terms.advancePercentage;

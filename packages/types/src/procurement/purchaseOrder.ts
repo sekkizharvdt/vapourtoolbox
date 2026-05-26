@@ -12,8 +12,8 @@ import type { Timestamp } from 'firebase/firestore';
 
 export type PurchaseOrderStatus =
   | 'DRAFT'
-  | 'PENDING_APPROVAL' // first tier — Procurement Manager review
-  | 'PENDING_DIRECTOR_APPROVAL' // second tier — Director final approval
+  | 'PENDING_APPROVAL' // first of two approvers (chosen by the submitter)
+  | 'PENDING_FINAL_APPROVAL' // second/final approver
   | 'APPROVED'
   | 'REJECTED'
   | 'ISSUED'
@@ -49,6 +49,12 @@ export interface PurchaseOrder {
   // Projects (can span multiple)
   projectIds: string[];
   projectNames: string[]; // Denormalized
+
+  // Requester of the source Purchase Request (primary PR when several feed this
+  // PO). Denormalised at creation so it can pre-fill the first approver — the
+  // requester confirms the PO matches what they asked for (review 2.3).
+  requestedBy?: string;
+  requestedByName?: string;
 
   // Header
   title: string;
@@ -114,18 +120,20 @@ export interface PurchaseOrder {
   submittedForApprovalAt?: Timestamp;
   submittedBy?: string;
 
-  // Tier-1 (Manager) approver, assigned at submit time.
-  approverId?: string;
+  // Two approvers, both chosen by the submitter at submit time (review 2.3).
+  // The PO is approved sequentially: first approver, then second/final approver.
+  approverId?: string; // first approver
+  approverName?: string;
+  secondApproverId?: string; // second / final approver
+  secondApproverName?: string;
 
-  // Tier-1 (Manager) approval record — set when the manager approves and the PO
-  // moves to PENDING_DIRECTOR_APPROVAL (two-tier approval, review 2.3).
-  managerApprovedBy?: string;
-  managerApprovedByName?: string;
-  managerApprovedAt?: Timestamp;
-  // Tier-2 (Director) approver, assigned by the manager at the first approval.
-  directorApproverId?: string;
+  // First-approval record — set when the first approver approves and the PO
+  // moves to PENDING_FINAL_APPROVAL.
+  firstApprovedBy?: string;
+  firstApprovedByName?: string;
+  firstApprovedAt?: Timestamp;
 
-  // Final (Director) approval record.
+  // Final (second approver) approval record.
   approvedBy?: string;
   approvedByName?: string;
   approvedAt?: Timestamp;

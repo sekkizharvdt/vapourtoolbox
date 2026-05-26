@@ -19,13 +19,12 @@ import {
 } from '@mui/material';
 import type { WorkflowDialogState } from './useWorkflowDialogs';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
-import { PERMISSION_FLAGS } from '@vapour/constants';
 
 interface POWorkflowDialogsProps {
   dialogState: WorkflowDialogState;
   actionLoading: boolean;
-  /** Which approval tier the PO is at — drives the Approve dialog (review 2.3). */
-  approvalStage: 'MANAGER' | 'DIRECTOR';
+  /** Which approval step the PO is at — drives the Approve dialog (review 2.3). */
+  approvalStage: 'FIRST' | 'FINAL';
   onSubmitForApproval: () => void;
   onApprove: () => void;
   onReject: () => void;
@@ -55,16 +54,35 @@ export function POWorkflowDialogs({
         <DialogTitle>Submit for Approval</DialogTitle>
         <DialogContent>
           <Typography gutterBottom>
-            Are you sure you want to submit this Purchase Order for approval? Once submitted, you
+            Choose the two people who must approve this Purchase Order, in order. Once submitted you
             will not be able to edit it.
           </Typography>
           <Box sx={{ mt: 2 }}>
             <ApproverSelector
               value={dialogState.selectedApproverId}
-              onChange={(userId) => dialogState.setSelectedApproverId(userId)}
-              label="Assign Approver"
-              approvalType="po"
-              helperText="Select who should approve this purchase order (optional)"
+              onChange={() => {}}
+              onChangeWithName={(id, name) => dialogState.setSelectedApprover(id, name)}
+              label="First approver"
+              allowAnyUser
+              required
+              excludeUserIds={
+                dialogState.selectedSecondApproverId ? [dialogState.selectedSecondApproverId] : []
+              }
+              helperText="Approves first"
+            />
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <ApproverSelector
+              value={dialogState.selectedSecondApproverId}
+              onChange={() => {}}
+              onChangeWithName={(id, name) => dialogState.setSelectedSecondApprover(id, name)}
+              label="Second (final) approver"
+              allowAnyUser
+              required
+              excludeUserIds={
+                dialogState.selectedApproverId ? [dialogState.selectedApproverId] : []
+              }
+              helperText="Gives final approval after the first approver"
             />
           </Box>
         </DialogContent>
@@ -72,7 +90,15 @@ export function POWorkflowDialogs({
           <Button onClick={() => dialogState.setSubmitDialogOpen(false)} disabled={actionLoading}>
             Cancel
           </Button>
-          <Button onClick={onSubmitForApproval} variant="contained" disabled={actionLoading}>
+          <Button
+            onClick={onSubmitForApproval}
+            variant="contained"
+            disabled={
+              actionLoading ||
+              !dialogState.selectedApproverId ||
+              !dialogState.selectedSecondApproverId
+            }
+          >
             {actionLoading ? <CircularProgress size={20} /> : 'Submit'}
           </Button>
         </DialogActions>
@@ -85,27 +111,13 @@ export function POWorkflowDialogs({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
-          {approvalStage === 'MANAGER' ? 'Approve & Send for Final Approval' : 'Final Approval'}
-        </DialogTitle>
+        <DialogTitle>{approvalStage === 'FIRST' ? 'First Approval' : 'Final Approval'}</DialogTitle>
         <DialogContent>
           <Typography gutterBottom>
-            {approvalStage === 'MANAGER'
-              ? 'Approve this Purchase Order and assign a Director to give final approval.'
-              : 'Give final (Director) approval to this Purchase Order?'}
+            {approvalStage === 'FIRST'
+              ? 'Give your approval? It then goes to the second approver for final sign-off.'
+              : 'Give final approval to this Purchase Order?'}
           </Typography>
-          {approvalStage === 'MANAGER' && (
-            <Box sx={{ mt: 2 }}>
-              <ApproverSelector
-                value={dialogState.selectedDirectorApproverId}
-                onChange={(userId) => dialogState.setSelectedDirectorApproverId(userId)}
-                label="Assign Director (final approver)"
-                customPermissions={PERMISSION_FLAGS.APPROVE_PO_AS_DIRECTOR}
-                required
-                helperText="Only users with Director (final PO approval) permission are listed"
-              />
-            </Box>
-          )}
           <TextField
             label="Comments (Optional)"
             value={dialogState.approvalComments}
@@ -120,19 +132,11 @@ export function POWorkflowDialogs({
           <Button onClick={() => dialogState.setApproveDialogOpen(false)} disabled={actionLoading}>
             Cancel
           </Button>
-          <Button
-            onClick={onApprove}
-            variant="contained"
-            color="success"
-            disabled={
-              actionLoading ||
-              (approvalStage === 'MANAGER' && !dialogState.selectedDirectorApproverId)
-            }
-          >
+          <Button onClick={onApprove} variant="contained" color="success" disabled={actionLoading}>
             {actionLoading ? (
               <CircularProgress size={20} />
-            ) : approvalStage === 'MANAGER' ? (
-              'Approve & Send'
+            ) : approvalStage === 'FIRST' ? (
+              'Approve'
             ) : (
               'Approve'
             )}

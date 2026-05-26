@@ -209,18 +209,18 @@ export const onPOStatusNotify = onDocumentUpdated(
       });
     }
 
-    if (after.status === 'PENDING_DIRECTOR_APPROVAL') {
-      logger.info(`PO ${after.number} manager-approved — notifying for Director approval`);
+    if (after.status === 'PENDING_FINAL_APPROVAL') {
+      logger.info(`PO ${after.number} first-approved — notifying for final approval`);
       await sendNotificationEmail({
-        eventId: 'po_pending_director',
-        subject: `PO Awaiting Director Approval: ${after.number}`,
+        eventId: 'po_pending_final',
+        subject: `PO Awaiting Final Approval: ${after.number}`,
         templateData: {
-          title: 'Purchase Order Awaiting Director Approval',
-          message: `A purchase order has been approved by the Manager and now needs final Director approval.`,
+          title: 'Purchase Order Awaiting Final Approval',
+          message: `A purchase order has received its first approval and now needs final approval.`,
           details: [
             { label: 'PO Number', value: after.number || event.params.poId },
             { label: 'Vendor', value: after.vendorName || after.entityName || '-' },
-            { label: 'Approved By (Manager)', value: after.managerApprovedByName || '-' },
+            { label: 'First Approved By', value: after.firstApprovedByName || '-' },
           ],
           linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
         },
