@@ -444,141 +444,176 @@ export function POPDFDocument({
           />
         </ReportSection>
 
-        {/* Terms & Conditions */}
-        <ReportSection title="Terms &amp; Conditions">
-          <KeyValueTable
-            rows={[
-              { label: 'Billing Address', value: billingAddress },
-              { label: 'Delivery Address', value: po.deliveryAddress || '—' },
-              ...(po.commercialTerms
-                ? [
-                    {
-                      label: 'Freight',
-                      value:
-                        (po.commercialTerms.freightScope === 'VENDOR'
-                          ? "Vendor's scope"
-                          : "Buyer's scope") +
-                        (po.commercialTerms.freightScope === 'CUSTOMER' &&
-                        po.commercialTerms.freightPaymentType
-                          ? ` — ${po.commercialTerms.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}`
-                          : ''),
-                    },
-                    {
-                      label: 'Transport',
-                      value:
-                        (po.commercialTerms.transportScope === 'VENDOR'
-                          ? "Vendor's scope"
-                          : "Buyer's scope") +
-                        (po.commercialTerms.deliveryType
-                          ? ` — ${po.commercialTerms.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery`
-                          : '') +
-                        (po.commercialTerms.transporterName
-                          ? ` (${po.commercialTerms.transporterName})`
-                          : ''),
-                    },
-                    {
-                      label: 'Transit Insurance',
-                      value:
-                        po.commercialTerms.transitInsuranceScope === 'VENDOR'
-                          ? "Vendor's scope"
-                          : "Buyer's scope",
-                    },
-                    ...(po.commercialTerms.transitInsuranceInstruction
-                      ? [
-                          {
-                            label: 'Transit Insurance Note',
-                            value: po.commercialTerms.transitInsuranceInstruction,
-                          },
-                        ]
-                      : []),
-                    {
-                      label: 'Erection & Commissioning',
-                      value:
-                        po.commercialTerms.erectionScope === 'VENDOR'
-                          ? "Vendor's scope" +
-                            (() => {
-                              const inc = [
-                                po.commercialTerms.erectionIncludesTransport && 'transportation',
-                                po.commercialTerms.erectionIncludesFood && 'food',
-                                po.commercialTerms.erectionIncludesAccommodation && 'accommodation',
-                              ].filter(Boolean);
-                              return inc.length > 0 ? ` (incl. ${inc.join(', ')})` : '';
-                            })()
-                          : po.commercialTerms.erectionScope === 'NA'
-                            ? 'Not in scope'
-                            : po.commercialTerms.erectionCustomText || 'Custom',
-                    },
-                    {
-                      label: 'Inspection',
-                      value:
-                        (po.commercialTerms.inspectorType === 'THIRD_PARTY'
-                          ? 'Third-party inspection'
-                          : po.commercialTerms.inspectorType === 'VDT'
-                            ? 'VDT / VDT consultant'
-                            : 'VDT consultant') +
-                        (po.commercialTerms.inspectionType
-                          ? ` — ${po.commercialTerms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection`
-                          : ''),
-                    },
-                    ...(po.commercialTerms.inspectionDocuments &&
-                    po.commercialTerms.inspectionDocuments.length > 0
-                      ? [
-                          {
-                            label: 'Inspection Documents',
-                            value: po.commercialTerms.inspectionDocuments.join(', '),
-                          },
-                        ]
-                      : []),
-                    ...(po.commercialTerms.requiredDocuments.length > 0 ||
-                    (po.commercialTerms.otherDocuments &&
-                      po.commercialTerms.otherDocuments.length > 0)
-                      ? [
-                          {
-                            label: 'Post Order Documents',
-                            value: [
-                              ...po.commercialTerms.requiredDocuments.map((d) =>
-                                d === 'DRAWING'
-                                  ? 'GA Drawing (GAD)'
-                                  : d === 'DATA_SHEET'
-                                    ? 'Data Sheet'
-                                    : d === 'QAP'
-                                      ? 'QAP'
-                                      : 'Other'
-                              ),
-                              ...(po.commercialTerms.otherDocuments ?? []),
-                            ].join(', '),
-                          },
-                        ]
-                      : []),
-                  ]
-                : []),
-              ...(po.warrantyTerms ? [{ label: 'Warranty', value: po.warrantyTerms }] : []),
-              ...(po.penaltyClause ? [{ label: 'LD Clause', value: po.penaltyClause }] : []),
-              ...(po.commercialTerms
-                ? [
-                    {
-                      label: 'Force Majeure',
-                      value:
-                        'As per Indian Contract Act; neither party liable for delay due to events beyond reasonable control. Notify within 7 days.',
-                    },
-                    {
-                      label: 'Rejection Clause',
-                      value:
-                        'Non-conforming or damaged materials may be rejected at vendor risk & cost; vendor to replace/rectify within 15 days.',
-                    },
-                  ]
-                : []),
-              ...(po.otherClauses && po.otherClauses.length > 0
-                ? po.otherClauses.map((clause, i) => ({
-                    label: `Other clause ${i + 1}`,
-                    value: clause,
-                  }))
-                : []),
-            ]}
-            labelWidth="30%"
-            valueWidth="70%"
-          />
-        </ReportSection>
+        {/* Terms & Conditions — grouped into respective sections (review 2.3).
+            Billing / delivery addresses are intentionally NOT repeated here; they
+            appear once in the Vendor + Addresses block above. */}
+
+        {/* Scope of Work */}
+        {po.commercialTerms && (
+          <ReportSection title="Scope of Work">
+            <KeyValueTable
+              rows={[
+                {
+                  label: 'Freight',
+                  value:
+                    (po.commercialTerms.freightScope === 'VENDOR'
+                      ? "Vendor's scope"
+                      : "Buyer's scope") +
+                    (po.commercialTerms.freightScope === 'CUSTOMER' &&
+                    po.commercialTerms.freightPaymentType
+                      ? ` — ${po.commercialTerms.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}`
+                      : ''),
+                },
+                {
+                  label: 'Transport',
+                  value:
+                    (po.commercialTerms.transportScope === 'VENDOR'
+                      ? "Vendor's scope"
+                      : "Buyer's scope") +
+                    (po.commercialTerms.deliveryType
+                      ? ` — ${po.commercialTerms.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery`
+                      : '') +
+                    (po.commercialTerms.transporterName
+                      ? ` (${po.commercialTerms.transporterName})`
+                      : ''),
+                },
+                {
+                  label: 'Transit Insurance',
+                  value:
+                    po.commercialTerms.transitInsuranceScope === 'VENDOR'
+                      ? "Vendor's scope"
+                      : "Buyer's scope",
+                },
+                ...(po.commercialTerms.transitInsuranceInstruction
+                  ? [
+                      {
+                        label: 'Transit Insurance Note',
+                        value: po.commercialTerms.transitInsuranceInstruction,
+                      },
+                    ]
+                  : []),
+                {
+                  label: 'Erection & Commissioning',
+                  value:
+                    po.commercialTerms.erectionScope === 'VENDOR'
+                      ? "Vendor's scope" +
+                        (() => {
+                          const inc = [
+                            po.commercialTerms.erectionIncludesTransport && 'transportation',
+                            po.commercialTerms.erectionIncludesFood && 'food',
+                            po.commercialTerms.erectionIncludesAccommodation && 'accommodation',
+                          ].filter(Boolean);
+                          return inc.length > 0 ? ` (incl. ${inc.join(', ')})` : '';
+                        })()
+                      : po.commercialTerms.erectionScope === 'NA'
+                        ? 'Not in scope'
+                        : po.commercialTerms.erectionCustomText || 'Custom',
+                },
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
+        )}
+
+        {/* Quality & Inspection */}
+        {po.commercialTerms && (
+          <ReportSection title="Quality &amp; Inspection">
+            <KeyValueTable
+              rows={[
+                {
+                  label: 'Inspection',
+                  value:
+                    (po.commercialTerms.inspectorType === 'THIRD_PARTY'
+                      ? 'Third-party inspection'
+                      : po.commercialTerms.inspectorType === 'VDT'
+                        ? 'VDT / VDT consultant'
+                        : 'VDT consultant') +
+                    (po.commercialTerms.inspectionType
+                      ? ` — ${po.commercialTerms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection`
+                      : ''),
+                },
+                ...(po.commercialTerms.inspectionDocuments &&
+                po.commercialTerms.inspectionDocuments.length > 0
+                  ? [
+                      {
+                        label: 'Inspection Documents',
+                        value: po.commercialTerms.inspectionDocuments.join(', '),
+                      },
+                    ]
+                  : []),
+                ...(po.commercialTerms.requiredDocuments.length > 0 ||
+                (po.commercialTerms.otherDocuments && po.commercialTerms.otherDocuments.length > 0)
+                  ? [
+                      {
+                        label: 'Post Order Documents',
+                        value: [
+                          ...po.commercialTerms.requiredDocuments.map((d) =>
+                            d === 'DRAWING'
+                              ? 'GA Drawing (GAD)'
+                              : d === 'DATA_SHEET'
+                                ? 'Data Sheet'
+                                : d === 'QAP'
+                                  ? 'QAP'
+                                  : 'Other'
+                          ),
+                          ...(po.commercialTerms.otherDocuments ?? []),
+                        ].join(', '),
+                      },
+                    ]
+                  : []),
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
+        )}
+
+        {/* Warranty & Penalties */}
+        {(po.warrantyTerms || po.penaltyClause) && (
+          <ReportSection title="Warranty &amp; Penalties">
+            <KeyValueTable
+              rows={[
+                ...(po.warrantyTerms ? [{ label: 'Warranty', value: po.warrantyTerms }] : []),
+                ...(po.penaltyClause ? [{ label: 'LD Clause', value: po.penaltyClause }] : []),
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
+        )}
+
+        {/* Standard Clauses */}
+        {(po.commercialTerms || (po.otherClauses && po.otherClauses.length > 0)) && (
+          <ReportSection title="Standard Clauses">
+            <KeyValueTable
+              rows={[
+                ...(po.commercialTerms
+                  ? [
+                      {
+                        label: 'Force Majeure',
+                        value:
+                          'As per Indian Contract Act; neither party liable for delay due to events beyond reasonable control. Notify within 7 days.',
+                      },
+                      {
+                        label: 'Rejection Clause',
+                        value:
+                          'Non-conforming or damaged materials may be rejected at vendor risk & cost; vendor to replace/rectify within 15 days.',
+                      },
+                    ]
+                  : []),
+                ...(po.otherClauses && po.otherClauses.length > 0
+                  ? po.otherClauses.map((clause, i) => ({
+                      label: `Other clause ${i + 1}`,
+                      value: clause,
+                    }))
+                  : []),
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
+        )}
 
         {/* Special Instructions */}
         {specialInstructions.length > 0 && (
