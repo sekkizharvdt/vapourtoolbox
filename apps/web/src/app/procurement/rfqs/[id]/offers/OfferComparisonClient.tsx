@@ -69,6 +69,17 @@ export default function OfferComparisonPage() {
   const [evaluationNotes, setEvaluationNotes] = useState('');
   const [redFlags, setRedFlags] = useState('');
 
+  // Offer-selection dialog — captures an optional justification, important when
+  // a higher-priced offer is chosen for technical or other reasons (review 1.3).
+  const [selectDialogOpen, setSelectDialogOpen] = useState(false);
+  const [selectingOffer, setSelectingOffer] = useState<{
+    id: string;
+    number: string;
+    vendorName: string;
+    totalAmount: number;
+  } | null>(null);
+  const [selectionNote, setSelectionNote] = useState('');
+
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
     if (pathname) {
@@ -142,11 +153,31 @@ export default function OfferComparisonPage() {
     }
   };
 
-  const handleSelectOffer = async (offerId: string) => {
-    if (!user || !claims) return;
+  const openSelectDialog = (offer: {
+    id: string;
+    number: string;
+    vendorName: string;
+    totalAmount: number;
+  }) => {
+    setSelectingOffer(offer);
+    setSelectionNote('');
+    setSelectDialogOpen(true);
+  };
+
+  const handleConfirmSelect = async () => {
+    if (!user || !claims || !selectingOffer) return;
 
     try {
-      await selectVendorQuote(getFirebase().db, offerId, user.uid, claims.permissions);
+      await selectVendorQuote(
+        getFirebase().db,
+        selectingOffer.id,
+        user.uid,
+        claims.permissions,
+        user.displayName || undefined,
+        user.email || undefined,
+        selectionNote.trim() || undefined
+      );
+      setSelectDialogOpen(false);
       router.push(`/procurement/rfqs/${rfqId}`);
     } catch (err) {
       console.error('[OfferComparisonPage] Error selecting offer:', err);
@@ -474,7 +505,14 @@ export default function OfferComparisonPage() {
                         size="small"
                         color="success"
                         startIcon={<CheckCircleIcon />}
-                        onClick={() => handleSelectOffer(offer.id)}
+                        onClick={() =>
+                          openSelectDialog({
+                            id: offer.id,
+                            number: offer.number,
+                            vendorName: offer.vendorName,
+                            totalAmount: offer.totalAmount,
+                          })
+                        }
                       >
                         Select
                       </Button>
@@ -539,6 +577,55 @@ export default function OfferComparisonPage() {
           <Button onClick={() => setEvaluationDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleEvaluate}>
             Save Evaluation
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Selection Dialog — capture an optional justification (review 1.3) */}
+      <Dialog
+        open={selectDialogOpen}
+        onClose={() => setSelectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Select Offer</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {selectingOffer && (
+              <Typography>
+                Select offer <strong>{selectingOffer.number}</strong> from{' '}
+                <strong>{selectingOffer.vendorName}</strong> (
+                {formatCurrency(selectingOffer.totalAmount)})? This rejects the other offers and
+                completes the RFQ.
+              </Typography>
+            )}
+            {selectingOffer && selectingOffer.totalAmount > lowestTotal && (
+              <Alert severity="warning">
+                This is not the lowest-priced offer (lowest is {formatCurrency(lowestTotal)}).
+                Please record why it is being selected.
+              </Alert>
+            )}
+            <TextField
+              label="Selection note / justification"
+              value={selectionNote}
+              onChange={(e) => setSelectionNote(e.target.value)}
+              fullWidth
+              multiline
+              rows={3}
+              placeholder="e.g. Selected on technical merit / shorter delivery despite higher price"
+              helperText="Saved against the RFQ for the audit trail"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircleIcon />}
+            onClick={handleConfirmSelect}
+          >
+            Select
           </Button>
         </DialogActions>
       </Dialog>
