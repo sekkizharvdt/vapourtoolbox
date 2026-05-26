@@ -128,7 +128,12 @@ jobs:
           commit: ${{ github.sha }}
           name: build-output
           path: .
-          if_no_artifact_found: warn
+          # MUST be 'fail' (not 'warn'): with continue-on-error above, a missing
+          # artifact then sets steps.download.outcome='failure', which is what the
+          # inline-build fallback below keys off. 'warn' reports success even when
+          # nothing was downloaded, silently skipping the fallback and leaving
+          # apps/web/out absent → hosting deploy fails.
+          if_no_artifact_found: fail
           search_artifacts: true
 
       # Inline build fallback. Only runs if the artifact step didn't succeed.
