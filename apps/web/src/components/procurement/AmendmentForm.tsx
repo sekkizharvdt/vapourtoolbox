@@ -36,6 +36,7 @@ import {
 import { Save as SaveIcon } from '@mui/icons-material';
 import type { PurchaseOrder, PurchaseOrderChange } from '@vapour/types';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
+import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 
 type TermsField = 'paymentTerms' | 'deliveryTerms' | 'warrantyTerms' | 'penaltyClause';
 
@@ -103,8 +104,11 @@ export function AmendmentForm({
   const [generalChecked, setGeneralChecked] = useState(false);
 
   // Type-specific inputs
+  const [priceMode, setPriceMode] = useState<'GRAND_TOTAL' | 'BASE'>('GRAND_TOTAL');
   const [newGrandTotal, setNewGrandTotal] = useState('');
+  const [newSubtotal, setNewSubtotal] = useState('');
   const [newExpectedDeliveryDate, setNewExpectedDeliveryDate] = useState('');
+  const [addressChangeRequested, setAddressChangeRequested] = useState(false);
   const [newDeliveryAddress, setNewDeliveryAddress] = useState('');
   const [termsField, setTermsField] = useState<TermsField>('paymentTerms');
   const [newTermsValue, setNewTermsValue] = useState('');
@@ -119,8 +123,11 @@ export function AmendmentForm({
 
     // Defaults from the PO's current values
     let pGrand = po.grandTotal ? String(po.grandTotal) : '';
+    let pSubtotal = po.subtotal ? String(po.subtotal) : '';
+    let pPriceMode: 'GRAND_TOTAL' | 'BASE' = 'GRAND_TOTAL';
     let pDate = timestampToDateInput(po.expectedDeliveryDate);
-    let pAddr = po.deliveryAddress ?? '';
+    let pAddrChange = false;
+    let pAddr = ''; // current address is shown as reference; input starts empty
     let pTermsField: TermsField = 'paymentTerms';
     let pTermsValue = '';
     let pQtyNote = '';
@@ -134,7 +141,11 @@ export function AmendmentForm({
     };
 
     for (const c of initialChanges ?? []) {
-      if (c.field === 'grandTotal') {
+      if (c.field === 'subtotal') {
+        checks.price = true;
+        pPriceMode = 'BASE';
+        pSubtotal = String(c.newValue ?? '');
+      } else if (c.field === 'grandTotal') {
         checks.price = true;
         pGrand = String(c.newValue ?? '');
       } else if (c.field === 'expectedDeliveryDate') {
@@ -142,6 +153,7 @@ export function AmendmentForm({
         pDate = String(c.newValue ?? '');
       } else if (c.field === 'deliveryAddress') {
         checks.delivery = true;
+        pAddrChange = true;
         pAddr = String(c.newValue ?? '');
       } else if ((TERMS_FIELDS as string[]).includes(c.field)) {
         checks.terms = true;
@@ -163,8 +175,11 @@ export function AmendmentForm({
     setTermsChecked(checks.terms);
     setQuantityChecked(checks.quantity);
     setGeneralChecked(checks.general);
+    setPriceMode(pPriceMode);
     setNewGrandTotal(pGrand);
+    setNewSubtotal(pSubtotal);
     setNewExpectedDeliveryDate(pDate);
+    setAddressChangeRequested(pAddrChange);
     setNewDeliveryAddress(pAddr);
     setTermsField(pTermsField);
     setNewTermsValue(pTermsValue);
@@ -188,36 +203,108 @@ export function AmendmentForm({
     const changes: PurchaseOrderChange[] = [];
 
     if (priceChecked) {
-      const value = Number(newGrandTotal);
-      if (!Number.isFinite(value) || value <= 0) {
-        return { changes: [], error: 'Price Change: enter a valid new grand total' };
+      if (priceMode === 'BASE') {
+        // Amend the base price; recompute GST on it using the PO's effective
+        // rate and re-derive the grand total (consistent with Phase B's pre-tax
+        // model). Emit subtotal + tax + grandTotal so all stay consistent.
+        const newSub = Number(newSubtotal);
+        if (!Number.isFinite(newSub) || newSub <= 0) {
+          return { changes: [], error: 'Price Change: enter a valid new base price' };
+        }
+        if (newSub === po.subtotal) {
+          return { changes: [], error: 'Price Change: new base price matches the current value' };
+        }
+        const rate = po.subtotal > 0 ? po.totalTax / po.subtotal : 0;
+        const newTax = roundToPaisa(newSub * rate);
+        const usesIgst = (po.igst ?? 0) > 0;
+        const newCgst = usesIgst ? 0 : roundToPaisa(newTax / 2);
+        const newSgst = usesIgst ? 0 : roundToPaisa(newTax - newCgst);
+        const newIgst = usesIgst ? newTax : 0;
+        const newGrand = roundToPaisa(newSub + newTax);
+
+        changes.push({
+          field: 'subtotal',
+          fieldLabel: 'Base Price',
+          oldValue: po.subtotal,
+          newValue: newSub,
+          oldValueDisplay: formatCurrency(po.subtotal, po.currency),
+          newValueDisplay: formatCurrency(newSub, po.currency),
+          category: 'FINANCIAL',
+        });
+        changes.push({
+          field: 'cgst',
+          fieldLabel: 'CGST',
+          oldValue: po.cgst,
+          newValue: newCgst,
+          category: 'FINANCIAL',
+        });
+        changes.push({
+          field: 'sgst',
+          fieldLabel: 'SGST',
+          oldValue: po.sgst,
+          newValue: newSgst,
+          category: 'FINANCIAL',
+        });
+        changes.push({
+          field: 'igst',
+          fieldLabel: 'IGST',
+          oldValue: po.igst,
+          newValue: newIgst,
+          category: 'FINANCIAL',
+        });
+        changes.push({
+          field: 'totalTax',
+          fieldLabel: 'Total Tax',
+          oldValue: po.totalTax,
+          newValue: newTax,
+          category: 'FINANCIAL',
+        });
+        changes.push({
+          field: 'grandTotal',
+          fieldLabel: 'Grand Total',
+          oldValue: po.grandTotal,
+          newValue: newGrand,
+          oldValueDisplay: formatCurrency(po.grandTotal, po.currency),
+          newValueDisplay: formatCurrency(newGrand, po.currency),
+          category: 'FINANCIAL',
+        });
+      } else {
+        const value = Number(newGrandTotal);
+        if (!Number.isFinite(value) || value <= 0) {
+          return { changes: [], error: 'Price Change: enter a valid new grand total' };
+        }
+        if (value === po.grandTotal) {
+          return { changes: [], error: 'Price Change: new grand total matches the current value' };
+        }
+        changes.push({
+          field: 'grandTotal',
+          fieldLabel: 'Grand Total',
+          oldValue: po.grandTotal,
+          newValue: value,
+          oldValueDisplay: formatCurrency(po.grandTotal, po.currency),
+          newValueDisplay: formatCurrency(value, po.currency),
+          category: 'FINANCIAL',
+        });
       }
-      if (value === po.grandTotal) {
-        return { changes: [], error: 'Price Change: new grand total matches the current value' };
-      }
-      changes.push({
-        field: 'grandTotal',
-        fieldLabel: 'Grand Total',
-        oldValue: po.grandTotal,
-        newValue: value,
-        oldValueDisplay: formatCurrency(po.grandTotal, po.currency),
-        newValueDisplay: formatCurrency(value, po.currency),
-        category: 'FINANCIAL',
-      });
     }
 
     if (deliveryChecked) {
       const currentDate = timestampToDateInput(po.expectedDeliveryDate);
       const dateChanged = !!newExpectedDeliveryDate && newExpectedDeliveryDate !== currentDate;
+      // Address only changes when the user explicitly asked to change it (D5).
       const addressChanged =
+        addressChangeRequested &&
         newDeliveryAddress.trim() !== '' &&
         newDeliveryAddress.trim() !== (po.deliveryAddress ?? '').trim();
 
+      if (addressChangeRequested && !newDeliveryAddress.trim()) {
+        return { changes: [], error: 'Delivery Change: enter the new delivery address' };
+      }
       if (!dateChanged && !addressChanged) {
         return {
           changes: [],
           error:
-            'Delivery Change: change either the expected delivery date or the delivery address',
+            'Delivery Change: change the expected delivery date, or tick "change delivery address" and enter a new address',
         };
       }
       if (dateChanged) {
@@ -355,23 +442,60 @@ export function AmendmentForm({
             />
             {priceChecked && (
               <Box sx={{ mt: 1, pl: 4 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Current grand total: {formatCurrency(po.grandTotal, po.currency)}
-                </Typography>
-                <TextField
-                  label="New Grand Total"
-                  type="number"
-                  value={newGrandTotal}
-                  onChange={(e) => setNewGrandTotal(e.target.value)}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">{po.currency || '₹'}</InputAdornment>
-                    ),
-                  }}
-                  inputProps={{ min: 0, step: 0.01 }}
-                />
+                <FormControl size="small" sx={{ minWidth: 220, mb: 1 }}>
+                  <InputLabel>Amend by</InputLabel>
+                  <Select
+                    value={priceMode}
+                    label="Amend by"
+                    onChange={(e) => setPriceMode(e.target.value as 'GRAND_TOTAL' | 'BASE')}
+                  >
+                    <MenuItem value="GRAND_TOTAL">Grand Total</MenuItem>
+                    <MenuItem value="BASE">Base Price (recompute tax)</MenuItem>
+                  </Select>
+                </FormControl>
+                {priceMode === 'BASE' ? (
+                  <>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Current base price: {formatCurrency(po.subtotal, po.currency)} (grand total{' '}
+                      {formatCurrency(po.grandTotal, po.currency)})
+                    </Typography>
+                    <TextField
+                      label="New Base Price"
+                      type="number"
+                      value={newSubtotal}
+                      onChange={(e) => setNewSubtotal(e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">{po.currency || '₹'}</InputAdornment>
+                        ),
+                      }}
+                      inputProps={{ min: 0, step: 0.01 }}
+                      helperText="GST and grand total are recomputed from this base price"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Current grand total: {formatCurrency(po.grandTotal, po.currency)}
+                    </Typography>
+                    <TextField
+                      label="New Grand Total"
+                      type="number"
+                      value={newGrandTotal}
+                      onChange={(e) => setNewGrandTotal(e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">{po.currency || '₹'}</InputAdornment>
+                        ),
+                      }}
+                      inputProps={{ min: 0, step: 0.01 }}
+                    />
+                  </>
+                )}
               </Box>
             )}
           </Paper>
@@ -406,16 +530,36 @@ export function AmendmentForm({
                     />
                   </Grid>
                   <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="New Delivery Address"
-                      value={newDeliveryAddress}
-                      onChange={(e) => setNewDeliveryAddress(e.target.value)}
-                      fullWidth
-                      size="small"
-                      multiline
-                      rows={2}
-                      placeholder="Leave as current address if only changing the date"
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={addressChangeRequested}
+                          onChange={(e) => setAddressChangeRequested(e.target.checked)}
+                        />
+                      }
+                      label="Change delivery address?"
                     />
+                    {addressChangeRequested && (
+                      <>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ whiteSpace: 'pre-line', mb: 1 }}
+                        >
+                          Current address: {po.deliveryAddress || 'Not set'}
+                        </Typography>
+                        <TextField
+                          label="New Delivery Address"
+                          value={newDeliveryAddress}
+                          onChange={(e) => setNewDeliveryAddress(e.target.value)}
+                          fullWidth
+                          size="small"
+                          multiline
+                          rows={2}
+                          placeholder="Enter the new delivery address"
+                        />
+                      </>
+                    )}
                   </Grid>
                 </Grid>
               </Box>
