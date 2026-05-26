@@ -190,6 +190,44 @@ export const onPOStatusNotify = onDocumentUpdated(
     if (!before || !after) return;
     if (before.status === after.status) return;
 
+    if (after.status === 'PENDING_APPROVAL') {
+      logger.info(`PO ${after.number} submitted for approval — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'po_submitted',
+        subject: `PO Submitted for Approval: ${after.number}`,
+        templateData: {
+          title: 'Purchase Order Submitted for Approval',
+          message: `A purchase order has been submitted and is awaiting Manager approval.`,
+          details: [
+            { label: 'PO Number', value: after.number || event.params.poId },
+            { label: 'Vendor', value: after.vendorName || after.entityName || '-' },
+            { label: 'Project', value: after.projectNames?.[0] || after.projectName || '-' },
+          ],
+          linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
+        },
+        idempotencyKey: event.id,
+      });
+    }
+
+    if (after.status === 'PENDING_DIRECTOR_APPROVAL') {
+      logger.info(`PO ${after.number} manager-approved — notifying for Director approval`);
+      await sendNotificationEmail({
+        eventId: 'po_pending_director',
+        subject: `PO Awaiting Director Approval: ${after.number}`,
+        templateData: {
+          title: 'Purchase Order Awaiting Director Approval',
+          message: `A purchase order has been approved by the Manager and now needs final Director approval.`,
+          details: [
+            { label: 'PO Number', value: after.number || event.params.poId },
+            { label: 'Vendor', value: after.vendorName || after.entityName || '-' },
+            { label: 'Approved By (Manager)', value: after.managerApprovedByName || '-' },
+          ],
+          linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
+        },
+        idempotencyKey: event.id,
+      });
+    }
+
     if (after.status === 'APPROVED') {
       logger.info(`PO ${after.number} approved — sending notification`);
       await sendNotificationEmail({
@@ -243,6 +281,83 @@ export const onPOStatusNotify = onDocumentUpdated(
             { label: 'Reason', value: after.rejectionReason || '-' },
           ],
           linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
+        },
+        idempotencyKey: event.id,
+      });
+    }
+  }
+);
+
+/**
+ * PO Amendment status changes — notify on submission and final approval
+ * (procurement review round 3, item 3.3).
+ */
+export const onAmendmentStatusNotify = onDocumentUpdated(
+  { document: 'purchaseOrderAmendments/{amendId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    const amendmentLabel =
+      `${after.purchaseOrderNumber || ''} #${after.amendmentNumber ?? ''}`.trim();
+    const linkUrl = `${APP_URL}/procurement/amendments/${event.params.amendId}`;
+
+    if (after.status === 'PENDING_APPROVAL') {
+      logger.info(`Amendment ${amendmentLabel} submitted — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'amendment_submitted',
+        subject: `Amendment Submitted for Approval: ${amendmentLabel}`,
+        templateData: {
+          title: 'PO Amendment Submitted for Approval',
+          message: `A purchase order amendment has been submitted and is awaiting approval.`,
+          details: [
+            { label: 'Purchase Order', value: after.purchaseOrderNumber || '-' },
+            { label: 'Amendment #', value: String(after.amendmentNumber ?? '-') },
+            { label: 'Requested By', value: after.requestedByName || '-' },
+            { label: 'Reason', value: after.reason || '-' },
+          ],
+          linkUrl,
+        },
+        idempotencyKey: event.id,
+      });
+    }
+
+    if (after.status === 'APPROVED') {
+      logger.info(`Amendment ${amendmentLabel} approved — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'amendment_approved',
+        subject: `Amendment Approved: ${amendmentLabel}`,
+        templateData: {
+          title: 'PO Amendment Approved',
+          message: `A purchase order amendment has been approved and applied to the PO.`,
+          details: [
+            { label: 'Purchase Order', value: after.purchaseOrderNumber || '-' },
+            { label: 'Amendment #', value: String(after.amendmentNumber ?? '-') },
+            { label: 'Approved By', value: after.approvedByName || '-' },
+          ],
+          linkUrl,
+        },
+        idempotencyKey: event.id,
+      });
+    }
+
+    if (after.status === 'REJECTED' && before.status !== 'REJECTED') {
+      logger.info(`Amendment ${amendmentLabel} rejected — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'amendment_rejected',
+        subject: `Amendment Rejected: ${amendmentLabel}`,
+        templateData: {
+          title: 'PO Amendment Rejected',
+          message: `A purchase order amendment has been rejected.`,
+          details: [
+            { label: 'Purchase Order', value: after.purchaseOrderNumber || '-' },
+            { label: 'Amendment #', value: String(after.amendmentNumber ?? '-') },
+            { label: 'Rejected By', value: after.rejectedByName || '-' },
+            { label: 'Reason', value: after.rejectionReason || '-' },
+          ],
+          linkUrl,
         },
         idempotencyKey: event.id,
       });

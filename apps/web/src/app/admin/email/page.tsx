@@ -153,6 +153,16 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         label: 'PR Rejected',
         description: 'When a purchase request is rejected — notifies the requester',
       },
+      {
+        id: 'po_submitted',
+        label: 'PO Submitted for Approval',
+        description: 'When a purchase order is submitted for Manager approval',
+      },
+      {
+        id: 'po_pending_director',
+        label: 'PO Awaiting Director Approval',
+        description: 'When a Manager approves a PO and it needs final Director approval',
+      },
       { id: 'po_approved', label: 'PO Approved', description: 'When a purchase order is approved' },
       {
         id: 'po_issued',
@@ -163,6 +173,21 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         id: 'po_rejected',
         label: 'PO Rejected',
         description: 'When a purchase order is rejected — notifies creator for revision',
+      },
+      {
+        id: 'amendment_submitted',
+        label: 'Amendment Submitted',
+        description: 'When a PO amendment is submitted for approval',
+      },
+      {
+        id: 'amendment_approved',
+        label: 'Amendment Approved',
+        description: 'When a PO amendment is approved and applied',
+      },
+      {
+        id: 'amendment_rejected',
+        label: 'Amendment Rejected',
+        description: 'When a PO amendment is rejected',
       },
       {
         id: 'rfq_completed',

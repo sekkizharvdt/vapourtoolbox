@@ -120,6 +120,7 @@ export {
 export {
   onPRSubmittedNotify,
   onPOStatusNotify,
+  onAmendmentStatusNotify,
   onAccountingNotify,
   onLeaveNotify,
   onNewUserNotify,
