@@ -179,7 +179,18 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                       {terms.paymentSchedule.map((milestone) => (
                         <TableRow key={milestone.id}>
                           <TableCell>{milestone.serialNumber}</TableCell>
-                          <TableCell>{milestone.paymentType}</TableCell>
+                          <TableCell>
+                            {milestone.paymentType}
+                            {milestone.carriesTax && (
+                              <Chip
+                                label="+ tax"
+                                size="small"
+                                color="info"
+                                variant="outlined"
+                                sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                              />
+                            )}
+                          </TableCell>
                           <TableCell align="right">{milestone.percentage}%</TableCell>
                           <TableCell>{milestone.deliverables}</TableCell>
                         </TableRow>

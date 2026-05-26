@@ -222,6 +222,13 @@ export interface PaymentMilestone {
   paymentType: string; // "Advance", "Before Dispatch", "On Receipt", etc.
   percentage: number; // 0-100
   deliverables: string; // What triggers this payment
+  /**
+   * Whether the tax (GST) portion is paid with this milestone. Buyers usually
+   * pay the full tax with the dispatch/main payment, not with advances or
+   * retention — this flags that stage so the payment terms and accounts release
+   * are unambiguous (procurement review round 3, items 2.2c/2.2d).
+   */
+  carriesTax?: boolean;
 }
 
 /**

@@ -22,6 +22,8 @@ import {
   Typography,
   Alert,
   Paper,
+  Checkbox,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -47,7 +49,7 @@ export function PaymentScheduleEditor({
   );
 
   const handleMilestoneChange = useCallback(
-    (index: number, field: keyof PaymentMilestone, value: string | number) => {
+    (index: number, field: keyof PaymentMilestone, value: string | number | boolean) => {
       const updated = milestones.map((m, i): PaymentMilestone => {
         if (i !== index) return m;
         const updatedMilestone: PaymentMilestone = {
@@ -56,6 +58,7 @@ export function PaymentScheduleEditor({
           paymentType: field === 'paymentType' ? String(value) : m.paymentType,
           percentage: field === 'percentage' ? Number(value) : m.percentage,
           deliverables: field === 'deliverables' ? String(value) : m.deliverables,
+          carriesTax: field === 'carriesTax' ? Boolean(value) : m.carriesTax,
         };
         return updatedMilestone;
       });
@@ -141,6 +144,11 @@ export function PaymentScheduleEditor({
               <TableCell width={100} align="right">
                 %
               </TableCell>
+              <TableCell width={70} align="center">
+                <Tooltip title="Tick the stage that the GST/tax is paid with">
+                  <span>Tax</span>
+                </Tooltip>
+              </TableCell>
               <TableCell>Deliverables</TableCell>
               <TableCell width={50} />
             </TableRow>
@@ -183,6 +191,14 @@ export function PaymentScheduleEditor({
                     sx={{ width: 80 }}
                     variant="standard"
                     InputProps={{ disableUnderline: true }}
+                  />
+                </TableCell>
+                <TableCell align="center">
+                  <Checkbox
+                    size="small"
+                    checked={milestone.carriesTax ?? false}
+                    onChange={(e) => handleMilestoneChange(index, 'carriesTax', e.target.checked)}
+                    disabled={disabled}
                   />
                 </TableCell>
                 <TableCell>

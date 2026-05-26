@@ -216,7 +216,10 @@ export default function NewPOPage() {
     try {
       // Generate legacy text fields from structured terms for backward compatibility
       const paymentTermsText = commercialTerms.paymentSchedule
-        .map((m) => `${m.percentage}% - ${m.paymentType} (${m.deliverables})`)
+        .map(
+          (m) =>
+            `${m.percentage}%${m.carriesTax ? ' + 100% tax' : ''} - ${m.paymentType} (${m.deliverables})`
+        )
         .join(', ');
 
       // Generate delivery terms text based on delivery unit
