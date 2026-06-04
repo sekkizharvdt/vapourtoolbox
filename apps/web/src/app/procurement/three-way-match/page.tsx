@@ -48,6 +48,7 @@ import {
   Home as HomeIcon,
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import type { ThreeWayMatch, ThreeWayMatchStatus } from '@vapour/types';
 import { listThreeWayMatches } from '@/lib/procurement/threeWayMatch';
@@ -260,6 +261,16 @@ export default function ThreeWayMatchListPage() {
                 <MenuItem value="PENDING_REVIEW">Pending Review</MenuItem>
               </Select>
             </FormControl>
+            <Button
+              startIcon={<FilterListIcon />}
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('ALL');
+                setPage(0);
+              }}
+            >
+              Clear Filters
+            </Button>
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton

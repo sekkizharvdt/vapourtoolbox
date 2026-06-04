@@ -58,6 +58,7 @@ import type { VendorQuote, QuoteStatus, QuoteSourceType } from '@vapour/types';
 import { listVendorQuotes } from '@/lib/vendorQuotes/vendorQuoteService';
 import { softDeleteVendorQuote } from '@/lib/procurement/procurementDeleteService';
 import { canManageEstimation, canManageProcurement, QUOTE_STATUS_LABELS } from '@vapour/constants';
+import { formatDate } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' | 'warning'>> = {
@@ -86,15 +87,6 @@ const SOURCE_COLORS: Record<
   OFFLINE_RFQ: 'info',
   UNSOLICITED: 'warning',
 };
-
-function formatDate(ts: unknown): string {
-  if (!ts) return '-';
-  if (typeof ts === 'object' && ts !== null && 'toDate' in ts) {
-    return (ts as { toDate: () => Date }).toDate().toLocaleDateString('en-IN');
-  }
-  if (ts instanceof Date) return ts.toLocaleDateString('en-IN');
-  return '-';
-}
 
 export default function QuotesListPage() {
   const router = useRouter();

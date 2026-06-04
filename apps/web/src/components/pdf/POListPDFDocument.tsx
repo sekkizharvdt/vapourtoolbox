@@ -38,11 +38,7 @@ interface POListPDFDocumentProps {
 }
 
 export function POListPDFDocument({ pos }: POListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = pos.map((po) => ({
     number: po.number,

@@ -100,13 +100,26 @@ export function calculateAmendmentStats(amendments: PurchaseOrderAmendment[]) {
 export { formatCurrency } from '@/lib/utils/formatters';
 
 /**
- * Get available actions for an amendment
+ * Get available actions for an amendment.
+ *
+ * `userId` is required so the Approve/Reject buttons are only shown to the
+ * designated approver. The server-side checks in approveAmendment / rejectAmendment
+ * (preventSelfApproval + requireApprover) are still authoritative; this just
+ * stops the submitter and other viewers from clicking buttons that will fail
+ * (feedback 8ImQ5sgbK0uSZGuhRTqE).
  */
-export function getAmendmentAvailableActions(amendment: PurchaseOrderAmendment) {
+export function getAmendmentAvailableActions(amendment: PurchaseOrderAmendment, userId?: string) {
+  const isRequester = !!userId && amendment.requestedBy === userId;
+  // If no approver is assigned yet (legacy amendments), fall back to "anyone but
+  // the requester" so the workflow doesn't deadlock.
+  const isDesignatedApprover =
+    !!userId && !!amendment.approverId && amendment.approverId === userId;
+  const canActAsApprover = !isRequester && (!amendment.approverId || isDesignatedApprover);
+
   return {
     canSubmit: amendment.status === 'DRAFT',
-    canApprove: amendment.status === 'PENDING_APPROVAL',
-    canReject: amendment.status === 'PENDING_APPROVAL',
+    canApprove: amendment.status === 'PENDING_APPROVAL' && canActAsApprover,
+    canReject: amendment.status === 'PENDING_APPROVAL' && canActAsApprover,
     canEdit: amendment.status === 'DRAFT',
     canDelete: amendment.status === 'DRAFT',
   };

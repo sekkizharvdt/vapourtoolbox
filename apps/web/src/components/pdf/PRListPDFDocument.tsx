@@ -33,11 +33,7 @@ interface PRListPDFDocumentProps {
 }
 
 export function PRListPDFDocument({ requests }: PRListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = requests.map((r) => ({
     number: r.number,

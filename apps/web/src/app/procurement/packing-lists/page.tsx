@@ -42,6 +42,7 @@ import {
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
   Delete as DeleteIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import type { PackingList, PackingListStatus } from '@vapour/types';
 import { listPackingLists } from '@/lib/procurement/packingListService';
@@ -251,6 +252,15 @@ export default function PackingListsPage() {
                 <MenuItem value="DELIVERED">Delivered</MenuItem>
               </Select>
             </FormControl>
+            <Button
+              startIcon={<FilterListIcon />}
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('ALL');
+              }}
+            >
+              Clear Filters
+            </Button>
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton

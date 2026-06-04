@@ -9,8 +9,6 @@ import type {
   QuoteStatus as OfferStatus,
   VendorQuoteItem as OfferItem,
 } from '@vapour/types';
-import { Timestamp } from 'firebase/firestore';
-
 // ============================================================================
 // STATUS HELPERS
 // ============================================================================
@@ -211,20 +209,6 @@ export function findBestOffer(offers: Offer[]): Offer | null {
 
 // Re-export formatCurrency from centralized utility for backwards compatibility
 export { formatCurrency } from '@/lib/utils/formatters';
-
-/**
- * Format date
- */
-export function formatOfferDate(timestamp: Timestamp | undefined): string {
-  if (!timestamp) return 'N/A';
-
-  const date = timestamp.toDate();
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
 
 /**
  * Format evaluation score with color

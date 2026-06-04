@@ -43,6 +43,7 @@ import {
   Home as HomeIcon,
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import type { WorkCompletionCertificate } from '@vapour/types';
 import { listWCCs } from '@/lib/procurement/workCompletionService';
@@ -215,6 +216,15 @@ export default function WorkCompletionListPage() {
                 ),
               }}
             />
+            <Button
+              startIcon={<FilterListIcon />}
+              onClick={() => {
+                setSearchTerm('');
+                setPage(0);
+              }}
+            >
+              Clear Filters
+            </Button>
             <Tooltip title="Export CSV">
               <IconButton
                 aria-label="Export CSV"

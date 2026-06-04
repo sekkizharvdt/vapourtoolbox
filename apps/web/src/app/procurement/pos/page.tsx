@@ -44,6 +44,7 @@ import {
   Delete as DeleteIcon,
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -243,6 +244,16 @@ export default function PurchaseOrdersPage() {
               <MenuItem value="COMPLETED">Completed</MenuItem>
             </Select>
           </FormControl>
+
+          <Button
+            startIcon={<FilterListIcon />}
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('ALL');
+            }}
+          >
+            Clear Filters
+          </Button>
 
           <Box sx={{ flexGrow: 1 }} />
           <Tooltip title="Export CSV">

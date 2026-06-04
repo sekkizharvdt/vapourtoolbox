@@ -38,6 +38,7 @@ import {
   TableChart as CsvIcon,
   Home as HomeIcon,
   Delete as DeleteIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -272,6 +273,18 @@ export default function RFQsPage() {
               <MenuItem value="asc">Ascending</MenuItem>
             </Select>
           </FormControl>
+
+          <Button
+            startIcon={<FilterListIcon />}
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('ALL');
+              setSortBy('createdAt');
+              setSortOrder('desc');
+            }}
+          >
+            Clear Filters
+          </Button>
 
           <Box sx={{ flexGrow: 1 }} />
           <Tooltip title="Export CSV">

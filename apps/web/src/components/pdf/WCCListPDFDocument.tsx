@@ -34,11 +34,7 @@ interface WCCListPDFDocumentProps {
 }
 
 export function WCCListPDFDocument({ wccs }: WCCListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = wccs.map((w) => ({
     number: w.number || '-',

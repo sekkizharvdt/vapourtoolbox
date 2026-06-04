@@ -34,16 +34,10 @@ import {
 } from '@mui/icons-material';
 import type { Timestamp } from 'firebase/firestore';
 import type { ExistingPDFsTabProps } from './types';
+import { formatDate as sharedFormatDate } from '@/lib/utils/formatters';
 
-function formatDate(timestamp: Timestamp) {
-  return timestamp.toDate().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+// DD-MMM-YYYY HH:MM via the shared formatter (feedback dZQaZCkO172rq3dSrWoK).
+const formatDate = (timestamp: Timestamp) => sharedFormatDate(timestamp, 'datetime');
 
 export function ExistingPDFsTab({
   existingPdfs,

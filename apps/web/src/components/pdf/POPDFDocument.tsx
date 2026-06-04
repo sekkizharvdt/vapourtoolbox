@@ -27,6 +27,7 @@ import {
   NotesSection,
   REPORT_THEME,
 } from '@/lib/pdf/reportComponents';
+import { formatDate } from '@/lib/utils/formatters';
 
 const local = StyleSheet.create({
   header: {
@@ -148,11 +149,8 @@ function formatCurrency(amount: number, currency: string = 'INR'): string {
 
 function formatTimestamp(ts: { toDate?: () => Date } | undefined): string {
   if (!ts || !ts.toDate) return '—';
-  return ts.toDate().toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  // Shared DD-MMM-YYYY formatter — feedback dZQaZCkO172rq3dSrWoK.
+  return formatDate(ts as { toDate: () => Date });
 }
 
 /** Standard VDT special instructions per procurement review #33. */
@@ -671,9 +669,7 @@ export function POPDFDocument({
           ].join('\n')}
         />
 
-        <ReportFooter
-          lines={[`Generated on ${new Date().toLocaleDateString('en-IN')} | ${po.number}`]}
-        />
+        <ReportFooter lines={[`Generated on ${formatDate(new Date())} | ${po.number}`]} />
       </ReportPage>
     </Document>
   );

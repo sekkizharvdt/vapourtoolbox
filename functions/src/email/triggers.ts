@@ -191,26 +191,60 @@ export const onPOStatusNotify = onDocumentUpdated(
     if (before.status === after.status) return;
 
     if (after.status === 'PENDING_APPROVAL') {
-      logger.info(`PO ${after.number} submitted for approval — sending notification`);
+      // Resolve both approvers' emails — both are authorised approvers and
+      // both should see the request from the start (feedback fzct8lNvYijMJ5hzYpyv).
+      const approverEmails: string[] = [];
+      for (const approverId of [after.approverId, after.secondApproverId].filter(Boolean)) {
+        try {
+          const approverDoc = await admin.firestore().doc(`users/${approverId}`).get();
+          const email = approverDoc.data()?.email;
+          if (email && !approverEmails.includes(email)) approverEmails.push(email);
+        } catch (err) {
+          logger.warn('Failed to resolve PO approver email', { approverId, error: err });
+        }
+      }
+
+      logger.info(`PO ${after.number} submitted for approval — sending notification`, {
+        approverEmails: approverEmails.length ? approverEmails : 'default recipients',
+      });
       await sendNotificationEmail({
         eventId: 'po_submitted',
         subject: `PO Submitted for Approval: ${after.number}`,
         templateData: {
           title: 'Purchase Order Submitted for Approval',
-          message: `A purchase order has been submitted and is awaiting Manager approval.`,
+          message: `A purchase order has been submitted and is awaiting first approval. Both named approvers are CC'd; the first approver acts first, then the second.`,
           details: [
             { label: 'PO Number', value: after.number || event.params.poId },
             { label: 'Vendor', value: after.vendorName || after.entityName || '-' },
             { label: 'Project', value: after.projectNames?.[0] || after.projectName || '-' },
+            { label: 'First Approver', value: after.approverName || '-' },
+            { label: 'Second Approver', value: after.secondApproverName || '-' },
           ],
           linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
         },
         idempotencyKey: event.id,
+        directRecipientEmails: approverEmails.length ? approverEmails : undefined,
       });
     }
 
     if (after.status === 'PENDING_FINAL_APPROVAL') {
-      logger.info(`PO ${after.number} first-approved — notifying for final approval`);
+      // Notify the second/final approver — first has done their part, second's turn.
+      let secondApproverEmail: string | undefined;
+      if (after.secondApproverId) {
+        try {
+          const approverDoc = await admin.firestore().doc(`users/${after.secondApproverId}`).get();
+          secondApproverEmail = approverDoc.data()?.email;
+        } catch (err) {
+          logger.warn('Failed to resolve PO second-approver email', {
+            secondApproverId: after.secondApproverId,
+            error: err,
+          });
+        }
+      }
+
+      logger.info(`PO ${after.number} first-approved — notifying for final approval`, {
+        secondApproverEmail: secondApproverEmail || 'default recipients',
+      });
       await sendNotificationEmail({
         eventId: 'po_pending_final',
         subject: `PO Awaiting Final Approval: ${after.number}`,
@@ -221,10 +255,12 @@ export const onPOStatusNotify = onDocumentUpdated(
             { label: 'PO Number', value: after.number || event.params.poId },
             { label: 'Vendor', value: after.vendorName || after.entityName || '-' },
             { label: 'First Approved By', value: after.firstApprovedByName || '-' },
+            { label: 'Final Approver', value: after.secondApproverName || '-' },
           ],
           linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
         },
         idempotencyKey: event.id,
+        directRecipientEmails: secondApproverEmail ? [secondApproverEmail] : undefined,
       });
     }
 
@@ -305,7 +341,24 @@ export const onAmendmentStatusNotify = onDocumentUpdated(
     const linkUrl = `${APP_URL}/procurement/amendments/${event.params.amendId}`;
 
     if (after.status === 'PENDING_APPROVAL') {
-      logger.info(`Amendment ${amendmentLabel} submitted — sending notification`);
+      // Resolve the designated approver's email so they get the request directly
+      // (feedback 8ImQ5sgbK0uSZGuhRTqE — amendments were not notifying their approver).
+      let approverEmail: string | undefined;
+      if (after.approverId) {
+        try {
+          const approverDoc = await admin.firestore().doc(`users/${after.approverId}`).get();
+          approverEmail = approverDoc.data()?.email;
+        } catch (err) {
+          logger.warn('Failed to resolve amendment approver email', {
+            approverId: after.approverId,
+            error: err,
+          });
+        }
+      }
+
+      logger.info(`Amendment ${amendmentLabel} submitted — sending notification`, {
+        approverEmail: approverEmail || 'default recipients',
+      });
       await sendNotificationEmail({
         eventId: 'amendment_submitted',
         subject: `Amendment Submitted for Approval: ${amendmentLabel}`,
@@ -316,11 +369,13 @@ export const onAmendmentStatusNotify = onDocumentUpdated(
             { label: 'Purchase Order', value: after.purchaseOrderNumber || '-' },
             { label: 'Amendment #', value: String(after.amendmentNumber ?? '-') },
             { label: 'Requested By', value: after.requestedByName || '-' },
+            { label: 'Approver', value: after.approverName || '-' },
             { label: 'Reason', value: after.reason || '-' },
           ],
           linkUrl,
         },
         idempotencyKey: event.id,
+        directRecipientEmails: approverEmail ? [approverEmail] : undefined,
       });
     }
 

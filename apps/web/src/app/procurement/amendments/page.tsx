@@ -49,6 +49,7 @@ import {
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
   Delete as DeleteIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import type { PurchaseOrderAmendment } from '@vapour/types';
 import { listAmendments } from '@/lib/procurement/amendment';
@@ -292,6 +293,16 @@ export default function AmendmentsListPage() {
                 <MenuItem value="REJECTED">Rejected</MenuItem>
               </Select>
             </FormControl>
+            <Button
+              startIcon={<FilterListIcon />}
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('ALL');
+                setPage(0);
+              }}
+            >
+              Clear Filters
+            </Button>
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton

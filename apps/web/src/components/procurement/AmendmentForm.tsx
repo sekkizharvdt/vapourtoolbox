@@ -36,6 +36,7 @@ import {
 import { Save as SaveIcon } from '@mui/icons-material';
 import type { PurchaseOrder, PurchaseOrderChange } from '@vapour/types';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
+import { formatDate } from '@/lib/utils/formatters';
 import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 
 type TermsField = 'paymentTerms' | 'deliveryTerms' | 'warrantyTerms' | 'penaltyClause';
@@ -313,8 +314,10 @@ export function AmendmentForm({
           fieldLabel: 'Expected Delivery Date',
           oldValue: currentDate || null,
           newValue: newExpectedDeliveryDate,
-          oldValueDisplay: currentDate || 'Not set',
-          newValueDisplay: newExpectedDeliveryDate,
+          // Render as DD-MMM-YYYY in the Changes table (raw value stays YYYY-MM-DD
+          // for the actual PO update). Feedback 8ImQ5sgbK0uSZGuhRTqE.
+          oldValueDisplay: currentDate ? formatDate(currentDate) : 'Not set',
+          newValueDisplay: formatDate(newExpectedDeliveryDate),
           category: 'SCHEDULE',
         });
       }

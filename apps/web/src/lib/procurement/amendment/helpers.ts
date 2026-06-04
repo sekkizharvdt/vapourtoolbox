@@ -6,6 +6,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import type { PurchaseOrderChange, PurchaseOrderAmendment } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 /**
  * Determine amendment type based on changes
@@ -29,14 +30,16 @@ export function determineAmendmentType(
 }
 
 /**
- * Format value for display
+ * Format value for display in the amendment "Changes" table.
+ *
+ * Dates use the shared DD-MMM-YYYY formatter so amendment dates match the rest
+ * of Procurement (feedback 8ImQ5sgbK0uSZGuhRTqE, dZQaZCkO172rq3dSrWoK).
  */
 export function formatValue(value: unknown): string {
   if (value === null || value === undefined) return 'N/A';
   if (typeof value === 'number') return value.toFixed(2);
   if (value instanceof Date || (value && typeof value === 'object' && 'toDate' in value)) {
-    const date = value instanceof Date ? value : (value as Timestamp).toDate();
-    return date.toLocaleDateString();
+    return formatDate(value as Date | Timestamp);
   }
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);

@@ -33,11 +33,7 @@ interface RFQListPDFDocumentProps {
 }
 
 export function RFQListPDFDocument({ rfqs }: RFQListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = rfqs.map((r) => ({
     number: r.number,

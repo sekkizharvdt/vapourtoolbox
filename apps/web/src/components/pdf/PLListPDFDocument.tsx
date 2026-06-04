@@ -33,11 +33,7 @@ interface PLListPDFDocumentProps {
 }
 
 export function PLListPDFDocument({ pls }: PLListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = pls.map((pl) => ({
     number: pl.number,

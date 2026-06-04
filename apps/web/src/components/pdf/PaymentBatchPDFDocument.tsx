@@ -22,6 +22,7 @@ import {
   REPORT_THEME,
   type TableColumn,
 } from '@/lib/pdf/reportComponents';
+import { formatDate } from '@/lib/utils/formatters';
 
 const CATEGORY_LABELS: Record<string, string> = {
   SALARY: 'Salary',
@@ -40,24 +41,6 @@ function formatCurrency(amount: number): string {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function formatDate(date: Date | string | unknown): string {
-  if (!date) return '-';
-  if (typeof date === 'object' && date !== null && 'toDate' in date) {
-    return (date as { toDate: () => Date }).toDate().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  }
-  const d = typeof date === 'string' ? new Date(date) : (date as Date);
-  if (isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 /* ── Receipts table columns ────────────────────────────────── */
@@ -324,9 +307,7 @@ export function PaymentBatchPDFDocument({
         )}
 
         {/* Footer */}
-        <ReportFooter
-          lines={[`Generated on ${new Date().toLocaleDateString('en-IN')} | ${batch.batchNumber}`]}
-        />
+        <ReportFooter lines={[`Generated on ${formatDate(new Date())} | ${batch.batchNumber}`]} />
       </ReportPage>
     </Document>
   );

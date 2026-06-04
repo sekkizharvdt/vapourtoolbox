@@ -8,7 +8,7 @@
 import React from 'react';
 import { Document } from '@react-pdf/renderer';
 import type { ThreeWayMatch } from '@vapour/types';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import {
   ReportPage,
   ListHeader,
@@ -36,11 +36,7 @@ interface MatchListPDFDocumentProps {
 }
 
 export function MatchListPDFDocument({ matches }: MatchListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = matches.map((m) => ({
     match: m.matchNumber || '-',

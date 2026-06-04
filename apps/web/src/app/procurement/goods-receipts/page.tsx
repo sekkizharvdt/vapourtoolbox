@@ -44,6 +44,7 @@ import {
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
   Delete as DeleteIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import type { GoodsReceipt, GoodsReceiptStatus } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -278,6 +279,16 @@ export default function GoodsReceiptsPage() {
               label="Sent to Accounting"
               sx={{ whiteSpace: 'nowrap' }}
             />
+            <Button
+              startIcon={<FilterListIcon />}
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('ALL');
+                setSentToAccountingFilter(false);
+              }}
+            >
+              Clear Filters
+            </Button>
             <Box sx={{ flexGrow: 1 }} />
             <Tooltip title="Export CSV">
               <IconButton

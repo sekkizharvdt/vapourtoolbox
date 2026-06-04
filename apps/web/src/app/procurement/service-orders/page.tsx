@@ -35,6 +35,7 @@ import {
   Search as SearchIcon,
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
@@ -145,6 +146,16 @@ export default function ServiceOrdersPage() {
             ))}
           </Select>
         </FormControl>
+        <Button
+          startIcon={<FilterListIcon />}
+          onClick={() => {
+            setSearch('');
+            setStatusFilter('');
+            setPage(0);
+          }}
+        >
+          Clear Filters
+        </Button>
       </Box>
 
       {/* Table */}

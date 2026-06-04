@@ -33,11 +33,7 @@ interface GRListPDFDocumentProps {
 }
 
 export function GRListPDFDocument({ grs }: GRListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = grs.map((gr) => ({
     number: gr.number,

@@ -394,7 +394,12 @@ export default function UploadOfferDialog({
           rfqItems: typeof rfqItemsForParsing;
         },
         SingleParserResult
-      >(functionsAsiaSouth1, 'parseOffer');
+      >(functionsAsiaSouth1, 'parseOffer', {
+        // Match the server's 300 s timeout — client SDK defaults to 70 s and
+        // throws `deadline-exceeded` on longer documents (feedback
+        // BZPmqnnhA5cl3yNd2M8a — same root cause as parseQuote).
+        timeout: 300_000,
+      });
 
       setProgress(50);
       const result = await parseOfferFn({

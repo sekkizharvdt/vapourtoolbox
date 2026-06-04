@@ -8,7 +8,7 @@
 import React from 'react';
 import { Document } from '@react-pdf/renderer';
 import type { PurchaseOrderAmendment } from '@vapour/types';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import {
   ReportPage,
   ListHeader,
@@ -41,11 +41,7 @@ interface AmendmentListPDFDocumentProps {
 }
 
 export function AmendmentListPDFDocument({ amendments }: AmendmentListPDFDocumentProps) {
-  const generatedAt = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const generatedAt = formatDate(new Date());
 
   const rows = amendments.map((a) => ({
     po: a.purchaseOrderNumber || '-',

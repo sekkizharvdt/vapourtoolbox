@@ -532,7 +532,36 @@ export default function MaterialPickerDialog({
                           <Chip label={m.category} size="small" variant="outlined" />
                         </Box>
                       }
-                      secondary={m.name}
+                      // Spec chips help distinguish similarly-named materials
+                      // (feedback CxERG78yfKmjBgpTgRPN).
+                      secondary={
+                        <>
+                          <Typography variant="body2">{m.name}</Typography>
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 0.5 }}
+                          >
+                            {m.specification?.standard && (
+                              <Chip
+                                label={m.specification.standard}
+                                size="small"
+                                variant="outlined"
+                              />
+                            )}
+                            {m.specification?.grade && (
+                              <Chip label={m.specification.grade} size="small" variant="outlined" />
+                            )}
+                            {m.specification?.finish && (
+                              <Chip
+                                label={m.specification.finish}
+                                size="small"
+                                variant="outlined"
+                              />
+                            )}
+                          </Stack>
+                        </>
+                      }
                     />
                   </ListItemButton>
                 </ListItem>
@@ -740,7 +769,55 @@ export default function MaterialPickerDialog({
                                   />
                                 </Box>
                               }
-                              secondary={material.name}
+                              // Show name + specification (standard/grade/finish/
+                              // schedule/nominalSize) so users can identify the right
+                              // material at a glance — feedback CxERG78yfKmjBgpTgRPN.
+                              secondary={
+                                <>
+                                  <Typography variant="body2">{material.name}</Typography>
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.5}
+                                    sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 0.5 }}
+                                  >
+                                    {material.specification?.standard && (
+                                      <Chip
+                                        label={material.specification.standard}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {material.specification?.grade && (
+                                      <Chip
+                                        label={material.specification.grade}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {material.specification?.finish && (
+                                      <Chip
+                                        label={material.specification.finish}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {material.specification?.schedule && (
+                                      <Chip
+                                        label={material.specification.schedule}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {material.specification?.nominalSize && (
+                                      <Chip
+                                        label={material.specification.nominalSize}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                                </>
+                              }
                             />
                           </ListItemButton>
                         </ListItem>

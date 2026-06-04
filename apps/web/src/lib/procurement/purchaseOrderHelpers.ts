@@ -5,6 +5,7 @@
  */
 
 import type { PurchaseOrder, PurchaseOrderStatus } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 // ============================================================================
 // STATUS UTILITIES
@@ -116,7 +117,7 @@ export function formatExpectedDelivery(po: PurchaseOrder): string {
   } else if (diffDays <= 7) {
     return `Due in ${diffDays} days`;
   } else {
-    return expectedDate.toLocaleDateString();
+    return formatDate(expectedDate);
   }
 }
 

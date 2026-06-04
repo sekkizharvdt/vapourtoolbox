@@ -150,7 +150,7 @@ export default function AmendmentDetailClient() {
       await loadAmendment();
     } catch (err) {
       console.error('[AmendmentDetailClient] Error submitting amendment:', err);
-      setError('Failed to submit amendment for approval');
+      setError(err instanceof Error ? err.message : 'Failed to submit amendment for approval');
     } finally {
       setActionLoading(false);
     }
@@ -177,7 +177,7 @@ export default function AmendmentDetailClient() {
       await loadAmendment();
     } catch (err) {
       console.error('[AmendmentDetailClient] Error approving amendment:', err);
-      setError('Failed to approve amendment');
+      setError(err instanceof Error ? err.message : 'Failed to approve amendment');
     } finally {
       setActionLoading(false);
     }
@@ -204,7 +204,7 @@ export default function AmendmentDetailClient() {
       await loadAmendment();
     } catch (err) {
       console.error('[AmendmentDetailClient] Error rejecting amendment:', err);
-      setError('Failed to reject amendment');
+      setError(err instanceof Error ? err.message : 'Failed to reject amendment');
     } finally {
       setActionLoading(false);
     }
@@ -229,7 +229,7 @@ export default function AmendmentDetailClient() {
     );
   }
 
-  const actions = getAmendmentAvailableActions(amendment);
+  const actions = getAmendmentAvailableActions(amendment, user?.uid);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -325,8 +325,8 @@ export default function AmendmentDetailClient() {
                   <TableHead>
                     <TableRow>
                       <TableCell>Field</TableCell>
-                      <TableCell>Previous Value</TableCell>
-                      <TableCell>New Value</TableCell>
+                      <TableCell>Previous</TableCell>
+                      <TableCell>New</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

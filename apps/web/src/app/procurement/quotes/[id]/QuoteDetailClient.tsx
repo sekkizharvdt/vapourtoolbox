@@ -53,6 +53,7 @@ import type {
   BoughtOutItem,
 } from '@vapour/types';
 import { canManageEstimation, QUOTE_LINE_LABELS } from '@vapour/constants';
+import { formatDate } from '@/lib/utils/formatters';
 import {
   getVendorQuoteById,
   getVendorQuoteItems,
@@ -101,15 +102,6 @@ const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' 
   EVALUATED: 'success',
   ARCHIVED: 'success',
 };
-
-function formatDate(ts: unknown): string {
-  if (!ts) return '-';
-  if (typeof ts === 'object' && ts !== null && 'toDate' in ts) {
-    return (ts as { toDate: () => Date }).toDate().toLocaleDateString('en-IN');
-  }
-  if (ts instanceof Date) return ts.toLocaleDateString('en-IN');
-  return '-';
-}
 
 /**
  * Derive a readable label for a supporting-document URL. `additionalDocuments`
