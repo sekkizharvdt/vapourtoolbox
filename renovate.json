@@ -1,0 +1,57 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly",
+    ":semanticCommitTypeAll(chore)",
+    ":dependencyDashboard"
+  ],
+  "labels": ["dependencies"],
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 10,
+  "rangeStrategy": "bump",
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"]
+  },
+  "packageRules": [
+    {
+      "description": "Group non-major devDependencies into one weekly PR",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dev dependencies (non-major)"
+    },
+    {
+      "description": "Group non-major @types updates",
+      "matchPackageNames": ["/^@types\\//"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "types (non-major)"
+    },
+    {
+      "description": "Group Firebase ecosystem together so client + admin + tools stay in sync",
+      "matchPackageNames": [
+        "firebase",
+        "firebase-admin",
+        "firebase-tools",
+        "firebase-functions",
+        "/^@firebase\\//"
+      ],
+      "groupName": "firebase"
+    },
+    {
+      "description": "Major bumps need explicit approval via the dependency dashboard",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Pin Node engines on a slower cadence",
+      "matchManagers": ["nvm"],
+      "schedule": ["before 6am on the first day of the month"]
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "postUpdateOptions": ["pnpmDedupe"]
+}
