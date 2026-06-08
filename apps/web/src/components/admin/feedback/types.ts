@@ -12,6 +12,18 @@ export type { FeedbackModule, FeedbackSeverity, FeedbackFrequency, FeedbackImpac
 export type FeedbackType = 'bug' | 'feature' | 'general';
 export type FeedbackStatus = 'new' | 'in_progress' | 'resolved' | 'closed' | 'wont_fix';
 
+/**
+ * A follow-up comment left by the user (typically when the resolution didn't
+ * actually fix the problem). Mirrors the shape written by addFollowUpToFeedback
+ * in lib/feedback/feedbackTaskService.ts.
+ */
+export interface FollowUpComment {
+  userId: string;
+  userName: string;
+  comment: string;
+  createdAt: Timestamp;
+}
+
 export interface FeedbackItem {
   id: string;
   type: FeedbackType;
@@ -31,6 +43,7 @@ export interface FeedbackItem {
   status: FeedbackStatus;
   adminNotes?: string;
   resolutionNotes?: string;
+  followUpComments?: FollowUpComment[];
   // Bug-specific fields
   severity?: FeedbackSeverity;
   frequency?: FeedbackFrequency;

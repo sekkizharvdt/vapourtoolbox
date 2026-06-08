@@ -59,6 +59,22 @@ import {
 } from '@/lib/procurement/amendmentHelpers';
 import { formatDate } from '@/lib/utils/formatters';
 
+/**
+ * Reformat a stored change-value display string so legacy amendments rendered
+ * with raw YYYY-MM-DD dates show up as DD-MMM-YYYY (feedback 8ImQ5sgbK0uSZGuhRTqE).
+ *
+ * The fix in AmendmentForm only affects NEW amendments — anything created before
+ * 2026-06-04 has the raw ISO-date string stored in Firestore. Detect that shape
+ * at render time and reformat via the shared formatter.
+ */
+function displayChangeValue(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const formatted = formatDate(value);
+    if (formatted && formatted !== '-') return formatted;
+  }
+  return value;
+}
+
 export default function AmendmentDetailClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -342,12 +358,12 @@ export default function AmendmentDetailClient() {
                             variant="body2"
                             sx={{ textDecoration: 'line-through', color: 'error.main' }}
                           >
-                            {change.oldValueDisplay || String(change.oldValue)}
+                            {displayChangeValue(change.oldValueDisplay || String(change.oldValue))}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ color: 'success.main' }}>
-                            {change.newValueDisplay || String(change.newValue)}
+                            {displayChangeValue(change.newValueDisplay || String(change.newValue))}
                           </Typography>
                         </TableCell>
                       </TableRow>

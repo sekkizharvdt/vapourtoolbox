@@ -17,6 +17,8 @@ import {
   Button,
   ImageList,
   ImageListItem,
+  Card,
+  CardContent,
 } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedbackItem, FeedbackStatus } from './types';
@@ -211,6 +213,36 @@ export function FeedbackDetailDialog({
                   <strong>Browser:</strong> {feedback.browserInfo}
                 </Typography>
               )}
+            </Box>
+          )}
+
+          {/* Follow-up Comments from the user — read-only thread that mirrors the
+              user-facing /feedback/[id] page. Admins were previously blind to these
+              (the user-facing dialog rendered them but this admin dialog didn't),
+              so resolutions were being marked done while the user was still raising
+              follow-ups disputing the fix. */}
+          {feedback.followUpComments && feedback.followUpComments.length > 0 && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Follow-up Comments from User ({feedback.followUpComments.length})
+              </Typography>
+              <Stack spacing={1.5}>
+                {feedback.followUpComments.map((comment, index) => (
+                  <Card key={index} variant="outlined">
+                    <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+                      <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2">{comment.userName}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {comment.comment}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
             </Box>
           )}
 

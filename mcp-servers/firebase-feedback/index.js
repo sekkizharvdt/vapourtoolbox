@@ -73,6 +73,16 @@ function formatFeedback(doc) {
     userName: data.userName,
     userEmail: data.userEmail,
     adminNotes: data.adminNotes || null,
+    resolutionNotes: data.resolutionNotes || null,
+    // Follow-up comments the user added (typically when disputing a resolution).
+    // Without this field, an MCP caller sees only the admin notes and is blind to
+    // the user saying "this isn't actually fixed" — which was the original gap.
+    followUpComments: (data.followUpComments || []).map((c) => ({
+      userId: c.userId,
+      userName: c.userName,
+      comment: c.comment,
+      createdAt: c.createdAt?.toDate?.()?.toISOString() || null,
+    })),
     createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
   };
