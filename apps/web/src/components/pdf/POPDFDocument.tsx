@@ -233,6 +233,19 @@ export function POPDFDocument({
         }
       : undefined);
 
+  // Service terms / safety blocks render only when populated (a Service Order
+  // is just a PO carrying service lines + these terms).
+  const serviceTerms = po.commercialTerms?.serviceTerms;
+  const hasServiceTerms =
+    !!serviceTerms && Object.values(serviceTerms).some((v) => v !== undefined && v !== '');
+  const safety = po.commercialTerms?.safetyCompliance;
+  const hasSafety =
+    !!safety &&
+    (!!safety.safetyRequired ||
+      !!safety.ppeRequired ||
+      !!safety.workPermitRequired ||
+      !!safety.insuranceRequired);
+
   return (
     <Document>
       <ReportPage style={{ padding: 36, fontSize: 10 }}>
@@ -443,6 +456,67 @@ export function POPDFDocument({
             valueWidth="70%"
           />
         </ReportSection>
+
+        {/* Service Terms — only when the PO covers service line items. */}
+        {hasServiceTerms && serviceTerms && (
+          <ReportSection title="Service Terms">
+            <KeyValueTable
+              rows={[
+                ...(serviceTerms.scopeOfWork
+                  ? [{ label: 'Scope of Work', value: serviceTerms.scopeOfWork }]
+                  : []),
+                ...(serviceTerms.deliverables
+                  ? [{ label: 'Deliverables', value: serviceTerms.deliverables }]
+                  : []),
+                ...(serviceTerms.completionPeriod
+                  ? [
+                      {
+                        label: 'Completion Period',
+                        value: `${serviceTerms.completionPeriod} ${(
+                          serviceTerms.completionPeriodUnit ?? 'DAYS'
+                        ).toLowerCase()}`,
+                      },
+                    ]
+                  : []),
+                ...(serviceTerms.serviceLocation
+                  ? [{ label: 'Service Location', value: serviceTerms.serviceLocation }]
+                  : []),
+                ...(serviceTerms.acceptanceCriteria
+                  ? [{ label: 'Acceptance Criteria', value: serviceTerms.acceptanceCriteria }]
+                  : []),
+                ...(serviceTerms.exclusions
+                  ? [{ label: 'Exclusions', value: serviceTerms.exclusions }]
+                  : []),
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
+        )}
+
+        {/* Safety & Compliance — only the requirements that are switched on. */}
+        {hasSafety && safety && (
+          <ReportSection title="Safety &amp; Compliance">
+            <KeyValueTable
+              rows={[
+                ...(safety.safetyRequired
+                  ? [{ label: 'Safety', value: safety.safetyDetails || 'Required' }]
+                  : []),
+                ...(safety.ppeRequired
+                  ? [{ label: 'PPE', value: safety.ppeDetails || 'Required' }]
+                  : []),
+                ...(safety.workPermitRequired
+                  ? [{ label: 'Work Permit', value: safety.workPermitDetails || 'Required' }]
+                  : []),
+                ...(safety.insuranceRequired
+                  ? [{ label: 'Insurance', value: safety.insuranceDetails || 'Required' }]
+                  : []),
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
+        )}
 
         {/* Terms & Conditions — grouped into respective sections (review 2.3).
             Billing / delivery addresses are intentionally NOT repeated here; they
