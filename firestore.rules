@@ -1962,15 +1962,6 @@ service cloud.firestore {
 
     // ── Procurement domain ─────────────────────────
 
-    // Service orders (lab tests, sample analysis)
-    match /serviceOrders/{soId} {
-      allow read: if isInternalUser();
-      allow create: if hasPermission(65536) && isInternalUser() &&
-                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_PROCUREMENT (bit 16)
-      allow update: if hasPermission(65536) && isInternalUser();
-      allow delete: if isSuperAdmin();
-    }
-
     // PO version snapshots (revision history for amendments)
     match /purchaseOrderVersions/{versionId} {
       allow read: if isInternalUser();

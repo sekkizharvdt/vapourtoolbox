@@ -382,34 +382,6 @@ export const masterDocumentStateMachine: StateMachine<MasterDocumentStatus> =
   createStateMachine(mdConfig);
 
 // ============================================================================
-// Service Order State Machine
-// ============================================================================
-
-/**
- * Service Order workflow states:
- *
- * DRAFT -> SAMPLE_SENT -> IN_PROGRESS -> RESULTS_RECEIVED -> UNDER_REVIEW -> COMPLETED
- *
- * CANCELLED can happen from any non-terminal state
- */
-import type { ServiceOrderStatus } from '@vapour/types';
-
-const soConfig: StateTransitionConfig<ServiceOrderStatus> = {
-  transitions: {
-    DRAFT: ['SAMPLE_SENT', 'IN_PROGRESS', 'CANCELLED'],
-    SAMPLE_SENT: ['IN_PROGRESS', 'CANCELLED'],
-    IN_PROGRESS: ['RESULTS_RECEIVED', 'CANCELLED'],
-    RESULTS_RECEIVED: ['UNDER_REVIEW', 'COMPLETED', 'CANCELLED'],
-    UNDER_REVIEW: ['COMPLETED', 'IN_PROGRESS', 'CANCELLED'], // Can send back for rework
-    COMPLETED: [], // Terminal
-    CANCELLED: [], // Terminal
-  },
-  terminalStates: ['COMPLETED', 'CANCELLED'],
-};
-export const serviceOrderStateMachine: StateMachine<ServiceOrderStatus> =
-  createStateMachine(soConfig);
-
-// ============================================================================
 // Agent Run State Machine
 // (AI-AGENT-ROADMAP-2026-04-25.md Phase 0 — Memory store)
 // ============================================================================
