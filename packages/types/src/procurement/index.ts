@@ -54,6 +54,8 @@ export {
   type PORequiredDocument,
   type POInspectorType,
   type POCommercialTerms,
+  type POServiceTerms,
+  type POSafetyCompliance,
   type CommercialTermsTemplate,
 } from './purchaseOrder';
 

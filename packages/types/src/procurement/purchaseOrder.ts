@@ -389,6 +389,52 @@ export interface POCommercialTerms {
   buyerContactName: string;
   buyerContactPhone: string;
   buyerContactEmail: string;
+
+  // 20. Service Terms — present when the PO covers service line items
+  // (a Service Order is just a PO carrying service lines + these terms).
+  // All optional; left blank for pure-material POs.
+  serviceTerms?: POServiceTerms;
+
+  // 21. Safety & Compliance — optional, checkbox-gated detail per item.
+  safetyCompliance?: POSafetyCompliance;
+}
+
+/**
+ * Service-oriented terms for a PO that includes service line items.
+ * The material sections above (freight, transport, packing, dispatch,
+ * material inspection, warranty-from-supply) stay optional and are simply
+ * left blank on a pure-service PO. Service payment milestones reuse the
+ * same `paymentSchedule` (PaymentMilestone[]) — no separate type.
+ */
+export interface POServiceTerms {
+  /** What the vendor will perform. */
+  scopeOfWork?: string;
+  /** Deliverables / outputs expected from the service. */
+  deliverables?: string;
+  /** Service completion period value — paired with completionPeriodUnit. */
+  completionPeriod?: number;
+  completionPeriodUnit?: 'DAYS' | 'WEEKS' | 'MONTHS';
+  /** Where the service is performed (site / vendor works / remote). */
+  serviceLocation?: string;
+  /** How completion is verified / signed off. */
+  acceptanceCriteria?: string;
+  /** Anything explicitly out of scope. */
+  exclusions?: string;
+}
+
+/**
+ * Optional safety & compliance requirements for on-site service work.
+ * Each requirement is a checkbox; ticking it reveals a free-text detail.
+ */
+export interface POSafetyCompliance {
+  safetyRequired?: boolean;
+  safetyDetails?: string;
+  ppeRequired?: boolean;
+  ppeDetails?: string;
+  workPermitRequired?: boolean;
+  workPermitDetails?: string;
+  insuranceRequired?: boolean;
+  insuranceDetails?: string;
 }
 
 /**

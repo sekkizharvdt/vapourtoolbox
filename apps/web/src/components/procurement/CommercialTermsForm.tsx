@@ -42,6 +42,8 @@ import type {
   POErectionScope,
   PORequiredDocument,
   POInspectorType,
+  POServiceTerms,
+  POSafetyCompliance,
 } from '@vapour/types';
 import { PaymentScheduleEditor } from './PaymentScheduleEditor';
 import { validatePaymentSchedule, buildWarrantyClause } from '@/lib/procurement/commercialTerms';
@@ -130,6 +132,26 @@ export function CommercialTermsForm({
     },
     [terms, onChange]
   );
+
+  const handleServiceTermChange = useCallback(
+    <K extends keyof POServiceTerms>(field: K, value: POServiceTerms[K]) => {
+      onChange({ ...terms, serviceTerms: { ...(terms.serviceTerms ?? {}), [field]: value } });
+    },
+    [terms, onChange]
+  );
+
+  const handleSafetyChange = useCallback(
+    <K extends keyof POSafetyCompliance>(field: K, value: POSafetyCompliance[K]) => {
+      onChange({
+        ...terms,
+        safetyCompliance: { ...(terms.safetyCompliance ?? {}), [field]: value },
+      });
+    },
+    [terms, onChange]
+  );
+
+  const serviceTerms = terms.serviceTerms ?? {};
+  const safety = terms.safetyCompliance ?? {};
 
   const handleDocumentToggle = useCallback(
     (doc: PORequiredDocument) => {
@@ -933,6 +955,158 @@ export function CommercialTermsForm({
                 helperText={errors.buyerContactEmail}
               />
             </Stack>
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Section 20: Service Terms (for POs that include service line items) */}
+      <Accordion
+        expanded={expandedSections.includes('serviceTerms')}
+        onChange={() => handleSectionToggle('serviceTerms')}
+      >
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1" fontWeight="medium">
+            Service Terms
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Stack spacing={2}>
+            <FormHelperText sx={{ mt: 0 }}>
+              Fill these for service line items (e.g. inspection, calibration, erection). Leave
+              blank for a pure-material PO.
+            </FormHelperText>
+            <TextField
+              label="Scope of Work"
+              value={serviceTerms.scopeOfWork ?? ''}
+              onChange={(e) => handleServiceTermChange('scopeOfWork', e.target.value)}
+              disabled={disabled}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+            <TextField
+              label="Deliverables"
+              value={serviceTerms.deliverables ?? ''}
+              onChange={(e) => handleServiceTermChange('deliverables', e.target.value)}
+              disabled={disabled}
+              fullWidth
+              multiline
+              minRows={2}
+              helperText="Outputs / reports expected from the service"
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="Completion Period"
+                type="number"
+                value={serviceTerms.completionPeriod ?? ''}
+                onChange={(e) =>
+                  handleServiceTermChange(
+                    'completionPeriod',
+                    e.target.value === '' ? undefined : Number(e.target.value)
+                  )
+                }
+                disabled={disabled}
+                inputProps={{ min: 0 }}
+                sx={{ width: 180 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 160 }} disabled={disabled}>
+                <InputLabel>Period Unit</InputLabel>
+                <Select
+                  value={serviceTerms.completionPeriodUnit ?? 'DAYS'}
+                  label="Period Unit"
+                  onChange={(e) =>
+                    handleServiceTermChange(
+                      'completionPeriodUnit',
+                      e.target.value as 'DAYS' | 'WEEKS' | 'MONTHS'
+                    )
+                  }
+                >
+                  <MenuItem value="DAYS">Days</MenuItem>
+                  <MenuItem value="WEEKS">Weeks</MenuItem>
+                  <MenuItem value="MONTHS">Months</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              label="Service Location"
+              value={serviceTerms.serviceLocation ?? ''}
+              onChange={(e) => handleServiceTermChange('serviceLocation', e.target.value)}
+              disabled={disabled}
+              fullWidth
+              helperText="Where the service is performed (site / vendor works / remote)"
+            />
+            <TextField
+              label="Acceptance Criteria"
+              value={serviceTerms.acceptanceCriteria ?? ''}
+              onChange={(e) => handleServiceTermChange('acceptanceCriteria', e.target.value)}
+              disabled={disabled}
+              fullWidth
+              multiline
+              minRows={2}
+              helperText="How completion is verified / signed off"
+            />
+            <TextField
+              label="Exclusions"
+              value={serviceTerms.exclusions ?? ''}
+              onChange={(e) => handleServiceTermChange('exclusions', e.target.value)}
+              disabled={disabled}
+              fullWidth
+              multiline
+              minRows={2}
+              helperText="Anything explicitly out of scope"
+            />
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Section 21: Safety & Compliance (optional, checkbox-gated) */}
+      <Accordion
+        expanded={expandedSections.includes('safety')}
+        onChange={() => handleSectionToggle('safety')}
+      >
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1" fontWeight="medium">
+            Safety & Compliance
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Stack spacing={2}>
+            <FormHelperText sx={{ mt: 0 }}>
+              Tick a requirement to capture its details. Relevant for on-site service work.
+            </FormHelperText>
+            {(
+              [
+                ['safetyRequired', 'safetyDetails', 'Safety requirements'],
+                ['ppeRequired', 'ppeDetails', 'PPE required'],
+                ['workPermitRequired', 'workPermitDetails', 'Work permit required'],
+                ['insuranceRequired', 'insuranceDetails', 'Insurance required'],
+              ] as const
+            ).map(([flagKey, detailKey, label]) => (
+              <Box key={flagKey}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={safety[flagKey] === true}
+                      onChange={(e) => handleSafetyChange(flagKey, e.target.checked)}
+                      disabled={disabled}
+                    />
+                  }
+                  label={label}
+                />
+                {safety[flagKey] === true && (
+                  <TextField
+                    label={`${label} — details`}
+                    value={safety[detailKey] ?? ''}
+                    onChange={(e) => handleSafetyChange(detailKey, e.target.value)}
+                    disabled={disabled}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    sx={{ mt: 1 }}
+                  />
+                )}
+              </Box>
+            ))}
           </Stack>
         </AccordionDetails>
       </Accordion>
