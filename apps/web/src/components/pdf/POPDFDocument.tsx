@@ -300,10 +300,11 @@ export function POPDFDocument({
         <ReportSection title="Line Items">
           <ReportTable
             columns={[
-              { key: 'sno', header: '#', width: '6%' },
-              { key: 'description', header: 'Description', width: '30%' },
-              { key: 'specification', header: 'Specification', width: '14%' },
-              { key: 'qty', header: 'Qty', width: '8%', align: 'right' },
+              { key: 'sno', header: '#', width: '5%' },
+              { key: 'description', header: 'Description', width: '26%' },
+              { key: 'specification', header: 'Specification', width: '11%' },
+              { key: 'hsnSac', header: 'HSN/SAC', width: '9%' },
+              { key: 'qty', header: 'Qty', width: '7%', align: 'right' },
               { key: 'unit', header: 'Unit', width: '8%' },
               { key: 'rate', header: 'Unit Price', width: '12%', align: 'right' },
               { key: 'gst', header: 'GST %', width: '8%', align: 'right' },
@@ -313,6 +314,7 @@ export function POPDFDocument({
               sno: item.lineNumber,
               description: item.description,
               specification: item.specification || '—',
+              hsnSac: item.hsnSacCode || '—',
               qty: item.quantity,
               unit: item.unit,
               rate: formatCurrency(item.unitPrice, po.currency),

@@ -22,7 +22,10 @@ import {
   rejectPO,
   issuePO,
   updatePOStatus,
+  updatePOItemHsnSac,
 } from '@/lib/procurement/purchaseOrderService';
+import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
+import { purchaseOrderStateMachine } from '@/lib/workflow/stateMachines';
 import { downloadPOPDF } from '@/lib/procurement/poPDF';
 import { useWorkflowDialogs } from './components/useWorkflowDialogs';
 import { POHeader } from './components/POHeader';
@@ -86,6 +89,17 @@ export default function PODetailPage() {
       setError('Failed to load purchase order');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateHsnSac = async (itemId: string, hsnSacCode: string) => {
+    if (!user) return;
+    try {
+      await updatePOItemHsnSac(itemId, hsnSacCode, user.uid, claims?.permissions || 0);
+      setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, hsnSacCode } : it)));
+    } catch (err) {
+      console.error('[PODetailPage] Error updating HSN/SAC:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update HSN/SAC');
     }
   };
 
@@ -290,7 +304,15 @@ export default function PODetailPage() {
         <POProgressIndicators po={po} />
         <PODetailsSection po={po} />
         <FinancialSummarySection po={po} />
-        <POLineItemsTable po={po} items={items} />
+        <POLineItemsTable
+          po={po}
+          items={items}
+          editable={
+            hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_PROCUREMENT) &&
+            !purchaseOrderStateMachine.isTerminal(po.status)
+          }
+          onUpdateHsnSac={handleUpdateHsnSac}
+        />
         <POTermsSection po={po} />
         <POApprovalInfo po={po} />
       </Stack>

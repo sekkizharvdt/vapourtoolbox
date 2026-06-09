@@ -17,6 +17,7 @@ export {
   createPOFromOffer,
   getPOById,
   getPOItems,
+  updatePOItemHsnSac,
   listPOs,
   type CreatePOFromOfferTerms,
   // Workflow

@@ -10,6 +10,7 @@ export {
   createPOFromOffer,
   getPOById,
   getPOItems,
+  updatePOItemHsnSac,
   listPOs,
   updateDraftPO,
   type CreatePOFromOfferTerms,

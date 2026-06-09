@@ -194,6 +194,8 @@ export interface PurchaseOrderItem {
   // Tax
   gstRate: number;
   gstAmount: number;
+  /** HSN code (goods) or SAC code (services) for this line — printed on the PO PDF. */
+  hsnSacCode?: string;
 
   // Make/model
   makeModel?: string;

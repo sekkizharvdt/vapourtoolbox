@@ -630,6 +630,37 @@ export async function getPOItems(poId: string): Promise<PurchaseOrderItem[]> {
   })) as PurchaseOrderItem[];
 }
 
+/**
+ * Update the HSN/SAC tax-classification code on a single PO line item.
+ * HSN (goods) / SAC (services) is not carried up the offer→PO chain, so it
+ * is captured directly on the PO. Allowed while the PO is not in a terminal
+ * state (the caller passes a non-terminal PO).
+ */
+export async function updatePOItemHsnSac(
+  poItemId: string,
+  hsnSacCode: string,
+  userId: string,
+  userPermissions: number
+): Promise<void> {
+  const { db } = getFirebase();
+
+  // Authorization: Require MANAGE_PROCUREMENT permission (rule 5)
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'update PO line item HSN/SAC'
+  );
+
+  const trimmed = hsnSacCode.trim();
+  await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, poItemId), {
+    // Empty string clears the code; Firestore rejects undefined so store ''.
+    hsnSacCode: trimmed,
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  });
+}
+
 export async function listPOs(
   filters: {
     status?: PurchaseOrderStatus;
