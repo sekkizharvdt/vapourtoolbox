@@ -17,6 +17,9 @@ export {
   type UpdateDraftPOTerms,
 } from './crud';
 
+// Attachments
+export { addPOAttachment, removePOAttachment } from './attachments';
+
 // Workflow operations
 export {
   submitPOForApproval,

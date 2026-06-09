@@ -80,6 +80,20 @@ service firebase.storage {
       allow delete: if isAuthenticated();
     }
 
+    // Purchase Order attachments - drawings, specs, certificates, service reports
+    // Path: procurement/purchaseOrder/{poId}/attachments/{filename}
+    match /procurement/purchaseOrder/{poId}/attachments/{allPaths=**} {
+      // Read: All authenticated internal users can read PO attachments
+      allow read: if isAuthenticated();
+
+      // Write: Max file size 25MB (mirrors PR attachments)
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 25 * 1024 * 1024;
+
+      // Delete: any authenticated internal user
+      allow delete: if isAuthenticated();
+    }
+
     // Feedback screenshots - users can upload to their own folder
     // Path: feedback/{userId}/{filename}
     match /feedback/{userId}/{allPaths=**} {

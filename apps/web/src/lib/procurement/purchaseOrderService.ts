@@ -27,4 +27,7 @@ export {
   rejectPO,
   issuePO,
   updatePOStatus,
+  // Attachments
+  addPOAttachment,
+  removePOAttachment,
 } from './purchaseOrder';

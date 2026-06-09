@@ -106,6 +106,8 @@ export interface PurchaseOrder {
   // Documents
   pdfVersion: number;
   latestPdfUrl?: string;
+  /** Buyer-uploaded supporting documents (drawings, specs, certificates, ...). */
+  attachments?: POAttachment[];
 
   // Order Acknowledgement
   oaFormUrl?: string;
@@ -165,6 +167,18 @@ export interface PurchaseOrder {
   updatedAt: Timestamp;
   createdBy: string;
   updatedBy: string;
+}
+
+/** A buyer-uploaded supporting document stored against a PO. */
+export interface POAttachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  /** Storage path, needed to delete the underlying file. */
+  storagePath: string;
+  uploadedAt: Timestamp;
+  uploadedBy: string;
 }
 
 export interface PurchaseOrderItem {

@@ -56,6 +56,7 @@ export {
   type POCommercialTerms,
   type POServiceTerms,
   type POSafetyCompliance,
+  type POAttachment,
   type CommercialTermsTemplate,
 } from './purchaseOrder';
 

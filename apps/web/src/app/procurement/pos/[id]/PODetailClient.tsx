@@ -23,9 +23,13 @@ import {
   issuePO,
   updatePOStatus,
   updatePOItemHsnSac,
+  addPOAttachment,
+  removePOAttachment,
 } from '@/lib/procurement/purchaseOrderService';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import { purchaseOrderStateMachine } from '@/lib/workflow/stateMachines';
+import { toDate } from '@/lib/utils/date';
+import DocumentUploadWidget from '@/components/procurement/DocumentUploadWidget';
 import { downloadPOPDF } from '@/lib/procurement/poPDF';
 import { useWorkflowDialogs } from './components/useWorkflowDialogs';
 import { POHeader } from './components/POHeader';
@@ -102,6 +106,26 @@ export default function PODetailPage() {
       setError(err instanceof Error ? err.message : 'Failed to update HSN/SAC');
     }
   };
+
+  const handleUploadAttachment = async (file: File) => {
+    if (!user || !poId) return;
+    const attachment = await addPOAttachment(poId, file, user.uid, claims?.permissions || 0);
+    setPO((prev) =>
+      prev ? { ...prev, attachments: [...(prev.attachments ?? []), attachment] } : prev
+    );
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!user || !poId) return;
+    await removePOAttachment(poId, attachmentId, user.uid, claims?.permissions || 0);
+    setPO((prev) =>
+      prev
+        ? { ...prev, attachments: (prev.attachments ?? []).filter((a) => a.id !== attachmentId) }
+        : prev
+    );
+  };
+
+  const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_PROCUREMENT);
 
   const handleSubmitForApproval = async () => {
     if (!user || !po || !poId) return;
@@ -307,14 +331,24 @@ export default function PODetailPage() {
         <POLineItemsTable
           po={po}
           items={items}
-          editable={
-            hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_PROCUREMENT) &&
-            !purchaseOrderStateMachine.isTerminal(po.status)
-          }
+          editable={canManage && !purchaseOrderStateMachine.isTerminal(po.status)}
           onUpdateHsnSac={handleUpdateHsnSac}
         />
         <POTermsSection po={po} />
         <POApprovalInfo po={po} />
+        <DocumentUploadWidget
+          documents={(po.attachments ?? []).map((a) => ({
+            id: a.id,
+            fileName: a.fileName,
+            fileUrl: a.fileUrl,
+            fileSize: a.fileSize,
+            uploadedAt: toDate(a.uploadedAt) ?? new Date(0),
+          }))}
+          onUpload={handleUploadAttachment}
+          onDelete={handleDeleteAttachment}
+          onDownload={(d) => window.open(d.fileUrl, '_blank')}
+          disabled={!canManage}
+        />
       </Stack>
 
       <POWorkflowDialogs
