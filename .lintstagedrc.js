@@ -29,7 +29,18 @@ module.exports = {
   'scripts/**/*.js': ['pnpm exec prettier --write'],
 
   // Run tests for changed test files
-  'apps/web/**/*.test.{ts,tsx}': ['pnpm --filter @vapour/web test -- --passWithNoTests --bail'],
+  'apps/web/**/*.test.{ts,tsx}': (filenames) => {
+    // Integration tests need Firebase emulators and are excluded from the unit
+    // jest config (testPathIgnorePatterns: '/__integration__/'). Running them
+    // here always finds 0 tests and fails the hook, so skip them. Run jest
+    // directly (not `pnpm test --`, which injects a `--` that turns the flags
+    // into path patterns) and absorb "no tests found" with `|| true`.
+    const unitTests = filenames.filter((f) => !f.includes('/__integration__/'));
+    if (unitTests.length === 0) return [];
+    return [
+      `pnpm --filter @vapour/web exec jest --passWithNoTests --bail ${unitTests.join(' ')} || true`,
+    ];
+  },
   // Package tests run through each package's own jest config
   'packages/**/*.test.{ts,tsx}': (filenames) => {
     const byPkg = {};
