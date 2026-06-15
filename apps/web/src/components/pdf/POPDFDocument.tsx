@@ -248,7 +248,7 @@ export function POPDFDocument({
 
   return (
     <Document>
-      <ReportPage style={{ padding: 36, fontSize: 10 }}>
+      <ReportPage style={{ padding: 36, fontSize: 10, fontFamily: 'DejaVu Sans' }}>
         {/* Header with logo + company block */}
         <View style={local.header}>
           {logoDataUri && (
@@ -392,7 +392,7 @@ export function POPDFDocument({
       </ReportPage>
 
       {/* Page 2: Commercial Terms, T&C, Special Instructions, Buyer contact */}
-      <ReportPage style={{ padding: 36, fontSize: 10 }}>
+      <ReportPage style={{ padding: 36, fontSize: 10, fontFamily: 'DejaVu Sans' }}>
         <View style={local.header}>
           {logoDataUri && (
             // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image, not HTML img

@@ -48,6 +48,7 @@ import { requireValidTransition } from '@/lib/utils/stateMachine';
 import { rfqStateMachine } from '@/lib/workflow/stateMachines';
 import { removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
 import { roundToPaisa } from '@/lib/accounting/amountHelpers';
+import { calculateGST } from '@/lib/accounting/gstCalculator';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -151,9 +152,10 @@ export async function createPOFromOffer(
         ...(d.data() as Omit<VendorQuoteItem, 'id'>),
       }));
 
-      // Fetch vendor entity for credit terms and contact info
+      // Fetch vendor entity for credit terms, contact info, and state (for GST calculation)
       let vendorCreditDays: number | undefined;
       let vendorContact: { name: string; email: string; phone: string } | undefined;
+      let vendorState: string | undefined;
       try {
         const vendorDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, offer.vendorId));
         if (vendorDoc.exists()) {
@@ -161,6 +163,8 @@ export async function createPOFromOffer(
           if (vendorData.creditTerms?.creditDays) {
             vendorCreditDays = vendorData.creditTerms.creditDays;
           }
+          // Capture vendor state for GST calculation
+          vendorState = vendorData.billingAddress?.state;
           // Capture primary contact info for PO
           vendorContact = {
             name: vendorData.contactPerson || '',
@@ -170,6 +174,18 @@ export async function createPOFromOffer(
         }
       } catch (err) {
         logger.warn('Failed to fetch vendor entity', { vendorId: offer.vendorId, error: err });
+      }
+
+      // Fetch company settings for state (needed for GST type determination)
+      let companyState: string | undefined;
+      try {
+        const companyDoc = await getDoc(doc(db, 'company', 'settings'));
+        if (companyDoc.exists()) {
+          const companyData = companyDoc.data();
+          companyState = companyData.address?.state;
+        }
+      } catch (err) {
+        logger.warn('Failed to fetch company settings for state', { error: err });
       }
 
       const poNumber = await generatePONumber();
@@ -200,11 +216,32 @@ export async function createPOFromOffer(
       const effectiveTaxRate = offer.subtotal > 0 ? offer.taxAmount / offer.subtotal : 0;
       const totalTax = roundToPaisa(taxableValue * effectiveTaxRate);
 
-      // Split tax equally into CGST and SGST (intra-state); sgst takes the
-      // rounding residue so cgst + sgst === totalTax exactly.
-      const cgst = roundToPaisa(totalTax / 2);
-      const sgst = roundToPaisa(totalTax - cgst);
-      const igst = 0; // Inter-state
+      // Determine GST type based on vendor state vs company state (rule: GST Display bug fix)
+      // Default to CGST+SGST if states are unavailable (backward compatibility)
+      let cgst = roundToPaisa(totalTax / 2);
+      let sgst = roundToPaisa(totalTax - cgst);
+      let igst = 0;
+
+      if (vendorState && companyState) {
+        // Use state-aware GST calculation
+        const gstRate = effectiveTaxRate * 100;
+        const gstDetails = calculateGST({
+          taxableAmount: taxableValue,
+          gstRate,
+          sourceState: companyState,
+          destinationState: vendorState,
+        });
+
+        if (gstDetails.gstType === 'IGST') {
+          cgst = 0;
+          sgst = 0;
+          igst = roundToPaisa(gstDetails.igstAmount ?? 0);
+        } else {
+          cgst = roundToPaisa(gstDetails.cgstAmount ?? 0);
+          sgst = roundToPaisa(gstDetails.sgstAmount ?? 0);
+          igst = 0;
+        }
+      }
 
       const grandTotal = roundToPaisa(taxableValue + totalTax);
 

@@ -38,12 +38,12 @@ const s = StyleSheet.create({
   page: {
     padding: 30,
     fontSize: 9,
-    fontFamily: 'Helvetica',
+    fontFamily: 'DejaVu Sans',
   },
   pageLandscape: {
     padding: 30,
     fontSize: 9,
-    fontFamily: 'Helvetica',
+    fontFamily: 'DejaVu Sans',
   },
 
   /* Header */
