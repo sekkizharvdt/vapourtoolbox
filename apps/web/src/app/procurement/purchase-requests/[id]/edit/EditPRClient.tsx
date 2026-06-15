@@ -43,12 +43,14 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
+import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
 import type {
   PurchaseRequest,
   PurchaseRequestAttachment,
   Material,
   MaterialVariant,
   Service,
+  BoughtOutItem,
 } from '@vapour/types';
 import {
   getPurchaseRequestById,
@@ -72,7 +74,10 @@ interface LineItemFormData {
   materialId?: string;
   materialCode?: string;
   materialName?: string;
-  itemType?: string;
+  boughtOutItemId?: string;
+  boughtOutItemCode?: string;
+  boughtOutItemName?: string;
+  itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
   serviceId?: string;
   serviceCode?: string;
   serviceName?: string;
@@ -116,6 +121,8 @@ export default function EditPRPage() {
   const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [servicePickerIndex, setServicePickerIndex] = useState<number>(0);
+  const [boughtOutPickerOpen, setBoughtOutPickerOpen] = useState(false);
+  const [boughtOutPickerIndex, setBoughtOutPickerIndex] = useState<number>(0);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -183,9 +190,20 @@ export default function EditPRPage() {
           unit: item.unit,
           equipmentCode: item.equipmentCode || '',
           estimatedUnitCost: item.estimatedUnitCost || 0,
+          itemType: item.itemType,
           materialId: item.materialId,
           materialCode: item.materialCode,
           materialName: item.materialName,
+          boughtOutItemId: item.boughtOutItemId,
+          boughtOutItemCode: item.boughtOutItemCode,
+          boughtOutItemName: item.boughtOutItemName,
+          serviceId: item.serviceId,
+          serviceCode: item.serviceCode,
+          serviceName: item.serviceName,
+          serviceCategory: item.serviceCategory,
+          turnaroundDays: item.turnaroundDays,
+          testMethodStandard: item.testMethodStandard,
+          sampleRequirements: item.sampleRequirements,
         }))
       );
 
@@ -305,7 +323,76 @@ export default function EditPRPage() {
     setServicePickerOpen(false);
   };
 
-  const isServiceCategory = formData.category === 'SERVICE';
+  const handleBoughtOutSelect = (boughtOut: BoughtOutItem) => {
+    setLineItems((prev) => {
+      const updated = [...prev];
+      const item = updated[boughtOutPickerIndex];
+      if (item) {
+        updated[boughtOutPickerIndex] = {
+          ...item,
+          itemType: 'BOUGHT_OUT',
+          description: boughtOut.name,
+          specification: item.specification?.trim() ? item.specification : boughtOut.itemCode || '',
+          boughtOutItemId: boughtOut.id,
+          boughtOutItemCode: boughtOut.itemCode,
+          boughtOutItemName: boughtOut.name,
+        };
+      }
+      return updated;
+    });
+    setBoughtOutPickerOpen(false);
+  };
+
+  // Per-line type — new rows inherit the header category, each line overridable
+  // so one PR can mix material / bought-out / service (feedback Jit9v).
+  const defaultItemType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =
+    formData.category === 'SERVICE'
+      ? 'SERVICE'
+      : formData.category === 'BOUGHT_OUT'
+        ? 'BOUGHT_OUT'
+        : 'MATERIAL';
+  const rowType = (item: LineItemFormData): 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =>
+    item.itemType ?? defaultItemType;
+
+  const openPickerForRow = (index: number) => {
+    const item = lineItems[index];
+    if (!item) return;
+    const type = rowType(item);
+    if (type === 'SERVICE') {
+      setServicePickerIndex(index);
+      setServicePickerOpen(true);
+    } else if (type === 'BOUGHT_OUT') {
+      setBoughtOutPickerIndex(index);
+      setBoughtOutPickerOpen(true);
+    } else {
+      setMaterialPickerIndex(index);
+      setMaterialPickerOpen(true);
+    }
+  };
+
+  // Changing a line's type clears the previous type's master-data link.
+  const handleLineTypeChange = (index: number, newType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE') => {
+    setLineItems((prev) => {
+      const updated = [...prev];
+      const item = updated[index];
+      if (!item) return prev;
+      updated[index] = {
+        ...item,
+        itemType: newType,
+        materialId: undefined,
+        materialCode: undefined,
+        materialName: undefined,
+        boughtOutItemId: undefined,
+        boughtOutItemCode: undefined,
+        boughtOutItemName: undefined,
+        serviceId: undefined,
+        serviceCode: undefined,
+        serviceName: undefined,
+        serviceCategory: undefined,
+      };
+      return updated;
+    });
+  };
 
   const handleSave = async (submitForApproval: boolean = false) => {
     if (!user || !pr) return;
@@ -340,6 +427,20 @@ export default function EditPRPage() {
       }
       if (item.quantity <= 0) {
         setError(`Line ${i + 1}: Quantity must be greater than 0`);
+        return;
+      }
+      // Require a master-data reference matching the line's type (rule 23).
+      const type = rowType(item);
+      if (type === 'SERVICE' && !item.serviceId) {
+        setError(`Line ${i + 1}: Please pick a service from the services catalog.`);
+        return;
+      }
+      if (type === 'BOUGHT_OUT' && !item.boughtOutItemId) {
+        setError(`Line ${i + 1}: Please pick a bought-out item from the bought-out database.`);
+        return;
+      }
+      if (type === 'MATERIAL' && !item.materialId) {
+        setError(`Line ${i + 1}: Please pick a material from the materials database.`);
         return;
       }
     }
@@ -411,9 +512,20 @@ export default function EditPRPage() {
               estimatedUnitCost: item.estimatedUnitCost,
               estimatedTotalCost: item.estimatedUnitCost * item.quantity,
             }),
+            ...(item.itemType && { itemType: item.itemType }),
             ...(item.materialId && { materialId: item.materialId }),
             ...(item.materialCode && { materialCode: item.materialCode }),
             ...(item.materialName && { materialName: item.materialName }),
+            ...(item.boughtOutItemId && { boughtOutItemId: item.boughtOutItemId }),
+            ...(item.boughtOutItemCode && { boughtOutItemCode: item.boughtOutItemCode }),
+            ...(item.boughtOutItemName && { boughtOutItemName: item.boughtOutItemName }),
+            ...(item.serviceId && { serviceId: item.serviceId }),
+            ...(item.serviceCode && { serviceCode: item.serviceCode }),
+            ...(item.serviceName && { serviceName: item.serviceName }),
+            ...(item.serviceCategory && { serviceCategory: item.serviceCategory }),
+            ...(item.turnaroundDays && { turnaroundDays: item.turnaroundDays }),
+            ...(item.testMethodStandard && { testMethodStandard: item.testMethodStandard }),
+            ...(item.sampleRequirements && { sampleRequirements: item.sampleRequirements }),
             attachmentCount: 0,
             status: 'PENDING',
             createdAt: now,
@@ -433,9 +545,20 @@ export default function EditPRPage() {
             estimatedUnitCost: item.estimatedUnitCost || null,
             estimatedTotalCost:
               item.estimatedUnitCost > 0 ? item.estimatedUnitCost * item.quantity : null,
+            itemType: item.itemType || null,
             materialId: item.materialId || null,
             materialCode: item.materialCode || null,
             materialName: item.materialName || null,
+            boughtOutItemId: item.boughtOutItemId || null,
+            boughtOutItemCode: item.boughtOutItemCode || null,
+            boughtOutItemName: item.boughtOutItemName || null,
+            serviceId: item.serviceId || null,
+            serviceCode: item.serviceCode || null,
+            serviceName: item.serviceName || null,
+            serviceCategory: item.serviceCategory || null,
+            turnaroundDays: item.turnaroundDays || null,
+            testMethodStandard: item.testMethodStandard || null,
+            sampleRequirements: item.sampleRequirements || null,
             updatedAt: now,
           });
         }
@@ -658,6 +781,7 @@ export default function EditPRPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>#</TableCell>
+                  <TableCell sx={{ width: 130 }}>Type *</TableCell>
                   <TableCell>Description *</TableCell>
                   <TableCell>Specification</TableCell>
                   <TableCell sx={{ width: 100 }}>Qty *</TableCell>
@@ -670,7 +794,7 @@ export default function EditPRPage() {
               <TableBody>
                 {lineItems.filter((item) => !item.isDeleted).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                         No line items. Click &quot;Add Item&quot; to add one.
                       </Typography>
@@ -684,6 +808,24 @@ export default function EditPRPage() {
                       <TableRow key={item.id || `new-${index}`}>
                         <TableCell>{displayIndex + 1}</TableCell>
                         <TableCell>
+                          <TextField
+                            select
+                            size="small"
+                            fullWidth
+                            value={rowType(item)}
+                            onChange={(e) =>
+                              handleLineTypeChange(
+                                index,
+                                e.target.value as 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE'
+                              )
+                            }
+                          >
+                            <MenuItem value="MATERIAL">Material</MenuItem>
+                            <MenuItem value="BOUGHT_OUT">Bought-Out</MenuItem>
+                            <MenuItem value="SERVICE">Service</MenuItem>
+                          </TextField>
+                        </TableCell>
+                        <TableCell>
                           <Stack direction="row" spacing={0.5} alignItems="flex-start">
                             <TextField
                               size="small"
@@ -696,22 +838,16 @@ export default function EditPRPage() {
                             />
                             <Tooltip
                               title={
-                                isServiceCategory
+                                rowType(item) === 'SERVICE'
                                   ? 'Pick from Services Catalog'
-                                  : 'Pick from Materials DB'
+                                  : rowType(item) === 'BOUGHT_OUT'
+                                    ? 'Pick from Bought-Out DB'
+                                    : 'Pick from Materials DB'
                               }
                             >
                               <IconButton
                                 size="small"
-                                onClick={() => {
-                                  if (isServiceCategory) {
-                                    setServicePickerIndex(index);
-                                    setServicePickerOpen(true);
-                                  } else {
-                                    setMaterialPickerIndex(index);
-                                    setMaterialPickerOpen(true);
-                                  }
-                                }}
+                                onClick={() => openPickerForRow(index)}
                                 sx={{ mt: 0.25 }}
                                 aria-label="Search"
                               >
@@ -725,6 +861,24 @@ export default function EditPRPage() {
                               size="small"
                               variant="outlined"
                               color="primary"
+                              sx={{ mt: 0.5 }}
+                            />
+                          )}
+                          {item.boughtOutItemCode && (
+                            <Chip
+                              label={item.boughtOutItemCode}
+                              size="small"
+                              variant="outlined"
+                              color="info"
+                              sx={{ mt: 0.5 }}
+                            />
+                          )}
+                          {item.serviceCode && (
+                            <Chip
+                              label={item.serviceCode}
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
                               sx={{ mt: 0.5 }}
                             />
                           )}
@@ -854,6 +1008,15 @@ export default function EditPRPage() {
         open={servicePickerOpen}
         onClose={() => setServicePickerOpen(false)}
         onSelect={handleServiceSelect}
+      />
+
+      {/* Bought-Out Picker Dialog */}
+      <BoughtOutPickerDialog
+        open={boughtOutPickerOpen}
+        onClose={() => setBoughtOutPickerOpen(false)}
+        onSelect={handleBoughtOutSelect}
+        tenantId={claims?.tenantId || 'default-entity'}
+        title="Select Bought-Out Item for Line Item"
       />
     </Box>
   );

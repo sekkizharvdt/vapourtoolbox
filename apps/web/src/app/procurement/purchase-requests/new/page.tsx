@@ -56,7 +56,8 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
-import type { Material, MaterialVariant, Service } from '@vapour/types';
+import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
+import type { Material, MaterialVariant, Service, BoughtOutItem } from '@vapour/types';
 
 interface FormData {
   type: 'PROJECT' | 'BUDGETARY' | 'INTERNAL';
@@ -88,6 +89,8 @@ export default function NewPurchaseRequestPage() {
   const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [servicePickerIndex, setServicePickerIndex] = useState<number>(0);
+  const [boughtOutPickerOpen, setBoughtOutPickerOpen] = useState(false);
+  const [boughtOutPickerIndex, setBoughtOutPickerIndex] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -196,7 +199,78 @@ export default function NewPurchaseRequestPage() {
     setServicePickerOpen(false);
   };
 
+  const handleBoughtOutSelect = (boughtOut: BoughtOutItem) => {
+    const updatedItems = [...lineItems];
+    const item = updatedItems[boughtOutPickerIndex];
+    if (item) {
+      updatedItems[boughtOutPickerIndex] = {
+        ...item,
+        itemType: 'BOUGHT_OUT',
+        description: boughtOut.name,
+        specification: item.specification?.trim() ? item.specification : boughtOut.itemCode || '',
+        boughtOutItemId: boughtOut.id,
+        boughtOutItemCode: boughtOut.itemCode,
+        boughtOutItemName: boughtOut.name,
+      };
+      setLineItems(updatedItems);
+    }
+    setBoughtOutPickerOpen(false);
+  };
+
   const isServiceCategory = formData.category === 'SERVICE';
+
+  // Per-line type. New rows inherit the header category as their default, but
+  // each line can be overridden so one PR can mix material / bought-out / service
+  // lines (feedback Jit9vLshG7oIZpt9Qhka).
+  const defaultItemType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =
+    formData.category === 'SERVICE'
+      ? 'SERVICE'
+      : formData.category === 'BOUGHT_OUT'
+        ? 'BOUGHT_OUT'
+        : 'MATERIAL';
+  const rowType = (item: CreatePurchaseRequestItemInput): 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =>
+    item.itemType ?? defaultItemType;
+
+  const openPickerForRow = (index: number) => {
+    const item = lineItems[index];
+    if (!item) return;
+    const type = rowType(item);
+    if (type === 'SERVICE') {
+      setServicePickerIndex(index);
+      setServicePickerOpen(true);
+    } else if (type === 'BOUGHT_OUT') {
+      setBoughtOutPickerIndex(index);
+      setBoughtOutPickerOpen(true);
+    } else {
+      setMaterialPickerIndex(index);
+      setMaterialPickerOpen(true);
+    }
+  };
+
+  // Changing a line's type clears any master-data link from the previous type so
+  // a stale reference can't survive (matches the vendor-quote new-page behaviour).
+  const handleLineTypeChange = (index: number, newType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE') => {
+    setLineItems((prev) => {
+      const next = [...prev];
+      const item = next[index];
+      if (!item) return prev;
+      next[index] = {
+        ...item,
+        itemType: newType,
+        materialId: undefined,
+        materialCode: undefined,
+        materialName: undefined,
+        boughtOutItemId: undefined,
+        boughtOutItemCode: undefined,
+        boughtOutItemName: undefined,
+        serviceId: undefined,
+        serviceCode: undefined,
+        serviceName: undefined,
+        serviceCategory: undefined,
+      };
+      return next;
+    });
+  };
 
   const validateForm = (requireApprover: boolean = false): boolean => {
     setError(null);
@@ -236,14 +310,21 @@ export default function NewPurchaseRequestPage() {
 
       // Require a master-data reference so downstream cost/stock/pricing
       // feedback loops can attach to the item. See PROCUREMENT-MATERIALS-AUDIT-2026-04-24.md #4.
-      if (isServiceCategory) {
-        if (!item.serviceId) {
-          setError(
-            `Line ${i + 1}: Please pick a service from the services catalog (search icon next to the description).`
-          );
-          return false;
-        }
-      } else if (!item.materialId) {
+      // The required link depends on the line's own type (material / bought-out / service).
+      const type = rowType(item);
+      if (type === 'SERVICE' && !item.serviceId) {
+        setError(
+          `Line ${i + 1}: Please pick a service from the services catalog (search icon next to the description).`
+        );
+        return false;
+      }
+      if (type === 'BOUGHT_OUT' && !item.boughtOutItemId) {
+        setError(
+          `Line ${i + 1}: Please pick a bought-out item from the bought-out database (search icon next to the description).`
+        );
+        return false;
+      }
+      if (type === 'MATERIAL' && !item.materialId) {
         setError(
           `Line ${i + 1}: Please pick a material from the materials database (search icon next to the description).`
         );
@@ -564,6 +645,7 @@ export default function NewPurchaseRequestPage() {
                 <TableHead>
                   <TableRow>
                     <TableCell width={50}>#</TableCell>
+                    <TableCell width={130}>Type *</TableCell>
                     <TableCell>Description *</TableCell>
                     <TableCell>Specification</TableCell>
                     <TableCell width={100}>Qty *</TableCell>
@@ -576,6 +658,24 @@ export default function NewPurchaseRequestPage() {
                   {lineItems.map((item, index) => (
                     <TableRow key={index} hover>
                       <TableCell>{index + 1}</TableCell>
+                      <TableCell>
+                        <TextField
+                          select
+                          value={rowType(item)}
+                          onChange={(e) =>
+                            handleLineTypeChange(
+                              index,
+                              e.target.value as 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE'
+                            )
+                          }
+                          size="small"
+                          fullWidth
+                        >
+                          <MenuItem value="MATERIAL">Material</MenuItem>
+                          <MenuItem value="BOUGHT_OUT">Bought-Out</MenuItem>
+                          <MenuItem value="SERVICE">Service</MenuItem>
+                        </TextField>
+                      </TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={0.5} alignItems="flex-start">
                           <TextField
@@ -591,22 +691,16 @@ export default function NewPurchaseRequestPage() {
                           />
                           <Tooltip
                             title={
-                              isServiceCategory
+                              rowType(item) === 'SERVICE'
                                 ? 'Pick from Services Catalog'
-                                : 'Pick from Materials DB'
+                                : rowType(item) === 'BOUGHT_OUT'
+                                  ? 'Pick from Bought-Out DB'
+                                  : 'Pick from Materials DB'
                             }
                           >
                             <IconButton
                               size="small"
-                              onClick={() => {
-                                if (isServiceCategory) {
-                                  setServicePickerIndex(index);
-                                  setServicePickerOpen(true);
-                                } else {
-                                  setMaterialPickerIndex(index);
-                                  setMaterialPickerOpen(true);
-                                }
-                              }}
+                              onClick={() => openPickerForRow(index)}
                               sx={{ mt: 0.25 }}
                               aria-label="Search"
                             >
@@ -632,19 +726,33 @@ export default function NewPurchaseRequestPage() {
                             sx={{ mt: 0.5 }}
                           />
                         )}
-                        {item.description.trim() && !item.materialCode && !item.serviceCode && (
+                        {item.boughtOutItemCode && (
                           <Chip
-                            label={
-                              isServiceCategory
-                                ? 'Pick service from catalog'
-                                : 'Pick material from master'
-                            }
+                            label={item.boughtOutItemCode}
                             size="small"
-                            color="warning"
                             variant="outlined"
+                            color="info"
                             sx={{ mt: 0.5 }}
                           />
                         )}
+                        {item.description.trim() &&
+                          !item.materialCode &&
+                          !item.serviceCode &&
+                          !item.boughtOutItemCode && (
+                            <Chip
+                              label={
+                                rowType(item) === 'SERVICE'
+                                  ? 'Pick service from catalog'
+                                  : rowType(item) === 'BOUGHT_OUT'
+                                    ? 'Pick item from bought-out DB'
+                                    : 'Pick material from master'
+                              }
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              sx={{ mt: 0.5 }}
+                            />
+                          )}
                       </TableCell>
                       <TableCell>
                         <TextField
@@ -926,6 +1034,15 @@ export default function NewPurchaseRequestPage() {
         open={servicePickerOpen}
         onClose={() => setServicePickerOpen(false)}
         onSelect={handleServiceSelect}
+      />
+
+      {/* Bought-Out Picker Dialog */}
+      <BoughtOutPickerDialog
+        open={boughtOutPickerOpen}
+        onClose={() => setBoughtOutPickerOpen(false)}
+        onSelect={handleBoughtOutSelect}
+        tenantId={tenantId}
+        title="Select Bought-Out Item for Line Item"
       />
     </Box>
   );

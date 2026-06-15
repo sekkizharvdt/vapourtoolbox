@@ -131,6 +131,11 @@ export async function createPurchaseRequest(
         ...(item.materialCode && { materialCode: item.materialCode }),
         ...(item.materialName && { materialName: item.materialName }),
 
+        // Bought-out linkage (optional — for BOUGHT_OUT items)
+        ...(item.boughtOutItemId && { boughtOutItemId: item.boughtOutItemId }),
+        ...(item.boughtOutItemCode && { boughtOutItemCode: item.boughtOutItemCode }),
+        ...(item.boughtOutItemName && { boughtOutItemName: item.boughtOutItemName }),
+
         // Service linkage (optional — for SERVICE items)
         ...(item.serviceId && { serviceId: item.serviceId }),
         ...(item.serviceCode && { serviceCode: item.serviceCode }),

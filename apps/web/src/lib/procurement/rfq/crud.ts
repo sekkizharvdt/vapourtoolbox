@@ -270,6 +270,11 @@ export async function createRFQ(
     if (item.materialCode) itemData.materialCode = item.materialCode;
     if (item.materialName) itemData.materialName = item.materialName;
 
+    // Bought-out database linkage
+    if (item.boughtOutItemId) itemData.boughtOutItemId = item.boughtOutItemId;
+    if (item.boughtOutItemCode) itemData.boughtOutItemCode = item.boughtOutItemCode;
+    if (item.boughtOutItemName) itemData.boughtOutItemName = item.boughtOutItemName;
+
     // Service catalog linkage
     if (item.itemType) itemData.itemType = item.itemType;
     if (item.serviceId) itemData.serviceId = item.serviceId;
@@ -396,6 +401,11 @@ export async function createRFQFromPRs(
       if (prItem.materialId) rfqItem.materialId = prItem.materialId;
       if (prItem.materialCode) rfqItem.materialCode = prItem.materialCode;
       if (prItem.materialName) rfqItem.materialName = prItem.materialName;
+
+      // Bought-out database linkage
+      if (prItem.boughtOutItemId) rfqItem.boughtOutItemId = prItem.boughtOutItemId;
+      if (prItem.boughtOutItemCode) rfqItem.boughtOutItemCode = prItem.boughtOutItemCode;
+      if (prItem.boughtOutItemName) rfqItem.boughtOutItemName = prItem.boughtOutItemName;
 
       // Service catalog linkage
       if (prItem.itemType) rfqItem.itemType = prItem.itemType;

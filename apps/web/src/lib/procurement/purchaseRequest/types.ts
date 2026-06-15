@@ -42,7 +42,7 @@ export interface CreatePurchaseRequestInput {
 
 export interface CreatePurchaseRequestItemInput {
   // Item type (defaults to MATERIAL for backward compat)
-  itemType?: 'MATERIAL' | 'SERVICE';
+  itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
 
   // Item details
   description: string;
@@ -56,6 +56,11 @@ export interface CreatePurchaseRequestItemInput {
   materialId?: string;
   materialCode?: string;
   materialName?: string;
+
+  // Bought-out linkage (for BOUGHT_OUT items) — separate bought_out_items collection
+  boughtOutItemId?: string;
+  boughtOutItemCode?: string;
+  boughtOutItemName?: string;
 
   // Service linkage (for SERVICE items)
   serviceId?: string;

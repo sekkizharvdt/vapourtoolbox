@@ -79,7 +79,7 @@ export interface PurchaseRequest {
   updatedBy: string;
 }
 
-export type PurchaseRequestItemType = 'MATERIAL' | 'SERVICE';
+export type PurchaseRequestItemType = 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
 
 export interface PurchaseRequestItem {
   id: string;
@@ -101,6 +101,14 @@ export interface PurchaseRequestItem {
   materialId?: string;
   materialCode?: string;
   materialName?: string;
+
+  // Bought-out database linkage (optional — for BOUGHT_OUT items).
+  // Mirrors the boughtOutItemId convention used by the vendor-quote module
+  // (vendorQuote.ts) so the two procurement flows reference bought-out items
+  // the same way. Distinct collection from materials (bought_out_items).
+  boughtOutItemId?: string;
+  boughtOutItemCode?: string;
+  boughtOutItemName?: string;
 
   // Service catalog linkage (optional — for SERVICE items)
   serviceId?: string;

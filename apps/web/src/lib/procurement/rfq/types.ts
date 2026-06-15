@@ -75,8 +75,13 @@ export interface CreateRFQItemInput {
   materialCode?: string;
   materialName?: string;
 
+  // Bought-out database linkage (from PR item)
+  boughtOutItemId?: string;
+  boughtOutItemCode?: string;
+  boughtOutItemName?: string;
+
   // Service catalog linkage (from PR item)
-  itemType?: 'MATERIAL' | 'SERVICE';
+  itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
   serviceId?: string;
   serviceCode?: string;
   serviceName?: string;
