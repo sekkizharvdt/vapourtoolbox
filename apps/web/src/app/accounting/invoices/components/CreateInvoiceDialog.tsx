@@ -17,6 +17,7 @@ import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
 import { TransactionNumberDisplay } from '@/components/accounting/shared/TransactionNumberDisplay';
 import { FileUpload, type FileAttachment } from '@/components/accounting/shared/FileUpload';
 import { getFirebase } from '@/lib/firebase';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerInvoice, CurrencyCode } from '@vapour/types';
@@ -260,8 +261,10 @@ export function CreateInvoiceDialog({
       };
 
       if (editingInvoice?.id) {
-        // Update existing invoice
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingInvoice.id), invoice);
+        // Update existing invoice (retry once on stale-token permission-denied)
+        await retryOnStaleToken(() =>
+          updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingInvoice.id), invoice)
+        );
 
         // Audit log: invoice updated
         if (user) {
@@ -289,8 +292,10 @@ export function CreateInvoiceDialog({
           );
         }
       } else {
-        // Create new invoice
-        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), invoice);
+        // Create new invoice (retry once on stale-token permission-denied)
+        const docRef = await retryOnStaleToken(() =>
+          addDoc(collection(db, COLLECTIONS.TRANSACTIONS), invoice)
+        );
 
         // Audit log: invoice created
         if (user) {

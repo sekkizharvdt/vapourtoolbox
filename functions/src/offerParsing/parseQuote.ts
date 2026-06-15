@@ -323,27 +323,29 @@ export const parseQuote = onCall(
     const client = new Anthropic({ apiKey });
 
     // One Claude call. `strictNote` swaps the user instruction on the retry to
-    // demand bare JSON. max_tokens is generous (8192) so large quotes don't get
-    // truncated mid-array — the most common cause of unparseable output.
-    const runParse = (strictNote?: string) =>
-      client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8192,
+    // demand bare JSON. `maxTokens` is generous and bumped on truncation retry so
+    // large quotes don't get cut off mid-array — the most common cause of
+    // unparseable output (feedback rPmzb4BzcpnIsPiUtTEE). Sonnet 4.6 caps output
+    // at 64K; we stay well under that.
+    const buildParams = (strictNote?: string, maxTokens = 16000) =>
+      ({
+        model: 'claude-sonnet-4-6' as const,
+        max_tokens: maxTokens,
         system: PROMPT,
         messages: [
           {
-            role: 'user',
+            role: 'user' as const,
             content: [
               {
-                type: 'document',
+                type: 'document' as const,
                 source: {
-                  type: 'base64',
+                  type: 'base64' as const,
                   media_type: data.mimeType as 'application/pdf',
                   data: base64Content,
                 },
               },
               {
-                type: 'text',
+                type: 'text' as const,
                 text:
                   strictNote ??
                   'Parse this vendor quotation. Return only the JSON described in the system prompt.',
@@ -351,7 +353,17 @@ export const parseQuote = onCall(
             ],
           },
         ],
-      });
+      }) satisfies Anthropic.MessageCreateParamsNonStreaming;
+
+    // The Anthropic SDK requires streaming above ~16K output tokens (a
+    // non-streaming call risks an HTTP timeout). Keep the common path
+    // non-streaming; switch to streaming only for the higher-ceiling retry.
+    const runParse = (strictNote?: string, maxTokens = 16000): Promise<Anthropic.Message> => {
+      const params = buildParams(strictNote, maxTokens);
+      return maxTokens > 16000
+        ? client.messages.stream(params).finalMessage()
+        : client.messages.create(params);
+    };
 
     const responseTextOf = (resp: Anthropic.Message): string => {
       const block = resp.content.find((b) => b.type === 'text');
@@ -376,17 +388,24 @@ export const parseQuote = onCall(
     let parsed = extractQuoteJson(responseText);
 
     // Bounded retry: if the first reply was prose / fenced / truncated, ask once
-    // more for bare JSON. Only fires on failure, so the common path stays single-call.
+    // more. When the first attempt was truncated at the token ceiling
+    // (stop_reason === 'max_tokens') a strict-prose instruction won't help — the
+    // output overflows again — so we raise the cap instead. Otherwise we demand
+    // bare JSON. Only fires on failure, so the common path stays single-call.
     if (!parsed) {
-      logger.warn('[parseQuote] first response unparseable — retrying with strict instruction', {
+      const wasTruncated = response.stop_reason === 'max_tokens';
+      logger.warn('[parseQuote] first response unparseable — retrying', {
         fileName: data.fileName,
         stopReason: response.stop_reason,
         responseTextLength: responseText.length,
+        retryStrategy: wasTruncated ? 'higher-token-ceiling' : 'strict-json-instruction',
       });
       try {
-        response = await runParse(
-          'Your previous reply could not be parsed as JSON. Re-read the document and output ONLY the JSON object described in the system prompt — no prose, no explanation, no markdown code fences, nothing before or after the JSON.'
-        );
+        response = wasTruncated
+          ? await runParse(undefined, 32000)
+          : await runParse(
+              'Your previous reply could not be parsed as JSON. Re-read the document and output ONLY the JSON object described in the system prompt — no prose, no explanation, no markdown code fences, nothing before or after the JSON.'
+            );
         responseText = responseTextOf(response);
         parsed = extractQuoteJson(responseText);
       } catch (err) {

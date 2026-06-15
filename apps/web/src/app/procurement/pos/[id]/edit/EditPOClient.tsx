@@ -43,6 +43,7 @@ import {
   createCommercialTermsFromTemplate,
   validatePaymentSchedule,
   buildBillingAddressFromCompany,
+  buildWarrantyClause,
 } from '@/lib/procurement/commercialTerms';
 import { CommercialTermsForm } from '@/components/procurement';
 
@@ -222,7 +223,10 @@ export default function EditPOClient() {
           ? `Ready Stock - items available immediately. Price basis: ${commercialTerms.priceBasis}`
           : `${commercialTerms.deliveryPeriod ?? commercialTerms.deliveryWeeks ?? 8} ${deliveryUnitLabel} from ${deliveryTriggerLabel}. Price basis: ${commercialTerms.priceBasis}`;
 
-      const warrantyTermsText = `${commercialTerms.warrantyMonthsFromSupply} months from supply or ${commercialTerms.warrantyMonthsFromCommissioning} months from commissioning, whichever is later`;
+      // Use the canonical helper (rule 32) so edit matches create — omits zero
+      // terms and honours warrantyApplicable/comparison instead of always emitting
+      // the "... or 0 months from commissioning, whichever is later" string.
+      const warrantyTermsText = buildWarrantyClause(commercialTerms);
 
       const penaltyClauseText = `${commercialTerms.ldPerWeekPercent}% per week of delay, maximum ${commercialTerms.ldMaxPercent}% of order value`;
 
