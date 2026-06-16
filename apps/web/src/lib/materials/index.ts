@@ -29,5 +29,8 @@ export * from './stock';
 // Variant Utilities
 export * from './variantUtils';
 
+// Specification formatting
+export * from './specFormat';
+
 // Legacy re-export (for backward compatibility)
 // New code should import directly from submodules above

@@ -80,6 +80,7 @@ import { listRFQs } from '@/lib/procurement/rfq';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
 import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
+import { formatMaterialSpec } from '@/lib/materials';
 
 interface RFQOption {
   id: string;
@@ -651,8 +652,12 @@ export default function NewProcurementQuotePage() {
         materialId: material.id,
         materialCode: fullCode || material.materialCode,
         materialName: material.name,
-        // Keep the AI-extracted description (the vendor's wording) so the
-        // user can still verify against the original document.
+        // Show the material's real spec when the row has none yet (feedback
+        // CxERG78). Keep the AI-extracted description (the vendor's wording)
+        // so the user can still verify against the original document.
+        specification: row.specification?.trim()
+          ? row.specification
+          : formatMaterialSpec(material.specification),
       };
       return next;
     });

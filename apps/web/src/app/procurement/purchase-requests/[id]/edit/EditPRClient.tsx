@@ -44,6 +44,7 @@ import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
 import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
+import { formatMaterialSpec } from '@/lib/materials';
 import type {
   PurchaseRequest,
   PurchaseRequestAttachment,
@@ -284,9 +285,10 @@ export default function EditPRPage() {
         updated[materialPickerIndex] = {
           ...item,
           description: material.name,
+          // Show the material's real spec, not the code (feedback CxERG78).
           specification: item.specification?.trim()
             ? item.specification
-            : fullCode || material.materialCode || '',
+            : formatMaterialSpec(material.specification) || fullCode || material.materialCode || '',
           unit: (material.baseUnit || 'NOS').toUpperCase(),
           materialId: material.id,
           materialCode: material.materialCode,
