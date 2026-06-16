@@ -518,7 +518,9 @@ export function AmendmentForm({
               <Box sx={{ mt: 1, pl: 4 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Current expected delivery:{' '}
-                  {timestampToDateInput(po.expectedDeliveryDate) || 'Not set'}
+                  {po.expectedDeliveryDate
+                    ? formatDate(timestampToDateInput(po.expectedDeliveryDate))
+                    : 'Not set'}
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 6 }}>

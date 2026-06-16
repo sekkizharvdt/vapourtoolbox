@@ -102,17 +102,21 @@ export async function createVersionSnapshot(
 
     // Create version snapshot. Inherit tenantId from the source PO so
     // tenant-scoped queries / rules see the snapshot (CLAUDE.md rule 1).
+    // Firestore rejects `undefined` (rule 12) — `notes` is omitted by the
+    // approve-amendment caller and `amendmentNumber` is undefined for non-
+    // amendment snapshots, so both must be conditional. Writing them
+    // unconditionally crashed every amendment approval (feedback 8ImQ5s).
     const versionData = {
       purchaseOrderId,
       versionNumber,
       ...(po.tenantId && { tenantId: po.tenantId }),
       ...(amendmentId && { createdByAmendmentId: amendmentId }),
-      amendmentNumber,
+      ...(amendmentNumber !== undefined && { amendmentNumber }),
       snapshot: po,
       snapshotItems: items,
       createdAt: serverTimestamp(),
       createdBy: userId,
-      notes,
+      ...(notes !== undefined && { notes }),
     };
 
     const versionRef = await addDoc(
