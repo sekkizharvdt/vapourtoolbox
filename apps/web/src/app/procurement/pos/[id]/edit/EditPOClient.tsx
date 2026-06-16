@@ -6,7 +6,7 @@
  * Edit commercial terms of a DRAFT PO before submitting for approval.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   Box,
@@ -22,6 +22,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -32,9 +38,22 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { PurchaseOrder, POCommercialTerms, CommercialTermsTemplate } from '@vapour/types';
+import type {
+  PurchaseOrder,
+  PurchaseOrderItem,
+  POCommercialTerms,
+  CommercialTermsTemplate,
+} from '@vapour/types';
 import { getPOById } from '@/lib/procurement/purchaseOrderService';
-import { updateDraftPO } from '@/lib/procurement/purchaseOrder';
+import {
+  updateDraftPO,
+  getPOItems,
+  updatePOItemFields,
+  addPOAttachment,
+  removePOAttachment,
+} from '@/lib/procurement/purchaseOrder';
+import DocumentUploadWidget from '@/components/procurement/DocumentUploadWidget';
+import { toDate } from '@/lib/utils/date';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 import {
   getDefaultTemplate,
@@ -74,6 +93,16 @@ export default function EditPOClient() {
   // Expected delivery date
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
 
+  // PO header description (editable to fix auto-population — feedback iZqGG)
+  const [description, setDescription] = useState('');
+
+  // Line items — Specification + HSN/SAC are editable here (moved out of View).
+  const [items, setItems] = useState<PurchaseOrderItem[]>([]);
+  // Original spec/HSN per item id, to write only changed items on save.
+  const originalItemFields = useRef<Map<string, { specification: string; hsnSacCode: string }>>(
+    new Map()
+  );
+
   // Extract PO ID from pathname
   useEffect(() => {
     if (pathname) {
@@ -98,8 +127,9 @@ export default function EditPOClient() {
     setLoading(true);
     setError('');
     try {
-      const [poData, companyDoc] = await Promise.all([
+      const [poData, itemsData, companyDoc] = await Promise.all([
         getPOById(poId),
+        getPOItems(poId),
         getDoc(doc(getFirebase().db, 'company', 'settings')),
       ]);
 
@@ -114,6 +144,14 @@ export default function EditPOClient() {
       }
 
       setPO(poData);
+      setDescription(poData.description ?? '');
+      setItems(itemsData);
+      originalItemFields.current = new Map(
+        itemsData.map((it) => [
+          it.id,
+          { specification: it.specification ?? '', hsnSacCode: it.hsnSacCode ?? '' },
+        ])
+      );
 
       // Load existing commercial terms or create from template
       if (poData.commercialTerms) {
@@ -159,6 +197,32 @@ export default function EditPOClient() {
         })
       );
     }
+  };
+
+  const handleItemFieldChange = (
+    itemId: string,
+    field: 'specification' | 'hsnSacCode',
+    value: string
+  ) => {
+    setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, [field]: value } : it)));
+  };
+
+  const handleUploadAttachment = async (file: File) => {
+    if (!user || !poId) return;
+    const attachment = await addPOAttachment(poId, file, user.uid, claims?.permissions || 0);
+    setPO((prev) =>
+      prev ? { ...prev, attachments: [...(prev.attachments ?? []), attachment] } : prev
+    );
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!user || !poId) return;
+    await removePOAttachment(poId, attachmentId, user.uid, claims?.permissions || 0);
+    setPO((prev) =>
+      prev
+        ? { ...prev, attachments: (prev.attachments ?? []).filter((a) => a.id !== attachmentId) }
+        : prev
+    );
   };
 
   const validateForm = (): boolean => {
@@ -249,11 +313,30 @@ export default function EditPOClient() {
           commercialTermsTemplateId: selectedTemplate.id,
           commercialTermsTemplateName: selectedTemplate.name,
           commercialTerms: commercialTerms,
+          description,
         },
         user.uid,
         user.displayName || 'Unknown',
         claims?.permissions || 0
       );
+
+      // Persist edited line-item Specification / HSN-SAC — only changed rows.
+      const changedItems = items.filter((it) => {
+        const orig = originalItemFields.current.get(it.id);
+        return (
+          !orig ||
+          orig.specification !== (it.specification ?? '') ||
+          orig.hsnSacCode !== (it.hsnSacCode ?? '')
+        );
+      });
+      for (const it of changedItems) {
+        await updatePOItemFields(
+          it.id,
+          { specification: it.specification ?? '', hsnSacCode: it.hsnSacCode ?? '' },
+          user.uid,
+          claims?.permissions || 0
+        );
+      }
 
       router.push(`/procurement/pos/${poId}`);
     } catch (err) {
@@ -350,6 +433,24 @@ export default function EditPOClient() {
               </Stack>
             </Paper>
 
+            {/* PO Description (editable to correct auto-population) */}
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Description
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              <TextField
+                label="PO Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                fullWidth
+                multiline
+                minRows={2}
+                maxRows={5}
+                helperText="Shown on the PO and PDF. Correct any auto-populated text here."
+              />
+            </Paper>
+
             {/* Template Selection */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -401,6 +502,94 @@ export default function EditPOClient() {
                 fullWidth
                 InputLabelProps={{ shrink: true }}
                 helperText="Expected date of delivery at site"
+              />
+            </Paper>
+
+            {/* Line Items — Specification + HSN/SAC editable */}
+            {items.length > 0 && (
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Line Items
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Edit Specification and HSN/SAC here. Other line values are fixed from the offer.
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell width={40}>#</TableCell>
+                        <TableCell>Description</TableCell>
+                        <TableCell>Specification</TableCell>
+                        <TableCell width={130}>HSN/SAC</TableCell>
+                        <TableCell width={70} align="right">
+                          Qty
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {items
+                        .slice()
+                        .sort((a, b) => a.lineNumber - b.lineNumber)
+                        .map((item) => (
+                          <TableRow key={item.id} hover>
+                            <TableCell>{item.lineNumber}</TableCell>
+                            <TableCell>
+                              <Typography variant="body2">{item.description}</Typography>
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                value={item.specification ?? ''}
+                                onChange={(e) =>
+                                  handleItemFieldChange(item.id, 'specification', e.target.value)
+                                }
+                                placeholder="Specification"
+                                size="small"
+                                fullWidth
+                                multiline
+                                maxRows={3}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                value={item.hsnSacCode ?? ''}
+                                onChange={(e) =>
+                                  handleItemFieldChange(item.id, 'hsnSacCode', e.target.value)
+                                }
+                                placeholder="HSN/SAC"
+                                size="small"
+                                fullWidth
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              {item.quantity} {item.unit}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            )}
+
+            {/* Attachments — upload/manage during editing */}
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Attachments
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              <DocumentUploadWidget
+                documents={(po.attachments ?? []).map((a) => ({
+                  id: a.id,
+                  fileName: a.fileName,
+                  fileUrl: a.fileUrl,
+                  fileSize: a.fileSize,
+                  uploadedAt: toDate(a.uploadedAt) ?? new Date(0),
+                }))}
+                onUpload={handleUploadAttachment}
+                onDelete={handleDeleteAttachment}
+                onDownload={(d) => window.open(d.fileUrl, '_blank')}
               />
             </Paper>
 

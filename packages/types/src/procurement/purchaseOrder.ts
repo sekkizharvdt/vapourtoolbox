@@ -326,10 +326,28 @@ export interface POCommercialTerms {
   deliveryTrigger: PODeliveryTrigger; // When delivery period starts counting
 
   /**
+   * Free-text delivery schedule / milestones, e.g. "First-cut drawing within 10
+   * working days from PO; engineering complete within 30 days." Shown in the PDF
+   * delivery block when set (feedback iZqGG). Optional — supplements the
+   * structured deliveryPeriod/Unit fields above.
+   */
+  deliverySchedule?: string;
+
+  /**
    * @deprecated Use deliveryPeriod instead. Kept for backward compatibility.
    * If deliveryUnit is not set, this value is assumed to be in weeks.
    */
   deliveryWeeks?: number;
+
+  // Section visibility toggles (Service Orders — feedback iZqGG).
+  // When `false`, the corresponding section is omitted from the PO PDF (e.g. a
+  // service order with no freight/transport). Undefined/true => shown
+  // (back-compat with POs created before these fields existed).
+  freightRequired?: boolean;
+  transportRequired?: boolean;
+  transitInsuranceRequired?: boolean;
+  erectionRequired?: boolean;
+  inspectionRequired?: boolean;
 
   // 5. Packing & Forwarding
   packingForwardingIncluded: boolean;

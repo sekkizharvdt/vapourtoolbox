@@ -698,6 +698,37 @@ export async function updatePOItemHsnSac(
   });
 }
 
+/**
+ * Update the editable fields of a PO line item (specification + HSN/SAC) from
+ * the PO edit form. Lets users correct auto-populated specs and set HSN/SAC
+ * during editing rather than only in the view (feedback iZqGG).
+ */
+export async function updatePOItemFields(
+  poItemId: string,
+  fields: { specification?: string; hsnSacCode?: string },
+  userId: string,
+  userPermissions: number
+): Promise<void> {
+  const { db } = getFirebase();
+
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'update PO line item'
+  );
+
+  const updateData: Record<string, unknown> = {
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  };
+  // Empty string clears the field; Firestore rejects undefined so store ''.
+  if (fields.specification !== undefined) updateData.specification = fields.specification.trim();
+  if (fields.hsnSacCode !== undefined) updateData.hsnSacCode = fields.hsnSacCode.trim();
+
+  await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, poItemId), updateData);
+}
+
 export async function listPOs(
   filters: {
     status?: PurchaseOrderStatus;
@@ -756,6 +787,8 @@ export interface UpdateDraftPOTerms {
   commercialTermsTemplateId?: string;
   commercialTermsTemplateName?: string;
   commercialTerms?: POCommercialTerms;
+  /** PO header description — editable to correct auto-population (feedback iZqGG). */
+  description?: string;
 }
 
 /**
@@ -829,6 +862,9 @@ export async function updateDraftPO(
     updateData.commercialTerms = removeUndefinedDeep(
       terms.commercialTerms as unknown as Record<string, unknown>
     );
+  }
+  if (terms.description !== undefined) {
+    updateData.description = terms.description;
   }
 
   await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), updateData);

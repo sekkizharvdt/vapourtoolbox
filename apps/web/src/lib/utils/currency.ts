@@ -193,3 +193,124 @@ export function getCurrencySymbol(currencyCode: string): string {
 
   return symbols[currencyCode.toUpperCase()] || currencyCode;
 }
+
+// Currency main-unit / sub-unit names for amount-in-words (PO/PDF use).
+const CURRENCY_WORD_NAMES: Record<string, { main: string; sub: string }> = {
+  INR: { main: 'Rupees', sub: 'Paise' },
+  USD: { main: 'US Dollars', sub: 'Cents' },
+  EUR: { main: 'Euros', sub: 'Cents' },
+  GBP: { main: 'Pounds', sub: 'Pence' },
+  AED: { main: 'Dirhams', sub: 'Fils' },
+  SGD: { main: 'Singapore Dollars', sub: 'Cents' },
+  AUD: { main: 'Australian Dollars', sub: 'Cents' },
+  CAD: { main: 'Canadian Dollars', sub: 'Cents' },
+};
+
+const ONES = [
+  '',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
+];
+const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+/** Convert an integer 0–999 to words (Title Case, space-separated). */
+function threeDigitsToWords(n: number): string {
+  const parts: string[] = [];
+  const hundreds = Math.floor(n / 100);
+  const rest = n % 100;
+  if (hundreds > 0) parts.push(`${ONES[hundreds]} Hundred`);
+  if (rest > 0) {
+    if (rest < 20) {
+      parts.push(ONES[rest]!);
+    } else {
+      const t = Math.floor(rest / 10);
+      const o = rest % 10;
+      parts.push(o > 0 ? `${TENS[t]} ${ONES[o]}` : TENS[t]!);
+    }
+  }
+  return parts.join(' ');
+}
+
+/** Convert a non-negative integer to words using the Indian numbering system (lakh/crore). */
+function integerToWordsIndian(num: number): string {
+  if (num === 0) return 'Zero';
+  const crore = Math.floor(num / 10_000_000);
+  const lakh = Math.floor((num % 10_000_000) / 100_000);
+  const thousand = Math.floor((num % 100_000) / 1_000);
+  const hundredsAndbelow = num % 1_000;
+  const parts: string[] = [];
+  if (crore > 0) parts.push(`${integerToWordsIndian(crore)} Crore`);
+  if (lakh > 0) parts.push(`${threeDigitsToWords(lakh)} Lakh`);
+  if (thousand > 0) parts.push(`${threeDigitsToWords(thousand)} Thousand`);
+  if (hundredsAndbelow > 0) parts.push(threeDigitsToWords(hundredsAndbelow));
+  return parts.join(' ');
+}
+
+/** Convert a non-negative integer to words using the international system (thousand/million/billion). */
+function integerToWordsInternational(num: number): string {
+  if (num === 0) return 'Zero';
+  const scales = ['', ' Thousand', ' Million', ' Billion', ' Trillion'];
+  const groups: number[] = [];
+  let remaining = num;
+  while (remaining > 0) {
+    groups.push(remaining % 1000);
+    remaining = Math.floor(remaining / 1000);
+  }
+  const parts: string[] = [];
+  for (let i = groups.length - 1; i >= 0; i--) {
+    if (groups[i]! > 0) parts.push(`${threeDigitsToWords(groups[i]!)}${scales[i] ?? ''}`);
+  }
+  return parts.join(' ');
+}
+
+/**
+ * Spell out a monetary amount in words for documents (e.g. PO PDFs).
+ *
+ * Uses the Indian numbering system (lakh/crore) for INR and the international
+ * system (million/billion) for other currencies, with the correct main/sub unit
+ * names. Sub-units (paise/cents) are rounded to 2 decimals.
+ *
+ * @example
+ * amountToWords(547520.20)        // "Rupees Five Lakh Forty Seven Thousand Five Hundred Twenty and Twenty Paise Only"
+ * amountToWords(1234.56, 'USD')   // "US Dollars One Thousand Two Hundred Thirty Four and Fifty Six Cents Only"
+ */
+export function amountToWords(amount: number, currencyCode: string = 'INR'): string {
+  const code = currencyCode.toUpperCase();
+  const names = CURRENCY_WORD_NAMES[code] || { main: code, sub: 'Cents' };
+
+  if (isNaN(amount) || amount === null || amount === undefined) {
+    return `${names.main} Zero Only`;
+  }
+
+  const negative = amount < 0;
+  const abs = Math.abs(amount);
+  const whole = Math.floor(abs);
+  const fraction = Math.round((abs - whole) * 100);
+
+  const isIndian = code === 'INR';
+  const wholeWords = isIndian ? integerToWordsIndian(whole) : integerToWordsInternational(whole);
+
+  let result = `${names.main} ${wholeWords}`;
+  if (fraction > 0) {
+    result += ` and ${threeDigitsToWords(fraction)} ${names.sub}`;
+  }
+  result += ' Only';
+  return negative ? `Minus ${result}` : result;
+}

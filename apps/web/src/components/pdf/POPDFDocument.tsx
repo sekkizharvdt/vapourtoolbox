@@ -28,6 +28,7 @@ import {
   REPORT_THEME,
 } from '@/lib/pdf/reportComponents';
 import { formatDate } from '@/lib/utils/formatters';
+import { amountToWords } from '@/lib/utils/currency';
 
 const local = StyleSheet.create({
   header: {
@@ -123,6 +124,12 @@ const local = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 11,
   },
+  totalInWords: {
+    marginTop: 4,
+    fontSize: 9,
+    fontStyle: 'italic',
+    color: REPORT_THEME.textSecondary,
+  },
   numberedItem: {
     flexDirection: 'row',
     marginBottom: 4,
@@ -145,6 +152,13 @@ function formatCurrency(amount: number, currency: string = 'INR'): string {
     currency,
     minimumFractionDigits: 2,
   }).format(amount);
+}
+
+function formatFileSize(bytes: number | undefined): string {
+  if (!bytes || bytes <= 0) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatTimestamp(ts: { toDate?: () => Date } | undefined): string {
@@ -245,6 +259,63 @@ export function POPDFDocument({
       !!safety.ppeRequired ||
       !!safety.workPermitRequired ||
       !!safety.insuranceRequired);
+
+  // Scope-of-work rows, each omitted when its section is marked Not Required
+  // (feedback iZqGG). Undefined/true => shown (back-compat).
+  const ct = po.commercialTerms;
+  const scopeRows: Array<{ label: string; value: string }> = [];
+  if (ct) {
+    if (ct.freightRequired !== false) {
+      scopeRows.push({
+        label: 'Freight',
+        value:
+          (ct.freightScope === 'VENDOR' ? "Vendor's scope" : "Buyer's scope") +
+          (ct.freightScope === 'CUSTOMER' && ct.freightPaymentType
+            ? ` — ${ct.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}`
+            : ''),
+      });
+    }
+    if (ct.transportRequired !== false) {
+      scopeRows.push({
+        label: 'Transport',
+        value:
+          (ct.transportScope === 'VENDOR' ? "Vendor's scope" : "Buyer's scope") +
+          (ct.deliveryType ? ` — ${ct.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery` : '') +
+          (ct.transporterName ? ` (${ct.transporterName})` : ''),
+      });
+    }
+    if (ct.transitInsuranceRequired !== false) {
+      scopeRows.push({
+        label: 'Transit Insurance',
+        value: ct.transitInsuranceScope === 'VENDOR' ? "Vendor's scope" : "Buyer's scope",
+      });
+      if (ct.transitInsuranceInstruction) {
+        scopeRows.push({
+          label: 'Transit Insurance Note',
+          value: ct.transitInsuranceInstruction,
+        });
+      }
+    }
+    if (ct.erectionRequired !== false) {
+      scopeRows.push({
+        label: 'Erection & Commissioning',
+        value:
+          ct.erectionScope === 'VENDOR'
+            ? "Vendor's scope" +
+              (() => {
+                const inc = [
+                  ct.erectionIncludesTransport && 'transportation',
+                  ct.erectionIncludesFood && 'food',
+                  ct.erectionIncludesAccommodation && 'accommodation',
+                ].filter(Boolean);
+                return inc.length > 0 ? ` (incl. ${inc.join(', ')})` : '';
+              })()
+            : ct.erectionScope === 'NA'
+              ? 'Not in scope'
+              : ct.erectionCustomText || 'Custom',
+      });
+    }
+  }
 
   return (
     <Document>
@@ -388,6 +459,9 @@ export function POPDFDocument({
             <Text style={local.totalLabel}>Grand Total:</Text>
             <Text style={local.totalValue}>{formatCurrency(po.grandTotal, po.currency)}</Text>
           </View>
+          <Text style={local.totalInWords}>
+            {`(In words: ${amountToWords(po.grandTotal, po.currency)})`}
+          </Text>
         </ReportSection>
       </ReportPage>
 
@@ -447,6 +521,9 @@ export function POPDFDocument({
                               : '—',
                     },
                   ]
+                : []),
+              ...(po.commercialTerms?.deliverySchedule
+                ? [{ label: 'Delivery Schedule', value: po.commercialTerms.deliverySchedule }]
                 : []),
               ...(po.expectedDeliveryDate
                 ? [{ label: 'Expected Delivery', value: formatTimestamp(po.expectedDeliveryDate) }]
@@ -522,71 +599,11 @@ export function POPDFDocument({
             Billing / delivery addresses are intentionally NOT repeated here; they
             appear once in the Vendor + Addresses block above. */}
 
-        {/* Scope of Work */}
-        {po.commercialTerms && (
+        {/* Scope of Work — each row omitted when its section is marked Not
+            Required (feedback iZqGG); the whole section drops if all are off. */}
+        {po.commercialTerms && scopeRows.length > 0 && (
           <ReportSection title="Scope of Work">
-            <KeyValueTable
-              rows={[
-                {
-                  label: 'Freight',
-                  value:
-                    (po.commercialTerms.freightScope === 'VENDOR'
-                      ? "Vendor's scope"
-                      : "Buyer's scope") +
-                    (po.commercialTerms.freightScope === 'CUSTOMER' &&
-                    po.commercialTerms.freightPaymentType
-                      ? ` — ${po.commercialTerms.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}`
-                      : ''),
-                },
-                {
-                  label: 'Transport',
-                  value:
-                    (po.commercialTerms.transportScope === 'VENDOR'
-                      ? "Vendor's scope"
-                      : "Buyer's scope") +
-                    (po.commercialTerms.deliveryType
-                      ? ` — ${po.commercialTerms.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery`
-                      : '') +
-                    (po.commercialTerms.transporterName
-                      ? ` (${po.commercialTerms.transporterName})`
-                      : ''),
-                },
-                {
-                  label: 'Transit Insurance',
-                  value:
-                    po.commercialTerms.transitInsuranceScope === 'VENDOR'
-                      ? "Vendor's scope"
-                      : "Buyer's scope",
-                },
-                ...(po.commercialTerms.transitInsuranceInstruction
-                  ? [
-                      {
-                        label: 'Transit Insurance Note',
-                        value: po.commercialTerms.transitInsuranceInstruction,
-                      },
-                    ]
-                  : []),
-                {
-                  label: 'Erection & Commissioning',
-                  value:
-                    po.commercialTerms.erectionScope === 'VENDOR'
-                      ? "Vendor's scope" +
-                        (() => {
-                          const inc = [
-                            po.commercialTerms.erectionIncludesTransport && 'transportation',
-                            po.commercialTerms.erectionIncludesFood && 'food',
-                            po.commercialTerms.erectionIncludesAccommodation && 'accommodation',
-                          ].filter(Boolean);
-                          return inc.length > 0 ? ` (incl. ${inc.join(', ')})` : '';
-                        })()
-                      : po.commercialTerms.erectionScope === 'NA'
-                        ? 'Not in scope'
-                        : po.commercialTerms.erectionCustomText || 'Custom',
-                },
-              ]}
-              labelWidth="30%"
-              valueWidth="70%"
-            />
+            <KeyValueTable rows={scopeRows} labelWidth="30%" valueWidth="70%" />
           </ReportSection>
         )}
 
@@ -595,18 +612,22 @@ export function POPDFDocument({
           <ReportSection title="Quality &amp; Inspection">
             <KeyValueTable
               rows={[
-                {
-                  label: 'Inspection',
-                  value:
-                    (po.commercialTerms.inspectorType === 'THIRD_PARTY'
-                      ? 'Third-party inspection'
-                      : po.commercialTerms.inspectorType === 'VDT'
-                        ? 'VDT / VDT consultant'
-                        : 'VDT consultant') +
-                    (po.commercialTerms.inspectionType
-                      ? ` — ${po.commercialTerms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection`
-                      : ''),
-                },
+                ...(po.commercialTerms.inspectionRequired === false
+                  ? []
+                  : [
+                      {
+                        label: 'Inspection',
+                        value:
+                          (po.commercialTerms.inspectorType === 'THIRD_PARTY'
+                            ? 'Third-party inspection'
+                            : po.commercialTerms.inspectorType === 'VDT'
+                              ? 'VDT / VDT consultant'
+                              : 'VDT consultant') +
+                          (po.commercialTerms.inspectionType
+                            ? ` — ${po.commercialTerms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection`
+                            : ''),
+                      },
+                    ]),
                 ...(po.commercialTerms.inspectionDocuments &&
                 po.commercialTerms.inspectionDocuments.length > 0
                   ? [
@@ -731,6 +752,26 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+            />
+          </ReportSection>
+        )}
+
+        {/* Supporting Documents — filenames only. The actual files are bundled
+            alongside the PDF in the PO ZIP download (no signed-URL leakage). */}
+        {po.attachments && po.attachments.length > 0 && (
+          <ReportSection title="Supporting Documents">
+            <ReportTable
+              columns={[
+                { key: 'sno', header: '#', width: '8%' },
+                { key: 'file', header: 'File', width: '72%' },
+                { key: 'size', header: 'Size', width: '20%', align: 'right' },
+              ]}
+              rows={po.attachments.map((a, i) => ({
+                sno: i + 1,
+                file: a.fileName,
+                size: formatFileSize(a.fileSize),
+              }))}
+              fontSize={9}
             />
           </ReportSection>
         )}

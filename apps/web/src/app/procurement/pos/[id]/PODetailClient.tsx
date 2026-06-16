@@ -22,15 +22,14 @@ import {
   rejectPO,
   issuePO,
   updatePOStatus,
-  updatePOItemHsnSac,
   addPOAttachment,
   removePOAttachment,
 } from '@/lib/procurement/purchaseOrderService';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
-import { purchaseOrderStateMachine } from '@/lib/workflow/stateMachines';
 import { toDate } from '@/lib/utils/date';
 import DocumentUploadWidget from '@/components/procurement/DocumentUploadWidget';
 import { downloadPOPDF } from '@/lib/procurement/poPDF';
+import { downloadPOZip } from '@/lib/procurement/purchaseOrder/poZipService';
 import { useWorkflowDialogs } from './components/useWorkflowDialogs';
 import { POHeader } from './components/POHeader';
 import { POProgressIndicators } from './components/POProgressIndicators';
@@ -52,6 +51,7 @@ export default function PODetailPage() {
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [zipLoading, setZipLoading] = useState(false);
   const [poId, setPoId] = useState<string | null>(null);
 
   const dialogState = useWorkflowDialogs();
@@ -93,17 +93,6 @@ export default function PODetailPage() {
       setError('Failed to load purchase order');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleUpdateHsnSac = async (itemId: string, hsnSacCode: string) => {
-    if (!user) return;
-    try {
-      await updatePOItemHsnSac(itemId, hsnSacCode, user.uid, claims?.permissions || 0);
-      setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, hsnSacCode } : it)));
-    } catch (err) {
-      console.error('[PODetailPage] Error updating HSN/SAC:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update HSN/SAC');
     }
   };
 
@@ -272,6 +261,20 @@ export default function PODetailPage() {
     }
   };
 
+  const handleDownloadZip = async () => {
+    if (!po) return;
+
+    setZipLoading(true);
+    try {
+      await downloadPOZip(po, items);
+    } catch (err) {
+      console.error('[PODetailPage] Error generating PO ZIP:', err);
+      setError('Failed to generate PO bundle');
+    } finally {
+      setZipLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -321,6 +324,8 @@ export default function PODetailPage() {
           }
           onDownloadPDF={handleDownloadPDF}
           pdfLoading={pdfLoading}
+          onDownloadZip={handleDownloadZip}
+          zipLoading={zipLoading}
         />
 
         {error && <Alert severity="error">{error}</Alert>}
@@ -328,12 +333,8 @@ export default function PODetailPage() {
         <POProgressIndicators po={po} />
         <PODetailsSection po={po} />
         <FinancialSummarySection po={po} />
-        <POLineItemsTable
-          po={po}
-          items={items}
-          editable={canManage && !purchaseOrderStateMachine.isTerminal(po.status)}
-          onUpdateHsnSac={handleUpdateHsnSac}
-        />
+        {/* HSN/SAC is edited on the PO edit page (feedback iZqGG) — read-only here. */}
+        <POLineItemsTable po={po} items={items} editable={false} />
         <POTermsSection po={po} />
         <POApprovalInfo po={po} />
         <DocumentUploadWidget

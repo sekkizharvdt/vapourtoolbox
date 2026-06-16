@@ -353,6 +353,19 @@ export function CommercialTermsForm({
               </Alert>
             )}
 
+            {/* Detailed delivery schedule / milestones (feedback iZqGG) */}
+            <TextField
+              label="Delivery Schedule / Milestones (optional)"
+              value={terms.deliverySchedule ?? ''}
+              onChange={(e) => handleChange('deliverySchedule', e.target.value)}
+              disabled={disabled}
+              multiline
+              rows={3}
+              fullWidth
+              placeholder="e.g. First-cut drawing within 10 working days from receipt of PO and inputs; completion of engineering activities within 30 days."
+              helperText="Free-text schedule shown on the PO PDF, in addition to the delivery period above."
+            />
+
             {/* 5. Packing & Forwarding */}
             <FormControlLabel
               control={
@@ -440,6 +453,39 @@ export function CommercialTermsForm({
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={3}>
+            {/* Section visibility — uncheck to exclude from the PO PDF (e.g. for
+                a Service Order where freight/transport don't apply). Feedback iZqGG. */}
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Applicable sections
+              </Typography>
+              <FormHelperText sx={{ mt: -0.5, mb: 0.5 }}>
+                Uncheck a section to exclude it from the PO PDF.
+              </FormHelperText>
+              <Stack direction="row" flexWrap="wrap">
+                {(
+                  [
+                    ['freightRequired', 'Freight'],
+                    ['transportRequired', 'Transport'],
+                    ['transitInsuranceRequired', 'Transit Insurance'],
+                    ['erectionRequired', 'Erection & Commissioning'],
+                  ] as const
+                ).map(([field, label]) => (
+                  <FormControlLabel
+                    key={field}
+                    control={
+                      <Switch
+                        checked={terms[field] !== false}
+                        onChange={(e) => handleChange(field, e.target.checked)}
+                        disabled={disabled}
+                      />
+                    }
+                    label={label}
+                  />
+                ))}
+              </Stack>
+            </Box>
+
             {/* 6. Freight */}
             <FormControl fullWidth disabled={disabled}>
               <InputLabel>Freight</InputLabel>
@@ -701,7 +747,17 @@ export function CommercialTermsForm({
             </Box>
 
             {/* 13. Inspection */}
-            <FormControl fullWidth disabled={disabled}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={terms.inspectionRequired !== false}
+                  onChange={(e) => handleChange('inspectionRequired', e.target.checked)}
+                  disabled={disabled}
+                />
+              }
+              label="Inspection applicable (uncheck to exclude from the PO PDF)"
+            />
+            <FormControl fullWidth disabled={disabled || terms.inspectionRequired === false}>
               <InputLabel>Inspector Type</InputLabel>
               <Select
                 value={terms.inspectorType}

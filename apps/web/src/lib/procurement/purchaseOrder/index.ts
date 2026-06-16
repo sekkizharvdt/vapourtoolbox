@@ -11,6 +11,7 @@ export {
   getPOById,
   getPOItems,
   updatePOItemHsnSac,
+  updatePOItemFields,
   listPOs,
   updateDraftPO,
   type CreatePOFromOfferTerms,

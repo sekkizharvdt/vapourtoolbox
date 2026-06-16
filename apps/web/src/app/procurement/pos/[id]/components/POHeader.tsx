@@ -46,6 +46,9 @@ interface POHeaderProps {
   onCreateWorkCompletion?: () => void;
   onDownloadPDF?: () => void;
   pdfLoading?: boolean;
+  /** Download the PO PDF + attachments as a ZIP (shown only when attachments exist). */
+  onDownloadZip?: () => void;
+  zipLoading?: boolean;
 }
 
 export function POHeader({
@@ -61,6 +64,8 @@ export function POHeader({
   onCreateWorkCompletion,
   onDownloadPDF,
   pdfLoading = false,
+  onDownloadZip,
+  zipLoading = false,
 }: POHeaderProps) {
   const advancePaymentStatus = getAdvancePaymentStatus(po);
   const showIssueNudge = po.status === 'APPROVED' && canIssuePO(po);
@@ -101,6 +106,16 @@ export function POHeader({
               disabled={pdfLoading}
             >
               {pdfLoading ? 'Generating...' : 'Download PDF'}
+            </Button>
+          )}
+          {onDownloadZip && po.attachments && po.attachments.length > 0 && (
+            <Button
+              variant="outlined"
+              startIcon={<PdfIcon />}
+              onClick={onDownloadZip}
+              disabled={zipLoading}
+            >
+              {zipLoading ? 'Bundling...' : 'Download PDF + Attachments (ZIP)'}
             </Button>
           )}
           {canEditPO(po) && (
