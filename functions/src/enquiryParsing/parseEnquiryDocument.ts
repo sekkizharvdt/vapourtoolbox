@@ -405,7 +405,7 @@ export const parseEnquiryDocument = onCall(
       const client = new Anthropic({ apiKey });
 
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 8192,
         system: ENQUIRY_PARSING_PROMPT,
         messages: [
@@ -486,7 +486,7 @@ export const parseEnquiryDocument = onCall(
         conditions,
         scope,
         warnings: warnings.length ? warnings : undefined,
-        modelUsed: 'claude-sonnet-4-20250514',
+        modelUsed: 'claude-sonnet-4-6',
         processingTimeMs,
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,

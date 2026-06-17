@@ -148,7 +148,7 @@ export const compareOfferWithSpecs = onCall(
       return {
         success: true,
         deviations: [],
-        modelUsed: 'claude-sonnet-4-20250514',
+        modelUsed: 'claude-sonnet-4-6',
         processingTimeMs: Date.now() - startTime,
         documentsConsidered: [],
         documentsSkipped: [],
@@ -240,7 +240,7 @@ export const compareOfferWithSpecs = onCall(
       return {
         success: true,
         deviations: [],
-        modelUsed: 'claude-sonnet-4-20250514',
+        modelUsed: 'claude-sonnet-4-6',
         processingTimeMs: Date.now() - startTime,
         documentsConsidered,
         documentsSkipped,
@@ -286,7 +286,7 @@ The first document is the vendor offer. The remaining documents are PR/RFQ speci
       ];
 
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4096,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: contentBlocks }],
@@ -312,7 +312,7 @@ The first document is the vendor offer. The remaining documents are PR/RFQ speci
           success: false,
           error: 'Claude response was not valid JSON',
           deviations: [],
-          modelUsed: 'claude-sonnet-4-20250514',
+          modelUsed: 'claude-sonnet-4-6',
           processingTimeMs: Date.now() - startTime,
           documentsConsidered,
           documentsSkipped,
@@ -323,7 +323,7 @@ The first document is the vendor offer. The remaining documents are PR/RFQ speci
       return {
         success: true,
         deviations,
-        modelUsed: 'claude-sonnet-4-20250514',
+        modelUsed: 'claude-sonnet-4-6',
         processingTimeMs: Date.now() - startTime,
         documentsConsidered,
         documentsSkipped,
@@ -337,7 +337,7 @@ The first document is the vendor offer. The remaining documents are PR/RFQ speci
         success: false,
         error: err instanceof Error ? err.message : 'Unknown Claude error',
         deviations: [],
-        modelUsed: 'claude-sonnet-4-20250514',
+        modelUsed: 'claude-sonnet-4-6',
         processingTimeMs: Date.now() - startTime,
         documentsConsidered,
         documentsSkipped,

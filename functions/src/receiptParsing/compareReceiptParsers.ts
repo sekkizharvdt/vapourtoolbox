@@ -549,7 +549,7 @@ export const compareReceiptParsers = onCall(
               success: true,
               data: result,
               processingTimeMs: result.processingTimeMs,
-              modelUsed: 'Claude claude-sonnet-4-20250514',
+              modelUsed: 'Claude claude-sonnet-4-6',
             })
           )
           .catch(
@@ -557,7 +557,7 @@ export const compareReceiptParsers = onCall(
               success: false,
               error: error instanceof Error ? error.message : 'Unknown error',
               processingTimeMs: Date.now() - startTime,
-              modelUsed: 'Claude claude-sonnet-4-20250514',
+              modelUsed: 'Claude claude-sonnet-4-6',
             })
           ),
       ]);
