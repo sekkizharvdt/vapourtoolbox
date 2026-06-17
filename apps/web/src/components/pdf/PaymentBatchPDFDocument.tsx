@@ -36,9 +36,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 function formatCurrency(amount: number): string {
+  // ISO code ("INR 1,234"), not the ₹ glyph — the built-in PDF font has no ₹.
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
+    currencyDisplay: 'code',
     maximumFractionDigits: 0,
   }).format(amount);
 }

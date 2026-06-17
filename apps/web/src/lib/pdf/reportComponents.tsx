@@ -34,16 +34,18 @@ export const REPORT_THEME = {
 /* ─────────────────────────── Shared Styles ──────────────────── */
 
 const s = StyleSheet.create({
-  /* Page */
+  /* Page — use the built-in PDF font (Helvetica). We deliberately avoid a
+     custom font: currency is shown as the ISO code (e.g. "INR 1,234.00")
+     rather than the ₹ glyph, so no font registration is needed. Referencing an
+     unregistered family (DejaVu Sans) made @react-pdf throw at render time and
+     broke every report PDF. */
   page: {
     padding: 30,
     fontSize: 9,
-    fontFamily: 'DejaVu Sans',
   },
   pageLandscape: {
     padding: 30,
     fontSize: 9,
-    fontFamily: 'DejaVu Sans',
   },
 
   /* Header */

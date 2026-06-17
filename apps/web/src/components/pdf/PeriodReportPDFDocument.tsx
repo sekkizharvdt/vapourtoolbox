@@ -39,14 +39,15 @@ import type { CashFlowStatement } from '@/lib/accounting/reports/cashFlow';
 
 /* ─── Formatting helpers ──────────────────────────────────────── */
 
+// Use the "INR " text prefix, not the ₹ glyph — the built-in PDF font has no ₹.
 function formatINR(amount: number): string {
   const rounded = Math.round(amount);
-  return '₹' + rounded.toLocaleString('en-IN');
+  return 'INR ' + rounded.toLocaleString('en-IN');
 }
 
 function formatINRSigned(amount: number): string {
-  if (Math.abs(amount) < 0.5) return '₹0';
-  return (amount < 0 ? '-' : '') + '₹' + Math.round(Math.abs(amount)).toLocaleString('en-IN');
+  if (Math.abs(amount) < 0.5) return 'INR 0';
+  return (amount < 0 ? '-' : '') + 'INR ' + Math.round(Math.abs(amount)).toLocaleString('en-IN');
 }
 
 function formatDate(d: Date): string {

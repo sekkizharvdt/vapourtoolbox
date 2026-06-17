@@ -147,9 +147,13 @@ const local = StyleSheet.create({
 });
 
 function formatCurrency(amount: number, currency: string = 'INR'): string {
+  // Render the ISO currency CODE (e.g. "INR 1,23,456.00"), not the ₹ symbol.
+  // The built-in PDF font has no ₹ glyph (it rendered as "1"); using the code
+  // keeps the PDF font-independent and avoids registering a custom font.
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency,
+    currencyDisplay: 'code',
     minimumFractionDigits: 2,
   }).format(amount);
 }
@@ -319,7 +323,7 @@ export function POPDFDocument({
 
   return (
     <Document>
-      <ReportPage style={{ padding: 36, fontSize: 10, fontFamily: 'DejaVu Sans' }}>
+      <ReportPage style={{ padding: 36, fontSize: 10 }}>
         {/* Header with logo + company block */}
         <View style={local.header}>
           {logoDataUri && (
@@ -466,7 +470,7 @@ export function POPDFDocument({
       </ReportPage>
 
       {/* Page 2: Commercial Terms, T&C, Special Instructions, Buyer contact */}
-      <ReportPage style={{ padding: 36, fontSize: 10, fontFamily: 'DejaVu Sans' }}>
+      <ReportPage style={{ padding: 36, fontSize: 10 }}>
         <View style={local.header}>
           {logoDataUri && (
             // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image, not HTML img

@@ -43,16 +43,27 @@ const CURRENCY_LOCALES: Record<string, string> = {
 export function formatCurrency(
   amount: number,
   currency: string = 'INR',
-  options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }
+  options?: {
+    minimumFractionDigits?: number;
+    maximumFractionDigits?: number;
+    /**
+     * 'symbol' (default) shows ₹/$/€ for on-screen UI. 'code' shows the ISO
+     * code ("INR 1,234.00") — use that for PDFs, where the built-in font has
+     * no ₹ glyph (see formatCurrencyCode).
+     */
+    currencyDisplay?: 'symbol' | 'code' | 'narrowSymbol';
+  }
 ): string {
   const locale = CURRENCY_LOCALES[currency] || 'en-US';
   const minDigits = options?.minimumFractionDigits ?? 2;
   const maxDigits = options?.maximumFractionDigits ?? 2;
+  const currencyDisplay = options?.currencyDisplay ?? 'symbol';
 
   try {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
+      currencyDisplay,
       minimumFractionDigits: minDigits,
       maximumFractionDigits: maxDigits,
     }).format(amount);
@@ -63,6 +74,20 @@ export function formatCurrency(
       maximumFractionDigits: maxDigits,
     })}`;
   }
+}
+
+/**
+ * Currency formatted with the ISO code instead of the symbol — e.g.
+ * "INR 1,23,456.00". Use this in PDF documents: @react-pdf's built-in fonts
+ * have no ₹ glyph (it renders as "1"/a box), so the symbol form is unsafe
+ * there. Same signature as formatCurrency.
+ */
+export function formatCurrencyCode(
+  amount: number,
+  currency: string = 'INR',
+  options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }
+): string {
+  return formatCurrency(amount, currency, { ...options, currencyDisplay: 'code' });
 }
 
 /**

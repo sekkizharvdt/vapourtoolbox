@@ -8,7 +8,8 @@
 import React from 'react';
 import { Document } from '@react-pdf/renderer';
 import type { PurchaseOrderAmendment } from '@vapour/types';
-import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+// formatCurrencyCode (ISO code, no ₹ glyph) — PDF fonts lack the rupee symbol.
+import { formatCurrencyCode as formatCurrency, formatDate } from '@/lib/utils/formatters';
 import {
   ReportPage,
   ListHeader,
