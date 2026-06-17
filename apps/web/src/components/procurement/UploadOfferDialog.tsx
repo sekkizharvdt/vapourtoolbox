@@ -7,7 +7,7 @@
  * the extracted line items to the RFQ items.
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -797,6 +797,20 @@ export default function UploadOfferDialog({
 
   const selectedVendorInfo = getSelectedVendorInfo();
   const canParse = file && !!selectedVendorInfo && !parsing && !uploading;
+
+  // Auto-parse on upload so the comparison grid is populated by AI rather than
+  // typed by hand (feedback lekvyYE — "compare offers should be automatic, not
+  // manual entry"). Fires once per uploaded file when a vendor is selected;
+  // the manual "Parse with AI" button remains for re-parsing. On failure the
+  // ref stays set so we don't loop — the user falls back to manual entry.
+  const autoParsedUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (canParse && fileUrl && !parseResult && !parsing && autoParsedUrlRef.current !== fileUrl) {
+      autoParsedUrlRef.current = fileUrl;
+      void handleParseWithClaude();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canParse, fileUrl, parseResult]);
 
   // Track items missing prices (shown as warning — partial quotations are allowed)
   const itemsMissingPrice = offerItems.filter((item) => item.unitPrice <= 0);
