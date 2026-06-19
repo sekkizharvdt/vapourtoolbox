@@ -24,7 +24,7 @@
     "firebase-functions": "^6.6.0",
     "handlebars": "^4.7.9",
     "puppeteer-core": "^23.11.1",
-    "nodemailer": "^8.0.7"
+    "nodemailer": "^9.0.1"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",
