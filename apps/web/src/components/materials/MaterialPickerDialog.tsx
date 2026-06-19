@@ -36,7 +36,7 @@ import {
 } from '@mui/icons-material';
 import type { Material, MaterialVariant, MaterialCategory, MaterialType } from '@vapour/types';
 import {
-  PICKER_CATEGORY_GROUPS,
+  MATERIAL_CATEGORY_GROUPS,
   MATERIAL_CATEGORY_LABELS,
   getPipingCategory,
   isFlatPipingCategory,
@@ -140,8 +140,8 @@ export default function MaterialPickerDialog({
 
   // Derived: which groups are available based on the categories prop
   const availableGroups = useMemo(() => {
-    if (!categories || categories.length === 0) return PICKER_CATEGORY_GROUPS;
-    return PICKER_CATEGORY_GROUPS.filter((group) =>
+    if (!categories || categories.length === 0) return MATERIAL_CATEGORY_GROUPS;
+    return MATERIAL_CATEGORY_GROUPS.filter((group) =>
       group.categories.some((cat) => categories.includes(cat))
     ).map((group) => ({
       ...group,

@@ -343,124 +343,46 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
 };
 
 /**
- * Grouped categories for UI dropdowns
+ * Canonical material-category groups — the SINGLE source of truth for how the
+ * ~60 MaterialCategory values are grouped into user-facing families.
+ *
+ * Consumed by BOTH the MaterialPickerDialog (PR/quote linking) and the
+ * standalone /materials module landing, so the two always show the same
+ * categories (feedback Jit9v — the picker used to lump Pumps/Structural/
+ * Consumables under "Other" while the module tiled them separately). Previously
+ * there were three drifted copies of this grouping; this replaces them.
+ *
+ * Invariant: every MaterialCategory value belongs to exactly one group (the
+ * `other` group is the catch-all), so the picker can always reach every
+ * material. A unit test guards this partition.
+ *
+ * `moduleRoute` is set for groups the standalone module surfaces as a tile
+ * (each has a dedicated /materials/<x> sub-page). Groups without it
+ * (gaskets, instrument accessories, other) are picker-only — the module has no
+ * sub-page for them, but the picker still needs them for full coverage.
  */
-export const MATERIAL_CATEGORY_GROUPS = {
-  'Raw Materials - Plates': [
-    MaterialCategory.PLATES_CARBON_STEEL,
-    MaterialCategory.PLATES_STAINLESS_STEEL,
-    MaterialCategory.PLATES_DUPLEX_STEEL,
-    MaterialCategory.PLATES_ALLOY_STEEL,
-  ],
-  'Raw Materials - Pipes': [
-    MaterialCategory.PIPES_CARBON_STEEL,
-    MaterialCategory.PIPES_STAINLESS_304L,
-    MaterialCategory.PIPES_STAINLESS_316L,
-    MaterialCategory.PIPES_ALLOY_STEEL,
-    MaterialCategory.PIPES_DUPLEX_2205,
-    MaterialCategory.PIPES_SUPER_DUPLEX_2507,
-  ],
-  Fittings: [
-    MaterialCategory.FITTINGS_BUTT_WELD,
-    MaterialCategory.FITTINGS_SOCKET_WELD,
-    MaterialCategory.FITTINGS_THREADED,
-    MaterialCategory.FITTINGS_FLANGED,
-  ],
-  Fasteners: [
-    MaterialCategory.FASTENERS_BOLTS,
-    MaterialCategory.FASTENERS_NUTS,
-    MaterialCategory.FASTENERS_WASHERS,
-    MaterialCategory.FASTENERS_BOLT_NUT_WASHER_SETS,
-    MaterialCategory.FASTENERS_STUDS,
-    MaterialCategory.FASTENERS_SCREWS,
-  ],
-  Components: [
-    MaterialCategory.VALVE_GATE,
-    MaterialCategory.VALVE_GLOBE,
-    MaterialCategory.VALVE_BALL,
-    MaterialCategory.VALVE_BUTTERFLY,
-    MaterialCategory.VALVE_CHECK,
-    MaterialCategory.VALVE_OTHER,
-    MaterialCategory.PUMP_CENTRIFUGAL,
-    MaterialCategory.PUMP_POSITIVE_DISPLACEMENT,
-    MaterialCategory.INSTRUMENT_PRESSURE_GAUGE,
-    MaterialCategory.INSTRUMENT_TEMPERATURE_SENSOR,
-    MaterialCategory.INSTRUMENT_FLOW_METER,
-    MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER,
-    MaterialCategory.INSTRUMENT_CONTROL_VALVE,
-    MaterialCategory.INSTRUMENT_OTHER,
-    MaterialCategory.FLANGES,
-    MaterialCategory.FLANGES_WELD_NECK,
-    MaterialCategory.FLANGES_SLIP_ON,
-    MaterialCategory.FLANGES_BLIND,
-    MaterialCategory.GASKETS,
-    MaterialCategory.MOTORS,
-    MaterialCategory.STRAINERS,
-    MaterialCategory.SEPARATORS,
-    MaterialCategory.ELECTRICAL,
-  ],
-  'Bought-Out Components': [
-    MaterialCategory.VALVE_GATE,
-    MaterialCategory.VALVE_GLOBE,
-    MaterialCategory.VALVE_BALL,
-    MaterialCategory.VALVE_BUTTERFLY,
-    MaterialCategory.VALVE_CHECK,
-    MaterialCategory.VALVE_OTHER,
-    MaterialCategory.PUMP_CENTRIFUGAL,
-    MaterialCategory.PUMP_POSITIVE_DISPLACEMENT,
-    MaterialCategory.INSTRUMENT_PRESSURE_GAUGE,
-    MaterialCategory.INSTRUMENT_TEMPERATURE_SENSOR,
-    MaterialCategory.INSTRUMENT_FLOW_METER,
-    MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER,
-    MaterialCategory.INSTRUMENT_CONTROL_VALVE,
-    MaterialCategory.INSTRUMENT_OTHER,
-    MaterialCategory.FLANGES,
-    MaterialCategory.FLANGES_WELD_NECK,
-    MaterialCategory.FLANGES_SLIP_ON,
-    MaterialCategory.FLANGES_BLIND,
-    MaterialCategory.GASKETS,
-    MaterialCategory.MOTORS,
-    MaterialCategory.STRAINERS,
-    MaterialCategory.SEPARATORS,
-    MaterialCategory.ELECTRICAL,
-  ],
-  'Other Materials': [
-    MaterialCategory.BARS_AND_RODS,
-    MaterialCategory.SHEETS,
-    MaterialCategory.STRUCTURAL_SHAPES,
-    MaterialCategory.PLASTICS,
-    MaterialCategory.RUBBER,
-    MaterialCategory.COMPOSITES,
-  ],
-  Consumables: [
-    MaterialCategory.WELDING_CONSUMABLES,
-    MaterialCategory.PAINTS_COATINGS,
-    MaterialCategory.LUBRICANTS,
-    MaterialCategory.CHEMICALS,
-  ],
-  Other: [MaterialCategory.OTHER],
-};
-
-/**
- * Picker-specific category groups for the MaterialPickerDialog.
- * Each group defines a top-level card in the category-first landing view.
- */
-export const PICKER_CATEGORY_GROUPS: Array<{
+export interface MaterialCategoryGroup {
   key: string;
   label: string;
   categories: MaterialCategory[];
+  /** Picker shows piping family/variant drilldown for this group. */
   pipingMode: boolean;
-}> = [
+  /** Standalone /materials module tile route. Absent = picker-only group. */
+  moduleRoute?: string;
+}
+
+export const MATERIAL_CATEGORY_GROUPS: MaterialCategoryGroup[] = [
   {
-    key: 'flanges',
-    label: 'Flanges',
+    key: 'plates',
+    label: 'Plates',
     categories: [
-      MaterialCategory.FLANGES,
-      MaterialCategory.FLANGES_WELD_NECK,
-      MaterialCategory.FLANGES_SLIP_ON,
-      MaterialCategory.FLANGES_BLIND,
+      MaterialCategory.PLATES_CARBON_STEEL,
+      MaterialCategory.PLATES_STAINLESS_STEEL,
+      MaterialCategory.PLATES_DUPLEX_STEEL,
+      MaterialCategory.PLATES_ALLOY_STEEL,
     ],
-    pipingMode: true,
+    pipingMode: false,
+    moduleRoute: '/materials/plates',
   },
   {
     key: 'pipes',
@@ -474,6 +396,7 @@ export const PICKER_CATEGORY_GROUPS: Array<{
       MaterialCategory.PIPES_SUPER_DUPLEX_2507,
     ],
     pipingMode: true,
+    moduleRoute: '/materials/pipes',
   },
   {
     key: 'fittings',
@@ -485,30 +408,19 @@ export const PICKER_CATEGORY_GROUPS: Array<{
       MaterialCategory.FITTINGS_FLANGED,
     ],
     pipingMode: true,
+    moduleRoute: '/materials/fittings',
   },
   {
-    key: 'plates',
-    label: 'Plates',
+    key: 'flanges',
+    label: 'Flanges',
     categories: [
-      MaterialCategory.PLATES_CARBON_STEEL,
-      MaterialCategory.PLATES_STAINLESS_STEEL,
-      MaterialCategory.PLATES_DUPLEX_STEEL,
-      MaterialCategory.PLATES_ALLOY_STEEL,
+      MaterialCategory.FLANGES,
+      MaterialCategory.FLANGES_WELD_NECK,
+      MaterialCategory.FLANGES_SLIP_ON,
+      MaterialCategory.FLANGES_BLIND,
     ],
-    pipingMode: false,
-  },
-  {
-    key: 'fasteners',
-    label: 'Fasteners',
-    categories: [
-      MaterialCategory.FASTENERS_BOLTS,
-      MaterialCategory.FASTENERS_NUTS,
-      MaterialCategory.FASTENERS_WASHERS,
-      MaterialCategory.FASTENERS_BOLT_NUT_WASHER_SETS,
-      MaterialCategory.FASTENERS_STUDS,
-      MaterialCategory.FASTENERS_SCREWS,
-    ],
-    pipingMode: false,
+    pipingMode: true,
+    moduleRoute: '/materials/flanges',
   },
   {
     key: 'valves',
@@ -522,12 +434,14 @@ export const PICKER_CATEGORY_GROUPS: Array<{
       MaterialCategory.VALVE_OTHER,
     ],
     pipingMode: false,
+    moduleRoute: '/materials/valves',
   },
   {
-    key: 'gaskets',
-    label: 'Gaskets',
-    categories: [MaterialCategory.GASKETS],
+    key: 'pumps',
+    label: 'Pumps',
+    categories: [MaterialCategory.PUMP_CENTRIFUGAL, MaterialCategory.PUMP_POSITIVE_DISPLACEMENT],
     pipingMode: false,
+    moduleRoute: '/materials/pumps',
   },
   {
     key: 'instruments',
@@ -540,6 +454,48 @@ export const PICKER_CATEGORY_GROUPS: Array<{
       MaterialCategory.INSTRUMENT_CONTROL_VALVE,
       MaterialCategory.INSTRUMENT_OTHER,
     ],
+    pipingMode: false,
+    moduleRoute: '/materials/instruments',
+  },
+  {
+    key: 'fasteners',
+    label: 'Fasteners',
+    categories: [
+      MaterialCategory.FASTENERS_BOLTS,
+      MaterialCategory.FASTENERS_NUTS,
+      MaterialCategory.FASTENERS_WASHERS,
+      MaterialCategory.FASTENERS_BOLT_NUT_WASHER_SETS,
+      MaterialCategory.FASTENERS_STUDS,
+      MaterialCategory.FASTENERS_SCREWS,
+    ],
+    pipingMode: false,
+    moduleRoute: '/materials/fasteners',
+  },
+  {
+    key: 'structural-steel',
+    label: 'Structural Steel',
+    categories: [MaterialCategory.STRUCTURAL_SHAPES],
+    pipingMode: false,
+    moduleRoute: '/materials/structural-steel',
+  },
+  {
+    key: 'consumables',
+    label: 'Consumables',
+    categories: [
+      MaterialCategory.WELDING_CONSUMABLES,
+      MaterialCategory.PAINTS_COATINGS,
+      MaterialCategory.LUBRICANTS,
+      MaterialCategory.CHEMICALS,
+    ],
+    pipingMode: false,
+    moduleRoute: '/materials/consumables',
+  },
+  // Picker-only groups (no standalone module sub-page) — needed so the picker
+  // can reach every material.
+  {
+    key: 'gaskets',
+    label: 'Gaskets',
+    categories: [MaterialCategory.GASKETS],
     pipingMode: false,
   },
   {
@@ -562,27 +518,26 @@ export const PICKER_CATEGORY_GROUPS: Array<{
       MaterialCategory.DEMISTER_PAD,
       MaterialCategory.SPRAY_NOZZLE,
       MaterialCategory.EXPANSION_BELLOWS,
-      MaterialCategory.PUMP_CENTRIFUGAL,
-      MaterialCategory.PUMP_POSITIVE_DISPLACEMENT,
       MaterialCategory.MOTORS,
       MaterialCategory.STRAINERS,
       MaterialCategory.SEPARATORS,
       MaterialCategory.ELECTRICAL,
       MaterialCategory.BARS_AND_RODS,
       MaterialCategory.SHEETS,
-      MaterialCategory.STRUCTURAL_SHAPES,
       MaterialCategory.PLASTICS,
       MaterialCategory.RUBBER,
       MaterialCategory.COMPOSITES,
-      MaterialCategory.WELDING_CONSUMABLES,
-      MaterialCategory.PAINTS_COATINGS,
-      MaterialCategory.LUBRICANTS,
-      MaterialCategory.CHEMICALS,
       MaterialCategory.OTHER,
     ],
     pipingMode: false,
   },
 ];
+
+/** Material-category groups the standalone /materials module surfaces as tiles. */
+export const MATERIAL_MODULE_TILE_GROUPS: Array<MaterialCategoryGroup & { moduleRoute: string }> =
+  MATERIAL_CATEGORY_GROUPS.filter(
+    (g): g is MaterialCategoryGroup & { moduleRoute: string } => !!g.moduleRoute
+  );
 
 // ============================================================================
 // Material Properties
