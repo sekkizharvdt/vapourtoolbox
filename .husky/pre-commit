@@ -65,6 +65,24 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Functions lockfile-sync guard. The Cloud Functions deploy runs `npm ci`
+# against functions/package-lock.json (a SEPARATE npm lockfile from the root
+# pnpm-lock.yaml). If functions/package.json changes without regenerating the
+# lock, the deploy fails at build time with "npm ci ... not in sync". Catch it
+# here. Only runs when a functions manifest is staged, so normal commits stay fast.
+if git diff --cached --name-only | grep -qE '^functions/(package\.json|package-lock\.json)$'; then
+  echo "🔍 Verifying functions/package-lock.json is in sync (deploy runs npm ci)..."
+  (cd functions && npm ci --dry-run --no-audit --no-fund) >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    echo "❌ functions/package.json and functions/package-lock.json are out of sync."
+    echo "   The Firebase deploy runs 'npm ci' here and will fail. To fix:"
+    echo "     (cd functions && npm install) && git add functions/package-lock.json"
+    echo "   To bypass for this commit only (not recommended): git commit --no-verify"
+    exit 1
+  fi
+  echo "✅ functions lockfile in sync"
+fi
+
 # Production dependency security audit — mirrors the CI "Security Audit" job
 # (pnpm audit --production --audit-level=high), which has been the ONLY CI
 # failure we've hit. Catch high-severity advisories here instead of at CI.

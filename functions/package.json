@@ -36,7 +36,16 @@
     "typescript": "^5.2.0"
   },
   "private": true,
+  "comment_overrides": "Security overrides for the functions npm tree (used by Firebase deploy's `npm ci` — the root pnpm overrides do NOT apply here). Same-major fixes chosen to avoid runtime breakage in the deployed backend. minimatch is intentionally NOT forced: its vulnerable 5.x/9.x instances sit beside a safe 3.1.2 (glob@3), so a global force would break that consumer; the advisory is a ReDoS in path-matching on trusted inputs, low risk for a backend.",
   "overrides": {
-    "fast-xml-parser": ">=5.3.6"
+    "fast-xml-parser": "^5.7.0",
+    "@grpc/grpc-js": "^1.14.4",
+    "form-data": "^2.5.6",
+    "protobufjs": "^7.6.4",
+    "path-to-regexp": "~0.1.13",
+    "node-forge": "^1.4.0",
+    "basic-ftp": "^5.3.1",
+    "ws": "^8.20.1",
+    "lodash": ">=4.18.0"
   }
 }
