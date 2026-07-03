@@ -31,7 +31,19 @@ Scaffold a dialog or form component that survives the form round-trip test (crea
    }, [open, editingItem]);
    ```
 
-   **Rule 14 — Timestamp conversion.** When pre-filling dates, check for Firestore `Timestamp` before `Date` (`'toDate' in raw` first, `instanceof Date` second).
+   **Rule 14 — Timestamp conversion.** Firestore returns `Timestamp` at runtime even when TS types say `Date`. When pre-filling or displaying dates:
+
+   ```typescript
+   const raw = doc.someDate;
+   const date =
+     raw && typeof raw === 'object' && 'toDate' in raw
+       ? (raw as { toDate: () => Date }).toDate()
+       : raw instanceof Date
+         ? raw
+         : new Date(raw as string);
+   ```
+
+   `instanceof Date` alone is insufficient — always check for `toDate` first.
 
    **Rule 14c — safe validation.** Optional Firestore fields may be `undefined`: `(field ?? '').trim()`, never `field.trim()`.
 

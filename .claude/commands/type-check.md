@@ -1,28 +1,28 @@
+---
+description: Type-check all packages, showing only the error lines, and fix them.
+---
+
 # Type Check
 
-Run TypeScript type checking across all packages.
+Run TypeScript type checking across all packages. Show only `error TS` lines — a clean check is one line of report.
 
 ## Steps
 
-1. Check types in the web app:
+1. Check types in the web app (covers most errors — do this first):
 
    ```bash
-   pnpm --filter @vapour/web type-check
+   pnpm --filter @vapour/web type-check 2>&1 | grep -E "error TS" | head -40
    ```
 
-2. Check types in the types package:
+   No output = pass.
+
+2. Check the shared packages in one pass:
 
    ```bash
-   pnpm --filter @vapour/types type-check
+   pnpm --filter "@vapour/*" --filter "!@vapour/web" type-check 2>&1 | grep -E "error TS|Error" | head -20
    ```
 
-3. Check types in constants:
-
-   ```bash
-   pnpm --filter @vapour/constants type-check
-   ```
-
-4. For any type errors:
+3. For any type errors:
    - Read the file with the error
    - Fix the type issue
    - Common fixes:
@@ -31,4 +31,6 @@ Run TypeScript type checking across all packages.
      - Add null checks for optional values
      - Update interfaces if schema changed
 
-5. Re-run until all packages pass.
+4. Re-run until all packages pass. If errors exceed ~20, fix them in file batches and re-run per batch rather than after every single fix.
+
+5. Report "type check passes across packages" in one line plus a short list of fixes — never paste the full compiler output.
