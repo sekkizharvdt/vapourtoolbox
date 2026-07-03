@@ -121,6 +121,13 @@ service cloud.firestore {
       //   - Pending profile (no invitation): status=pending, permissions=0
       //   - Active profile (via invitation): status=active, permissions>0
       //         OR users with MANAGE_USERS permission can create any user
+      //
+      // SECURITY: the `permissions` a user writes to their OWN new profile is NOT
+      // trusted for authorization. The onUserUpdate Cloud Function
+      // (functions/src/userManagement.ts → resolveInitialGrant) recomputes the grant
+      // from the admin-created invitation / internal-domain default and mints custom
+      // claims from THAT — every other rule authorizes off claims, never off this
+      // field — so a self-created "permissions: <admin>" doc yields zero claims.
       allow create: if (isOwner(userId) &&
                        ((request.resource.data.status == 'pending' &&
                          request.resource.data.isActive == false &&

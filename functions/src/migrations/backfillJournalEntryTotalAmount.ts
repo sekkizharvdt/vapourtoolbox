@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
+import { requirePermission, MANAGE_USERS_BIT } from '../utils/requirePermission';
 
 interface BackfillResult {
   total: number;
@@ -26,9 +27,8 @@ export const backfillJournalEntryTotalAmount = onCall<void, Promise<BackfillResu
     memory: '512MiB',
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'User must be authenticated to run migrations');
-    }
+    // Admin-only: bulk-rewrites journal-entry totals. Admin SDK bypasses rules (rule 5).
+    requirePermission(request, MANAGE_USERS_BIT, 'run the journal-entry backfill migration');
 
     const db = getFirestore();
     const result: BackfillResult = { total: 0, updated: 0, skipped: 0, errors: 0 };
@@ -96,20 +96,30 @@ export const backfillJournalEntryTotalAmount = onCall<void, Promise<BackfillResu
           }
 
           batchDocs.push({ ref: doc.ref, update });
+        } catch (docError) {
+          logger.error(`Error processing document ${doc.id}`, docError);
+          result.errors++;
+        }
 
-          if (batchDocs.length >= BATCH_SIZE) {
+        // Commit when full. OUTSIDE the per-doc try, always reset in `finally` —
+        // a failed commit must still clear batchDocs, else the next push builds a
+        // >500-op batch that Firestore rejects forever (silently skipping the rest).
+        if (batchDocs.length >= BATCH_SIZE) {
+          const pending = batchDocs.length;
+          try {
             const batch = db.batch();
             for (const item of batchDocs) {
               batch.update(item.ref, item.update);
             }
             await batch.commit();
-            result.updated += batchDocs.length;
-            logger.info(`Committed batch of ${batchDocs.length} updates`);
+            result.updated += pending;
+            logger.info(`Committed batch of ${pending} updates`);
+          } catch (batchError) {
+            logger.error('Error committing batch', batchError);
+            result.errors += pending;
+          } finally {
             batchDocs = [];
           }
-        } catch (docError) {
-          logger.error(`Error processing document ${doc.id}`, docError);
-          result.errors++;
         }
       }
 

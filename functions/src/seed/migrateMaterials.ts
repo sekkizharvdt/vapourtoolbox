@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
+import { requirePermission, MANAGE_USERS_BIT } from '../utils/requirePermission';
 
 /**
  * One-time migration: Convert existing subcollection-based piping materials
@@ -179,9 +180,8 @@ export const migratePipingMaterials = onCall<{ dryRun?: boolean }, Promise<Migra
     memory: '512MiB',
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'User must be authenticated');
-    }
+    // Admin-only: migrates the piping materials catalog. Admin SDK bypasses rules (rule 5).
+    requirePermission(request, MANAGE_USERS_BIT, 'run the piping-materials migration');
 
     const dryRun = request.data?.dryRun ?? false;
     const db = getFirestore();

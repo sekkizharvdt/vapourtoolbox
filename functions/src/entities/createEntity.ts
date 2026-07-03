@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import { createAuditLog, getActorFromAuth } from '../utils/audit';
 import { enforceRateLimit, writeRateLimiter, RateLimitError } from '../utils/rateLimiter';
+import { requirePermission, CREATE_ENTITIES_BIT } from '../utils/requirePermission';
 
 /**
  * Tax identifiers interface (matches @vapour/types)
@@ -27,12 +28,9 @@ interface TaxIdentifiers {
  * 5. All input is sanitized and validated
  */
 export const createEntity = onCall(async (request) => {
-  // 1. Authentication check
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'User must be authenticated to create entities');
-  }
-
-  const userId = request.auth.uid;
+  // 1. Authentication + permission check (Admin SDK bypasses Firestore rules,
+  //    so CREATE_ENTITIES must be enforced here — CLAUDE.md rule 5).
+  const userId = requirePermission(request, CREATE_ENTITIES_BIT, 'create entities');
 
   // 2. Rate limiting check
   try {
@@ -165,7 +163,7 @@ export const createEntity = onCall(async (request) => {
 
     // Remove undefined values to comply with Firestore requirements
     const cleanedEntityData = Object.fromEntries(
-      Object.entries(entityData).filter(([_, value]) => value !== undefined)
+      Object.entries(entityData).filter(([, value]) => value !== undefined)
     );
 
     const docRef = await entitiesRef.add(cleanedEntityData);

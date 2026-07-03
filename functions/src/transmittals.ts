@@ -577,6 +577,19 @@ export const getTransmittalDownloadUrl = onCall(async (request) => {
   try {
     const bucket = admin.storage().bucket();
     const filePath = fileUrl.replace(`gs://${bucket.name}/`, '');
+
+    // SECURITY: the Admin SDK signs URLs with no regard for Storage rules, so an
+    // unvalidated path would let any authenticated caller exfiltrate ANY object in
+    // the bucket (HR receipts, payroll, other projects' documents). Restrict signing
+    // to transmittal artifacts under a project, and reject path-traversal.
+    const TRANSMITTAL_PATH = /^projects\/[^/]+\/transmittals\/[^/]+\/[^/]+\.(pdf|zip)$/;
+    if (filePath.includes('..') || !TRANSMITTAL_PATH.test(filePath)) {
+      throw new HttpsError(
+        'permission-denied',
+        'File path is not an accessible transmittal artifact'
+      );
+    }
+
     const file = bucket.file(filePath);
 
     const [exists] = await file.exists();
@@ -592,6 +605,10 @@ export const getTransmittalDownloadUrl = onCall(async (request) => {
 
     return { downloadUrl: url };
   } catch (error) {
+    // Preserve intentional client errors (not-found / permission-denied / invalid).
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error('Error getting download URL:', error);
     throw new HttpsError('internal', 'Failed to get download URL');
   }

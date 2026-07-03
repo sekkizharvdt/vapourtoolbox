@@ -109,6 +109,69 @@ const PERMISSION_FLAGS = {
   APPROVE_DOCUMENTS: 1 << 30, // 1073741824 - Approve document submissions
 };
 
+// VIEWER preset — MUST match PERMISSION_PRESETS.VIEWER in packages/constants/src/permissions.ts.
+// Default grant for a first-time internal user who has no explicit invitation.
+const VIEWER_PRESET =
+  PERMISSION_FLAGS.VIEW_PROJECTS |
+  PERMISSION_FLAGS.VIEW_ENTITIES |
+  PERMISSION_FLAGS.VIEW_ACCOUNTING |
+  PERMISSION_FLAGS.VIEW_PROCUREMENT |
+  PERMISSION_FLAGS.VIEW_ESTIMATION;
+
+/**
+ * Resolve the authoritative permission grant for a *newly created* user profile.
+ *
+ * SECURITY (privilege-escalation fix): user documents are only ever created by
+ * self-service on first sign-in (doc id === caller uid), and Firestore rules let
+ * a user create their own /users/{uid} doc. That means the `permissions` value on
+ * a freshly-created doc is client-controlled and MUST NOT be trusted — a raw
+ * client write of an active profile with arbitrary permissions would otherwise be
+ * minted straight into custom claims. We recompute the grant here from
+ * admin-controlled sources only:
+ *   1. A matching, non-expired invitation (invitations can only be created by an
+ *      admin — see firestore.rules /invitations create rule).
+ *   2. Otherwise, internal-domain users get the read-only VIEWER preset.
+ *   3. Otherwise (external, no invitation) → no permissions (stays pending).
+ */
+async function resolveInitialGrant(
+  email: string
+): Promise<{ permissions: number; permissions2: number }> {
+  const db = admin.firestore();
+  const normalizedEmail = (email || '').toLowerCase();
+
+  // 1. Admin-created invitation for this email (the client may have already flipped
+  //    it to 'accepted', so accept either status). Invitation writes are gated by
+  //    MANAGE_USERS in the rules, so the permissions it carries are trustworthy.
+  const invSnap = await db
+    .collection('invitations')
+    .where('email', '==', normalizedEmail)
+    .where('status', 'in', ['pending', 'accepted'])
+    .get();
+
+  const now = Date.now();
+  for (const doc of invSnap.docs) {
+    const inv = doc.data();
+    const expiresAt =
+      inv.expiresAt && typeof inv.expiresAt.toDate === 'function'
+        ? inv.expiresAt.toDate().getTime()
+        : 0;
+    if (expiresAt >= now) {
+      return {
+        permissions: (inv.permissions as number) || 0,
+        permissions2: (inv.permissions2 as number) || 0,
+      };
+    }
+  }
+
+  // 2. Internal-domain default.
+  if (getUserDomain(normalizedEmail) === 'internal') {
+    return { permissions: VIEWER_PRESET, permissions2: 0 };
+  }
+
+  // 3. External with no valid invitation — no grant.
+  return { permissions: 0, permissions2: 0 };
+}
+
 // Helper to check if user has admin permissions
 function hasAdminPermission(permissions: number): boolean {
   return (permissions & PERMISSION_FLAGS.MANAGE_USERS) === PERMISSION_FLAGS.MANAGE_USERS;
@@ -250,9 +313,29 @@ export const onUserUpdate = onDocumentWritten(
 
       // User is active - set up custom claims
       // Permissions are stored directly on the user document (no roles)
-      const permissions = userData.permissions || 0;
-      const permissions2 = userData.permissions2 || 0;
+      let permissions = userData.permissions || 0;
+      let permissions2 = userData.permissions2 || 0;
       const domain = getUserDomain(userData.email);
+
+      // SECURITY: On self-service profile creation the `permissions` field is
+      // client-controlled (see resolveInitialGrant). Never trust it — recompute the
+      // grant from admin-controlled sources and correct the document so the stored
+      // value can never exceed what an invitation / the internal default allows.
+      if (isNewDocument) {
+        const grant = await resolveInitialGrant(userData.email);
+        if (grant.permissions !== permissions || grant.permissions2 !== permissions2) {
+          console.warn(
+            `Overriding client-supplied permissions on new user ${userData.email}: ` +
+              `doc=(${permissions}/${permissions2}) → granted=(${grant.permissions}/${grant.permissions2})`
+          );
+        }
+        permissions = grant.permissions;
+        permissions2 = grant.permissions2;
+        await change.after.ref.update({
+          permissions,
+          ...(permissions2 > 0 ? { permissions2 } : { permissions2: FieldValue.delete() }),
+        });
+      }
 
       // Get allowed modules (empty array means all modules)
       const allowedModules = Array.isArray(userData.allowedModules) ? userData.allowedModules : [];

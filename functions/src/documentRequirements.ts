@@ -67,73 +67,69 @@ export const onDocumentUploaded = onDocumentCreated(
     );
 
     try {
-      // Get project document requirements
       const projectRef = db.collection('projects').doc(projectId);
-      const projectSnap = await projectRef.get();
 
-      if (!projectSnap.exists) {
-        logger.warn(`[onDocumentUploaded] Project ${projectId} not found`);
-        return;
-      }
-
-      const projectData = projectSnap.data();
-      const documentRequirements = (projectData?.documentRequirements ||
-        []) as DocumentRequirement[];
-
-      if (documentRequirements.length === 0) {
-        logger.info(`[onDocumentUploaded] No document requirements for project ${projectId}`);
-        return;
-      }
-
-      // Find matching requirements
-      // Match by:
-      // 1. Same document category
-      // 2. Status is NOT_SUBMITTED
-      // 3. Not already linked
-      const matchingRequirements = documentRequirements.filter(
-        (req: DocumentRequirement) =>
-          req.documentCategory === docCategory &&
-          req.status === 'NOT_SUBMITTED' &&
-          !req.linkedDocumentId
-      );
-
-      if (matchingRequirements.length === 0) {
-        logger.info(
-          `[onDocumentUploaded] No matching requirements for document ${documentId}, category: ${docCategory}`
-        );
-        return;
-      }
-
-      // Link the document to the first matching requirement
-      // (If multiple requirements match, link to the first one)
-      const requirementToLink = matchingRequirements[0];
-
-      logger.info(
-        `[onDocumentUploaded] Linking document ${documentId} to requirement ${requirementToLink.id}`
-      );
-
-      // Update the requirement
-      const updatedRequirements = documentRequirements.map((req: DocumentRequirement) => {
-        if (req.id === requirementToLink.id) {
-          return {
-            ...req,
-            linkedDocumentId: documentId,
-            status: 'SUBMITTED',
-            submittedDate: Timestamp.now(),
-          };
+      // Read-modify-write on the project's documentRequirements array MUST be
+      // transactional (CLAUDE.md rule 19). Two documents of the same category
+      // uploaded together fire this trigger concurrently; without a transaction
+      // both read the same snapshot and the second update() clobbers the first
+      // (lost link) or both grab matchingRequirements[0] (double-link).
+      const linkedRequirementId = await db.runTransaction(async (tx) => {
+        const projectSnap = await tx.get(projectRef);
+        if (!projectSnap.exists) {
+          logger.warn(`[onDocumentUploaded] Project ${projectId} not found`);
+          return null;
         }
-        return req;
+
+        const projectData = projectSnap.data();
+        const documentRequirements = (projectData?.documentRequirements ||
+          []) as DocumentRequirement[];
+
+        if (documentRequirements.length === 0) {
+          logger.info(`[onDocumentUploaded] No document requirements for project ${projectId}`);
+          return null;
+        }
+
+        // Match by: same category, NOT_SUBMITTED, not already linked.
+        const requirementToLink = documentRequirements.find(
+          (req: DocumentRequirement) =>
+            req.documentCategory === docCategory &&
+            req.status === 'NOT_SUBMITTED' &&
+            !req.linkedDocumentId
+        );
+
+        if (!requirementToLink) {
+          logger.info(
+            `[onDocumentUploaded] No matching requirements for document ${documentId}, category: ${docCategory}`
+          );
+          return null;
+        }
+
+        const updatedRequirements = documentRequirements.map((req: DocumentRequirement) => {
+          if (req.id === requirementToLink.id) {
+            return {
+              ...req,
+              linkedDocumentId: documentId,
+              status: 'SUBMITTED',
+              submittedDate: Timestamp.now(),
+            };
+          }
+          return req;
+        });
+
+        tx.update(projectRef, {
+          documentRequirements: updatedRequirements,
+          updatedAt: Timestamp.now(),
+        });
+
+        return requirementToLink.id;
       });
 
-      // Save back to project
-      await projectRef.update({
-        documentRequirements: updatedRequirements,
-        updatedAt: Timestamp.now(),
-      });
-
-      logger.info(
-        `[onDocumentUploaded] Successfully linked document ${documentId} to requirement ${requirementToLink.id} in project ${projectId}`
-      );
+      if (linkedRequirementId) {
+        logger.info(
+          `[onDocumentUploaded] Successfully linked document ${documentId} to requirement ${linkedRequirementId} in project ${projectId}`
+        );
+      }
     } catch (error) {
       logger.error(`[onDocumentUploaded] Error processing document ${documentId}:`, error);
       // Don't throw - let the document upload succeed even if linking fails

@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
+import { requirePermission, MANAGE_USERS_BIT } from '../utils/requirePermission';
 
 /**
  * Statuses that were incorrectly stored on `status` but actually represent
@@ -39,10 +40,9 @@ export const migratePaymentStatus = onCall<void, Promise<MigratePaymentStatusRes
     memory: '512MiB',
   },
   async (request) => {
-    // Admin-only: require authentication
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'User must be authenticated to run migrations');
-    }
+    // Admin-only: rewrites workflow status on every bill/invoice. The Admin SDK
+    // bypasses Firestore rules, so MANAGE_USERS must be enforced here (rule 5).
+    requirePermission(request, MANAGE_USERS_BIT, 'run the payment-status migration');
 
     const db = getFirestore();
     const result: MigratePaymentStatusResult = {
@@ -131,21 +131,31 @@ export const migratePaymentStatus = onCall<void, Promise<MigratePaymentStatusRes
           }
 
           batchDocs.push({ ref: doc.ref, update });
+        } catch (docError) {
+          logger.error(`Error processing document ${doc.id}`, docError);
+          result.errors++;
+        }
 
-          // Commit batch when we reach the limit
-          if (batchDocs.length >= BATCH_SIZE) {
+        // Commit batch when we reach the limit. Kept OUTSIDE the per-document
+        // try/catch and always reset in `finally`: if a commit fails, `batchDocs`
+        // must still be cleared, otherwise the next push builds a >500-op batch
+        // that Firestore rejects forever, silently skipping every remaining doc.
+        if (batchDocs.length >= BATCH_SIZE) {
+          const pending = batchDocs.length;
+          try {
             const batch = db.batch();
             for (const item of batchDocs) {
               batch.update(item.ref, item.update);
             }
             await batch.commit();
-            result.migrated += batchDocs.length;
-            logger.info(`Committed batch of ${batchDocs.length} updates`);
+            result.migrated += pending;
+            logger.info(`Committed batch of ${pending} updates`);
+          } catch (batchError) {
+            logger.error('Error committing batch', batchError);
+            result.errors += pending;
+          } finally {
             batchDocs = [];
           }
-        } catch (docError) {
-          logger.error(`Error processing document ${doc.id}`, docError);
-          result.errors++;
         }
       }
 

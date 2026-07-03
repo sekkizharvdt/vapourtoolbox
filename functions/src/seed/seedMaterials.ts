@@ -3,6 +3,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import * as path from 'path';
 import * as fs from 'fs';
+import { requirePermission, MANAGE_USERS_BIT } from '../utils/requirePermission';
 
 /**
  * File registry for seed data.
@@ -334,9 +335,10 @@ export const seedMaterials = onCall<SeedMaterialsRequest, Promise<SeedMaterialsR
 
     logger.info('Starting materials seed operation', { dataType, deleteExisting });
 
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'User must be authenticated to seed data');
-    }
+    // Admin-only: this can hard-delete and recreate the entire materials catalog
+    // (orphaning BOM/PR/estimation references). Gate on MANAGE_USERS — the Admin
+    // SDK bypasses Firestore rules (CLAUDE.md rule 5).
+    requirePermission(request, MANAGE_USERS_BIT, 'seed materials data');
 
     const db = getFirestore();
     const result: SeedMaterialsResult = {
