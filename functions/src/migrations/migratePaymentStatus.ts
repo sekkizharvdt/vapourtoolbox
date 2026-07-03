@@ -78,10 +78,19 @@ export const migratePaymentStatus = onCall<void, Promise<MigratePaymentStatusRes
 
       for (const doc of allDocs) {
         const data = doc.data();
+
+        // rule 3: never rewrite soft-deleted transactions.
+        if (data.isDeleted === true) {
+          result.skipped++;
+          continue;
+        }
+
         const currentStatus = data.status as string | undefined;
         const currentPaymentStatus = data.paymentStatus as string | undefined;
         const amountPaid = (data.amountPaid as number) || 0;
-        const totalAmount = (data.totalAmount as number) || (data.baseAmount as number) || 0;
+        // rule 21: compare against INR baseAmount; amountPaid is tracked in INR, so
+        // preferring a foreign-currency totalAmount would mis-compare currencies.
+        const totalAmount = (data.baseAmount as number) || (data.totalAmount as number) || 0;
 
         let update: Record<string, unknown> | null = null;
 
@@ -101,7 +110,8 @@ export const migratePaymentStatus = onCall<void, Promise<MigratePaymentStatusRes
             !currentPaymentStatus
           ) {
             let calculatedPaymentStatus: string;
-            if (totalAmount > 0 && amountPaid >= totalAmount) {
+            // rule 21: tolerance so a float residue doesn't misclassify a fully-paid bill.
+            if (totalAmount > 0 && amountPaid >= totalAmount - 0.01) {
               calculatedPaymentStatus = 'PAID';
             } else if (amountPaid > 0) {
               calculatedPaymentStatus = 'PARTIALLY_PAID';

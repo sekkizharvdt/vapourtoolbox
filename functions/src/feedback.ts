@@ -119,14 +119,30 @@ export const onFeedbackResolved = onDocumentUpdated('feedback/{feedbackId}', asy
       createdAt: admin.firestore.Timestamp.now(),
     };
 
-    const taskRef = await admin.firestore().collection('taskNotifications').add(taskData);
+    // Deterministic id keyed on the feedback doc: Firestore triggers are
+    // at-least-once, so a retried event must not create a second task. `create()`
+    // throws ALREADY_EXISTS on a duplicate, which we treat as a no-op success.
+    const taskId = `feedback-resolution-${feedbackId}`;
+    const taskRef = admin.firestore().collection('taskNotifications').doc(taskId);
+    try {
+      await taskRef.create(taskData);
+    } catch (createErr) {
+      if ((createErr as { code?: number }).code === 6) {
+        // ALREADY_EXISTS — a task for this resolution already exists.
+        logger.info(`Resolution task already exists for feedback ${feedbackId}, skipping`, {
+          taskId,
+        });
+        return { taskId };
+      }
+      throw createErr;
+    }
 
     logger.info(`Created resolution check task for feedback ${feedbackId}`, {
-      taskId: taskRef.id,
+      taskId,
       userId: afterData.userId,
     });
 
-    return { taskId: taskRef.id };
+    return { taskId };
   } catch (error) {
     logger.error(`Error creating task for feedback ${feedbackId}:`, error);
     return null;

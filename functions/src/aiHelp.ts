@@ -166,6 +166,30 @@ export const aiHelp = onCall(
       throw new HttpsError('invalid-argument', 'Messages array is required');
     }
 
+    // Bound the request so a caller can't run up the Anthropic bill with a huge
+    // or malformed payload (every message is billed as input tokens).
+    const MAX_MESSAGES = 30;
+    const MAX_CONTENT_CHARS = 8000;
+    if (messages.length > MAX_MESSAGES) {
+      throw new HttpsError('invalid-argument', `Too many messages (max ${MAX_MESSAGES}).`);
+    }
+    for (const msg of messages) {
+      if (
+        !msg ||
+        (msg.role !== 'user' && msg.role !== 'assistant') ||
+        typeof msg.content !== 'string' ||
+        msg.content.length === 0
+      ) {
+        throw new HttpsError('invalid-argument', 'Each message needs a valid role and content.');
+      }
+      if (msg.content.length > MAX_CONTENT_CHARS) {
+        throw new HttpsError(
+          'invalid-argument',
+          `Message too long (max ${MAX_CONTENT_CHARS} characters).`
+        );
+      }
+    }
+
     // Get API key from secret
     const apiKey = anthropicApiKey.value();
     if (!apiKey) {

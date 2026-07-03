@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { requirePermission, MANAGE_USERS_BIT } from '../utils/requirePermission';
+import { roundToPaisa } from '../utils/amountHelpers';
 
 interface BackfillResult {
   total: number;
@@ -70,8 +71,12 @@ export const backfillJournalEntryTotalAmount = onCall<void, Promise<BackfillResu
             }
           }
 
-          // Fallback: use existing amount field if entries don't yield a value
-          const calculatedAmount = totalDebits > 0 ? totalDebits : (data.amount as number) || 0;
+          // Fallback: use existing amount field if entries don't yield a value.
+          // rule 21: round the float-accumulated sum to paisa so equality checks
+          // (e.g. paid-in-full) aren't tripped by residues like 4999.999999.
+          const calculatedAmount = roundToPaisa(
+            totalDebits > 0 ? totalDebits : (data.amount as number) || 0
+          );
 
           if (calculatedAmount === 0) {
             logger.warn(

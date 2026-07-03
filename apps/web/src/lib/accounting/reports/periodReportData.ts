@@ -13,7 +13,7 @@ import type { CustomerInvoice } from '@vapour/types';
 import { generateComparativeProfitLossReport, type ProfitLossReport } from './profitLoss';
 import { generateBalanceSheet, type BalanceSheetReport } from './balanceSheet';
 import { generateCashFlowStatement, type CashFlowStatement } from './cashFlow';
-import { getInrAmount } from '@/lib/accounting/amountHelpers';
+import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
 
 /* ─── Period model ────────────────────────────────────────────── */
 
@@ -148,8 +148,10 @@ async function fetchAgingForType(
     const data = d.data() as Partial<CustomerInvoice> & { isDeleted?: boolean };
     if (data.isDeleted === true) continue;
 
-    const outstanding = Number(data.outstandingAmount ?? 0);
-    if (outstanding <= 0.01) continue; // rule 21: use tolerance for zero-check
+    // rule 21: derive outstanding from total(INR baseAmount) − paid; never trust
+    // the cached outstandingAmount, which goes stale after a payment.
+    const outstanding = deriveOutstanding(data);
+    if (outstanding <= 0.01) continue; // tolerance for float residue
 
     const dueDate = toDate(data.dueDate);
     const daysPastDue = dueDate

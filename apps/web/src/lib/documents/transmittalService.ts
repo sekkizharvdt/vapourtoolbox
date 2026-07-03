@@ -13,7 +13,6 @@ import {
   doc,
   getDocs,
   getDoc,
-  addDoc,
   updateDoc,
   query,
   where,
@@ -21,8 +20,10 @@ import {
   limit,
   Timestamp,
   writeBatch,
+  runTransaction,
   type Firestore,
 } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   DocumentTransmittal,
@@ -33,35 +34,38 @@ import type {
 } from '@vapour/types';
 import { masterDocumentStateMachine } from '@/lib/workflow/stateMachines';
 
+/** Counter doc key for a project's transmittal sequence (in the shared `counters` collection). */
+function transmittalCounterKey(projectId: string): string {
+  return `transmittal-${projectId}`;
+}
+
 /**
- * Generate next transmittal number for a project
+ * Highest transmittal sequence number currently used by a project, by scanning
+ * existing docs. Used ONLY to seed the atomic counter the first time (legacy
+ * transmittals created before the counter existed). Client-SDK transactions
+ * cannot run queries, so this one-time scan happens outside the transaction.
+ */
+async function getMaxTransmittalSequence(db: Firestore, projectId: string): Promise<number> {
+  const transmittalsRef = collection(db, 'projects', projectId, 'transmittals');
+  const snapshot = await getDocs(query(transmittalsRef, orderBy('transmittalNumber', 'desc')));
+  for (const d of snapshot.docs) {
+    const match = (d.data() as DocumentTransmittal).transmittalNumber?.match(/TR-(\d+)/);
+    if (match?.[1]) return parseInt(match[1], 10);
+  }
+  return 0;
+}
+
+/**
+ * Generate the next transmittal number for a project.
  * Format: TR-001, TR-002, etc.
+ *
+ * NOTE: standalone use is racy (two callers read the same max). Prefer
+ * createTransmittal(), which allocates the number and writes the doc atomically.
+ * Retained for callers that only need a preview.
  */
 export async function generateTransmittalNumber(db: Firestore, projectId: string): Promise<string> {
-  const transmittalsRef = collection(db, 'projects', projectId, 'transmittals');
-  const q = query(transmittalsRef, orderBy('transmittalNumber', 'desc'));
-  const snapshot = await getDocs(q);
-
-  if (snapshot.empty) {
-    return 'TR-001';
-  }
-
-  // Get the highest transmittal number
-  const lastTransmittal = snapshot.docs[0]?.data() as DocumentTransmittal | undefined;
-  if (!lastTransmittal) {
-    return 'TR-001';
-  }
-
-  const lastNumber = lastTransmittal.transmittalNumber;
-
-  // Extract number and increment
-  const match = lastNumber.match(/TR-(\d+)/);
-  if (!match || !match[1]) {
-    return 'TR-001';
-  }
-
-  const nextNumber = parseInt(match[1], 10) + 1;
-  return `TR-${nextNumber.toString().padStart(3, '0')}`;
+  const next = (await getMaxTransmittalSequence(db, projectId)) + 1;
+  return `TR-${next.toString().padStart(3, '0')}`;
 }
 
 /**
@@ -88,36 +92,64 @@ export async function createTransmittal(
 ): Promise<string> {
   // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
   // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
-  // Generate transmittal number
-  const transmittalNumber = await generateTransmittalNumber(db, data.projectId);
+  const transmittalsRef = collection(db, 'projects', data.projectId, 'transmittals');
+  const newDocRef = doc(transmittalsRef); // pre-generate id so we can set() inside the tx
+  const counterRef = doc(db, COLLECTIONS.COUNTERS, transmittalCounterKey(data.projectId));
+
+  // One-time seed of the counter from existing docs. Queries aren't allowed inside
+  // a client transaction, so read the current max here; the transaction only
+  // consumes it when the counter doc doesn't exist yet.
+  const counterSnap = await getDoc(counterRef);
+  const seedValue = counterSnap.exists()
+    ? null
+    : await getMaxTransmittalSequence(db, data.projectId);
 
   const now = Timestamp.now();
 
-  const transmittal: Omit<DocumentTransmittal, 'id'> = {
-    projectId: data.projectId,
-    projectName: data.projectName,
-    transmittalNumber,
-    transmittalDate: now,
-    status: 'DRAFT',
-    clientName: data.clientName,
-    ...(data.clientContact !== undefined && { clientContact: data.clientContact }),
-    ...(data.recipientEmail !== undefined && { recipientEmail: data.recipientEmail }),
-    documentIds: data.documentIds,
-    documentCount: data.documentIds.length,
-    ...(data.subject !== undefined && { subject: data.subject }),
-    ...(data.coverNotes !== undefined && { coverNotes: data.coverNotes }),
-    ...(data.purposeOfIssue !== undefined && { purposeOfIssue: data.purposeOfIssue }),
-    ...(data.deliveryMethod !== undefined && { deliveryMethod: data.deliveryMethod }),
-    createdBy: data.createdBy,
-    createdByName: data.createdByName,
-    createdAt: now,
-    updatedAt: now,
-  };
+  // Allocate the sequence number and write the transmittal atomically so two
+  // concurrent creates can never receive the same TR-NNN.
+  await runTransaction(db, async (tx) => {
+    const cSnap = await tx.get(counterRef);
+    let sequence: number;
+    if (cSnap.exists()) {
+      sequence = (cSnap.data().value || 0) + 1;
+      tx.update(counterRef, { value: sequence, updatedAt: now });
+    } else {
+      sequence = (seedValue ?? 0) + 1;
+      tx.set(counterRef, {
+        type: 'transmittal',
+        projectId: data.projectId,
+        value: sequence,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
-  const transmittalsRef = collection(db, 'projects', data.projectId, 'transmittals');
-  const docRef = await addDoc(transmittalsRef, transmittal);
+    const transmittalNumber = `TR-${sequence.toString().padStart(3, '0')}`;
+    const transmittal: Omit<DocumentTransmittal, 'id'> = {
+      projectId: data.projectId,
+      projectName: data.projectName,
+      transmittalNumber,
+      transmittalDate: now,
+      status: 'DRAFT',
+      clientName: data.clientName,
+      ...(data.clientContact !== undefined && { clientContact: data.clientContact }),
+      ...(data.recipientEmail !== undefined && { recipientEmail: data.recipientEmail }),
+      documentIds: data.documentIds,
+      documentCount: data.documentIds.length,
+      ...(data.subject !== undefined && { subject: data.subject }),
+      ...(data.coverNotes !== undefined && { coverNotes: data.coverNotes }),
+      ...(data.purposeOfIssue !== undefined && { purposeOfIssue: data.purposeOfIssue }),
+      ...(data.deliveryMethod !== undefined && { deliveryMethod: data.deliveryMethod }),
+      createdBy: data.createdBy,
+      createdByName: data.createdByName,
+      createdAt: now,
+      updatedAt: now,
+    };
+    tx.set(newDocRef, transmittal);
+  });
 
-  return docRef.id;
+  return newDocRef.id;
 }
 
 export interface TransmittalListResult {
