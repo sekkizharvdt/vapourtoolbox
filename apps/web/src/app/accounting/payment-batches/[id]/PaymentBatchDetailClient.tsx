@@ -59,6 +59,7 @@ import type {
 import { downloadPaymentBatchPDF } from '@/lib/accounting/paymentBatchPDF';
 import AddReceiptDialog from '../components/AddReceiptDialog';
 import AddPaymentDialog from '../components/AddPaymentDialog';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 const STATUS_LABELS: Record<PaymentBatchStatus, string> = {
   DRAFT: 'Draft',
@@ -341,24 +342,6 @@ export default function PaymentBatchDetailClient() {
     } finally {
       setDownloadingPdf(false);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (date: Date | string | undefined) => {
-    if (!date) return '-';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   // Access control

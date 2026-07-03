@@ -38,7 +38,7 @@ import {
 import type { Project, ProcurementItem } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { canManageProjects } from '@vapour/constants';
+import { canManageProjects, getPriorityColor } from '@vapour/constants';
 import {
   addProcurementItem,
   updateProcurementItem,
@@ -47,6 +47,7 @@ import {
 } from '@/lib/projects/charterProcurementService';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
+import { formatCurrencyCode } from '@/lib/utils/formatters';
 
 interface ProcurementTabProps {
   project: Project;
@@ -291,28 +292,11 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
     }
   };
 
-  const getPriorityColor = (
-    priority: ProcurementItem['priority']
-  ): 'default' | 'warning' | 'error' => {
-    switch (priority) {
-      case 'CRITICAL':
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      case 'LOW':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
-
+  // "INR 1,23,456.78" style (ISO code, not symbol) — matches this tab's prior display.
+  // Falsy amounts (undefined, 0, NaN) render as '-', preserved from the original behavior.
   const formatCurrency = (amount?: number, currency = 'INR') => {
     if (!amount) return '-';
-    return `${currency} ${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatCurrencyCode(amount, currency);
   };
 
   const calculateTotalPrice = (item: ProcurementItem) => {
@@ -413,7 +397,7 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
                     <Chip
                       label={item.priority}
                       size="small"
-                      color={getPriorityColor(item.priority)}
+                      color={getPriorityColor(item.priority, 'project')}
                     />
                   </TableCell>
                   <TableCell>

@@ -31,7 +31,7 @@ import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import { listPaymentBatches, getPaymentBatchStats } from '@/lib/accounting/paymentBatchService';
 import type { PaymentBatch, PaymentBatchStatus, PaymentBatchStats } from '@vapour/types';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { getStatusColor } from '@vapour/ui';
 import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
 
@@ -111,16 +111,6 @@ export default function PaymentBatchesPage() {
 
   const handleRowClick = (batch: PaymentBatch) => {
     router.push(`/accounting/payment-batches/${batch.id}`);
-  };
-
-  const formatDate = (date: Date | string | undefined) => {
-    if (!date) return '-';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   // Access control

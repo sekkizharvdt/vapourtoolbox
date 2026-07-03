@@ -26,7 +26,7 @@ import {
 } from '@mui/icons-material';
 import type { Project } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { canManageProjects } from '@vapour/constants';
+import { canManageProjects, getStatusColor } from '@vapour/constants';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -222,22 +222,6 @@ export function CharterTab({ project }: CharterTabProps) {
     }
   };
 
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
-    switch (status) {
-      case 'APPROVED':
-        return 'success';
-      case 'PENDING_APPROVAL':
-        return 'warning';
-      case 'REJECTED':
-        return 'error';
-      case 'DRAFT':
-      default:
-        return 'default';
-    }
-  };
-
   return (
     <Box>
       {error && (
@@ -253,7 +237,7 @@ export function CharterTab({ project }: CharterTabProps) {
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Chip
               label={approvalStatus.replace(/_/g, ' ')}
-              color={getStatusColor(approvalStatus)}
+              color={getStatusColor(approvalStatus, 'charterApproval')}
               size="small"
             />
             {hasManageAccess && !editMode && approvalStatus !== 'APPROVED' && (

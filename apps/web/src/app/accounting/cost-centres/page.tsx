@@ -37,6 +37,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { CostCentre } from '@vapour/types';
 import CostCentreDialog from './components/CostCentreDialog';
+import { formatCurrency as formatCurrencyCanonical } from '@/lib/utils/formatters';
 
 export default function CostCentresPage() {
   const router = useRouter();
@@ -97,13 +98,12 @@ export default function CostCentresPage() {
     setSelectedCostCentre(null);
   };
 
+  // Null/undefined-safe wrapper around the canonical formatter — this page
+  // reads amounts (budget/actualSpent/variance) that may be missing on
+  // older cost centre documents.
   const formatCurrency = (amount: number | undefined | null, currency = 'INR') => {
-    // Ensure we have a valid number (not undefined, null, Date, or NaN)
     const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
-    return `${safeAmount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} ${currency}`;
+    return formatCurrencyCanonical(safeAmount, currency);
   };
 
   const calculateBudgetUtilization = (costCentre: CostCentre) => {

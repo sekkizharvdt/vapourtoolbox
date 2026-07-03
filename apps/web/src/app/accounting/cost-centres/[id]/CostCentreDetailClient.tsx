@@ -46,6 +46,7 @@ import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { CostCentre, BaseTransaction, CustomerInvoice, PurchaseOrder } from '@vapour/types';
 import CostCentreDialog from '../components/CostCentreDialog';
 import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
+import { formatCurrency as formatCurrencyCanonical, formatDate } from '@/lib/utils/formatters';
 
 // Lazy load table components
 const InvoicesTable = lazy(() =>
@@ -238,21 +239,13 @@ export default function CostCentreDetailClient() {
   const handleBack = () => router.push('/accounting/cost-centres');
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTabValue(newValue);
 
+  // Thin adapter: preserves the null/undefined-safe call-site contract (this
+  // signature is also declared as the `formatCurrency` prop type in
+  // InvoicesTable/PaymentsTable/BillsTable/PurchaseOrdersTable) while
+  // delegating actual formatting to the canonical formatter.
   const formatCurrency = (amount: number | undefined | null, currency = 'INR') => {
     const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
-    return `${safeAmount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} ${currency}`;
-  };
-
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return '-';
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    return formatCurrencyCanonical(safeAmount, currency);
   };
 
   const calculateBudgetUtilization = () => {

@@ -19,10 +19,8 @@ import {
   Button,
   Card,
   CardContent,
-  Alert,
   Divider,
   CircularProgress,
-  Snackbar,
   FormControl,
   InputLabel,
   Select,
@@ -30,9 +28,9 @@ import {
   Stack,
   FormHelperText,
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SendIcon from '@mui/icons-material/Send';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -66,11 +64,10 @@ export * from './types';
  */
 export function FeedbackForm() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [formData, setFormData] = useState<FeedbackFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Capture browser info and auto-detect module on mount
   // Try to get the referring page (where user came from) as default for bug location
@@ -128,7 +125,7 @@ export function FeedbackForm() {
 
   const handleScreenshotAdd = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
-      setSubmitError('Screenshot must be less than 5MB');
+      toast.error('Screenshot must be less than 5MB');
       return;
     }
 
@@ -148,7 +145,7 @@ export function FeedbackForm() {
       }));
     } catch (error) {
       console.error('Failed to upload screenshot:', error);
-      setSubmitError('Failed to upload screenshot. Please try again.');
+      toast.error('Failed to upload screenshot. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -165,23 +162,22 @@ export function FeedbackForm() {
     event.preventDefault();
 
     if (!formData.title.trim()) {
-      setSubmitError('Please provide a title');
+      toast.error('Please provide a title');
       return;
     }
 
     if (!formData.description.trim()) {
-      setSubmitError('Please provide a description');
+      toast.error('Please provide a description');
       return;
     }
 
     // Require page URL for bug reports
     if (formData.type === 'bug' && !formData.pageUrl.trim()) {
-      setSubmitError('Please provide the page URL where you encountered this bug');
+      toast.error('Please provide the page URL where you encountered this bug');
       return;
     }
 
     setIsSubmitting(true);
-    setSubmitError(null);
 
     try {
       const { db } = getFirebase();
@@ -220,7 +216,7 @@ export function FeedbackForm() {
 
       await addDoc(collection(db, 'feedback'), feedbackData);
 
-      setSubmitSuccess(true);
+      toast.success("Thank you for your feedback! We'll review it shortly.");
       setFormData({
         ...initialFormData,
         browserInfo: formData.browserInfo,
@@ -228,7 +224,7 @@ export function FeedbackForm() {
       });
     } catch (error) {
       console.error('Failed to submit feedback:', error);
-      setSubmitError('Failed to submit feedback. Please try again.');
+      toast.error('Failed to submit feedback. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -460,35 +456,6 @@ export function FeedbackForm() {
           {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
         </Button>
       </Box>
-
-      {/* Success Snackbar */}
-      <Snackbar
-        open={submitSuccess}
-        autoHideDuration={6000}
-        onClose={() => setSubmitSuccess(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          severity="success"
-          icon={<CheckCircleIcon />}
-          onClose={() => setSubmitSuccess(false)}
-          sx={{ width: '100%' }}
-        >
-          Thank you for your feedback! We&apos;ll review it shortly.
-        </Alert>
-      </Snackbar>
-
-      {/* Error Snackbar */}
-      <Snackbar
-        open={!!submitError}
-        autoHideDuration={6000}
-        onClose={() => setSubmitError(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="error" onClose={() => setSubmitError(null)} sx={{ width: '100%' }}>
-          {submitError}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

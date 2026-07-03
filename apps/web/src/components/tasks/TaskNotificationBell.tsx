@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import type { TaskNotification } from '@vapour/types';
+import { getPriorityColor } from '@vapour/constants';
 
 interface TaskNotificationBellProps {
   unreadCount: number;
@@ -70,22 +71,6 @@ export default function TaskNotificationBell({
   const handleMarkAllRead = () => {
     if (onMarkAllRead) {
       onMarkAllRead();
-    }
-  };
-
-  const getPriorityColor = (
-    priority: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (priority) {
-      case 'URGENT':
-        return 'error';
-      case 'HIGH':
-        return 'warning';
-      case 'MEDIUM':
-        return 'info';
-      case 'LOW':
-      default:
-        return 'default';
     }
   };
 

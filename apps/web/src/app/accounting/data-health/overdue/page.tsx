@@ -45,7 +45,7 @@ import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
 
 const CreateBillDialog = dynamic(
@@ -364,10 +364,6 @@ export default function OverdueItemsPage() {
     setFilteredItems(filtered);
     setPage(0);
   }, [items, tabValue, agingFilter, searchTerm]);
-
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
 
   const handleClearFilters = () => {
     setSearchTerm('');

@@ -26,7 +26,6 @@ import {
   Alert,
   Divider,
   CircularProgress,
-  Snackbar,
   Checkbox,
   Chip,
   Stack,
@@ -75,6 +74,7 @@ import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -512,6 +512,7 @@ const DEFAULT_CONFIG: EmailConfig = {
 export default function EmailManagementPage() {
   // rule19-exempt: admin settings UI — single-user, no concurrent edits expected on this config doc
   const { user } = useAuth();
+  const { toast } = useToast();
 
   // ---- State ---------------------------------------------------------------
   const [config, setConfig] = useState<EmailConfig>(DEFAULT_CONFIG);
@@ -527,11 +528,6 @@ export default function EmailManagementPage() {
     eventId: string;
     eventLabel: string;
   }>({ open: false, eventId: '', eventLabel: '' });
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info';
-  }>({ open: false, message: '', severity: 'success' });
 
   // ---- Load ----------------------------------------------------------------
   useEffect(() => {
@@ -620,19 +616,19 @@ export default function EmailManagementPage() {
         }),
       ]);
 
-      setSnackbar({ open: true, message: 'Settings saved', severity: 'success' });
+      toast.success('Settings saved');
     } catch (error) {
       console.error('Error saving email settings:', error);
-      setSnackbar({ open: true, message: 'Failed to save settings', severity: 'error' });
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
-  }, [config, eventSettings, user]);
+  }, [config, eventSettings, user, toast]);
 
   // ---- Global test email ---------------------------------------------------
   const handleSendTest = useCallback(async () => {
     if (!config.fromEmail || !user?.email) {
-      setSnackbar({ open: true, message: 'Set a from email address first', severity: 'error' });
+      toast.error('Set a from email address first');
       return;
     }
     setSendingTest(true);
@@ -644,20 +640,20 @@ export default function EmailManagementPage() {
         fromEmail: config.fromEmail,
         fromName: config.fromName,
       });
-      setSnackbar({ open: true, message: `Test email sent to ${user.email}`, severity: 'success' });
+      toast.success(`Test email sent to ${user.email}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send test email';
-      setSnackbar({ open: true, message, severity: 'error' });
+      toast.error(message);
     } finally {
       setSendingTest(false);
     }
-  }, [config, user]);
+  }, [config, user, toast]);
 
   // ---- Per-event test email ------------------------------------------------
   const handleTestEvent = useCallback(
     async (eventId: string) => {
       if (!config.fromEmail || !user?.email) {
-        setSnackbar({ open: true, message: 'Set a from email address first', severity: 'error' });
+        toast.error('Set a from email address first');
         return;
       }
       setTestingEventId(eventId);
@@ -670,19 +666,15 @@ export default function EmailManagementPage() {
           fromName: config.fromName,
           eventId,
         });
-        setSnackbar({
-          open: true,
-          message: `Test email for "${eventId}" sent to ${user.email}`,
-          severity: 'success',
-        });
+        toast.success(`Test email for "${eventId}" sent to ${user.email}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to send test email';
-        setSnackbar({ open: true, message, severity: 'error' });
+        toast.error(message);
       } finally {
         setTestingEventId(null);
       }
     },
-    [config, user]
+    [config, user, toast]
   );
 
   // ---- Helpers -------------------------------------------------------------
@@ -1339,13 +1331,6 @@ export default function EmailManagementPage() {
         currentIds={config.eventRecipients[recipientsDialog.eventId] ?? []}
         onSave={(ids) => saveEventRecipients(recipientsDialog.eventId, ids)}
         onClose={() => setRecipientsDialog({ open: false, eventId: '', eventLabel: '' })}
-      />
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        message={snackbar.message}
       />
     </Box>
   );

@@ -49,7 +49,7 @@ import {
   createBillFromGoodsReceipt,
   type GRNPendingBill,
 } from '@/lib/procurement/accountingIntegration';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
 
 function toJsDate(val: unknown): Date | null {
@@ -199,14 +199,6 @@ export default function GRNBillsPage() {
     } finally {
       setCreatingBillFor(null);
     }
-  };
-
-  const formatAmount = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(amount);
   };
 
   return (
@@ -375,7 +367,7 @@ export default function GRNBillsPage() {
                       <TableCell>{item.vendorName}</TableCell>
                       <TableCell>{item.gr.projectName}</TableCell>
                       <TableCell align="right">
-                        {formatAmount(item.poTotalAmount, item.currency)}
+                        {formatCurrency(item.poTotalAmount, item.currency)}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -451,7 +443,7 @@ export default function GRNBillsPage() {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Vendor: {confirmGR.vendorName} &bull; Amount:{' '}
-                {formatAmount(confirmGR.poTotalAmount, confirmGR.currency)}
+                {formatCurrency(confirmGR.poTotalAmount, confirmGR.currency)}
               </Typography>
               <Alert severity="info" sx={{ mt: 1 }}>
                 The bill amount will be calculated based on accepted quantities in the goods

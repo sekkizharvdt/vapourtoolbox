@@ -57,6 +57,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { deriveOutstanding } from '@/lib/accounting/amountHelpers';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 interface AddPaymentDialogProps {
   open: boolean;
@@ -271,23 +272,6 @@ export default function AddPaymentDialog({
     }
   };
   submitRef.current = handleAddManual;
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (date: Date | string | undefined) => {
-    if (!date) return '-';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-    });
-  };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>

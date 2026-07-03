@@ -43,6 +43,7 @@ import type {
   OutdatedPackage,
   VulnerabilityDetail,
 } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 const SEVERITY_COLORS: Record<VulnerabilitySeverity, 'error' | 'warning' | 'info' | 'success'> = {
   critical: 'error',
@@ -57,16 +58,6 @@ const UPDATE_TYPE_COLORS: Record<string, 'error' | 'warning' | 'success'> = {
   minor: 'warning',
   patch: 'success',
 };
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 interface StatCardProps {
   title: string;
@@ -223,7 +214,7 @@ export default function SystemStatusPage() {
             />
           </Box>
           <Typography variant="body2" color="text.secondary">
-            Last updated: {formatDate(status.generatedAt)}
+            Last updated: {formatDate(status.generatedAt, 'datetime')}
           </Typography>
         </Box>
         <Button

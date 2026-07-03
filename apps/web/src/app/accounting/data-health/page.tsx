@@ -40,6 +40,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 interface DataHealthStats {
   unappliedPayments: { count: number; total: number };
@@ -421,20 +422,15 @@ export default function DataHealthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatCurrencyWhole = (amount: number) =>
+    formatCurrency(amount, 'INR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   const issueCards = stats
     ? [
         {
           title: 'Unapplied Payments',
           count: stats.unappliedPayments.count,
-          subtitle: `Total: ${formatCurrency(stats.unappliedPayments.total)}`,
+          subtitle: `Total: ${formatCurrencyWhole(stats.unappliedPayments.total)}`,
           icon: <PaymentIcon sx={{ fontSize: 40 }} />,
           color: 'warning.main' as const,
           path: '/accounting/data-health/unapplied-payments',
@@ -443,7 +439,7 @@ export default function DataHealthPage() {
         {
           title: 'Advances',
           count: stats.advances.count,
-          subtitle: `Total: ${formatCurrency(stats.advances.total)}`,
+          subtitle: `Total: ${formatCurrencyWhole(stats.advances.total)}`,
           icon: <AdvanceIcon sx={{ fontSize: 40 }} />,
           color: 'info.main' as const,
           path: '/accounting/data-health/advances',
@@ -479,7 +475,7 @@ export default function DataHealthPage() {
         {
           title: 'Overdue Items',
           count: stats.overdueItems.count,
-          subtitle: `Total: ${formatCurrency(stats.overdueItems.total)}`,
+          subtitle: `Total: ${formatCurrencyWhole(stats.overdueItems.total)}`,
           icon: <OverdueIcon sx={{ fontSize: 40 }} />,
           color: 'error.main' as const,
           path: '/accounting/data-health/overdue',
@@ -756,7 +752,7 @@ export default function DataHealthPage() {
                   }
                 >
                   {stats.overdueItems.count} overdue items totaling{' '}
-                  {formatCurrency(stats.overdueItems.total)} need follow-up.
+                  {formatCurrencyWhole(stats.overdueItems.total)} need follow-up.
                 </Alert>
               )}
               <Alert

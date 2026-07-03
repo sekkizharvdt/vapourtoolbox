@@ -54,6 +54,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { findRFQsByPurchaseRequestId } from '@/lib/procurement/rfq/queries';
 import { formatDate } from '@/lib/utils/formatters';
+import { getStatusColor, getPriorityColor } from '@vapour/constants';
 import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 
 export default function PRDetailPage() {
@@ -131,44 +132,6 @@ export default function PRDetailPage() {
       setError('Failed to load Purchase Request');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'DRAFT':
-        return 'default';
-      case 'SUBMITTED':
-        return 'info';
-      case 'UNDER_REVIEW':
-        return 'warning';
-      case 'APPROVED':
-        return 'success';
-      case 'REJECTED':
-        return 'error';
-      case 'CONVERTED_TO_RFQ':
-        return 'primary';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPriorityColor = (
-    priority: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (priority) {
-      case 'URGENT':
-        return 'error';
-      case 'HIGH':
-        return 'warning';
-      case 'MEDIUM':
-        return 'info';
-      case 'LOW':
-        return 'default';
-      default:
-        return 'default';
     }
   };
 
@@ -286,7 +249,10 @@ export default function PRDetailPage() {
               {pr.number}
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
-              <Chip label={pr.status.replace(/_/g, ' ')} color={getStatusColor(pr.status)} />
+              <Chip
+                label={pr.status.replace(/_/g, ' ')}
+                color={getStatusColor(pr.status, 'purchaseRequest')}
+              />
               <Chip label={pr.priority} color={getPriorityColor(pr.priority)} size="small" />
               <Chip label={pr.type} variant="outlined" size="small" />
               <Chip label={pr.category} variant="outlined" size="small" />

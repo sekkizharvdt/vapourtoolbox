@@ -22,19 +22,13 @@ import {
 } from '@mui/material';
 import { CheckCircle as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import type { HeatMassBalance as HeatMassBalanceType } from '@vapour/types';
+import { formatNumber } from '@/lib/utils/formatters';
 
 interface HeatMassBalanceProps {
   balance: HeatMassBalanceType;
 }
 
 export function HeatMassBalance({ balance }: HeatMassBalanceProps) {
-  const formatNumber = (value: number, decimals: number = 2) => {
-    return value.toLocaleString('en-IN', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  };
-
   const rows = [
     { ...balance.inlet, type: 'in' },
     { ...balance.vapor, type: 'out' },

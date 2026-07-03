@@ -8,6 +8,7 @@
 
 import { Box, Paper, Typography, Stack, Divider, Chip } from '@mui/material';
 import type { MasterDocumentEntry } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface DocumentOverviewProps {
   document: MasterDocumentEntry;
@@ -15,12 +16,6 @@ interface DocumentOverviewProps {
 }
 
 export default function DocumentOverview({ document }: DocumentOverviewProps) {
-  const formatDate = (timestamp: { seconds: number } | undefined) => {
-    if (!timestamp) return '-';
-    const date = new Date(timestamp.seconds * 1000);
-    return date.toISOString().replace('T', ' ').substring(0, 19);
-  };
-
   return (
     <Box sx={{ px: 3 }}>
       <Stack spacing={3}>
@@ -111,7 +106,7 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
               <Typography variant="caption" color="text.secondary">
                 Due Date
               </Typography>
-              <Typography variant="body1">{formatDate(document.dueDate)}</Typography>
+              <Typography variant="body1">{formatDate(document.dueDate, 'datetime')}</Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
@@ -152,7 +147,9 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
               <Typography variant="caption" color="text.secondary">
                 Last Submission
               </Typography>
-              <Typography variant="body1">{formatDate(document.lastSubmissionDate)}</Typography>
+              <Typography variant="body1">
+                {formatDate(document.lastSubmissionDate, 'datetime')}
+              </Typography>
             </Box>
           </Stack>
         </Paper>
@@ -200,14 +197,14 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
               </Typography>
               <Typography variant="body1">{document.createdByName}</Typography>
               <Typography variant="caption" color="text.secondary">
-                {formatDate(document.createdAt)}
+                {formatDate(document.createdAt, 'datetime')}
               </Typography>
             </Box>
             <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Last Updated
               </Typography>
-              <Typography variant="body1">{formatDate(document.updatedAt)}</Typography>
+              <Typography variant="body1">{formatDate(document.updatedAt, 'datetime')}</Typography>
             </Box>
           </Stack>
         </Paper>

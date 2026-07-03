@@ -15,13 +15,13 @@ import {
   FormControlLabel,
   Switch,
   Alert,
-  Snackbar,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import {
   ServiceCategory,
   SERVICE_CATEGORY_LABELS,
@@ -36,6 +36,7 @@ export default function NewServicePage() {
   const initialCategory = searchParams.get('category') as ServiceCategory | null;
   const { user, claims } = useAuth();
   const { db } = getFirebase();
+  const { toast } = useToast();
   const tenantId = claims?.tenantId || 'default-entity';
 
   const [name, setName] = useState('');
@@ -57,10 +58,6 @@ export default function NewServicePage() {
   const [deliverables, setDeliverables] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
-  });
 
   const handleSave = async () => {
     if (!(name ?? '').trim()) {
@@ -108,7 +105,7 @@ export default function NewServicePage() {
         tenantId
       );
 
-      setSnackbar({ open: true, message: 'Service created successfully' });
+      toast.success('Service created successfully');
       router.push(`/services/${service.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create service');
@@ -321,13 +318,6 @@ export default function NewServicePage() {
           </Grid>
         </Grid>
       </Paper>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        message={snackbar.message}
-      />
     </Box>
   );
 }

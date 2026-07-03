@@ -53,6 +53,7 @@ import {
   type Form26QData,
   type TDSChallan,
 } from '@/lib/accounting/tdsReportGenerator';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 type ComplianceType = 'GST' | 'TDS';
 type GSTTabValue = 'gstr1' | 'gstr3b';
@@ -572,12 +573,4 @@ function getCurrentQuarter(): 1 | 2 | 3 | 4 {
   if (month >= 7 && month <= 9) return 2;
   if (month >= 10 && month <= 12) return 3;
   return 4;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-  }).format(amount);
 }

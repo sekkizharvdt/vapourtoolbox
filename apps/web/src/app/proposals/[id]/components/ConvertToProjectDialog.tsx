@@ -28,6 +28,7 @@ import { convertProposalToProject } from '@/lib/proposals/projectConversion';
 import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import type { Proposal } from '@vapour/types';
 import { logger } from '@vapour/logger';
+import { formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 
 interface ConvertToProjectDialogProps {
   open: boolean;
@@ -74,10 +75,7 @@ export default function ConvertToProjectDialog({
 
   const formatCurrency = (money: { amount: number; currency: string } | undefined) => {
     if (!money) return '—';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency || 'INR',
-    }).format(money.amount);
+    return sharedFormatCurrency(money.amount, money.currency || 'INR');
   };
 
   return (

@@ -35,8 +35,9 @@ import {
   PictureAsPdf as PdfIcon,
   CheckCircle as AcknowledgedIcon,
 } from '@mui/icons-material';
-import type { DocumentTransmittal, TransmittalStatus, MasterDocumentEntry } from '@vapour/types';
+import type { DocumentTransmittal, MasterDocumentEntry } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import { getStatusColor } from '@vapour/constants';
 import { useMemo } from 'react';
 
 interface TransmittalDetailDialogProps {
@@ -67,18 +68,6 @@ export default function TransmittalDetailDialog({
 
   if (!transmittal) return null;
 
-  const getStatusColor = (
-    status: TransmittalStatus
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    const colors: Record<TransmittalStatus, 'default' | 'info' | 'warning' | 'success'> = {
-      DRAFT: 'default',
-      GENERATED: 'info',
-      SENT: 'warning',
-      ACKNOWLEDGED: 'success',
-    };
-    return colors[status] || 'default';
-  };
-
   const formatFileSize = (bytes?: number): string => {
     if (!bytes) return '-';
     const mb = bytes / (1024 * 1024);
@@ -97,7 +86,7 @@ export default function TransmittalDetailDialog({
           </Box>
           <Chip
             label={transmittal.status}
-            color={getStatusColor(transmittal.status)}
+            color={getStatusColor(transmittal.status, 'transmittal')}
             size="small"
           />
         </Stack>

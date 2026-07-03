@@ -23,7 +23,6 @@ import {
   DialogContentText,
   DialogActions,
   Button,
-  Snackbar,
 } from '@mui/material';
 import type {
   DocumentTransmittal,
@@ -82,7 +81,6 @@ export default function TransmittalsList({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [transmittalToDelete, setTransmittalToDelete] = useState<DocumentTransmittal | null>(null);
   const [regenerating, setRegenerating] = useState<string | null>(null);
-  const [snackMessage, setSnackMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadTransmittals();
@@ -289,7 +287,7 @@ export default function TransmittalsList({
 
       // Update status to GENERATED
       await updateTransmittalStatus(db, projectId, transmittal.id, 'GENERATED');
-      setSnackMessage(`${fullTransmittal.transmittalNumber} regenerated and downloaded`);
+      toast.success(`${fullTransmittal.transmittalNumber} regenerated and downloaded`);
       await loadTransmittals();
     } catch (err) {
       console.error('[TransmittalsList] Regenerate failed:', err);
@@ -309,7 +307,7 @@ export default function TransmittalsList({
 
     try {
       await deleteTransmittal(db, projectId, transmittalToDelete.id);
-      setSnackMessage(`${transmittalToDelete.transmittalNumber} deleted`);
+      toast.success(`${transmittalToDelete.transmittalNumber} deleted`);
       setDeleteConfirmOpen(false);
       setTransmittalToDelete(null);
       await loadTransmittals();
@@ -399,14 +397,6 @@ export default function TransmittalsList({
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Success Snackbar */}
-      <Snackbar
-        open={!!snackMessage}
-        autoHideDuration={4000}
-        onClose={() => setSnackMessage(null)}
-        message={snackMessage}
-      />
     </Box>
   );
 }

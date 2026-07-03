@@ -20,15 +20,12 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Snackbar,
   Paper,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Refresh as RefreshIcon,
   ArrowBack as BackIcon,
-  CheckCircle as SuccessIcon,
-  Error as ErrorIcon,
   Home as HomeIcon,
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
@@ -40,12 +37,13 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { regeneratePaymentGL } from '@/lib/accounting/glEntryRegeneration';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 const RecordCustomerPaymentDialog = dynamic(
@@ -72,6 +70,7 @@ type MissingGLPayment = (CustomerPayment | VendorPayment) & {
 export default function MissingGLEntriesPage() {
   const router = useRouter();
   useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<MissingGLPayment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<MissingGLPayment[]>([]);
@@ -83,11 +82,6 @@ export default function MissingGLEntriesPage() {
   // Regeneration state
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({ open: false, message: '', severity: 'success' });
 
   // Edit dialog state
   const [editingCustomerPayment, setEditingCustomerPayment] = useState<CustomerPayment | null>(
@@ -226,15 +220,6 @@ export default function MissingGLEntriesPage() {
     setPage(0);
   }, [payments, searchTerm, typeFilter]);
 
-  const formatDate = (date: unknown): string => {
-    if (!date) return '-';
-    const d =
-      typeof date === 'object' && 'toDate' in date
-        ? (date as { toDate: () => Date }).toDate()
-        : new Date(date as string);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
   const handleClearFilters = () => {
     setSearchTerm('');
     setTypeFilter('all');
@@ -242,11 +227,7 @@ export default function MissingGLEntriesPage() {
 
   const handleRegenerate = async (payment: MissingGLPayment) => {
     if (!payment.hasBankAccount) {
-      setSnackbar({
-        open: true,
-        message: 'Cannot regenerate: No bank account specified. Please edit the payment first.',
-        severity: 'error',
-      });
+      toast.error('Cannot regenerate: No bank account specified. Please edit the payment first.');
       return;
     }
 
@@ -257,27 +238,17 @@ export default function MissingGLEntriesPage() {
       const result = await regeneratePaymentGL(db, payment.id, payment.paymentType);
 
       if (result.success) {
-        setSnackbar({
-          open: true,
-          message: `GL entries regenerated successfully (${result.entries.length} entries created)`,
-          severity: 'success',
-        });
+        toast.success(
+          `GL entries regenerated successfully (${result.entries.length} entries created)`
+        );
         // Remove from list
         setPayments((prev) => prev.filter((p) => p.id !== payment.id));
       } else {
-        setSnackbar({
-          open: true,
-          message: result.error || 'Failed to regenerate GL entries',
-          severity: 'error',
-        });
+        toast.error(result.error || 'Failed to regenerate GL entries');
       }
     } catch (err) {
       console.error('Error regenerating GL:', err);
-      setSnackbar({
-        open: true,
-        message: 'An error occurred while regenerating GL entries',
-        severity: 'error',
-      });
+      toast.error('An error occurred while regenerating GL entries');
     } finally {
       setRegenerating((prev) => ({ ...prev, [payment.id]: false }));
     }
@@ -286,11 +257,7 @@ export default function MissingGLEntriesPage() {
   const handleRegenerateAll = async () => {
     const eligiblePayments = filteredPayments.filter((p) => p.hasBankAccount);
     if (eligiblePayments.length === 0) {
-      setSnackbar({
-        open: true,
-        message: 'No payments with bank accounts to regenerate',
-        severity: 'error',
-      });
+      toast.error('No payments with bank accounts to regenerate');
       return;
     }
 
@@ -318,11 +285,10 @@ export default function MissingGLEntriesPage() {
       }
     }
 
-    setSnackbar({
-      open: true,
-      message: `Regeneration complete: ${successCount} succeeded, ${failCount} failed`,
-      severity: failCount > 0 ? 'error' : 'success',
-    });
+    toast.show(
+      `Regeneration complete: ${successCount} succeeded, ${failCount} failed`,
+      failCount > 0 ? 'error' : 'success'
+    );
   };
 
   const customerCount = filteredPayments.filter((p) => p.paymentType === 'CUSTOMER_PAYMENT').length;
@@ -471,7 +437,9 @@ export default function MissingGLEntriesPage() {
                         {payment.transactionNumber}
                       </Typography>
                     </TableCell>
-                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                    <TableCell>
+                      {formatDate(payment.paymentDate as Date | string | { toDate: () => Date })}
+                    </TableCell>
                     <TableCell>{payment.entityName}</TableCell>
                     <TableCell align="right">
                       <Typography
@@ -548,20 +516,6 @@ export default function MissingGLEntriesPage() {
         onClose={handleEditDialogClose}
         editingPayment={editingVendorPayment}
       />
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-      >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          icon={snackbar.severity === 'success' ? <SuccessIcon /> : <ErrorIcon />}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

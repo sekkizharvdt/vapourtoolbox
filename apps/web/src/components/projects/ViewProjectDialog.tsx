@@ -21,8 +21,9 @@ import {
   Delete as DeleteIcon,
   FolderOpen as ProjectIcon,
 } from '@mui/icons-material';
-import type { Project, ProjectStatus, ProjectPriority } from '@vapour/types';
+import type { Project } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import { getStatusColor, getPriorityColor } from '@vapour/constants';
 
 interface ViewProjectDialogProps {
   open: boolean;
@@ -42,42 +43,6 @@ export function ViewProjectDialog({
   canManage,
 }: ViewProjectDialogProps) {
   if (!project) return null;
-
-  // Get status color
-  const getStatusColor = (
-    status: ProjectStatus
-  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'PROPOSAL':
-        return 'primary';
-      case 'ON_HOLD':
-        return 'warning';
-      case 'COMPLETED':
-        return 'default';
-      case 'CANCELLED':
-      case 'ARCHIVED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  // Get priority color
-  const getPriorityColor = (priority: ProjectPriority): 'default' | 'warning' | 'error' => {
-    switch (priority) {
-      case 'CRITICAL':
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      case 'LOW':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -125,8 +90,8 @@ export function ViewProjectDialog({
       <DialogContent>
         {/* Status and Priority */}
         <Box sx={{ mb: 3, display: 'flex', gap: 1 }}>
-          <Chip label={project.status} color={getStatusColor(project.status)} />
-          <Chip label={project.priority} color={getPriorityColor(project.priority)} />
+          <Chip label={project.status} color={getStatusColor(project.status, 'project')} />
+          <Chip label={project.priority} color={getPriorityColor(project.priority, 'project')} />
         </Box>
 
         {/* Description */}

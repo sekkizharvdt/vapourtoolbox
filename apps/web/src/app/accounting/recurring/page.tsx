@@ -58,6 +58,7 @@ import type {
 } from '@vapour/types';
 import { getStatusColor } from '@vapour/ui';
 import { useFiscalYearFilter, matchesFiscalYear } from '@/components/accounting/FiscalYearFilter';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 function toJsDate(val: unknown): Date | null {
   if (!val) return null;
@@ -212,22 +213,6 @@ export default function RecurringTransactionsPage() {
     }
 
     handleMenuClose();
-  };
-
-  const formatCurrency = (amount: number, currency = 'INR') => {
-    return `${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })} ${currency}`;
-  };
-
-  const formatDate = (timestamp: { toDate: () => Date } | undefined) => {
-    if (!timestamp) return '-';
-    return timestamp.toDate().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (!hasViewAccess) {

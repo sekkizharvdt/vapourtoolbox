@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import type { WorkItem } from '@vapour/types';
+import { getStatusColor } from '@vapour/constants';
 
 interface WorkItemsTableProps {
   items: WorkItem[];
@@ -23,18 +24,6 @@ interface WorkItemsTableProps {
 }
 
 export default function WorkItemsTable({ items, onDeleteItem }: WorkItemsTableProps) {
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    const colors: Record<string, 'default' | 'info' | 'warning' | 'success'> = {
-      PENDING: 'default',
-      IN_PROGRESS: 'warning',
-      COMPLETED: 'success',
-      CANCELLED: 'default',
-    };
-    return colors[status] || 'default';
-  };
-
   if (items.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -91,7 +80,7 @@ export default function WorkItemsTable({ items, onDeleteItem }: WorkItemsTablePr
                   <Chip
                     label={item.status}
                     size="small"
-                    color={getStatusColor(item.status)}
+                    color={getStatusColor(item.status, 'workItem')}
                     sx={{ fontSize: '0.7rem' }}
                   />
                 </TableCell>

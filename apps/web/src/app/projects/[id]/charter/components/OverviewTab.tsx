@@ -20,19 +20,17 @@ import {
   Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import type { Project } from '@vapour/types';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrencyCode } from '@/lib/utils/formatters';
 
 interface OverviewTabProps {
   project: Project;
 }
 
 export function OverviewTab({ project }: OverviewTabProps) {
+  // "INR 1,23,456.78" style (ISO code, not symbol) — matches this tab's prior display.
   const formatCurrency = (amount?: number, currency = 'INR') => {
     if (amount === undefined || amount === null) return 'Not set';
-    return `${currency} ${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatCurrencyCode(amount, currency);
   };
 
   const progress = project.progress?.percentage || 0;

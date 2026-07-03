@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import type { Account, AccountTreeNode } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 interface AccountTreeViewProps {
   accounts: Account[];
@@ -137,14 +138,6 @@ export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
       default:
         return null;
     }
-  };
-
-  const formatCurrency = (amount: number, currency: string = 'INR') => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
-    }).format(amount);
   };
 
   const renderAccount = (account: AccountTreeNode, depth: number = 0) => {

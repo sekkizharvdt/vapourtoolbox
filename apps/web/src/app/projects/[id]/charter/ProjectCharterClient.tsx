@@ -31,7 +31,7 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Project } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewProjects } from '@vapour/constants';
+import { canViewProjects, getStatusColor } from '@vapour/constants';
 
 // Tab Components (will be implemented)
 import { OverviewTab } from './components/OverviewTab';
@@ -131,26 +131,6 @@ export default function ProjectCharterPage() {
     setActiveTab(newValue);
   };
 
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'PROPOSAL':
-        return 'primary';
-      case 'ON_HOLD':
-        return 'warning';
-      case 'COMPLETED':
-        return 'default';
-      case 'CANCELLED':
-      case 'ARCHIVED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
   if (!hasViewAccess) {
     return (
       <Container maxWidth="xl">
@@ -199,7 +179,11 @@ export default function ProjectCharterPage() {
             <Typography variant="h4" component="h1">
               {project.name}
             </Typography>
-            <Chip label={project.status} color={getStatusColor(project.status)} size="small" />
+            <Chip
+              label={project.status}
+              color={getStatusColor(project.status, 'project')}
+              size="small"
+            />
             <Chip label={project.priority} color="default" size="small" />
           </Box>
           <Typography variant="body1" color="text.secondary">

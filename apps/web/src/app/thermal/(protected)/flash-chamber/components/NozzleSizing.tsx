@@ -18,19 +18,13 @@ import {
   Chip,
 } from '@mui/material';
 import type { NozzleSizing as NozzleSizingType } from '@vapour/types';
+import { formatNumber } from '@/lib/utils/formatters';
 
 interface NozzleSizingProps {
   nozzles: NozzleSizingType[];
 }
 
 export function NozzleSizing({ nozzles }: NozzleSizingProps) {
-  const formatNumber = (value: number, decimals: number = 0) => {
-    return value.toLocaleString('en-IN', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  };
-
   const getVelocityColor = (status: 'OK' | 'HIGH' | 'LOW') => {
     switch (status) {
       case 'OK':

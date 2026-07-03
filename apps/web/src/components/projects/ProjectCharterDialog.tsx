@@ -28,7 +28,8 @@ import {
   People as TeamIcon,
   Assessment as ReportsIcon,
 } from '@mui/icons-material';
-import type { Project, ProjectStatus, ProjectPriority } from '@vapour/types';
+import type { Project } from '@vapour/types';
+import { getStatusColor, getPriorityColor } from '@vapour/constants';
 
 // Import all charter tab components
 import { OverviewTab } from '@/app/projects/[id]/charter/components/OverviewTab';
@@ -79,42 +80,6 @@ export function ProjectCharterDialog({ open, project, onClose }: ProjectCharterD
     setActiveTab(newValue);
   };
 
-  // Get status color
-  const getStatusColor = (
-    status: ProjectStatus
-  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'PROPOSAL':
-        return 'primary';
-      case 'ON_HOLD':
-        return 'warning';
-      case 'COMPLETED':
-        return 'default';
-      case 'CANCELLED':
-      case 'ARCHIVED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  // Get priority color
-  const getPriorityColor = (priority: ProjectPriority): 'default' | 'warning' | 'error' => {
-    switch (priority) {
-      case 'CRITICAL':
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      case 'LOW':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
-
   return (
     <Dialog
       open={open}
@@ -136,11 +101,15 @@ export function ProjectCharterDialog({ open, project, onClose }: ProjectCharterD
               <Typography variant="caption" color="text.secondary">
                 Code: {project.code}
               </Typography>
-              <Chip label={project.status} size="small" color={getStatusColor(project.status)} />
+              <Chip
+                label={project.status}
+                size="small"
+                color={getStatusColor(project.status, 'project')}
+              />
               <Chip
                 label={project.priority}
                 size="small"
-                color={getPriorityColor(project.priority)}
+                color={getPriorityColor(project.priority, 'project')}
               />
             </Box>
           </Box>

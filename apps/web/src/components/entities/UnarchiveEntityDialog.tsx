@@ -18,6 +18,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface UnarchiveEntityDialogProps {
   open: boolean;
@@ -99,22 +100,6 @@ export function UnarchiveEntityDialog({
       setError('');
       onClose();
     }
-  };
-
-  // Format archive date for display
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return 'Unknown';
-    const d =
-      date && typeof date === 'object' && 'toDate' in date
-        ? (date as { toDate: () => Date }).toDate()
-        : date instanceof Date
-          ? date
-          : new Date(date as string);
-    return d.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   return (

@@ -40,6 +40,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface AccountBalance {
   id: string;
@@ -138,9 +139,6 @@ export default function TrialBalancePage() {
     },
     [expandedAccountId, drilldownData]
   );
-
-  const formatDate = (date: Date): string =>
-    date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   if (loading) {
     return (

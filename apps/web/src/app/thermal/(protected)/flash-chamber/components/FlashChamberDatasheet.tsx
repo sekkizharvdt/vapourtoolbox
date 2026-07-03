@@ -7,6 +7,7 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { FlashChamberResult } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 // Styles for the datasheet
 const styles = StyleSheet.create({
@@ -178,11 +179,7 @@ export const FlashChamberDatasheet = ({
 
   const formatElevation = (value: number) => formatNumber(value, 3);
 
-  const today = new Date().toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const today = formatDate(new Date(), 'short');
 
   return (
     <Document>

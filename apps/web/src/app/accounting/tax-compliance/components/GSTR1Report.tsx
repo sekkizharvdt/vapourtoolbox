@@ -20,24 +20,9 @@ import {
 } from '@mui/material';
 import { Grid } from '@mui/material';
 import { FileDownload as DownloadIcon, Print as PrintIcon } from '@mui/icons-material';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import type { GSTR1Data } from '@/lib/accounting/gstReportGenerator';
 import { exportGSTR1ToJSON } from '@/lib/accounting/gstReportGenerator';
-
-/** Safely convert a value that may be a Firestore Timestamp, Date, or string to a locale date string */
-function formatDate(value: unknown): string {
-  if (!value) return '';
-  if (typeof value === 'object' && value !== null && 'toDate' in value) {
-    return (value as { toDate: () => Date }).toDate().toLocaleDateString();
-  }
-  if (value instanceof Date) {
-    return value.toLocaleDateString();
-  }
-  if (typeof value === 'string') {
-    return new Date(value).toLocaleDateString();
-  }
-  return '';
-}
 
 interface GSTR1ReportProps {
   data: GSTR1Data;

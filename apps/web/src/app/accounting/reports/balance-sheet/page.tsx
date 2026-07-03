@@ -35,7 +35,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import {
   generateBalanceSheet,
   validateAccountingEquation,
@@ -74,9 +74,6 @@ function AccountRow({
   const isExpanded = expandedAccountId === account.id;
   const isLoading = drilldownLoading.has(account.id);
   const entries = drilldownData.get(account.id) ?? [];
-
-  const formatDate = (date: Date): string =>
-    date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   return (
     <>
@@ -460,7 +457,7 @@ export default function BalanceSheetPage() {
                             ASSETS
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            As of {new Date(report.asOfDate).toLocaleDateString()}
+                            As of {formatDate(report.asOfDate)}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -573,7 +570,7 @@ export default function BalanceSheetPage() {
                             LIABILITIES & EQUITY
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            As of {new Date(report.asOfDate).toLocaleDateString()}
+                            As of {formatDate(report.asOfDate)}
                           </Typography>
                         </TableCell>
                       </TableRow>

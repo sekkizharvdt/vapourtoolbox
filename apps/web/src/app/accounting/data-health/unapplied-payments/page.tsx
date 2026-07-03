@@ -41,7 +41,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { RecordCustomerPaymentDialog } from '../../payments/components/RecordCustomerPaymentDialog';
 import { RecordVendorPaymentDialog } from '../../payments/components/RecordVendorPaymentDialog';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { bulkAutoAllocatePayments } from '@/lib/accounting/paymentHelpers';
 import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
@@ -192,15 +192,6 @@ export default function UnappliedPaymentsPage() {
     setFilteredPayments(filtered);
     setPage(0);
   }, [payments, searchTerm, typeFilter]);
-
-  const formatDate = (date: unknown): string => {
-    if (!date) return '-';
-    const d =
-      typeof date === 'object' && 'toDate' in date
-        ? (date as { toDate: () => Date }).toDate()
-        : new Date(date as string);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
 
   const handleClearFilters = () => {
     setSearchTerm('');
@@ -380,7 +371,9 @@ export default function UnappliedPaymentsPage() {
                         {payment.transactionNumber}
                       </Typography>
                     </TableCell>
-                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                    <TableCell>
+                      {formatDate(payment.paymentDate as Date | string | { toDate: () => Date })}
+                    </TableCell>
                     <TableCell>{payment.entityName}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>

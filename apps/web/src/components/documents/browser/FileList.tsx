@@ -34,6 +34,7 @@ import {
   TableChart as SpreadsheetIcon,
 } from '@mui/icons-material';
 import type { DocumentRecord } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface FileListProps {
   documents: DocumentRecord[];
@@ -62,31 +63,6 @@ const formatFileSize = (bytes: number): string => {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-};
-
-const formatDate = (date: unknown): string => {
-  if (!date) return '-';
-  // Handle Firestore Timestamp
-  if (
-    date &&
-    typeof date === 'object' &&
-    'toDate' in date &&
-    typeof (date as { toDate: () => Date }).toDate === 'function'
-  ) {
-    const d = (date as { toDate: () => Date }).toDate();
-    return d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  }
-  // Handle Date object or string
-  const d = typeof date === 'string' ? new Date(date) : (date as Date);
-  return d.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 };
 
 function FileListComponent({

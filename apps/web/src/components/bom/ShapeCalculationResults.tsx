@@ -24,6 +24,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useState } from 'react';
 import type { CurrencyCode } from '@vapour/types';
+import { formatCurrency, formatNumber } from '@/lib/utils/formatters';
 
 interface CalculatedValues {
   volume: number;
@@ -73,27 +74,12 @@ export default function ShapeCalculationResults({
 }: ShapeCalculationResultsProps) {
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
 
-  const formatNumber = (value: number, decimals = 2) => {
-    return new Intl.NumberFormat('en-IN', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
-  };
-
-  const formatCurrency = (value: number, currency: string = 'INR') => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
-    }).format(value);
-  };
-
   if (compact) {
     return (
       <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
         <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
           <Chip
-            label={`Weight: ${formatNumber(calculatedValues.weight)} kg`}
+            label={`Weight: ${formatNumber(calculatedValues.weight, 2)} kg`}
             color="primary"
             variant="outlined"
           />
@@ -135,7 +121,7 @@ export default function ShapeCalculationResults({
           <Typography variant="caption" color="text.secondary">
             Unit Weight
           </Typography>
-          <Typography variant="h6">{formatNumber(calculatedValues.weight)} kg</Typography>
+          <Typography variant="h6">{formatNumber(calculatedValues.weight, 2)} kg</Typography>
         </Paper>
 
         {calculatedValues.surfaceArea && (

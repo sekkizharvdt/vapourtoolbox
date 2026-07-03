@@ -22,19 +22,13 @@ import {
   TableRow,
 } from '@mui/material';
 import type { NPSHaCalculation as NPSHaCalculationType, NPSHaAtLevel } from '@vapour/types';
+import { formatNumber } from '@/lib/utils/formatters';
 
 interface NPSHaCalculationProps {
   npsha: NPSHaCalculationType;
 }
 
 export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
-  const formatNumber = (value: number, decimals: number = 2) => {
-    return value.toLocaleString('en-IN', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  };
-
   // Determine severity based on worst case (LG-L)
   const getSeverity = (): 'success' | 'warning' | 'error' | 'info' => {
     const worstCase = npsha.atLGL.npshAvailable;
@@ -65,12 +59,12 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
       </TableCell>
       <TableCell align="right">
         <Typography variant="body2" color="success.main">
-          {formatNumber(level.staticHead)} m
+          {formatNumber(level.staticHead, 2)} m
         </Typography>
       </TableCell>
       <TableCell align="right">
         <Typography variant="body2" fontWeight="bold" color={getNPSHaColor(level.npshAvailable)}>
-          {formatNumber(level.npshAvailable)} m
+          {formatNumber(level.npshAvailable, 2)} m
         </Typography>
       </TableCell>
     </TableRow>
@@ -92,19 +86,19 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2">Chamber Pressure Head</Typography>
               <Typography variant="body2" color="success.main">
-                + {formatNumber(npsha.chamberPressureHead)} m
+                + {formatNumber(npsha.chamberPressureHead, 2)} m
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2">Vapor Pressure Head</Typography>
               <Typography variant="body2" color="error.main">
-                - {formatNumber(npsha.vaporPressureHead)} m
+                - {formatNumber(npsha.vaporPressureHead, 2)} m
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2">Friction Loss (estimated)</Typography>
               <Typography variant="body2" color="error.main">
-                - {formatNumber(npsha.frictionLoss)} m
+                - {formatNumber(npsha.frictionLoss, 2)} m
               </Typography>
             </Box>
           </Stack>
@@ -141,8 +135,8 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
         </Typography>
 
         <Typography variant="caption" color="text.secondary">
-          Recommended minimum NPSHa margin: {formatNumber(npsha.recommendedNpshMargin)} m above pump
-          NPSHr
+          Recommended minimum NPSHa margin: {formatNumber(npsha.recommendedNpshMargin, 2)} m above
+          pump NPSHr
         </Typography>
 
         {/* Recommendation */}

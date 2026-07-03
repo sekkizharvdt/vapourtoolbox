@@ -15,6 +15,10 @@ import {
   Alert,
 } from '@mui/material';
 import { Warning as WarningIcon, Error as ErrorIcon } from '@mui/icons-material';
+import {
+  formatCurrency as formatCurrencyBase,
+  formatNumber as formatNumberBase,
+} from '@/lib/utils/formatters';
 
 // Note: The calculation result has a flattened structure different from ShapeInstance
 // It contains top-level properties like weight, volume, cost fields, etc.
@@ -63,14 +67,17 @@ interface CalculationResultsProps {
 }
 
 function CalculationResults({ result }: CalculationResultsProps) {
+  // Thin undefined-safe wrappers over the canonical formatters — this component's
+  // fields are all optional (flattened calculator output), so callers rely on 'N/A'
+  // fallback and a decimals=2 default that the canonical formatters don't provide directly.
   const formatNumber = (value: number | undefined, decimals = 2) => {
     if (value === undefined) return 'N/A';
-    return value.toFixed(decimals);
+    return formatNumberBase(value, decimals);
   };
 
   const formatCurrency = (value: number | undefined) => {
     if (value === undefined) return 'N/A';
-    return `₹${value.toFixed(2)}`;
+    return formatCurrencyBase(value, 'INR');
   };
 
   return (

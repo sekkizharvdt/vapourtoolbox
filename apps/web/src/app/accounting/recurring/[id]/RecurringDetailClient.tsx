@@ -45,6 +45,7 @@ import {
   skipOccurrence,
 } from '@/lib/accounting/recurringTransactionService';
 import type { RecurringTransaction, RecurringOccurrence } from '@vapour/types';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 const TYPE_LABELS: Record<string, string> = {
   SALARY: 'Salary',
@@ -178,22 +179,6 @@ export default function RecurringDetailClient() {
       setSkipOccurrenceId(null);
       setSkipReason('');
     }
-  };
-
-  const formatCurrency = (amount: number, currency = 'INR') => {
-    return `${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} ${currency}`;
-  };
-
-  const formatDate = (timestamp: { toDate: () => Date } | undefined) => {
-    if (!timestamp) return '-';
-    return timestamp.toDate().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (!hasViewAccess) {

@@ -30,21 +30,7 @@ import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { getFirebase } from '@/lib/firebase';
 import { getAvailableFiscalYears, getAccountingPeriods } from '@/lib/accounting/fiscalYearService';
 import type { FiscalYear, AccountingPeriod } from '@vapour/types';
-
-function toDate(val: unknown): Date {
-  if (val && typeof val === 'object' && 'toDate' in val) {
-    return (val as { toDate: () => Date }).toDate();
-  }
-  return val instanceof Date ? val : new Date(val as string);
-}
-
-function formatDate(val: unknown): string {
-  return toDate(val).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import { formatDate } from '@/lib/utils/formatters';
 
 function getStatusChip(status: string) {
   switch (status) {

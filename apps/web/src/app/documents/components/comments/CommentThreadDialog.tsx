@@ -34,6 +34,7 @@ import {
   Cancel as RejectIcon,
 } from '@mui/icons-material';
 import type { DocumentComment } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface CommentThreadDialogProps {
   open: boolean;
@@ -71,17 +72,6 @@ export default function CommentThreadDialog({
       SUGGESTION: '#388e3c',
     };
     return colors[severity] || '#000';
-  };
-
-  const formatDate = (timestamp: { seconds: number } | null | undefined): string => {
-    if (!timestamp) return '-';
-    return new Date(timestamp.seconds * 1000).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const handleResolve = async () => {
@@ -200,7 +190,7 @@ export default function CommentThreadDialog({
                 By: {comment.commentedByName}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Date: {formatDate(comment.commentedAt)}
+                Date: {formatDate(comment.commentedAt, 'datetime')}
               </Typography>
             </Stack>
           </Paper>
@@ -241,7 +231,7 @@ export default function CommentThreadDialog({
                   <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                     <Typography variant="caption">By: {comment.resolvedByName}</Typography>
                     <Typography variant="caption">
-                      Date: {formatDate(comment.resolvedAt)}
+                      Date: {formatDate(comment.resolvedAt, 'datetime')}
                     </Typography>
                   </Stack>
                 )}
@@ -257,7 +247,7 @@ export default function CommentThreadDialog({
                 PM Approved by {comment.pmApprovedByName}
               </Typography>
               <Typography variant="caption" display="block">
-                {formatDate(comment.pmApprovedAt)}
+                {formatDate(comment.pmApprovedAt, 'datetime')}
               </Typography>
               {comment.pmRemarks && (
                 <Typography variant="body2" sx={{ mt: 1 }}>
@@ -274,7 +264,7 @@ export default function CommentThreadDialog({
                 Client Accepted
               </Typography>
               <Typography variant="caption" display="block">
-                {formatDate(comment.clientAcceptedAt)}
+                {formatDate(comment.clientAcceptedAt, 'datetime')}
               </Typography>
               {comment.clientAcceptanceRemarks && (
                 <Typography variant="body2" sx={{ mt: 1 }}>

@@ -40,7 +40,7 @@ import {
 import type { Project, DocumentRequirement } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { canManageProjects } from '@vapour/constants';
+import { canManageProjects, getStatusColor, getPriorityColor } from '@vapour/constants';
 import {
   addDocumentRequirement,
   updateDocumentRequirement,
@@ -205,40 +205,6 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
     }
   };
 
-  const getStatusColor = (
-    status: DocumentRequirement['status']
-  ): 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' => {
-    switch (status) {
-      case 'NOT_SUBMITTED':
-        return 'default';
-      case 'SUBMITTED':
-        return 'primary';
-      case 'UNDER_REVIEW':
-        return 'secondary';
-      case 'APPROVED':
-        return 'success';
-      case 'REJECTED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPriorityColor = (
-    priority: DocumentRequirement['priority']
-  ): 'default' | 'warning' | 'error' => {
-    switch (priority) {
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      case 'LOW':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
-
   // Calculate stats
   const stats = {
     total: documentRequirements.length,
@@ -387,7 +353,7 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
                     <Chip
                       label={requirement.priority}
                       size="small"
-                      color={getPriorityColor(requirement.priority)}
+                      color={getPriorityColor(requirement.priority, 'project')}
                     />
                   </TableCell>
                   <TableCell>
@@ -404,7 +370,7 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
                     <Chip
                       label={requirement.status.replace(/_/g, ' ')}
                       size="small"
-                      color={getStatusColor(requirement.status)}
+                      color={getStatusColor(requirement.status, 'documentRequirement')}
                     />
                   </TableCell>
                   <TableCell>

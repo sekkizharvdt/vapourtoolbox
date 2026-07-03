@@ -32,6 +32,7 @@ import {
   getCompanyHolidaysInRange,
   type HolidayInfo,
 } from '../holidays';
+import { formatDate } from '@/lib/utils/formatters';
 
 const logger = createLogger({ context: 'leaveRequestService' });
 
@@ -314,8 +315,6 @@ export async function createLeaveRequest(
       start.setHours(0, 0, 0, 0);
       end.setHours(0, 0, 0, 0);
       if (start.getTime() !== end.getTime()) {
-        const formatDate = (d: Date) =>
-          d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
         throw new Error(
           `Half-day leave can only be for a single day. You selected ${formatDate(start)} to ${formatDate(end)} (${Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1} days). Please select the same start and end date for half-day leave.`
         );

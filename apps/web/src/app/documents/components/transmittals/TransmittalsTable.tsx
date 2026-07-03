@@ -30,8 +30,9 @@ import {
   Refresh as RegenerateIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import type { DocumentTransmittal, TransmittalStatus } from '@vapour/types';
+import type { DocumentTransmittal } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import { getStatusColor } from '@vapour/constants';
 
 interface TransmittalsTableProps {
   transmittals: DocumentTransmittal[];
@@ -48,18 +49,6 @@ export default function TransmittalsTable({
   onRegenerate,
   onDelete,
 }: TransmittalsTableProps) {
-  const getStatusColor = (
-    status: TransmittalStatus
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    const colors: Record<TransmittalStatus, 'default' | 'info' | 'warning' | 'success'> = {
-      DRAFT: 'default',
-      GENERATED: 'info',
-      SENT: 'warning',
-      ACKNOWLEDGED: 'success',
-    };
-    return colors[status] || 'default';
-  };
-
   if (transmittals.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -139,7 +128,7 @@ export default function TransmittalsTable({
                   <Chip
                     label={transmittal.status}
                     size="small"
-                    color={getStatusColor(transmittal.status)}
+                    color={getStatusColor(transmittal.status, 'transmittal')}
                     sx={{ fontSize: '0.7rem' }}
                   />
                 </TableCell>

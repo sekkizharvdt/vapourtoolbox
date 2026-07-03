@@ -31,7 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 interface ViewEntityDialogProps {
   open: boolean;
@@ -55,22 +55,6 @@ export function ViewEntityDialog({
   const router = useRouter();
 
   if (!entity) return null;
-
-  // Format date for display
-  const formatDate = (date: Date | undefined | null) => {
-    if (!date) return 'Unknown';
-    const d =
-      date && typeof date === 'object' && 'toDate' in date
-        ? (date as { toDate: () => Date }).toDate()
-        : date instanceof Date
-          ? date
-          : new Date(date as string);
-    return d.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
 
   // Get role icon
   const getRoleIcon = (roles: EntityRole[]) => {
@@ -484,10 +468,10 @@ export function ViewEntityDialog({
                             Credit Limit
                           </Typography>
                           <Typography variant="body2">
-                            {new Intl.NumberFormat('en-IN', {
-                              style: 'currency',
-                              currency: entity.creditTerms.currency || 'INR',
-                            }).format(entity.creditTerms.creditLimit)}
+                            {formatCurrency(
+                              entity.creditTerms.creditLimit,
+                              entity.creditTerms.currency || 'INR'
+                            )}
                           </Typography>
                         </Box>
                       )}

@@ -36,6 +36,7 @@ import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import { getUpcomingOccurrences } from '@/lib/accounting/recurringTransactionService';
 import type { RecurringOccurrence, RecurringTransactionType } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 const TYPE_LABELS: Record<RecurringTransactionType, string> = {
   SALARY: 'Salary',
@@ -132,13 +133,6 @@ export default function UpcomingOccurrencesPage() {
     } finally {
       setGenerating(false);
     }
-  };
-
-  const formatCurrency = (amount: number, currency = 'INR') => {
-    return `${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })} ${currency}`;
   };
 
   // Calculate totals

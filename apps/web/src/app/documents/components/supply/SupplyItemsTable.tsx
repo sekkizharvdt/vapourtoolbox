@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { Visibility as ViewIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { SupplyItem } from '@vapour/types';
+import { formatCurrencyCode } from '@/lib/utils/formatters';
 
 interface SupplyItemsTableProps {
   items: SupplyItem[];
@@ -55,7 +56,7 @@ export default function SupplyItemsTable({
 
   const formatCurrency = (amount: number | undefined, currency: string): string => {
     if (!amount) return '-';
-    return `${currency} ${amount.toFixed(2)}`;
+    return formatCurrencyCode(amount, currency);
   };
 
   if (items.length === 0) {

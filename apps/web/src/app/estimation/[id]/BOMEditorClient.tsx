@@ -29,6 +29,7 @@ import type { BOM, BOMItem, BOMStatus } from '@vapour/types';
 import AddBOMItemDialog, { type AddItemData } from '@/components/bom/AddBOMItemDialog';
 import GeneratePDFDialog from '@/components/bom/GeneratePDFDialog';
 import { useToast } from '@/components/common/Toast';
+import { formatMoney, formatWeight } from '@/lib/utils/formatters';
 
 const logger = createLogger({ context: 'BOMEditorPage' });
 
@@ -149,13 +150,6 @@ export default function BOMEditorClient() {
     router.push('/estimation');
   };
 
-  const formatCurrency = (money: { amount: number; currency: string }) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency,
-    }).format(money.amount);
-  };
-
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -261,7 +255,7 @@ export default function BOMEditorClient() {
                 <Typography variant="body2" color="text.secondary">
                   Total Weight
                 </Typography>
-                <Typography variant="h5">{bom.summary.totalWeight.toFixed(2)} kg</Typography>
+                <Typography variant="h5">{formatWeight(bom.summary.totalWeight)}</Typography>
               </Box>
 
               <Divider sx={{ my: 2 }} />
@@ -275,7 +269,7 @@ export default function BOMEditorClient() {
                   Material
                 </Typography>
                 <Typography variant="body1">
-                  {formatCurrency(bom.summary.totalMaterialCost)}
+                  {formatMoney(bom.summary.totalMaterialCost)}
                 </Typography>
               </Box>
 
@@ -284,7 +278,7 @@ export default function BOMEditorClient() {
                   Fabrication
                 </Typography>
                 <Typography variant="body1">
-                  {formatCurrency(bom.summary.totalFabricationCost)}
+                  {formatMoney(bom.summary.totalFabricationCost)}
                 </Typography>
               </Box>
 
@@ -292,16 +286,14 @@ export default function BOMEditorClient() {
                 <Typography variant="body2" color="text.secondary">
                   Service
                 </Typography>
-                <Typography variant="body1">
-                  {formatCurrency(bom.summary.totalServiceCost)}
-                </Typography>
+                <Typography variant="body1">{formatMoney(bom.summary.totalServiceCost)}</Typography>
               </Box>
 
               <Box sx={{ mb: 2, pl: 1, borderTop: 1, borderColor: 'divider', pt: 1 }}>
                 <Typography variant="body2" color="text.secondary" fontWeight="medium">
                   Total Direct
                 </Typography>
-                <Typography variant="h6">{formatCurrency(bom.summary.totalDirectCost)}</Typography>
+                <Typography variant="h6">{formatMoney(bom.summary.totalDirectCost)}</Typography>
               </Box>
 
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -313,7 +305,7 @@ export default function BOMEditorClient() {
                   <Typography variant="body2" color="text.secondary">
                     Overhead
                   </Typography>
-                  <Typography variant="body1">{formatCurrency(bom.summary.overhead)}</Typography>
+                  <Typography variant="body1">{formatMoney(bom.summary.overhead)}</Typography>
                 </Box>
               )}
 
@@ -322,7 +314,7 @@ export default function BOMEditorClient() {
                   <Typography variant="body2" color="text.secondary">
                     Contingency
                   </Typography>
-                  <Typography variant="body1">{formatCurrency(bom.summary.contingency)}</Typography>
+                  <Typography variant="body1">{formatMoney(bom.summary.contingency)}</Typography>
                 </Box>
               )}
 
@@ -331,7 +323,7 @@ export default function BOMEditorClient() {
                   <Typography variant="body2" color="text.secondary">
                     Profit
                   </Typography>
-                  <Typography variant="body1">{formatCurrency(bom.summary.profit)}</Typography>
+                  <Typography variant="body1">{formatMoney(bom.summary.profit)}</Typography>
                 </Box>
               )}
 
@@ -352,7 +344,7 @@ export default function BOMEditorClient() {
                   Total Cost
                 </Typography>
                 <Typography variant="h4" color="primary">
-                  {formatCurrency(bom.summary.totalCost)}
+                  {formatMoney(bom.summary.totalCost)}
                 </Typography>
               </Box>
             </CardContent>
@@ -439,7 +431,7 @@ export default function BOMEditorClient() {
                                   Total Cost
                                 </Typography>
                                 <Typography variant="h6" color="primary">
-                                  {formatCurrency({
+                                  {formatMoney({
                                     amount:
                                       (item.cost.totalMaterialCost?.amount ?? 0) +
                                       (item.cost.totalFabricationCost?.amount ?? 0) +
@@ -449,18 +441,18 @@ export default function BOMEditorClient() {
                                 </Typography>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                                   <Typography variant="caption" color="text.secondary">
-                                    Mat: {formatCurrency(item.cost.totalMaterialCost)}
+                                    Mat: {formatMoney(item.cost.totalMaterialCost)}
                                   </Typography>
                                   {item.cost.totalFabricationCost &&
                                     item.cost.totalFabricationCost.amount > 0 && (
                                       <Typography variant="caption" color="text.secondary">
-                                        Fab: {formatCurrency(item.cost.totalFabricationCost)}
+                                        Fab: {formatMoney(item.cost.totalFabricationCost)}
                                       </Typography>
                                     )}
                                   {item.cost.totalServiceCost &&
                                     item.cost.totalServiceCost.amount > 0 && (
                                       <Typography variant="caption" color="text.secondary">
-                                        Svc: {formatCurrency(item.cost.totalServiceCost)}
+                                        Svc: {formatMoney(item.cost.totalServiceCost)}
                                       </Typography>
                                     )}
                                 </Box>

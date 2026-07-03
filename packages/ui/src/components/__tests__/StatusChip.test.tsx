@@ -19,13 +19,13 @@ describe('StatusChip', () => {
   });
 
   it('applies context-specific color overrides via getStatusColor', () => {
-    const { container: withoutContext } = render(<StatusChip status="COMPLETED" />);
+    const { container: withoutContext } = render(<StatusChip status="PLANNING" />);
     const { container: withProjectContext } = render(
-      <StatusChip status="COMPLETED" context="project" />
+      <StatusChip status="PLANNING" context="project" />
     );
 
-    // base mapping: COMPLETED -> success; project context override -> info
-    expect(withoutContext.querySelector('.MuiChip-colorSuccess')).toBeInTheDocument();
-    expect(withProjectContext.querySelector('.MuiChip-colorInfo')).toBeInTheDocument();
+    // base mapping has no PLANNING entry -> default; project context overrides it -> primary
+    expect(withoutContext.querySelector('.MuiChip-colorDefault')).toBeInTheDocument();
+    expect(withProjectContext.querySelector('.MuiChip-colorPrimary')).toBeInTheDocument();
   });
 });

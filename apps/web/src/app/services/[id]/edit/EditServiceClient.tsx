@@ -15,7 +15,6 @@ import {
   FormControlLabel,
   Switch,
   Alert,
-  Snackbar,
   CircularProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -23,6 +22,7 @@ import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-materia
 import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import {
   ServiceCategory,
   SERVICE_CATEGORY_LABELS,
@@ -37,6 +37,7 @@ export default function EditServiceClient() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
+  const { toast } = useToast();
 
   // Static export: useParams() returns the placeholder; parse the real id from the path.
   const [serviceId, setServiceId] = useState<string | null>(null);
@@ -70,10 +71,6 @@ export default function EditServiceClient() {
   const [deliverables, setDeliverables] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
-  });
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -160,7 +157,7 @@ export default function EditServiceClient() {
         user.uid
       );
 
-      setSnackbar({ open: true, message: 'Service updated successfully' });
+      toast.success('Service updated successfully');
       router.push(`/services/${serviceId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update service');
@@ -390,13 +387,6 @@ export default function EditServiceClient() {
           </Grid>
         </Grid>
       </Paper>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        message={snackbar.message}
-      />
     </Box>
   );
 }

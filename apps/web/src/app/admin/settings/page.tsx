@@ -20,7 +20,6 @@ import {
   Alert,
   Divider,
   CircularProgress,
-  Snackbar,
   Checkbox,
   Chip,
   Stack,
@@ -36,6 +35,7 @@ import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import NextLink from 'next/link';
 
 interface EmailConfig {
@@ -66,16 +66,12 @@ const DEFAULT_CONFIG: EmailConfig = {
 export default function SettingsPage() {
   // rule19-exempt: admin settings UI — single-user, no concurrent edits expected on this config doc
   const { user } = useAuth();
+  const { toast } = useToast();
   const [config, setConfig] = useState<EmailConfig>(DEFAULT_CONFIG);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info';
-  }>({ open: false, message: '', severity: 'success' });
 
   // Load config and users
   useEffect(() => {
@@ -132,22 +128,18 @@ export default function SettingsPage() {
         updatedAt: new Date(),
         updatedBy: user?.uid || '',
       });
-      setSnackbar({ open: true, message: 'Settings saved', severity: 'success' });
+      toast.success('Settings saved');
     } catch (error) {
       console.error('Error saving settings:', error);
-      setSnackbar({ open: true, message: 'Failed to save settings', severity: 'error' });
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
-  }, [config, user]);
+  }, [config, user, toast]);
 
   const handleSendTest = useCallback(async () => {
     if (!config.fromEmail || !user?.email) {
-      setSnackbar({
-        open: true,
-        message: 'Please set a from email address and save first',
-        severity: 'error',
-      });
+      toast.error('Please set a from email address and save first');
       return;
     }
 
@@ -160,19 +152,15 @@ export default function SettingsPage() {
         fromEmail: config.fromEmail,
         fromName: config.fromName,
       });
-      setSnackbar({
-        open: true,
-        message: `Test email sent to ${user.email}`,
-        severity: 'success',
-      });
+      toast.success(`Test email sent to ${user.email}`);
     } catch (error) {
       console.error('Test email failed:', error);
       const message = error instanceof Error ? error.message : 'Failed to send test email';
-      setSnackbar({ open: true, message, severity: 'error' });
+      toast.error(message);
     } finally {
       setSendingTest(false);
     }
-  }, [config, user]);
+  }, [config, user, toast]);
 
   const toggleRecipient = (uid: string) => {
     setConfig((prev) => {
@@ -393,13 +381,6 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        message={snackbar.message}
-      />
     </Box>
   );
 }

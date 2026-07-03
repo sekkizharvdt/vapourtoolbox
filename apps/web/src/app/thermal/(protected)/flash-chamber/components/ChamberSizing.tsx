@@ -14,6 +14,7 @@ import type {
   NozzleSizing,
 } from '@vapour/types';
 import { ElevationDiagram } from './ElevationDiagram';
+import { formatNumber } from '@/lib/utils/formatters';
 
 interface ChamberSizingProps {
   sizing: ChamberSizingType;
@@ -29,13 +30,6 @@ const formatElevation = (value: number): string => {
 };
 
 export function ChamberSizing({ sizing, elevations, nozzles }: ChamberSizingProps) {
-  const formatNumber = (value: number, decimals: number = 0) => {
-    return value.toLocaleString('en-IN', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  };
-
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" gutterBottom>

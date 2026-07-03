@@ -34,6 +34,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 interface ProcurementHealthStats {
   stalePRs: { count: number; oldestDays: number };
@@ -246,13 +247,8 @@ export default function ProcurementDataHealthPage() {
     fetchStats();
   }, []);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatCurrencyWhole = (amount: number) =>
+    formatCurrency(amount, 'INR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   const issueCards = stats
     ? [
@@ -280,7 +276,7 @@ export default function ProcurementDataHealthPage() {
         {
           title: 'Pending Offer Selection',
           count: stats.pendingOfferSelection.count,
-          subtitle: `Value: ${formatCurrency(stats.pendingOfferSelection.totalValue)}`,
+          subtitle: `Value: ${formatCurrencyWhole(stats.pendingOfferSelection.totalValue)}`,
           icon: <OfferIcon sx={{ fontSize: 40 }} />,
           color: stats.pendingOfferSelection.count > 0 ? 'error.main' : 'success.main',
           path: '/procurement/rfqs?status=OFFERS_RECEIVED',
@@ -289,7 +285,7 @@ export default function ProcurementDataHealthPage() {
         {
           title: 'POs Pending Approval',
           count: stats.posPendingApproval.count,
-          subtitle: `Value: ${formatCurrency(stats.posPendingApproval.totalValue)}`,
+          subtitle: `Value: ${formatCurrencyWhole(stats.posPendingApproval.totalValue)}`,
           icon: <POIcon sx={{ fontSize: 40 }} />,
           color: stats.posPendingApproval.count > 0 ? 'warning.main' : 'success.main',
           path: '/procurement/pos?status=PENDING_APPROVAL',
@@ -298,7 +294,7 @@ export default function ProcurementDataHealthPage() {
         {
           title: 'Overdue Deliveries',
           count: stats.overdueDeliveries.count,
-          subtitle: `Value: ${formatCurrency(stats.overdueDeliveries.totalValue)}`,
+          subtitle: `Value: ${formatCurrencyWhole(stats.overdueDeliveries.totalValue)}`,
           icon: <DeliveryIcon sx={{ fontSize: 40 }} />,
           color: stats.overdueDeliveries.count > 0 ? 'error.main' : 'success.main',
           path: '/procurement/pos?overdue=true',
@@ -491,8 +487,8 @@ export default function ProcurementDataHealthPage() {
                 >
                   <strong>Priority 1:</strong> {stats.pendingOfferSelection.count} RFQs have offers
                   waiting for selection worth{' '}
-                  {formatCurrency(stats.pendingOfferSelection.totalValue)}. This may delay project
-                  timelines.
+                  {formatCurrencyWhole(stats.pendingOfferSelection.totalValue)}. This may delay
+                  project timelines.
                 </Alert>
               )}
               {stats.posPendingApproval.count > 0 && (
@@ -508,7 +504,8 @@ export default function ProcurementDataHealthPage() {
                   }
                 >
                   <strong>Priority 2:</strong> {stats.posPendingApproval.count} Purchase Orders
-                  worth {formatCurrency(stats.posPendingApproval.totalValue)} are pending approval.
+                  worth {formatCurrencyWhole(stats.posPendingApproval.totalValue)} are pending
+                  approval.
                 </Alert>
               )}
               {stats.overdueDeliveries.count > 0 && (
@@ -524,8 +521,8 @@ export default function ProcurementDataHealthPage() {
                   }
                 >
                   <strong>Priority 3:</strong> {stats.overdueDeliveries.count} deliveries are
-                  overdue worth {formatCurrency(stats.overdueDeliveries.totalValue)}. Follow up with
-                  vendors.
+                  overdue worth {formatCurrencyWhole(stats.overdueDeliveries.totalValue)}. Follow up
+                  with vendors.
                 </Alert>
               )}
               {stats.missingGoodsReceipts.count > 0 && (

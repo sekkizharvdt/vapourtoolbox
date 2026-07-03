@@ -41,6 +41,7 @@ import { downloadPDF, sanitiseFilename } from '@/lib/pdf/pdfUtils';
 import { fetchLogoAsDataUri } from '@/lib/pdf/logoUtils';
 import { PeriodReportPDFDocument } from '@/components/pdf/PeriodReportPDFDocument';
 import React from 'react';
+import { formatCurrency, formatDate, formatPercentage } from '@/lib/utils/formatters';
 
 /* ─── FY helpers ──────────────────────────────────────────────── */
 
@@ -62,18 +63,14 @@ const QUARTER_OPTIONS: { code: QuarterCode; label: string }[] = [
 
 /* ─── Formatting ──────────────────────────────────────────────── */
 
+// formatINR/formatINRSigned: thin adapters over the canonical formatter, preserving the
+// ₹-with-no-decimals call-site contract used ~30x below (rule 32 — one canonical formatter,
+// not a parallel Math.round/toLocaleString implementation).
 function formatINR(n: number): string {
-  return '₹' + Math.round(n).toLocaleString('en-IN');
+  return formatCurrency(n, 'INR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 function formatINRSigned(n: number): string {
-  if (Math.abs(n) < 0.5) return '₹0';
-  return (n < 0 ? '-' : '') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
-}
-function formatPct(n: number): string {
-  return n.toFixed(1) + '%';
-}
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatCurrency(n, 'INR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 function formatDelta(amount: number, pct: number): string {
   const sign = amount >= 0 ? '+' : '−';
@@ -570,7 +567,7 @@ function ReportPreview({ data }: { data: PeriodReportData }) {
             />
             <KPI
               label="Spend coverage"
-              value={formatPct(projectPerformance.totals.taggedSpendPct)}
+              value={formatPercentage(projectPerformance.totals.taggedSpendPct / 100, 1)}
             />
           </Grid>
           <TableContainer sx={{ mt: 2 }}>
@@ -781,7 +778,7 @@ function AgingPanel({ aging }: { aging: AgingSection }) {
       <Typography variant="caption" color="text.secondary">
         {aging.invoiceCount} items across {aging.entityCount}{' '}
         {aging.kind === 'AR' ? 'customers' : 'vendors'} · top-5{' '}
-        {formatPct(aging.top5ConcentrationPct)}
+        {formatPercentage(aging.top5ConcentrationPct / 100, 1)}
       </Typography>
     </Box>
   );

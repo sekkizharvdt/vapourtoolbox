@@ -40,6 +40,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllEmployees, getDepartments } from '@/lib/hr';
 import type { EmployeeListItem } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success' | 'default'> = {
   'A+': 'error',
@@ -131,15 +132,6 @@ export default function EmployeeDirectoryPage() {
       departmentCounts,
     };
   }, [employees]);
-
-  const formatDate = (timestamp: { toDate: () => Date } | undefined) => {
-    if (!timestamp) return '-';
-    return timestamp.toDate().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
 
   return (
     <Box>

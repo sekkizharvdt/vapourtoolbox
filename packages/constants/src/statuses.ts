@@ -29,7 +29,16 @@ export type StatusColorContext =
   | 'vendorContract'
   | 'objective'
   | 'quote'
-  | 'travelExpense';
+  | 'travelExpense'
+  | 'purchaseRequest'
+  | 'transmittal'
+  | 'charterApproval'
+  | 'documentRequirement'
+  | 'commentResolution'
+  | 'workItem';
+
+/** Context for `getPriorityColor` — mirrors `StatusColorContext`'s design. */
+export type PriorityColorContext = 'project';
 
 /**
  * Base status color mapping
@@ -101,10 +110,12 @@ const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>>
   bill: {},
   // Transaction context (journal entries, etc.) uses base colors
   transaction: {},
-  // Project context - ACTIVE is ongoing (green), COMPLETED is finished (blue)
+  // Project context - ACTIVE and COMPLETED are both positive/green; PLANNING
+  // is a distinct pre-active phase.
   project: {
     ACTIVE: 'success',
-    COMPLETED: 'info',
+    COMPLETED: 'success',
+    PLANNING: 'primary',
     ON_HOLD: 'warning',
     CANCELLED: 'error',
     PROPOSAL: 'primary',
@@ -155,6 +166,51 @@ const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>>
     REJECTED: 'error',
     REIMBURSED: 'primary',
   },
+  // Purchase request context (PurchaseRequestStatus)
+  purchaseRequest: {
+    SUBMITTED: 'info',
+    APPROVED: 'success',
+    CONVERTED_TO_RFQ: 'primary',
+  },
+  // Document transmittal context (TransmittalStatus)
+  transmittal: {
+    GENERATED: 'info',
+    SENT: 'warning',
+    ACKNOWLEDGED: 'success',
+  },
+  // Project charter approval context — approvalStatus on a charter
+  charterApproval: {
+    APPROVED: 'success',
+  },
+  // Charter document-requirement context (a per-deliverable status, distinct
+  // from the master-document workflow status in the `document` context)
+  documentRequirement: {
+    SUBMITTED: 'primary',
+    UNDER_REVIEW: 'secondary',
+    APPROVED: 'success',
+  },
+  // Comment Resolution Sheet context
+  commentResolution: {
+    PENDING: 'default',
+  },
+  // Generic work-item context (documents module)
+  workItem: {
+    PENDING: 'default',
+    CANCELLED: 'default',
+  },
+};
+
+/**
+ * Context-specific overrides for `getPriorityColor`.
+ */
+const priorityContextOverrides: Record<string, Partial<Record<string, StatusChipColor>>> = {
+  // Project/procurement priority convention — escalates MEDIUM/HIGH one
+  // level relative to the generic base (matches ViewProjectDialog,
+  // ProjectCharterDialog, charter DocumentsTab, and ProcurementTab).
+  project: {
+    MEDIUM: 'warning',
+    HIGH: 'error',
+  },
 };
 
 /**
@@ -183,17 +239,24 @@ export function getStatusColor(status: string, context?: StatusColorContext): St
 /**
  * Get priority color for task/issue priority levels
  *
- * @param priority - Priority level (LOW, MEDIUM, HIGH, CRITICAL)
+ * @param priority - Priority level (LOW, MEDIUM, HIGH, CRITICAL, URGENT)
+ * @param context - Optional context for context-specific color mappings
  */
 export function getPriorityColor(
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'URGENT' | string,
+  context?: PriorityColorContext
 ): StatusChipColor {
   const priorityColors: Record<string, StatusChipColor> = {
     LOW: 'default',
     MEDIUM: 'info',
     HIGH: 'warning',
     CRITICAL: 'error',
+    URGENT: 'error',
   };
+
+  if (context && priorityContextOverrides[context]?.[priority]) {
+    return priorityContextOverrides[context][priority] as StatusChipColor;
+  }
 
   return priorityColors[priority] || 'default';
 }

@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -32,6 +31,7 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import { SERVICE_CATEGORY_LABELS, SERVICE_CALCULATION_METHOD_LABELS } from '@vapour/types';
 import type { Service, VendorQuote } from '@vapour/types';
 import { getServiceById, deleteService } from '@/lib/services/crud';
@@ -53,6 +53,7 @@ export default function ServiceDetailClient() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
+  const { toast } = useToast();
 
   // Static export: useParams() returns the placeholder; parse the real id from the path.
   const [serviceId, setServiceId] = useState<string | null>(null);
@@ -70,10 +71,6 @@ export default function ServiceDetailClient() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
-  });
 
   // Recent quotes — vendor quotes that link to this service. Independent of
   // the main load: a failure here shouldn't block the rest of the page.
@@ -121,7 +118,7 @@ export default function ServiceDetailClient() {
     setDeleting(true);
     try {
       await deleteService(db, serviceId, user.uid);
-      setSnackbar({ open: true, message: 'Service deleted' });
+      toast.success('Service deleted');
       router.push('/services');
     } catch (error) {
       console.error('Error deleting service:', error);
@@ -416,13 +413,6 @@ export default function ServiceDetailClient() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        message={snackbar.message}
-      />
     </Box>
   );
 }

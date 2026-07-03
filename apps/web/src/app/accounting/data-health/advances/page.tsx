@@ -42,7 +42,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { RecordCustomerPaymentDialog } from '../../payments/components/RecordCustomerPaymentDialog';
 import { RecordVendorPaymentDialog } from '../../payments/components/RecordVendorPaymentDialog';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 type AdvancePayment = (CustomerPayment | VendorPayment) & {
@@ -145,15 +145,6 @@ export default function AdvancesPage() {
     setFilteredAdvances(filtered);
     setPage(0);
   }, [advances, searchTerm, typeFilter]);
-
-  const formatDate = (date: unknown): string => {
-    if (!date) return '-';
-    const d =
-      typeof date === 'object' && 'toDate' in (date as object)
-        ? (date as { toDate: () => Date }).toDate()
-        : new Date(date as string);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
 
   const handleClearFilters = () => {
     setSearchTerm('');
@@ -307,7 +298,9 @@ export default function AdvancesPage() {
                         {advance.transactionNumber}
                       </Typography>
                     </TableCell>
-                    <TableCell>{formatDate(advance.paymentDate)}</TableCell>
+                    <TableCell>
+                      {formatDate(advance.paymentDate as Date | string | { toDate: () => Date })}
+                    </TableCell>
                     <TableCell>{advance.entityName}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>

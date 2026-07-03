@@ -20,6 +20,7 @@ import {
 import { useRouter } from 'next/navigation';
 import type { TaskNotification } from '@vapour/types';
 import { formatDuration } from '@/lib/tasks/timeEntryService';
+import { getPriorityColor } from '@vapour/constants';
 
 interface TaskNotificationItemProps {
   notification: TaskNotification;
@@ -30,23 +31,7 @@ interface TaskNotificationItemProps {
   showActions?: boolean;
 }
 
-// Helper functions moved outside component to avoid recreation
-const getPriorityColor = (
-  priority: string
-): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-  switch (priority) {
-    case 'URGENT':
-      return 'error';
-    case 'HIGH':
-      return 'warning';
-    case 'MEDIUM':
-      return 'info';
-    case 'LOW':
-    default:
-      return 'default';
-  }
-};
-
+// Helper function moved outside component to avoid recreation
 const getStatusColor = (
   status: string
 ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {

@@ -37,6 +37,7 @@ import { getDocumentSubmissions } from '@/lib/documents/submissionService';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { canSubmitDocuments, canManageDocuments } from '@vapour/constants';
+import { formatDate, formatFileSize } from '@/lib/utils/formatters';
 
 const SubmitRevisionDialog = dynamic(() => import('./SubmitRevisionDialog'), {
   ssr: false,
@@ -57,23 +58,6 @@ interface DocumentRevisionsProps {
 // ============================================================================
 
 const TERMINAL_STATUSES = ['APPROVED', 'ACCEPTED', 'CANCELLED'] as const;
-
-function formatDate(timestamp: { seconds: number } | undefined | null): string {
-  if (!timestamp || typeof timestamp !== 'object' || !('seconds' in timestamp)) {
-    return '-';
-  }
-  return new Date(timestamp.seconds * 1000).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function getClientStatusColor(
   status: ClientReviewStatus
@@ -275,7 +259,7 @@ export default function DocumentRevisions({
                 {submission.submittedByName}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {formatDate(submission.submittedAt as { seconds: number } | undefined)}
+                {formatDate(submission.submittedAt)}
               </Typography>
             </Stack>
             {submission.submissionNotes && (

@@ -27,6 +27,7 @@ import { createLogger } from '@vapour/logger';
 import type { BOM, BOMCategory } from '@vapour/types';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
+import { formatMoney, formatDate } from '@/lib/utils/formatters';
 
 const logger = createLogger({ context: 'EstimationPage' });
 
@@ -114,26 +115,6 @@ export default function EstimationPage() {
     }
   };
 
-  const formatCurrency = (money: { amount: number; currency: string }) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency,
-    }).format(money.amount);
-  };
-
-  const formatDate = (timestamp: { toDate?: () => Date } | Date | string | null | undefined) => {
-    if (!timestamp) return '-';
-    const date =
-      timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && timestamp.toDate
-        ? timestamp.toDate()
-        : new Date(timestamp as Date | string);
-    return new Intl.DateTimeFormat('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(date);
-  };
-
   return (
     <Box>
       <PageHeader
@@ -217,7 +198,7 @@ export default function EstimationPage() {
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2" fontWeight="medium">
-                      {formatCurrency(bom.summary.totalCost)}
+                      {formatMoney(bom.summary.totalCost)}
                     </Typography>
                   </TableCell>
                   <TableCell>

@@ -128,8 +128,8 @@ describe('UnarchiveEntityDialog', () => {
     it('should display archive date', () => {
       render(<UnarchiveEntityDialog {...defaultProps} />);
 
-      // Date should be formatted as "15 Jan 2024" (en-IN locale)
-      expect(screen.getByText(/15 Jan 2024/)).toBeInTheDocument();
+      // Date should be formatted as "15-Jan-2024" (canonical formatDate)
+      expect(screen.getByText(/15-Jan-2024/)).toBeInTheDocument();
     });
 
     it('should not display archive info box when no archive reason', () => {
@@ -158,8 +158,8 @@ describe('UnarchiveEntityDialog', () => {
       });
       render(<UnarchiveEntityDialog {...defaultProps} entity={entityWithoutDate} />);
 
-      // The formatDate function should return "Unknown"
-      expect(screen.getByText(/on Unknown/)).toBeInTheDocument();
+      // The canonical formatDate function returns "-" for a missing date
+      expect(screen.getByText(/on -/)).toBeInTheDocument();
     });
   });
 
@@ -355,15 +355,15 @@ describe('UnarchiveEntityDialog', () => {
   });
 
   describe('Date Formatting', () => {
-    it('should format date in en-IN locale', () => {
+    it('should format date via canonical formatDate', () => {
       const entityWithDate = createMockArchivedEntity({
         archiveReason: 'Test',
         archivedAt: new Date('2024-12-25'),
       });
       render(<UnarchiveEntityDialog {...defaultProps} entity={entityWithDate} />);
 
-      // Should be formatted as "25 Dec 2024"
-      expect(screen.getByText(/25 Dec 2024/)).toBeInTheDocument();
+      // Should be formatted as "25-Dec-2024" (canonical formatDate)
+      expect(screen.getByText(/25-Dec-2024/)).toBeInTheDocument();
     });
 
     it('should handle various date formats', () => {
@@ -373,7 +373,7 @@ describe('UnarchiveEntityDialog', () => {
       });
       render(<UnarchiveEntityDialog {...defaultProps} entity={entityWithDate} />);
 
-      expect(screen.getByText(/5 Mar 2023/)).toBeInTheDocument();
+      expect(screen.getByText(/05-Mar-2023/)).toBeInTheDocument();
     });
   });
 });

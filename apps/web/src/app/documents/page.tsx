@@ -63,6 +63,7 @@ import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
+import { formatDate } from '@/lib/utils/formatters';
 import {
   getCompanyDocuments,
   deleteCompanyDocument,
@@ -109,15 +110,6 @@ function formatFileSize(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function formatDate(timestamp: { seconds: number } | null): string {
-  if (!timestamp) return '-';
-  return new Date(timestamp.seconds * 1000).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 export default function CompanyDocumentsPage() {
@@ -407,9 +399,7 @@ export default function CompanyDocumentsPage() {
                   </TableCell>
                   <TableCell>{formatFileSize(doc.fileSize)}</TableCell>
                   <TableCell>
-                    <Typography variant="body2">
-                      {formatDate(doc.uploadedAt as { seconds: number })}
-                    </Typography>
+                    <Typography variant="body2">{formatDate(doc.uploadedAt)}</Typography>
                     <Typography variant="caption" color="text.secondary">
                       by {doc.uploadedByName}
                     </Typography>
@@ -562,7 +552,7 @@ export default function CompanyDocumentsPage() {
                     </TableCell>
                     <TableCell>{ver.fileName}</TableCell>
                     <TableCell>{ver.uploadedByName}</TableCell>
-                    <TableCell>{formatDate(ver.uploadedAt as { seconds: number })}</TableCell>
+                    <TableCell>{formatDate(ver.uploadedAt)}</TableCell>
                     <TableCell>{ver.revisionNotes || '-'}</TableCell>
                     <TableCell>
                       <IconButton

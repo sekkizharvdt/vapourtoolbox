@@ -38,6 +38,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { BaseTransaction, CostCentre } from '@vapour/types';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 interface ProjectFinancials {
   projectId: string;
@@ -164,21 +165,6 @@ export default function ProjectFinancialReportPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatCurrency = (amount: number, currency = 'INR') => {
-    return `${currency} ${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   const getTransactionTypeLabel = (type: string) => {

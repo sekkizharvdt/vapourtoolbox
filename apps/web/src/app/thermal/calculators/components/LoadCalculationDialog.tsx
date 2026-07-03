@@ -21,6 +21,7 @@ import { Delete as DeleteIcon } from '@mui/icons-material';
 import { getFirebase } from '@/lib/firebase';
 import { listCalculations, deleteCalculation } from '@/lib/thermal/savedCalculationService';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDate } from '@/lib/utils/formatters';
 import type { SavedCalculation } from '@vapour/types';
 
 interface LoadCalculationDialogProps {
@@ -77,21 +78,6 @@ export function LoadCalculationDialog({
   const handleSelect = (calc: SavedCalculation) => {
     onLoad(calc.inputs);
     onClose();
-  };
-
-  const formatDate = (date: Date) => {
-    const raw = date;
-    const d =
-      raw && typeof raw === 'object' && 'toDate' in raw
-        ? (raw as unknown as { toDate: () => Date }).toDate()
-        : raw instanceof Date
-          ? raw
-          : new Date(raw as unknown as string);
-    return d.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   return (

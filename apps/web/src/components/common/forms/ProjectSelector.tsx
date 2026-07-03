@@ -6,6 +6,7 @@ import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestor
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { getStatusColor } from '@vapour/constants';
 
 const logger = createLogger({ context: 'ProjectSelector' });
 
@@ -223,23 +224,6 @@ export function ProjectSelector({
     }
   }, [value, options]);
 
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'ON_HOLD':
-        return 'warning';
-      case 'COMPLETED':
-        return 'info';
-      case 'CANCELLED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
   const getCategoryColor = (
     category?: string
   ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -300,7 +284,7 @@ export function ProjectSelector({
                 <Chip
                   label={option.status}
                   size="small"
-                  color={getStatusColor(option.status)}
+                  color={getStatusColor(option.status, 'project')}
                   sx={{ height: 20, fontSize: '0.7rem' }}
                 />
               )}

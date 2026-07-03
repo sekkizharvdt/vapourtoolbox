@@ -20,11 +20,11 @@ import {
   Alert,
   Divider,
   CircularProgress,
-  Snackbar,
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import { useToast } from '@/components/common/Toast';
 import NextLink from 'next/link';
 
 interface NotificationEvent {
@@ -252,18 +252,10 @@ type NotificationSettings = Record<string, boolean>;
 
 export default function NotificationSettingsPage() {
   // rule19-exempt: admin settings UI — single-user, no concurrent edits expected on this config doc
+  const { toast } = useToast();
   const [settings, setSettings] = useState<NotificationSettings>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
 
   // Load settings from Firestore
   useEffect(() => {
@@ -311,14 +303,14 @@ export default function NotificationSettingsPage() {
         ...settings,
         updatedAt: new Date(),
       });
-      setSnackbar({ open: true, message: 'Settings saved', severity: 'success' });
+      toast.success('Settings saved');
     } catch (error) {
       console.error('Error saving notification settings:', error);
-      setSnackbar({ open: true, message: 'Failed to save settings', severity: 'error' });
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
-  }, [settings]);
+  }, [settings, toast]);
 
   if (loading) {
     return (
@@ -409,13 +401,6 @@ export default function NotificationSettingsPage() {
           </CardContent>
         </Card>
       ))}
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        message={snackbar.message}
-      />
     </Box>
   );
 }

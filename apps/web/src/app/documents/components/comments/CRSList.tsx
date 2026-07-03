@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import type { CommentResolutionSheet } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import { getStatusColor } from '@vapour/constants';
 
 interface CRSListProps {
   crsList: CommentResolutionSheet[];
@@ -39,13 +40,14 @@ export default function CRSList({ crsList }: CRSListProps) {
   }
 
   const getStatusChip = (status: CommentResolutionSheet['status']) => {
+    const color = getStatusColor(status, 'commentResolution');
     switch (status) {
       case 'PENDING':
-        return <Chip icon={<PendingIcon />} label="Pending" size="small" color="default" />;
+        return <Chip icon={<PendingIcon />} label="Pending" size="small" color={color} />;
       case 'IN_PROGRESS':
-        return <Chip icon={<InProgressIcon />} label="In Progress" size="small" color="warning" />;
+        return <Chip icon={<InProgressIcon />} label="In Progress" size="small" color={color} />;
       case 'COMPLETED':
-        return <Chip icon={<CompletedIcon />} label="Completed" size="small" color="success" />;
+        return <Chip icon={<CompletedIcon />} label="Completed" size="small" color={color} />;
       default:
         return <Chip label={status} size="small" />;
     }

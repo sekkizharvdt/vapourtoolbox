@@ -182,7 +182,7 @@ Extend `DataTable` where the pilots expose gaps (don't fork it). On completion, 
   quotes/bills pages' Tabs/FilterBar choices — Phase 3's scope was table rendering + status +
   formatters, not a full component-kit sweep of every page.
 
-## Phase 4 — Targeted sweeps (~2–3 days, mechanical; parallel-session friendly)
+## Phase 4 — Targeted sweeps (~2–3 days, mechanical; parallel-session friendly) ✅ DONE 2026-07-03
 
 Each sweep ends by flipping its audit check to enforced (see Phase 5).
 
@@ -197,6 +197,68 @@ Each sweep ends by flipping its audit check to enforced (see Phase 5).
   rewrite rule 29 (see Phase 5).
 - _(Not swept: 1,450 table headers, 79 table layouts, 90 h4 page headers, button variants —
   opportunistic only, protected by ratchet.)_
+
+### Phase 4 execution notes
+
+- **Sweep C (10 files)**: done first, directly (no delegation) — small, low-risk, and every file's
+  `severity` field turned out to be tracked but never actually rendered as a color in several admin
+  pages (bare `<Snackbar message=...>` with no `<Alert severity>`), so migrating to `useToast` was a
+  strict improvement, not just a lateral move. `/admin/notifications` was found to be an orphaned
+  route (not linked from any nav, apparently superseded by `/admin/email`) — migrated its snackbar
+  anyway since deleting a route is a separate, larger decision than this sweep's scope; flagged here
+  for a future cleanup pass.
+- **Sweep A (62 files)**: delegated to 5 parallel agents, each owning a disjoint file batch, each
+  briefed on the exact percentage-scale/currency-locale/date-format pitfalls found in Phase 1. No
+  100x percentage bugs were introduced — every batch checked scale semantics first and used the
+  thin-adapter pattern from `threeWayMatchHelpers.ts` where genuinely needed (e.g. `period-report`'s
+  pre-scaled percentages, verified against source before swapping). Real, distinct display modes
+  were correctly preserved rather than forced into canonical: Lakh/Crore compact currency
+  (`BudgetTab`/`ReportsTab` — a third duplicate of this same compact formatter was found in
+  `charter/components/vendors/VendorTable.tsx`, not touched, flagged for a future consolidation),
+  scientific-notation viscosity formatting (`SeawaterPropertiesClient`), and an `en-US`-locale PDF
+  datasheet template (`FlashChamberDatasheet` — flagged for human confirmation of intent, not
+  changed). One pre-existing bug fixed as a natural side effect: quotes-page total-amount cell
+  assumed all quotes shared one currency (read from `quotes[0]`); now formats each row in its own
+  currency.
+- **Sweep B (29 candidate files)**: the plan's file list turned out to be a mix of genuine
+  `getStatusColor` duplicates and files coloring structurally different concepts (engineering
+  calculation flags, comment-thread lifecycles, accounting-period status, task-notification
+  vocabulary) that only _looked_ similar by sharing a function name. Ran a research survey across
+  all 29 first rather than editing blind. Result: **16 files swapped** to the shared
+  `getStatusColor`/`getPriorityColor`, requiring 6 new additive `StatusColorContext` entries
+  (`purchaseRequest`, `transmittal`, `charterApproval`, `documentRequirement`, `commentResolution`,
+  `workItem`) plus a first-ever context mechanism for `getPriorityColor` (`PriorityColorContext`,
+  currently just `'project'`) and a pure addition to the base priority map (`URGENT: 'error'`, which
+  didn't exist before and so couldn't conflict with anything). **13 files deliberately left
+  untouched** — domain-specific concepts with no real overlap to the status-color system
+  (`CostCentreTransactionTable`, `TaskNotificationItem`'s lowercase status fn, `ActivityDashboard`,
+  `fiscal-years` OPEN/CLOSED/LOCKED, `interproject-loans` semantically-inverted ACTIVE,
+  `module-integrations` system state, `proposals/list` — several proposal statuses needed fresh
+  color decisions with no clear precedent, deferred rather than guessed, `CommentsTable`'s
+  comment-thread lifecycle, `BatchResultsTable`'s engineering pass/fail flag, `TaskCard`'s
+  structurally-incompatible `'inherit'` value, and `ProcurementTab`'s custom procurement pipeline
+  stage names). **One found-but-deferred latent bug**: `GroupedDocumentsTable`/`LinksSection`/
+  `DocumentSelectionStep`/`DocumentDetailClient` all color a _legacy_ set of document-status names
+  (`NOT_STARTED`/`UNDER_CLIENT_REVIEW`/`COMMENTS_RECEIVED`/`COMMENTS_RESOLVED`) that don't match the
+  _current_ `MasterDocumentStatus` type at all (real values: `UNDER_REVIEW`/`APPROVED`/`ON_HOLD`/
+  `CANCELLED` — none handled, silently falling to gray `default` today). Fixing this needs a status-
+  name correctness decision beyond a color-dedup sweep, so left alone and flagged here rather than
+  bundled into this pass.
+- **One genuine, unresolvable-by-inference conflict surfaced and put to the user**: four files
+  disagreed with each other on `ProjectStatus.COMPLETED`'s color (green/blue/gray in different
+  places, including the existing `project` context itself). Decided (user's call): green/`success`
+  everywhere, on the "done = positive" semantic already used for POSTED/PAID/RELEASED elsewhere.
+  Applied consistently to all four files plus the existing `project` context override.
+- **Sweep D**: re-verified all "unused" label maps from the original audit against current usage.
+  6 are still genuinely unused (`ACCOUNTING_PAYMENT_STATUS_LABELS`, `ON_DUTY_REQUEST_STATUS_LABELS`,
+  `PAYMENT_STATUS_LABELS`, `PR_STATUS_CATEGORY_LABELS`, `MEETING_STATUS_LABELS`,
+  `MANUAL_TASK_PRIORITY_LABELS`) — but **none were deleted**. Each corresponds to a real, actively-
+  used status/priority enum that simply hasn't had its UI wired to a label map yet (a Sweep-B-style
+  job, not done here). Deleting a legitimate canonical label because adoption is incomplete would
+  contradict rule 29's own stated purpose (a slowly-adopted source of truth, "reviewed quarterly
+  with the domain owner") and would force whoever wires up the next status chip to rewrite the exact
+  same labels from scratch. This is a deliberate deviation from the plan's literal instruction,
+  flagged here rather than silently actioned.
 
 ## Phase 5 — Guardrails for future development (~1 day) ← the "tools" half
 

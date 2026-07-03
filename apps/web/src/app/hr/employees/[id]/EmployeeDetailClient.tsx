@@ -34,6 +34,7 @@ import { getEmployeeById } from '@/lib/hr';
 import type { EmployeeDetail } from '@vapour/types';
 import { EditEmployeeDialog } from './components/EditEmployeeDialog';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
+import { formatDate } from '@/lib/utils/formatters';
 
 const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success' | 'default'> = {
   'A+': 'error',
@@ -102,15 +103,6 @@ export default function EmployeeDetailClient() {
 
     loadEmployee();
   }, [employeeId, claimsLoaded]);
-
-  const formatDate = (timestamp: { toDate: () => Date } | undefined) => {
-    if (!timestamp) return '-';
-    return timestamp.toDate().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
 
   const formatAddress = (
     address:

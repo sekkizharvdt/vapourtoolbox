@@ -1,17 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Button,
-  CircularProgress,
-  Alert,
-  Snackbar,
-} from '@mui/material';
+import { Box, Typography, Card, CardContent, Button, CircularProgress, Alert } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import { getFirebase } from '@/lib/firebase';
 import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 import {
@@ -31,14 +23,10 @@ import { Edit as EditIcon, Add as AddIcon } from '@mui/icons-material';
 export default function CostingSettingsPage() {
   const { user, claims } = useAuth();
   const { db } = getFirebase();
+  const { toast } = useToast();
   const [activeConfig, setActiveConfig] = useState<CostConfiguration | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({ open: false, message: '', severity: 'success' });
 
   // Check if user has MANAGE_COMPANY_SETTINGS permission
   const canManageSettings = claims?.permissions
@@ -60,11 +48,7 @@ export default function CostingSettingsPage() {
       setActiveConfig(config);
     } catch (error) {
       console.error('Error loading cost configuration:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to load cost configuration',
-        severity: 'error',
-      });
+      toast.error('Failed to load cost configuration');
     } finally {
       setLoading(false);
     }
@@ -110,21 +94,13 @@ export default function CostingSettingsPage() {
         );
       }
 
-      setSnackbar({
-        open: true,
-        message: 'Cost configuration saved successfully',
-        severity: 'success',
-      });
+      toast.success('Cost configuration saved successfully');
 
       setEditMode(false);
       loadActiveConfig();
     } catch (error) {
       console.error('Error saving cost configuration:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to save cost configuration',
-        severity: 'error',
-      });
+      toast.error('Failed to save cost configuration');
     }
   };
 
@@ -273,19 +249,6 @@ export default function CostingSettingsPage() {
           contingency, and profit margins.
         </Alert>
       )}
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </>
   );
 }

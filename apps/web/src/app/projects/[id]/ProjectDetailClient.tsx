@@ -48,8 +48,8 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Project } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewProjects } from '@vapour/constants';
-import { formatDate } from '@/lib/utils/formatters';
+import { canViewProjects, getStatusColor } from '@vapour/constants';
+import { formatDate, formatCurrency as formatCurrencyBase } from '@/lib/utils/formatters';
 
 interface ModuleCategory {
   title: string;
@@ -131,35 +131,14 @@ export default function ProjectDetailPage() {
     loadProject();
   }, [projectId, hasViewAccess]);
 
+  // Thin adapter: preserves the "Not set" fallback for missing budget figures and
+  // the 0-decimal display (whole rupees) this page has always used for budget cards.
   const formatCurrency = (amount?: number, currency = 'INR') => {
     if (amount === undefined || amount === null) return 'Not set';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: currency,
+    return formatCurrencyBase(amount, currency, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'PLANNING':
-      case 'PROPOSAL':
-        return 'primary';
-      case 'ON_HOLD':
-        return 'warning';
-      case 'COMPLETED':
-        return 'default';
-      case 'CANCELLED':
-      case 'ARCHIVED':
-        return 'error';
-      default:
-        return 'default';
-    }
+    });
   };
 
   // Module categories for navigation
@@ -300,7 +279,11 @@ export default function ProjectDetailPage() {
             <Typography variant="h4" component="h1">
               {project.name}
             </Typography>
-            <Chip label={project.status} color={getStatusColor(project.status)} size="small" />
+            <Chip
+              label={project.status}
+              color={getStatusColor(project.status, 'project')}
+              size="small"
+            />
             <Chip label={project.priority} color="default" size="small" />
           </Box>
           <Typography variant="body1" color="text.secondary">

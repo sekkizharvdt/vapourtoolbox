@@ -56,6 +56,7 @@ import { getFirebase } from '@/lib/firebase';
 import { softDeletePurchaseRequest } from '@/lib/procurement/procurementDeleteService';
 import { downloadPRListCSV } from '@/lib/procurement/purchaseRequest/exportPRList';
 import { downloadPRListPDF } from '@/lib/procurement/purchaseRequest/prListPDF';
+import { getStatusColor, getPriorityColor } from '@vapour/constants';
 
 export default function PurchaseRequestsPage() {
   const router = useRouter();
@@ -212,46 +213,6 @@ export default function PurchaseRequestsPage() {
     }
 
     setFilteredRequests(filtered);
-  };
-
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'DRAFT':
-        return 'default';
-      case 'SUBMITTED':
-        return 'info';
-      case 'UNDER_REVIEW':
-        return 'warning';
-      case 'APPROVED':
-        return 'success';
-      case 'REJECTED':
-        return 'error';
-      case 'CONVERTED_TO_RFQ':
-        return 'primary';
-      case 'COMPLETED':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPriorityColor = (
-    priority: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (priority) {
-      case 'URGENT':
-        return 'error';
-      case 'HIGH':
-        return 'warning';
-      case 'MEDIUM':
-        return 'info';
-      case 'LOW':
-        return 'default';
-      default:
-        return 'default';
-    }
   };
 
   // Pagination handlers
@@ -570,7 +531,7 @@ export default function PurchaseRequestsPage() {
                       <Chip
                         label={request.status.replace('_', ' ')}
                         size="small"
-                        color={getStatusColor(request.status)}
+                        color={getStatusColor(request.status, 'purchaseRequest')}
                       />
                     </TableCell>
                     <TableCell>{formatDate(request.createdAt)}</TableCell>

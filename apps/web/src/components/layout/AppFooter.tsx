@@ -10,18 +10,9 @@
 import { Box, Typography, Link as MuiLink } from '@mui/material';
 import NextLink from 'next/link';
 import { APP_META } from '@vapour/constants';
+import { formatDate } from '@/lib/utils/formatters';
 
 export function AppFooter() {
-  // Format the date for display
-  const formatDate = (isoDate: string) => {
-    const date = new Date(isoDate);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   return (
     <Box
       component="footer"

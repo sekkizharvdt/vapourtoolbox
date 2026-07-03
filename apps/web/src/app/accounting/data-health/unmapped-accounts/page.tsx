@@ -39,7 +39,7 @@ import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice, InvoiceLineItem } from '@vapour/types';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 const CreateBillDialog = dynamic(
   () => import('../../bills/components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
@@ -192,15 +192,6 @@ export default function UnmappedAccountsPage() {
     setFilteredTransactions(filtered);
     setPage(0);
   }, [transactions, searchTerm, typeFilter]);
-
-  const formatDate = (date: unknown): string => {
-    if (!date) return '-';
-    const d =
-      typeof date === 'object' && 'toDate' in date
-        ? (date as { toDate: () => Date }).toDate()
-        : new Date(date as string);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
 
   const handleClearFilters = () => {
     setSearchTerm('');
@@ -357,7 +348,9 @@ export default function UnmappedAccountsPage() {
                         {transaction.transactionNumber}
                       </Typography>
                     </TableCell>
-                    <TableCell>{formatDate(transaction.date)}</TableCell>
+                    <TableCell>
+                      {formatDate(transaction.date as Date | string | { toDate: () => Date })}
+                    </TableCell>
                     <TableCell>{transaction.entityName}</TableCell>
                     <TableCell align="right">
                       <Typography fontWeight="medium">
