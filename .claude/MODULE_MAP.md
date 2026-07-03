@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-07-03 (StatusChip/DataTable exemplars added)
+Last verified: 2026-07-03 (Phase 3 DataTable pilots — list-page exemplar repointed to bills page)
 
 ## Monorepo layout
 
@@ -77,7 +77,7 @@ Last verified: 2026-07-03 (StatusChip/DataTable exemplars added)
 | State machines                                                  | `apps/web/src/lib/workflow/stateMachines.ts`                                                                                                           |
 | Pathname-based `[id]` extraction (rule 30, static export)       | `apps/web/src/app/estimation/[id]/BOMEditorClient.tsx`                                                                                                 |
 | URL-state sync without navigation (rule 30b)                    | `apps/web/src/app/thermal/(protected)/flash-chamber/FlashChamberClient.tsx`                                                                            |
-| List page with filters + pagination                             | `apps/web/src/app/accounting/transactions/page.tsx`                                                                                                    |
+| List page with filters + pagination (DataTable + StatusChip)    | `apps/web/src/app/accounting/bills/page.tsx` (desktop table; mobile card view stays bespoke — DataTable doesn't do responsive card layouts)            |
 | Shared formatters (currency/date)                               | `apps/web/src/lib/utils/formatters.ts`                                                                                                                 |
 | Audit logging                                                   | `apps/web/src/lib/audit/clientAuditService.ts` (`logAuditEvent`)                                                                                       |
 | Collection name constants                                       | `packages/firebase/src/collections.ts` (`COLLECTIONS`)                                                                                                 |

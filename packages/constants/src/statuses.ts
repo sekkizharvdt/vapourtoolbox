@@ -27,7 +27,9 @@ export type StatusColorContext =
   | 'entity'
   | 'transaction'
   | 'vendorContract'
-  | 'objective';
+  | 'objective'
+  | 'quote'
+  | 'travelExpense';
 
 /**
  * Base status color mapping
@@ -127,6 +129,31 @@ const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>>
     AT_RISK: 'error',
     PENDING: 'default',
     NOT_STARTED: 'default',
+  },
+  // Vendor quote context (QuoteStatus) — ARCHIVED here means the quote's
+  // lifecycle completed normally (lost to a competing offer, expired, etc.),
+  // not a failure state, so it's colored as success rather than the base
+  // map's error. SELECTED/PO_CREATED/REJECTED/WITHDRAWN fall back to default.
+  quote: {
+    DRAFT: 'default',
+    UPLOADED: 'info',
+    UNDER_REVIEW: 'info',
+    EVALUATED: 'success',
+    SELECTED: 'default',
+    PO_CREATED: 'default',
+    REJECTED: 'default',
+    WITHDRAWN: 'default',
+    ARCHIVED: 'success',
+  },
+  // Travel expense report context (TravelExpenseStatus) — matches the
+  // pre-existing local TRAVEL_EXPENSE_STATUS_COLORS map exactly.
+  travelExpense: {
+    DRAFT: 'default',
+    SUBMITTED: 'warning',
+    UNDER_REVIEW: 'info',
+    APPROVED: 'success',
+    REJECTED: 'error',
+    REIMBURSED: 'primary',
   },
 };
 

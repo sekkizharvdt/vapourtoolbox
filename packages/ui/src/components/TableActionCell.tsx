@@ -13,9 +13,11 @@ export interface TableAction {
   label: string;
 
   /**
-   * Click handler
+   * Click handler. Receives the MouseEvent when the row itself also has a
+   * click handler (e.g. DataTable's `onRowClick`) and this action needs to
+   * call `event.stopPropagation()` to avoid also triggering the row click.
    */
-  onClick: () => void;
+  onClick: (event?: React.MouseEvent) => void;
 
   /**
    * Whether to show this action (for conditional rendering)

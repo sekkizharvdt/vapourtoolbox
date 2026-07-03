@@ -164,4 +164,21 @@ describe('DataTable', () => {
     expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
     expect(screen.queryByText('Nothing here')).not.toBeInTheDocument();
   });
+
+  it('applies containerSx and tableSx to the outer container and table', () => {
+    const { container } = render(
+      <DataTable
+        columns={testColumns}
+        rows={testRows}
+        getRowKey={(r) => r.id}
+        containerSx={{ overflowX: 'auto' }}
+        tableSx={{ minWidth: 1100 }}
+      />
+    );
+
+    const tableContainer = container.querySelector('.MuiTableContainer-root');
+    const table = container.querySelector('table');
+    expect(tableContainer).toHaveStyle({ overflowX: 'auto' });
+    expect(table).toHaveStyle({ minWidth: '1100px' });
+  });
 });

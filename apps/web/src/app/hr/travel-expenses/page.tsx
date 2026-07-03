@@ -3,37 +3,16 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Typography,
-  Box,
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Alert,
-  Skeleton,
-  Tabs,
-  Tab,
-  Button,
-} from '@mui/material';
+import { Typography, Box, IconButton, Alert, Skeleton, Tabs, Tab, Button } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
+import { DataTable, StatusChip, EmptyState, type DataTableColumn } from '@vapour/ui';
 import { Add as AddIcon, Refresh as RefreshIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  useMyTravelExpenseReports,
-  TRAVEL_EXPENSE_STATUS_COLORS,
-  TRAVEL_EXPENSE_STATUS_LABELS,
-  formatExpenseDate,
-  formatExpenseAmount,
-  formatTripDuration,
-} from '@/lib/hr';
-import type { TravelExpenseStatus } from '@vapour/types';
+import { useMyTravelExpenseReports, formatTripDuration } from '@/lib/hr';
+import { TRAVEL_EXPENSE_STATUS_LABELS } from '@vapour/constants';
+import { formatDate, formatCurrency } from '@/lib/utils/formatters';
+import type { TravelExpenseStatus, TravelExpenseReport } from '@vapour/types';
 
 type TabValue = 'all' | 'draft' | 'submitted' | 'approved' | 'reimbursed';
 
@@ -60,6 +39,88 @@ export default function TravelExpensesPage() {
   } = useMyTravelExpenseReports(user?.uid, {
     status: statusFilter,
   });
+
+  const reportColumns: DataTableColumn<TravelExpenseReport>[] = [
+    {
+      key: 'reportNumber',
+      label: 'Report #',
+      render: (report) => (
+        <Typography variant="body2" fontWeight="medium">
+          {report.reportNumber}
+        </Typography>
+      ),
+    },
+    {
+      key: 'tripPurpose',
+      label: 'Trip Purpose',
+      render: (report) => (
+        <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+          {report.tripPurpose}
+        </Typography>
+      ),
+    },
+    {
+      key: 'projectName',
+      label: 'Project',
+      render: (report) => (
+        <Typography
+          variant="body2"
+          noWrap
+          sx={{ maxWidth: 150 }}
+          color={report.projectName ? 'text.primary' : 'text.secondary'}
+        >
+          {report.projectName || '—'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'destinations',
+      label: 'Destinations',
+      render: (report) => (
+        <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
+          {report.destinations.join(', ')}
+        </Typography>
+      ),
+    },
+    {
+      key: 'duration',
+      label: 'Duration',
+      render: (report) => (
+        <Box>
+          <Typography variant="body2">{formatDate(report.tripStartDate)}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {formatTripDuration(report.tripStartDate.toDate(), report.tripEndDate.toDate())}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      key: 'totalAmount',
+      label: 'Amount',
+      align: 'right',
+      render: (report) => (
+        <>
+          <Typography variant="body2" fontWeight="medium">
+            {formatCurrency(report.totalAmount, report.currency)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {report.items.length} items
+          </Typography>
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (report) => (
+        <StatusChip
+          status={report.status}
+          labels={TRAVEL_EXPENSE_STATUS_LABELS}
+          context="travelExpense"
+        />
+      ),
+    },
+  ];
 
   return (
     <>
@@ -111,112 +172,37 @@ export default function TravelExpensesPage() {
 
       {isLoading ? (
         <Skeleton variant="rectangular" height={400} />
+      ) : reports.length === 0 ? (
+        <EmptyState
+          message="No travel expense reports found."
+          action={
+            tab === 'all' ? (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => router.push('/hr/travel-expenses/new')}
+              >
+                Create Your First Report
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Report #</TableCell>
-                <TableCell>Trip Purpose</TableCell>
-                <TableCell>Project</TableCell>
-                <TableCell>Destinations</TableCell>
-                <TableCell>Duration</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {reports.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                      No travel expense reports found.
-                      {tab === 'all' && (
-                        <Box sx={{ mt: 2 }}>
-                          <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={() => router.push('/hr/travel-expenses/new')}
-                          >
-                            Create Your First Report
-                          </Button>
-                        </Box>
-                      )}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                reports.map((report) => (
-                  <TableRow key={report.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {report.reportNumber}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                        {report.tripPurpose}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        noWrap
-                        sx={{ maxWidth: 150 }}
-                        color={report.projectName ? 'text.primary' : 'text.secondary'}
-                      >
-                        {report.projectName || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
-                        {report.destinations.join(', ')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2">
-                          {formatExpenseDate(report.tripStartDate.toDate())}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatTripDuration(
-                            report.tripStartDate.toDate(),
-                            report.tripEndDate.toDate()
-                          )}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight="medium">
-                        {formatExpenseAmount(report.totalAmount, report.currency)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {report.items.length} items
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={TRAVEL_EXPENSE_STATUS_LABELS[report.status]}
-                        color={TRAVEL_EXPENSE_STATUS_COLORS[report.status]}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Button
-                        size="small"
-                        variant={report.status === 'DRAFT' ? 'contained' : 'outlined'}
-                        onClick={() => router.push(`/hr/travel-expenses/${report.id}`)}
-                      >
-                        {report.status === 'DRAFT' ? 'Edit' : 'View'}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable<TravelExpenseReport>
+          columns={reportColumns}
+          rows={reports}
+          getRowKey={(report) => report.id}
+          pagination={false}
+          renderActions={(report) => (
+            <Button
+              size="small"
+              variant={report.status === 'DRAFT' ? 'contained' : 'outlined'}
+              onClick={() => router.push(`/hr/travel-expenses/${report.id}`)}
+            >
+              {report.status === 'DRAFT' ? 'Edit' : 'View'}
+            </Button>
+          )}
+        />
       )}
     </>
   );

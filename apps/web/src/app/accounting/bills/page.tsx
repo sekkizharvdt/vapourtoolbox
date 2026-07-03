@@ -5,13 +5,6 @@ import dynamic from 'next/dynamic';
 import {
   Button,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
   TablePagination,
   Box,
   TextField,
@@ -55,15 +48,17 @@ import {
   LoadingState,
   EmptyState,
   TableActionCell,
-  getStatusColor,
   StatCard,
   FilterBar,
+  DataTable,
+  StatusChip,
+  type DataTableColumn,
 } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, orderBy, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
+import { hasPermission, PERMISSION_FLAGS, TRANSACTION_STATUS_LABELS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import {
@@ -371,6 +366,58 @@ export default function BillsPage() {
   // Paginate filtered bills
   const paginatedBills = filteredBills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const billColumns: DataTableColumn<VendorBill>[] = [
+    { key: 'date', label: 'Date', render: (bill) => formatDate(bill.date) },
+    {
+      key: 'number',
+      label: 'Bill Number',
+      render: (bill) => bill.vendorInvoiceNumber || bill.transactionNumber,
+    },
+    { key: 'vendor', label: 'Vendor', render: (bill) => bill.entityName || '-' },
+    { key: 'poNumber', label: 'PO #', render: (bill) => bill.sourcePoNumber || '-' },
+    { key: 'description', label: 'Description', render: (bill) => bill.description || '-' },
+    {
+      key: 'subtotal',
+      label: 'Subtotal',
+      align: 'right',
+      render: (bill) => formatCurrency(bill.subtotal || 0, bill.currency || 'INR'),
+    },
+    {
+      key: 'gst',
+      label: 'GST',
+      align: 'right',
+      render: (bill) => formatCurrency(bill.gstDetails?.totalGST || 0, bill.currency || 'INR'),
+    },
+    {
+      key: 'tds',
+      label: 'TDS',
+      align: 'right',
+      render: (bill) =>
+        bill.tdsDeducted ? formatCurrency(bill.tdsAmount || 0, bill.currency || 'INR') : '-',
+    },
+    {
+      key: 'total',
+      label: 'Total',
+      align: 'right',
+      render: (bill) => (
+        <DualCurrencyAmount
+          foreignAmount={bill.totalAmount ?? 0}
+          foreignCurrency={bill.currency || 'INR'}
+          baseAmount={getInrAmount(bill)}
+          exchangeRate={bill.exchangeRate}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (bill) => (
+        <StatusChip status={bill.status} labels={TRANSACTION_STATUS_LABELS} context="bill" />
+      ),
+    },
+  ];
+
   const buildExportSections = (): ExportSection[] => {
     const columns = [
       { header: 'Date', key: 'date', width: 12 },
@@ -646,168 +693,104 @@ export default function BillsPage() {
 
       {/* Desktop / tablet — table. UI-STANDARDS rule 8.2: mobile card
           fallback rendered below. */}
-      <TableContainer
-        component={Paper}
-        sx={{ overflowX: 'auto', display: { xs: 'none', md: 'block' } }}
-      >
-        <Table sx={{ minWidth: 1100 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Date</TableCell>
-              <TableCell>Bill Number</TableCell>
-              <TableCell>Vendor</TableCell>
-              <TableCell>PO #</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell align="right">Subtotal</TableCell>
-              <TableCell align="right">GST</TableCell>
-              <TableCell align="right">TDS</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedBills.length === 0 ? (
-              <EmptyState
-                message={
-                  searchTerm || filterStatus !== 'ALL' || filterMonth !== 'ALL'
-                    ? 'No bills match the selected filters.'
-                    : 'No bills found. Record your first vendor bill to get started.'
-                }
-                variant="table"
-                colSpan={11}
-                action={
-                  canManage && !searchTerm && filterStatus === 'ALL' && filterMonth === 'ALL' ? (
-                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-                      Record First Bill
-                    </Button>
-                  ) : undefined
-                }
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        {filteredBills.length === 0 ? (
+          <EmptyState
+            variant="paper"
+            message={
+              searchTerm || filterStatus !== 'ALL' || filterMonth !== 'ALL'
+                ? 'No bills match the selected filters.'
+                : 'No bills found. Record your first vendor bill to get started.'
+            }
+            action={
+              canManage && !searchTerm && filterStatus === 'ALL' && filterMonth === 'ALL' ? (
+                <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                  Record First Bill
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <DataTable<VendorBill>
+            columns={billColumns}
+            rows={filteredBills}
+            getRowKey={(bill) => bill.id!}
+            defaultRowsPerPage={rowsPerPage}
+            containerSx={{ overflowX: 'auto' }}
+            tableSx={{ minWidth: 1100 }}
+            renderActions={(bill) => (
+              <TableActionCell
+                actions={[
+                  {
+                    icon: <ViewIcon />,
+                    label: 'View Bill',
+                    onClick: () => handleView(bill),
+                  },
+                  {
+                    icon: <EditIcon />,
+                    label: 'Edit Bill',
+                    onClick: () => handleEdit(bill),
+                    show:
+                      canManage &&
+                      bill.status !== 'VOID' &&
+                      bill.paymentStatus !== 'PAID' &&
+                      bill.paymentStatus !== 'PARTIALLY_PAID',
+                  },
+                  {
+                    icon: <SendIcon />,
+                    label: 'Submit for Approval',
+                    onClick: () => handleSubmitForApproval(bill),
+                    show: canManage && bill.status === 'DRAFT',
+                    color: 'primary',
+                  },
+                  {
+                    icon: <CheckIcon />,
+                    label: 'Review & Approve',
+                    onClick: () => handleApproveBill(bill),
+                    color: 'success',
+                    show:
+                      bill.status === 'PENDING_APPROVAL' &&
+                      (canManage || bill.assignedApproverId === user?.uid),
+                  },
+                  {
+                    icon: <NumbersIcon />,
+                    label: 'Update Bill Number',
+                    onClick: () => handleOpenUpdateBillNumber(bill),
+                    show: canManage && bill.status !== 'DRAFT',
+                  },
+                  {
+                    icon: <VoidIcon />,
+                    label: 'Void / Change Vendor',
+                    onClick: () => handleVoidBill(bill),
+                    color: 'warning',
+                    show:
+                      canManage &&
+                      bill.status !== 'VOID' &&
+                      bill.paymentStatus !== 'PAID' &&
+                      bill.paymentStatus !== 'PARTIALLY_PAID',
+                  },
+                  {
+                    icon: <AssetIcon />,
+                    label: 'Register as Asset',
+                    onClick: () => {
+                      setBillForAsset(bill);
+                      setAssetDialogOpen(true);
+                    },
+                    show: canManage && bill.status !== 'VOID' && bill.status !== 'DRAFT',
+                  },
+                  {
+                    icon: <DeleteIcon />,
+                    label: 'Move to Trash',
+                    onClick: () => handleDelete(bill.id!),
+                    color: 'error',
+                    show: canManage && bill.status !== 'VOID',
+                  },
+                ]}
               />
-            ) : (
-              paginatedBills.map((bill) => (
-                <TableRow key={bill.id} hover>
-                  <TableCell>{formatDate(bill.date)}</TableCell>
-                  <TableCell>{bill.vendorInvoiceNumber || bill.transactionNumber}</TableCell>
-                  <TableCell>{bill.entityName || '-'}</TableCell>
-                  <TableCell>{bill.sourcePoNumber || '-'}</TableCell>
-                  <TableCell>{bill.description || '-'}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(bill.subtotal || 0, bill.currency || 'INR')}
-                  </TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(bill.gstDetails?.totalGST || 0, bill.currency || 'INR')}
-                  </TableCell>
-                  <TableCell align="right">
-                    {bill.tdsDeducted
-                      ? formatCurrency(bill.tdsAmount || 0, bill.currency || 'INR')
-                      : '-'}
-                  </TableCell>
-                  <TableCell align="right">
-                    <DualCurrencyAmount
-                      foreignAmount={bill.totalAmount ?? 0}
-                      foreignCurrency={bill.currency || 'INR'}
-                      baseAmount={getInrAmount(bill)}
-                      exchangeRate={bill.exchangeRate}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={
-                        bill.status === 'PENDING_APPROVAL'
-                          ? 'Pending Approval'
-                          : bill.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-                      }
-                      size="small"
-                      color={getStatusColor(bill.status, 'bill')}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <TableActionCell
-                      actions={[
-                        {
-                          icon: <ViewIcon />,
-                          label: 'View Bill',
-                          onClick: () => handleView(bill),
-                        },
-                        {
-                          icon: <EditIcon />,
-                          label: 'Edit Bill',
-                          onClick: () => handleEdit(bill),
-                          show:
-                            canManage &&
-                            bill.status !== 'VOID' &&
-                            bill.paymentStatus !== 'PAID' &&
-                            bill.paymentStatus !== 'PARTIALLY_PAID',
-                        },
-                        {
-                          icon: <SendIcon />,
-                          label: 'Submit for Approval',
-                          onClick: () => handleSubmitForApproval(bill),
-                          show: canManage && bill.status === 'DRAFT',
-                          color: 'primary',
-                        },
-                        {
-                          icon: <CheckIcon />,
-                          label: 'Review & Approve',
-                          onClick: () => handleApproveBill(bill),
-                          color: 'success',
-                          show:
-                            bill.status === 'PENDING_APPROVAL' &&
-                            (canManage || bill.assignedApproverId === user?.uid),
-                        },
-                        {
-                          icon: <NumbersIcon />,
-                          label: 'Update Bill Number',
-                          onClick: () => handleOpenUpdateBillNumber(bill),
-                          show: canManage && bill.status !== 'DRAFT',
-                        },
-                        {
-                          icon: <VoidIcon />,
-                          label: 'Void / Change Vendor',
-                          onClick: () => handleVoidBill(bill),
-                          color: 'warning',
-                          show:
-                            canManage &&
-                            bill.status !== 'VOID' &&
-                            bill.paymentStatus !== 'PAID' &&
-                            bill.paymentStatus !== 'PARTIALLY_PAID',
-                        },
-                        {
-                          icon: <AssetIcon />,
-                          label: 'Register as Asset',
-                          onClick: () => {
-                            setBillForAsset(bill);
-                            setAssetDialogOpen(true);
-                          },
-                          show: canManage && bill.status !== 'VOID' && bill.status !== 'DRAFT',
-                        },
-                        {
-                          icon: <DeleteIcon />,
-                          label: 'Move to Trash',
-                          onClick: () => handleDelete(bill.id!),
-                          color: 'error',
-                          show: canManage && bill.status !== 'VOID',
-                        },
-                      ]}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
             )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[25, 50, 100]}
-          component="div"
-          count={filteredBills.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </TableContainer>
+          />
+        )}
+      </Box>
 
       {/* Mobile — card stack with the same data and actions */}
       <Box sx={{ display: { xs: 'block', md: 'none' } }}>
@@ -885,14 +868,10 @@ export default function BillsPage() {
                   </Stack>
 
                   <Stack direction="row" spacing={0.75} sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
-                    <Chip
-                      label={
-                        bill.status === 'PENDING_APPROVAL'
-                          ? 'Pending Approval'
-                          : bill.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-                      }
-                      size="small"
-                      color={getStatusColor(bill.status, 'bill')}
+                    <StatusChip
+                      status={bill.status}
+                      labels={TRANSACTION_STATUS_LABELS}
+                      context="bill"
                     />
                   </Stack>
 

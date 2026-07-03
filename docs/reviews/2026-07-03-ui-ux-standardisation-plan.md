@@ -126,7 +126,7 @@ false` and branching to `<LoadingState variant="table">` before the empty-check;
   was producing phantom "not exported" type errors unrelated to the actual code; safe to delete,
   regenerates automatically.
 
-## Phase 3 — DataTable pilots (~1 day)
+## Phase 3 — DataTable pilots (~1 day) ✅ DONE 2026-07-03
 
 Migrate 2–3 list pages to `DataTable` + `FilterBar` + `StatusChip` + canonical formatters,
 chosen to exercise different shapes:
@@ -137,6 +137,50 @@ chosen to exercise different shapes:
 
 Extend `DataTable` where the pilots expose gaps (don't fork it). On completion, update
 `.claude/MODULE_MAP.md` exemplar row "List page with filters + pagination" to point at a pilot page.
+
+### Phase 3 execution notes
+
+- **CI regression fixed first**: committing Phase 2 invalidated `@vapour/ui`'s turbo cache, which
+  made CI actually execute `@vapour/ui:type-check` for what looks like the first time in a while —
+  surfacing a pre-existing, unrelated bug: `packages/ui/tsconfig.json`'s `"types"` array narrowly
+  overrode the root config to `["jest", "@testing-library/jest-dom"]`, excluding `"node"`, and
+  `@vapour/ui` had no `@types/node` dependency of its own. Since `@vapour/constants` exposes raw
+  `./src/index.ts` as its `types` entry (not a compiled `.d.ts`) and two of its files reference
+  `process.env`, any consumer type-checking that source without Node globals in scope breaks. Fixed
+  by adding `"node"` to the types array and `@types/node` as a devDependency (shipped as its own
+  commit, `596a2995`, since it was a live CI break, not part of this phase's plan).
+- **`DataTable` gained `containerSx`/`tableSx` passthrough** — the first real pilot (bills) needed
+  desktop-only responsive hiding (`display: { xs: 'none', md: 'block' }`) and horizontal-scroll
+  styling (`minWidth: 1100`) that `DataTable` had no way to express. Extended rather than forked.
+- **`TableActionCell.onClick` widened to `(event?: React.MouseEvent) => void`** — the quotes page
+  needs `event.stopPropagation()` inside its delete action (the row itself has `onRowClick`
+  navigation), which the old strict `() => void` signature couldn't carry. Backward compatible:
+  all pre-existing zero-arg callers still satisfy an optional-param signature.
+- **Mobile/desktop split (bills page) not folded into `DataTable`**: bills has a fully separate
+  bespoke mobile card-stack view (CSS-breakpoint-swapped with the desktop table), which
+  `DataTable` was never designed to replace. Left the mobile cards as page-local JSX; only the
+  desktop table adopted `DataTable`. Desktop and mobile now paginate independently (each has its
+  own internal state) rather than sharing one page/rowsPerPage — a minor, disclosed behavior
+  change with no real-world impact since a user only ever sees one view at a time.
+- **Two `getStatusColor` context extensions, both chosen to produce zero visible color change**:
+  `'quote'` (bills reused the existing `'bill'` context; quotes needed its own since e.g. its
+  `ARCHIVED` status is intentionally colored success/green — "lifecycle completed normally" — not
+  the base map's error/red) and `'travelExpense'` (mirrors the pre-existing local
+  `TRAVEL_EXPENSE_STATUS_COLORS` map exactly). Both are additive — no existing context's mapping
+  changed.
+- **Status label TEXT did change visibly** on bills/quotes (e.g. `"DRAFT"` → `"Draft"`,
+  `"VOID"` → `"Voided"`) — this is the direct, intended effect of adopting `StatusChip` with a
+  canonical label map (rule 29's whole point), not treated as a deviation requiring sign-off,
+  unlike the Phase 1 PDF-formatter case.
+- **Formatter fixes bundled in**: quotes page's total-amount cell went from a bare
+  `.toLocaleString('en-IN', ...)` (silently assuming every quote shares one currency, taken from
+  `quotes[0]`) to `formatCurrency(q.totalAmount, q.currency)` per row — both more correct (each
+  quote can have its own currency) and canonical. Travel-expenses page's local `formatExpenseDate`/
+  `formatExpenseAmount` (from `lib/hr/travelExpenses/displayHelpers.ts`, not deleted — still used
+  elsewhere) were swapped for canonical `formatDate`/`formatCurrency` on this page only.
+- **Not migrated (explicitly out of scope)**: travel-expenses page's `Skeleton` loading UI and the
+  quotes/bills pages' Tabs/FilterBar choices — Phase 3's scope was table rendering + status +
+  formatters, not a full component-kit sweep of every page.
 
 ## Phase 4 — Targeted sweeps (~2–3 days, mechanical; parallel-session friendly)
 

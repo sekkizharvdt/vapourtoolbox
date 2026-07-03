@@ -22,27 +22,25 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
-  Card,
   Chip,
   FormControl,
-  IconButton,
   InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
-  Tooltip,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
-import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  DataTable,
+  StatusChip,
+  TableActionCell,
+  type DataTableColumn,
+} from '@vapour/ui';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -58,16 +56,8 @@ import type { VendorQuote, QuoteStatus, QuoteSourceType } from '@vapour/types';
 import { listVendorQuotes } from '@/lib/vendorQuotes/vendorQuoteService';
 import { softDeleteVendorQuote } from '@/lib/procurement/procurementDeleteService';
 import { canManageEstimation, canManageProcurement, QUOTE_STATUS_LABELS } from '@vapour/constants';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
-
-const STATUS_COLORS: Partial<Record<QuoteStatus, 'default' | 'info' | 'success' | 'warning'>> = {
-  DRAFT: 'default',
-  UPLOADED: 'info',
-  UNDER_REVIEW: 'info',
-  EVALUATED: 'success',
-  ARCHIVED: 'success',
-};
 
 const SOURCE_LABELS: Record<QuoteSourceType, string> = {
   STANDING_QUOTE: 'Standing',
@@ -131,8 +121,8 @@ export default function QuotesListPage() {
   }, [loadQuotes]);
 
   const handleDelete = useCallback(
-    async (quote: VendorQuote, e: React.MouseEvent) => {
-      e.stopPropagation();
+    async (quote: VendorQuote, e?: React.MouseEvent) => {
+      e?.stopPropagation();
       if (!user) return;
 
       const confirmed = await confirm({
@@ -178,6 +168,37 @@ export default function QuotesListPage() {
     const term = searchTerm.toLowerCase();
     return q.number.toLowerCase().includes(term) || q.vendorName.toLowerCase().includes(term);
   });
+
+  const quoteColumns: DataTableColumn<VendorQuote>[] = [
+    { key: 'number', label: 'Number', render: (q) => q.number },
+    {
+      key: 'source',
+      label: 'Source',
+      render: (q) => (
+        <Chip
+          label={SOURCE_LABELS[q.sourceType]}
+          size="small"
+          color={SOURCE_COLORS[q.sourceType]}
+          variant="outlined"
+        />
+      ),
+    },
+    { key: 'vendor', label: 'Vendor', render: (q) => q.vendorName },
+    { key: 'quoteDate', label: 'Quote Date', render: (q) => formatDate(q.vendorOfferDate) },
+    { key: 'itemCount', label: 'Items', align: 'center', render: (q) => q.itemCount },
+    { key: 'acceptedCount', label: 'Accepted', align: 'center', render: (q) => q.acceptedCount },
+    {
+      key: 'totalAmount',
+      label: 'Total',
+      align: 'right',
+      render: (q) => formatCurrency(q.totalAmount, q.currency),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (q) => <StatusChip status={q.status} labels={QUOTE_STATUS_LABELS} context="quote" />,
+    },
+  ];
 
   return (
     <>
@@ -285,76 +306,32 @@ export default function QuotesListPage() {
           }
         />
       ) : (
-        <Card>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Number</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Vendor</TableCell>
-                  <TableCell>Quote Date</TableCell>
-                  <TableCell align="center">Items</TableCell>
-                  <TableCell align="center">Accepted</TableCell>
-                  <TableCell align="right">Total ({quotes[0]?.currency ?? 'INR'})</TableCell>
-                  <TableCell>Status</TableCell>
-                  {canDelete && <TableCell align="right">Actions</TableCell>}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((q) => (
-                  <TableRow
-                    key={q.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => router.push(`/procurement/quotes/${q.id}`)}
-                  >
-                    <TableCell sx={{ fontWeight: 500 }}>{q.number}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={SOURCE_LABELS[q.sourceType]}
-                        size="small"
-                        color={SOURCE_COLORS[q.sourceType]}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>{q.vendorName}</TableCell>
-                    <TableCell>{formatDate(q.vendorOfferDate)}</TableCell>
-                    <TableCell align="center">{q.itemCount}</TableCell>
-                    <TableCell align="center">{q.acceptedCount}</TableCell>
-                    <TableCell align="right">
-                      {q.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={QUOTE_STATUS_LABELS[q.status] ?? q.status}
-                        size="small"
-                        color={STATUS_COLORS[q.status] ?? 'default'}
-                      />
-                    </TableCell>
-                    {canDelete && (
-                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                        <Tooltip title="Delete quote">
-                          <span>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              disabled={deletingId === q.id}
-                              onClick={(e) => handleDelete(q, e)}
-                              aria-label={`Delete quote ${q.number}`}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
+        <DataTable<VendorQuote>
+          columns={quoteColumns}
+          rows={filtered}
+          getRowKey={(q) => q.id}
+          pagination={false}
+          onRowClick={(q) => router.push(`/procurement/quotes/${q.id}`)}
+          renderActions={
+            canDelete
+              ? (q) => (
+                  <TableActionCell
+                    actions={[
+                      {
+                        icon: <DeleteIcon fontSize="small" />,
+                        label: 'Delete quote',
+                        onClick: (e) => {
+                          void handleDelete(q, e);
+                        },
+                        disabled: deletingId === q.id,
+                        color: 'error',
+                      },
+                    ]}
+                  />
+                )
+              : undefined
+          }
+        />
       )}
     </>
   );

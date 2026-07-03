@@ -11,6 +11,8 @@ import {
   TablePagination,
   TableSortLabel,
   Paper,
+  SxProps,
+  Theme,
 } from '@mui/material';
 import { LoadingState } from './LoadingState';
 import { EmptyState } from './EmptyState';
@@ -75,6 +77,10 @@ export interface DataTableProps<T> {
   dense?: boolean;
   /** Whether to use sticky header */
   stickyHeader?: boolean;
+  /** sx passed to the outer TableContainer (e.g. responsive display, overflowX) */
+  containerSx?: SxProps<Theme>;
+  /** sx passed to the Table element (e.g. minWidth for wide tables) */
+  tableSx?: SxProps<Theme>;
 }
 
 /**
@@ -117,6 +123,8 @@ export function DataTable<T>({
   defaultSortDirection = 'asc',
   dense = false,
   stickyHeader = false,
+  containerSx,
+  tableSx,
 }: DataTableProps<T>) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(defaultRowsPerPage);
@@ -191,8 +199,8 @@ export function DataTable<T>({
   };
 
   return (
-    <TableContainer component={Paper}>
-      <Table size={dense ? 'small' : 'medium'} stickyHeader={stickyHeader}>
+    <TableContainer component={Paper} sx={containerSx}>
+      <Table size={dense ? 'small' : 'medium'} stickyHeader={stickyHeader} sx={tableSx}>
         <TableHead>
           <TableRow>
             {visibleColumns.map((col) => (
