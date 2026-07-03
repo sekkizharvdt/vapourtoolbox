@@ -1,161 +1,190 @@
-// Status definitions and configurations
+/**
+ * Status color mapping — single source of truth for status→Chip-color logic.
+ *
+ * Framework-agnostic (no MUI import here — @vapour/constants has no UI deps).
+ * @vapour/ui/utils/statusColors.ts re-exports this so its existing importers
+ * are unaffected; `StatusChip` in @vapour/ui consumes it directly.
+ */
 
-import type { Status, UserStatus, ProjectStatus, ApprovalStatus } from '@vapour/types';
+/** Matches MUI's Chip `color` prop values. Kept as a plain union so this
+ * package stays framework-agnostic (no `@mui/material` dependency). */
+export type StatusChipColor =
+  | 'default'
+  | 'primary'
+  | 'secondary'
+  | 'error'
+  | 'info'
+  | 'success'
+  | 'warning';
 
-export interface StatusConfig {
-  value: string;
-  label: string;
-  color: string;
-  variant: 'default' | 'success' | 'warning' | 'error' | 'info';
-}
+export type StatusColorContext =
+  | 'project'
+  | 'invoice'
+  | 'bill'
+  | 'user'
+  | 'bom'
+  | 'document'
+  | 'entity'
+  | 'transaction'
+  | 'vendorContract'
+  | 'objective';
 
 /**
- * General status configurations
+ * Base status color mapping
+ * These mappings are used across all contexts unless overridden
+ *
+ * Color semantics:
+ * - success (green): Final positive state, fully complete
+ * - info (blue): Intermediate positive state, needs action
+ * - warning (orange): Waiting state, needs attention
+ * - error (red): Negative state, problem
+ * - primary (purple): Special/highlighted state
+ * - default (gray): Initial/neutral state
  */
-export const STATUSES: Record<Status, StatusConfig> = {
-  active: {
-    value: 'active',
-    label: 'Active',
-    color: '#10B981', // Green
-    variant: 'success',
+const baseStatusColors: Record<string, StatusChipColor> = {
+  // Final positive states (green)
+  ACTIVE: 'success',
+  POSTED: 'success',
+  COMPLETED: 'success',
+  RELEASED: 'success',
+  PAID: 'success',
+  active: 'success',
+
+  // Intermediate positive states (blue) - approved but not final
+  APPROVED: 'info',
+  NEGOTIATION: 'info',
+
+  // Warning/Waiting states (orange)
+  PENDING: 'warning',
+  PENDING_APPROVAL: 'warning',
+  ON_HOLD: 'warning',
+  IN_PROGRESS: 'warning',
+  UNDER_REVIEW: 'warning',
+  PARTIALLY_PAID: 'warning',
+  OVERDUE: 'warning',
+  pending: 'warning',
+
+  // Neutral states (gray/default)
+  DRAFT: 'default',
+  UNPAID: 'default',
+
+  // Primary/Special states (purple)
+  PROPOSAL: 'primary',
+
+  // Negative states (red)
+  TERMINATED: 'error',
+  INACTIVE: 'error',
+  REJECTED: 'error',
+  VOID: 'error',
+  CANCELLED: 'error',
+  ARCHIVED: 'error',
+  inactive: 'error',
+};
+
+/**
+ * Context-specific overrides
+ * Use these when a context needs different color mappings
+ *
+ * Note: Most contexts use the base colors. Overrides are only needed
+ * when a specific context has different semantic meaning for a status.
+ */
+const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>> = {
+  // BOM context - RELEASED is a caution state, APPROVED is final
+  bom: {
+    RELEASED: 'warning',
+    APPROVED: 'success',
   },
-  inactive: {
-    value: 'inactive',
-    label: 'Inactive',
-    color: '#6B7280', // Gray
-    variant: 'default',
+  // Invoice/Bill contexts use base colors (APPROVED=info, POSTED=success)
+  invoice: {},
+  bill: {},
+  // Transaction context (journal entries, etc.) uses base colors
+  transaction: {},
+  // Project context - ACTIVE is ongoing (green), COMPLETED is finished (blue)
+  project: {
+    ACTIVE: 'success',
+    COMPLETED: 'info',
+    ON_HOLD: 'warning',
+    CANCELLED: 'error',
+    PROPOSAL: 'primary',
   },
-  draft: {
-    value: 'draft',
-    label: 'Draft',
-    color: '#F59E0B', // Amber
-    variant: 'warning',
+  // Entity context (customers, vendors)
+  entity: {
+    ACTIVE: 'success',
+    INACTIVE: 'default',
   },
-  archived: {
-    value: 'archived',
-    label: 'Archived',
-    color: '#9CA3AF', // Light gray
-    variant: 'default',
+  // Vendor contract context - COMPLETED is primary (finished but not "success" green)
+  vendorContract: {
+    COMPLETED: 'primary',
+    NEGOTIATION: 'warning',
+    TERMINATED: 'error',
+  },
+  // Objective/Deliverable context
+  objective: {
+    ACHIEVED: 'success',
+    ACCEPTED: 'success',
+    IN_PROGRESS: 'primary',
+    SUBMITTED: 'primary',
+    AT_RISK: 'error',
+    PENDING: 'default',
+    NOT_STARTED: 'default',
   },
 };
 
 /**
- * User status configurations
+ * Get the appropriate color for a status chip
+ *
+ * @param status - The status value
+ * @param context - Optional context for context-specific color mappings
+ * @returns Chip color value
+ *
+ * @example
+ * ```tsx
+ * <Chip label="Active" color={getStatusColor('ACTIVE')} />
+ * <Chip label="Approved" color={getStatusColor('APPROVED', 'invoice')} />
+ * ```
  */
-export const USER_STATUSES: Record<UserStatus, StatusConfig> = {
-  active: {
-    value: 'active',
-    label: 'Active',
-    color: '#10B981',
-    variant: 'success',
-  },
-  inactive: {
-    value: 'inactive',
-    label: 'Inactive',
-    color: '#6B7280',
-    variant: 'default',
-  },
-  pending: {
-    value: 'pending',
-    label: 'Pending',
-    color: '#F59E0B',
-    variant: 'warning',
-  },
-};
+export function getStatusColor(status: string, context?: StatusColorContext): StatusChipColor {
+  // Check for context-specific override first
+  if (context && contextOverrides[context]?.[status]) {
+    return contextOverrides[context][status] as StatusChipColor;
+  }
 
-/**
- * Project status configurations
- */
-export const PROJECT_STATUSES: Record<ProjectStatus, StatusConfig> = {
-  PLANNING: {
-    value: 'PLANNING',
-    label: 'Planning',
-    color: '#6366F1', // Indigo
-    variant: 'info',
-  },
-  PROPOSAL: {
-    value: 'PROPOSAL',
-    label: 'Proposal',
-    color: '#F59E0B', // Amber
-    variant: 'warning',
-  },
-  ACTIVE: {
-    value: 'ACTIVE',
-    label: 'Active',
-    color: '#10B981', // Green
-    variant: 'success',
-  },
-  ON_HOLD: {
-    value: 'ON_HOLD',
-    label: 'On Hold',
-    color: '#EF4444', // Red
-    variant: 'error',
-  },
-  COMPLETED: {
-    value: 'COMPLETED',
-    label: 'Completed',
-    color: '#0891B2', // Cyan
-    variant: 'info',
-  },
-  CANCELLED: {
-    value: 'CANCELLED',
-    label: 'Cancelled',
-    color: '#6B7280', // Gray
-    variant: 'default',
-  },
-  ARCHIVED: {
-    value: 'ARCHIVED',
-    label: 'Archived',
-    color: '#9CA3AF', // Light gray
-    variant: 'default',
-  },
-};
-
-/**
- * Approval status configurations
- */
-export const APPROVAL_STATUSES: Record<ApprovalStatus, StatusConfig> = {
-  pending: {
-    value: 'pending',
-    label: 'Pending',
-    color: '#F59E0B', // Amber
-    variant: 'warning',
-  },
-  approved: {
-    value: 'approved',
-    label: 'Approved',
-    color: '#10B981', // Green
-    variant: 'success',
-  },
-  rejected: {
-    value: 'rejected',
-    label: 'Rejected',
-    color: '#EF4444', // Red
-    variant: 'error',
-  },
-  cancelled: {
-    value: 'cancelled',
-    label: 'Cancelled',
-    color: '#6B7280', // Gray
-    variant: 'default',
-  },
-};
-
-/**
- * Get status config by value
- */
-export function getStatus(value: Status): StatusConfig {
-  return STATUSES[value];
+  // Fall back to base mapping
+  return baseStatusColors[status] || 'default';
 }
 
-export function getUserStatus(value: UserStatus): StatusConfig {
-  return USER_STATUSES[value];
+/**
+ * Get priority color for task/issue priority levels
+ *
+ * @param priority - Priority level (LOW, MEDIUM, HIGH, CRITICAL)
+ */
+export function getPriorityColor(
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string
+): StatusChipColor {
+  const priorityColors: Record<string, StatusChipColor> = {
+    LOW: 'default',
+    MEDIUM: 'info',
+    HIGH: 'warning',
+    CRITICAL: 'error',
+  };
+
+  return priorityColors[priority] || 'default';
 }
 
-export function getProjectStatus(value: ProjectStatus): StatusConfig {
-  return PROJECT_STATUSES[value];
-}
+/**
+ * Get role color for entity roles
+ *
+ * @param role - Entity role (CUSTOMER, VENDOR, EMPLOYEE, etc.)
+ */
+export function getRoleColor(
+  role: 'CUSTOMER' | 'VENDOR' | 'EMPLOYEE' | 'CONTRACTOR' | string
+): StatusChipColor {
+  const roleColors: Record<string, StatusChipColor> = {
+    CUSTOMER: 'primary',
+    VENDOR: 'secondary',
+    EMPLOYEE: 'success',
+    CONTRACTOR: 'info',
+  };
 
-export function getApprovalStatus(value: ApprovalStatus): StatusConfig {
-  return APPROVAL_STATUSES[value];
+  return roleColors[role] || 'default';
 }

@@ -16,6 +16,8 @@ export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps } from './LoadingState';
+export { StatusChip } from './StatusChip';
+export type { StatusChipProps } from './StatusChip';
 export * from './StatCard';
 export * from './FilterBar';
 

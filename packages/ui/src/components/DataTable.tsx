@@ -11,8 +11,9 @@ import {
   TablePagination,
   TableSortLabel,
   Paper,
-  Typography,
 } from '@mui/material';
+import { LoadingState } from './LoadingState';
+import { EmptyState } from './EmptyState';
 
 /**
  * Column definition for DataTable
@@ -110,6 +111,7 @@ export function DataTable<T>({
   onRowClick,
   renderActions,
   actionsLabel = 'Actions',
+  loading = false,
   sortable = false,
   defaultSortKey,
   defaultSortDirection = 'asc',
@@ -212,14 +214,10 @@ export function DataTable<T>({
           </TableRow>
         </TableHead>
         <TableBody>
-          {paginatedRows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={totalColumns} align="center">
-                <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                  {emptyMessage}
-                </Typography>
-              </TableCell>
-            </TableRow>
+          {loading ? (
+            <LoadingState variant="table" colSpan={totalColumns} />
+          ) : paginatedRows.length === 0 ? (
+            <EmptyState variant="table" colSpan={totalColumns} message={emptyMessage} />
           ) : (
             paginatedRows.map((row) => (
               <TableRow

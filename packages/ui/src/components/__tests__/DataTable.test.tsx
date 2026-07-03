@@ -148,4 +148,20 @@ describe('DataTable', () => {
 
     expect(screen.queryByText('Rows per page:')).not.toBeInTheDocument();
   });
+
+  it('shows a loading state instead of rows or the empty message when loading=true', () => {
+    render(
+      <DataTable
+        columns={testColumns}
+        rows={testRows}
+        getRowKey={(r) => r.id}
+        loading
+        emptyMessage="Nothing here"
+      />
+    );
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nothing here')).not.toBeInTheDocument();
+  });
 });

@@ -82,7 +82,7 @@ Rule 32 violations inside the standardisation layer itself. All deletions verifi
   `tsc --noEmit` across web + packages, passing lint-staged, passing unit tests, and clean
   `scripts/audit/check-rules.js`.
 
-## Phase 2 — Build the two missing shared pieces (~1 day)
+## Phase 2 — Build the two missing shared pieces (~1 day) ✅ DONE 2026-07-03
 
 1. **`StatusChip` component** (in `@vapour/ui`, alongside a single color source):
    - Props: `status`, `domain` (e.g. `'quote' | 'transaction' | 'leave' | 'proposal' | ...`).
@@ -95,6 +95,36 @@ Rule 32 violations inside the standardisation layer itself. All deletions verifi
    - Confirm it composes with `FilterBar`, `TableActionCell`, `StatusChip`, `EmptyState`.
 3. **Button convention** (document only, no sweep): exactly one `variant="contained"` primary
    action per view; secondary actions `outlined`; destructive actions `color="error"`.
+
+### Phase 2 execution notes
+
+- **Audit correction**: `@vapour/constants/statuses.ts` (`STATUSES`, `USER_STATUSES`,
+  `PROJECT_STATUSES`, `APPROVAL_STATUSES`, `getStatus*`, `StatusConfig`) turned out to have
+  **zero real importers repo-wide** — the original audit's grep hits were false-positive substring
+  matches on unrelated local identifiers (e.g. `POST_SUBMIT_STATUSES`, `MARITAL_STATUSES`). So this
+  wasn't a "merge two active systems" job — it was "delete dead code, keep the live one." The live
+  system is `@vapour/ui/utils/statusColors.ts`'s `getStatusColor`/`getPriorityColor`/`getRoleColor`
+  (35 + 11 + 1 real call sites). Resolution: moved that logic into `@vapour/constants/statuses.ts`
+  (co-located with labels, framework-agnostic — re-typed `ChipProps['color']` as a plain
+  `StatusChipColor` union so `@vapour/constants` doesn't gain an MUI dependency), deleted the old
+  dead maps, and made `@vapour/ui/utils/statusColors.ts` a thin re-export so its ~47 importers are
+  unaffected.
+- **`StatusChip` API** ended up simpler than "domain" enum dispatch: `{ status, labels?, context? }`
+  — `labels` is any `@vapour/constants` label map (`Record<string,string>`), `context` reuses
+  `getStatusColor`'s existing context union. This mirrors what most of the ~27 local
+  `getStatusColor`/inline-label call sites already do by hand, so Phase 4 Sweep B is a mechanical
+  swap, not a rewrite. Domain-to-label-map wiring is the caller's job (only the caller knows which
+  map fits), not a giant registry inside the component.
+- **`DataTable` loading bug**: root cause was that `loading` was declared in the props _interface_
+  but never destructured in the function signature — TypeScript doesn't flag an unused prop, so it
+  silently did nothing for however long the component existed. Fixed by destructuring `loading =
+false` and branching to `<LoadingState variant="table">` before the empty-check; also swapped the
+  hand-rolled empty-row `<Typography>` block for `<EmptyState variant="table">` per item 2's
+  "confirm it composes" ask. Added regression tests for both (`DataTable.test.tsx`,
+  new `StatusChip.test.tsx`) — 87/87 `@vapour/ui` tests pass.
+- Found and cleared a stale `tsconfig.tsbuildinfo` incremental-build cache under `packages/*` that
+  was producing phantom "not exported" type errors unrelated to the actual code; safe to delete,
+  regenerates automatically.
 
 ## Phase 3 — DataTable pilots (~1 day)
 
