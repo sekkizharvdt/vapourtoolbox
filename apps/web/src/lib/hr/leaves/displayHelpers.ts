@@ -5,6 +5,7 @@
  */
 
 import type { LeaveRequestStatus } from '@vapour/types';
+import { LEAVE_REQUEST_STATUS_LABELS } from '@vapour/constants';
 
 /**
  * MUI Chip color mapping for leave request statuses
@@ -22,16 +23,10 @@ export const LEAVE_STATUS_COLORS: Record<
 };
 
 /**
- * Human-readable labels for leave request statuses
+ * Human-readable labels for leave request statuses.
+ * Re-exported from @vapour/constants — single source of truth (rule 29).
  */
-export const LEAVE_STATUS_LABELS: Record<LeaveRequestStatus, string> = {
-  DRAFT: 'Draft',
-  PENDING_APPROVAL: 'Pending Approval',
-  PARTIALLY_APPROVED: 'Partially Approved',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  CANCELLED: 'Cancelled',
-};
+export const LEAVE_STATUS_LABELS: Record<LeaveRequestStatus, string> = LEAVE_REQUEST_STATUS_LABELS;
 
 /**
  * Format a date for display in the HR module

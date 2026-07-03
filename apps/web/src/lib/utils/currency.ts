@@ -135,38 +135,6 @@ export function parseINR(value: string): number {
 }
 
 /**
- * Format amount with currency code (for multi-currency support).
- *
- * @param amount - The amount to format
- * @param currencyCode - ISO 4217 currency code (e.g., 'INR', 'USD', 'EUR')
- * @returns Formatted string with currency
- *
- * @example
- * formatCurrency(1234.56, 'USD') // "$1,234.56"
- * formatCurrency(1234.56, 'EUR') // "€1,234.56"
- * formatCurrency(1234.56, 'INR') // "₹1,234.56"
- */
-export function formatCurrency(amount: number, currencyCode: string = 'INR'): string {
-  if (isNaN(amount) || amount === undefined || amount === null) {
-    amount = 0;
-  }
-
-  try {
-    // Use 'en-IN' for INR to get proper Indian number formatting
-    const locale = currencyCode === 'INR' ? 'en-IN' : 'en-US';
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currencyCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    // Fallback for unsupported currencies
-    return `${currencyCode} ${amount.toFixed(2)}`;
-  }
-}
-
-/**
  * Get the currency symbol for a given currency code.
  *
  * @param currencyCode - ISO 4217 currency code

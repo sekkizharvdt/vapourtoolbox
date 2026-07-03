@@ -36,6 +36,7 @@ import type {
 } from '@/lib/accounting/reports/periodReportData';
 import type { BalanceSheetReport } from '@/lib/accounting/reports/balanceSheet';
 import type { CashFlowStatement } from '@/lib/accounting/reports/cashFlow';
+import { formatDate as formatDateCanonical } from '@/lib/utils/formatters';
 
 /* ─── Formatting helpers ──────────────────────────────────────── */
 
@@ -51,7 +52,7 @@ function formatINRSigned(amount: number): string {
 }
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDateCanonical(d);
 }
 
 function formatPct(n: number): string {

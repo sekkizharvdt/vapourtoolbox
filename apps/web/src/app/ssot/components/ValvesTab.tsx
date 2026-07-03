@@ -36,7 +36,8 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { LoadingState, EmptyState, ConfirmDialog } from '@vapour/ui';
+import { LoadingState, EmptyState } from '@vapour/ui';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ProcessValve, ProcessValveInput } from '@vapour/types';
 import { VALVE_TYPES, END_CONNECTIONS } from '@vapour/types';
 import { subscribeToValves, createValve, updateValve, deleteValve } from '@/lib/ssot/valveService';

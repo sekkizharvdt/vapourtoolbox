@@ -22,22 +22,14 @@ import {
   Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import type { BOMSummary, Money } from '@vapour/types';
+import { formatMoney } from '@/lib/utils/formatters';
+import type { BOMSummary } from '@vapour/types';
 
 interface CostBreakdownPanelProps {
   summary: BOMSummary;
 }
 
 export function CostBreakdownPanel({ summary }: CostBreakdownPanelProps) {
-  const formatMoney = (money: Money) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(money.amount);
-  };
-
   return (
     <Card variant="outlined">
       <CardContent>

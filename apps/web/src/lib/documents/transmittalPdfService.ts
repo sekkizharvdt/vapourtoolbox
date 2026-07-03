@@ -10,32 +10,8 @@ import { Document, Page, View, Text, StyleSheet, Image } from '@react-pdf/render
 import { generatePDFBlob, downloadBlob, sanitiseFilename } from '@/lib/pdf/pdfUtils';
 import { fetchLogoAsDataUri } from '@/lib/pdf/logoUtils';
 import { REPORT_THEME } from '@/lib/pdf/reportComponents';
+import { formatDate } from '@/lib/utils/formatters';
 import type { DocumentTransmittal, TransmittalDocumentEntry } from '@vapour/types';
-
-/* ─────────────────────────── Helpers ─────────────────────────── */
-
-/**
- * Safely format a Firestore Timestamp (or Date) to a locale string.
- * Firestore returns Timestamp objects at runtime, not Date.
- */
-function formatDate(raw: unknown): string {
-  if (!raw) return '';
-  const date =
-    raw && typeof raw === 'object' && 'toDate' in raw
-      ? (raw as { toDate: () => Date }).toDate()
-      : raw instanceof Date
-        ? raw
-        : new Date(
-            typeof raw === 'object' && 'seconds' in raw
-              ? (raw as { seconds: number }).seconds * 1000
-              : (raw as string)
-          );
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 /** Map delivery method enum to display text */
 function formatDeliveryMethod(method?: string): string {

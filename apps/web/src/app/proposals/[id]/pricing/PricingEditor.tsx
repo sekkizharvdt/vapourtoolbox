@@ -60,6 +60,7 @@ import { getProposalById, updateProposal } from '@/lib/proposals/proposalService
 import { createDefaultClientPricing } from '@/lib/proposals/pricingBlocks';
 import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
 import { useToast } from '@/components/common/Toast';
+import { formatCurrency } from '@/lib/utils/formatters';
 import { CURRENCIES } from '@vapour/constants';
 import type { ClientPricing, CurrencyCode, PriceSection, Proposal } from '@vapour/types';
 
@@ -70,19 +71,6 @@ interface Props {
 
 const newId = (): string => Math.random().toString(36).slice(2, 11);
 const round2 = (n: number): number => Math.round(n * 100) / 100;
-
-function formatMoney(amount: number, currency: CurrencyCode): string {
-  const cfg = CURRENCIES[currency];
-  try {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: cfg.decimalDigits,
-    }).format(amount);
-  } catch {
-    return `${cfg.symbol} ${amount.toFixed(cfg.decimalDigits)}`;
-  }
-}
 
 export default function PricingEditor({ proposalId: propId }: Props = {}) {
   const pathname = usePathname();
@@ -289,7 +277,9 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
             <Typography variant="caption" color="text.secondary">
               Cost basis (internal, INR — from Costing tab)
             </Typography>
-            <Typography variant="h6">{formatMoney(summary.costBasisInr, inrCurrency)}</Typography>
+            <Typography variant="h6">
+              {formatCurrency(summary.costBasisInr, inrCurrency)}
+            </Typography>
           </Box>
           {summary.costBasisInr === 0 && (
             <Alert severity="info" sx={{ ml: 2 }}>
@@ -335,8 +325,8 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
           <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Typography variant="caption" color="text.secondary">
               Total markup: <strong>{summary.markupPercent.toFixed(2)}%</strong> →{' '}
-              {formatMoney(summary.targetRevenueInr - summary.costBasisInr, inrCurrency)} added to
-              cost basis.
+              {formatCurrency(summary.targetRevenueInr - summary.costBasisInr, inrCurrency)} added
+              to cost basis.
             </Typography>
           </Box>
         </CardContent>
@@ -404,12 +394,12 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
               Revenue target (before tax) — cost basis × (1 + markup), in quote currency
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 600 }}>
-              {formatMoney(summary.targetRevenue, quoteCurrency)}
+              {formatCurrency(summary.targetRevenue, quoteCurrency)}
             </Typography>
             {isForeignQuote && (
               <Typography variant="caption" color="text.secondary">
-                {formatMoney(summary.targetRevenueInr, inrCurrency)} ÷ {fxRate} ={' '}
-                {formatMoney(summary.targetRevenue, quoteCurrency)}
+                {formatCurrency(summary.targetRevenueInr, inrCurrency)} ÷ {fxRate} ={' '}
+                {formatCurrency(summary.targetRevenue, quoteCurrency)}
               </Typography>
             )}
           </Box>
@@ -462,12 +452,12 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
               }
             >
               <Typography variant="body2">
-                <strong>Target:</strong> {formatMoney(summary.targetRevenue, quoteCurrency)} •{' '}
-                <strong>Sum of sections:</strong> {formatMoney(summary.sectionsSum, quoteCurrency)}{' '}
-                • <strong>Delta:</strong>{' '}
+                <strong>Target:</strong> {formatCurrency(summary.targetRevenue, quoteCurrency)} •{' '}
+                <strong>Sum of sections:</strong>{' '}
+                {formatCurrency(summary.sectionsSum, quoteCurrency)} • <strong>Delta:</strong>{' '}
                 <span style={{ fontWeight: 600 }}>
                   {summary.delta >= 0 ? '+' : ''}
-                  {formatMoney(summary.delta, quoteCurrency)}
+                  {formatCurrency(summary.delta, quoteCurrency)}
                 </span>
               </Typography>
             </Alert>
@@ -618,7 +608,7 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
                 Tax amount
               </Typography>
               <Typography variant="body1">
-                {formatMoney(summary.taxAmount, quoteCurrency)}
+                {formatCurrency(summary.taxAmount, quoteCurrency)}
               </Typography>
             </Box>
           </Stack>
@@ -642,24 +632,28 @@ export default function PricingEditor({ proposalId: propId }: Props = {}) {
               <Row
                 key={sec.id}
                 label={sec.title || '(untitled section)'}
-                value={formatMoney(displayed, quoteCurrency)}
+                value={formatCurrency(displayed, quoteCurrency)}
               />
             );
           })}
           {!summary.rollTaxIntoSections && summary.taxRate > 0 && (
             <>
               <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
-              <Row label="Subtotal" value={formatMoney(summary.sectionsSum, quoteCurrency)} bold />
+              <Row
+                label="Subtotal"
+                value={formatCurrency(summary.sectionsSum, quoteCurrency)}
+                bold
+              />
               <Row
                 label={`${summary.taxLabel} (${summary.taxRate}%)`}
-                value={formatMoney(summary.taxAmount, quoteCurrency)}
+                value={formatCurrency(summary.taxAmount, quoteCurrency)}
               />
             </>
           )}
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
           <Row
             label={`Total (${quoteCurrency})`}
-            value={formatMoney(summary.total, quoteCurrency)}
+            value={formatCurrency(summary.total, quoteCurrency)}
             large
           />
         </Stack>
@@ -691,7 +685,7 @@ function PercentField({
       value={value || ''}
       onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
       InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-      helperText={amount > 0 ? formatMoney(amount, currency) : ' '}
+      helperText={amount > 0 ? formatCurrency(amount, currency) : ' '}
       sx={{ flex: 1, minWidth: 160 }}
       inputProps={{ min: 0, step: 'any' }}
     />

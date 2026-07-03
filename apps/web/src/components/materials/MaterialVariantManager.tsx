@@ -28,7 +28,7 @@ import type { Material, MaterialVariant } from '@vapour/types';
 import MaterialVariantList from './MaterialVariantList';
 import { generateVariantCode } from '@/lib/materials/variantUtils';
 import { useAuth } from '@/contexts/AuthContext';
-import { ConfirmDialog } from '@vapour/ui';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface MaterialVariantManagerProps {
   material: Material;

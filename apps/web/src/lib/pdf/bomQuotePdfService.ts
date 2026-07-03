@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
-import type { Firestore } from 'firebase/firestore';
+import type { Firestore, Timestamp } from 'firebase/firestore';
 import type {
   BOMQuotePDFData,
   PDFBOMItem,
@@ -29,30 +29,17 @@ import {
 } from '@vapour/types';
 import { generatePDFBlob, downloadBlob, sanitiseFilename } from '@/lib/pdf/pdfUtils';
 import { BOMQuotePDFDocument } from '@/components/pdf/BOMQuotePDFDocument';
+import { formatCurrencyCode, formatDate as formatDateCanonical } from '@/lib/utils/formatters';
 
 /* ─── Helpers ────────────────────────────────────────────── */
 
 function formatCurrency(money: Money | undefined | null): string {
   if (!money) return '—';
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: money.currency || 'INR',
-  }).format(money.amount);
+  return formatCurrencyCode(money.amount, money.currency || 'INR');
 }
 
-function formatTimestamp(ts: unknown): string {
-  if (!ts) return new Date().toLocaleDateString('en-IN');
-  const date =
-    ts && typeof ts === 'object' && 'toDate' in ts
-      ? (ts as { toDate: () => Date }).toDate()
-      : ts instanceof Date
-        ? ts
-        : new Date(ts as string);
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+function formatTimestamp(ts: Timestamp | Date | string | undefined | null): string {
+  return formatDateCanonical(ts);
 }
 
 function computeItemTotalPrice(item: BOMItem): Money | null {

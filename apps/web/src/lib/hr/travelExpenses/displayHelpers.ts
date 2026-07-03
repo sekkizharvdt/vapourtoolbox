@@ -5,6 +5,7 @@
  */
 
 import type { TravelExpenseStatus, TravelExpenseCategory } from '@vapour/types';
+import { TRAVEL_EXPENSE_STATUS_LABELS as CONST_TRAVEL_EXPENSE_STATUS_LABELS } from '@vapour/constants';
 
 // ============================================
 // Status Display
@@ -26,16 +27,11 @@ export const TRAVEL_EXPENSE_STATUS_COLORS: Record<
 };
 
 /**
- * Human-readable labels for travel expense statuses
+ * Human-readable labels for travel expense statuses.
+ * Re-exported from @vapour/constants — single source of truth (rule 29).
  */
-export const TRAVEL_EXPENSE_STATUS_LABELS: Record<TravelExpenseStatus, string> = {
-  DRAFT: 'Draft',
-  SUBMITTED: 'Submitted',
-  UNDER_REVIEW: 'Under Review',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  REIMBURSED: 'Reimbursed',
-};
+export const TRAVEL_EXPENSE_STATUS_LABELS: Record<TravelExpenseStatus, string> =
+  CONST_TRAVEL_EXPENSE_STATUS_LABELS;
 
 /**
  * Get the display properties for a travel expense status

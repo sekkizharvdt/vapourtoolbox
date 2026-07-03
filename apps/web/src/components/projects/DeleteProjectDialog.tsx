@@ -7,7 +7,7 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Project } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { ConfirmDialog } from '@vapour/ui';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface DeleteProjectDialogProps {
   open: boolean;

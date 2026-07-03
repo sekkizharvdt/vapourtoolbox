@@ -53,6 +53,7 @@ import {
   createBOMCostSheetBlock,
 } from '@/lib/proposals/pricingBlocks';
 import { useToast } from '@/components/common/Toast';
+import { formatCurrency } from '@/lib/utils/formatters';
 import { CURRENCIES } from '@vapour/constants';
 import type {
   PricingBlock,
@@ -77,19 +78,6 @@ const blockKindLabels = {
   LUMP_SUM_LINES: 'Lump-sum lines',
   BOM_COST_SHEET: 'Equipment from estimation',
 } as const;
-
-function formatMoney(amount: number, currency: CurrencyCode): string {
-  const cfg = CURRENCIES[currency];
-  try {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: cfg.decimalDigits,
-    }).format(amount);
-  } catch {
-    return `${cfg.symbol} ${amount.toFixed(cfg.decimalDigits)}`;
-  }
-}
 
 export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) {
   const pathname = usePathname();
@@ -279,7 +267,7 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
             <Typography variant="caption" color="text.secondary">
               Internal cost basis
             </Typography>
-            <Typography variant="h5">{formatMoney(costBasis, currency)}</Typography>
+            <Typography variant="h5">{formatCurrency(costBasis, currency)}</Typography>
             <Typography variant="caption" color="text.secondary">
               Carried into the Pricing tab as the basis for markup.
             </Typography>
@@ -342,7 +330,7 @@ function BlockCard({ block, currency, onChange, onRemove }: BlockCardProps) {
 
         <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
           <Typography variant="subtitle1">
-            Subtotal: <strong>{formatMoney(block.subtotal || 0, currency)}</strong>
+            Subtotal: <strong>{formatCurrency(block.subtotal || 0, currency)}</strong>
           </Typography>
         </Stack>
       </CardContent>
@@ -451,7 +439,7 @@ function ManpowerEditor({
                     inputProps={{ min: 0, step: 'any', style: { textAlign: 'right' } }}
                   />
                 </TableCell>
-                <TableCell align="right">{formatMoney(row.total || 0, currency)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.total || 0, currency)}</TableCell>
                 <TableCell align="right">
                   <IconButton
                     size="small"
@@ -563,7 +551,7 @@ function PerMandayEditor({
                     inputProps={{ min: 0, step: 'any', style: { textAlign: 'right' } }}
                   />
                 </TableCell>
-                <TableCell align="right">{formatMoney(row.total || 0, currency)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.total || 0, currency)}</TableCell>
                 <TableCell align="right">
                   <IconButton
                     size="small"
@@ -681,8 +669,8 @@ function BOMPlaceholder({ block, currency }: { block: BOMCostSheetBlock; currenc
     <Alert severity="info" icon={false}>
       <Typography variant="body2">
         BOM linking comes in the next ship — for now this block holds your equipment cost basis of{' '}
-        <strong>{formatMoney(block.subtotal || 0, currency)}</strong> as 0 until you wire it to the
-        estimation module.
+        <strong>{formatCurrency(block.subtotal || 0, currency)}</strong> as 0 until you wire it to
+        the estimation module.
       </Typography>
     </Alert>
   );

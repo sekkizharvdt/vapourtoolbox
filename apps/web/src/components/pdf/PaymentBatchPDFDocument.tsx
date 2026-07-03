@@ -22,7 +22,7 @@ import {
   REPORT_THEME,
   type TableColumn,
 } from '@/lib/pdf/reportComponents';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrencyCode } from '@/lib/utils/formatters';
 
 const CATEGORY_LABELS: Record<string, string> = {
   SALARY: 'Salary',
@@ -36,13 +36,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 function formatCurrency(amount: number): string {
-  // ISO code ("INR 1,234"), not the ₹ glyph — the built-in PDF font has no ₹.
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    currencyDisplay: 'code',
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatCurrencyCode(amount, 'INR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 /* ── Receipts table columns ────────────────────────────────── */

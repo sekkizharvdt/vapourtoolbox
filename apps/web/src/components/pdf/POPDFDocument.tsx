@@ -27,7 +27,7 @@ import {
   NotesSection,
   REPORT_THEME,
 } from '@/lib/pdf/reportComponents';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrencyCode } from '@/lib/utils/formatters';
 import { amountToWords } from '@/lib/utils/currency';
 
 const local = StyleSheet.create({
@@ -145,18 +145,6 @@ const local = StyleSheet.create({
     lineHeight: 1.4,
   },
 });
-
-function formatCurrency(amount: number, currency: string = 'INR'): string {
-  // Render the ISO currency CODE (e.g. "INR 1,23,456.00"), not the ₹ symbol.
-  // The built-in PDF font has no ₹ glyph (it rendered as "1"); using the code
-  // keeps the PDF font-independent and avoids registering a custom font.
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    currencyDisplay: 'code',
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
 
 function formatFileSize(bytes: number | undefined): string {
   if (!bytes || bytes <= 0) return '—';
@@ -405,9 +393,9 @@ export function POPDFDocument({
               hsnSac: item.hsnSacCode || '—',
               qty: item.quantity,
               unit: item.unit,
-              rate: formatCurrency(item.unitPrice, po.currency),
+              rate: formatCurrencyCode(item.unitPrice, po.currency),
               gst: `${item.gstRate}%`,
-              amount: formatCurrency(item.amount, po.currency),
+              amount: formatCurrencyCode(item.amount, po.currency),
             }))}
             fontSize={9}
           />
@@ -417,13 +405,13 @@ export function POPDFDocument({
         <ReportSection title="Financial Summary">
           <View style={local.summaryRow}>
             <Text style={local.summaryLabel}>Subtotal:</Text>
-            <Text style={local.summaryValue}>{formatCurrency(po.subtotal, po.currency)}</Text>
+            <Text style={local.summaryValue}>{formatCurrencyCode(po.subtotal, po.currency)}</Text>
           </View>
           {po.discount !== undefined && po.discount > 0 && (
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>Discount:</Text>
               <Text style={local.summaryValue}>
-                {`- ${formatCurrency(po.discount, po.currency)}`}
+                {`- ${formatCurrencyCode(po.discount, po.currency)}`}
               </Text>
             </View>
           )}
@@ -431,37 +419,37 @@ export function POPDFDocument({
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>Packing &amp; Forwarding:</Text>
               <Text style={local.summaryValue}>
-                {`+ ${formatCurrency(po.packingForwardingAmount, po.currency)}`}
+                {`+ ${formatCurrencyCode(po.packingForwardingAmount, po.currency)}`}
               </Text>
             </View>
           )}
           {po.cgst > 0 && (
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>CGST:</Text>
-              <Text style={local.summaryValue}>{formatCurrency(po.cgst, po.currency)}</Text>
+              <Text style={local.summaryValue}>{formatCurrencyCode(po.cgst, po.currency)}</Text>
             </View>
           )}
           {po.sgst > 0 && (
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>SGST:</Text>
-              <Text style={local.summaryValue}>{formatCurrency(po.sgst, po.currency)}</Text>
+              <Text style={local.summaryValue}>{formatCurrencyCode(po.sgst, po.currency)}</Text>
             </View>
           )}
           {po.igst > 0 && (
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>IGST:</Text>
-              <Text style={local.summaryValue}>{formatCurrency(po.igst, po.currency)}</Text>
+              <Text style={local.summaryValue}>{formatCurrencyCode(po.igst, po.currency)}</Text>
             </View>
           )}
           {po.totalTax > 0 && (
             <View style={local.summaryRow}>
               <Text style={local.summaryLabel}>Total Tax:</Text>
-              <Text style={local.summaryValue}>{formatCurrency(po.totalTax, po.currency)}</Text>
+              <Text style={local.summaryValue}>{formatCurrencyCode(po.totalTax, po.currency)}</Text>
             </View>
           )}
           <View style={local.summaryTotal}>
             <Text style={local.totalLabel}>Grand Total:</Text>
-            <Text style={local.totalValue}>{formatCurrency(po.grandTotal, po.currency)}</Text>
+            <Text style={local.totalValue}>{formatCurrencyCode(po.grandTotal, po.currency)}</Text>
           </View>
           <Text style={local.totalInWords}>
             {`(In words: ${amountToWords(po.grandTotal, po.currency)})`}

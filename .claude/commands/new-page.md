@@ -49,18 +49,38 @@ Create a new page following the codebase patterns.
 
    **ModuleDetailClient.tsx** (client component):
 
+   `output: 'export'` pre-generates dynamic routes against a `'placeholder'` param, so
+   `useParams()` returns `'placeholder'` at runtime and every lookup silently 404s (rule 30).
+   Extract the real id from `usePathname()` instead:
+
    ```typescript
    'use client';
 
-   import { useParams } from 'next/navigation';
+   import { useEffect, useState } from 'react';
+   import { usePathname } from 'next/navigation';
    // ... other imports
 
    export default function ModuleDetailClient() {
-     const params = useParams();
-     const id = params.id as string;
-     // ... component logic
+     const pathname = usePathname();
+     const [docId, setDocId] = useState<string | null>(null);
+
+     useEffect(() => {
+       if (!pathname) return;
+       const match = pathname.match(/\/module\/([^/]+)(?:\/|$)/);
+       const extracted = match?.[1];
+       if (extracted && extracted !== 'placeholder') setDocId(extracted);
+     }, [pathname]);
+
+     useEffect(() => {
+       if (!docId) return;
+       // ... load data for docId
+     }, [docId]);
+
+     // ... guard every handler with `if (!docId) return;` too
    }
    ```
+
+   Canonical exemplar: `apps/web/src/app/estimation/[id]/BOMEditorClient.tsx`.
 
 4. For dynamic routes, add Firebase rewrite to `firebase.json`:
 
@@ -110,6 +130,11 @@ Create a new page following the codebase patterns.
 
    - Add one index entry per unique `query()` shape.
    - The `!=` operator requires the filtered field to appear in the index.
-   - Deploy indexes **before** deploying the app: `firebase deploy --only firestore:indexes`.
+   - Never run `firebase deploy` locally — indexes ship through the "Deploy - Production" CI
+     workflow, which auto-selects targets from changed paths (rule 33). Just commit the updated
+     `firestore.indexes.json`.
 
-9. **Soft delete awareness** — If the page lists transactions, include `where('isDeleted', '!=', true)` in the query to exclude trashed items. Only the Trash page uses `where('isDeleted', '==', true)`.
+9. **Soft delete awareness** — Never query with `where('isDeleted', '!=', true)` — Firestore
+   excludes documents that are missing the field entirely, silently dropping valid rows (rule 3).
+   Fetch normally and filter client-side: `docs.filter((d) => !d.isDeleted)`. Only the Trash page
+   queries `where('isDeleted', '==', true)`. This applies to Cloud Function triggers too.

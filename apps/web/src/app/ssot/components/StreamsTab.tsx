@@ -25,7 +25,8 @@ import {
   TablePagination,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { LoadingState, EmptyState, ConfirmDialog } from '@vapour/ui';
+import { LoadingState, EmptyState } from '@vapour/ui';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ProcessStream } from '@vapour/types';
 import { subscribeToStreams, deleteStream } from '@/lib/ssot/streamService';
 import { createLogger } from '@vapour/logger';

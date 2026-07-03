@@ -8,7 +8,12 @@ import {
   DialogContentText,
   DialogActions,
   Button,
+  Typography,
+  Alert,
+  CircularProgress,
+  Box,
 } from '@mui/material';
+import { Warning as WarningIcon, Error as ErrorIcon, Info as InfoIcon } from '@mui/icons-material';
 
 interface ConfirmDialogOptions {
   title?: string;
@@ -156,67 +161,128 @@ export function ConfirmDialogProvider({ children }: ConfirmDialogProviderProps) 
   );
 }
 
+interface ConfirmDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+  title: string;
+  message: string | ReactNode;
+  description?: string | ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  variant?: 'warning' | 'error' | 'info';
+  loading?: boolean;
+  error?: string;
+  warning?: string;
+  maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+}
+
 /**
- * Standalone ConfirmDialog component for cases where you manage state externally.
+ * Standalone ConfirmDialog component for cases where you manage open/loading
+ * state externally (e.g. per-row delete confirmations). For simple one-shot
+ * confirms, prefer the `useConfirmDialog()` hook above instead.
  *
  * @example
  * ```tsx
- * const [open, setOpen] = useState(false);
- *
  * <ConfirmDialog
  *   open={open}
- *   title="Delete Item"
- *   message="Are you sure?"
- *   onConfirm={() => { deleteItem(); setOpen(false); }}
- *   onCancel={() => setOpen(false)}
+ *   onClose={handleClose}
+ *   onConfirm={handleDelete}
+ *   title="Delete Entity"
+ *   message="Are you sure you want to delete this entity?"
+ *   description="This action cannot be undone."
+ *   variant="error"
+ *   confirmLabel="Delete"
+ *   loading={deleting}
  * />
  * ```
  */
 export function ConfirmDialog({
   open,
-  title = 'Confirm',
-  message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  confirmColor = 'primary',
-  focusConfirm = false,
+  onClose,
   onConfirm,
-  onCancel,
-}: {
-  open: boolean;
-  title?: string;
-  message: string;
-  confirmText?: string;
-  cancelText?: string;
-  confirmColor?: 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success';
-  focusConfirm?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
+  title,
+  message,
+  description,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  variant = 'warning',
+  loading = false,
+  error,
+  warning,
+  maxWidth = 'sm',
+}: ConfirmDialogProps) {
+  const handleConfirm = async () => {
+    await onConfirm();
+  };
+
+  const getIcon = () => {
+    switch (variant) {
+      case 'error':
+        return <ErrorIcon color="error" />;
+      case 'info':
+        return <InfoIcon color="info" />;
+      case 'warning':
+      default:
+        return <WarningIcon color="warning" />;
+    }
+  };
+
+  const getButtonColor = () => {
+    switch (variant) {
+      case 'error':
+        return 'error';
+      case 'info':
+        return 'primary';
+      case 'warning':
+      default:
+        return 'warning';
+    }
+  };
+
   return (
-    <Dialog
-      open={open}
-      onClose={onCancel}
-      aria-labelledby="confirm-dialog-title"
-      aria-describedby="confirm-dialog-description"
-      maxWidth="xs"
-      fullWidth
-    >
-      <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth={maxWidth} fullWidth>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {getIcon()}
+          {title}
+        </Box>
+      </DialogTitle>
       <DialogContent>
-        <DialogContentText id="confirm-dialog-description">{message}</DialogContentText>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {warning && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {warning}
+          </Alert>
+        )}
+
+        <Typography variant="body1" gutterBottom>
+          {message}
+        </Typography>
+
+        {description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {description}
+          </Typography>
+        )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel} autoFocus={!focusConfirm} color="inherit">
-          {cancelText}
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button onClick={onClose} disabled={loading}>
+          {cancelLabel}
         </Button>
         <Button
-          onClick={onConfirm}
-          autoFocus={focusConfirm}
-          color={confirmColor}
+          onClick={handleConfirm}
           variant="contained"
+          color={getButtonColor()}
+          disabled={loading}
+          startIcon={loading && <CircularProgress size={20} />}
         >
-          {confirmText}
+          {loading ? 'Processing...' : confirmLabel}
         </Button>
       </DialogActions>
     </Dialog>

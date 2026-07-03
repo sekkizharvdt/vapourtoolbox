@@ -5,7 +5,7 @@
 export { ThemeToggle } from './ThemeToggle';
 
 // Dialog Components
-export { FormDialog, FormDialogActions, ConfirmDialog } from './dialogs';
+export { FormDialog, FormDialogActions } from './dialogs';
 
 // Layout Components
 export { PageHeader } from './PageHeader';

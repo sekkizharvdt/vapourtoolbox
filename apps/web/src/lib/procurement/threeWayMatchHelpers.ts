@@ -84,11 +84,16 @@ export function calculateMatchStats(matches: ThreeWayMatch[]) {
 // Re-export formatCurrency from centralized utility for backwards compatibility
 export { formatCurrency } from '@/lib/utils/formatters';
 
+import { formatPercentage as formatPercentageFraction } from '@/lib/utils/formatters';
+
 /**
- * Format percentage
+ * Format an already-computed 0–100 percentage value (e.g. `overallMatchPercentage`,
+ * `variancePercentage`). Delegates to the canonical formatter, which expects a
+ * 0–1 fraction — this file's fields are pre-scaled, so the canonical duplicate
+ * would double-multiply if called directly.
  */
 export function formatPercentage(value: number): string {
-  return `${value.toFixed(2)}%`;
+  return formatPercentageFraction(value / 100, 2);
 }
 
 /**

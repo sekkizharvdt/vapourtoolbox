@@ -4,6 +4,7 @@
 
 jest.mock('@/lib/utils/formatters', () => ({
   formatCurrency: jest.fn((value: number) => `₹${value.toFixed(2)}`),
+  formatPercentage: jest.fn((value: number, decimals = 1) => `${(value * 100).toFixed(decimals)}%`),
 }));
 
 import {

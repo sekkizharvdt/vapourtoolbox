@@ -7,7 +7,7 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { TravelExpenseReport, TravelExpenseCategory } from '@vapour/types';
-import { format } from 'date-fns';
+import { formatCurrencyCode, formatDate } from '@/lib/utils/formatters';
 
 const styles = StyleSheet.create({
   page: {
@@ -316,20 +316,9 @@ export const TravelExpenseReportPDF = ({
   receiptImages = [],
   logoDataUri,
 }: TravelExpenseReportPDFProps) => {
-  const formatCurrency = (amount: number): string => {
-    // Use plain number format with manual Rs. prefix
-    // Intl.NumberFormat currency symbol (₹) doesn't render in Helvetica font
-    const formatted = new Intl.NumberFormat('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-    return `Rs. ${formatted}`;
-  };
+  const formatCurrency = (amount: number): string => formatCurrencyCode(amount, 'INR');
 
-  const formatDateValue = (date: Date | { toDate: () => Date }): string => {
-    const d = 'toDate' in date ? date.toDate() : date;
-    return format(d, 'dd MMM yyyy');
-  };
+  const formatDateValue = (date: Date | { toDate: () => Date }): string => formatDate(date);
 
   const getStatusStyle = () => {
     switch (report.status) {
@@ -568,8 +557,8 @@ export const TravelExpenseReportPDF = ({
         {/* Footer */}
         <View style={styles.footer} fixed>
           <Text>
-            Generated on {format(new Date(), 'dd MMM yyyy, HH:mm')} | {report.reportNumber} | This
-            is a computer-generated document
+            Generated on {formatDate(new Date(), 'datetime')} | {report.reportNumber} | This is a
+            computer-generated document
           </Text>
         </View>
       </Page>

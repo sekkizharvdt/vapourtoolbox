@@ -37,7 +37,8 @@ import {
   Delete as DeleteIcon,
   PlaylistAdd as SeedIcon,
 } from '@mui/icons-material';
-import { LoadingState, EmptyState, ConfirmDialog } from '@vapour/ui';
+import { LoadingState, EmptyState } from '@vapour/ui';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { PipeSize, PipeSizeInput } from '@vapour/types';
 import {
   subscribeToPipeSizes,

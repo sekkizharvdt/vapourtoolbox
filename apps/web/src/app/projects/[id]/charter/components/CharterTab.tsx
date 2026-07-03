@@ -31,7 +31,7 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { formatDate } from '@/lib/utils/formatters';
-import { ConfirmDialog } from '@vapour/ui';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface CharterTabProps {
   project: Project;

@@ -30,7 +30,8 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { LoadingState, EmptyState, ConfirmDialog } from '@vapour/ui';
+import { LoadingState, EmptyState } from '@vapour/ui';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ProcessEquipment, ProcessEquipmentInput } from '@vapour/types';
 import {
   subscribeToEquipment,

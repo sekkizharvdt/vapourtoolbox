@@ -12,6 +12,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
+import { formatCurrency } from '@/lib/utils/formatters';
 import type {
   BOMItemService,
   ServiceCostBreakdown,
@@ -184,8 +185,8 @@ function calculatePercentageOfMaterial(
   baseCost: Money;
 } {
   const costPerUnit = (materialCost * percentage) / 100;
-  const formattedMaterialCost = formatMoney(materialCost, currency);
-  const formattedResult = formatMoney(costPerUnit, currency);
+  const formattedMaterialCost = formatCurrency(materialCost, currency);
+  const formattedResult = formatCurrency(costPerUnit, currency);
 
   return {
     costPerUnit,
@@ -209,8 +210,8 @@ function calculatePercentageOfTotal(
 } {
   const totalCost = materialCost + fabricationCost;
   const costPerUnit = (totalCost * percentage) / 100;
-  const formattedTotalCost = formatMoney(totalCost, currency);
-  const formattedResult = formatMoney(costPerUnit, currency);
+  const formattedTotalCost = formatCurrency(totalCost, currency);
+  const formattedResult = formatCurrency(costPerUnit, currency);
 
   return {
     costPerUnit,
@@ -229,7 +230,7 @@ function calculateFixedAmount(
   costPerUnit: number;
   calculationDetails: string;
 } {
-  const formattedAmount = formatMoney(amount, currency);
+  const formattedAmount = formatCurrency(amount, currency);
 
   return {
     costPerUnit: amount,
@@ -247,7 +248,7 @@ function calculatePerUnit(
   costPerUnit: number;
   calculationDetails: string;
 } {
-  const formattedRate = formatMoney(rate, currency);
+  const formattedRate = formatCurrency(rate, currency);
 
   return {
     costPerUnit: rate,
@@ -524,7 +525,7 @@ function evaluateCustomFormula(
       throw new Error('Formula did not evaluate to a valid number');
     }
 
-    const formattedResult = formatMoney(result, currency);
+    const formattedResult = formatCurrency(result, currency);
 
     return {
       costPerUnit: result,
@@ -537,18 +538,6 @@ function evaluateCustomFormula(
       calculationDetails: `Error evaluating formula: ${error instanceof Error ? error.message : 'Unknown error'}`,
     };
   }
-}
-
-/**
- * Format money for display
- */
-function formatMoney(amount: number, currency: CurrencyCode): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
 }
 
 /**
