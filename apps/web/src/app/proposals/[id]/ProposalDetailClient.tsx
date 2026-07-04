@@ -54,6 +54,10 @@ import {
   Subject as DescriptionTabIcon,
   Verified as QualificationsIcon,
   FactCheck as ComplianceIcon,
+  EmojiEvents as AwardIcon,
+  Forum as NegotiationIcon,
+  ThumbDown as LostIcon,
+  EventBusy as ExpiredIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
@@ -68,6 +72,7 @@ import {
   approveProposal,
   rejectProposal,
   requestProposalChanges,
+  recordProposalOutcome,
   getAvailableActions,
 } from '@/lib/proposals/approvalWorkflow';
 import { canConvertToProject } from '@/lib/proposals/projectConversion';
@@ -165,11 +170,19 @@ export default function ProposalDetailClient() {
   const [proposalId, setProposalId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
 
-  // Comment dialog state for approval actions
+  // Comment dialog state for approval + client-outcome actions
   const [commentDialog, setCommentDialog] = useState<{
     open: boolean;
     title: string;
-    action: 'approve' | 'reject' | 'changes' | null;
+    action:
+      | 'approve'
+      | 'reject'
+      | 'changes'
+      | 'awarded'
+      | 'negotiation'
+      | 'lost'
+      | 'expired'
+      | null;
     required: boolean;
   }>({ open: false, title: '', action: null, required: false });
   const [commentText, setCommentText] = useState('');
@@ -404,6 +417,53 @@ export default function ProposalDetailClient() {
     handleMenuClose();
   };
 
+  // Client-outcome actions — available once the proposal is SUBMITTED (or
+  // UNDER_NEGOTIATION). These are what move a quote to awarded/lost, and
+  // ACCEPTED is the gate for Convert to Project.
+  const handleMarkAwarded = () => {
+    setCommentDialog({
+      open: true,
+      title: 'Mark as Awarded',
+      action: 'awarded',
+      required: false,
+    });
+    setCommentText('');
+    handleMenuClose();
+  };
+
+  const handleMarkUnderNegotiation = () => {
+    setCommentDialog({
+      open: true,
+      title: 'Mark Under Negotiation',
+      action: 'negotiation',
+      required: false,
+    });
+    setCommentText('');
+    handleMenuClose();
+  };
+
+  const handleMarkLost = () => {
+    setCommentDialog({
+      open: true,
+      title: 'Mark as Lost',
+      action: 'lost',
+      required: true,
+    });
+    setCommentText('');
+    handleMenuClose();
+  };
+
+  const handleMarkExpired = () => {
+    setCommentDialog({
+      open: true,
+      title: 'Mark as Expired',
+      action: 'expired',
+      required: false,
+    });
+    setCommentText('');
+    handleMenuClose();
+  };
+
   const handleCommentDialogClose = () => {
     setCommentDialog({ open: false, title: '', action: null, required: false });
     setCommentText('');
@@ -448,6 +508,50 @@ export default function ProposalDetailClient() {
             user.displayName || 'Unknown',
             permissions,
             commentText
+          );
+          break;
+        case 'awarded':
+          await recordProposalOutcome(
+            db,
+            proposal.id,
+            'ACCEPTED',
+            user.uid,
+            user.displayName || 'Unknown',
+            permissions,
+            commentText.trim() || undefined
+          );
+          break;
+        case 'negotiation':
+          await recordProposalOutcome(
+            db,
+            proposal.id,
+            'UNDER_NEGOTIATION',
+            user.uid,
+            user.displayName || 'Unknown',
+            permissions,
+            commentText.trim() || undefined
+          );
+          break;
+        case 'lost':
+          await recordProposalOutcome(
+            db,
+            proposal.id,
+            'REJECTED',
+            user.uid,
+            user.displayName || 'Unknown',
+            permissions,
+            commentText.trim()
+          );
+          break;
+        case 'expired':
+          await recordProposalOutcome(
+            db,
+            proposal.id,
+            'EXPIRED',
+            user.uid,
+            user.displayName || 'Unknown',
+            permissions,
+            commentText.trim() || undefined
           );
           break;
       }
@@ -499,6 +603,63 @@ export default function ProposalDetailClient() {
 
   const actions = getAvailableActions(proposal.status);
   const canConvert = canConvertToProject(proposal);
+
+  // Field/button copy for the shared comment dialog, per action.
+  const COMMENT_DIALOG_COPY: Record<
+    NonNullable<typeof commentDialog.action>,
+    {
+      label: string;
+      placeholder: string;
+      submit: string;
+      color: 'primary' | 'error' | 'success';
+    }
+  > = {
+    approve: {
+      label: 'Comments (optional)',
+      placeholder: 'Add any comments about this approval...',
+      submit: 'Approve',
+      color: 'primary',
+    },
+    reject: {
+      label: 'Reason for rejection',
+      placeholder: 'Please explain why this proposal is being rejected...',
+      submit: 'Reject',
+      color: 'error',
+    },
+    changes: {
+      label: 'What changes are needed?',
+      placeholder: 'Describe the changes that need to be made...',
+      submit: 'Request Changes',
+      color: 'primary',
+    },
+    awarded: {
+      label: 'Award reference / notes (optional)',
+      placeholder: 'e.g. client PO / agreement number and date...',
+      submit: 'Mark as Awarded',
+      color: 'success',
+    },
+    negotiation: {
+      label: 'Notes (optional)',
+      placeholder: "Summarize the client's comments or asks...",
+      submit: 'Mark Under Negotiation',
+      color: 'primary',
+    },
+    lost: {
+      label: 'Reason for loss',
+      placeholder: 'Why was this proposal lost (price, scope, competitor, ...)?',
+      submit: 'Mark as Lost',
+      color: 'error',
+    },
+    expired: {
+      label: 'Notes (optional)',
+      placeholder: 'Validity lapsed without a client decision...',
+      submit: 'Mark as Expired',
+      color: 'primary',
+    },
+  };
+  const commentDialogCopy = commentDialog.action
+    ? COMMENT_DIALOG_COPY[commentDialog.action]
+    : COMMENT_DIALOG_COPY.approve;
 
   // Approval actions (Approve / Reject / Request Changes) must NOT be
   // visible to the proposal's submitter — the server-side
@@ -634,6 +795,22 @@ export default function ProposalDetailClient() {
               </Button>
             )}
 
+            {/* Mark as Awarded — records the client's acceptance
+                (SUBMITTED/UNDER_NEGOTIATION → ACCEPTED), which unlocks
+                Convert to Project. Lost / Negotiation / Expired live in
+                the More menu. */}
+            {actions.canRecordOutcome && (
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<AwardIcon />}
+                onClick={handleMarkAwarded}
+                disabled={actionLoading}
+              >
+                Mark as Awarded
+              </Button>
+            )}
+
             {/* Convert to Project */}
             {canConvert.canConvert && (
               <Button
@@ -665,6 +842,32 @@ export default function ProposalDetailClient() {
                     <ChangesIcon fontSize="small" />
                   </ListItemIcon>
                   <ListItemText>Request Changes</ListItemText>
+                </MenuItem>
+              )}
+              {/* Client outcomes — the non-award outcomes are tucked in the
+                  menu; "Mark as Awarded" is a primary header button. */}
+              {actions.canRecordOutcome && proposal.status === 'SUBMITTED' && (
+                <MenuItem onClick={handleMarkUnderNegotiation} disabled={actionLoading}>
+                  <ListItemIcon>
+                    <NegotiationIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Mark Under Negotiation</ListItemText>
+                </MenuItem>
+              )}
+              {actions.canRecordOutcome && (
+                <MenuItem onClick={handleMarkLost} disabled={actionLoading}>
+                  <ListItemIcon>
+                    <LostIcon fontSize="small" color="error" />
+                  </ListItemIcon>
+                  <ListItemText>Mark as Lost</ListItemText>
+                </MenuItem>
+              )}
+              {actions.canRecordOutcome && (
+                <MenuItem onClick={handleMarkExpired} disabled={actionLoading}>
+                  <ListItemIcon>
+                    <ExpiredIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Mark as Expired</ListItemText>
                 </MenuItem>
               )}
               <MenuItem onClick={openExtendValidity}>
@@ -851,33 +1054,21 @@ export default function ProposalDetailClient() {
         </DialogActions>
       </Dialog>
 
-      {/* Comment Dialog for Approval Actions */}
+      {/* Comment Dialog for Approval + Client-Outcome Actions */}
       <Dialog open={commentDialog.open} onClose={handleCommentDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle>{commentDialog.title}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label={
-              commentDialog.action === 'approve'
-                ? 'Comments (optional)'
-                : commentDialog.action === 'reject'
-                  ? 'Reason for rejection'
-                  : 'What changes are needed?'
-            }
+            label={commentDialogCopy.label}
             fullWidth
             multiline
             rows={3}
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             required={commentDialog.required}
-            placeholder={
-              commentDialog.action === 'approve'
-                ? 'Add any comments about this approval...'
-                : commentDialog.action === 'reject'
-                  ? 'Please explain why this proposal is being rejected...'
-                  : 'Describe the changes that need to be made...'
-            }
+            placeholder={commentDialogCopy.placeholder}
           />
         </DialogContent>
         <DialogActions>
@@ -885,14 +1076,10 @@ export default function ProposalDetailClient() {
           <Button
             onClick={handleCommentSubmit}
             variant="contained"
-            color={commentDialog.action === 'reject' ? 'error' : 'primary'}
+            color={commentDialogCopy.color}
             disabled={commentDialog.required && !commentText.trim()}
           >
-            {commentDialog.action === 'approve'
-              ? 'Approve'
-              : commentDialog.action === 'reject'
-                ? 'Reject'
-                : 'Request Changes'}
+            {commentDialogCopy.submit}
           </Button>
         </DialogActions>
       </Dialog>

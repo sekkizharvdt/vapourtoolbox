@@ -51,6 +51,12 @@ jest.mock('@/lib/auth', () => ({
   preventSelfApproval: jest.fn(),
 }));
 
+// Mock enquiry service (recordProposalOutcome syncs the linked enquiry)
+const mockUpdateEnquiryStatus = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/lib/enquiry/enquiryService', () => ({
+  updateEnquiryStatus: (...args: unknown[]) => mockUpdateEnquiryStatus(...args),
+}));
+
 // Mock state machine
 jest.mock('@/lib/workflow/stateMachines', () => ({
   proposalStateMachine: {
@@ -60,7 +66,8 @@ jest.mock('@/lib/workflow/stateMachines', () => ({
         DRAFT: ['PENDING_APPROVAL'],
         PENDING_APPROVAL: ['APPROVED', 'DRAFT'],
         APPROVED: ['SUBMITTED'],
-        SUBMITTED: ['ACCEPTED', 'REJECTED'],
+        SUBMITTED: ['ACCEPTED', 'REJECTED', 'UNDER_NEGOTIATION', 'EXPIRED'],
+        UNDER_NEGOTIATION: ['ACCEPTED', 'REJECTED', 'EXPIRED'],
       };
       const allowed = validTransitions[fromStatus]?.includes(toStatus) ?? false;
       return {
@@ -88,6 +95,7 @@ import {
   requestProposalChanges,
   markProposalAsSubmitted,
   updateProposalStatus,
+  recordProposalOutcome,
   getAvailableActions,
 } from './approvalWorkflow';
 import {
@@ -396,6 +404,156 @@ describe('approvalWorkflow', () => {
       await expect(
         updateProposalStatus(mockDb, 'proposal-123', 'ACCEPTED', mockUserId)
       ).rejects.toThrow();
+    });
+
+    it('should omit statusChangeReason when no reason is given (Firestore rejects undefined)', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ ...mockProposal, status: 'DRAFT' }),
+      });
+
+      await updateProposalStatus(mockDb, 'proposal-123', 'PENDING_APPROVAL', mockUserId);
+
+      const updateCall = mockUpdateDoc.mock.calls[0][1];
+      expect('statusChangeReason' in updateCall).toBe(false);
+    });
+  });
+
+  describe('recordProposalOutcome', () => {
+    const submittedProposal = {
+      ...mockProposal,
+      status: 'SUBMITTED' as ProposalStatus,
+      enquiryId: 'enquiry-123',
+    };
+
+    const mockSubmittedGetDoc = () => {
+      // recordProposalOutcome reads the proposal once itself and once via
+      // updateProposalStatus.
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => submittedProposal,
+      });
+    };
+
+    it('should require MANAGE_PROPOSALS permission', async () => {
+      mockSubmittedGetDoc();
+
+      await recordProposalOutcome(
+        mockDb,
+        'proposal-123',
+        'ACCEPTED',
+        mockUserId,
+        mockUserName,
+        mockPermissions
+      );
+
+      expect(requirePermission).toHaveBeenCalledWith(
+        mockPermissions,
+        PERMISSION_FLAGS.MANAGE_PROPOSALS,
+        mockUserId,
+        'record proposal outcome'
+      );
+    });
+
+    it('should mark the proposal ACCEPTED and sync the enquiry to WON', async () => {
+      mockSubmittedGetDoc();
+
+      await recordProposalOutcome(
+        mockDb,
+        'proposal-123',
+        'ACCEPTED',
+        mockUserId,
+        mockUserName,
+        mockPermissions,
+        'PO26XP062901 signed'
+      );
+
+      const updateCall = mockUpdateDoc.mock.calls[0][1];
+      expect(updateCall.status).toBe('ACCEPTED');
+      expect(updateCall.statusChangeReason).toBe('PO26XP062901 signed');
+      expect(mockUpdateEnquiryStatus).toHaveBeenCalledWith(
+        mockDb,
+        'enquiry-123',
+        'WON',
+        mockUserId,
+        'PO26XP062901 signed'
+      );
+    });
+
+    it('should mark the proposal REJECTED and sync the enquiry to LOST', async () => {
+      mockSubmittedGetDoc();
+
+      await recordProposalOutcome(
+        mockDb,
+        'proposal-123',
+        'REJECTED',
+        mockUserId,
+        mockUserName,
+        mockPermissions,
+        'Lost on price'
+      );
+
+      expect(mockUpdateDoc.mock.calls[0][1].status).toBe('REJECTED');
+      expect(mockUpdateEnquiryStatus).toHaveBeenCalledWith(
+        mockDb,
+        'enquiry-123',
+        'LOST',
+        mockUserId,
+        'Lost on price'
+      );
+    });
+
+    it('should not touch the enquiry for non-terminal outcomes', async () => {
+      mockSubmittedGetDoc();
+
+      await recordProposalOutcome(
+        mockDb,
+        'proposal-123',
+        'UNDER_NEGOTIATION',
+        mockUserId,
+        mockUserName,
+        mockPermissions
+      );
+
+      expect(mockUpdateDoc.mock.calls[0][1].status).toBe('UNDER_NEGOTIATION');
+      expect(mockUpdateEnquiryStatus).not.toHaveBeenCalled();
+    });
+
+    it('should reject invalid transitions without syncing the enquiry', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ ...mockProposal, status: 'DRAFT', enquiryId: 'enquiry-123' }),
+      });
+
+      await expect(
+        recordProposalOutcome(
+          mockDb,
+          'proposal-123',
+          'ACCEPTED',
+          mockUserId,
+          mockUserName,
+          mockPermissions
+        )
+      ).rejects.toThrow();
+      expect(mockUpdateEnquiryStatus).not.toHaveBeenCalled();
+    });
+
+    it('should not fail the outcome when the enquiry sync fails', async () => {
+      mockSubmittedGetDoc();
+      mockUpdateEnquiryStatus.mockRejectedValueOnce(new Error('rules denied'));
+
+      await expect(
+        recordProposalOutcome(
+          mockDb,
+          'proposal-123',
+          'ACCEPTED',
+          mockUserId,
+          mockUserName,
+          mockPermissions
+        )
+      ).resolves.toBeUndefined();
+      // The proposal status write still happened.
+      expect(mockUpdateDoc.mock.calls[0][1].status).toBe('ACCEPTED');
     });
   });
 

@@ -8,7 +8,7 @@
 import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { Proposal, ApprovalRecord, ProposalStatus } from '@vapour/types';
+import type { Proposal, ApprovalRecord, ProposalStatus, AuditAction } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import {
   createTaskNotification,
@@ -16,6 +16,7 @@ import {
   completeActionableTask,
 } from '@/lib/tasks/taskNotificationService';
 import { getProposalApprovers } from './userHelpers';
+import { updateEnquiryStatus } from '@/lib/enquiry/enquiryService';
 import { requirePermission, preventSelfApproval } from '@/lib/auth';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { proposalStateMachine } from '@/lib/workflow/stateMachines';
@@ -627,7 +628,7 @@ export async function updateProposalStatus(
 
     await updateDoc(proposalRef, {
       status: newStatus,
-      statusChangeReason: reason,
+      ...(reason !== undefined && { statusChangeReason: reason }),
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
@@ -645,6 +646,112 @@ export async function updateProposalStatus(
 }
 
 /**
+ * Client outcome of a proposal that has been submitted to the client.
+ *
+ * ACCEPTED = awarded/won; REJECTED = lost to the client (terminal);
+ * UNDER_NEGOTIATION = client came back with comments; EXPIRED = validity lapsed.
+ */
+export type ProposalOutcome = 'ACCEPTED' | 'REJECTED' | 'UNDER_NEGOTIATION' | 'EXPIRED';
+
+const OUTCOME_AUDIT_ACTION: Record<ProposalOutcome, AuditAction> = {
+  ACCEPTED: 'PROPOSAL_ACCEPTED',
+  REJECTED: 'PROPOSAL_MARKED_LOST',
+  UNDER_NEGOTIATION: 'PROPOSAL_MARKED_UNDER_NEGOTIATION',
+  EXPIRED: 'PROPOSAL_MARKED_EXPIRED',
+};
+
+// The enquiry mirrors terminal client outcomes so the sales funnel view
+// stays truthful; non-terminal outcomes leave the enquiry untouched.
+const OUTCOME_ENQUIRY_STATUS: Partial<Record<ProposalOutcome, 'WON' | 'LOST'>> = {
+  ACCEPTED: 'WON',
+  REJECTED: 'LOST',
+};
+
+/**
+ * Record the client's outcome on a submitted proposal.
+ *
+ * Changes status from SUBMITTED/UNDER_NEGOTIATION → ACCEPTED / REJECTED /
+ * UNDER_NEGOTIATION / EXPIRED (validated by the proposal state machine),
+ * and keeps the linked enquiry in step (ACCEPTED → WON, REJECTED → LOST)
+ * so the two lifecycles cannot diverge.
+ *
+ * ACCEPTED unlocks "Convert to Project" on the proposal page.
+ */
+export async function recordProposalOutcome(
+  db: Firestore,
+  proposalId: string,
+  outcome: ProposalOutcome,
+  userId: string,
+  userName: string,
+  userPermissions: number,
+  reason?: string
+): Promise<void> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROPOSALS,
+    userId,
+    'record proposal outcome'
+  );
+
+  const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
+  const proposalSnap = await getDoc(proposalRef);
+  if (!proposalSnap.exists()) {
+    throw new Error('Proposal not found');
+  }
+  const proposal = proposalSnap.data() as Proposal;
+  const previousStatus = proposal.status;
+
+  // Validates the transition against proposalStateMachine and writes the
+  // status + reason + updatedBy fields.
+  await updateProposalStatus(db, proposalId, outcome, userId, reason);
+
+  // Sync the linked enquiry for terminal outcomes. Non-fatal: the proposal
+  // status is the primary record and has already been written — a failed
+  // enquiry write is logged and surfaced via the audit metadata instead of
+  // rolling back the outcome.
+  const enquiryStatus = OUTCOME_ENQUIRY_STATUS[outcome];
+  let enquirySynced = false;
+  if (enquiryStatus && proposal.enquiryId) {
+    try {
+      await updateEnquiryStatus(db, proposal.enquiryId, enquiryStatus, userId, reason);
+      enquirySynced = true;
+    } catch (err) {
+      logger.warn(
+        'Proposal outcome recorded but enquiry sync failed — update the enquiry manually',
+        {
+          proposalId,
+          enquiryId: proposal.enquiryId,
+          enquiryStatus,
+          error: err,
+        }
+      );
+    }
+  }
+
+  logger.info('Proposal outcome recorded', { proposalId, previousStatus, outcome, userId });
+
+  await logAuditEvent(
+    db,
+    createAuditContext(userId, '', userName),
+    OUTCOME_AUDIT_ACTION[outcome],
+    'PROPOSAL',
+    proposalId,
+    `Proposal ${proposal.proposalNumber} marked ${outcome} (was ${previousStatus})`,
+    {
+      entityName: proposal.proposalNumber,
+      severity: outcome === 'UNDER_NEGOTIATION' ? 'INFO' : 'WARNING',
+      metadata: {
+        previousStatus,
+        outcome,
+        reason: reason ?? null,
+        enquiryId: proposal.enquiryId ?? null,
+        enquirySynced,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+}
+
+/**
  * Get approval workflow status
  *
  * Returns current status and available actions
@@ -657,6 +764,7 @@ export function getAvailableActions(status: ProposalStatus): {
   canEdit: boolean;
   canDownloadPDF: boolean;
   canConvertToProject: boolean;
+  canRecordOutcome: boolean;
 } {
   return {
     canSubmit: status === 'DRAFT',
@@ -666,5 +774,8 @@ export function getAvailableActions(status: ProposalStatus): {
     canEdit: status === 'DRAFT',
     canDownloadPDF: ['APPROVED', 'SUBMITTED', 'ACCEPTED'].includes(status),
     canConvertToProject: status === 'ACCEPTED',
+    // Client outcome (award / negotiation / lost / expired) can be recorded
+    // once the proposal is in the client's hands.
+    canRecordOutcome: status === 'SUBMITTED' || status === 'UNDER_NEGOTIATION',
   };
 }
