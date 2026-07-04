@@ -514,6 +514,58 @@ describe('projectConversion', () => {
       expect(projectData?.charter?.budgetLineItems?.[1]?.estimatedCost).toBe(50000);
     });
 
+    it('should omit budgetLineItems for service-only proposals and write no nested undefined', async () => {
+      // Regression: a service-only proposal (zero SUPPLY items) used to write
+      // charter.budgetLineItems: undefined, which Firestore Transaction.set()
+      // rejects ("Unsupported field value: undefined"). The optional client
+      // contact fields crash the same way when absent.
+      const proposal = createMockProposal({
+        clientContactPerson: undefined,
+        clientEmail: undefined,
+        unifiedScopeMatrix: {
+          categories: [
+            {
+              id: 'cat-1',
+              categoryKey: 'SERVICES',
+              label: 'Services',
+              displayType: 'LIST',
+              items: [
+                {
+                  id: 'item-1',
+                  itemNumber: '1',
+                  name: 'Baseline MEP Survey',
+                  classification: 'SERVICE',
+                  included: true,
+                  order: 0,
+                },
+              ],
+              order: 0,
+            },
+          ],
+        },
+      } as unknown as Partial<Proposal>);
+
+      mockAddDoc.mockResolvedValueOnce({ id: 'new-project-123' });
+      mockUpdateDoc.mockResolvedValueOnce(undefined);
+
+      await convertProposalToProject(mockDb, 'proposal-123', mockUserId, mockUserName, proposal);
+
+      const projectData = mockAddDoc.mock.calls[0]?.[1];
+      expect('budgetLineItems' in (projectData?.charter ?? {})).toBe(false);
+
+      // Firestore rejects undefined at any depth — deep-scan the payload.
+      const findUndefinedPath = (value: unknown, path = ''): string | null => {
+        if (value === undefined) return path || '<root>';
+        if (value === null || typeof value !== 'object') return null;
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+          const hit = findUndefinedPath(v, path ? `${path}.${k}` : k);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      expect(findUndefinedPath(projectData)).toBeNull();
+    });
+
     it('should add client as stakeholder', async () => {
       const proposal = createMockProposal({ clientName: 'Big Client Corp' });
 

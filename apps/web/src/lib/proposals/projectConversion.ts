@@ -90,12 +90,14 @@ export async function convertProposalToProject(
       ownerId: userId,
       visibility: 'team',
 
-      // Client Info (from proposal)
+      // Client Info (from proposal). Optional proposal fields are
+      // null-coalesced — nested `undefined` anywhere in this object makes
+      // Transaction.set() reject the whole write (rule 12).
       client: {
         entityId: proposal.clientId,
         entityName: proposal.clientName,
-        contactPerson: proposal.clientContactPerson,
-        contactEmail: proposal.clientEmail,
+        contactPerson: proposal.clientContactPerson ?? '',
+        contactEmail: proposal.clientEmail ?? '',
         contactPhone: '',
       },
 
@@ -165,7 +167,7 @@ export async function convertProposalToProject(
           startDate,
           endDate: estimatedEndDate,
           duration: proposal.deliveryPeriod.durationInWeeks * 7,
-          description: proposal.deliveryPeriod.description,
+          description: proposal.deliveryPeriod.description ?? '',
         },
         scope: {
           inScope: proposal.scopeOfWork?.inclusions || [],
@@ -175,8 +177,12 @@ export async function convertProposalToProject(
           assumptions: proposal.scopeOfWork?.assumptions || [],
           constraints: [],
         },
-        // Budget line items from unified scope matrix
-        budgetLineItems: budgetLineItems.length > 0 ? budgetLineItems : undefined,
+        // Budget line items from unified scope matrix. Conditional spread —
+        // a nested `undefined` is rejected by Firestore Transaction.set()
+        // (rule 12), and the top-level cleanup below can't see inside
+        // `charter`. Service-only proposals (no supply items) omit the
+        // field; line items are added later on the project's Budget tab.
+        ...(budgetLineItems.length > 0 && { budgetLineItems }),
         risks: [],
         stakeholders: [
           {
