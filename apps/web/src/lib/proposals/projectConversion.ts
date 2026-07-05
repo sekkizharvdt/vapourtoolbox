@@ -8,7 +8,11 @@ import { collection, doc, runTransaction, Timestamp, type Firestore } from 'fire
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, Project, CharterBudgetLineItem } from '@vapour/types';
-import { deriveIncludedByClassification, deriveExclusions } from './proposalHelpers';
+import {
+  deriveIncludedByClassification,
+  deriveIncludedItems,
+  deriveExclusions,
+} from './proposalHelpers';
 import { computeCommercialSummary } from './commercialSummary';
 
 const logger = createLogger({ context: 'projectConversion' });
@@ -70,12 +74,48 @@ export async function convertProposalToProject(
       scopeLinkage: {
         type: 'IN_SCOPE_ITEM' as const,
         id: item.id,
-        description: item.description,
+        description: item.description ?? '',
       },
       createdAt: now,
       updatedAt: now,
       createdBy: userId,
     }));
+
+    // In-scope items: legacy proposals keep them in scopeOfWork.inclusions;
+    // new-style proposals keep ALL scope in the unified matrix — carry every
+    // included item's name so the charter isn't empty after conversion.
+    const legacyInclusions = proposal.scopeOfWork?.inclusions ?? [];
+    const inScopeItems =
+      legacyInclusions.length > 0
+        ? legacyInclusions
+        : proposal.unifiedScopeMatrix
+          ? deriveIncludedItems(proposal.unifiedScopeMatrix)
+              .map((item) => item.name || item.description || '')
+              .filter(Boolean)
+          : [];
+
+    // Deliverables: legacy scopeOfWork.deliverables when present; otherwise
+    // derive from the proposal's payment milestones (type MILESTONE, due
+    // dates from cumulative milestone durations).
+    const legacyDeliverables = proposal.scopeOfWork?.deliverables ?? [];
+    let cumulativeWeeks = 0;
+    const milestoneDeliverables = (proposal.deliveryPeriod.milestones ?? []).map(
+      (milestone, idx) => {
+        cumulativeWeeks += milestone.durationInWeeks ?? 0;
+        const name = milestone.description || `Milestone ${milestone.milestoneNumber ?? idx + 1}`;
+        return {
+          id: `del-${idx}`,
+          name,
+          description: milestone.paymentPercentage
+            ? `${name} (${milestone.paymentPercentage}% payment milestone)`
+            : name,
+          type: 'MILESTONE' as const,
+          acceptanceCriteria: [],
+          status: 'PENDING' as const,
+          dueDate: calculateEstimatedEndDate(startDate, cumulativeWeeks),
+        };
+      }
+    );
 
     // Create project
     const newProject: Omit<Project, 'id'> = {
@@ -159,15 +199,18 @@ export async function convertProposalToProject(
           status: 'NOT_STARTED',
           priority: 'MEDIUM',
         })),
-        deliverables: (proposal.scopeOfWork?.deliverables || []).map((del, idx) => ({
-          id: `del-${idx}`,
-          name: del,
-          description: del,
-          type: 'PRODUCT',
-          acceptanceCriteria: [],
-          status: 'PENDING',
-          dueDate: estimatedEndDate,
-        })),
+        deliverables:
+          legacyDeliverables.length > 0
+            ? legacyDeliverables.map((del, idx) => ({
+                id: `del-${idx}`,
+                name: del,
+                description: del,
+                type: 'PRODUCT',
+                acceptanceCriteria: [],
+                status: 'PENDING',
+                dueDate: estimatedEndDate,
+              }))
+            : milestoneDeliverables,
         deliveryPeriod: {
           startDate,
           endDate: estimatedEndDate,
@@ -175,7 +218,7 @@ export async function convertProposalToProject(
           description: proposal.deliveryPeriod.description ?? '',
         },
         scope: {
-          inScope: proposal.scopeOfWork?.inclusions || [],
+          inScope: inScopeItems,
           outOfScope: proposal.unifiedScopeMatrix
             ? deriveExclusions(proposal.unifiedScopeMatrix)
             : proposal.scopeOfWork?.exclusions || [],

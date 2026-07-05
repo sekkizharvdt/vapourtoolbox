@@ -571,6 +571,109 @@ describe('projectConversion', () => {
       expect(findUndefinedPath(projectData)).toBeNull();
     });
 
+    it('should carry scope-matrix items and milestones into the charter for new-style proposals', async () => {
+      // New-style proposals keep scope only in unifiedScopeMatrix and dates
+      // in milestones — legacy scopeOfWork lists are empty. The charter must
+      // not come out blank (in-scope from matrix, deliverables from
+      // milestones with cumulative due dates).
+      const proposal = createMockProposal({
+        scopeOfWork: {
+          summary: 'Survey summary',
+          objectives: [],
+          deliverables: [],
+          inclusions: [],
+          exclusions: [],
+          assumptions: [],
+        },
+        deliveryPeriod: {
+          durationInWeeks: 3,
+          description: 'Three weeks',
+          milestones: [
+            {
+              id: 'm1',
+              milestoneNumber: 1,
+              description: 'Review of Documentation',
+              paymentPercentage: 20,
+              durationInWeeks: 1,
+            },
+            {
+              id: 'm2',
+              milestoneNumber: 2,
+              description: 'Completion of Site Survey',
+              paymentPercentage: 50,
+              durationInWeeks: 1,
+            },
+            {
+              id: 'm3',
+              milestoneNumber: 3,
+              description: 'Submission of Report',
+              paymentPercentage: 30,
+              durationInWeeks: 1,
+            },
+          ],
+        },
+        unifiedScopeMatrix: {
+          categories: [
+            {
+              id: 'cat-1',
+              categoryKey: 'ELECTRICAL',
+              label: 'Electrical',
+              displayType: 'LIST',
+              items: [
+                {
+                  id: 'item-1',
+                  itemNumber: '1',
+                  name: 'Survey all electrical panels',
+                  classification: 'SERVICE',
+                  included: true,
+                  order: 0,
+                },
+                {
+                  id: 'item-2',
+                  itemNumber: '2',
+                  name: 'Excluded item',
+                  classification: 'SERVICE',
+                  included: false,
+                  order: 1,
+                },
+                {
+                  id: 'item-3',
+                  itemNumber: '3',
+                  name: 'Inspect cable trays',
+                  classification: 'SERVICE',
+                  included: true,
+                  order: 2,
+                },
+              ],
+              order: 0,
+            },
+          ],
+        },
+      } as unknown as Partial<Proposal>);
+
+      mockAddDoc.mockResolvedValueOnce({ id: 'new-project-123' });
+      mockUpdateDoc.mockResolvedValueOnce(undefined);
+
+      await convertProposalToProject(mockDb, 'proposal-123', mockUserId, mockUserName, proposal);
+
+      const charter = mockAddDoc.mock.calls[0]?.[1]?.charter;
+      // Included matrix items → in-scope; excluded item dropped
+      expect(charter?.scope?.inScope).toEqual([
+        'Survey all electrical panels',
+        'Inspect cable trays',
+      ]);
+      // Milestones → MILESTONE deliverables with cumulative due dates
+      expect(charter?.deliverables).toHaveLength(3);
+      expect(charter?.deliverables?.[0]?.name).toBe('Review of Documentation');
+      expect(charter?.deliverables?.[0]?.type).toBe('MILESTONE');
+      expect(charter?.deliverables?.[0]?.description).toContain('20%');
+      const due = charter?.deliverables?.map((d: { dueDate: { toDate: () => Date } }) =>
+        d.dueDate.toDate().getTime()
+      );
+      expect(due?.[0]).toBeLessThan(due?.[1]);
+      expect(due?.[1]).toBeLessThan(due?.[2]);
+    });
+
     it('should add client as stakeholder', async () => {
       const proposal = createMockProposal({ clientName: 'Big Client Corp' });
 
