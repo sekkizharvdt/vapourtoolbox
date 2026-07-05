@@ -6,6 +6,7 @@
 
 import type { LeaveRequestStatus } from '@vapour/types';
 import { LEAVE_REQUEST_STATUS_LABELS } from '@vapour/constants';
+import { formatDate as formatDateCanonical } from '@/lib/utils/formatters';
 
 /**
  * MUI Chip color mapping for leave request statuses
@@ -36,11 +37,7 @@ export const LEAVE_STATUS_LABELS: Record<LeaveRequestStatus, string> = LEAVE_REQ
  * @returns Formatted date string (e.g., "15 Dec 2025")
  */
 export function formatLeaveDate(date: Date): string {
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDateCanonical(date);
 }
 
 /**
@@ -51,13 +48,7 @@ export function formatLeaveDate(date: Date): string {
  * @returns Formatted date-time string (e.g., "15 Dec 2025, 14:30")
  */
 export function formatLeaveDateTime(date: Date): string {
-  return date.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateCanonical(date, 'datetime');
 }
 
 /**

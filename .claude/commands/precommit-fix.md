@@ -4,7 +4,7 @@ description: Run the pre-commit hook's checks individually with filtered output 
 
 # Pre-commit Fix
 
-The `.husky/pre-commit` hook runs ~10 checks. A bounced commit floods context with the full hook output, then costs a fix cycle and a second attempt. Instead, run the checks deliberately, filtered to failures only, and fix as you go. Then commit once, clean.
+The `.husky/pre-commit` hook runs ~11 checks. A bounced commit floods context with the full hook output, then costs a fix cycle and a second attempt. Instead, run the checks deliberately, filtered to failures only, and fix as you go. Then commit once, clean.
 
 ## Steps
 
@@ -49,11 +49,19 @@ Run in this order (cheap → expensive). After each failure, fix it before movin
 
    Fix regressions on enforced rules; note (don't chase) advisory ones unless they're in code you just wrote.
 
-6. **Conditional checks** — only if the diff touches them:
+6. **UI/UX standards check** (rule 34 — zero-tolerance categories block once clean, count-ratchets block on regression; see `scripts/audit/ui-baselines.json`):
+
+   ```bash
+   node scripts/audit/check-ui-standards.js --quiet 2>&1 | tail -30
+   ```
+
+   Fix any enforced zero-tolerance violation or ratchet regression in code you just wrote; the `.toLocaleDateString(` category is advisory-only until a follow-up exhaustive sweep, so don't chase pre-existing hits outside your diff.
+
+7. **Conditional checks** — only if the diff touches them:
    - `functions/package.json` changed → `(cd functions && npm ci --dry-run --no-audit --no-fund) > /dev/null 2>&1 && echo sync-ok || echo "LOCKFILE OUT OF SYNC — run: (cd functions && npm install)"`
    - Dependencies changed → `pnpm audit --production --audit-level=high --ignore-registry-errors 2>&1 | tail -15`
 
-7. When everything passes, commit normally (the hook will re-run and should pass first try). NEVER use `--no-verify` without explicit user approval.
+8. When everything passes, commit normally (the hook will re-run and should pass first try). NEVER use `--no-verify` without explicit user approval.
 
 ## Rules
 

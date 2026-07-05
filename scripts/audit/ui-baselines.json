@@ -1,0 +1,15 @@
+{
+  "_doc": "Config for scripts/audit/check-ui-standards.js. `enforced` lists zero-tolerance category letters (A-E) that currently block the commit — add a letter once its violation count reaches 0. `ratchetBaselines` records the current count for each count-ratchet category (F-H); the check fails if a count rises above its baseline. Lower a baseline by hand after a sweep reduces the real count — never raise one without review.",
+  "enforced": ["A", "C", "D", "E"],
+  "notes": {
+    "B": "Raw .toLocaleDateString() calls — Phase 4 Sweep A was a targeted sweep (Appendix A file list), not exhaustive. ~38 production call sites remain outside that scope. Add 'B' to enforced once a follow-up sweep brings this to 0.",
+    "F": "Raw <TablePagination> usage — locked decision (2026-07-03): adopt DataTable for new pages + 3 pilots only, not a full migration. This is a large legitimate backlog, not a bug.",
+    "G": "Raw <CircularProgress> usage — includes many legitimate small-scope uses (inline button/submit spinners), not just full-page loading anti-patterns. Coarse ratchet: prevents unbounded growth, not a per-instance correctness signal.",
+    "H": "page.tsx without PageHeader — large pre-existing backlog; targeted sweeps only per the locked decision, not a full migration."
+  },
+  "ratchetBaselines": {
+    "F": 50,
+    "G": 216,
+    "H": 189
+  }
+}

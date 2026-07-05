@@ -33,6 +33,8 @@ interface BatchResultsTableProps {
   onPipeOverride?: (siphonIndex: number, nps: string) => void;
 }
 
+// ui-standards-exempt: engineering result flag (OK/HIGH/LOW), not an entity
+// workflow status — not the concept the canonical getStatusColor covers.
 function getStatusColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 'warning' {
   switch (status) {
     case 'OK':

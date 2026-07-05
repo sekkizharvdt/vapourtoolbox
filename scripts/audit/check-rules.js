@@ -86,6 +86,11 @@ const checks = [
   { id: 3, label: 'Financial / concurrency', file: 'check-financial-and-concurrency.js' },
   { id: 4, label: 'Structural consistency', file: 'check-structure.js' },
 ];
+// Note: scripts/audit/check-ui-standards.js is NOT run through this orchestrator.
+// It has its own self-contained enforcement policy (scripts/audit/ui-baselines.json)
+// rather than the numbered-CLAUDE.md-rule model this file aggregates via
+// "Rule #N — ... — M violation(s)" text-matching, so it's wired directly into
+// .husky/pre-commit instead (same pattern as check-tenant-id-safety.js).
 
 const childArgs = [];
 if (ADVISORY) childArgs.push('--advisory');

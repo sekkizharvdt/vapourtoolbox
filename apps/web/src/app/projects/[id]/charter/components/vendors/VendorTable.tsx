@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material';
 import { getStatusColor } from '@vapour/ui';
 import type { OutsourcingVendor } from '@vapour/types';
+import { formatCurrencyCompact } from '@/lib/utils/formatters';
 
 interface VendorTableProps {
   vendors: OutsourcingVendor[];
@@ -115,9 +116,7 @@ export const VendorTable = memo(function VendorTable({
               </TableCell>
               <TableCell>
                 <Typography variant="body2">
-                  {vendor.contractValue
-                    ? `₹${(vendor.contractValue.amount / 100000).toFixed(2)}L`
-                    : '-'}
+                  {vendor.contractValue ? formatCurrencyCompact(vendor.contractValue.amount) : '-'}
                 </Typography>
               </TableCell>
               <TableCell>

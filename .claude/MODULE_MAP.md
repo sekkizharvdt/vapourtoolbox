@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-07-03 (Phase 3 DataTable pilots — list-page exemplar repointed to bills page)
+Last verified: 2026-07-03 (Phase 5 guardrails — check-ui-standards.js, CLAUDE.md rules 29/34)
 
 ## Monorepo layout
 

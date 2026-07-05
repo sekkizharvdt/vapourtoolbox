@@ -53,6 +53,11 @@ Scaffold a dialog or form component that survives the form round-trip test (crea
 
    **Rule 12 — no `undefined` to Firestore.** Conditional spreads for optional fields: `...(description !== undefined && { description })`.
 
-4. Labels come from `@vapour/constants/labels.ts` (rule 29) — add missing constants there first.
+4. **Enum/status dropdown values** (not plain field labels) come from `@vapour/constants/labels.ts` and render via `StatusChip` where the value is displayed as a chip (rule 29) — add missing constants there first. Plain field labels ("Vendor Name", "Amount") are free text, no constants-file entry needed.
 
-5. Self-check before declaring done: list the type's fields in a scratch note and tick each against (a) create payload, (b) edit reset effect, (c) validation null-safety. Report the tick-list result in one line, not the whole table.
+5. **Use the shared kit for feedback and confirmation (rule 34)** — never hand-roll these:
+   - Success/error/info messages after submit → `useToast()` from `@/components/common/Toast`, not a local `<Snackbar>` + `useState`.
+   - Destructive or approval confirmations (delete, cancel, reject) → `useConfirmDialog()` from `@/components/common/ConfirmDialog`, not `window.confirm()` or a one-off dialog.
+   - Loading/empty states inside the dialog → `LoadingState`/`EmptyState` from `@vapour/ui`.
+
+6. Self-check before declaring done: list the type's fields in a scratch note and tick each against (a) create payload, (b) edit reset effect, (c) validation null-safety. Report the tick-list result in one line, not the whole table.

@@ -33,7 +33,11 @@ import PeopleIcon from '@mui/icons-material/People';
 import { useActivityDashboard, type ActionItem } from '@/lib/hooks/useActivityDashboard';
 import { differenceInDays, formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
+import {
+  PERMISSION_FLAGS,
+  hasPermission,
+  getPriorityColor as getPriorityColorCanonical,
+} from '@vapour/constants';
 
 /**
  * Get icon for action item type
@@ -54,17 +58,8 @@ function getActionIcon(type: ActionItem['type']) {
   return iconMap[type] || <AssignmentIcon />;
 }
 
-/**
- * Get color for priority
- */
 function getPriorityColor(priority: ActionItem['priority']) {
-  const colorMap: Record<ActionItem['priority'], 'error' | 'warning' | 'info' | 'default'> = {
-    urgent: 'error',
-    high: 'warning',
-    medium: 'info',
-    low: 'default',
-  };
-  return colorMap[priority];
+  return getPriorityColorCanonical(priority.toUpperCase());
 }
 
 /**

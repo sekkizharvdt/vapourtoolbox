@@ -6,6 +6,7 @@
 
 import type { TravelExpenseStatus, TravelExpenseCategory } from '@vapour/types';
 import { TRAVEL_EXPENSE_STATUS_LABELS as CONST_TRAVEL_EXPENSE_STATUS_LABELS } from '@vapour/constants';
+import { formatDate as formatDateCanonical } from '@/lib/utils/formatters';
 
 // ============================================
 // Status Display
@@ -125,11 +126,7 @@ export function getExpenseCategoryOptions(): Array<{
  * Uses Indian English locale with short month format
  */
 export function formatExpenseDate(date: Date): string {
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDateCanonical(date);
 }
 
 /**
@@ -150,13 +147,7 @@ export function formatTripDateRange(startDate: Date, endDate: Date): string {
  * Format a date and time for display
  */
 export function formatExpenseDateTime(date: Date): string {
-  return date.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateCanonical(date, 'datetime');
 }
 
 // ============================================

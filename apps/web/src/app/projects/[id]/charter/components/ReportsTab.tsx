@@ -32,7 +32,7 @@ import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import type { Project } from '@vapour/types';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrencyCompact } from '@/lib/utils/formatters';
 
 interface ReportsTabProps {
   project: Project;
@@ -98,15 +98,7 @@ export function ReportsTab({ project }: ReportsTabProps) {
     setShowPreview(true);
   };
 
-  const formatCurrency = (amount: number): string => {
-    if (amount >= 10000000) {
-      return `₹${(amount / 10000000).toFixed(2)}Cr`;
-    } else if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(2)}L`;
-    } else {
-      return `₹${amount.toLocaleString('en-IN')}`;
-    }
-  };
+  const formatCurrency = formatCurrencyCompact;
 
   // Calculate project progress
   const projectStartDate = project.dates?.startDate

@@ -65,6 +65,17 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# UI/UX standardisation guardrails (docs/reviews/2026-07-03-ui-ux-standardisation-plan.md
+# Phase 5). Self-contained enforcement policy in scripts/audit/ui-baselines.json:
+# zero-tolerance categories block once clean, count-ratchets block on regression.
+echo "🔍 Running UI/UX standards check..."
+node scripts/audit/check-ui-standards.js --quiet
+if [ $? -ne 0 ]; then
+  echo "❌ UI standards check failed. See output above."
+  echo "   To bypass for this commit only (not recommended): git commit --no-verify"
+  exit 1
+fi
+
 # Functions lockfile-sync guard. The Cloud Functions deploy runs `npm ci`
 # against functions/package-lock.json (a SEPARATE npm lockfile from the root
 # pnpm-lock.yaml). If functions/package.json changes without regenerating the

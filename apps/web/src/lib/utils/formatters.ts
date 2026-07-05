@@ -91,6 +91,17 @@ export function formatCurrencyCode(
 }
 
 /**
+ * Currency abbreviated in the Indian Crore/Lakh convention — e.g. "₹1.25Cr",
+ * "₹4.50L", "₹12,345" for amounts under a lakh. Use for compact chart labels
+ * and summary cards where full-precision formatCurrency() is too wide.
+ */
+export function formatCurrencyCompact(amount: number): string {
+  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
+  return `₹${amount.toLocaleString('en-IN')}`;
+}
+
+/**
  * Format money value from Money object
  *
  * @param money - Money object with amount and currency

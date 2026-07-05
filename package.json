@@ -17,6 +17,8 @@
     "check-rules": "node scripts/audit/check-rules.js",
     "check-rules:report": "node scripts/audit/check-rules.js --advisory",
     "check-rules:snapshot": "node scripts/audit/check-rules.js --advisory --quiet --md",
+    "check-ui-standards": "node scripts/audit/check-ui-standards.js",
+    "check-ui-standards:report": "node scripts/audit/check-ui-standards.js --advisory",
     "changelog:sync": "tsx scripts/sync-changelog.ts",
     "release:cut": "tsx scripts/release-cut.ts",
     "clean": "turbo clean && rm -rf node_modules",

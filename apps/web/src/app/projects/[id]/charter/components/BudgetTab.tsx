@@ -35,6 +35,7 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { calculateProjectTotalActualCost } from '@/lib/projects/budgetCalculationService';
+import { formatCurrencyCompact } from '@/lib/utils/formatters';
 
 interface BudgetTabProps {
   project: Project;
@@ -189,15 +190,7 @@ export function BudgetTab({ project }: BudgetTabProps) {
     setError(null);
   };
 
-  const formatCurrency = (amount: number): string => {
-    if (amount >= 10000000) {
-      return `₹${(amount / 10000000).toFixed(2)}Cr`;
-    } else if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(2)}L`;
-    } else {
-      return `₹${amount.toLocaleString('en-IN')}`;
-    }
-  };
+  const formatCurrency = formatCurrencyCompact;
 
   return (
     <Box>

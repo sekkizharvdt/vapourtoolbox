@@ -131,7 +131,7 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
 ## User-Visible Labels
 
-29. **User-visible strings MUST come from `@vapour/constants/labels.ts`** — not inline in components; single source of truth for domain labels that change over time. Applies to form labels, table headers, status chips, dropdown enum values, dashboard cards, PDF headings, email subjects. Does NOT apply to code comments, server-side validation error messages, dev-only logs. New user-visible string → add the label constant first. The file is reviewed quarterly with the domain user.
+29. **Enum/domain-status labels MUST come from `@vapour/constants/labels.ts`, rendered via `StatusChip`** — not inline in components; single source of truth for the label text a status/enum value maps to. Applies to status chips, workflow-state labels, dropdown enum values, and other closed-set domain vocabularies (approval states, document types, transaction types). Does NOT apply to: page headers, button text, section titles, dialog titles, one-off descriptive copy, code comments, server-side validation error messages, or dev-only logs — those are free-text, not enum labels, and don't need a constants-file entry. New enum/status value → add the label constant first, then render it with `<StatusChip status={value} labels={THE_LABELS_MAP} context="..."/>` (see rule 34). The file is reviewed quarterly with the domain user.
 
 ## Routing & Static Export
 
@@ -148,6 +148,20 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 ## Deployment
 
 33. **Never run `firebase deploy` locally — deploys ship through CI.** The GitHub Actions **"Deploy - Production"** workflow ([.github/workflows/deploy.yml](.github/workflows/deploy.yml), manual `workflow_dispatch`) diffs against the last `prod-deployed` tag and auto-selects targets from changed paths (`firestore.indexes.json` → indexes, `functions/**` → functions, `apps/web/**`/`packages/**`/`firebase.json` → hosting, `*.rules` → rules). CI builds on every push but does NOT auto-deploy. After committing deployable changes, say "ships on the next Deploy dispatch" — never suggest a local deploy or treat deploy as a manual TODO unless the user explicitly asks to deploy outside CI.
+
+## UI Component Kit
+
+34. **New UI uses the shared component kit — don't hand-roll what already exists.** Before writing a page or dialog, check whether one of these already covers it:
+    - **Page shell**: `PageHeader` (title + actions) and `PageBreadcrumbs` — every `page.tsx` under `app/**` starts with these, not a hand-rolled `<Typography variant="h4">`.
+    - **Lists**: `DataTable` (from `@vapour/ui`) for new list pages — pagination, sorting, `renderActions`, and `loading`/`EmptyState` built in. Composes with `FilterBar` for search/filter bars and `TableActionCell` for row actions. (Existing list pages using raw `<Table>`/`<TablePagination>` are a known backlog — not migrated wholesale; see rule 32's "targeted, not parallel" spirit, but don't add a new one.)
+    - **Loading / empty states**: `LoadingState` and `EmptyState` (`@vapour/ui`) instead of a bare `<CircularProgress>` or an ad-hoc "No data" `<Typography>`.
+    - **Status/priority color and label**: `StatusChip` (`@vapour/ui`) + `getStatusColor`/`getPriorityColor` (`@vapour/constants`) — never a local `getStatusColor` switch (rule 29, rule 32).
+    - **Notifications**: `useToast()` (`@/components/common/Toast`) for success/error/info messages — never a local `<Snackbar>` + `useState`.
+    - **Confirmations**: `useConfirmDialog()` (`@/components/common/ConfirmDialog`) for destructive/approval confirmations — never a local `window.confirm()` or one-off dialog.
+    - **Formatting**: `formatCurrency`/`formatCurrencyCode`/`formatCurrencyCompact`/`formatDate`/`formatMoney`/`formatPercentage`/`formatNumber`/`formatWeight` (`@/lib/utils/formatters`) — never a local reimplementation or raw `.toLocaleDateString()`/`.toLocaleString()`.
+    - **Button convention**: exactly one `variant="contained"` primary action per view; secondary actions `outlined`; destructive actions `color="error"`.
+
+    `scripts/audit/check-ui-standards.js` enforces the zero-tolerance items above once their category is clean (see `scripts/audit/ui-baselines.json`) and ratchets down the `TablePagination`/`CircularProgress`/missing-`PageHeader` backlogs so they can only shrink, never grow.
 
 ## Data Dictionary — Key Collections
 

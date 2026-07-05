@@ -260,7 +260,7 @@ Each sweep ends by flipping its audit check to enforced (see Phase 5).
   same labels from scratch. This is a deliberate deviation from the plan's literal instruction,
   flagged here rather than silently actioned.
 
-## Phase 5 — Guardrails for future development (~1 day) ← the "tools" half
+## Phase 5 — Guardrails for future development (~1 day) ← the "tools" half ✅ DONE 2026-07-05
 
 1. **New audit script `scripts/audit/check-ui-standards.js`** wired into the pre-commit hook,
    same style as `check-structure.js`. Two check classes:
@@ -291,6 +291,70 @@ Each sweep ends by flipping its audit check to enforced (see Phase 5).
      (PageHeader, PageBreadcrumbs, DataTable, LoadingState, EmptyState, StatusChip, FilterBar,
      useToast, useConfirmDialog, formatters) + button convention.
 5. **`.claude/MODULE_MAP.md`**: add StatusChip + DataTable exemplar rows, bump verified date.
+
+### Phase 5 execution notes
+
+- **`scripts/audit/check-ui-standards.js`** (new) implements checks A–E (zero-tolerance) and F–H
+  (count-ratchet) exactly as scoped above, plus a self-contained enforcement policy in the new
+  **`scripts/audit/ui-baselines.json`** (mirrors `enforced-rules.json`'s "enforced once clean"
+  model, but kept separate since these aren't numbered CLAUDE.md rules). Wired directly into
+  `.husky/pre-commit` right after the CLAUDE.md rule audit block (not through
+  `check-rules.js`'s orchestrator — that file's per-rule aggregation is regex-driven off
+  `Rule #N — … — M violation(s)` text and numeric rule IDs, which doesn't fit this script's
+  lettered categories; see the comment left in `check-rules.js`). Added `check-ui-standards` /
+  `check-ui-standards:report` scripts to the root `package.json`.
+- **Definitions are compliance-aware, not just name-matching**: a local `formatDate`/`getStatusColor`
+  etc. is only flagged if it does NOT delegate to the canonical implementation (checked by scanning
+  imports from the canonical module and the function body for a call to an imported name), is not a
+  bare alias (`const formatDate = someOtherName;`), and has no `ui-standards-exempt: <reason>`
+  comment directly above it (new convention, mirrors the existing `rule28-exempt` marker). This
+  matters because Phase 1–4 already produced several legitimate signature-adapting wrappers
+  (`formatPercentage` in `threeWayMatchHelpers.ts`, PDF-local `formatCurrency`/`formatDate` that
+  call the canonical formatter internally) that are correct, not violations.
+- **Closed two real gaps left over from the Phase 4 "targeted sweep" scope** (found while
+  verifying categories A/C were actually at zero before enabling them):
+  - `apps/web/src/lib/hr/leaves/displayHelpers.ts` and `apps/web/src/lib/hr/travelExpenses/displayHelpers.ts`
+    had `formatLeaveDate`/`formatLeaveDateTime`/`formatExpenseDate`/`formatExpenseDateTime`
+    reimplementing date formatting from scratch via raw `.toLocaleDateString()`/`.toLocaleString()`
+    (this was explicitly named in Phase 1 Appendix A but never actually done). Now delegate to the
+    canonical `formatDate()`. All call sites use the loose-regex `displayHelpers.test.ts` assertions
+    already in the repo, which pass unchanged against the new `DD-Mon-YYYY` output.
+  - `apps/web/src/components/dashboard/ActivityDashboard.tsx` had a local `getPriorityColor` with an
+    identical urgent/high/medium/low → color mapping to canonical (just lowercase keys) — now
+    delegates via `.toUpperCase()`.
+  - `apps/web/src/app/thermal/calculators/siphon-sizing/batch/components/BatchResultsTable.tsx`'s
+    `getStatusColor(status: 'OK'|'HIGH'|'LOW')` is a genuinely different concept (an engineering
+    calculation-result flag, not an entity workflow status) — marked with a `ui-standards-exempt`
+    comment rather than forced into the canonical function's domain.
+  - Found and consolidated a real 3-way duplicate: `ReportsTab.tsx`, `BudgetTab.tsx`, and
+    `VendorTable.tsx` (all under `projects/[id]/charter/components/`) each had their own Crore/Lakh
+    abbreviated currency formatter (`₹1.25Cr`/`₹4.50L`). Added canonical `formatCurrencyCompact()`
+    to `formatters.ts`; the two function-based copies are now bare-alias delegates, the inline
+    ternary in `VendorTable.tsx` calls it directly (and picks up the correctly-handled
+    sub-lakh case it was missing).
+- **Category B (`toLocaleDateString(` anywhere) is intentionally advisory, not enforced** — ~38
+  production call sites remain outside Phase 4 Sweep A's targeted file list (confirmed: only 1 of
+  the 39 raw hits is a test file). This wasn't Sweep A's scope (the "targeted sweeps, not
+  exhaustive" locked decision), so forcing this category to block now would gate the commit on
+  pre-existing, out-of-scope code. Flip `"B"` into `enforced` in `ui-baselines.json` once a
+  follow-up exhaustive sweep brings the count to 0.
+- **Ratchet baselines** recorded as of 2026-07-05: `TablePagination` 50 files, `CircularProgress`
+  216 files, `page.tsx` without `PageHeader` 189 files. These are large, known, out-of-scope
+  backlogs per the locked "adopt for new + pilot, not full migration" decision — the ratchet's job
+  is to stop them from growing, not to flag every instance as wrong (documented in
+  `ui-baselines.json`'s `notes` block, especially for `CircularProgress`, which includes many
+  legitimate small-scope inline spinners alongside the anti-pattern the rule actually targets).
+- `.claude/commands/new-page.md` gained a "UI standards (rule 34)" step (10); `new-dialog.md`
+  gained a step on `useToast`/`useConfirmDialog` and narrowed its rule-29 reference to
+  enum/status dropdown values only (plain field labels are free text); `precommit-fix.md`'s run
+  list now includes the new check as step 6 (renumbered through step 8).
+- CLAUDE.md rule 29 rewritten to the narrowed scope; new rule 34 added with the full component
+  menu + button convention, cross-referencing `check-ui-standards.js`/`ui-baselines.json`.
+  `.claude/MODULE_MAP.md`'s verified-date line bumped (StatusChip/DataTable rows were already
+  added in Phase 3).
+- Full verification: `type-check` (web + all other packages), `check-rules.js` (all enforced rules
+  clean), `check-ui-standards.js` (all enforced categories clean, ratchets at baseline), 682
+  related tests across all touched files (all pass), zero `as any` introduced.
 
 ## Sequencing & effort
 

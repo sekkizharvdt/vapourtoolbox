@@ -138,3 +138,21 @@ Create a new page following the codebase patterns.
    excludes documents that are missing the field entirely, silently dropping valid rows (rule 3).
    Fetch normally and filter client-side: `docs.filter((d) => !d.isDeleted)`. Only the Trash page
    queries `where('isDeleted', '==', true)`. This applies to Cloud Function triggers too.
+
+10. **UI standards (rule 34)** — use the shared component kit, don't hand-roll:
+    - Page shell: `PageHeader` (title + actions) + `PageBreadcrumbs` — every `page.tsx` starts with these.
+    - Lists: `DataTable` (`@vapour/ui`) for new list pages, composed with `FilterBar` (search/filter)
+      and `TableActionCell` (row actions) — not a raw `<Table>`/`<TablePagination>`.
+    - Loading/empty: `LoadingState`/`EmptyState` (`@vapour/ui`) — not a bare `<CircularProgress>` or
+      an ad-hoc "No data" message.
+    - Status/priority: `StatusChip` (`@vapour/ui`) + `getStatusColor`/`getPriorityColor`
+      (`@vapour/constants`) — never a local color-mapping switch.
+    - Notifications: `useToast()` (`@/components/common/Toast`) — never a local `<Snackbar>`.
+    - Confirmations: `useConfirmDialog()` (`@/components/common/ConfirmDialog`) — never
+      `window.confirm()` or a one-off dialog.
+    - Formatting: `formatCurrency`/`formatCurrencyCompact`/`formatDate`/`formatMoney`/
+      `formatPercentage`/`formatNumber`/`formatWeight` (`@/lib/utils/formatters`) — never a local
+      reimplementation or raw `.toLocaleDateString()`.
+    - Buttons: exactly one `variant="contained"` primary action per view; secondary actions
+      `outlined`; destructive actions `color="error"`.
+    - `scripts/audit/check-ui-standards.js` enforces the zero-tolerance items above at commit time.
