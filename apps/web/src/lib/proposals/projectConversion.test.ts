@@ -520,6 +520,7 @@ describe('projectConversion', () => {
       // rejects ("Unsupported field value: undefined"). The optional client
       // contact fields crash the same way when absent.
       const proposal = createMockProposal({
+        tenantId: 'entity-123',
         clientContactPerson: undefined,
         clientEmail: undefined,
         unifiedScopeMatrix: {
@@ -552,6 +553,10 @@ describe('projectConversion', () => {
 
       const projectData = mockAddDoc.mock.calls[0]?.[1];
       expect('budgetLineItems' in (projectData?.charter ?? {})).toBe(false);
+
+      // firestore.rules requires tenantId on project create — a missing
+      // field reads as undefined in rules and denies the transaction.
+      expect(projectData?.tenantId).toBe('entity-123');
 
       // Firestore rejects undefined at any depth — deep-scan the payload.
       const findUndefinedPath = (value: unknown, path = ''): string | null => {

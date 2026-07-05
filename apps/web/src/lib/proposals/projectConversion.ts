@@ -79,6 +79,11 @@ export async function convertProposalToProject(
 
     // Create project
     const newProject: Omit<Project, 'id'> = {
+      // Tenant scoping — firestore.rules `projects` create requires
+      // request.resource.data.tenantId == request.auth.token.tenantId;
+      // omitting it makes the whole conversion transaction bounce with
+      // "Missing or insufficient permissions".
+      tenantId: proposal.tenantId ?? 'default-entity',
       // Basic Info
       code: projectNumber,
       name: proposal.title,

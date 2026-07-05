@@ -59,6 +59,11 @@ export interface Project extends TimestampFields, SoftDeleteFields {
   id: string;
   code: string; // PRJ-001, PRJ-002
 
+  // Tenant scoping — firestore.rules requires tenantId on project create
+  // (request.resource.data.tenantId == request.auth.token.tenantId).
+  // Optional in the type because legacy documents may predate the field.
+  tenantId?: string;
+
   // Basic info
   name: string;
   description?: string;
