@@ -5,11 +5,11 @@
     "B": "Raw .toLocaleDateString() calls — Phase 4 Sweep A was a targeted sweep (Appendix A file list), not exhaustive. ~38 production call sites remain outside that scope. Add 'B' to enforced once a follow-up sweep brings this to 0.",
     "F": "Raw <TablePagination> usage — locked decision (2026-07-03): adopt DataTable for new pages + 3 pilots only, not a full migration. This is a large legitimate backlog, not a bug.",
     "G": "Raw <CircularProgress> usage — includes many legitimate small-scope uses (inline button/submit spinners), not just full-page loading anti-patterns. Coarse ratchet: prevents unbounded growth, not a per-instance correctness signal.",
-    "H": "page.tsx without PageHeader — large pre-existing backlog; targeted sweeps only per the locked decision, not a full migration."
+    "H": "page.tsx without PageHeader — large pre-existing backlog; targeted sweeps only per the locked decision, not a full migration. 189→190 (2026-07-03, reviewed): /projects/page.tsx and /projects/list/page.tsx became thin wrappers around the shared ProjectsListClient, which renders the PageHeader — composition false-positive, not a missing header."
   },
   "ratchetBaselines": {
     "F": 50,
     "G": 216,
-    "H": 189
+    "H": 190
   }
 }
