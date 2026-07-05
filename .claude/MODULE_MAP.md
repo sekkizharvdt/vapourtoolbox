@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-07-03 (Phase 5 guardrails — check-ui-standards.js, CLAUDE.md rules 29/34)
+Last verified: 2026-07-05 (functions/ test harness — accountBalanceLogic + jest; soft-delete balance fix)
 
 ## Monorepo layout
 
@@ -60,7 +60,7 @@ Last verified: 2026-07-03 (Phase 5 guardrails — check-ui-standards.js, CLAUDE.
 
 ## Cloud Functions (`functions/src/`)
 
-- `accountBalances.ts` — `onTransactionWrite` (GL balance increments), `recalculateAccountBalances`
+- `accountBalances.ts` — `onTransactionWrite` (GL balance increments), `recalculateAccountBalances`; pure math in `accountBalanceLogic.ts` (unit-tested; soft-deleted txns contribute nothing). Tests: `npm test` in `functions/` (runs via root turbo too), emulator smoke via `npm run test:integration`. NOTE: `packages/functions` (@vapour/functions) is legacy/undeployed — do not add logic there.
 - `procurementProjectSync.ts`, `procurementPaymentStatus.ts`, `projectFinancials.ts` — status/financial roll-up sync
 - `denormalizationSync.ts` — keeps denormalized names in sync
 - `vendorQuoteCounters.ts`, `bom.ts`, `projects.ts`, `charterApproval.ts`, `documentRequirements.ts`

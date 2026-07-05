@@ -7,7 +7,10 @@
  * Architecture:
  * - Firestore trigger on `transactions` collection
  * - Uses FieldValue.increment() for atomic, race-condition-safe balance updates
- * - Handles create, update (delta-based), and delete operations
+ * - All balance math lives in accountBalanceLogic.ts (pure, unit-tested);
+ *   this file only wires it to Firestore
+ * - Soft-deleted transactions contribute nothing: soft delete reverses the
+ *   entries, restore re-applies them (CLAUDE.md rule 3)
  */
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
@@ -18,130 +21,56 @@ import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { enforceRateLimit, writeRateLimiter, RateLimitError } from './utils/rateLimiter';
+import {
+  resolveBalanceUpdate,
+  aggregateBalanceChanges,
+  type BalanceChange,
+  type TransactionLike,
+} from './accountBalanceLogic';
 
 // Field names MUST match packages/constants/src/fields.ts (ACCOUNT_FIELD_*)
 // and the Account type in packages/types. If renaming, update all three locations.
 
 const db = admin.firestore();
 
-interface LedgerEntry {
-  accountId: string;
-  debit: number;
-  credit: number;
-  description?: string;
-  costCentreId?: string;
-  accountCode?: string;
-  accountName?: string;
-}
-
-interface Transaction {
-  id?: string;
-  type: string;
-  entries: LedgerEntry[];
-  status: string;
-  date: FirebaseFirestore.Timestamp;
-  isDeleted?: boolean;
-  // Allow additional fields from Firestore document (description, reference, etc.)
-  [key: string]: unknown;
-}
-
-/**
- * Calculate balance changes from ledger entries
- */
-function calculateBalanceChanges(
-  entries: LedgerEntry[]
-): Map<string, { debit: number; credit: number }> {
-  const changes = new Map<string, { debit: number; credit: number }>();
-
-  for (const entry of entries) {
-    if (!entry.accountId) continue;
-
-    const current = changes.get(entry.accountId) || { debit: 0, credit: 0 };
-    changes.set(entry.accountId, {
-      debit: current.debit + (entry.debit || 0),
-      credit: current.credit + (entry.credit || 0),
-    });
-  }
-
-  return changes;
-}
-
 /**
  * Apply balance changes to account documents using atomic FieldValue.increment().
  *
- * Unlike the previous read-then-write approach, FieldValue.increment() is:
+ * FieldValue.increment() is:
  * - Atomic: no read needed, so no stale data
  * - Additive in batches: multiple increments on the same doc are summed, not overwritten
  * - Race-condition safe: concurrent triggers produce correct results
  */
 function applyBalanceChanges(
-  changes: Map<string, { debit: number; credit: number }>,
-  batch: FirebaseFirestore.WriteBatch,
-  reverse = false
+  changes: Map<string, BalanceChange>,
+  batch: FirebaseFirestore.WriteBatch
 ): void {
   const accountsRef = db.collection('accounts');
-  const multiplier = reverse ? -1 : 1;
 
   // rule20-exempt: bounded by the caller's transaction entries (one txn = < 20 GL accounts).
   for (const [accountId, change] of changes) {
-    // Skip zero-change accounts (common in updates where entries didn't change)
-    if (change.debit === 0 && change.credit === 0) continue;
-
     const accountRef = accountsRef.doc(accountId);
     batch.update(accountRef, {
-      debit: FieldValue.increment(multiplier * change.debit),
-      credit: FieldValue.increment(multiplier * change.credit),
-      currentBalance: FieldValue.increment(multiplier * (change.debit - change.credit)),
+      debit: FieldValue.increment(change.debit),
+      credit: FieldValue.increment(change.credit),
+      currentBalance: FieldValue.increment(change.debit - change.credit),
       lastUpdated: FieldValue.serverTimestamp(),
     });
 
     logger.info(
-      `${reverse ? 'Reversed' : 'Applied'} account ${accountId}: ` +
-        `debit ${reverse ? '-' : '+'}${change.debit}, ` +
-        `credit ${reverse ? '-' : '+'}${change.credit}`
+      `Applied account ${accountId}: debit ${change.debit >= 0 ? '+' : ''}${change.debit}, ` +
+        `credit ${change.credit >= 0 ? '+' : ''}${change.credit}`
     );
   }
 }
 
 /**
- * Calculate net delta between old and new entries for a transaction update.
- * Returns a map of accountId -> { debit: delta, credit: delta } where
- * positive values mean increment and negative values mean decrement.
- */
-function calculateDelta(
-  oldEntries: LedgerEntry[],
-  newEntries: LedgerEntry[]
-): Map<string, { debit: number; credit: number }> {
-  const delta = new Map<string, { debit: number; credit: number }>();
-
-  // Subtract old entries
-  const oldChanges = calculateBalanceChanges(oldEntries);
-  for (const [accountId, change] of oldChanges) {
-    const current = delta.get(accountId) || { debit: 0, credit: 0 };
-    delta.set(accountId, {
-      debit: current.debit - change.debit,
-      credit: current.credit - change.credit,
-    });
-  }
-
-  // Add new entries
-  const newChanges = calculateBalanceChanges(newEntries);
-  for (const [accountId, change] of newChanges) {
-    const current = delta.get(accountId) || { debit: 0, credit: 0 };
-    delta.set(accountId, {
-      debit: current.debit + change.debit,
-      credit: current.credit + change.credit,
-    });
-  }
-
-  return delta;
-}
-
-/**
  * Firestore trigger: Update account balances when transactions are created, updated, or deleted.
  *
- * Uses FieldValue.increment() for atomic updates — no read-then-write, no race conditions.
- * For updates, calculates net delta to avoid the batch overwrite bug.
+ * All create/update/delete/soft-delete/restore semantics are encoded in
+ * resolveBalanceUpdate (see accountBalanceLogic.ts): the delta is always
+ * "effective entries after minus effective entries before", where a missing or
+ * soft-deleted transaction has no effective entries.
  */
 export const onTransactionWrite = onDocumentWritten(
   'transactions/{transactionId}',
@@ -150,51 +79,31 @@ export const onTransactionWrite = onDocumentWritten(
   ) => {
     const transactionId = event.params.transactionId;
     const change = event.data;
-    const batch = db.batch();
 
     try {
-      // Get before and after data
       const beforeData =
         change && change.before && change.before.exists
-          ? (change.before.data() as Transaction)
+          ? (change.before.data() as TransactionLike)
           : null;
       const afterData =
-        change && change.after && change.after.exists ? (change.after.data() as Transaction) : null;
+        change && change.after && change.after.exists
+          ? (change.after.data() as TransactionLike)
+          : null;
 
-      // Case 1: Transaction deleted
-      if (beforeData && !afterData) {
-        logger.info(`Transaction ${transactionId} deleted - reversing entries`);
+      const delta = resolveBalanceUpdate(beforeData, afterData);
 
-        if (beforeData.entries && Array.isArray(beforeData.entries)) {
-          const changes = calculateBalanceChanges(beforeData.entries);
-          applyBalanceChanges(changes, batch, true);
-        }
-      }
-      // Case 2: Transaction created
-      else if (!beforeData && afterData) {
-        logger.info(`Transaction ${transactionId} created - applying entries`);
-
-        if (afterData.entries && Array.isArray(afterData.entries)) {
-          const changes = calculateBalanceChanges(afterData.entries);
-          applyBalanceChanges(changes, batch, false);
-        }
-      }
-      // Case 3: Transaction updated — use delta calculation
-      else if (beforeData && afterData) {
-        logger.info(`Transaction ${transactionId} updated - applying delta`);
-
-        const oldEntries =
-          beforeData.entries && Array.isArray(beforeData.entries) ? beforeData.entries : [];
-        const newEntries =
-          afterData.entries && Array.isArray(afterData.entries) ? afterData.entries : [];
-
-        const delta = calculateDelta(oldEntries, newEntries);
-
-        // Apply delta using FieldValue.increment (handles both positive and negative)
-        applyBalanceChanges(delta, batch, false);
+      if (delta.size === 0) {
+        logger.info(`Transaction ${transactionId}: no balance change, skipping`);
+        return;
       }
 
-      // Commit all changes
+      const kind = !beforeData ? 'created' : !afterData ? 'deleted' : 'updated';
+      logger.info(
+        `Transaction ${transactionId} ${kind} - applying balance delta to ${delta.size} account(s)`
+      );
+
+      const batch = db.batch();
+      applyBalanceChanges(delta, batch);
       await batch.commit();
       logger.info(`Successfully updated account balances for transaction ${transactionId}`);
     } catch (error) {
@@ -266,32 +175,10 @@ export const recalculateAccountBalances = onCall(
 
       // Step 2: Recalculate from all non-deleted transactions
       const transactionsSnapshot = await db.collection('transactions').get();
+      const transactions = transactionsSnapshot.docs.map((doc) => doc.data() as TransactionLike);
+      const skippedDeleted = transactions.filter((t) => t.isDeleted).length;
 
-      // Aggregate all changes by account, skipping soft-deleted transactions
-      const aggregatedChanges = new Map<string, { debit: number; credit: number }>();
-      let skippedDeleted = 0;
-
-      transactionsSnapshot.docs.forEach((doc) => {
-        const transaction = doc.data() as Transaction;
-
-        // Skip soft-deleted transactions
-        if (transaction.isDeleted) {
-          skippedDeleted++;
-          return;
-        }
-
-        if (transaction.entries && Array.isArray(transaction.entries)) {
-          for (const entry of transaction.entries) {
-            if (!entry.accountId) continue;
-
-            const current = aggregatedChanges.get(entry.accountId) || { debit: 0, credit: 0 };
-            aggregatedChanges.set(entry.accountId, {
-              debit: current.debit + (entry.debit || 0),
-              credit: current.credit + (entry.credit || 0),
-            });
-          }
-        }
-      });
+      const aggregatedChanges = aggregateBalanceChanges(transactions);
 
       // Step 3: Apply aggregated changes directly (no read needed — accounts are at zero)
       const accountsRef = db.collection('accounts');
@@ -303,14 +190,12 @@ export const recalculateAccountBalances = onCall(
 
         for (const [accountId, change] of chunk) {
           const accountRef = accountsRef.doc(accountId);
-          const debit = Math.round(change.debit * 100) / 100;
-          const credit = Math.round(change.credit * 100) / 100;
           updateBatch.set(
             accountRef,
             {
-              debit,
-              credit,
-              currentBalance: Math.round((debit - credit) * 100) / 100,
+              debit: change.debit,
+              credit: change.credit,
+              currentBalance: Math.round((change.debit - change.credit) * 100) / 100,
               lastUpdated: FieldValue.serverTimestamp(),
             },
             { merge: true }
