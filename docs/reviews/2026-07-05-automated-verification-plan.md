@@ -132,6 +132,47 @@ New suites in `apps/web/src/__integration__/`, running under the existing CI emu
    setup is not flaky in CI; otherwise skip — Phases 1 + 2a together already cover both halves
    of the loop.
 
+### Phase 2 execution notes ✅ DONE 2026-07-05 (Sonnet; 2a + proposal-conversion landed, 2b skipped; not yet committed)
+
+- **`accounting-workflow.integration.test.ts`** (8 tests) — posts CUSTOMER_INVOICE/VENDOR_BILL/
+  JOURNAL_ENTRY via the real `saveTransaction`, confirms unbalanced entries are rejected
+  (`UnbalancedEntriesError`), confirms `getOutstandingAmount` derives from `baseAmount` not
+  `totalAmount` under a partial → soft-deleted-payment-ignored → full payment sequence (rules 3,
+  21), and confirms `validatePaymentAllocation` rejects an over-allocation (rule 23).
+- **Rule 8/6 scope narrowed to what's real:** there is no formal state machine for transaction/
+  invoice status (unlike PRs/POs/RFQs in `stateMachines.ts`) — `transactionApprovalService.ts`
+  enforces it ad-hoc (`if (status !== 'PENDING_APPROVAL') throw`). Tested that guard and
+  `preventSelfApproval` directly instead of inventing a machine that doesn't exist.
+- **Safety finding, not a bug:** `approveTransaction`/`submitTransactionForApproval` cascade into
+  `taskNotificationService`/`clientAuditService`, which call `getFirebase()` — the **default**
+  Firebase app, not the `db` parameter the caller passes in. The existing 7 integration suites
+  already avoid this (they write raw documents via `setDoc` rather than calling workflow
+  functions), which is why that pattern exists. This suite calls the real `approveTransaction`
+  only for its two error paths (wrong status, self-approval) — both throw strictly _before_
+  reaching the `getFirebase()`-touching code, verified by reading the function source. The
+  happy-path approval (which DOES reach it) is out of scope without additional emulator env
+  wiring (`NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL` for the default app) — a candidate for a
+  future phase, not blocking this one.
+- **`proposal-conversion.integration.test.ts`** (3 tests) — the existing `projectConversion.test.ts`
+  already unit-tests the payload shape exhaustively with mocks (including a manual undefined
+  deep-scan), so this suite targets what only a real Firestore instance proves: the write is
+  genuinely accepted, the transactional double-conversion guard (`tx.get` re-read inside
+  `runTransaction`) rejects a second conversion of the _same in-memory proposal object_ against
+  real persisted state (the mock always answers "not yet converted" and can't catch this), and
+  the persisted project + proposal documents carry the rule-26 parent-link fields after a real
+  round trip.
+- **The `15c4ca88` tenantId regression is NOT reproducible in this layer** — `firebase.test.json`
+  points at `firestore.test.rules`, a fully permissive `allow read, write: if true` rules file
+  (by design, so client-SDK integration tests don't need auth tokens/claims). Confirmed as
+  written in the plan: that regression is Phase 3's job, against the real `firestore.rules`.
+- **Phase 2b (functions in the CI emulator job) skipped**, not just deferred: Phase 1's emulator
+  smoke suite already proves the trigger wiring in isolation, and 2a recomputes expected balances
+  from entries independently of the trigger — the two together already cover both halves of the
+  create→trigger→balance loop without the added CI complexity/flakiness surface of a third
+  emulator (`functions`) in the shared web integration job.
+- Ran the full `pnpm test:integration` suite after adding both files: 9 suites / 73 tests, all
+  green, no regressions in the existing 7 suites.
+
 ## Phase 3 — Firestore security rules tests (~1 day)
 
 1. New suite `apps/web/src/__rules__/` (or `firestore-rules-tests/` at repo root if keeping it
