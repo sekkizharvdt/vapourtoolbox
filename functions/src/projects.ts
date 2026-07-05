@@ -52,6 +52,14 @@ export const onProjectCreated = onDocumentCreated(
 
       if (!existingQuery.empty) {
         logger.warn('Cost centre already exists for this project', { projectId, costCentreCode });
+        // Backfill the link so charter approval reuses it instead of
+        // creating a duplicate.
+        if (!projectData.costCentreId) {
+          await db
+            .collection('projects')
+            .doc(projectId)
+            .update({ costCentreId: existingQuery.docs[0].id });
+        }
         return;
       }
 
@@ -81,6 +89,11 @@ export const onProjectCreated = onDocumentCreated(
         createdBy: 'system',
         updatedBy: 'system',
       });
+
+      // Link the cost centre back on the project so downstream flows
+      // (charter approval, financial roll-ups) find it instead of
+      // creating a duplicate.
+      await db.collection('projects').doc(projectId).update({ costCentreId: costCentreRef.id });
 
       logger.info('Cost centre auto-created successfully', {
         projectId,

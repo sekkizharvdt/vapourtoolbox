@@ -38,6 +38,25 @@ export async function createProjectCostCentre(
       'create project cost centre'
     );
 
+    // Reuse any cost centre already linked to this project — the
+    // onProjectCreated Cloud Function auto-creates one with a RANDOM doc id,
+    // so an id-only existence check can't see it and charter approval would
+    // create a duplicate. Query by projectId first.
+    const linkedQuery = query(
+      collection(db, COLLECTIONS.COST_CENTRES),
+      where('projectId', '==', projectId)
+    );
+    const linkedSnap = await getDocs(linkedQuery);
+    const linkedDoc = linkedSnap.docs[0];
+    if (linkedDoc) {
+      const existingId = linkedDoc.id;
+      logger.info('Cost centre already exists for project — reusing', {
+        projectId,
+        costCentreId: existingId,
+      });
+      return existingId;
+    }
+
     // AC-14: Use deterministic ID to prevent race condition from concurrent creation
     const costCentreId = `CC-${projectId}`;
     const existingRef = doc(db, COLLECTIONS.COST_CENTRES, costCentreId);

@@ -64,9 +64,34 @@ describe('costCentreService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // createProjectCostCentre first queries costCentres by projectId (to
+    // reuse the one auto-created by the onProjectCreated Cloud Function);
+    // default: nothing linked yet.
+    mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
   });
 
   describe('createProjectCostCentre', () => {
+    it('reuses a cost centre already linked to the project (e.g. Cloud Function-created)', async () => {
+      mockGetDocs.mockResolvedValue({
+        empty: false,
+        docs: [{ id: 'random-fn-created-id' }],
+      });
+
+      const result = await createProjectCostCentre(
+        mockDb,
+        'project-123',
+        'PRJ-001',
+        'Test Project',
+        100000,
+        'user-123',
+        'Test User',
+        validPermissions
+      );
+
+      expect(result).toBe('random-fn-created-id');
+      expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+
     it('creates a new cost centre when none exists', async () => {
       // AC-14: getDoc returns not-exists for deterministic ID
       mockGetDoc.mockResolvedValue({
