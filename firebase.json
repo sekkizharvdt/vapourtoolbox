@@ -92,8 +92,16 @@
         "destination": "/procurement/service-orders/placeholder.html"
       },
       {
+        "source": "/procurement/goods-receipts/*/edit",
+        "destination": "/procurement/goods-receipts/placeholder/edit.html"
+      },
+      {
         "source": "/procurement/goods-receipts/*",
         "destination": "/procurement/goods-receipts/placeholder.html"
+      },
+      {
+        "source": "/procurement/packing-lists/*/edit",
+        "destination": "/procurement/packing-lists/placeholder/edit.html"
       },
       {
         "source": "/procurement/packing-lists/*",
