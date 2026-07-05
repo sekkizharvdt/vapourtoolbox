@@ -47,6 +47,7 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import type { GoodsReceipt, GoodsReceiptStatus } from '@vapour/types';
+import { PAYMENT_STATUS_LABELS } from '@vapour/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { listGoodsReceipts } from '@/lib/procurement/goodsReceiptService';
 import {
@@ -400,20 +401,35 @@ export default function GoodsReceiptsPage() {
                       </TableCell>
                       <TableCell>
                         {gr.paymentStatus === 'CLEARED' ? (
-                          <Chip label="Cleared" color="success" size="small" variant="outlined" />
+                          <Chip
+                            label={PAYMENT_STATUS_LABELS.CLEARED}
+                            color="success"
+                            size="small"
+                            variant="outlined"
+                          />
                         ) : gr.paymentStatus === 'PARTLY_CLEARED' ? (
                           <Chip
-                            label="Partly Cleared"
+                            label={PAYMENT_STATUS_LABELS.PARTLY_CLEARED}
                             color="warning"
                             size="small"
                             variant="outlined"
                           />
                         ) : gr.paymentStatus === 'APPROVED' || gr.approvedForPayment ? (
-                          <Chip label="Approved" color="info" size="small" variant="outlined" />
+                          <Chip
+                            label={PAYMENT_STATUS_LABELS.APPROVED}
+                            color="info"
+                            size="small"
+                            variant="outlined"
+                          />
                         ) : gr.paymentRequestId ? (
                           <Chip label="Bill Created" color="info" size="small" variant="outlined" />
                         ) : gr.status === 'COMPLETED' ? (
-                          <Chip label="Pending" color="warning" size="small" variant="outlined" />
+                          <Chip
+                            label={PAYMENT_STATUS_LABELS.PENDING}
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                          />
                         ) : (
                           '-'
                         )}

@@ -5,3 +5,4 @@
  */
 
 export * from './authorizationService';
+export * from './userLookup';

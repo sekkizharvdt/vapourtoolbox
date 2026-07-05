@@ -15,7 +15,7 @@ const CSV_HEADERS = [
   'Status',
   'Condition',
   'Has Issues',
-  'Payment Approved',
+  'Cleared for Payment',
   'Inspection Date',
 ];
 

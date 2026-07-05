@@ -10,50 +10,13 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 import type { User } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { getUsersWithPermission } from '@/lib/auth/userLookup';
 
 const logger = createLogger({ context: 'proposalUserHelpers' });
 
-/**
- * Get users with a specific permission within an entity
- *
- * @param db Firestore instance
- * @param tenantId Tenant ID to filter users by
- * @param permission The permission flag to check for
- * @returns Array of user IDs that have the specified permission
- */
-export async function getUsersWithPermission(
-  db: Firestore,
-  tenantId: string,
-  permission: number
-): Promise<string[]> {
-  try {
-    // Query active users in the tenant
-    const usersRef = collection(db, COLLECTIONS.USERS);
-    const q = query(usersRef, where('tenantId', '==', tenantId), where('isActive', '==', true));
-
-    const snapshot = await getDocs(q);
-    const userIds: string[] = [];
-
-    snapshot.forEach((doc) => {
-      const user = doc.data() as User;
-      // Check if user has the required permission using bitwise check
-      if (user.permissions && hasPermission(user.permissions, permission)) {
-        userIds.push(doc.id);
-      }
-    });
-
-    logger.debug('Found users with permission', {
-      tenantId,
-      permission,
-      count: userIds.length,
-    });
-
-    return userIds;
-  } catch (error) {
-    logger.error('Error getting users with permission', { tenantId, permission, error });
-    return [];
-  }
-}
+// Canonical implementation lives in @/lib/auth/userLookup (rule 16/32);
+// re-exported here so existing proposal-module imports keep working.
+export { getUsersWithPermission };
 
 /**
  * Get users who can approve proposals (id-only).

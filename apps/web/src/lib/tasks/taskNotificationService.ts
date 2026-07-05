@@ -333,6 +333,47 @@ export async function findTaskNotificationByEntity(
   return result.data;
 }
 
+/**
+ * Find ALL task notifications matching an entity (no limit).
+ * Use when the same actionable task fans out to multiple recipients
+ * (e.g. every accounting user is asked to clear a GR for payment) and
+ * all copies must be completed once one recipient acts.
+ */
+export async function findTaskNotificationsByEntity(
+  entityType: string,
+  entityId: string,
+  category?: string,
+  status?: TaskNotificationStatus | TaskNotificationStatus[]
+): Promise<TaskNotification[]> {
+  const { db } = getFirebase();
+
+  try {
+    const constraints: QueryConstraint[] = [
+      where('entityType', '==', entityType),
+      where('entityId', '==', entityId),
+    ];
+
+    if (category) {
+      constraints.push(where('category', '==', category));
+    }
+
+    if (status) {
+      if (Array.isArray(status)) {
+        constraints.push(where('status', 'in', status));
+      } else {
+        constraints.push(where('status', '==', status));
+      }
+    }
+
+    const q = query(collection(db, COLLECTIONS.TASK_NOTIFICATIONS), ...constraints);
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => docToTaskNotification(d.id, d.data()));
+  } catch (error) {
+    logger.error('Failed to find task notifications by entity', { error, entityType, entityId });
+    return [];
+  }
+}
+
 // ============================================================================
 // UPDATE STATUS
 // ============================================================================

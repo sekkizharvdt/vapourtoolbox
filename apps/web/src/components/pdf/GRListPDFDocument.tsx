@@ -24,7 +24,7 @@ const columns: TableColumn[] = [
   { key: 'status', header: 'Status', width: '12%' },
   { key: 'condition', header: 'Condition', width: '14%' },
   { key: 'issues', header: 'Has Issues', width: '10%', align: 'center' },
-  { key: 'payment', header: 'Payment Approved', width: '12%', align: 'center' },
+  { key: 'payment', header: 'Cleared for Payment', width: '12%', align: 'center' },
   { key: 'date', header: 'Inspection Date', width: '12%' },
 ];
 

@@ -39,6 +39,7 @@ import {
 } from './accountingIntegration';
 import { PERMISSION_FLAGS, PERMISSION_FLAGS_2 } from '@vapour/constants';
 import { requirePermission, preventSelfApproval } from '@/lib/auth/authorizationService';
+import { getUsersWithPermission } from '@/lib/auth/userLookup';
 
 // ============================================================================
 // CREATE GR
@@ -552,26 +553,39 @@ export async function completeGR(
     }
   ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 
-  // Create task notification for PO creator to approve payment (non-critical)
-  if (po?.createdBy) {
-    createTaskNotification({
-      type: 'actionable',
-      category: 'GR_READY_FOR_PAYMENT',
-      userId: po.createdBy,
-      assignedBy: userId,
-      assignedByName: userName || userEmail,
-      title: `Approve Payment for GR ${gr.number}`,
-      message: `Goods Receipt ${gr.number} for PO ${gr.poNumber} (${po.vendorName || 'vendor'}) is complete. Please review and approve for payment.`,
-      entityType: 'GOODS_RECEIPT',
-      entityId: grId,
-      linkUrl: `/procurement/goods-receipts/${grId}`,
-      priority: gr.overallCondition === 'ACCEPTED' ? 'MEDIUM' : 'HIGH',
-      autoCompletable: true,
-      projectId: gr.projectId,
-    }).catch((err) => {
-      logger.error('Failed to create GR payment approval task', { error: err, grId });
+  // Notify accounting users to clear the GR for payment (non-critical).
+  // Routed by permission, not to the PO creator — payment clearance is an
+  // accounting action (MANAGE_ACCOUNTING), and procurement's signal is the
+  // GR completion itself.
+  getUsersWithPermission(db, tenantId || 'default-entity', PERMISSION_FLAGS.MANAGE_ACCOUNTING)
+    .then((accountingUserIds) => {
+      if (accountingUserIds.length === 0) {
+        logger.warn('No accounting users found to notify for GR payment clearance', { grId });
+        return;
+      }
+      return Promise.all(
+        accountingUserIds.map((accountingUserId) =>
+          createTaskNotification({
+            type: 'actionable',
+            category: 'GR_READY_FOR_PAYMENT',
+            userId: accountingUserId,
+            assignedBy: userId,
+            assignedByName: userName || userEmail,
+            title: `Clear Payment for GR ${gr.number}`,
+            message: `Goods Receipt ${gr.number} for PO ${gr.poNumber} (${po?.vendorName || 'vendor'}) is complete. Please review and clear it for payment.`,
+            entityType: 'GOODS_RECEIPT',
+            entityId: grId,
+            linkUrl: `/procurement/goods-receipts/${grId}`,
+            priority: gr.overallCondition === 'ACCEPTED' ? 'MEDIUM' : 'HIGH',
+            autoCompletable: true,
+            projectId: gr.projectId,
+          })
+        )
+      );
+    })
+    .catch((err) => {
+      logger.error('Failed to create GR payment clearance tasks', { error: err, grId });
     });
-  }
 
   logger.info('Goods Receipt completed', { grId });
 }
@@ -681,21 +695,21 @@ export async function approveGRForPayment(
     logger.error('Error creating payment from GR (can be created manually)', { error: err, grId });
   }
 
-  // Complete the GR_READY_FOR_PAYMENT task (non-critical)
+  // Complete every GR_READY_FOR_PAYMENT task copy (non-critical) — the
+  // clearance task fans out to all accounting users, so one user acting
+  // must close the others' copies too.
   import('@/lib/tasks/taskNotificationService')
-    .then(async ({ findTaskNotificationByEntity, completeActionableTask }) => {
-      const task = await findTaskNotificationByEntity(
+    .then(async ({ findTaskNotificationsByEntity, completeActionableTask }) => {
+      const tasks = await findTaskNotificationsByEntity(
         'GOODS_RECEIPT',
         grId,
         'GR_READY_FOR_PAYMENT',
         ['pending', 'in_progress']
       );
-      if (task) {
-        await completeActionableTask(task.id, userId, true);
-      }
+      await Promise.all(tasks.map((task) => completeActionableTask(task.id, userId, true)));
     })
     .catch((err) => {
-      logger.error('Failed to complete GR payment task', { error: err, grId });
+      logger.error('Failed to complete GR payment clearance tasks', { error: err, grId });
     });
 
   // Create informational notification for the inspector (non-critical)
@@ -706,8 +720,8 @@ export async function approveGRForPayment(
       userId: gr.inspectedBy,
       assignedBy: userId,
       assignedByName: userName || userEmail,
-      title: `Payment Approved for GR ${gr.number}`,
-      message: `Payment has been approved for Goods Receipt ${gr.number} (PO ${gr.poNumber}). Vendor payment will be processed.`,
+      title: `Payment Cleared for GR ${gr.number}`,
+      message: `Goods Receipt ${gr.number} (PO ${gr.poNumber}) has been cleared for payment. Vendor payment will be processed.`,
       entityType: 'GOODS_RECEIPT',
       entityId: grId,
       linkUrl: `/procurement/goods-receipts/${grId}`,

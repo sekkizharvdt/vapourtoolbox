@@ -71,9 +71,9 @@ export const QUOTE_STATUS_LABELS = {
 
 export const PAYMENT_STATUS_LABELS = {
   PENDING: 'Pending',
-  APPROVED: 'Approved for Payment',
-  PARTLY_CLEARED: 'Partly Cleared',
-  CLEARED: 'Cleared',
+  APPROVED: 'Cleared for Payment',
+  PARTLY_CLEARED: 'Partly Paid',
+  CLEARED: 'Paid',
 } as const;
 
 export type PaymentStatusKey = keyof typeof PAYMENT_STATUS_LABELS;

@@ -40,7 +40,7 @@ import {
   Edit as EditIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
+import { hasPermission, PERMISSION_FLAGS, PAYMENT_STATUS_LABELS } from '@vapour/constants';
 import type { GoodsReceipt, GoodsReceiptItem } from '@vapour/types';
 import {
   getGRById,
@@ -219,8 +219,8 @@ export default function GRDetailClient() {
       setPaymentDialogOpen(false);
       await loadGR();
     } catch (err) {
-      console.error('[GRDetailClient] Error approving payment:', err);
-      setError('Failed to approve payment');
+      console.error('[GRDetailClient] Error clearing for payment:', err);
+      setError(err instanceof Error ? err.message : 'Failed to clear for payment');
     } finally {
       setActionLoading(false);
     }
@@ -333,15 +333,25 @@ export default function GRDetailClient() {
                   variant="outlined"
                 />
               )}
-              {actions.canApprovePayment && (
+              {/* Payment clearance is an accounting action (MANAGE_ACCOUNTING);
+                  procurement users see a passive status instead of a button
+                  the backend would reject (rule 10). */}
+              {actions.canApprovePayment && isAccountingUser && (
                 <Button
                   variant="contained"
                   color="success"
                   startIcon={<PaymentIcon />}
                   onClick={() => setPaymentDialogOpen(true)}
                 >
-                  Approve Payment
+                  Clear for Payment
                 </Button>
+              )}
+              {actions.canApprovePayment && !isAccountingUser && (
+                <Chip
+                  label="Awaiting payment clearance by Accounts"
+                  color="info"
+                  variant="outlined"
+                />
               )}
             </Stack>
           </Stack>
@@ -505,23 +515,25 @@ export default function GRDetailClient() {
                       syncPOPaymentStatusOnVendorPayment. Fall back to the
                       pre-payment signals so older GRs still render a chip. */}
                   {gr.paymentStatus === 'CLEARED' ? (
-                    <Chip label="Cleared" color="success" size="small" />
+                    <Chip label={PAYMENT_STATUS_LABELS.CLEARED} color="success" size="small" />
                   ) : gr.paymentStatus === 'PARTLY_CLEARED' ? (
-                    <Chip label="Partly Cleared" color="warning" size="small" />
-                  ) : gr.paymentStatus === 'APPROVED' ? (
-                    <Chip label="Approved for Payment" color="info" size="small" />
+                    <Chip
+                      label={PAYMENT_STATUS_LABELS.PARTLY_CLEARED}
+                      color="warning"
+                      size="small"
+                    />
+                  ) : gr.paymentStatus === 'APPROVED' || gr.approvedForPayment ? (
+                    <Chip label={PAYMENT_STATUS_LABELS.APPROVED} color="info" size="small" />
                   ) : gr.paymentRequestId ? (
                     <Chip label="Bill Created" color="info" size="small" />
-                  ) : gr.approvedForPayment ? (
-                    <Chip label="Approved for Payment" color="info" size="small" />
                   ) : (
-                    <Chip label="Pending" color="default" size="small" />
+                    <Chip label={PAYMENT_STATUS_LABELS.PENDING} color="default" size="small" />
                   )}
                 </Box>
                 {gr.paymentApprovedBy && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Approved At
+                      Cleared At
                     </Typography>
                     <Typography variant="body2">{formatDate(gr.paymentApprovedAt)}</Typography>
                   </Box>
@@ -615,10 +627,10 @@ export default function GRDetailClient() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Approve for Payment</DialogTitle>
+        <DialogTitle>Clear for Payment</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to approve this goods receipt for payment? This will automatically
+            Are you sure you want to clear this goods receipt for payment? This will automatically
             create a vendor payment in the accounting module.
           </Typography>
         </DialogContent>
@@ -633,7 +645,7 @@ export default function GRDetailClient() {
             disabled={actionLoading}
             startIcon={actionLoading ? <CircularProgress size={20} /> : <PaymentIcon />}
           >
-            Approve Payment
+            Clear for Payment
           </Button>
         </DialogActions>
       </Dialog>
