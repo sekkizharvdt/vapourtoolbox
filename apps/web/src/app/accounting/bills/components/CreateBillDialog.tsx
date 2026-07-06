@@ -192,9 +192,13 @@ export function CreateBillDialog({
       const billDate = new Date(formState.date);
       const billDueDate = formState.dueDate ? new Date(formState.dueDate) : undefined;
 
-      // Generate transaction number
+      // Generate transaction number. This is the FIRST Firestore write in the
+      // flow (counters/{...} via a transaction) — wrap in retryOnStaleToken
+      // so a stale token doesn't fail here before ever reaching the later
+      // protected calls (same gap found in CreateInvoiceDialog).
       const transactionNumber =
-        editingBill?.transactionNumber || (await generateTransactionNumber('VENDOR_BILL'));
+        editingBill?.transactionNumber ||
+        (await retryOnStaleToken(() => generateTransactionNumber('VENDOR_BILL')));
 
       // Generate GL entries using new GL entry generator
       const glInput: BillGLInput = {

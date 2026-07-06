@@ -166,11 +166,14 @@ export function CreateInvoiceDialog({
       const invoiceDate = new Date(formState.date);
       const invoiceDueDate = formState.dueDate ? new Date(formState.dueDate) : undefined;
 
-      // Use custom invoice number if provided, otherwise generate automatically
+      // Use custom invoice number if provided, otherwise generate automatically.
+      // This is the FIRST Firestore write in the flow (counters/{...} via a
+      // transaction) — wrap in retryOnStaleToken so a stale token doesn't
+      // fail here before ever reaching the later protected calls.
       const transactionNumber =
         editingInvoice?.transactionNumber ||
         customInvoiceNumber.trim() ||
-        (await generateTransactionNumber('CUSTOMER_INVOICE'));
+        (await retryOnStaleToken(() => generateTransactionNumber('CUSTOMER_INVOICE')));
 
       // Calculate base amount (in INR) for foreign currency invoices
       const isForexInvoice = currency !== 'INR';
