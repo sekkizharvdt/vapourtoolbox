@@ -98,10 +98,10 @@ export default function EditPOClient() {
 
   // Line items — Specification + HSN/SAC are editable here (moved out of View).
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
-  // Original spec/HSN per item id, to write only changed items on save.
-  const originalItemFields = useRef<Map<string, { specification: string; hsnSacCode: string }>>(
-    new Map()
-  );
+  // Original spec/HSN/description per item id, to write only changed items on save.
+  const originalItemFields = useRef<
+    Map<string, { specification: string; hsnSacCode: string; description: string }>
+  >(new Map());
 
   // Extract PO ID from pathname
   useEffect(() => {
@@ -149,7 +149,11 @@ export default function EditPOClient() {
       originalItemFields.current = new Map(
         itemsData.map((it) => [
           it.id,
-          { specification: it.specification ?? '', hsnSacCode: it.hsnSacCode ?? '' },
+          {
+            specification: it.specification ?? '',
+            hsnSacCode: it.hsnSacCode ?? '',
+            description: it.description ?? '',
+          },
         ])
       );
 
@@ -201,7 +205,7 @@ export default function EditPOClient() {
 
   const handleItemFieldChange = (
     itemId: string,
-    field: 'specification' | 'hsnSacCode',
+    field: 'specification' | 'hsnSacCode' | 'description',
     value: string
   ) => {
     setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, [field]: value } : it)));
@@ -320,19 +324,24 @@ export default function EditPOClient() {
         claims?.permissions || 0
       );
 
-      // Persist edited line-item Specification / HSN-SAC — only changed rows.
+      // Persist edited line-item Description / Specification / HSN-SAC — only changed rows.
       const changedItems = items.filter((it) => {
         const orig = originalItemFields.current.get(it.id);
         return (
           !orig ||
           orig.specification !== (it.specification ?? '') ||
-          orig.hsnSacCode !== (it.hsnSacCode ?? '')
+          orig.hsnSacCode !== (it.hsnSacCode ?? '') ||
+          orig.description !== (it.description ?? '')
         );
       });
       for (const it of changedItems) {
         await updatePOItemFields(
           it.id,
-          { specification: it.specification ?? '', hsnSacCode: it.hsnSacCode ?? '' },
+          {
+            specification: it.specification ?? '',
+            hsnSacCode: it.hsnSacCode ?? '',
+            description: it.description ?? '',
+          },
           user.uid,
           claims?.permissions || 0
         );
@@ -536,7 +545,17 @@ export default function EditPOClient() {
                           <TableRow key={item.id} hover>
                             <TableCell>{item.lineNumber}</TableCell>
                             <TableCell>
-                              <Typography variant="body2">{item.description}</Typography>
+                              <TextField
+                                value={item.description ?? ''}
+                                onChange={(e) =>
+                                  handleItemFieldChange(item.id, 'description', e.target.value)
+                                }
+                                placeholder="Description"
+                                size="small"
+                                fullWidth
+                                multiline
+                                maxRows={3}
+                              />
                             </TableCell>
                             <TableCell>
                               <TextField

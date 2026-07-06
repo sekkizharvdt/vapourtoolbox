@@ -542,6 +542,8 @@ export function ReportTable({
 interface KeyValuePair {
   label: string;
   value: string | number;
+  /** Override this row's value alignment; falls back to the table's `valueAlign`. */
+  align?: 'left' | 'right';
 }
 
 interface KeyValueTableProps {
@@ -549,19 +551,29 @@ interface KeyValueTableProps {
   /** Override label/value width split. Default: 50/50 */
   labelWidth?: string;
   valueWidth?: string;
+  /**
+   * Default alignment for every row's value (a row's own `align` wins).
+   * Default 'right' matches the historical numeric-report look; pass 'left'
+   * for tables of prose/free-text values (addresses, clauses, descriptions)
+   * where right-aligning multi-line text reads poorly.
+   */
+  valueAlign?: 'left' | 'right';
 }
 
 export function KeyValueTable({
   rows,
   labelWidth = '50%',
   valueWidth = '50%',
+  valueAlign = 'right',
 }: KeyValueTableProps) {
   return (
     <View style={s.table}>
       {rows.map((row, i) => (
         <View key={i} style={s.kvRow}>
           <Text style={[s.kvLabel, { width: labelWidth }]}>{row.label}</Text>
-          <Text style={[s.kvValue, { width: valueWidth }]}>{row.value}</Text>
+          <Text style={[s.kvValue, { width: valueWidth, textAlign: row.align ?? valueAlign }]}>
+            {row.value}
+          </Text>
         </View>
       ))}
     </View>

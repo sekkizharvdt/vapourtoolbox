@@ -125,6 +125,19 @@ export function POTermsSection({ po }: POTermsSectionProps) {
   // At this point, TypeScript knows po.commercialTerms is defined
   const terms = po.commercialTerms;
 
+  // Service terms / safety blocks render only when populated (a Service Order
+  // is just a PO carrying service lines + these terms) — mirrors POPDFDocument.
+  const serviceTerms = terms.serviceTerms;
+  const hasServiceTerms =
+    !!serviceTerms && Object.values(serviceTerms).some((v) => v !== undefined && v !== '');
+  const safety = terms.safetyCompliance;
+  const hasSafety =
+    !!safety &&
+    (!!safety.safetyRequired ||
+      !!safety.ppeRequired ||
+      !!safety.workPermitRequired ||
+      !!safety.insuranceRequired);
+
   return (
     <Paper sx={{ p: 3 }}>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
@@ -225,8 +238,17 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   Delivery Period
                 </Typography>
                 <Typography variant="body2">
-                  {terms.deliveryWeeks} weeks from{' '}
-                  {DELIVERY_TRIGGER_LABELS[terms.deliveryTrigger] || terms.deliveryTrigger}
+                  {terms.deliveryUnit === 'READY_STOCK'
+                    ? 'Ready Stock'
+                    : terms.deliveryUnit
+                      ? `${terms.deliveryPeriod} ${terms.deliveryUnit.toLowerCase()} from ${
+                          DELIVERY_TRIGGER_LABELS[terms.deliveryTrigger] || terms.deliveryTrigger
+                        }`
+                      : terms.deliveryWeeks
+                        ? `${terms.deliveryWeeks} weeks from ${
+                            DELIVERY_TRIGGER_LABELS[terms.deliveryTrigger] || terms.deliveryTrigger
+                          }`
+                        : 'Not specified'}
                 </Typography>
               </Box>
               <Box>
@@ -254,6 +276,129 @@ export function POTermsSection({ po }: POTermsSectionProps) {
             </Stack>
           </AccordionDetails>
         </Accordion>
+
+        {/* Service Terms — only when the PO covers service line items. */}
+        {hasServiceTerms && serviceTerms && (
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle1" fontWeight="medium">
+                Service Terms
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Stack spacing={2}>
+                {serviceTerms.scopeOfWork && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Scope of Work
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                      {serviceTerms.scopeOfWork}
+                    </Typography>
+                  </Box>
+                )}
+                {serviceTerms.deliverables && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Deliverables
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                      {serviceTerms.deliverables}
+                    </Typography>
+                  </Box>
+                )}
+                {serviceTerms.completionPeriod && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Completion Period
+                    </Typography>
+                    <Typography variant="body2">
+                      {serviceTerms.completionPeriod}{' '}
+                      {(serviceTerms.completionPeriodUnit ?? 'DAYS').toLowerCase()}
+                    </Typography>
+                  </Box>
+                )}
+                {serviceTerms.serviceLocation && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Service Location
+                    </Typography>
+                    <Typography variant="body2">{serviceTerms.serviceLocation}</Typography>
+                  </Box>
+                )}
+                {serviceTerms.acceptanceCriteria && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Acceptance Criteria
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                      {serviceTerms.acceptanceCriteria}
+                    </Typography>
+                  </Box>
+                )}
+                {serviceTerms.exclusions && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Exclusions
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                      {serviceTerms.exclusions}
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        )}
+
+        {/* Safety & Compliance — only the requirements that are switched on. */}
+        {hasSafety && safety && (
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle1" fontWeight="medium">
+                Safety & Compliance
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Stack spacing={2}>
+                {safety.safetyRequired && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Safety
+                    </Typography>
+                    <Typography variant="body2">{safety.safetyDetails || 'Required'}</Typography>
+                  </Box>
+                )}
+                {safety.ppeRequired && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      PPE
+                    </Typography>
+                    <Typography variant="body2">{safety.ppeDetails || 'Required'}</Typography>
+                  </Box>
+                )}
+                {safety.workPermitRequired && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Work Permit
+                    </Typography>
+                    <Typography variant="body2">
+                      {safety.workPermitDetails || 'Required'}
+                    </Typography>
+                  </Box>
+                )}
+                {safety.insuranceRequired && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Insurance
+                    </Typography>
+                    <Typography variant="body2">{safety.insuranceDetails || 'Required'}</Typography>
+                  </Box>
+                )}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        )}
 
         {/* Scope of Work */}
         <Accordion>

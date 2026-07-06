@@ -705,7 +705,7 @@ export async function updatePOItemHsnSac(
  */
 export async function updatePOItemFields(
   poItemId: string,
-  fields: { specification?: string; hsnSacCode?: string },
+  fields: { specification?: string; hsnSacCode?: string; description?: string },
   userId: string,
   userPermissions: number
 ): Promise<void> {
@@ -725,6 +725,12 @@ export async function updatePOItemFields(
   // Empty string clears the field; Firestore rejects undefined so store ''.
   if (fields.specification !== undefined) updateData.specification = fields.specification.trim();
   if (fields.hsnSacCode !== undefined) updateData.hsnSacCode = fields.hsnSacCode.trim();
+  // Description is required on the item — only overwrite when a non-empty
+  // correction is given (auto-populated descriptions can be fixed here per
+  // feedback kPmvFXbiYDMrtyZK5VEn; don't allow clearing it to blank).
+  if (fields.description !== undefined && fields.description.trim()) {
+    updateData.description = fields.description.trim();
+  }
 
   await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, poItemId), updateData);
 }

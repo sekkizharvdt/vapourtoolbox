@@ -166,6 +166,7 @@ const DEFAULT_SPECIAL_INSTRUCTIONS = [
   'Our GST number and PO number must be clearly mentioned on your invoice and all reports.',
   'The price shall remain firm until full completion of this order.',
   'TDS shall be deducted, if applicable.',
+  'HSN Code should be mentioned in the Tax Invoice.',
 ];
 
 export interface POPDFCompanyProfile {
@@ -335,7 +336,7 @@ export function POPDFDocument({
 
         {/* Order Details */}
         <ReportSection title="Order Details">
-          <KeyValueTable rows={orderDetails} labelWidth="30%" valueWidth="70%" />
+          <KeyValueTable rows={orderDetails} labelWidth="30%" valueWidth="70%" valueAlign="left" />
         </ReportSection>
 
         {/* Vendor + Addresses (billing + delivery side-by-side) */}
@@ -368,6 +369,7 @@ export function POPDFDocument({
               rows={[{ label: 'Project(s)', value: po.projectNames.join(', ') }]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
@@ -514,6 +516,20 @@ export function POPDFDocument({
                     },
                   ]
                 : []),
+              ...(po.commercialTerms
+                ? [
+                    {
+                      label: 'Packing & Forwarding',
+                      value: po.commercialTerms.packingForwardingIncluded
+                        ? 'Included in price'
+                        : po.commercialTerms.pfChargeType === 'PERCENTAGE'
+                          ? `Extra — ${po.commercialTerms.pfChargeValue}% of basic amount`
+                          : po.commercialTerms.pfChargeType === 'LUMPSUM'
+                            ? `Extra — Lump sum ${formatCurrencyCode(po.commercialTerms.pfChargeValue ?? 0, po.currency)}`
+                            : 'Not included',
+                    },
+                  ]
+                : []),
               ...(po.commercialTerms?.deliverySchedule
                 ? [{ label: 'Delivery Schedule', value: po.commercialTerms.deliverySchedule }]
                 : []),
@@ -523,8 +539,33 @@ export function POPDFDocument({
             ]}
             labelWidth="30%"
             valueWidth="70%"
+            valueAlign="left"
           />
         </ReportSection>
+
+        {/* Payment Schedule — per-milestone tax mode (feedback kPmvFXbiYDMrtyZK5VEn);
+            the flat "Payment Terms" row above stays as a quick-glance summary. */}
+        {po.commercialTerms && po.commercialTerms.paymentSchedule.length > 0 && (
+          <ReportSection title="Payment Schedule">
+            <ReportTable
+              columns={[
+                { key: 'sno', header: 'S.No', width: '8%' },
+                { key: 'type', header: 'Payment Type', width: '22%' },
+                { key: 'percent', header: '%', width: '10%', align: 'right' },
+                { key: 'tax', header: 'Tax', width: '18%' },
+                { key: 'deliverables', header: 'Deliverables', width: '42%' },
+              ]}
+              rows={po.commercialTerms.paymentSchedule.map((m) => ({
+                sno: m.serialNumber,
+                type: m.paymentType,
+                percent: `${m.percentage}%`,
+                tax: m.carriesTax ? '+ 100% tax' : '—',
+                deliverables: m.deliverables,
+              }))}
+              fontSize={9}
+            />
+          </ReportSection>
+        )}
 
         {/* Service Terms — only when the PO covers service line items. */}
         {hasServiceTerms && serviceTerms && (
@@ -559,6 +600,7 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
@@ -583,6 +625,7 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
@@ -595,7 +638,7 @@ export function POPDFDocument({
             Required (feedback iZqGG); the whole section drops if all are off. */}
         {po.commercialTerms && scopeRows.length > 0 && (
           <ReportSection title="Scope of Work">
-            <KeyValueTable rows={scopeRows} labelWidth="30%" valueWidth="70%" />
+            <KeyValueTable rows={scopeRows} labelWidth="30%" valueWidth="70%" valueAlign="left" />
           </ReportSection>
         )}
 
@@ -652,6 +695,7 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
@@ -666,6 +710,7 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
@@ -698,6 +743,7 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
@@ -727,6 +773,7 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
@@ -744,6 +791,7 @@ export function POPDFDocument({
               ]}
               labelWidth="30%"
               valueWidth="70%"
+              valueAlign="left"
             />
           </ReportSection>
         )}
