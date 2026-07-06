@@ -27,6 +27,7 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import type { BusinessEntity } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import {
   collection,
   addDoc,
@@ -312,7 +313,8 @@ export function CreateJournalEntryDialog({
           // If entry has entityId but no accountId, resolve the control account
           if (entry.entityId) {
             // Check if we have roles to resolve the control account
-            if (!entry.entityRoles || entry.entityRoles.length === 0) {
+            const entityRoles = entry.entityRoles;
+            if (!entityRoles || entityRoles.length === 0) {
               throw new Error(
                 `Entity "${entry.entityName}" has no role assigned. ` +
                   `Please select an Account manually or ensure the entity has a role (Customer/Vendor).`
@@ -320,11 +322,8 @@ export function CreateJournalEntryDialog({
             }
 
             const isDebit = entry.debit > 0;
-            const controlAccount = await getEntityControlAccount(
-              db,
-              tenantId,
-              entry.entityRoles,
-              isDebit
+            const controlAccount = await retryOnStaleToken(() =>
+              getEntityControlAccount(db, tenantId, entityRoles, isDebit)
             );
 
             if (!controlAccount) {
@@ -381,7 +380,9 @@ export function CreateJournalEntryDialog({
           }),
         });
 
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingEntry.id), updateData);
+        await retryOnStaleToken(() =>
+          updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingEntry.id), updateData)
+        );
 
         // Settle/reverse linked bills/invoices when JE is posted
         const newIsActive = status === 'POSTED' || status === 'APPROVED';
@@ -397,7 +398,9 @@ export function CreateJournalEntryDialog({
             oldIsActive &&
             (oldLinkedBill !== linkedVendorBillId || !newIsActive)
           ) {
-            await reverseJournalSettlement(db, oldLinkedBill, oldBaseAmount);
+            await retryOnStaleToken(() =>
+              reverseJournalSettlement(db, oldLinkedBill, oldBaseAmount)
+            );
           }
           // Reverse old invoice settlement if link changed or status deactivated
           if (
@@ -405,7 +408,9 @@ export function CreateJournalEntryDialog({
             oldIsActive &&
             (oldLinkedInvoice !== linkedCustomerInvoiceId || !newIsActive)
           ) {
-            await reverseJournalSettlement(db, oldLinkedInvoice, oldBaseAmount);
+            await retryOnStaleToken(() =>
+              reverseJournalSettlement(db, oldLinkedInvoice, oldBaseAmount)
+            );
           }
           // Apply new bill settlement
           if (
@@ -413,12 +418,14 @@ export function CreateJournalEntryDialog({
             newIsActive &&
             (linkedVendorBillId !== oldLinkedBill || !oldIsActive)
           ) {
-            await settleLinkedTransactionViaJournal(
-              db,
-              linkedVendorBillId,
-              resolvedEntries,
-              balance.totalDebits,
-              editingEntry.id
+            await retryOnStaleToken(() =>
+              settleLinkedTransactionViaJournal(
+                db,
+                linkedVendorBillId,
+                resolvedEntries,
+                balance.totalDebits,
+                editingEntry.id
+              )
             );
           }
           // Apply new invoice settlement
@@ -427,12 +434,14 @@ export function CreateJournalEntryDialog({
             newIsActive &&
             (linkedCustomerInvoiceId !== oldLinkedInvoice || !oldIsActive)
           ) {
-            await settleLinkedTransactionViaJournal(
-              db,
-              linkedCustomerInvoiceId,
-              resolvedEntries,
-              balance.totalDebits,
-              editingEntry.id
+            await retryOnStaleToken(() =>
+              settleLinkedTransactionViaJournal(
+                db,
+                linkedCustomerInvoiceId,
+                resolvedEntries,
+                balance.totalDebits,
+                editingEntry.id
+              )
             );
           }
         } catch (settlementErr) {
@@ -444,6 +453,9 @@ export function CreateJournalEntryDialog({
         }
       } else {
         // Create new entry - include all fields
+        const transactionNumber = await retryOnStaleToken(() =>
+          generateTransactionNumber('JOURNAL_ENTRY')
+        );
         const journalEntry = removeUndefinedValues({
           type: 'JOURNAL_ENTRY' as const,
           tenantId,
@@ -456,7 +468,7 @@ export function CreateJournalEntryDialog({
           entries: resolvedEntries,
           amount: balance.totalDebits,
           totalAmount: balance.totalDebits,
-          transactionNumber: await generateTransactionNumber('JOURNAL_ENTRY'),
+          transactionNumber,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
           currency: 'INR',
@@ -468,28 +480,34 @@ export function CreateJournalEntryDialog({
           linkedVendorBillId: linkedVendorBillId || undefined,
         });
 
-        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), journalEntry);
+        const docRef = await retryOnStaleToken(() =>
+          addDoc(collection(db, COLLECTIONS.TRANSACTIONS), journalEntry)
+        );
 
         // Settle linked bills/invoices when JE is created in POSTED/APPROVED status
         const isActive = status === 'POSTED' || status === 'APPROVED';
         if (isActive) {
           try {
             if (linkedVendorBillId) {
-              await settleLinkedTransactionViaJournal(
-                db,
-                linkedVendorBillId,
-                resolvedEntries,
-                balance.totalDebits,
-                docRef.id
+              await retryOnStaleToken(() =>
+                settleLinkedTransactionViaJournal(
+                  db,
+                  linkedVendorBillId,
+                  resolvedEntries,
+                  balance.totalDebits,
+                  docRef.id
+                )
               );
             }
             if (linkedCustomerInvoiceId) {
-              await settleLinkedTransactionViaJournal(
-                db,
-                linkedCustomerInvoiceId,
-                resolvedEntries,
-                balance.totalDebits,
-                docRef.id
+              await retryOnStaleToken(() =>
+                settleLinkedTransactionViaJournal(
+                  db,
+                  linkedCustomerInvoiceId,
+                  resolvedEntries,
+                  balance.totalDebits,
+                  docRef.id
+                )
               );
             }
           } catch (settlementErr) {

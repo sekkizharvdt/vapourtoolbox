@@ -8,6 +8,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { getFirebase } from '@/lib/firebase';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { Timestamp, collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -170,7 +171,9 @@ export function RecordDirectPaymentDialog({
       // Generate transaction number for new payments
       let transactionNumber = editingPayment?.transactionNumber;
       if (!editingPayment) {
-        transactionNumber = await generateTransactionNumber('DIRECT_PAYMENT');
+        transactionNumber = await retryOnStaleToken(() =>
+          generateTransactionNumber('DIRECT_PAYMENT')
+        );
       }
 
       // Generate GL entries
@@ -247,8 +250,11 @@ export function RecordDirectPaymentDialog({
       });
 
       if (editingPayment?.id) {
+        const editingPaymentId = editingPayment.id;
         // Update existing payment
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingPayment.id), paymentData);
+        await retryOnStaleToken(() =>
+          updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingPaymentId), paymentData)
+        );
 
         // Audit log: payment updated
         if (user) {
@@ -257,26 +263,30 @@ export function RecordDirectPaymentDialog({
             user.email || '',
             user.displayName || user.email || ''
           );
-          await logAuditEvent(
-            db,
-            auditContext,
-            'PAYMENT_UPDATED',
-            'PAYMENT',
-            editingPayment.id,
-            `Direct payment ${transactionNumber} updated`,
-            {
-              entityName: transactionNumber,
-              metadata: {
-                amount,
-                paymentMethod,
-                expenseAccountId,
-              },
-            }
+          await retryOnStaleToken(() =>
+            logAuditEvent(
+              db,
+              auditContext,
+              'PAYMENT_UPDATED',
+              'PAYMENT',
+              editingPaymentId,
+              `Direct payment ${transactionNumber} updated`,
+              {
+                entityName: transactionNumber,
+                metadata: {
+                  amount,
+                  paymentMethod,
+                  expenseAccountId,
+                },
+              }
+            )
           );
         }
       } else {
         // Create new payment
-        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), paymentData);
+        const docRef = await retryOnStaleToken(() =>
+          addDoc(collection(db, COLLECTIONS.TRANSACTIONS), paymentData)
+        );
 
         // Audit log: payment created
         if (user) {
@@ -285,21 +295,23 @@ export function RecordDirectPaymentDialog({
             user.email || '',
             user.displayName || user.email || ''
           );
-          await logAuditEvent(
-            db,
-            auditContext,
-            'PAYMENT_CREATED',
-            'PAYMENT',
-            docRef.id,
-            `Direct payment ${transactionNumber} created`,
-            {
-              entityName: transactionNumber,
-              metadata: {
-                amount,
-                paymentMethod,
-                expenseAccountId,
-              },
-            }
+          await retryOnStaleToken(() =>
+            logAuditEvent(
+              db,
+              auditContext,
+              'PAYMENT_CREATED',
+              'PAYMENT',
+              docRef.id,
+              `Direct payment ${transactionNumber} created`,
+              {
+                entityName: transactionNumber,
+                metadata: {
+                  amount,
+                  paymentMethod,
+                  expenseAccountId,
+                },
+              }
+            )
           );
         }
       }
@@ -307,7 +319,7 @@ export function RecordDirectPaymentDialog({
       onClose();
     } catch (err) {
       console.error('[RecordDirectPaymentDialog] Error saving payment:', err);
-      setError('Failed to save payment. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to save payment. Please try again.');
     } finally {
       setLoading(false);
     }

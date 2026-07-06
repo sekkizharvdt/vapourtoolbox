@@ -8,6 +8,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { getFirebase } from '@/lib/firebase';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { Timestamp, collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -172,7 +173,9 @@ export function RecordDirectReceiptDialog({
       // Generate transaction number for new receipts
       let transactionNumber = editingReceipt?.transactionNumber;
       if (!editingReceipt) {
-        transactionNumber = await generateTransactionNumber('DIRECT_RECEIPT');
+        transactionNumber = await retryOnStaleToken(() =>
+          generateTransactionNumber('DIRECT_RECEIPT')
+        );
       }
 
       // Generate GL entries (reverse of Direct Payment)
@@ -250,8 +253,11 @@ export function RecordDirectReceiptDialog({
       });
 
       if (editingReceipt?.id) {
+        const editingReceiptId = editingReceipt.id;
         // Update existing receipt
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingReceipt.id), receiptData);
+        await retryOnStaleToken(() =>
+          updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingReceiptId), receiptData)
+        );
 
         // Audit log: receipt updated
         if (user) {
@@ -260,26 +266,30 @@ export function RecordDirectReceiptDialog({
             user.email || '',
             user.displayName || user.email || ''
           );
-          await logAuditEvent(
-            db,
-            auditContext,
-            'PAYMENT_UPDATED',
-            'PAYMENT',
-            editingReceipt.id,
-            `Direct receipt ${transactionNumber} updated`,
-            {
-              entityName: transactionNumber,
-              metadata: {
-                amount,
-                paymentMethod,
-                revenueAccountId,
-              },
-            }
+          await retryOnStaleToken(() =>
+            logAuditEvent(
+              db,
+              auditContext,
+              'PAYMENT_UPDATED',
+              'PAYMENT',
+              editingReceiptId,
+              `Direct receipt ${transactionNumber} updated`,
+              {
+                entityName: transactionNumber,
+                metadata: {
+                  amount,
+                  paymentMethod,
+                  revenueAccountId,
+                },
+              }
+            )
           );
         }
       } else {
         // Create new receipt
-        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), receiptData);
+        const docRef = await retryOnStaleToken(() =>
+          addDoc(collection(db, COLLECTIONS.TRANSACTIONS), receiptData)
+        );
 
         // Audit log: receipt created
         if (user) {
@@ -288,21 +298,23 @@ export function RecordDirectReceiptDialog({
             user.email || '',
             user.displayName || user.email || ''
           );
-          await logAuditEvent(
-            db,
-            auditContext,
-            'PAYMENT_CREATED',
-            'PAYMENT',
-            docRef.id,
-            `Direct receipt ${transactionNumber} created`,
-            {
-              entityName: transactionNumber,
-              metadata: {
-                amount,
-                paymentMethod,
-                revenueAccountId,
-              },
-            }
+          await retryOnStaleToken(() =>
+            logAuditEvent(
+              db,
+              auditContext,
+              'PAYMENT_CREATED',
+              'PAYMENT',
+              docRef.id,
+              `Direct receipt ${transactionNumber} created`,
+              {
+                entityName: transactionNumber,
+                metadata: {
+                  amount,
+                  paymentMethod,
+                  revenueAccountId,
+                },
+              }
+            )
           );
         }
       }
@@ -310,7 +322,7 @@ export function RecordDirectReceiptDialog({
       onClose();
     } catch (err) {
       console.error('[RecordDirectReceiptDialog] Error saving receipt:', err);
-      setError('Failed to save receipt. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to save receipt. Please try again.');
     } finally {
       setLoading(false);
     }

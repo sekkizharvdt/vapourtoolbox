@@ -16,6 +16,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { Timestamp } from 'firebase/firestore';
 import type { CustomerPayment, PaymentMethod } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
@@ -203,7 +204,9 @@ export function RecordCustomerPaymentDialog({
       // Generate transaction number for new payments
       let transactionNumber = editingPayment?.transactionNumber;
       if (!editingPayment) {
-        transactionNumber = await generateTransactionNumber('CUSTOMER_PAYMENT');
+        transactionNumber = await retryOnStaleToken(() =>
+          generateTransactionNumber('CUSTOMER_PAYMENT')
+        );
       }
 
       // Only include allocations with non-zero amounts
@@ -275,15 +278,17 @@ export function RecordCustomerPaymentDialog({
         const oldAllocations = (editingPayment.invoiceAllocations || []).filter(
           (a) => !isOpeningBalanceAllocation(a)
         );
-        await updatePaymentWithAllocationsAtomic(
-          db,
-          editingPayment.id,
-          {
-            ...paymentData,
-            updatedAt: Timestamp.now(),
-          },
-          oldAllocations,
-          realAllocations
+        await retryOnStaleToken(() =>
+          updatePaymentWithAllocationsAtomic(
+            db,
+            editingPayment.id,
+            {
+              ...paymentData,
+              updatedAt: Timestamp.now(),
+            },
+            oldAllocations,
+            realAllocations
+          )
         );
 
         // Log payment update to audit trail
@@ -291,24 +296,26 @@ export function RecordCustomerPaymentDialog({
           editingPayment as unknown as Record<string, unknown>,
           paymentData as Record<string, unknown>
         );
-        await logPaymentUpdated(db, auditUser, editingPayment.id, transactionNumber || '', changes);
+        await retryOnStaleToken(() =>
+          logPaymentUpdated(db, auditUser, editingPayment.id, transactionNumber || '', changes)
+        );
       } else {
         // Create new payment atomically (only pass real allocations for invoice updates)
-        const paymentId = await createPaymentWithAllocationsAtomic(
-          db,
-          paymentData,
-          realAllocations
+        const paymentId = await retryOnStaleToken(() =>
+          createPaymentWithAllocationsAtomic(db, paymentData, realAllocations)
         );
 
         // Log payment creation to audit trail
-        await logPaymentCreated(
-          db,
-          auditUser,
-          paymentId,
-          transactionNumber || '',
-          parseFloat(amount) || 0,
-          currency,
-          entityId || ''
+        await retryOnStaleToken(() =>
+          logPaymentCreated(
+            db,
+            auditUser,
+            paymentId,
+            transactionNumber || '',
+            parseFloat(amount) || 0,
+            currency,
+            entityId || ''
+          )
         );
       }
 

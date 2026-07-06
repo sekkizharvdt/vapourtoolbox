@@ -15,6 +15,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { Timestamp, query, collection, doc, getDoc, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -469,7 +470,9 @@ export function RecordVendorPaymentDialog({
       // Generate transaction number for new payments
       let transactionNumber = editingPayment?.transactionNumber;
       if (!editingPayment) {
-        transactionNumber = await generateTransactionNumber('VENDOR_PAYMENT');
+        transactionNumber = await retryOnStaleToken(() =>
+          generateTransactionNumber('VENDOR_PAYMENT')
+        );
       }
 
       // Only include allocations with non-zero amounts
@@ -532,12 +535,14 @@ export function RecordVendorPaymentDialog({
         const oldAllocations = (editingPayment.billAllocations || []).filter(
           (a) => !isOpeningBalanceAllocation(a)
         );
-        await updatePaymentWithAllocationsAtomic(
-          db,
-          editingPayment.id,
-          paymentData,
-          oldAllocations,
-          realAllocations
+        await retryOnStaleToken(() =>
+          updatePaymentWithAllocationsAtomic(
+            db,
+            editingPayment.id,
+            paymentData,
+            oldAllocations,
+            realAllocations
+          )
         );
 
         // Audit log: payment updated
@@ -547,31 +552,31 @@ export function RecordVendorPaymentDialog({
             user.email || '',
             user.displayName || user.email || ''
           );
-          await logAuditEvent(
-            db,
-            auditContext,
-            'PAYMENT_UPDATED',
-            'PAYMENT',
-            editingPayment.id,
-            `Vendor payment ${transactionNumber} updated for ${entityName}`,
-            {
-              entityName: transactionNumber || '',
-              metadata: {
-                entityId,
-                entityName,
-                amount,
-                paymentMethod,
-                allocationsCount: validAllocations.length,
-              },
-            }
+          await retryOnStaleToken(() =>
+            logAuditEvent(
+              db,
+              auditContext,
+              'PAYMENT_UPDATED',
+              'PAYMENT',
+              editingPayment.id,
+              `Vendor payment ${transactionNumber} updated for ${entityName}`,
+              {
+                entityName: transactionNumber || '',
+                metadata: {
+                  entityId,
+                  entityName,
+                  amount,
+                  paymentMethod,
+                  allocationsCount: validAllocations.length,
+                },
+              }
+            )
           );
         }
       } else {
         // Create new payment with GL validation (only pass real allocations for bill updates)
-        const paymentId = await createPaymentWithAllocationsAtomic(
-          db,
-          paymentData,
-          realAllocations
+        const paymentId = await retryOnStaleToken(() =>
+          createPaymentWithAllocationsAtomic(db, paymentData, realAllocations)
         );
 
         // Audit log: payment created
@@ -581,23 +586,25 @@ export function RecordVendorPaymentDialog({
             user.email || '',
             user.displayName || user.email || ''
           );
-          await logAuditEvent(
-            db,
-            auditContext,
-            'PAYMENT_CREATED',
-            'PAYMENT',
-            paymentId,
-            `Vendor payment ${transactionNumber} created for ${entityName}`,
-            {
-              entityName: transactionNumber || '',
-              metadata: {
-                entityId,
-                entityName,
-                amount,
-                paymentMethod,
-                allocationsCount: validAllocations.length,
-              },
-            }
+          await retryOnStaleToken(() =>
+            logAuditEvent(
+              db,
+              auditContext,
+              'PAYMENT_CREATED',
+              'PAYMENT',
+              paymentId,
+              `Vendor payment ${transactionNumber} created for ${entityName}`,
+              {
+                entityName: transactionNumber || '',
+                metadata: {
+                  entityId,
+                  entityName,
+                  amount,
+                  paymentMethod,
+                  allocationsCount: validAllocations.length,
+                },
+              }
+            )
           );
         }
       }
