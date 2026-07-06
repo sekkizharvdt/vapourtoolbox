@@ -38,17 +38,32 @@ interface PaymentAllocationShape {
   allocatedAmount?: number;
 }
 
+// PO statuses from which a payment can auto-advance to IN_PROGRESS. Mirrors
+// purchaseOrderStateMachine's ISSUED/ACKNOWLEDGED -> IN_PROGRESS transitions
+// (apps/web/src/lib/workflow/stateMachines.ts) — functions can't import that
+// app-local module, so this guard is kept intentionally narrow and duplicated
+// here rather than pulled into a shared package for one check.
+const PO_STATUSES_ADVANCEABLE_TO_IN_PROGRESS = new Set(['ISSUED', 'ACKNOWLEDGED']);
+
 /**
  * Sum the bills-paid total for one PO and write the derived status onto
  * every GR that references the PO.
  */
-async function syncPOPaymentToGRs(db: admin.firestore.Firestore, poId: string): Promise<void> {
+export async function syncPOPaymentToGRs(
+  db: admin.firestore.Firestore,
+  poId: string
+): Promise<void> {
+  // rule8-exempt: the PO status write is idempotent by construction — it
+  // only fires from PO_STATUSES_ADVANCEABLE_TO_IN_PROGRESS, a narrow guard
+  // mirroring purchaseOrderStateMachine's ISSUED/ACKNOWLEDGED -> IN_PROGRESS
+  // transitions, so a repeat Firestore trigger is a no-op, not an invalid
+  // transition.
   const poSnap = await db.collection(PURCHASE_ORDERS).doc(poId).get();
   if (!poSnap.exists) {
     logger.warn('[procurementPaymentStatus] PO not found', { poId });
     return;
   }
-  const po = poSnap.data() as { grandTotal?: number };
+  const po = poSnap.data() as { grandTotal?: number; status?: string };
   const poTotal = Number(po.grandTotal) || 0;
 
   // Sum paidAmount across all bills for this PO. VENDOR_BILL docs maintain
@@ -78,6 +93,17 @@ async function syncPOPaymentToGRs(db: admin.firestore.Firestore, poId: string): 
     bucket = 'CLEARED';
   } else {
     bucket = 'PARTLY_CLEARED';
+  }
+
+  // Auto-advance ISSUED/ACKNOWLEDGED -> IN_PROGRESS once any payment has been
+  // made against the PO (feedback i7brfS9rrdfGVxRTHHZu). Idempotent: only
+  // fires from the two eligible statuses, so a repeat trigger is a no-op.
+  if (totalPaid > 0.01 && po.status && PO_STATUSES_ADVANCEABLE_TO_IN_PROGRESS.has(po.status)) {
+    await poSnap.ref.update({
+      status: 'IN_PROGRESS',
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    logger.info('[procurementPaymentStatus] Advanced PO to IN_PROGRESS on payment', { poId });
   }
 
   const grsSnap = await db.collection(GOODS_RECEIPTS).where('purchaseOrderId', '==', poId).get();

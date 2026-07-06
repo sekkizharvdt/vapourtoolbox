@@ -26,6 +26,7 @@ import {
   removePOAttachment,
 } from '@/lib/procurement/purchaseOrderService';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { toDate } from '@/lib/utils/date';
 import DocumentUploadWidget from '@/components/procurement/DocumentUploadWidget';
 import { downloadPOPDF } from '@/lib/procurement/poPDF';
@@ -55,6 +56,7 @@ export default function PODetailPage() {
   const [poId, setPoId] = useState<string | null>(null);
 
   const dialogState = useWorkflowDialogs();
+  const { confirm } = useConfirmDialog();
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -247,6 +249,28 @@ export default function PODetailPage() {
     }
   };
 
+  const handleMarkCompleted = async () => {
+    if (!user || !po || !poId) return;
+
+    const confirmed = await confirm({
+      title: 'Mark Purchase Order Completed',
+      message: `Mark ${po.number} as Completed? This closes the PO — confirm delivery and payment are fully settled.`,
+      confirmText: 'Mark Completed',
+    });
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    try {
+      await updatePOStatus(poId, 'COMPLETED', user.uid);
+      await loadPO();
+    } catch (err) {
+      console.error('[PODetailPage] Error marking PO completed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to mark PO completed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDownloadPDF = async () => {
     if (!po) return;
 
@@ -323,6 +347,7 @@ export default function PODetailPage() {
           onCreateWorkCompletion={() =>
             router.push(`/procurement/work-completion/new?poId=${poId}`)
           }
+          onMarkCompleted={handleMarkCompleted}
           onDownloadPDF={handleDownloadPDF}
           pdfLoading={pdfLoading}
           onDownloadZip={handleDownloadZip}

@@ -29,4 +29,5 @@ export {
   rejectPO,
   issuePO,
   updatePOStatus,
+  advancePOStatusIfAllowed,
 } from './workflow';

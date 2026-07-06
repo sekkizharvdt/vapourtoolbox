@@ -353,14 +353,14 @@ export async function createGoodsReceipt(
             updatedAt: now,
           };
 
-          // GAP 8: Auto-complete PO when fully delivered and paid
-          if (
-            deliveryProgress === 100 &&
-            (po.paymentProgress || 0) === 100 &&
-            purchaseOrderStateMachine.canTransitionTo(po.status, 'COMPLETED')
-          ) {
-            poUpdateData.status = 'COMPLETED';
-            poUpdateData.completedAt = now;
+          // Auto-advance PO status with delivery progress (feedback
+          // i7brfS9rrdfGVxRTHHZu). COMPLETED is a manual action (decision:
+          // closure can involve offline steps beyond delivery) — this only
+          // ever moves the PO to DELIVERED or IN_PROGRESS, and only when
+          // that transition is currently legal (idempotent no-op otherwise).
+          const deliveryTarget = deliveryProgress === 100 ? 'DELIVERED' : 'IN_PROGRESS';
+          if (purchaseOrderStateMachine.canTransitionTo(po.status, deliveryTarget)) {
+            poUpdateData.status = deliveryTarget;
           }
 
           transaction.update(poRef, poUpdateData);

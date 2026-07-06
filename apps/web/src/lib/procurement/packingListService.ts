@@ -30,6 +30,7 @@ import type {
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { generateProcurementNumber, PROCUREMENT_NUMBER_CONFIGS } from './generateProcurementNumber';
+import { advancePOStatusIfAllowed } from './purchaseOrder';
 
 const logger = createLogger({ context: 'packingListService' });
 
@@ -235,6 +236,16 @@ export async function createPackingList(
       },
     }
   ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+
+  // Creating a Packing List signals procurement has commenced (feedback
+  // i7brfS9rrdfGVxRTHHZu) — advance the PO to IN_PROGRESS if currently
+  // eligible. Fire-and-forget: never block PL creation on this.
+  advancePOStatusIfAllowed(input.purchaseOrderId, 'IN_PROGRESS', userId, userName).catch((err) => {
+    logger.error('Failed to auto-advance PO status after PL creation', {
+      error: err,
+      purchaseOrderId: input.purchaseOrderId,
+    });
+  });
 
   return plRef.id;
 }

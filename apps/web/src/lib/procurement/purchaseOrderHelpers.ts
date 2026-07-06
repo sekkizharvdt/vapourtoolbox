@@ -93,6 +93,11 @@ export function canIssueWorkCompletion(po: PurchaseOrder): boolean {
   return ['IN_PROGRESS', 'DELIVERED', 'COMPLETED'].includes(po.status);
 }
 
+/** Manual closure — COMPLETED is never auto-set (feedback i7brfS9rrdfGVxRTHHZu). */
+export function canMarkPOCompleted(po: PurchaseOrder): boolean {
+  return po.status === 'IN_PROGRESS' || po.status === 'DELIVERED';
+}
+
 // ============================================================================
 // DISPLAY UTILITIES
 // ============================================================================

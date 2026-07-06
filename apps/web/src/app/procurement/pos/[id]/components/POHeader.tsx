@@ -18,6 +18,7 @@ import {
   Inventory2 as GoodsReceiptIcon,
   LocalShipping as PackingListIcon,
   AssignmentTurnedIn as WorkCompletionIcon,
+  TaskAlt as CompletedIcon,
 } from '@mui/icons-material';
 import type { PurchaseOrder } from '@vapour/types';
 import {
@@ -31,6 +32,7 @@ import {
   canCancelPO,
   canReceiveGoods,
   canIssueWorkCompletion,
+  canMarkPOCompleted,
   getAdvancePaymentStatus,
 } from '@/lib/procurement/purchaseOrderHelpers';
 
@@ -46,6 +48,7 @@ interface POHeaderProps {
   onCreateGoodsReceipt?: () => void;
   onCreatePackingList?: () => void;
   onCreateWorkCompletion?: () => void;
+  onMarkCompleted?: () => void;
   onDownloadPDF?: () => void;
   pdfLoading?: boolean;
   /** Download the PO PDF + attachments as a ZIP (shown only when attachments exist). */
@@ -65,6 +68,7 @@ export function POHeader({
   onCreateGoodsReceipt,
   onCreatePackingList,
   onCreateWorkCompletion,
+  onMarkCompleted,
   onDownloadPDF,
   pdfLoading = false,
   onDownloadZip,
@@ -178,6 +182,16 @@ export function POHeader({
               onClick={onCreateWorkCompletion}
             >
               Issue Work Certificate
+            </Button>
+          )}
+          {canMarkPOCompleted(po) && onMarkCompleted && (
+            <Button
+              variant="outlined"
+              color="success"
+              startIcon={<CompletedIcon />}
+              onClick={onMarkCompleted}
+            >
+              Mark Completed
             </Button>
           )}
           {canCancelPO(po) && (

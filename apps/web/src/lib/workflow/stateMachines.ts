@@ -53,6 +53,13 @@ import { PERMISSION_FLAGS } from '@vapour/constants';
  *
  * CANCELLED is reachable from DRAFT, PENDING_APPROVAL, APPROVED, ISSUED
  * AMENDED is reachable from ISSUED, ACKNOWLEDGED, IN_PROGRESS
+ *
+ * IN_PROGRESS is auto-set when a Packing List is created or a payment is
+ * recorded against the PO; DELIVERED is auto-set when a Goods Receipt fully
+ * receives the ordered quantity (see advancePOStatusIfAllowed in
+ * purchaseOrder/workflow.ts and the Cloud Function in
+ * functions/src/procurementPaymentStatus.ts). COMPLETED stays a manual
+ * action — closing a PO can involve steps beyond delivery/payment.
  */
 export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = createStateMachine({
   transitions: {
@@ -62,7 +69,9 @@ export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = crea
     PENDING_FINAL_APPROVAL: ['APPROVED', 'REJECTED', 'CANCELLED'],
     APPROVED: ['ISSUED', 'CANCELLED'],
     REJECTED: ['DRAFT'], // Allow revision
-    ISSUED: ['ACKNOWLEDGED', 'IN_PROGRESS', 'CANCELLED', 'AMENDED'],
+    // DELIVERED direct from ISSUED covers a GR fully receiving a PO whose
+    // IN_PROGRESS auto-advance (on PL creation / payment) didn't fire yet.
+    ISSUED: ['ACKNOWLEDGED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED', 'AMENDED'],
     ACKNOWLEDGED: ['IN_PROGRESS', 'DELIVERED', 'AMENDED'],
     IN_PROGRESS: ['DELIVERED', 'COMPLETED', 'AMENDED'],
     DELIVERED: ['COMPLETED'],

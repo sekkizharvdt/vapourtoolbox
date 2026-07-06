@@ -480,6 +480,69 @@ export async function issuePO(
 }
 
 // ============================================================================
+// AUTO-ADVANCE STATUS (idempotent — no-op unless the transition is legal)
+// ============================================================================
+
+/**
+ * Advance a PO's status if (and only if) the transition is currently legal.
+ * Used by upstream triggers (Packing List creation, GR completion) where the
+ * caller doesn't know — and shouldn't need to check — the PO's exact current
+ * status; unlike updatePOStatus, an illegal/no-op transition is silently
+ * skipped rather than thrown (feedback i7brfS9rrdfGVxRTHHZu). Mirrors the
+ * `canTransitionTo` guard already used for GR-triggered auto-completion.
+ *
+ * @returns true if the status was advanced, false if the transition wasn't
+ * currently legal (e.g. already advanced by a concurrent trigger).
+ */
+export async function advancePOStatusIfAllowed(
+  poId: string,
+  target: PurchaseOrderStatus,
+  userId: string,
+  userName?: string
+): Promise<boolean> {
+  // rule8-exempt: idempotent by design — checks canTransitionTo and silently
+  // no-ops when the transition isn't currently legal, so there is no
+  // invalid-transition error to throw.
+  // rule5-exempt: system-triggered auto-advance called by upstream flows
+  // (Packing List creation, GR completion) that already gate the write with
+  // their own permission checks; this helper carries no separate user action.
+  const { db } = getFirebase();
+
+  const po = await getPOById(poId);
+  if (!po) {
+    throw new Error('Purchase Order not found');
+  }
+
+  if (!purchaseOrderStateMachine.canTransitionTo(po.status, target)) {
+    return false;
+  }
+
+  const now = Timestamp.now();
+  await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
+    status: target,
+    updatedAt: now,
+    updatedBy: userId,
+  });
+
+  const auditContext = createAuditContext(userId, '', userName || '');
+  logAuditEvent(
+    db,
+    auditContext,
+    'PO_UPDATED',
+    'PURCHASE_ORDER',
+    poId,
+    `Purchase Order ${po.number} automatically advanced from ${po.status} to ${target}`,
+    {
+      entityName: po.number,
+      metadata: { previousStatus: po.status, newStatus: target, automatic: true },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err, poId }));
+
+  logger.info('PO status auto-advanced', { poId, from: po.status, to: target });
+  return true;
+}
+
+// ============================================================================
 // UPDATE STATUS
 // ============================================================================
 

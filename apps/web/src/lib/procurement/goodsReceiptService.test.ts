@@ -73,9 +73,13 @@ jest.mock('@/lib/tasks/taskNotificationService', () => ({
 
 // Mock workflow state machine
 const mockValidateTransition = jest.fn();
+const mockCanTransitionTo = jest.fn();
 jest.mock('@/lib/workflow/stateMachines', () => ({
   goodsReceiptStateMachine: {
     validateTransition: (...args: unknown[]) => mockValidateTransition(...args),
+  },
+  purchaseOrderStateMachine: {
+    canTransitionTo: (...args: unknown[]) => mockCanTransitionTo(...args),
   },
 }));
 
@@ -134,6 +138,7 @@ describe('goodsReceiptService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockValidateTransition.mockReturnValue({ allowed: true });
+    mockCanTransitionTo.mockReturnValue(true);
   });
 
   describe('createGoodsReceipt', () => {
@@ -196,6 +201,7 @@ describe('goodsReceiptService', () => {
       });
 
       let savedGRData: any;
+      let poUpdateData: any;
 
       mockRunTransaction
         .mockResolvedValueOnce('GR/NUM')
@@ -212,7 +218,9 @@ describe('goodsReceiptService', () => {
                 savedGRData = data;
               }
             }),
-            update: jest.fn(),
+            update: jest.fn((_ref, data) => {
+              if ('deliveryProgress' in data) poUpdateData = data;
+            }),
           };
           return callback(transaction);
         });
@@ -224,6 +232,76 @@ describe('goodsReceiptService', () => {
       expect(savedGRData.hasIssues).toBe(false);
       expect(savedGRData.packingListId).toBe('pl-1');
       expect(savedGRData.packingListNumber).toBe(mockPL.number);
+
+      // Default input receives 5 of 10 ordered — 50% delivered, so the PO
+      // auto-advances to IN_PROGRESS (not DELIVERED, not the old COMPLETED).
+      expect(poUpdateData.deliveryProgress).toBe(50);
+      expect(poUpdateData.status).toBe('IN_PROGRESS');
+    });
+
+    it('should advance PO to DELIVERED when the GR fully receives the ordered quantity', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [{ id: 'poi-1', data: () => mockPOItem }],
+      });
+
+      let poUpdateData: any;
+      const fullyReceivedInput = {
+        ...input,
+        items: [{ ...input.items[0]!, receivedQuantity: 10, acceptedQuantity: 10 }],
+      };
+
+      mockRunTransaction
+        .mockResolvedValueOnce('GR/NUM')
+        .mockImplementation(async (_db, callback) => {
+          const transaction = {
+            get: jest.fn().mockResolvedValue({
+              exists: () => true,
+              data: () => ({ ...mockPO, ...mockPOItem }),
+            }),
+            set: jest.fn(),
+            update: jest.fn((_ref, data) => {
+              if ('deliveryProgress' in data) poUpdateData = data;
+            }),
+          };
+          return callback(transaction);
+        });
+
+      await createGoodsReceipt(fullyReceivedInput, 'user-1', 'User');
+
+      expect(poUpdateData.deliveryProgress).toBe(100);
+      expect(poUpdateData.status).toBe('DELIVERED');
+    });
+
+    it('should not set PO status when the auto-advance transition is not currently allowed', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [{ id: 'poi-1', data: () => mockPOItem }],
+      });
+      mockCanTransitionTo.mockReturnValue(false);
+
+      let poUpdateData: any;
+
+      mockRunTransaction
+        .mockResolvedValueOnce('GR/NUM')
+        .mockImplementation(async (_db, callback) => {
+          const transaction = {
+            get: jest.fn().mockResolvedValue({
+              exists: () => true,
+              data: () => ({ ...mockPO, ...mockPOItem }),
+            }),
+            set: jest.fn(),
+            update: jest.fn((_ref, data) => {
+              if ('deliveryProgress' in data) poUpdateData = data;
+            }),
+          };
+          return callback(transaction);
+        });
+
+      await createGoodsReceipt(input, 'user-1', 'User');
+
+      expect(poUpdateData.deliveryProgress).toBe(50);
+      expect(poUpdateData.status).toBeUndefined();
     });
 
     it('should throw error when PO not found', async () => {
