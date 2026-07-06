@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-07-05 (functions/ test harness — accountBalanceLogic + jest; soft-delete balance fix)
+Last verified: 2026-07-06 (retryOnStaleToken swept across all accounting create/edit dialogs — rule 35)
 
 ## Monorepo layout
 
@@ -83,3 +83,4 @@ Last verified: 2026-07-05 (functions/ test harness — accountBalanceLogic + jes
 | Collection name constants                                       | `packages/firebase/src/collections.ts` (`COLLECTIONS`)                                                                                                 |
 | Status chip (label + color from canonical sources)              | `packages/ui/src/components/StatusChip.tsx` — label via `@vapour/constants/labels.ts` maps, color via `@vapour/constants/statuses.ts` `getStatusColor` |
 | Data table with pagination/sort/loading/empty                   | `packages/ui/src/components/DataTable.tsx` (adopt for new list pages — rule 34, plan `docs/reviews/2026-07-03-ui-ux-standardisation-plan.md`)          |
+| Stale-token retry on every call in a save handler (rule 35)     | `apps/web/src/lib/firebase/retryOnStaleToken.ts`; applied throughout `apps/web/src/app/accounting/invoices/components/CreateInvoiceDialog.tsx`         |

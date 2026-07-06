@@ -163,6 +163,10 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
     `scripts/audit/check-ui-standards.js` enforces the zero-tolerance items above once their category is clean (see `scripts/audit/ui-baselines.json`) and ratchets down the `TablePagination`/`CircularProgress`/missing-`PageHeader` backlogs so they can only shrink, never grow.
 
+## Session & Token Reliability
+
+35. **Every Firestore-touching call in a multi-step create/edit handler MUST be wrapped in `retryOnStaleToken`** (`@/lib/firebase/retryOnStaleToken`) — not just the main document write. A user's cached ID token can lag behind a server-side custom-claims change (a newly granted permission, `hasPermission`/`requirePermission` checks read `request.auth.token.permissions`, not the live Firestore `users/{uid}` doc) for several minutes until the client's background refresh catches up, so an otherwise-correctly-permissioned user can hit `permission-denied` — surfacing as the raw Firestore string "Missing or insufficient permissions." `retryOnStaleToken()` force-refreshes the token and retries once on that specific error. Wrap **every** call — number generators (`generateTransactionNumber`, `generateProcurementNumber`), GL-entry/control-account reads, the main `addDoc`/`updateDoc`, and audit log writes — since whichever one executes first in that request fails first, and a handler with only its last call wrapped still breaks on the earlier ones. (Past failure: two rounds of incomplete fixes on `CreateInvoiceDialog`/`CreateBillDialog` — the first round wrapped only the GL-entries read and missed an earlier `generateTransactionNumber` call — before a full sweep found and fixed the identical gap in 5 more accounting dialogs, none of which had any wrapping at all.)
+
 ## Data Dictionary — Key Collections
 
 | Collection                      | Entity-scoped              | Key Fields                                                                                                                                     | Written By                                             | Read By                                            |
