@@ -243,8 +243,11 @@ export function CreateInvoiceDialog({
         entityId: formState.entityId,
         entityName: formState.entityName,
         description: formState.description,
-        reference: formState.reference || undefined,
-        projectId: formState.projectId || undefined,
+        // Conditional spread — Firestore rejects a document write when any
+        // field is a literal `undefined` (rule 12); CreateBillDialog already
+        // does this correctly.
+        ...(formState.reference ? { reference: formState.reference } : {}),
+        ...(formState.projectId ? { projectId: formState.projectId } : {}),
         status: formState.status,
         lineItems,
         subtotal,

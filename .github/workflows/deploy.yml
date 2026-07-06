@@ -7,6 +7,10 @@ on:
         description: 'Deploy all targets (skip change detection)'
         type: boolean
         default: false
+      skip_smoke:
+        description: 'EMERGENCY ONLY: skip the money-path smoke e2e gate'
+        type: boolean
+        default: false
 
 # Only one deployment at a time. Don't cancel mid-flight.
 concurrency:
@@ -83,20 +87,150 @@ jobs:
           done
 
   # ─────────────────────────────────────────────────────────────
+  # Money-path smoke gate (Phase 4 of the automated-verification plan,
+  # docs/reviews/2026-07-05-automated-verification-plan.md).
+  # Runs the @smoke-tagged Playwright specs (invoice→payment→outstanding
+  # zero; PO two-approver walk) against Firebase emulators before anything
+  # ships. skip_smoke=true is the emergency escape hatch.
+  # ─────────────────────────────────────────────────────────────
+  smoke-e2e:
+    name: Money-path smoke tests
+    runs-on: ubuntu-latest
+    needs: [detect]
+    timeout-minutes: 30
+    if: |
+      inputs.skip_smoke != true &&
+      (needs.detect.outputs.rules == 'true' ||
+       needs.detect.outputs.indexes == 'true' ||
+       needs.detect.outputs.storage == 'true' ||
+       needs.detect.outputs.functions == 'true' ||
+       needs.detect.outputs.hosting == 'true')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.19.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm --filter "@vapour/*" --filter "!@vapour/web" build
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Setup Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Playwright Browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Create Firebase test config
+        run: |
+          cat > firebase.e2e.json << 'EOF'
+          {
+            "emulators": {
+              "auth": {
+                "port": 9099,
+                "host": "127.0.0.1"
+              },
+              "firestore": {
+                "port": 8080,
+                "host": "127.0.0.1"
+              },
+              "ui": {
+                "enabled": false
+              }
+            },
+            "firestore": {
+              "rules": "firestore.rules"
+            }
+          }
+          EOF
+
+      - name: Start Firebase Emulators
+        run: |
+          firebase emulators:start --only auth,firestore --config firebase.e2e.json --project vapour-toolbox &
+          echo "Waiting for Firebase emulators to start..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:9099/ > /dev/null 2>&1; then
+              echo "Auth emulator is ready"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:8080/ > /dev/null 2>&1; then
+              echo "Firestore emulator is ready"
+              break
+            fi
+            echo "Waiting for Firestore... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run smoke tests (@smoke only)
+        working-directory: apps/web
+        # Playwright does NOT apply --grep to dependency projects, so the
+        # setup project's `authenticate` test still runs in full.
+        run: pnpm exec playwright test --project=setup --project=chromium --grep "@smoke"
+        env:
+          NEXT_PUBLIC_USE_EMULATOR: 'true'
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
+          NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: http://127.0.0.1:9099
+          NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: 127.0.0.1:8080
+          FIREBASE_PROJECT_ID: vapour-toolbox
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
   # Deploy job — consumes the build artifact uploaded by CI.
   # No rebuild here; same bytes that CI tested ship to prod.
   # ─────────────────────────────────────────────────────────────
   deploy:
     name: Deploy to Firebase
     runs-on: ubuntu-latest
-    needs: [detect]
+    needs: [detect, smoke-e2e]
     timeout-minutes: 15
+    # smoke-e2e result 'skipped' (skip_smoke=true) still allows deploy;
+    # 'failure' blocks it. !cancelled() keeps this job runnable when its
+    # needs include a skipped job.
     if: |
-      needs.detect.outputs.rules == 'true' ||
-      needs.detect.outputs.indexes == 'true' ||
-      needs.detect.outputs.storage == 'true' ||
-      needs.detect.outputs.functions == 'true' ||
-      needs.detect.outputs.hosting == 'true'
+      !cancelled() &&
+      (needs.smoke-e2e.result == 'success' || needs.smoke-e2e.result == 'skipped') &&
+      (needs.detect.outputs.rules == 'true' ||
+       needs.detect.outputs.indexes == 'true' ||
+       needs.detect.outputs.storage == 'true' ||
+       needs.detect.outputs.functions == 'true' ||
+       needs.detect.outputs.hosting == 'true')
 
     steps:
       - name: Checkout code

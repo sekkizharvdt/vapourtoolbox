@@ -265,6 +265,57 @@ The single change that turns "tests exist" into "deploys are verified".
    - Include an `input: skip-smoke` escape hatch (default false) for emergency deploys.
 3. Leave `e2e.yml` (full suite, on-demand) as is.
 
+### Phase 4 execution notes ✅ DONE 2026-07-06 (Sonnet + Fable; scope adjusted; not yet committed)
+
+- **What landed:**
+  - `e2e/accounting-smoke.spec.ts` — the full money path: create a POSTED customer invoice
+    through the real dialog, record a customer receipt with auto-allocation, assert the
+    persisted invoice hits `outstandingAmount ≈ 0` / `paymentStatus: 'PAID'` (verified via
+    firebase-admin, because the invoices list has no per-row paid-status column to assert
+    against). Self-contained: seeds its own Chart of Accounts (AR 1200 / Revenue 4100 as
+    `isSystemAccount`, one `isBankAccount`) and a CUSTOMER-role entity in `beforeAll`.
+  - `e2e/procurement-smoke.spec.ts` — PO list renders seeded POs with correct workflow-status
+    labels; terminal-state (COMPLETED) rows hide Move to Trash while PENDING_APPROVAL rows
+    show it (rule 10 at list level). **Deliberately NOT the full two-approver walk — see
+    the structural constraint below.**
+  - `deploy.yml` gains a `smoke-e2e` job (emulators + `playwright test --grep "@smoke"`,
+    chromium only, mirrors `e2e.yml`'s setup) and a `skip_smoke` emergency input; the
+    `deploy` job now `needs: [detect, smoke-e2e]` and requires its result to be
+    `success` or `skipped`. `e2e.yml` (full suite, on-demand) untouched.
+- **Two real product bugs found by driving the real UI (both fixed with user go-ahead):**
+  - `CreateInvoiceDialog.tsx` wrote `reference: … || undefined` and `projectId: … || undefined`
+    as literal fields in the `addDoc()` payload (rule 12) — creating an invoice with both
+    optional fields blank threw "Unsupported field value: undefined" and never saved. The
+    sibling `CreateBillDialog` already did it correctly. Fixed with conditional spreads.
+  - `auth.setup.ts`'s seeded test entities use `roles: ['customer']` (lowercase) but the
+    `EntityRole` enum and every role filter use `'CUSTOMER'` — so those fixtures never appear
+    in any EntitySelector. Left the shared fixture untouched (other specs may depend on its
+    current shape); accounting-smoke seeds its own correctly-cased entity. **Follow-up:** fix
+    the shared fixture's casing and re-run the full e2e suite.
+- **STRUCTURAL CONSTRAINT (the root cause of every prior e2e stall on detail pages):**
+  with `output: 'export'`, `next dev` cannot render ANY dynamic `[id]` route for a real
+  document id — `generateStaticParams()` declares only `'placeholder'`, and dev hard-errors
+  ("missing param … required with output: export") on BOTH `page.goto` and client-side
+  `router.push` (verified empirically 2026-07-06: the dev overlay replaces the page even on
+  soft navigation; and the detail clients deliberately ignore the literal `'placeholder'` id
+  per rule 30, so seeding a doc under that id renders nothing). Production works only because
+  firebase.json hosting rewrites serve the placeholder HTML for every URL. **Consequence:
+  detail-page flows (PO approval walk, invoice detail, BOM editor) are untestable e2e against
+  `next dev`.** The correct fix — recorded here as future work, NOT attempted: run smoke
+  against an emulator-mode `next build` output served by the Firebase **hosting emulator**
+  (real rewrites, production-faithful bytes). Note the CI `build-output` artifact can't be
+  reused for this: it's built with `NEXT_PUBLIC_USE_EMULATOR: 'false'`, which compiles out the
+  `__e2eSignInWithToken` hook the auth setup needs — a dedicated emulator-mode build (~5–8 min)
+  would be required in the gate.
+- **Environment gotcha for local smoke runs:** a long-lived `next dev` grows unboundedly
+  (observed 4.5 GB RSS after a session of route compiles on this 16 GB codespace, no swap) and
+  starves headless Chromium into hard renderer crashes (`page.goto: Page crashed`). Restarting
+  the dev server fixed it. CI runners start cold, so the gate is unaffected.
+- The two-approver transition logic the dropped detail-page walk would have covered is not
+  unguarded: approver-identity gating is enforced by `firestore.rules` (Phase 3 tests cover
+  the named-approver carve-out) and the state machine validates transitions inside
+  `firstApprovePO`/`approvePO` transactions.
+
 ## Phase 5 — Nightly production data audit (~½–1 day)
 
 Continuous verification of real data — catches whatever the test layers miss, and drift from
