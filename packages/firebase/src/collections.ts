@@ -16,6 +16,7 @@ export const COLLECTIONS = {
   INVITATIONS: 'invitations', // External CLIENT_PM invitations
   NOTIFICATIONS: 'notifications', // In-app notifications
   AUDIT_LOGS: 'auditLogs', // System audit trail for security and compliance
+  DATA_AUDIT_RUNS: 'dataAuditRuns', // Nightly data-integrity audit results (written by Cloud Function only)
 
   // Time Tracking & Task Notifications
   TASK_NOTIFICATIONS: 'taskNotifications', // Unified notification-task system

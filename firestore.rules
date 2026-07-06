@@ -443,6 +443,14 @@ service cloud.firestore {
       allow delete: if isSuperAdmin(); // Only super admin can purge archives
     }
 
+    match /dataAuditRuns/{runId} {
+      // Nightly data-integrity audit results, written ONLY by the
+      // dataIntegrityAudit Cloud Function (Admin SDK bypasses rules).
+      // Read surface: Data Health page.
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow write: if false;
+    }
+
     match /costCentres/{costCentreId} {
       // Cost Centres - Project-based cost tracking for accounting
       // Read: All internal users (needed for ProjectSelector, expense allocation, etc.)

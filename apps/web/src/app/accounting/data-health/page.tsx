@@ -34,13 +34,13 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs, documentId, orderBy, limit } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { COLLECTIONS } from '@vapour/firebase';
 import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 
 interface DataHealthStats {
   unappliedPayments: { count: number; total: number };
@@ -82,6 +82,11 @@ export default function DataHealthPage() {
   const [recalculateResult, setRecalculateResult] = useState<{
     accountsUpdated: number;
     transactionsProcessed: number;
+  } | null>(null);
+  const [lastAuditRun, setLastAuditRun] = useState<{
+    status: 'CLEAN' | 'ISSUES' | 'ERROR';
+    findingsCount?: number;
+    runAt?: Date;
   } | null>(null);
 
   const handleReconcile = async () => {
@@ -422,6 +427,32 @@ export default function DataHealthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Latest nightly data-integrity audit result (written by the
+  // dataIntegrityAudit Cloud Function into dataAuditRuns).
+  useEffect(() => {
+    (async () => {
+      try {
+        const { db } = getFirebase();
+        const snap = await getDocs(
+          query(collection(db, COLLECTIONS.DATA_AUDIT_RUNS), orderBy('runAt', 'desc'), limit(1))
+        );
+        const docSnap = snap.docs[0];
+        if (!docSnap) return; // audit has never run — banner simply absent
+        const data = docSnap.data();
+        const rawRunAt = data.runAt as { toDate?: () => Date } | undefined;
+        setLastAuditRun({
+          status: data.status as 'CLEAN' | 'ISSUES' | 'ERROR',
+          findingsCount: data.findingsCount as number | undefined,
+          runAt: rawRunAt && 'toDate' in rawRunAt ? rawRunAt.toDate!() : undefined,
+        });
+      } catch (err) {
+        // Non-blocking widget: the health checks above are the page's core —
+        // log and render without the audit banner rather than failing the page.
+        console.warn('[DataHealth] Could not load last audit run:', err);
+      }
+    })();
+  }, []);
+
   const formatCurrencyWhole = (amount: number) =>
     formatCurrency(amount, 'INR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -558,9 +589,31 @@ export default function DataHealthPage() {
               ) : null}
             </Box>
             {!loading && stats && (
-              <Typography variant="body2" color="text.secondary">
-                Based on {stats.totalTransactions} transactions
-              </Typography>
+              <Box sx={{ textAlign: 'right' }}>
+                <Typography variant="body2" color="text.secondary">
+                  Based on {stats.totalTransactions} transactions
+                </Typography>
+                {lastAuditRun && (
+                  <Chip
+                    size="small"
+                    sx={{ mt: 1 }}
+                    color={
+                      lastAuditRun.status === 'CLEAN'
+                        ? 'success'
+                        : lastAuditRun.status === 'ISSUES'
+                          ? 'warning'
+                          : 'error'
+                    }
+                    label={
+                      lastAuditRun.status === 'CLEAN'
+                        ? `Nightly audit clean${lastAuditRun.runAt ? ` — ${formatDate(lastAuditRun.runAt)}` : ''}`
+                        : lastAuditRun.status === 'ISSUES'
+                          ? `Nightly audit: ${lastAuditRun.findingsCount ?? '?'} issue(s)${lastAuditRun.runAt ? ` — ${formatDate(lastAuditRun.runAt)}` : ''}`
+                          : 'Nightly audit failed to run'
+                    }
+                  />
+                )}
+              </Box>
             )}
           </Box>
           {loading ? (

@@ -203,3 +203,67 @@ describe('Firestore rules: transactions', () => {
     await assertFails(getDoc(doc(db, 'transactions', 'txn-seeded')));
   });
 });
+
+describe('Firestore rules: dataAuditRuns', () => {
+  let emulatorsRunning: boolean;
+
+  beforeAll(async () => {
+    emulatorsRunning = await checkEmulatorRunning();
+    if (!emulatorsRunning) return;
+    await initRulesTestEnv();
+  });
+
+  beforeEach(async () => {
+    if (emulatorsRunning) await clearFirestore();
+  });
+
+  afterAll(async () => {
+    if (emulatorsRunning) await teardownRulesTestEnv();
+  });
+
+  const itWithEmulator = (name: string, fn: () => Promise<void>) => {
+    it(name, async () => {
+      if (!emulatorsRunning) {
+        // eslint-disable-next-line no-console
+        console.log(`  ⏭️  Skipping: ${name} (emulator not running)`);
+        return;
+      }
+      await fn();
+    });
+  };
+
+  itWithEmulator('allows read with VIEW_ACCOUNTING', async () => {
+    await withAdmin(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'dataAuditRuns', 'run-1'), {
+        status: 'CLEAN',
+        findingsCount: 0,
+      });
+    });
+
+    const db = authedContext(
+      'viewer-1',
+      internalUserClaims(PERMISSION_FLAGS.VIEW_ACCOUNTING)
+    ).firestore();
+    await assertSucceeds(getDoc(doc(db, 'dataAuditRuns', 'run-1')));
+  });
+
+  itWithEmulator('rejects read without VIEW_ACCOUNTING', async () => {
+    await withAdmin(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'dataAuditRuns', 'run-2'), { status: 'CLEAN' });
+    });
+
+    const db = authedContext('user-1', internalUserClaims(0)).firestore();
+    await assertFails(getDoc(doc(db, 'dataAuditRuns', 'run-2')));
+  });
+
+  itWithEmulator('rejects client writes even with MANAGE_ACCOUNTING (function-only)', async () => {
+    const db = authedContext(
+      'accountant-1',
+      internalUserClaims(PERMISSION_FLAGS.MANAGE_ACCOUNTING)
+    ).firestore();
+
+    await assertFails(
+      setDoc(doc(db, 'dataAuditRuns', 'run-forged'), { status: 'CLEAN', findingsCount: 0 })
+    );
+  });
+});

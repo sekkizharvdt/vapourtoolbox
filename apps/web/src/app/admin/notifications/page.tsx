@@ -140,6 +140,11 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         label: 'Payment Batch Completed',
         description: 'When all payments in a batch are processed',
       },
+      {
+        id: 'data_audit_failed',
+        label: 'Data Audit Issues',
+        description: 'When the nightly data-integrity audit finds problems',
+      },
     ],
   },
   {

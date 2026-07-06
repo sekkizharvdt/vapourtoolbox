@@ -109,6 +109,10 @@ export { aiHelp } from './aiHelp';
 // Import backup functions
 export { scheduledBackup, manualBackup } from './backup/scheduledBackup';
 
+// Nightly data-integrity audit (GL drift, orphans, duplicates — Phase 5 of
+// the automated-verification plan)
+export { dataIntegrityAudit } from './dataIntegrityAudit';
+
 // Import recurring transaction generation (daily scheduler + manual trigger)
 export {
   scheduledRecurringGeneration,

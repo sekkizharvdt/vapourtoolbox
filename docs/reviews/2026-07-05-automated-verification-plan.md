@@ -336,6 +336,47 @@ console edits / partial failures.
    Health page can display last-run status. Silent success, loud failure.
 4. New collection ⇒ security rules + (if queried with where+orderBy) composite index (rules 2, 4).
 
+### Phase 5 execution notes ✅ DONE 2026-07-06 (Fable; not yet committed)
+
+- **The plan's "extract shared checks into `@vapour/functions`" was unimplementable as
+  written** — Phase 1 already established `packages/functions` is legacy/undeployed, and
+  `functions/` deliberately has no workspace deps (own npm lockfile for deploy's `npm ci`);
+  the MCP server is standalone plain JS with its own npm tree. Rule-32-honest resolution:
+  the audit's GL recomputation **reuses Phase 1's `accountBalanceLogic`**
+  (`aggregateBalanceChanges` / `effectiveEntries` / `roundToPaisa`) — the incremental trigger,
+  the Recalculate Balances callable, and the nightly audit now all flow through ONE definition
+  of "what a transaction contributes to balances". No fourth GL checker was written; the Data
+  Health page and MCP server keep their existing implementations (consolidating THOSE would be
+  a cross-ecosystem build project with little payoff for a solo deployment).
+- **What landed:**
+  - `functions/src/dataIntegrityAuditLogic.ts` — pure checks (16 unit tests): per-transaction
+    debits==credits (paisa tolerance), POSTED/APPROVED with no GL entries (the RCPT-0003 class),
+    stored-vs-recomputed balance drift, orphaned entity/account references, duplicate
+    transaction numbers, drafts stale >30 days. Includes an audit-vs-trigger agreement test
+    (replays a write history through `resolveBalanceUpdate`, audits the result: zero drift).
+  - `functions/src/dataIntegrityAudit.ts` — `onSchedule` 21:30 UTC (3:00 AM IST) nightly:
+    loads transactions/accounts (+entity ids via empty projection), runs checks, writes a
+    summary doc to `dataAuditRuns` on EVERY run (status CLEAN/ISSUES/ERROR, counts, findings
+    capped at 50), emails on findings via the existing `email/` infra (event id
+    `data_audit_failed`, idempotency-keyed per IST day), rethrows on error after writing an
+    ERROR run doc.
+  - `firestore.rules`: `dataAuditRuns` read requires VIEW_ACCOUNTING + internal; ALL client
+    writes denied (function-only via Admin SDK). Rules test added same-commit (the Phase 3
+    discipline). No composite index needed — the page reads `orderBy('runAt') limit 1` only.
+  - `data_audit_failed` registered in both admin event registries
+    (`/admin/email`, `/admin/notifications` — pre-existing duplicated lists, rule-32 smell
+    noted but not consolidated here). **The event is OFF by default like every event —
+    enable it once in /admin/notifications after deploy or no email will ever send.**
+  - Data Health page: compact last-run chip in the health-score card (clean/issues/error +
+    date), non-blocking fetch — the page renders normally if the audit has never run.
+  - `COLLECTIONS.DATA_AUDIT_RUNS` added to `@vapour/firebase` (client side; `functions/` uses
+    its existing literal-name convention).
+- Verified: functions build + 44/44 unit tests (3 suites), web `tsc --noEmit` clean, rules
+  suite 11/11 against the emulator including the three new `dataAuditRuns` cases.
+- Post-deploy checklist: (1) enable the "Data Audit Issues" event in /admin/notifications;
+  (2) the first scheduled run fires at 3:00 AM IST — or trigger early via the Cloud Scheduler
+  console "Force run" to confirm the run doc + banner appear.
+
 ## Phase 6 — Test ratchet (~½ day)
 
 Stop the test ratio from decaying, using the mechanism already proven by `ui-baselines.json`.
