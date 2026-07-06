@@ -63,6 +63,7 @@ export type AuditAction =
   | 'PO_UPDATED'
   | 'PO_APPROVED'
   | 'PO_REJECTED'
+  | 'PO_CHANGES_REQUESTED'
   | 'PO_ISSUED'
   | 'PO_AMENDED'
   | 'PO_CANCELLED'

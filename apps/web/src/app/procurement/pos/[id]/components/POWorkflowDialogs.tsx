@@ -28,6 +28,7 @@ interface POWorkflowDialogsProps {
   onSubmitForApproval: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onReturn: () => void;
   onIssue: () => void;
   onCancel: () => void;
 }
@@ -39,6 +40,7 @@ export function POWorkflowDialogs({
   onSubmitForApproval,
   onApprove,
   onReject,
+  onReturn,
   onIssue,
   onCancel,
 }: POWorkflowDialogsProps) {
@@ -176,6 +178,45 @@ export function POWorkflowDialogs({
             disabled={actionLoading || !dialogState.rejectionReason.trim()}
           >
             {actionLoading ? <CircularProgress size={20} /> : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Return with Comments Dialog */}
+      <Dialog
+        open={dialogState.returnDialogOpen}
+        onClose={() => dialogState.setReturnDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Return with Comments</DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>
+            Send this Purchase Order back to the submitter for revision. It returns to Draft and
+            must be resubmitted through both approvers again.
+          </Typography>
+          <TextField
+            label="Comments"
+            value={dialogState.returnComments}
+            onChange={(e) => dialogState.setReturnComments(e.target.value)}
+            multiline
+            rows={3}
+            fullWidth
+            required
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => dialogState.setReturnDialogOpen(false)} disabled={actionLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={onReturn}
+            variant="contained"
+            color="warning"
+            disabled={actionLoading || !dialogState.returnComments.trim()}
+          >
+            {actionLoading ? <CircularProgress size={20} /> : 'Return with Comments'}
           </Button>
         </DialogActions>
       </Dialog>

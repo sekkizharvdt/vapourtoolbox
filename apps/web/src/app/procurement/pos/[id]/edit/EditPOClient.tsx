@@ -410,6 +410,12 @@ export default function EditPOClient() {
 
         {error && <Alert severity="error">{error}</Alert>}
 
+        {po?.status === 'DRAFT' && po.returnedBy && (
+          <Alert severity="info">
+            Returned by {po.returnedByName || 'an approver'}: {po.returnComments}
+          </Alert>
+        )}
+
         {po && (
           <>
             {/* PO Summary */}

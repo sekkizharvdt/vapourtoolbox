@@ -27,6 +27,7 @@ export {
   firstApprovePO,
   approvePO,
   rejectPO,
+  returnPOForRevision,
   issuePO,
   updatePOStatus,
   advancePOStatusIfAllowed,

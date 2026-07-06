@@ -65,8 +65,10 @@ export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = crea
   transitions: {
     DRAFT: ['PENDING_APPROVAL', 'CANCELLED'],
     // Two named approvers, sequential (review 2.3): first → final → approved.
-    PENDING_APPROVAL: ['PENDING_FINAL_APPROVAL', 'REJECTED', 'CANCELLED'],
-    PENDING_FINAL_APPROVAL: ['APPROVED', 'REJECTED', 'CANCELLED'],
+    // DRAFT from either pending stage is "Return with Comments" — a named
+    // approver sends the PO back for revision (feedback sUjQ9E0O9tS9YZHqEtox).
+    PENDING_APPROVAL: ['PENDING_FINAL_APPROVAL', 'REJECTED', 'DRAFT', 'CANCELLED'],
+    PENDING_FINAL_APPROVAL: ['APPROVED', 'REJECTED', 'DRAFT', 'CANCELLED'],
     APPROVED: ['ISSUED', 'CANCELLED'],
     REJECTED: ['DRAFT'], // Allow revision
     // DELIVERED direct from ISSUED covers a GR fully receiving a PO whose

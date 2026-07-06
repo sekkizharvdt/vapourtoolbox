@@ -14,6 +14,8 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
   Cancel as CancelIcon,
+  Undo as ReturnIcon,
+  Restore as ReviseIcon,
   PictureAsPdf as PdfIcon,
   Inventory2 as GoodsReceiptIcon,
   LocalShipping as PackingListIcon,
@@ -28,6 +30,8 @@ import {
   canSubmitForApproval,
   canApprovePO,
   canRejectPO,
+  canReturnPO,
+  canRevisePO,
   canIssuePO,
   canCancelPO,
   canReceiveGoods,
@@ -43,6 +47,8 @@ interface POHeaderProps {
   onSubmitForApproval: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onReturn: () => void;
+  onRevise: () => void;
   onIssue: () => void;
   onCancel: () => void;
   onCreateGoodsReceipt?: () => void;
@@ -63,6 +69,8 @@ export function POHeader({
   onSubmitForApproval,
   onApprove,
   onReject,
+  onReturn,
+  onRevise,
   onIssue,
   onCancel,
   onCreateGoodsReceipt,
@@ -145,9 +153,24 @@ export function POHeader({
               Approve
             </Button>
           )}
+          {canReturnPO(po) && (
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<ReturnIcon />}
+              onClick={onReturn}
+            >
+              Return with Comments
+            </Button>
+          )}
           {canRejectPO(po) && (
             <Button variant="outlined" color="error" startIcon={<CloseIcon />} onClick={onReject}>
               Reject
+            </Button>
+          )}
+          {canRevisePO(po) && (
+            <Button variant="contained" startIcon={<ReviseIcon />} onClick={onRevise}>
+              Revise
             </Button>
           )}
           {canIssuePO(po) && (

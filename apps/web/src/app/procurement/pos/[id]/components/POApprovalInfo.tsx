@@ -29,7 +29,7 @@ function formatTimestamp(raw: unknown): string {
 export function POApprovalInfo({ po }: POApprovalInfoProps) {
   // Show the section once approvers are assigned (pending) or a decision exists.
   const hasAssignedApprovers = !!po.approverId || !!po.secondApproverId;
-  if (!hasAssignedApprovers && !po.approvedBy && !po.rejectedBy) {
+  if (!hasAssignedApprovers && !po.approvedBy && !po.rejectedBy && !po.returnedBy) {
     return null;
   }
 
@@ -47,7 +47,7 @@ export function POApprovalInfo({ po }: POApprovalInfoProps) {
       <Divider sx={{ my: 2 }} />
 
       {/* Assigned approvers — visible while pending and after approval */}
-      {hasAssignedApprovers && !po.rejectedBy && (
+      {hasAssignedApprovers && !po.rejectedBy && !po.returnedBy && (
         <Stack spacing={2} sx={{ mb: po.approvedBy || po.rejectedBy ? 2 : 0 }}>
           {po.approverId && (
             <Box>
@@ -140,6 +140,31 @@ export function POApprovalInfo({ po }: POApprovalInfoProps) {
                 Reason
               </Typography>
               <Typography variant="body2">{po.rejectionReason}</Typography>
+            </Box>
+          )}
+        </Stack>
+      )}
+
+      {po.returnedBy && (
+        <Stack spacing={1}>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Returned By
+            </Typography>
+            <Typography variant="body2">{po.returnedByName}</Typography>
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Returned At
+            </Typography>
+            <Typography variant="body2">{formatTimestamp(po.returnedAt)}</Typography>
+          </Box>
+          {po.returnComments && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Comments
+              </Typography>
+              <Typography variant="body2">{po.returnComments}</Typography>
             </Box>
           )}
         </Stack>

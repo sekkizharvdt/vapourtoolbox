@@ -72,6 +72,17 @@ export function canRejectPO(po: PurchaseOrder): boolean {
   return po.status === 'PENDING_APPROVAL' || po.status === 'PENDING_FINAL_APPROVAL';
 }
 
+/** Return with Comments — an approver sends the PO back for revision instead
+ *  of rejecting outright (feedback sUjQ9E0O9tS9YZHqEtox). */
+export function canReturnPO(po: PurchaseOrder): boolean {
+  return po.status === 'PENDING_APPROVAL' || po.status === 'PENDING_FINAL_APPROVAL';
+}
+
+/** A hard-rejected PO is otherwise a dead end — Revise brings it back to DRAFT. */
+export function canRevisePO(po: PurchaseOrder): boolean {
+  return po.status === 'REJECTED';
+}
+
 export function canIssuePO(po: PurchaseOrder): boolean {
   return po.status === 'APPROVED';
 }

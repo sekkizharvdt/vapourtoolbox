@@ -9,7 +9,7 @@
  * - General status updates
  */
 
-import { doc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
+import { doc, updateDoc, deleteField, Timestamp, runTransaction } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PurchaseOrderStatus } from '@vapour/types';
@@ -412,6 +412,144 @@ export async function rejectPO(
   );
 
   logger.info('PO rejected', { poId });
+
+  // Notify the submitter — previously silent despite the PO_REJECTED
+  // category existing (feedback sUjQ9E0O9tS9YZHqEtox).
+  if (po.submittedBy) {
+    const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+    await createTaskNotification({
+      type: 'informational',
+      category: 'PO_REJECTED',
+      userId: po.submittedBy,
+      assignedBy: userId,
+      assignedByName: userName,
+      title: `Purchase Order Rejected: ${po.number}`,
+      message: `${userName} rejected ${po.number}: ${reason}`,
+      entityType: 'PURCHASE_ORDER',
+      entityId: poId,
+      linkUrl: `/procurement/pos/${poId}`,
+      priority: 'HIGH',
+      ...(po.projectIds[0] && { projectId: po.projectIds[0] }),
+    }).catch((err) => {
+      logger.error('Failed to create PO rejection notification', { error: err, poId });
+    });
+  }
+}
+
+// ============================================================================
+// RETURN WITH COMMENTS (approver sends the PO back to DRAFT for revision)
+// ============================================================================
+
+/**
+ * An approver returns a PO to DRAFT with remarks instead of rejecting it
+ * outright, avoiding a full restart of the approval cycle for minor changes
+ * (feedback sUjQ9E0O9tS9YZHqEtox). Full-restart decision: on resubmission
+ * both approvers must approve again in sequence — this does not skip either.
+ * Modeled on proposals' requestProposalChanges (rule 32).
+ */
+export async function returnPOForRevision(
+  poId: string,
+  userId: string,
+  userName: string,
+  comments: string
+): Promise<void> {
+  // rule8-exempt: transition is validated against the state machine below.
+  // rule5-exempt: gated by approver IDENTITY (requireApprover below) — only
+  // the approver designated for the PO's current stage may return it.
+  if (!comments || !comments.trim()) {
+    throw new Error('Comments are required when returning a purchase order for revision');
+  }
+
+  const { db } = getFirebase();
+
+  const po = await getPOById(poId);
+  if (!po) {
+    throw new Error('Purchase Order not found');
+  }
+
+  const transitionResult = purchaseOrderStateMachine.validateTransition(po.status, 'DRAFT');
+  if (!transitionResult.allowed) {
+    throw new Error(transitionResult.reason || `Cannot return PO with status: ${po.status}`);
+  }
+
+  // Only the approver for the PO's CURRENT stage may return it.
+  if (po.status === 'PENDING_APPROVAL') {
+    requireApprover(userId, po.approverId ? [po.approverId] : [], 'return this purchase order');
+  } else if (po.status === 'PENDING_FINAL_APPROVAL') {
+    requireApprover(
+      userId,
+      po.secondApproverId ? [po.secondApproverId] : [],
+      'return this purchase order'
+    );
+  }
+
+  const now = Timestamp.now();
+
+  // Full restart: clear the prior submission/first-approval record so
+  // resubmission goes through both approvers again in sequence.
+  await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
+    status: 'DRAFT',
+    returnedBy: userId,
+    returnedByName: userName,
+    returnedAt: now,
+    returnComments: comments,
+    submittedForApprovalAt: deleteField(),
+    submittedBy: deleteField(),
+    firstApprovedBy: deleteField(),
+    firstApprovedByName: deleteField(),
+    firstApprovedAt: deleteField(),
+    updatedAt: now,
+    updatedBy: userId,
+  });
+
+  // Complete the returning approver's own open approval task(s) — plural
+  // finder since it fans out no further than one recipient here, but mirrors
+  // the GR clearance pattern for consistency.
+  const { findTaskNotificationsByEntity, completeActionableTask, createTaskNotification } =
+    await import('@/lib/tasks/taskNotificationService');
+  const openTasks = await findTaskNotificationsByEntity(
+    'PURCHASE_ORDER',
+    poId,
+    'PO_PENDING_APPROVAL',
+    ['pending', 'in_progress']
+  );
+  await Promise.all(openTasks.map((task) => completeActionableTask(task.id, userId, true)));
+
+  // Informational notification to the submitter.
+  if (po.submittedBy) {
+    await createTaskNotification({
+      type: 'informational',
+      category: 'PO_CHANGES_REQUESTED',
+      userId: po.submittedBy,
+      assignedBy: userId,
+      assignedByName: userName,
+      title: `Changes Requested: ${po.number}`,
+      message: `${userName} returned ${po.number} for revision: ${comments}`,
+      entityType: 'PURCHASE_ORDER',
+      entityId: poId,
+      linkUrl: `/procurement/pos/${poId}`,
+      priority: 'HIGH',
+      ...(po.projectIds[0] && { projectId: po.projectIds[0] }),
+    }).catch((err) => {
+      logger.error('Failed to create PO changes-requested notification', { error: err, poId });
+    });
+  }
+
+  const auditContext = createAuditContext(userId, '', userName);
+  logAuditEvent(
+    db,
+    auditContext,
+    'PO_CHANGES_REQUESTED',
+    'PURCHASE_ORDER',
+    poId,
+    `Purchase Order ${po.number} returned for revision: ${comments}`,
+    {
+      entityName: po.number,
+      metadata: { vendorName: po.vendorName, comments },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err, poId }));
+
+  logger.info('PO returned for revision', { poId, userId });
 }
 
 // ============================================================================

@@ -25,6 +25,7 @@ export {
   firstApprovePO,
   approvePO,
   rejectPO,
+  returnPOForRevision,
   issuePO,
   updatePOStatus,
   // Attachments

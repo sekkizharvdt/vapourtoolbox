@@ -20,6 +20,7 @@ import {
   firstApprovePO,
   approvePO,
   rejectPO,
+  returnPOForRevision,
   issuePO,
   updatePOStatus,
   addPOAttachment,
@@ -212,6 +213,49 @@ export default function PODetailPage() {
     }
   };
 
+  const handleReturn = async () => {
+    if (!user || !po || !poId || !dialogState.returnComments.trim()) return;
+
+    setActionLoading(true);
+    try {
+      await returnPOForRevision(
+        poId,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        dialogState.returnComments
+      );
+      dialogState.resetReturnForm();
+      await loadPO();
+    } catch (err) {
+      console.error('[PODetailPage] Error returning PO:', err);
+      setError(err instanceof Error ? err.message : 'Failed to return PO for revision');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRevise = async () => {
+    if (!user || !po || !poId) return;
+
+    const confirmed = await confirm({
+      title: 'Revise Purchase Order',
+      message: `Move ${po.number} back to Draft so it can be edited and resubmitted?`,
+      confirmText: 'Revise',
+    });
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    try {
+      await updatePOStatus(poId, 'DRAFT', user.uid);
+      await loadPO();
+    } catch (err) {
+      console.error('[PODetailPage] Error revising PO:', err);
+      setError(err instanceof Error ? err.message : 'Failed to move PO back to Draft');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleIssue = async () => {
     if (!user || !po || !poId || !claims) return;
 
@@ -340,6 +384,8 @@ export default function PODetailPage() {
           onSubmitForApproval={openSubmitDialog}
           onApprove={() => dialogState.setApproveDialogOpen(true)}
           onReject={() => dialogState.setRejectDialogOpen(true)}
+          onReturn={() => dialogState.setReturnDialogOpen(true)}
+          onRevise={handleRevise}
           onIssue={() => dialogState.setIssueDialogOpen(true)}
           onCancel={() => dialogState.setCancelDialogOpen(true)}
           onCreateGoodsReceipt={() => router.push(`/procurement/goods-receipts/new?poId=${poId}`)}
@@ -355,6 +401,12 @@ export default function PODetailPage() {
         />
 
         {error && <Alert severity="error">{error}</Alert>}
+
+        {po.status === 'DRAFT' && po.returnedBy && (
+          <Alert severity="info">
+            Returned by {po.returnedByName || 'an approver'}: {po.returnComments}
+          </Alert>
+        )}
 
         <POProgressIndicators po={po} />
         <PODetailsSection po={po} />
@@ -385,6 +437,7 @@ export default function PODetailPage() {
         onSubmitForApproval={handleSubmitForApproval}
         onApprove={handleApprove}
         onReject={handleReject}
+        onReturn={handleReturn}
         onIssue={handleIssue}
         onCancel={handleCancel}
       />

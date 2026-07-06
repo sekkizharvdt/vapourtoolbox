@@ -28,6 +28,7 @@ export type TaskNotificationCategory =
   | 'PO_PENDING_APPROVAL' // Actionable: Approve/reject PO
   | 'PO_APPROVED' // Informational: Your PO was approved
   | 'PO_REJECTED' // Informational: Your PO was rejected
+  | 'PO_CHANGES_REQUESTED' // Informational: Approver returned your PO with comments
   | 'AMENDMENT_PENDING_APPROVAL' // Actionable: Approve/reject PO amendment
   | 'GOODS_RECEIVED' // Informational: Goods received for PO
   | 'GR_READY_FOR_PAYMENT' // Actionable: Review GR and approve payment
@@ -378,6 +379,7 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
       'PO_PENDING_APPROVAL',
       'PO_APPROVED',
       'PO_REJECTED',
+      'PO_CHANGES_REQUESTED',
       'AMENDMENT_PENDING_APPROVAL',
       'GOODS_RECEIVED',
       'GR_BILL_CREATED',

@@ -147,6 +147,14 @@ export interface PurchaseOrder {
   rejectedAt?: Timestamp;
   rejectionReason?: string;
 
+  // "Return with Comments" — an approver sends the PO back to DRAFT for
+  // revision instead of rejecting outright (full restart: on resubmission
+  // both approvers approve again in sequence).
+  returnedBy?: string;
+  returnedByName?: string;
+  returnedAt?: Timestamp;
+  returnComments?: string;
+
   // Issuance
   issuedAt?: Timestamp;
   issuedBy?: string;
