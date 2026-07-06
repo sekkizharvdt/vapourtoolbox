@@ -40,6 +40,7 @@ import {
 import { PERMISSION_FLAGS, PERMISSION_FLAGS_2 } from '@vapour/constants';
 import { requirePermission, preventSelfApproval } from '@/lib/auth/authorizationService';
 import { getUsersWithPermission } from '@/lib/auth/userLookup';
+import { getPLById } from './packingListService';
 
 // ============================================================================
 // CREATE GR
@@ -47,7 +48,8 @@ import { getUsersWithPermission } from '@/lib/auth/userLookup';
 
 export interface CreateGoodsReceiptInput {
   purchaseOrderId: string;
-  packingListId?: string;
+  /** A Goods Receipt requires an existing, non-draft Packing List for the PO (rule 23). */
+  packingListId: string;
   projectId: string;
   projectName: string;
   inspectionType: 'VENDOR_SITE' | 'DELIVERY_SITE' | 'THIRD_PARTY';
@@ -102,6 +104,45 @@ export async function createGoodsReceipt(
     idempotencyKey,
     'create-goods-receipt',
     async () => {
+      // A Goods Receipt requires an existing, finalized (non-draft) Packing
+      // List for the PO — vendors ship against a packing list, and creating
+      // one is how procurement records shipment details before receipt.
+      if (!input.packingListId) {
+        throw new Error(
+          'A Packing List is required before creating a Goods Receipt. Create and finalize a Packing List for this PO first.'
+        );
+      }
+      const packingList = await getPLById(input.packingListId);
+      if (!packingList) {
+        throw new Error('Packing List not found');
+      }
+      if (packingList.purchaseOrderId !== input.purchaseOrderId) {
+        throw new Error(
+          `Packing List ${packingList.number} does not belong to Purchase Order ${input.purchaseOrderId}`
+        );
+      }
+      if (packingList.status === 'DRAFT') {
+        throw new Error(
+          `Packing List ${packingList.number} must be finalized before it can be used for a Goods Receipt`
+        );
+      }
+
+      // Reject negative or all-zero received quantities (a GR must record an
+      // actual receipt; over-delivery per item is validated later against
+      // live PO item quantities inside the transaction).
+      for (const item of input.items) {
+        if (item.receivedQuantity < 0) {
+          throw new Error(`Received quantity cannot be negative for item ${item.poItemId}`);
+        }
+      }
+      const totalReceivedQuantity = input.items.reduce(
+        (sum, item) => sum + item.receivedQuantity,
+        0
+      );
+      if (totalReceivedQuantity <= 0) {
+        throw new Error('Received quantity must be greater than zero for at least one item');
+      }
+
       // Generate GR number (uses its own transaction for counter)
       const grNumber = await generateProcurementNumber(PROCUREMENT_NUMBER_CONFIGS.GOODS_RECEIPT);
 
@@ -115,6 +156,17 @@ export async function createGoodsReceipt(
         id: docSnap.id,
         ...docSnap.data(),
       })) as PurchaseOrderItem[];
+
+      // Block GR creation once every PO item has already been fully received
+      // (mirrors the equivalent check in packingListService.createPackingList).
+      const anyRemaining = poItems.some(
+        (poItem) => (poItem.quantity || 0) - (poItem.quantityDelivered || 0) > 0
+      );
+      if (poItems.length > 0 && !anyRemaining) {
+        throw new Error(
+          'This Purchase Order has already been fully received — no quantity remains to receive'
+        );
+      }
 
       // Calculate derived values
       const allAccepted = input.items.every(
@@ -184,7 +236,7 @@ export async function createGoodsReceipt(
             purchaseOrderId: input.purchaseOrderId,
             poNumber: po.number,
             packingListId: input.packingListId,
-            packingListNumber: undefined,
+            packingListNumber: packingList.number,
             projectId: input.projectId,
             projectName: input.projectName,
             tenantId: poDoc.data()?.tenantId || '',

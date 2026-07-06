@@ -41,15 +41,17 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import type { PurchaseOrder, ItemCondition } from '@vapour/types';
+import type { PurchaseOrder, ItemCondition, PackingList } from '@vapour/types';
 import { listPOs, getPOItems } from '@/lib/procurement/purchaseOrderService';
 import { createGoodsReceipt } from '@/lib/procurement/goodsReceiptService';
+import { getPackingListsByPO } from '@/lib/procurement/packingListService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 
 interface InspectionItem {
   poItemId: string;
   description: string;
   orderedQuantity: number;
+  previouslyReceivedQuantity: number;
   receivedQuantity: number;
   acceptedQuantity: number;
   rejectedQuantity: number;
@@ -68,8 +70,9 @@ interface InspectionItem {
 export default function NewGoodsReceiptPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const preselectedPoId = searchParams.get('poId');
+  const preselectedPlId = searchParams.get('plId');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -78,6 +81,11 @@ export default function NewGoodsReceiptPage() {
   // PO Selection
   const [availablePOs, setAvailablePOs] = useState<PurchaseOrder[]>([]);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+
+  // Packing List selection — a Goods Receipt requires a finalized PL for the PO
+  const [availablePLs, setAvailablePLs] = useState<PackingList[]>([]);
+  const [selectedPL, setSelectedPL] = useState<PackingList | null>(null);
+  const [loadingPLs, setLoadingPLs] = useState(false);
 
   // Inspection Details
   const [inspectionType, setInspectionType] = useState<
@@ -110,13 +118,27 @@ export default function NewGoodsReceiptPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedPoId, availablePOs]);
 
+  // Preselect the Packing List once its PO's list has loaded
+  useEffect(() => {
+    if (preselectedPlId && availablePLs.length > 0) {
+      const pl = availablePLs.find((p) => p.id === preselectedPlId);
+      if (pl) {
+        setSelectedPL(pl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedPlId, availablePLs]);
+
   const loadAvailablePOs = async () => {
     setLoading(true);
     try {
       // Load POs that are issued or in progress (eligible for goods receipts)
+      // and exclude POs that have already received their full ordered quantity.
       const pos = await listPOs({});
-      const eligiblePOs = pos.filter((po) =>
-        ['ISSUED', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(po.status)
+      const eligiblePOs = pos.filter(
+        (po) =>
+          ['ISSUED', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(po.status) &&
+          (po.deliveryProgress || 0) < 100
       );
       setAvailablePOs(eligiblePOs);
     } catch (err) {
@@ -129,13 +151,19 @@ export default function NewGoodsReceiptPage() {
 
   const handlePOSelect = useCallback(async (po: PurchaseOrder | null) => {
     setSelectedPO(po);
+    setSelectedPL(null);
     if (!po) {
       setInspectionItems([]);
+      setAvailablePLs([]);
       return;
     }
 
+    setLoadingPLs(true);
     try {
-      const items = await getPOItems(po.id);
+      const [items, pls] = await Promise.all([getPOItems(po.id), getPackingListsByPO(po.id)]);
+
+      // A GR requires a finalized (non-draft) Packing List for the PO.
+      setAvailablePLs(pls.filter((pl) => pl.status !== 'DRAFT'));
 
       // Initialize inspection items from PO items
       const inspectItems: InspectionItem[] = items.map((item) => {
@@ -144,6 +172,7 @@ export default function NewGoodsReceiptPage() {
           poItemId: item.id,
           description: item.description,
           orderedQuantity: item.quantity,
+          previouslyReceivedQuantity: item.quantityDelivered || 0,
           receivedQuantity: pending,
           acceptedQuantity: pending,
           rejectedQuantity: 0,
@@ -164,6 +193,8 @@ export default function NewGoodsReceiptPage() {
     } catch (err) {
       console.error('[NewGoodsReceiptPage] Error loading PO items:', err);
       setError('Failed to load PO items');
+    } finally {
+      setLoadingPLs(false);
     }
   }, []);
 
@@ -197,6 +228,13 @@ export default function NewGoodsReceiptPage() {
     if (!user || !selectedPO) return;
 
     // Validation
+    if (!selectedPL) {
+      setError(
+        'A Packing List is required before creating a Goods Receipt. Create and finalize a Packing List for this PO first.'
+      );
+      return;
+    }
+
     if (!inspectionLocation.trim()) {
       setError('Inspection location is required');
       return;
@@ -215,6 +253,15 @@ export default function NewGoodsReceiptPage() {
       }
     }
 
+    const totalReceivedQuantity = inspectionItems.reduce(
+      (sum, item) => sum + item.receivedQuantity,
+      0
+    );
+    if (totalReceivedQuantity <= 0) {
+      setError('Received quantity must be greater than zero for at least one item');
+      return;
+    }
+
     setCreating(true);
     setError('');
 
@@ -222,6 +269,7 @@ export default function NewGoodsReceiptPage() {
       const grId = await createGoodsReceipt(
         {
           purchaseOrderId: selectedPO.id,
+          packingListId: selectedPL.id,
           projectId: selectedPO.projectIds?.[0] || '',
           projectName: selectedPO.projectNames?.[0] || '',
           inspectionType,
@@ -243,13 +291,16 @@ export default function NewGoodsReceiptPage() {
           })),
         },
         user.uid,
-        user.displayName || 'Unknown'
+        user.displayName || 'Unknown',
+        claims?.permissions2
       );
 
       router.push(`/procurement/goods-receipts/${grId}`);
     } catch (err) {
       console.error('[NewGoodsReceiptPage] Error creating goods receipt:', err);
-      setError('Failed to create goods receipt. Please try again.');
+      setError(
+        err instanceof Error ? err.message : 'Failed to create goods receipt. Please try again.'
+      );
       setCreating(false);
     }
   };
@@ -363,6 +414,51 @@ export default function NewGoodsReceiptPage() {
 
         {selectedPO && (
           <>
+            {/* Packing List Selection — required before a GR can be created */}
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Packing List
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+
+              {!loadingPLs && availablePLs.length === 0 ? (
+                <Alert
+                  severity="warning"
+                  action={
+                    <Button
+                      color="inherit"
+                      size="small"
+                      onClick={() =>
+                        router.push(`/procurement/packing-lists/new?poId=${selectedPO.id}`)
+                      }
+                    >
+                      Create Packing List
+                    </Button>
+                  }
+                >
+                  No finalized Packing List exists for this PO yet. Create and finalize one before
+                  receiving goods.
+                </Alert>
+              ) : (
+                <Autocomplete
+                  options={availablePLs}
+                  value={selectedPL}
+                  onChange={(_, newValue) => setSelectedPL(newValue)}
+                  loading={loadingPLs}
+                  getOptionLabel={(option) => `${option.number} (${option.status})`}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Packing List"
+                      placeholder="Select the packing list this receipt is against..."
+                      required
+                    />
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                />
+              )}
+            </Paper>
+
             {/* Inspection Details */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -435,6 +531,8 @@ export default function NewGoodsReceiptPage() {
                     <TableRow>
                       <TableCell>Description</TableCell>
                       <TableCell align="right">Ordered</TableCell>
+                      <TableCell align="right">Prev. Received</TableCell>
+                      <TableCell align="right">Balance</TableCell>
                       <TableCell align="right">Received</TableCell>
                       <TableCell align="right">Accepted</TableCell>
                       <TableCell align="right">Rejected</TableCell>
@@ -456,6 +554,12 @@ export default function NewGoodsReceiptPage() {
                         </TableCell>
                         <TableCell align="right">
                           {item.orderedQuantity} {item.unit}
+                        </TableCell>
+                        <TableCell align="right">
+                          {item.previouslyReceivedQuantity} {item.unit}
+                        </TableCell>
+                        <TableCell align="right">
+                          {item.orderedQuantity - item.previouslyReceivedQuantity} {item.unit}
                         </TableCell>
                         <TableCell align="right">
                           <TextField
@@ -622,7 +726,7 @@ export default function NewGoodsReceiptPage() {
                 variant="contained"
                 startIcon={creating ? <CircularProgress size={20} /> : <SaveIcon />}
                 onClick={handleCreateGR}
-                disabled={creating}
+                disabled={creating || !selectedPL}
               >
                 {creating ? 'Creating...' : 'Create Goods Receipt'}
               </Button>

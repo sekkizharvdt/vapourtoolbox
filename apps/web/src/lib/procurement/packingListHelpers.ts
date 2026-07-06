@@ -92,11 +92,14 @@ export function getAvailableActions(status: PackingListStatus): {
   canShip: boolean;
   canDeliver: boolean;
   canEdit: boolean;
+  canReceiveGoods: boolean;
 } {
   return {
     canFinalize: status === 'DRAFT',
     canShip: status === 'FINALIZED',
     canDeliver: status === 'SHIPPED',
     canEdit: status === 'DRAFT',
+    // A GR requires a finalized (non-draft) PL — see createGoodsReceipt.
+    canReceiveGoods: status !== 'DRAFT',
   };
 }

@@ -16,6 +16,7 @@ import {
   Cancel as CancelIcon,
   PictureAsPdf as PdfIcon,
   Inventory2 as GoodsReceiptIcon,
+  LocalShipping as PackingListIcon,
   AssignmentTurnedIn as WorkCompletionIcon,
 } from '@mui/icons-material';
 import type { PurchaseOrder } from '@vapour/types';
@@ -43,6 +44,7 @@ interface POHeaderProps {
   onIssue: () => void;
   onCancel: () => void;
   onCreateGoodsReceipt?: () => void;
+  onCreatePackingList?: () => void;
   onCreateWorkCompletion?: () => void;
   onDownloadPDF?: () => void;
   pdfLoading?: boolean;
@@ -61,6 +63,7 @@ export function POHeader({
   onIssue,
   onCancel,
   onCreateGoodsReceipt,
+  onCreatePackingList,
   onCreateWorkCompletion,
   onDownloadPDF,
   pdfLoading = false,
@@ -146,6 +149,15 @@ export function POHeader({
           {canIssuePO(po) && (
             <Button variant="contained" startIcon={<SendIcon />} onClick={onIssue}>
               Issue to Vendor
+            </Button>
+          )}
+          {canReceiveGoods(po) && onCreatePackingList && (
+            <Button
+              variant="outlined"
+              startIcon={<PackingListIcon />}
+              onClick={onCreatePackingList}
+            >
+              Create Packing List
             </Button>
           )}
           {canReceiveGoods(po) && onCreateGoodsReceipt && (

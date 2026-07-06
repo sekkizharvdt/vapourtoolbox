@@ -38,6 +38,7 @@ import {
   CheckCircle as CheckCircleIcon,
   LocalShipping as ShippingIcon,
   Inventory as InventoryIcon,
+  Inventory2 as GoodsReceiptIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
@@ -250,6 +251,19 @@ export default function PLDetailClient() {
                   onClick={() => setDeliverDialogOpen(true)}
                 >
                   Mark as Delivered
+                </Button>
+              )}
+              {actions.canReceiveGoods && (
+                <Button
+                  variant="outlined"
+                  startIcon={<GoodsReceiptIcon />}
+                  onClick={() =>
+                    router.push(
+                      `/procurement/goods-receipts/new?poId=${pl.purchaseOrderId}&plId=${plId}`
+                    )
+                  }
+                >
+                  Receive Goods
                 </Button>
               )}
             </Stack>

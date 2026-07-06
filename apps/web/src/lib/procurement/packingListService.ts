@@ -98,11 +98,10 @@ export async function createPackingList(
     poItemMap.set(d.id, { quantity: data.quantity, description: data.description });
   });
 
-  // Sum already-packed quantities from existing (non-cancelled) packing lists
+  // Sum already-packed quantities from ALL existing packing lists for this PO,
+  // including drafts — a draft still reserves the quantity it lists.
   const alreadyPacked = new Map<string, number>();
-  const existingPLIds = existingPLs
-    .filter((pl) => pl.status !== 'DRAFT' || true) // count all existing PLs
-    .map((pl) => pl.id);
+  const existingPLIds = existingPLs.map((pl) => pl.id);
 
   if (existingPLIds.length > 0) {
     // Batch fetch PL items in chunks of 30

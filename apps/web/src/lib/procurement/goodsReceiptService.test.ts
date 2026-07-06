@@ -44,6 +44,8 @@ jest.mock('@vapour/firebase', () => ({
     GOODS_RECEIPT_ITEMS: 'goodsReceiptItems',
     PURCHASE_ORDERS: 'purchaseOrders',
     PURCHASE_ORDER_ITEMS: 'purchaseOrderItems',
+    PACKING_LISTS: 'packingLists',
+    PACKING_LIST_ITEMS: 'packingListItems',
     ACCOUNTS: 'accounts',
     COUNTERS: 'counters',
   },
@@ -121,6 +123,13 @@ const mockPOItem = {
   unit: 'PCS',
 } as PurchaseOrderItem;
 
+const mockPL = {
+  id: 'pl-1',
+  number: 'PL/2024/001',
+  purchaseOrderId: 'po-1',
+  status: 'FINALIZED',
+};
+
 describe('goodsReceiptService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -130,6 +139,7 @@ describe('goodsReceiptService', () => {
   describe('createGoodsReceipt', () => {
     const input: CreateGoodsReceiptInput = {
       purchaseOrderId: 'po-1',
+      packingListId: 'pl-1',
       projectId: 'proj-1',
       projectName: 'Project A',
       inspectionType: 'DELIVERY_SITE',
@@ -149,6 +159,7 @@ describe('goodsReceiptService', () => {
     };
 
     it('should create GR and update PO items successfully', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
       mockGetDocs.mockResolvedValueOnce({
         docs: [{ id: 'poi-1', data: () => mockPOItem }],
       });
@@ -179,6 +190,7 @@ describe('goodsReceiptService', () => {
     });
 
     it('should calculate validation flags correctly', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
       mockGetDocs.mockResolvedValueOnce({
         docs: [{ id: 'poi-1', data: () => mockPOItem }],
       });
@@ -210,6 +222,8 @@ describe('goodsReceiptService', () => {
       expect(savedGRData).toBeDefined();
       expect(savedGRData.overallCondition).toBe('ACCEPTED');
       expect(savedGRData.hasIssues).toBe(false);
+      expect(savedGRData.packingListId).toBe('pl-1');
+      expect(savedGRData.packingListNumber).toBe(mockPL.number);
     });
 
     it('should throw error when PO not found', async () => {
@@ -217,6 +231,7 @@ describe('goodsReceiptService', () => {
       // Actually, service code: fetches items -> withIdempotency -> generateGRNumber -> run txn.
       // Inside txn: fetches PO.
       // So we DO need to mock items fetch first.
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
       mockGetDocs.mockResolvedValueOnce({
         docs: [{ id: 'poi-1', data: () => mockPOItem }],
       });
@@ -237,37 +252,80 @@ describe('goodsReceiptService', () => {
       );
     });
 
-    it('should handle empty items array (no items created)', async () => {
+    it('should reject an empty items array (zero received quantity)', async () => {
       const emptyInput = { ...input, items: [] };
 
-      // Mock PO items fetch
-      mockGetDocs.mockResolvedValueOnce({
-        docs: [{ id: 'poi-1', data: () => mockPOItem }],
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
+
+      await expect(createGoodsReceipt(emptyInput, 'user-1', 'User')).rejects.toThrow(
+        /Received quantity must be greater than zero/
+      );
+    });
+
+    it('should require a packingListId', async () => {
+      const noPlInput = { ...input, packingListId: '' };
+
+      await expect(createGoodsReceipt(noPlInput, 'user-1', 'User')).rejects.toThrow(
+        /Packing List is required/
+      );
+    });
+
+    it('should throw when the packing list does not exist', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => false });
+
+      await expect(createGoodsReceipt(input, 'user-1', 'User')).rejects.toThrow(
+        'Packing List not found'
+      );
+    });
+
+    it('should throw when the packing list belongs to a different PO', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        id: 'pl-1',
+        data: () => ({ ...mockPL, purchaseOrderId: 'po-OTHER' }),
       });
 
-      let createdItemsCount = 0;
+      await expect(createGoodsReceipt(input, 'user-1', 'User')).rejects.toThrow(
+        /does not belong to Purchase Order/
+      );
+    });
 
-      mockRunTransaction
-        .mockResolvedValueOnce('GR/NUM')
-        .mockImplementation(async (_db, callback) => {
-          const transaction = {
-            get: jest.fn().mockResolvedValue({
-              exists: () => true,
-              data: () => ({ ...mockPO, ...mockPOItem }),
-            }),
-            set: jest.fn((_ref, data) => {
-              if (!('overallCondition' in data)) {
-                // It's an item
-                createdItemsCount++;
-              }
-            }),
-            update: jest.fn(),
-          };
-          return callback(transaction);
-        });
+    it('should throw when the packing list is still a draft', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        id: 'pl-1',
+        data: () => ({ ...mockPL, status: 'DRAFT' }),
+      });
 
-      await createGoodsReceipt(emptyInput, 'user-1', 'User');
-      expect(createdItemsCount).toBe(0);
+      await expect(createGoodsReceipt(input, 'user-1', 'User')).rejects.toThrow(
+        /must be finalized/
+      );
+    });
+
+    it('should reject a negative received quantity', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
+      const negativeInput = {
+        ...input,
+        items: [{ ...input.items[0]!, receivedQuantity: -1 }],
+      };
+
+      await expect(createGoodsReceipt(negativeInput, 'user-1', 'User')).rejects.toThrow(
+        /cannot be negative/
+      );
+    });
+
+    it('should reject when the PO is already fully received', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true, id: 'pl-1', data: () => mockPL });
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [
+          { id: 'poi-1', data: () => ({ ...mockPOItem, quantity: 10, quantityDelivered: 10 }) },
+        ],
+      });
+      mockRunTransaction.mockResolvedValueOnce('GR/NUM'); // counter transaction only
+
+      await expect(createGoodsReceipt(input, 'user-1', 'User')).rejects.toThrow(
+        /already been fully received/
+      );
     });
   });
 
