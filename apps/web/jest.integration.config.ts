@@ -11,8 +11,10 @@ const config: Config = {
   displayName: 'integration',
   testEnvironment: 'node', // Integration tests run in Node, not jsdom
 
-  // Only run integration tests
-  testMatch: ['**/__integration__/**/*.test.ts'],
+  // Integration tests (client-SDK, permissive firestore.test.rules) and
+  // Firestore security-rules tests (real firestore.rules, isolated project id
+  // — see src/__rules__/setup.ts) both need the same firestore+auth emulator.
+  testMatch: ['**/__integration__/**/*.test.ts', '**/__rules__/**/*.test.ts'],
 
   // TypeScript and module resolution
   preset: 'ts-jest',

@@ -192,6 +192,62 @@ New suites in `apps/web/src/__integration__/`, running under the existing CI emu
 Not the goal: exhaustive coverage of all 2,210 lines. ~8–10 focused suites on the collections
 above captures most of the regression risk.
 
+### Phase 3 execution notes ✅ DONE 2026-07-06 (Sonnet; not yet committed)
+
+- **Landed as 4 files in `apps/web/src/__rules__/`** (`setup.ts` harness +
+  `projects-proposals.rules.test.ts`, `accounting.rules.test.ts`, `procurement.rules.test.ts`,
+  `users-notifications.rules.test.ts`), 40 tests total, folded into the existing
+  `pnpm test:integration` run (`jest.integration.config.ts` testMatch widened to include
+  `**/__rules__/**/*.test.ts` — no `ci.yml` change needed, same as Phase 2).
+- **Package version pinned deliberately:** `@firebase/rules-unit-testing@4.0.1`, not the
+  latest `5.0.1` — v5 requires `firebase@^12.0.0` but this repo is on `firebase@^11.2.0`;
+  v4.0.1's peer range (`^11.0.0`) is the one that actually matches.
+- **Isolated project id (`rules-test-project`)**, distinct from the `__integration__` suites'
+  `test-project` — `initializeTestEnvironment` sets rules per-project on the shared emulator,
+  so reusing `test-project` would have overwritten the permissive `firestore.test.rules` those
+  suites depend on with the real restrictive rules mid test-run.
+- **Real bug found and fixed: `isAgent()` (firestore.rules line 103) had no null-guard.**
+  `request.auth.token.agent == true` on a token that never carries an `agent` key at all (every
+  regular user — only the dedicated agent identity from
+  `scripts/provision-agent-identity.js` gets one) is a Firestore **rules evaluation ERROR**, not
+  `false` — confirmed empirically with an isolated probe rules file before touching the real
+  file. This gated `transactions`/`fixedAssets`/`recurringTransactions`/`paymentBatches`
+  create+update (8 call sites). Every sibling permission helper in the same file
+  (`hasPermission`, `hasPermission2`, `isInternalUser`) already guards with `!= null` before
+  comparing — `isAgent()` was the one exception. **Also confirmed by the same probe that
+  `!= null` does NOT fix this** (throws identically) — only the `in` operator
+  (`'agent' in request.auth.token`) actually guards a truly-absent key. Fixed to
+  `('agent' in request.auth.token) && request.auth.token.agent == true`. Flagged to the user
+  and fixed with explicit go-ahead before touching the live rules file (see chat).
+  Production isn't provably broken today (667 real transactions exist, so production's rules
+  engine is evidently more lenient here than the local emulator) — but relying on that
+  undocumented, version-fragile leniency for financial write access was the actual risk;
+  the fix removes the dependency on it entirely.
+- **Two dev-tooling fixes were needed to make the suite pre-commit-clean, both mirroring
+  existing conventions rather than inventing new ones:**
+  - `apps/web/jest.config.ts`: added `/__rules__/` to `testPathIgnorePatterns`, same as the
+    pre-existing `/__integration__/` entry — otherwise the default (non-emulator) unit-test
+    config also tries to discover these files.
+  - `.lintstagedrc.js`: the `apps/web/**/*.test.{ts,tsx}` task already special-cased
+    `/__integration__/` paths (with a comment explaining why); extended the same filter to
+    `/__rules__/` for the identical reason.
+  - `scripts/audit/check-structure.js`'s rule-4 collection scanner (`findUsedCollections`) had
+    **no** `*.test.*` exclusion, unlike the neighboring rule-24 scanner one function below it —
+    it flagged the deliberately-fictitious `someRandomUnknownCollection` name used by the
+    default-deny test as an undeclared real collection. Added the same `--exclude="*.test.*"`
+    rule-24 already uses. Narrow, mechanical, dev-tooling-only change — did not ask before
+    applying (unlike the firestore.rules fix, which is live security-critical code).
+- Verified end-to-end: `pnpm test:integration` (13 suites / 113 tests, all green), `tsc --noEmit`
+  clean, `pnpm lint-staged` clean, `scripts/audit/check-rules.js` and
+  `scripts/audit/check-ui-standards.js` both passing with zero new violations.
+- **Not done, left for later:** rules tests for `entities`, `time_entries`, `taskThreads`, and
+  the project subcollections (transmittals, masterDocuments, etc.) — the plan's "~8–10 focused
+  suites on collections that have already bitten, then money" bar is met at 4 files/40 tests;
+  broader collection coverage is explicitly out of scope per the plan ("not exhaustive coverage
+  of all 2,210 lines").
+- CLAUDE.md rule 4 follow-up ("a rules change ships with a rules test for the touched match
+  block") not yet added as a written rule — flag for a future CLAUDE.md edit, not done here.
+
 ## Phase 4 — Money-path e2e smoke + deploy gate (~1–1.5 days)
 
 The single change that turns "tests exist" into "deploys are verified".

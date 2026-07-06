@@ -101,7 +101,13 @@ service cloud.firestore {
      *     actorType: 'agent' (see /auditLogs match block).
      */
     function isAgent() {
+      // Regular users' tokens never carry an `agent` key at all (only the
+      // dedicated agent identity does — scripts/provision-agent-identity.js).
+      // Bare `== true` on an absent map key is a rules evaluation ERROR, not
+      // `false` — the `in` check (not `!= null`, which errors identically)
+      // is required to make this side-effect-free for every non-agent user.
       return isAuthenticated() &&
+             ('agent' in request.auth.token) &&
              request.auth.token.agent == true;
     }
 

@@ -83,8 +83,11 @@ function findUsedCollections(collectionMap) {
     const full = path.join(ROOT, dir);
     if (!fs.existsSync(full)) continue;
     try {
+      // Excludes *.test.* like rule #24 below — rules tests deliberately
+      // reference fictitious/mismatched collection names (e.g. to prove the
+      // default-deny catch-all works) that would otherwise false-positive here.
       const grepOut = execSync(
-        `grep -rohn -E "(collection|doc|collectionGroup)\\([^,]+,\\s*['\\\"]([a-zA-Z_][a-zA-Z0-9_]*)['\\\"]|COLLECTIONS\\.([A-Z_][A-Z0-9_]*)" "${full}" --include="*.ts" --include="*.tsx" 2>/dev/null || true`,
+        `grep -rohn -E "(collection|doc|collectionGroup)\\([^,]+,\\s*['\\\"]([a-zA-Z_][a-zA-Z0-9_]*)['\\\"]|COLLECTIONS\\.([A-Z_][A-Z0-9_]*)" "${full}" --include="*.ts" --include="*.tsx" --exclude="*.test.*" 2>/dev/null || true`,
         { encoding: 'utf8' }
       );
       for (const line of grepOut.split('\n')) {

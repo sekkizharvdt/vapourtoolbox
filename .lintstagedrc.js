@@ -30,12 +30,15 @@ module.exports = {
 
   // Run tests for changed test files
   'apps/web/**/*.test.{ts,tsx}': (filenames) => {
-    // Integration tests need Firebase emulators and are excluded from the unit
-    // jest config (testPathIgnorePatterns: '/__integration__/'). Running them
-    // here always finds 0 tests and fails the hook, so skip them. Run jest
-    // directly (not `pnpm test --`, which injects a `--` that turns the flags
-    // into path patterns) and absorb "no tests found" with `|| true`.
-    const unitTests = filenames.filter((f) => !f.includes('/__integration__/'));
+    // Integration and Firestore-rules tests need Firebase emulators and are
+    // excluded from the unit jest config (testPathIgnorePatterns:
+    // '/__integration__/', '/__rules__/'). Running them here always finds 0
+    // tests and fails the hook, so skip them. Run jest directly (not
+    // `pnpm test --`, which injects a `--` that turns the flags into path
+    // patterns) and absorb "no tests found" with `|| true`.
+    const unitTests = filenames.filter(
+      (f) => !f.includes('/__integration__/') && !f.includes('/__rules__/')
+    );
     if (unitTests.length === 0) return [];
     return [
       `pnpm --filter @vapour/web exec jest --passWithNoTests --bail ${unitTests.join(' ')} || true`,
