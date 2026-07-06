@@ -391,6 +391,25 @@ Stop the test ratio from decaying, using the mechanism already proven by `ui-bas
 3. Optional report mode: `node scripts/audit/check-test-presence.js --report` prints the
    baseline count per module, so progress is visible in reviews.
 
+### Phase 6 execution notes ✅ DONE 2026-07-06 (Fable; not yet committed)
+
+- `scripts/audit/check-test-presence.js` wired into `.husky/pre-commit` (after the UI
+  standards check). Scope as planned: `apps/web/src/lib/**/*Service.ts`, top-level
+  `functions/src/*.ts` (minus the `index.ts` barrel), and all of `packages/functions/src`
+  (legacy tree — nothing new should land there at all, so untested additions block).
+- **Whole-tree scan rather than staged-files-only** (deviation, deliberate): a staged-only
+  check misses files that slipped in via `--no-verify` or merges; scanning all ~139 in-scope
+  files takes milliseconds and is self-healing. "New" is defined as "in scope, untested, and
+  not in the baseline" — so editing a baselined file still doesn't force a test, as planned.
+- **Shrink enforcement is active, not just conventional:** a baseline entry whose file was
+  deleted or now has a test BLOCKS the commit until the entry is removed. `--seed` refuses to
+  run if the baseline exists, so it can never regrow. Manual exemptions go in the
+  `exemptions` map with a reason.
+- Seeded `test-baselines.json` with **86 untested files** (48 `apps/web/src/lib` services,
+  17 top-level `functions/src` modules, 21 legacy `packages/functions` files). Both failure
+  modes verified live: a new untested `fooService.ts` blocked; adding a test for a baselined
+  file flagged the stale entry; clean state passes.
+
 ---
 
 ## Sequencing & effort

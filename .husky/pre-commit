@@ -76,6 +76,18 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Test-presence ratchet (docs/reviews/2026-07-05-automated-verification-plan.md
+# Phase 6). New service/function files must ship with a test; the pre-existing
+# untested backlog is frozen in scripts/audit/test-baselines.json and may only
+# shrink (stale entries block until removed).
+echo "🔍 Running test-presence check..."
+node scripts/audit/check-test-presence.js --quiet
+if [ $? -ne 0 ]; then
+  echo "❌ Test-presence check failed. See output above."
+  echo "   To bypass for this commit only (not recommended): git commit --no-verify"
+  exit 1
+fi
+
 # Functions lockfile-sync guard. The Cloud Functions deploy runs `npm ci`
 # against functions/package-lock.json (a SEPARATE npm lockfile from the root
 # pnpm-lock.yaml). If functions/package.json changes without regenerating the

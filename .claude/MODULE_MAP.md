@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-07-06 (retryOnStaleToken swept across all accounting create/edit dialogs — rule 35)
+Last verified: 2026-07-06 (nightly dataIntegrityAudit function + test-presence ratchet — verification plan Phases 5/6)
 
 ## Monorepo layout
 
@@ -66,6 +66,7 @@ Last verified: 2026-07-06 (retryOnStaleToken swept across all accounting create/
 - `vendorQuoteCounters.ts`, `bom.ts`, `projects.ts`, `charterApproval.ts`, `documentRequirements.ts`
 - Parsing (Document AI): `offerParsing/`, `enquiryParsing/`, `receiptParsing/`, `documentParsing/`
 - `email/` (triggers + scheduled overdue check), `backup/scheduledBackup.ts`, `hr/leaveBalanceReset.ts`, `agentTaskExpiry.ts`
+- `dataIntegrityAudit.ts` — nightly (3:00 IST) GL/orphan/duplicate audit → `dataAuditRuns` + email on findings; pure checks in `dataIntegrityAuditLogic.ts` (reuses `accountBalanceLogic`)
 - Callables: `entities/createEntity`, `transmittals.getTransmittalDownloadUrl`, `aiHelp`
 
 ## Canonical exemplars (copy these patterns)
