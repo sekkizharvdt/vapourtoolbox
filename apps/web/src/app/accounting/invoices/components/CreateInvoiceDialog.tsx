@@ -208,7 +208,12 @@ export function CreateInvoiceDialog({
         projectId: formState.projectId || undefined,
       };
 
-      const glResult = await generateInvoiceGLEntries(db, glInput);
+      // Reads the Chart of Accounts before the invoice write — wrap in
+      // retryOnStaleToken too (not just the write below), otherwise a stale
+      // token fails here first with "Missing or insufficient permissions"
+      // and never reaches the write's own retry (feedback: accounting user
+      // hit this creating a new invoice).
+      const glResult = await retryOnStaleToken(() => generateInvoiceGLEntries(db, glInput));
 
       if (!glResult.success) {
         setError(`Failed to generate GL entries: ${glResult.errors.join(', ')}`);

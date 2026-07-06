@@ -42,6 +42,19 @@ service firebase.storage {
       allow write: if isAuthenticated();
     }
 
+    // Customer Invoice attachments — supporting documents attached via the
+    // Create/Edit Invoice dialog (FileUpload component).
+    // Path: invoices/{invoiceNumber-or-'draft'}/{filename}
+    match /invoices/{invoiceRef}/{allPaths=**} {
+      allow read: if isAuthenticated();
+
+      // Max file size: 10MB (mirrors FileUpload's default maxSizeMB prop)
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 10 * 1024 * 1024;
+
+      allow delete: if isAuthenticated();
+    }
+
     // Enquiry files - authenticated users can read and write
     match /enquiries/{allPaths=**} {
       allow read: if isAuthenticated();

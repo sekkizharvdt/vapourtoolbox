@@ -8,6 +8,7 @@ import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
 import { TDSSection } from '@/components/accounting/shared/TDSSection';
 import { TransactionNumberDisplay } from '@/components/accounting/shared/TransactionNumberDisplay';
 import { getFirebase } from '@/lib/firebase';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill } from '@vapour/types';
@@ -210,7 +211,11 @@ export function CreateBillDialog({
         projectId: formState.projectId || undefined,
       };
 
-      const glResult = await generateBillGLEntries(db, glInput);
+      // Reads the Chart of Accounts before the bill write — wrap in
+      // retryOnStaleToken (same fix as CreateInvoiceDialog): a stale token
+      // otherwise fails here first with "Missing or insufficient
+      // permissions" before ever reaching the write's own retry below.
+      const glResult = await retryOnStaleToken(() => generateBillGLEntries(db, glInput));
 
       if (!glResult.success) {
         setError(`Failed to generate GL entries: ${glResult.errors.join(', ')}`);
@@ -276,7 +281,9 @@ export function CreateBillDialog({
           paymentStatus:
             newOutstanding <= 0 ? 'PAID' : existingPaidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
         };
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingBill.id), updatedBill);
+        await retryOnStaleToken(() =>
+          updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingBill.id), updatedBill)
+        );
 
         // Audit log: bill updated
         if (user) {
@@ -305,7 +312,9 @@ export function CreateBillDialog({
         }
       } else {
         // Create new bill
-        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), bill);
+        const docRef = await retryOnStaleToken(() =>
+          addDoc(collection(db, COLLECTIONS.TRANSACTIONS), bill)
+        );
 
         // Audit log: bill created
         if (user) {
