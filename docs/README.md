@@ -25,7 +25,7 @@
 
 ## Reviews & Audits
 
-- [Reviews](reviews/) - Periodic codebase reviews (latest: [March 15, 2026](reviews/2026-03-15.md))
+- [Reviews](reviews/) - Active review docs and plans (past periodic reviews archived; latest: [March 15, 2026](archive/2026-03-15.md))
 - [Security Findings](reviews/2026-03-15-security-findings.md) - Security review with recommendations
 - [Audit Reports](audits/) - 9-phase codebase audit (190 findings, 100% resolved)
 

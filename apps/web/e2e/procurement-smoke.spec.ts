@@ -15,7 +15,7 @@
  * rewrites serve the placeholder HTML for every URL and the client
  * re-parses the real id from the pathname (rule 30). Verified empirically
  * 2026-07-06 — see the Phase 4 execution notes in
- * docs/reviews/2026-07-05-automated-verification-plan.md. Extending smoke
+ * docs/archive/2026-07-05-automated-verification-plan.md. Extending smoke
  * coverage to detail pages requires running against a real emulator-mode
  * `next build` served by the Firebase hosting emulator (production-faithful
  * rewrites); that is recorded there as the follow-up, not attempted here.

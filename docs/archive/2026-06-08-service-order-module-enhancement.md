@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-08 (rev 3 — final, after user clarification)
 **Source:** Feature Enhancement Request – Service Order Module (procurement user). PDF at `inputs/Feature Enhancement Request – Service Order Module.pdf`.
-**Status:** Plan for review — no code written yet.
+**Status:** ✅ COMPLETE — all phases shipped (`8baf0332` HSN/SAC per line + PDF, `fa764dad` service terms + safety on PO PDF; legacy `serviceOrders` routes and lib deleted). This doc remains the design of record for the "Service Order = PO with service terms" model.
 
 **User clarifications (2026-06-08), in order:**
 

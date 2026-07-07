@@ -1,6 +1,6 @@
 /**
  * Pure data-integrity checks for the nightly audit (Phase 5 of
- * docs/reviews/2026-07-05-automated-verification-plan.md).
+ * docs/archive/2026-07-05-automated-verification-plan.md).
  *
  * No firebase imports — deterministic input → output, unit-tested without
  * emulators (same pattern as accountBalanceLogic.ts). The GL recomputation

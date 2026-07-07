@@ -88,7 +88,7 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────
   # Money-path smoke gate (Phase 4 of the automated-verification plan,
-  # docs/reviews/2026-07-05-automated-verification-plan.md).
+  # docs/archive/2026-07-05-automated-verification-plan.md).
   # Runs the @smoke-tagged Playwright specs (invoice→payment→outstanding
   # zero; PO two-approver walk) against Firebase emulators before anything
   # ships. skip_smoke=true is the emergency escape hatch.

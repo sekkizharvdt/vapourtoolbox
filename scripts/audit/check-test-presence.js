@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Test-presence ratchet (docs/reviews/2026-07-05-automated-verification-plan.md, Phase 6)
+ * Test-presence ratchet (docs/archive/2026-07-05-automated-verification-plan.md, Phase 6)
  *
  * Every in-scope source file must have a test (sibling `X.test.ts` or
  * `__tests__/X.test.ts`) OR be listed in scripts/audit/test-baselines.json.

@@ -1,5 +1,7 @@
 # UI/UX Standardisation — Assessment & Plan (2026-07-03)
 
+**Status:** ✅ COMPLETE — all 5 phases DONE and committed (`da163e67`, `2d5b10eb`/`596a2995`, `26a17857`, `21ca54c4`, `21e15f98`). The residual backlog (hand-rolled tables, `CircularProgress`, `TablePagination`, missing `PageHeader`) is intentionally ongoing and self-enforcing via `scripts/audit/check-ui-standards.js` + `ui-baselines.json` ratchets — tracking lives there now, not in this doc.
+
 Based on a 4-dimension audit (formatters, labels, shared components, theming) of `apps/web/src`.
 Companion goals: (a) clean up the existing fragmentation with targeted, low-risk sweeps;
 (b) make sure **future development is standard-compliant by default** via skills + audit-script
@@ -496,7 +498,7 @@ rule 30 — must use `usePathname()` regex extraction, exemplar `BOMEditorClient
 
 ## Appendix C — Suggested kickoff prompts (one session per line)
 
-- Phase 1: "Execute Phase 1 of docs/reviews/2026-07-03-ui-ux-standardisation-plan.md. Follow the
+- Phase 1: "Execute Phase 1 of docs/archive/2026-07-03-ui-ux-standardisation-plan.md. Follow the
   execution protocol and Appendix A Phase-1 target list. Also fix the three new-page.md
   contradictions listed under Phase 5 while you're at it."
 - Phase 2: "Execute Phase 2 (StatusChip + merged color source + DataTable loading fix) per the plan."

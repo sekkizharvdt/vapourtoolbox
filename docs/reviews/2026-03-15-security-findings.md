@@ -8,6 +8,19 @@ A comprehensive security review of the Vapour Toolbox application covering authe
 **Date**: March 15, 2026
 **Scope**: Full application — Firestore rules, Cloud Functions, client services, storage, HTTP headers
 
+**Status (updated 2026-07-07):** Kept active — several findings remain open per git history:
+
+| #   | Finding                             | Severity | Status 2026-07-07                                                                                                         |
+| --- | ----------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Storage rules too permissive        | HIGH     | PARTIAL — CI deploys rules (`86da77d4`) and spot fixes landed, but `accounting/` etc. still allow any authenticated write |
+| 2   | Rate limiting in-memory only        | HIGH     | **OPEN — no fix committed**                                                                                               |
+| 3   | CSP `unsafe-inline`/`unsafe-eval`   | MEDIUM   | OPEN                                                                                                                      |
+| 4   | Firebase App Check not enforced     | MEDIUM   | OPEN                                                                                                                      |
+| 5   | Soft-delete gap in balance triggers | MEDIUM   | ✅ Fixed (`c5cd1b7a`, `8431dc8c`, `dd5d646c`)                                                                             |
+| 6   | Gmail App Password for email        | MEDIUM   | OPEN (only nodemailer version bumps)                                                                                      |
+| 7   | No MFA / IP restrictions            | LOW      | OPEN                                                                                                                      |
+| 8   | ~113 console.log in production      | LOW      | OPEN (audit sweeps touched adjacent areas only)                                                                           |
+
 ---
 
 ## Current Security Posture

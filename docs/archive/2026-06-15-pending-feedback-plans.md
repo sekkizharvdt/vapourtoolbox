@@ -1,7 +1,7 @@
 # Complete Plans — All Pending Feedback (as of 2026-06-15)
 
 **Date:** 2026-06-15
-**Status:** Plans for review — no code written yet (except where noted). Covers the 4 feedback items still open after this session's fixes.
+**Status:** ✅ COMPLETE — all 4 items resolved: `8ImQ5s` (`fc182103`), `CxERG78` (`ebec0246`), `iZqGG` (`34bb6f34`), `lekvyYE` Phase 1 (`0bcf4755`). lekvyYE Phases 2–4 were deliberately deferred by this plan; that backlog resurfaces in later procurement feedback rounds.
 **Resolved this session (for reference):** `bktmln` GST/rupee (3873164c), `8eiv4m5e` warranty + `rPmzb4` AI parsing + `MS1NB` approver names + `hCiFX` invoice token (8497a0e0), `Jit9v` material/bought-out PR linking (c86c0c38), grpc advisories (dacca51c).
 
 Four items remain open: **two reopened** (earlier fixes incomplete), one new (scoped separately), one large AI request.
@@ -73,7 +73,7 @@ Effort S (PR new+edit only) to M (all surfaces + chips).
 
 ## 3. `iZqGG` — PO Module & PO PDF enhancements (new) — **MEDIUM / M–L**
 
-Fully scoped in **[docs/reviews/2026-06-15-po-module-and-pdf-enhancements.md](docs/reviews/2026-06-15-po-module-and-pdf-enhancements.md)**. Summary: 9 sub-items, 1 already done (vendor address+GSTIN), grouped into 4 work packages:
+Fully scoped in **[docs/archive/2026-06-15-po-module-and-pdf-enhancements.md](docs/archive/2026-06-15-po-module-and-pdf-enhancements.md)**. Summary: 9 sub-items, 1 already done (vendor address+GSTIN), grouped into 4 work packages:
 
 - **WP1** (PDF-only quick wins): Grand Total in words, attachment list in PDF, verify vendor data. **S–M.**
 - **WP2** (attachments ZIP on download, mirror `rfqZipService`). **M.**

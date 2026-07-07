@@ -20,3 +20,19 @@ These documents describe features/plans that have been **fully implemented** and
 | `high_value_review_report.md`               | `/` (root)         | Old security review, superseded by 2026-03-15 security findings      |
 
 **Archived**: March 15, 2026
+
+| Document                                          | Original Location | Reason Archived                                                                      |
+| ------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------ |
+| `2025-12-26.md`                                   | `docs/reviews/`   | Periodic review record; superseded by subsequent reviews                             |
+| `2026-01-05.md`                                   | `docs/reviews/`   | Periodic review record; superseded by subsequent reviews                             |
+| `2026-01-20.md`                                   | `docs/reviews/`   | Periodic review record; superseded by subsequent reviews                             |
+| `2026-03-15.md`                                   | `docs/reviews/`   | Periodic review record (latest; companion security findings stay active in reviews/) |
+| `2026-05-25-procurement-rfq-po-amendment-plan.md` | `docs/reviews/`   | All phases A–E shipped 2026-05-26; PO approval later reworked to named approvers     |
+| `2026-06-08-service-order-module-enhancement.md`  | `docs/reviews/`   | SO-as-PO model fully shipped; remains design of record for that decision             |
+| `2026-06-15-pending-feedback-plans.md`            | `docs/reviews/`   | All 4 feedback items resolved (lekvyYE Phases 2–4 deliberately deferred)             |
+| `2026-06-15-po-module-and-pdf-enhancements.md`    | `docs/reviews/`   | All 4 work packages shipped (`34bb6f34`)                                             |
+| `2026-07-03-ui-ux-standardisation-plan.md`        | `docs/reviews/`   | All 5 phases done; ratchet enforcement lives in `check-ui-standards.js`              |
+| `2026-07-05-automated-verification-plan.md`       | `docs/reviews/`   | All 6 phases committed (functions/rules/e2e/nightly-audit/ratchet)                   |
+| `2026-07-05-procurement-feedback-plan.md`         | `docs/reviews/`   | All 4 batches shipped with locked decisions                                          |
+
+**Archived**: July 7, 2026

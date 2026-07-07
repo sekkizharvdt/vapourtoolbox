@@ -2,8 +2,8 @@
 
 **Date:** 2026-06-15
 **Source:** Feedback `iZqGGOesnv4fNLpq4VCi` (Kumaran A) — a multi-part enhancement request covering the PO module and the PO PDF, framed around PO/SO being unified into one module.
-**Status:** Scoping for review — no code written yet. Grouped into 4 work packages with a recommended order. Two decisions needed (see §3).
-**Related:** `docs/reviews/2026-06-08-service-order-module-enhancement.md` (service-order-as-PO model), `docs/reviews/2026-05-25-procurement-rfq-po-amendment-plan.md`.
+**Status:** ✅ COMPLETE — all 4 work packages shipped (`34bb6f34` "complete PO module & PDF enhancements (feedback iZqGG)", supported by `2114f568`; `poZipService.ts` and amount-in-words utility landed).
+**Related:** `docs/archive/2026-06-08-service-order-module-enhancement.md` (service-order-as-PO model), `docs/archive/2026-05-25-procurement-rfq-po-amendment-plan.md`.
 
 ---
 

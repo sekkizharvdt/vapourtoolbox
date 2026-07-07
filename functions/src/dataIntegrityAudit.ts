@@ -1,6 +1,6 @@
 /**
  * Nightly data-integrity audit (Phase 5 of
- * docs/reviews/2026-07-05-automated-verification-plan.md).
+ * docs/archive/2026-07-05-automated-verification-plan.md).
  *
  * Recomputes account balances from scratch (via the same accountBalanceLogic
  * the incremental trigger and Recalculate Balances use — rule 32) and runs

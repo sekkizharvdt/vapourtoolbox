@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * UI/UX Standardisation Guardrails (docs/reviews/2026-07-03-ui-ux-standardisation-plan.md, Phase 5)
+ * UI/UX Standardisation Guardrails (docs/archive/2026-07-03-ui-ux-standardisation-plan.md, Phase 5)
  *
  * Two check classes:
  *

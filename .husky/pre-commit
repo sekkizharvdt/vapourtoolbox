@@ -65,7 +65,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# UI/UX standardisation guardrails (docs/reviews/2026-07-03-ui-ux-standardisation-plan.md
+# UI/UX standardisation guardrails (docs/archive/2026-07-03-ui-ux-standardisation-plan.md
 # Phase 5). Self-contained enforcement policy in scripts/audit/ui-baselines.json:
 # zero-tolerance categories block once clean, count-ratchets block on regression.
 echo "🔍 Running UI/UX standards check..."
@@ -76,7 +76,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Test-presence ratchet (docs/reviews/2026-07-05-automated-verification-plan.md
+# Test-presence ratchet (docs/archive/2026-07-05-automated-verification-plan.md
 # Phase 6). New service/function files must ship with a test; the pre-existing
 # untested backlog is frozen in scripts/audit/test-baselines.json and may only
 # shrink (stale entries block until removed).

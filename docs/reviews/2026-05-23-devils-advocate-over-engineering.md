@@ -1,6 +1,7 @@
 # Devil's Advocate Review — Over-Engineering & Weaknesses
 
 **Date:** 2026-05-23
+**Status (updated 2026-07-07):** OPEN — core recommendations unaddressed: storage rules still wide-open on `accounting/` etc. (`storage.rules`), agent scaffolding (`apps/web/src/lib/agent/`, `packages/agent-tools/`) still parked in-tree, permission philosophy undecided. Tangential hardening landed since (rules tests `5c469aa5`, nightly audit `4e8db491`) but not these items.
 **Reviewer role:** Adversarial / "devil's advocate" tester
 **Scope:** Architecture, security, workflow, simplicity of usage, over-engineering
 **Lens:** This is an internal tool for a **~10-person team**. Findings are judged against that team size, not against an enterprise SaaS product.
@@ -41,7 +42,7 @@ The domain complexity (thermal/MED design, double-entry accounting, EPC procurem
 
 ## Finding 2 — 14 state machines for "someone makes it, someone okays it"
 
-`apps/web/src/lib/workflow/stateMachines.ts` defines 14 machines. The PO machine alone has 11 states (DRAFT → PENDING_APPROVAL → APPROVED → ISSUED → ACKNOWLEDGED → IN_PROGRESS → DELIVERED → COMPLETED + AMENDED/CANCELLED). When the person issuing the PO sits across from the approver, most states are ceremony that generates support burden ("why is my PO stuck in ACKNOWLEDGED?"). The pattern is sound; the _quantity_ of distinct lifecycles is sized for a 200-person org with department handoffs.
+`apps/web/src/lib/workflow/stateMachines.ts` defines 14 machines. The PO machine alone has 11 states (DRAFT → PENDING*APPROVAL → APPROVED → ISSUED → ACKNOWLEDGED → IN_PROGRESS → DELIVERED → COMPLETED + AMENDED/CANCELLED). When the person issuing the PO sits across from the approver, most states are ceremony that generates support burden ("why is my PO stuck in ACKNOWLEDGED?"). The pattern is sound; the \_quantity* of distinct lifecycles is sized for a 200-person org with department handoffs.
 
 ---
 

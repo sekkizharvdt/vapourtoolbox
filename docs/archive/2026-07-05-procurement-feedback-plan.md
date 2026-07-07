@@ -1,6 +1,7 @@
 # Procurement Feedback Round 4 — Implementation Plan
 
 **Date:** 2026-07-05
+**Status:** ✅ COMPLETE — all 4 batches shipped with the locked decisions: A (`c4fed8df` PL-before-GR + qty guards), B (`2114f568` PO view/PDF fixes), C (`8effeb78` PO status auto-advance, COMPLETED stays manual), D (`eedef7be` Return with Comments + REJECTED recovery). Decisions locked; don't re-litigate.
 **Author:** Fable session (triage + research); execution intended for a follow-up session.
 **Scope:** the 4 remaining feedback items from Kumaran (procurement). Two other items from the same batch were already fixed and deployed-pending (commits `bb936f47`, `9d7ac73b`: packingLists indexes, GR/PL edit rewrites, Clear-for-Payment redesign).
 

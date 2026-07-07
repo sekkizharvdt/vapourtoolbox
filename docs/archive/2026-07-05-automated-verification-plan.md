@@ -1,5 +1,7 @@
 # Automated Verification & Testing — Assessment & Plan (2026-07-05)
 
+**Status:** ✅ COMPLETE — all 6 phases committed: Phase 1/2 (`c5cd1b7a`, `30dd2dad`), Phase 3 (`5c469aa5`), Phase 4 (`3b4fba24`), Phase 5 (`4e8db491`), Phase 6 (`0d2c39dc`). Any in-body "not yet committed" notes are stale. Remaining tail: post-deploy checklist (enable the "Data Audit Issues" notification event, confirm the first scheduled audit run) and explicitly-deferred coverage (Phase 2b CI emulator job; rules tests for `entities`/`time_entries`/`taskThreads`).
+
 Goal: close the gap between "tests exist" and "deploys and production data are automatically verified".
 The unit layer is healthier than the raw ratio suggests; the risk is concentrated in four places:
 untested Cloud Functions, untested security rules, missing money-path coverage in the
@@ -483,7 +485,7 @@ grep -n 'check-test-presence' .husky/pre-commit scripts/audit/*.json 2>/dev/null
 
 ## Appendix B — Suggested kickoff prompts (one session per line)
 
-- "Implement Phase 1 of docs/reviews/2026-07-05-automated-verification-plan.md (Cloud Functions test harness). Read accountBalances.ts first and report the pure-function split before writing tests."
+- "Implement Phase 1 of docs/archive/2026-07-05-automated-verification-plan.md (Cloud Functions test harness). Read accountBalances.ts first and report the pure-function split before writing tests."
 - "Implement Phase 2a: accounting GL invariant integration test per the plan."
 - "Implement Phase 3: Firestore rules tests, starting with the proposals/projects tenantId regression."
 - "Implement Phase 4: money-path e2e smoke specs, then the deploy.yml gate."
