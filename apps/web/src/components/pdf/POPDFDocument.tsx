@@ -379,14 +379,14 @@ export function POPDFDocument({
           <ReportTable
             columns={[
               { key: 'sno', header: '#', width: '5%' },
-              { key: 'description', header: 'Description', width: '26%' },
-              { key: 'specification', header: 'Specification', width: '11%' },
-              { key: 'hsnSac', header: 'HSN/SAC', width: '9%' },
+              { key: 'description', header: 'Description', width: '24%' },
+              { key: 'specification', header: 'Specification', width: '16%' },
+              { key: 'hsnSac', header: 'HSN/SAC', width: '8%' },
               { key: 'qty', header: 'Qty', width: '7%', align: 'right' },
-              { key: 'unit', header: 'Unit', width: '8%' },
+              { key: 'unit', header: 'Unit', width: '7%' },
               { key: 'rate', header: 'Unit Price', width: '12%', align: 'right' },
               { key: 'gst', header: 'GST %', width: '8%', align: 'right' },
-              { key: 'amount', header: 'Amount', width: '14%', align: 'right' },
+              { key: 'amount', header: 'Amount', width: '13%', align: 'right' },
             ]}
             rows={sortedItems.map((item) => ({
               sno: item.lineNumber,
@@ -494,7 +494,12 @@ export function POPDFDocument({
                     { label: 'Currency', value: po.commercialTerms.currency },
                   ]
                 : []),
-              ...(po.paymentTerms ? [{ label: 'Payment Terms', value: po.paymentTerms }] : []),
+              // Payment terms appear in the Payment Schedule section when a
+              // schedule exists (feedback db75K4UR37nFZwUkedke) — only show the
+              // flat row for POs without one.
+              ...(po.paymentTerms && !(po.commercialTerms?.paymentSchedule ?? []).length
+                ? [{ label: 'Payment Terms', value: po.paymentTerms }]
+                : []),
               ...(po.commercialTerms
                 ? [
                     {
@@ -543,15 +548,14 @@ export function POPDFDocument({
           />
         </ReportSection>
 
-        {/* Payment Schedule — per-milestone tax mode (feedback kPmvFXbiYDMrtyZK5VEn);
-            the flat "Payment Terms" row above stays as a quick-glance summary. */}
+        {/* Payment Schedule — per-milestone tax mode (feedback kPmvFXbiYDMrtyZK5VEn). */}
         {po.commercialTerms && po.commercialTerms.paymentSchedule.length > 0 && (
           <ReportSection title="Payment Schedule">
             <ReportTable
               columns={[
                 { key: 'sno', header: 'S.No', width: '8%' },
                 { key: 'type', header: 'Payment Type', width: '22%' },
-                { key: 'percent', header: '%', width: '10%', align: 'right' },
+                { key: 'percent', header: '% Payment', width: '10%', align: 'right' },
                 { key: 'tax', header: 'Tax', width: '18%' },
                 { key: 'deliverables', header: 'Deliverables', width: '42%' },
               ]}
@@ -778,24 +782,6 @@ export function POPDFDocument({
           </ReportSection>
         )}
 
-        {/* Approval Info */}
-        {po.approvedByName && (
-          <ReportSection title="Approval">
-            <KeyValueTable
-              rows={[
-                { label: 'Approved By', value: po.approvedByName },
-                ...(po.approvedAt
-                  ? [{ label: 'Approved On', value: formatTimestamp(po.approvedAt) }]
-                  : []),
-                ...(po.approvalComments ? [{ label: 'Comments', value: po.approvalComments }] : []),
-              ]}
-              labelWidth="30%"
-              valueWidth="70%"
-              valueAlign="left"
-            />
-          </ReportSection>
-        )}
-
         {/* Supporting Documents — filenames only. The actual files are bundled
             alongside the PDF in the PO ZIP download (no signed-URL leakage). */}
         {po.attachments && po.attachments.length > 0 && (
@@ -814,6 +800,24 @@ export function POPDFDocument({
               fontSize={9}
             />
           </ReportSection>
+        )}
+
+        {/* Approval — last block before vendor acceptance, with blank space for
+            the authorized signature and company seal (feedback db75K4UR37nFZwUkedke) */}
+        {po.approvedByName && (
+          <NotesSection
+            title="APPROVAL:"
+            notes={[
+              `Approved By: ${po.approvedByName}`,
+              ...(po.approvedAt ? [`Approved On: ${formatTimestamp(po.approvedAt)}`] : []),
+              ...(po.approvalComments ? [`Comments: ${po.approvalComments}`] : []),
+              '',
+              '',
+              '',
+              '',
+              'Authorized Signature & Seal: __________________________',
+            ].join('\n')}
+          />
         )}
 
         {/* Acceptance note for vendor counter-signature */}
