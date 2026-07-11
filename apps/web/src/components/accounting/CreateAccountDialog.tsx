@@ -27,6 +27,7 @@ import {
   createFieldChanges,
 } from '@/lib/audit/clientAuditService';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 
 interface CreateAccountDialogProps {
   open: boolean;
@@ -189,27 +190,29 @@ export function CreateAccountDialog({
 
       if (editingAccount) {
         // Update existing account
-        await updateDoc(doc(accountsRef, editingAccount.id), {
-          name: name.trim(),
-          description: description.trim() || null,
-          accountType,
-          accountCategory,
-          isGroup,
-          openingBalance: Number(openingBalance),
-          currentBalance: Number(openingBalance),
-          currency,
-          isGSTAccount,
-          gstType: isGSTAccount ? gstType : null,
-          gstDirection: isGSTAccount ? gstDirection : null,
-          isTDSAccount,
-          tdsSection: isTDSAccount ? tdsSection.trim() : null,
-          isBankAccount,
-          bankName: isBankAccount ? bankName.trim() : null,
-          accountNumber: isBankAccount && accountNumber.trim() ? accountNumber.trim() : null,
-          ifscCode: isBankAccount && ifscCode.trim() ? ifscCode.trim() : null,
-          updatedAt: serverTimestamp(),
-          updatedBy: user.uid,
-        });
+        await retryOnStaleToken(() =>
+          updateDoc(doc(accountsRef, editingAccount.id), {
+            name: name.trim(),
+            description: description.trim() || null,
+            accountType,
+            accountCategory,
+            isGroup,
+            openingBalance: Number(openingBalance),
+            currentBalance: Number(openingBalance),
+            currency,
+            isGSTAccount,
+            gstType: isGSTAccount ? gstType : null,
+            gstDirection: isGSTAccount ? gstDirection : null,
+            isTDSAccount,
+            tdsSection: isTDSAccount ? tdsSection.trim() : null,
+            isBankAccount,
+            bankName: isBankAccount ? bankName.trim() : null,
+            accountNumber: isBankAccount && accountNumber.trim() ? accountNumber.trim() : null,
+            ifscCode: isBankAccount && ifscCode.trim() ? ifscCode.trim() : null,
+            updatedAt: serverTimestamp(),
+            updatedBy: user.uid,
+          })
+        );
 
         // Log audit event for account update
         const auditContext = createAuditContext(
@@ -231,56 +234,62 @@ export function CreateAccountDialog({
           }
         );
 
-        await logAuditEvent(
-          db,
-          auditContext,
-          'ACCOUNT_UPDATED',
-          'GL_ACCOUNT',
-          editingAccount.id,
-          `Updated GL account "${name.trim()}" (${editingAccount.code})`,
-          {
-            entityName: name.trim(),
-            changes,
-            metadata: {
-              code: editingAccount.code,
-              accountType,
-            },
-          }
+        await retryOnStaleToken(() =>
+          logAuditEvent(
+            db,
+            auditContext,
+            'ACCOUNT_UPDATED',
+            'GL_ACCOUNT',
+            editingAccount.id,
+            `Updated GL account "${name.trim()}" (${editingAccount.code})`,
+            {
+              entityName: name.trim(),
+              changes,
+              metadata: {
+                code: editingAccount.code,
+                accountType,
+              },
+            }
+          )
         );
       } else {
         // Create new account
         const accountId = `acc-${code}`;
 
-        await setDoc(doc(accountsRef, accountId), {
-          code,
-          name: name.trim(),
-          description: description.trim() || null,
-          accountType,
-          accountCategory,
-          accountGroup: null,
-          parentAccountId: null,
-          entityId: tenantId,
-          level: 4, // Default to leaf level
-          isGroup,
-          isActive: true,
-          isSystemAccount: false,
-          openingBalance: Number(openingBalance),
-          currentBalance: Number(openingBalance),
-          currency,
-          isGSTAccount,
-          gstType: isGSTAccount ? gstType : null,
-          gstDirection: isGSTAccount ? gstDirection : null,
-          isTDSAccount,
-          tdsSection: isTDSAccount ? tdsSection.trim() : null,
-          isBankAccount,
-          bankName: isBankAccount ? bankName.trim() : null,
-          accountNumber: isBankAccount && accountNumber.trim() ? accountNumber.trim() : null,
-          ifscCode: isBankAccount && ifscCode.trim() ? ifscCode.trim() : null,
-          branch: null,
-          createdAt: serverTimestamp(),
-          createdBy: user.uid,
-          updatedAt: serverTimestamp(),
-        });
+        // Security rule requires tenantId on create (firestore.rules accounts
+        // block); entityId is the counterparty field and must not be used here.
+        await retryOnStaleToken(() =>
+          setDoc(doc(accountsRef, accountId), {
+            code,
+            name: name.trim(),
+            description: description.trim() || null,
+            accountType,
+            accountCategory,
+            accountGroup: null,
+            parentAccountId: null,
+            tenantId,
+            level: 4, // Default to leaf level
+            isGroup,
+            isActive: true,
+            isSystemAccount: false,
+            openingBalance: Number(openingBalance),
+            currentBalance: Number(openingBalance),
+            currency,
+            isGSTAccount,
+            gstType: isGSTAccount ? gstType : null,
+            gstDirection: isGSTAccount ? gstDirection : null,
+            isTDSAccount,
+            tdsSection: isTDSAccount ? tdsSection.trim() : null,
+            isBankAccount,
+            bankName: isBankAccount ? bankName.trim() : null,
+            accountNumber: isBankAccount && accountNumber.trim() ? accountNumber.trim() : null,
+            ifscCode: isBankAccount && ifscCode.trim() ? ifscCode.trim() : null,
+            branch: null,
+            createdAt: serverTimestamp(),
+            createdBy: user.uid,
+            updatedAt: serverTimestamp(),
+          })
+        );
 
         // Log audit event for account creation
         const auditContext = createAuditContext(
@@ -289,33 +298,35 @@ export function CreateAccountDialog({
           user.displayName || user.email || ''
         );
 
-        await logAuditEvent(
-          db,
-          auditContext,
-          'ACCOUNT_CREATED',
-          'GL_ACCOUNT',
-          accountId,
-          `Created GL account "${name.trim()}" (${code})`,
-          {
-            entityName: name.trim(),
-            metadata: {
-              code,
-              accountType,
-              accountCategory,
-              isGroup,
-              isBankAccount,
-              isGSTAccount,
-              isTDSAccount,
-            },
-          }
+        await retryOnStaleToken(() =>
+          logAuditEvent(
+            db,
+            auditContext,
+            'ACCOUNT_CREATED',
+            'GL_ACCOUNT',
+            accountId,
+            `Created GL account "${name.trim()}" (${code})`,
+            {
+              entityName: name.trim(),
+              metadata: {
+                code,
+                accountType,
+                accountCategory,
+                isGroup,
+                isBankAccount,
+                isGSTAccount,
+                isTDSAccount,
+              },
+            }
+          )
         );
       }
 
       onClose();
       resetForm();
     } catch (err) {
-      console.error('Error saving account:', err);
-      setError(`Failed to ${editingAccount ? 'update' : 'create'} account. Please try again.`);
+      console.error('[CreateAccountDialog] Error saving:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save account');
     } finally {
       setLoading(false);
     }

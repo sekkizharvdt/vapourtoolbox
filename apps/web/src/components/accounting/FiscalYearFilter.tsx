@@ -185,6 +185,21 @@ export function FiscalYearFilter({
 }
 
 /**
+ * Resolve a transaction's `date` field to a JS Date. Firestore returns
+ * Timestamp at runtime even when the TS type says Date; older docs may hold
+ * strings, so check `toDate` first, then Date, then parse.
+ */
+export function resolveTransactionDate(raw: unknown): Date | null {
+  if (!raw) return null;
+  if (typeof (raw as { toDate?: () => Date }).toDate === 'function') {
+    return (raw as { toDate: () => Date }).toDate();
+  }
+  if (raw instanceof Date) return raw;
+  const parsed = new Date(raw as string | number);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
  * Returns true when `date` falls within `range` (inclusive).
  * Returns true when `range` is null — callers treat "no range" as "no filter".
  */

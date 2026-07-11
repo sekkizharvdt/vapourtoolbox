@@ -71,6 +71,7 @@ import {
   FiscalYearFilter,
   useFiscalYearFilter,
   matchesFiscalYear,
+  resolveTransactionDate,
 } from '@/components/accounting/FiscalYearFilter';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -159,9 +160,16 @@ export default function InvoicesPage() {
     useFirestoreQuery<CustomerInvoiceWithExtras>(invoicesQuery);
   const invoices = useMemo(() => rawInvoices.filter((inv) => !inv.isDeleted), [rawInvoices]);
 
-  // Calculate stats - always in INR (base currency)
+  // Invoices dated within the selected fiscal year — the base set for the
+  // summary cards and the table filters (search/status narrow further).
+  const fyInvoices = useMemo(
+    () => invoices.filter((inv) => matchesFiscalYear(resolveTransactionDate(inv.date), fy.range)),
+    [invoices, fy.range]
+  );
+
+  // Calculate stats - always in INR (base currency), scoped to the selected FY
   const stats = useMemo(() => {
-    const activeInvoices = invoices;
+    const activeInvoices = fyInvoices;
     const totalInvoiced = activeInvoices.reduce((sum, inv) => sum + getInrAmount(inv), 0);
     const outstanding = activeInvoices
       .filter((inv) => inv.paymentStatus !== 'PAID' && inv.status !== 'DRAFT')
@@ -175,11 +183,11 @@ export default function InvoicesPage() {
       .reduce((sum, inv) => sum + getInrAmount(inv), 0);
 
     return { totalInvoiced, outstanding, overdue };
-  }, [invoices]);
+  }, [fyInvoices]);
 
   // Filter logic
   const filteredInvoices = useMemo(() => {
-    return invoices.filter((invoice) => {
+    return fyInvoices.filter((invoice) => {
       const matchesSearch =
         searchTerm === '' ||
         invoice.transactionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -187,18 +195,9 @@ export default function InvoicesPage() {
 
       const matchesStatus = filterStatus === 'ALL' || invoice.status === filterStatus;
 
-      let invoiceDate: Date | null = null;
-      if (invoice.date) {
-        invoiceDate =
-          typeof (invoice.date as unknown as { toDate?: () => Date }).toDate === 'function'
-            ? (invoice.date as unknown as { toDate: () => Date }).toDate()
-            : new Date(invoice.date as unknown as string | number);
-      }
-      const matchesFY = matchesFiscalYear(invoiceDate, fy.range);
-
-      return matchesSearch && matchesStatus && matchesFY;
+      return matchesSearch && matchesStatus;
     });
-  }, [invoices, searchTerm, filterStatus, fy.range]);
+  }, [fyInvoices, searchTerm, filterStatus]);
 
   const handleCreate = () => {
     setEditingInvoice(null);

@@ -200,7 +200,10 @@ export function CreateJournalEntryDialog({
         data: () => Record<string, unknown>;
       }): TransactionOption => {
         const data = d.data();
-        const num = (data.transactionNumber as string) || d.id;
+        // Vendor bills: show the vendor's own bill number (vendorInvoiceNumber),
+        // not the system transactionNumber; invoices fall back to the latter.
+        const num =
+          (data.vendorInvoiceNumber as string) || (data.transactionNumber as string) || d.id;
         const name = (data.entityName as string) || '';
         const amount = (data.totalAmount as number) || 0;
         return {

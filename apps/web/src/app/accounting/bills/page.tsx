@@ -71,6 +71,7 @@ import {
   FiscalYearFilter,
   useFiscalYearFilter,
   matchesFiscalYear,
+  resolveTransactionDate,
 } from '@/components/accounting/FiscalYearFilter';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
@@ -172,13 +173,20 @@ export default function BillsPage() {
   const { data: rawBills, loading } = useFirestoreQuery<VendorBill>(billsQuery);
   const bills = useMemo(() => rawBills.filter((bill) => !bill.isDeleted), [rawBills]);
 
-  // Calculate stats - always in INR (base currency)
+  // Bills dated within the selected fiscal year — the base set for the summary
+  // cards and the table filters (search/status/month narrow further).
+  const fyBills = useMemo(
+    () => bills.filter((bill) => matchesFiscalYear(resolveTransactionDate(bill.date), fy.range)),
+    [bills, fy.range]
+  );
+
+  // Calculate stats - always in INR (base currency), scoped to the selected FY
   const stats = useMemo(() => {
-    const totalBilled = bills.reduce((sum, bill) => sum + getInrAmount(bill), 0);
-    const outstanding = bills
+    const totalBilled = fyBills.reduce((sum, bill) => sum + getInrAmount(bill), 0);
+    const outstanding = fyBills
       .filter((bill) => bill.paymentStatus !== 'PAID' && bill.status !== 'DRAFT')
       .reduce((sum, bill) => sum + getInrAmount(bill), 0);
-    const overdue = bills
+    const overdue = fyBills
       .filter(
         (bill) =>
           bill.paymentStatus === 'UNPAID' && bill.dueDate && new Date(bill.dueDate) < new Date()
@@ -186,11 +194,11 @@ export default function BillsPage() {
       .reduce((sum, bill) => sum + getInrAmount(bill), 0);
 
     return { totalBilled, outstanding, overdue };
-  }, [bills]);
+  }, [fyBills]);
 
   // Filter logic
   const filteredBills = useMemo(() => {
-    return bills.filter((bill) => {
+    return fyBills.filter((bill) => {
       const matchesSearch =
         searchTerm === '' ||
         bill.transactionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -200,27 +208,19 @@ export default function BillsPage() {
 
       const matchesStatus = filterStatus === 'ALL' || bill.status === filterStatus;
 
-      // Resolve bill date once for both date filters
-      let billDate: Date | null = null;
-      if (bill.date) {
-        billDate =
-          typeof (bill.date as unknown as { toDate?: () => Date }).toDate === 'function'
-            ? (bill.date as unknown as { toDate: () => Date }).toDate()
-            : new Date(bill.date as unknown as string | number);
-      }
-
-      const matchesFY = matchesFiscalYear(billDate, fy.range);
-
       // Month filter - compare year-month of bill date
       let matchesMonth = true;
-      if (filterMonth !== 'ALL' && billDate) {
-        const billYearMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`;
-        matchesMonth = billYearMonth === filterMonth;
+      if (filterMonth !== 'ALL') {
+        const billDate = resolveTransactionDate(bill.date);
+        if (billDate) {
+          const billYearMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`;
+          matchesMonth = billYearMonth === filterMonth;
+        }
       }
 
-      return matchesSearch && matchesStatus && matchesFY && matchesMonth;
+      return matchesSearch && matchesStatus && matchesMonth;
     });
-  }, [bills, searchTerm, filterStatus, filterMonth, fy.range]);
+  }, [fyBills, searchTerm, filterStatus, filterMonth]);
 
   // Calculate month-wise totals for filtered bills (Basic Amount and GST)
   const monthTotals = useMemo(() => {
@@ -393,7 +393,11 @@ export default function BillsPage() {
       label: 'TDS',
       align: 'right',
       render: (bill) =>
-        bill.tdsDeducted ? formatCurrency(bill.tdsAmount || 0, bill.currency || 'INR') : '-',
+        bill.tdsDeducted
+          ? `${formatCurrency(bill.tdsAmount || 0, bill.currency || 'INR')}${
+              bill.tdsDetails?.tdsRate != null ? ` (${bill.tdsDetails.tdsRate}%)` : ''
+            }`
+          : '-',
     },
     {
       key: 'total',
