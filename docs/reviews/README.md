@@ -4,16 +4,16 @@ Review records and implementation plans. **Active docs live here; completed/hist
 
 ## Active
 
-| Doc                                                                                               | Type            | Why it's still here                                                                     |
-| ------------------------------------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------- |
-| [2026-07-07 application completion plan](2026-07-07-application-completion-plan.md)               | Master roadmap  | Tracks A–F, no code written; 3 user decisions open                                      |
-| [2026-07-07 shape database consolidation](2026-07-07-shape-database-consolidation-plan.md)        | Plan (proposed) | Unstarted; do before real BOMs reference shapes                                         |
-| [2026-07-06 thermal calculators review](2026-07-06-thermal-calculators-review.md)                 | Findings        | Defect register for completion-plan Track E; no fixes landed                            |
-| [2026-07-03 PO26XP062901 proposal vs agreement](2026-07-03-po26xp062901-proposal-vs-agreement.md) | Analysis        | Governs the Desolenator proposal→project conversion, still pending (completion plan B5) |
-| [2026-06-15 procurement catalog unification](2026-06-15-procurement-catalog-unification.md)       | Design          | Phase 1 outcome shipped tactically; `CatalogRef` facade (Phases 2–3) unbuilt            |
-| [2026-05-25 proposal scope↔pricing link + UI](2026-05-25-proposal-scope-pricing-link-and-ui.md)   | Plan            | Never started; reconcile with completion-plan Track A                                   |
-| [2026-05-23 devil's advocate review](2026-05-23-devils-advocate-over-engineering.md)              | Review          | Storage-rules gap, parked agent scaffolding, permission philosophy all still open       |
-| [2026-03-15 security findings](2026-03-15-security-findings.md)                                   | Security review | Open findings remain — notably in-memory rate limiting (HIGH); see its status table     |
+| Doc                                                                                               | Type               | Why it's still here                                                                                                |
+| ------------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| [2026-07-07 application completion plan](2026-07-07-application-completion-plan.md)               | **Master roadmap** | THE plan — all decisions locked 2026-07-07; Phases 0–7 fold in every other active doc below                        |
+| [2026-07-07 shape database consolidation](2026-07-07-shape-database-consolidation-plan.md)        | Plan (approved)    | Completion-plan **Phase 0** — first up; do before real BOMs reference shapes                                       |
+| [2026-07-06 thermal calculators review](2026-07-06-thermal-calculators-review.md)                 | Findings           | Defect register for completion-plan Track E; no fixes landed                                                       |
+| [2026-07-03 PO26XP062901 proposal vs agreement](2026-07-03-po26xp062901-proposal-vs-agreement.md) | Analysis           | Governs the Desolenator proposal→project conversion, still pending (completion plan B5)                            |
+| [2026-06-15 procurement catalog unification](2026-06-15-procurement-catalog-unification.md)       | Design             | `CatalogRef` facade (Phases 2–3) = completion-plan **Phase 7**; design of record                                   |
+| [2026-05-25 proposal scope↔pricing link + UI](2026-05-25-proposal-scope-pricing-link-and-ui.md)   | Plan               | Adopted as completion-plan **A4 (Phase 6)**; Q1–Q6 shape questions still to confirm                                |
+| [2026-05-23 devil's advocate review](2026-05-23-devils-advocate-over-engineering.md)              | Review             | Storage rules → Track G1; agent scaffolding deliberately retained (post-spine agent); permission philosophy parked |
+| [2026-03-15 security findings](2026-03-15-security-findings.md)                                   | Security review    | Findings 1/2/4 scheduled as Track G (Phase 4); email/MFA/CSP deliberately parked                                   |
 
 ## Past Periodic Reviews (archived)
 

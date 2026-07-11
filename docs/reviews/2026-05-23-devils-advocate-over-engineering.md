@@ -1,7 +1,7 @@
 # Devil's Advocate Review — Over-Engineering & Weaknesses
 
 **Date:** 2026-05-23
-**Status (updated 2026-07-07):** OPEN — core recommendations unaddressed: storage rules still wide-open on `accounting/` etc. (`storage.rules`), agent scaffolding (`apps/web/src/lib/agent/`, `packages/agent-tools/`) still parked in-tree, permission philosophy undecided. Tangential hardening landed since (rules tests `5c469aa5`, nightly audit `4e8db491`) but not these items.
+**Status (updated 2026-07-07, decisions locked):** Storage-rules gap **scheduled** as completion-plan Track G1 (Phase 4). Agent scaffolding **deliberately retained** by user decision — an AI agent is planned once the commercial spine ships (fix the `agentMemory` spoofing rule before it goes live). Permission philosophy (Findings 1–3) **parked** until after the spine — do not re-raise before then. Tangential hardening landed since (rules tests `5c469aa5`, nightly audit `4e8db491`).
 **Reviewer role:** Adversarial / "devil's advocate" tester
 **Scope:** Architecture, security, workflow, simplicity of usage, over-engineering
 **Lens:** This is an internal tool for a **~10-person team**. Findings are judged against that team size, not against an enterprise SaaS product.

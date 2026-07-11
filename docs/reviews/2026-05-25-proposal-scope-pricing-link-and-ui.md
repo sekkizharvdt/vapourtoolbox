@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-25
 **Source:** In-session request (proposals user) — two asks: (1) scope of work is not linked to pricing; (2) the proposal editor UI is cumbersome. Follow-up: line-item breakup must be supported when the customer asks for it, with one uniform model.
-**Status (updated 2026-07-07):** OPEN — not started. The procurement session that blocked this landed 2026-05-26, but this plan was never picked up: `PriceSection` still lacks `scopeCategoryKeys`/`breakdownMode`/`lines`, no `PriceLine` type exists, and the editor still shows the flat 11-tab bar. Overlaps with `2026-07-07-application-completion-plan.md` Track A (scope↔pricing) — reconcile with that plan before executing.
+**Status (updated 2026-07-07):** OPEN — not started. The procurement session that blocked this landed 2026-05-26, but this plan was never picked up: `PriceSection` still lacks `scopeCategoryKeys`/`breakdownMode`/`lines`, no `PriceLine` type exists, and the editor still shows the flat 11-tab bar. **Adopted 2026-07-07 as completion-plan item A4 (Phase 6)** — execute this plan as written when Phase 6 starts; confirm the Q1–Q6 shape questions (§3) with the user at that point. A1's BOM cost-sheet block slots into this model unchanged.
 **Related design:** `PROPOSALS-WORKFLOW-DESIGN-2026-04-25.md`, `PROPOSALS-WORKFLOW-DESIGN-2026-04-25.md` (Stages 2 / 2.5).
 
 ---

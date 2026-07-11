@@ -3,7 +3,7 @@
 **Date:** 2026-07-07
 **Goal:** Close the missing integrations so the app works as one machine: _thermal design → priced BOM → proposal → project → procurement → accounting_, with procurement prices feeding back into estimation and a weekly review cadence driving project execution.
 **Sources:** [known-gaps.md](../workflows/known-gaps.md) (code-verified 2026-07-03), [thermal calculators review](2026-07-06-thermal-calculators-review.md), three seam audits run 2026-07-07 (thermal→BOM→proposal, procurement→pricing, flow→projects), and status checks against the working tree on 2026-07-07.
-**Status:** Plan for review — no code written.
+**Status:** ACTIVE — all gating decisions locked 2026-07-07 (see "Decisions locked" below). This is the master sequence for **all** open workstreams: it now folds in the shape-DB consolidation (Phase 0), the security-hardening scope (Track G), and the catalog `CatalogRef` facade (Phase 7). Execution not started.
 
 ---
 
@@ -35,12 +35,9 @@ The placeholder is waiting: `BOMCostSheetBlock.linkedBomIds` exists (`proposalPr
 4. **Delete the legacy type-only path** (rule 32): `LinkedBOM` / `ScopeItem.linkedBOMs` / `estimationSummary` (`proposal.ts:63-115`) — only `projectConversion.ts:71` reads it defensively; repoint that read at the pricing block or remove.
 5. Round-trip test: link → subtotal → commercial summary → conversion budget.
 
-### A2. Plug the three pricing-feed leaks — **M (2–3 days), decision needed first**
+### A2. Plug the three pricing-feed leaks — **M (2–3 days)**
 
-> **DECISION (user):** BOM `BOUGHT_OUT` component lines read the **materials** collection (`bomCalculations.ts:48-58`), while the separate `bought_out_items` catalog carries its own `pricing.listPrice` + `bought_out_prices` history that the BOM never sees. Options:
-> (a) **Consolidate** — bought-out catalog items become/reference material-master entries so one price pipeline serves everything; or
-> (b) **Bridge** — BOM items gain `boughtOutItemId` and the cost calc reads `bought_out_items.pricing`.
-> Recommendation: **(a)** long-term one-pipeline, but it's a data/model consolidation project; **(b)** is the pragmatic near-term fix. Decide before A3, because MED BOMs are full of bought-out items (instruments, valves, pumps).
+> **DECIDED 2026-07-07: (b) Bridge.** BOM items gain `boughtOutItemId` and the cost calc reads `bought_out_items.pricing`. No collection merge — the long-term unification is the **`CatalogRef` facade** from `2026-06-15-procurement-catalog-unification.md` (its Phases 2–3, scheduled here as Phase 7), which absorbs these bridge fields as one more consumer. Matters before A3 because MED BOMs are full of bought-out items (instruments, valves, pumps).
 
 1. **Service rates:** BOM service cost currently uses `rateOverride ?? 0` (`serviceCalculations.ts:98`) and never falls back to `Service.defaultRateValue`; the `serviceRates` collection is write-only (written by quote accept `vendorQuoteService.ts:898-913`, read by nothing). Fix: fallback chain `rateOverride → latest active serviceRate → defaultRateValue`, and surface which source priced the line.
 2. **Bought-out feedback:** add `boughtOutItemId` to `PurchaseOrderItem` (`purchaseOrder.ts:192-251` — quote items already carry it, `vendorQuote.ts:216`) and extend `recordProcurementPrices` + the GR/bill path to write `bought_out_prices` for those lines.
@@ -110,7 +107,7 @@ Still unwired (verified: no `executeBatch`; "Execute Payments" has no `onClick`,
 
 ### C2. DRAFT transactions move GL balances (gap 2.1) — **M, high integrity value**
 
-`onTransactionWrite` applies GL entries regardless of status. Decide the posting boundary (recommend: entries affect balances only at `APPROVED`/`POSTED`), change `accountBalanceLogic` accordingly, then run "Recalculate Balances". The nightly `dataIntegrityAudit` should gain a check for it. Coordinate with C4's POSTED concept.
+`onTransactionWrite` applies GL entries regardless of status. **DECIDED 2026-07-07: entries affect balances only at `APPROVED`/`POSTED`.** Change `accountBalanceLogic` accordingly, then run "Recalculate Balances" once after deploy. The nightly `dataIntegrityAudit` gains a check for it. Coordinate with C4's POSTED concept.
 
 ### C3. Missing create UIs: Bank Transfer & Expense Claim (gap 1.2) — **M**
 
@@ -170,27 +167,46 @@ P4 items from known-gaps (amendment recall, GR PENDING state, RFQ issue PDF/emai
 
 ---
 
+## Track G — Security hardening (scoped 2026-07-07)
+
+Scoped from `2026-03-15-security-findings.md` + `2026-05-23-devils-advocate-over-engineering.md`. Runs as part of the reliability sweep (Phase 4).
+
+- **G1. Storage-rules gap** — **S (hours), do first in the sweep.** `accounting/`, `offers/`, `vendor-offers/`, `rfq-pdfs/`, `documents/` allow any authenticated user to read/overwrite/delete (`storage.rules`); mirror the Firestore permission model (`MANAGE_ACCOUNTING` / `MANAGE_PROCUREMENT` / document flags) the way `vendor-quotes/` and proposal PDFs already do. Closes security finding 1 and devil's-advocate findings 1/6.
+- **G2. Firestore-backed rate limiting** — **S–M.** Replace the in-memory `RateLimiter` Map in `@vapour/firebase` with a Firestore counter doc per user per window (no Redis dependency); wire into `aiHelp()` and `parseOfferDocument()`. Closes security finding 2 (HIGH).
+- **G3. Firebase App Check** — **S–M.** Enable with reCAPTCHA provider, enforce on callable Cloud Functions first (built-in `onCall` support), then Firestore/Storage after a monitoring period. Closes security finding 4.
+
+**Explicitly parked by user decision (2026-07-07) — do not re-raise:**
+
+- **Agent scaffolding stays in-tree.** An AI agent is planned once the commercial spine (Phases 0–3) is complete; the `lib/agent/` + `packages/agent-tools/` infrastructure is deliberate pre-work, not dead weight. Precondition when that work starts: fix the `agentMemory` source-spoofing rule (devil's-advocate finding 6).
+- **Email stays on Gmail SMTP** — cheap and works; SendGrid/Resend rejected on cost.
+- **Still open, deliberately unscheduled:** CSP `unsafe-inline`/`unsafe-eval`, MFA, console.log sweep (security 3/7/8) and the permission-philosophy question (devil's-advocate findings 1–3) — revisit after the spine ships.
+
+---
+
 ## Suggested sequence
 
 Each phase is a coherent shippable unit (CI deploy per rule 33). Rough calendar assumes solo development with existing quality gates.
 
-| Phase                               | Contents                                                     | Effort     | Value unlocked                                            |
-| ----------------------------------- | ------------------------------------------------------------ | ---------- | --------------------------------------------------------- |
-| **1. Quote spine**                  | A1 → A2 (decision first) → E-quick-wins + E-H4 → A3          | ~2 weeks   | MED design → priced BOM → proposal, prices auto-improving |
-| **2. Execution loop**               | B1 → B4 → B2 → B3 → B5 (incl. Desolenator conversion verify) | ~1.5 weeks | Weekly review machine; projects visibly tracked           |
-| **3. Money integrity**              | C1 → C2 → C4 → C3                                            | ~1.5 weeks | Payments actually execute; balances trustworthy           |
-| **4. Reliability sweep**            | D1–D8 + P3 batch                                             | ~1 week    | Silent failures stop being silent                         |
-| **5. Thermal correctness**          | E2–E7                                                        | ~1.5 weeks | Calculators safe to trust for design                      |
-| **6. Scope-aware pricing + BOM→PR** | A4 → A5                                                      | ~1.5 weeks | Full scope↔cost↔price trace; estimate drives buying       |
-| ongoing                             | C5 before FY-end; Track F opportunistic                      | —          | —                                                         |
+| Phase                                | Contents                                                                                                                                         | Effort     | Value unlocked                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| **0. Shape DB consolidation**        | Full plan: `2026-07-07-shape-database-consolidation-plan.md` (stable ids → local reads → remove Firestore surface)                               | ~1 session | BOM shape costing actually works; stable ids **before** Desolenator BOMs exist                                     |
+| **1. Quote spine**                   | A1 → A2 → E-quick-wins + E-H4 → A3                                                                                                               | ~2 weeks   | MED design → priced BOM → proposal, prices auto-improving                                                          |
+| **2. Execution loop**                | B1 → B4 → B2 → B3 → B5 (incl. Desolenator conversion verify)                                                                                     | ~1.5 weeks | Weekly review machine; projects visibly tracked                                                                    |
+| **3. Money integrity**               | C1 → C2 → C4 → C3                                                                                                                                | ~1.5 weeks | Payments actually execute; balances trustworthy                                                                    |
+| **4. Reliability + hardening sweep** | D1–D8 + P3 batch + **G1–G3**                                                                                                                     | ~1.5 weeks | Silent failures stop being silent; HIGH security items closed                                                      |
+| **5. Thermal correctness**           | E2–E7                                                                                                                                            | ~1.5 weeks | Calculators safe to trust for design                                                                               |
+| **6. Scope-aware pricing + BOM→PR**  | A4 → A5                                                                                                                                          | ~1.5 weeks | Full scope↔cost↔price trace; estimate drives buying                                                                |
+| **7. Catalog facade**                | Catalog-unification Phases 2–3 (`catalogService`, `CatalogPickerDialog`, `CATALOG_TAXONOMY`) per `2026-06-15-procurement-catalog-unification.md` | ~1 week    | One picker/linkage/taxonomy; absorbs the A2 bridge + Phase-1 id-triplets; prerequisite for any new procurable kind |
+| ongoing                              | C5 before FY-end; Track F opportunistic; AI agent work begins **after** Phases 0–3 (fix `agentMemory` spoofing rule first)                       | —          | —                                                                                                                  |
 
-Phases 2/5 can swap or interleave with 1/3 freely; 6 depends on 1. Within the first phase, **A1 is day one** — smallest change, immediate payoff, and it forces the A2 decision.
+Phases 2/5 can swap or interleave with 1/3 freely; 6 depends on 1; 7 after 6 (it absorbs A2/A5 consumers). Phase 0 is first because it is one session, fixes a currently-broken BOM path, and its stable shape ids must land before real BOMs reference shapes. Within Phase 1, **A1 is day one** — smallest change, immediate payoff.
 
-## Decisions needed from the user
+## Decisions locked (2026-07-07)
 
-1. **A2:** bought-out catalog — consolidate into materials master, or bridge BOM→`bought_out_items`? (Blocks A3 design.)
-2. **C2:** confirm the GL posting boundary (recommend: balances move at APPROVED/POSTED only) — requires one recalculation pass after deploy.
-3. **Phase order:** revenue spine first (as proposed) vs money integrity first — depends on whether estimating/quoting or accounting trust is the nearer pain.
+1. **A2 bought-out pricing:** bridge (`boughtOutItemId` on BOM/PO lines reading `bought_out_items.pricing`); `CatalogRef` facade later (Phase 7). No collection merge.
+2. **C2 GL posting boundary:** balances move at APPROVED/POSTED only; one recalculation pass after deploy.
+3. **Phase order:** revenue spine first (quoting speed is the nearer pain).
+4. **Hardening scope:** G1 storage rules + G2 rate limiting + G3 App Check scheduled (Phase 4). Agent scaffolding **stays** (AI agent planned post-spine). Email **stays** on Gmail SMTP (cost). MFA/CSP/permission-philosophy parked until after the spine.
 
 ## Cross-cutting rules for every item
 
