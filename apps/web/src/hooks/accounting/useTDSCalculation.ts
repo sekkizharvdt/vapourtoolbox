@@ -3,7 +3,8 @@ import { calculateTDS, type TDSDetails, type TDSSection } from '@/lib/accounting
 
 interface UseTDSCalculationOptions {
   /**
-   * Amount to calculate TDS on (subtotal + GST)
+   * Amount to calculate TDS on — the basic (pre-GST) value, i.e. the
+   * subtotal. TDS is never computed on the tax-inclusive total.
    */
   amount: number;
   /**

@@ -36,7 +36,7 @@ import {
 } from './vendor-payment';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
-import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
+import { getInrAmount, deriveOutstanding, roundToPaisa } from '@/lib/accounting/amountHelpers';
 
 interface RecordVendorPaymentDialogProps {
   open: boolean;
@@ -281,19 +281,32 @@ export function RecordVendorPaymentDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityId, editingPayment?.id]);
 
-  // Calculate TDS when section changes
+  // Calculate TDS when section changes. TDS is deducted on the basic
+  // (pre-GST) share of each allocation, never the tax-inclusive amount
+  // (feedback lxcYbRIPRsRMaLQPAO8B): each bill's allocation is scaled by its
+  // subtotal/totalAmount ratio (both in bill currency, so the ratio also
+  // holds for INR allocations). Bills without a subtotal (opening-balance
+  // rows, minimal legacy docs) have no GST split — use the full allocation.
   useEffect(() => {
     if (tdsDeducted && tdsSection) {
       const section = TDS_SECTIONS.find((s) => s.code === tdsSection);
       if (section) {
-        const totalBillAmount = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-        const calculatedTds = (totalBillAmount * section.rate) / 100;
-        setTdsAmount(calculatedTds);
+        const basicRatioByBillId = new Map(
+          outstandingBills.map((bill) => [
+            bill.id,
+            bill.subtotal && bill.totalAmount ? bill.subtotal / bill.totalAmount : 1,
+          ])
+        );
+        const basicAllocated = allocations.reduce(
+          (sum, a) => sum + a.allocatedAmount * (basicRatioByBillId.get(a.invoiceId) ?? 1),
+          0
+        );
+        setTdsAmount(roundToPaisa((basicAllocated * section.rate) / 100));
       }
     } else {
       setTdsAmount(0);
     }
-  }, [tdsDeducted, tdsSection, allocations]);
+  }, [tdsDeducted, tdsSection, allocations, outstandingBills]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {

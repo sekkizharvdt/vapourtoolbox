@@ -113,7 +113,9 @@ export function CreateBillDialog({
     tdsDetails,
     tdsAmount,
   } = useTDSCalculation({
-    amount: amountBeforeTDS,
+    // TDS is deducted on the basic (pre-GST) value, never the tax-inclusive
+    // total (feedback iXJ0WItJPR7FD28je5nS / lxcYbRIPRsRMaLQPAO8B).
+    amount: subtotal,
   });
 
   // Calculate final total after TDS deduction
