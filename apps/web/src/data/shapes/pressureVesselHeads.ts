@@ -3,17 +3,16 @@
  * ASME Section VIII Division 1 compliant head types
  */
 
-import type { Shape } from '@vapour/types';
+import type { ShapeDefinition } from './index';
 import { ShapeCategory, MaterialCategory } from '@vapour/types';
 
 /**
  * 4. Ellipsoidal Head (2:1)
  * ASME UG-32(d) compliant 2:1 ellipsoidal head
  */
-export const ellipsoidalHead: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const ellipsoidalHead: ShapeDefinition = {
+  id: 'head-ellipsoidal',
+  shapeCode: 'SHP-HEAD_ELLIPSOIDAL',
   name: 'Ellipsoidal Head (2:1)',
   description:
     'ASME Section VIII Division 1 compliant 2:1 ellipsoidal head (UG-32(d)). Most commonly used head type, good balance of strength and manufacturability.',
@@ -173,10 +172,9 @@ export const ellipsoidalHead: Omit<
  * 5. Torispherical Head (ASME F&D)
  * ASME UG-32(e) compliant torispherical head (Flanged & Dished)
  */
-export const torisphericialHead: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const torisphericialHead: ShapeDefinition = {
+  id: 'head-torispherical',
+  shapeCode: 'SHP-HEAD_TORISPHERICAL',
   name: 'Torispherical Head (F&D)',
   description:
     'ASME Section VIII Division 1 compliant torispherical (Flanged & Dished) head (UG-32(e)). Cost-effective alternative to ellipsoidal heads.',
@@ -362,10 +360,9 @@ export const torisphericialHead: Omit<
  * 6. Flat Head
  * ASME UG-34 compliant flat head/cover
  */
-export const flatHead: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const flatHead: ShapeDefinition = {
+  id: 'head-flat',
+  shapeCode: 'SHP-HEAD_FLAT',
   name: 'Flat Head',
   description:
     'ASME Section VIII Division 1 compliant flat head or cover plate (UG-34). Used for low-pressure applications or reinforced with stays.',
@@ -516,10 +513,9 @@ export const flatHead: Omit<
  * 7. Conical Head
  * ASME UG-32 compliant conical head/closure
  */
-export const conicalHead: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const conicalHead: ShapeDefinition = {
+  id: 'head-conical',
+  shapeCode: 'SHP-HEAD_CONICAL',
   name: 'Conical Head',
   description:
     'ASME Section VIII Division 1 compliant conical head closure (UG-32). Used for cone-bottom tanks and hoppers.',

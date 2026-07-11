@@ -129,9 +129,6 @@ export const COLLECTIONS = {
   MATERIAL_PRICES: 'materialPrices',
   STOCK_MOVEMENTS: 'stockMovements',
 
-  // Shape Database
-  SHAPES: 'shapes',
-
   // Service Catalog (Phase 3)
   SERVICES: 'services',
   SERVICE_RATES: 'serviceRates',

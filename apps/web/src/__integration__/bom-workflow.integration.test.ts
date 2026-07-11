@@ -23,10 +23,13 @@ const COLLECTIONS = {
   BOMS: 'boms',
   BOM_ITEMS: 'items',
   MATERIALS: 'materials',
-  SHAPES: 'shapes',
   COST_CONFIGURATIONS: 'costConfigurations',
   COUNTERS: 'counters',
 };
+
+// Shapes live in the local TS dataset (@/data/shapes), not Firestore —
+// BOM items reference them by their stable hand-written id.
+const RECT_PLATE_SHAPE_ID = 'plate-rectangular';
 
 // Test data
 const TEST_USER = {
@@ -146,7 +149,7 @@ describe('BOM/Estimation Workflow Integration', () => {
   // STEP 2: Setup Materials and Shapes
   // ============================================================================
 
-  itWithEmulator('Step 2: Create materials and shapes for BOM items', async () => {
+  itWithEmulator('Step 2: Create materials for BOM items', async () => {
     const now = Timestamp.now();
 
     // Create a material (SS304 Plate)
@@ -168,27 +171,6 @@ describe('BOM/Estimation Workflow Integration', () => {
 
     await setDoc(doc(db, COLLECTIONS.MATERIALS, 'material-001'), materialData);
 
-    // Create a shape (Rectangular Plate)
-    const shapeData = {
-      name: 'Rectangular Plate',
-      shapeCode: 'SHP-RECT-001',
-      category: 'PLATE_RECTANGULAR',
-      parameters: [
-        { name: 'L', label: 'Length', unit: 'mm', type: 'NUMBER', required: true },
-        { name: 'W', label: 'Width', unit: 'mm', type: 'NUMBER', required: true },
-        { name: 't', label: 'Thickness', unit: 'mm', type: 'NUMBER', required: true },
-      ],
-      formulas: {
-        volume: 'L * W * t',
-        weight: 'volume * density / 1000000000', // Convert mm³ to m³
-        surfaceArea: '2 * (L * W + L * t + W * t)',
-      },
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await setDoc(doc(db, COLLECTIONS.SHAPES, 'shape-001'), shapeData);
-
     // Create a bought-out material (Gate Valve)
     const boughtOutData = {
       name: 'Gate Valve 2" 150#',
@@ -207,14 +189,12 @@ describe('BOM/Estimation Workflow Integration', () => {
 
     await setDoc(doc(db, COLLECTIONS.MATERIALS, 'material-002'), boughtOutData);
 
-    // Verify materials and shapes
+    // Verify materials
     const material1 = await getDoc(doc(db, COLLECTIONS.MATERIALS, 'material-001'));
     const material2 = await getDoc(doc(db, COLLECTIONS.MATERIALS, 'material-002'));
-    const shape = await getDoc(doc(db, COLLECTIONS.SHAPES, 'shape-001'));
 
     expect(material1.exists()).toBe(true);
     expect(material2.exists()).toBe(true);
-    expect(shape.exists()).toBe(true);
     expect(material1.data()?.materialType).toBe('RAW_MATERIAL');
     expect(material2.data()?.materialType).toBe('BOUGHT_OUT_COMPONENT');
   });
@@ -268,7 +248,7 @@ describe('BOM/Estimation Workflow Integration', () => {
       unit: 'nos',
       component: {
         type: 'SHAPE',
-        shapeId: 'shape-001',
+        shapeId: RECT_PLATE_SHAPE_ID,
         materialId: 'material-001',
         parameters: { L: 1000, W: 500, t: 6 },
       },
@@ -314,7 +294,7 @@ describe('BOM/Estimation Workflow Integration', () => {
       unit: 'nos',
       component: {
         type: 'SHAPE',
-        shapeId: 'shape-001',
+        shapeId: RECT_PLATE_SHAPE_ID,
         materialId: 'material-001',
         parameters: { L: 500, W: 500, t: 8 },
       },
@@ -374,7 +354,7 @@ describe('BOM/Estimation Workflow Integration', () => {
       component: {
         type: 'SHAPE',
         materialId: 'material-001',
-        shapeId: 'shape-001',
+        shapeId: RECT_PLATE_SHAPE_ID,
         parameters: { L: 1000, W: 500, t: 6 },
       },
       calculatedProperties: {

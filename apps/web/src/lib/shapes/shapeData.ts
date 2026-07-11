@@ -5,7 +5,7 @@
  */
 
 import { Shape, ShapeCategory } from '@vapour/types';
-import { allShapes } from '@/data/shapes';
+import { allShapes, type ShapeDefinition } from '@/data/shapes';
 import { Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 
@@ -44,18 +44,14 @@ const categoryMap: Record<string, ShapeCategory[]> = {
 };
 
 /**
- * Add database fields to shape definition for client-side use
+ * Stamp audit-metadata fields onto a shape definition for client-side use.
+ * Ids and shapeCodes are hand-written in the data files (never minted here) —
+ * BOM items persist `shapeId`, so they must be stable across data-file edits.
  */
-function addShapeMetadata(
-  shape: Omit<Shape, 'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>,
-  index: number,
-  categoryId?: string
-): Shape {
+function addShapeMetadata(shape: ShapeDefinition): Shape {
   const now = Timestamp.now();
   return {
     ...shape,
-    id: `shape-${categoryId || 'global'}-${index}`,
-    shapeCode: `SHP-${(categoryId || 'GLOBAL').toUpperCase()}-${String(index + 1).padStart(3, '0')}`,
     createdAt: now,
     updatedAt: now,
     createdBy: 'system',
@@ -75,23 +71,23 @@ export function getShapesByCategory(categoryId: string): Shape[] {
 
   return allShapes
     .filter((shape) => allowedCategories.includes(shape.category))
-    .map((shape, index) => addShapeMetadata(shape, index, categoryId));
+    .map(addShapeMetadata);
 }
 
 /**
  * Get all shapes
  */
 export function getAllShapes(): Shape[] {
-  return allShapes.map((shape, index) => addShapeMetadata(shape, index));
+  return allShapes.map(addShapeMetadata);
 }
 
 /**
  * Get shape by ID (returns shape with metadata added)
  */
 export function getShapeById(shapeId: string): Shape | undefined {
-  const index = allShapes.findIndex((_, i) => `shape-global-${i}` === shapeId);
-  if (index === -1) return undefined;
-  return addShapeMetadata(allShapes[index]!, index);
+  const shape = allShapes.find((s) => s.id === shapeId);
+  if (!shape) return undefined;
+  return addShapeMetadata(shape);
 }
 
 /**

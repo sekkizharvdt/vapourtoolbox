@@ -1,15 +1,17 @@
 /**
  * BOM Calculations Engine Tests
  *
- * Tests for cost and weight calculations for BOM items by integrating with
- * Material Database and Shape Database.
+ * Tests for cost and weight calculations for BOM items. Materials come from
+ * Firestore (mocked); shapes resolve against the REAL local dataset
+ * (@/data/shapes) — no shape mocking.
  */
 
 /* eslint-disable @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any */
 
-import type { BOMItem, Material, Shape, ShapeParameter, MaterialPrice } from '@vapour/types';
+import type { BOMItem, Material, MaterialPrice } from '@vapour/types';
 import { ServiceCategory, ServiceCalculationMethod } from '@vapour/types';
 import type { Firestore, Timestamp } from 'firebase/firestore';
+import { allShapes } from '@/data/shapes';
 
 // Mock firebase/firestore
 const mockGetDoc = jest.fn();
@@ -29,7 +31,6 @@ jest.mock('firebase/firestore', () => ({
 jest.mock('@vapour/firebase', () => ({
   COLLECTIONS: {
     MATERIALS: 'materials',
-    SHAPES: 'shapes',
     BOMS: 'boms',
     BOM_ITEMS: 'items',
   },
@@ -115,29 +116,17 @@ describe('BOM Calculations', () => {
       ...overrides,
     }) as Material;
 
-  const createMockShapeParameter = (overrides: Partial<ShapeParameter> = {}): ShapeParameter => ({
-    name: 'L',
-    label: 'Length',
-    unit: 'mm',
-    dataType: 'NUMBER',
-    order: 0,
-    required: true,
-    usedInFormulas: ['volume', 'weight'],
-    ...overrides,
-  });
-
-  const createMockShape = (overrides: Partial<Shape> = {}): Shape =>
-    ({
-      id: 'shape-123',
-      name: 'Rectangular Plate',
-      category: 'PLATE_RECTANGULAR',
-      parameters: [
-        createMockShapeParameter({ name: 'L', label: 'Length', order: 0 }),
-        createMockShapeParameter({ name: 'W', label: 'Width', order: 1 }),
-        createMockShapeParameter({ name: 't', label: 'Thickness', order: 2 }),
-      ],
-      ...overrides,
-    }) as Shape;
+  /** Every parameter of a real shape at its default (or an in-range numeric) value */
+  const defaultParametersFor = (shapeId: string): Record<string, number> => {
+    const shape = allShapes.find((s) => s.id === shapeId)!;
+    return Object.fromEntries(
+      shape.parameters.map((p) => {
+        const value = p.defaultValue ?? p.minValue ?? 1;
+        // ShapeParameters is numeric; SELECT params only need presence for validation
+        return [p.name, typeof value === 'number' ? value : 1];
+      })
+    );
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -343,44 +332,37 @@ describe('BOM Calculations', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when shape not found', async () => {
-      const item = createMockBOMItem({
-        component: { type: 'SHAPE', shapeId: 'shape-123', materialId: 'material-123' },
-      });
+    it('should return null when shape not found (unknown or legacy index-based id)', async () => {
+      for (const staleId of ['no-such-shape', 'shape-global-0']) {
+        const item = createMockBOMItem({
+          component: { type: 'SHAPE', shapeId: staleId, materialId: 'material-123' },
+        });
 
-      mockGetDoc.mockResolvedValue({ exists: () => false });
+        const result = await calculateItemCost(mockDb, item);
 
-      const result = await calculateItemCost(mockDb, item);
-
-      expect(result).toBeNull();
+        expect(result).toBeNull();
+      }
+      // Shape lookup is local — Firestore is never consulted for shapes
+      expect(mockGetDoc).not.toHaveBeenCalled();
     });
 
-    it('should calculate cost for shape-based item', async () => {
-      const shape = createMockShape();
+    it('should calculate cost for shape-based item using the local shape dataset', async () => {
       const material = createMockMaterial();
       const item = createMockBOMItem({
         quantity: 2,
         component: {
           type: 'SHAPE',
-          shapeId: 'shape-123',
+          shapeId: 'plate-rectangular',
           materialId: 'material-123',
           parameters: { L: 100, W: 50, t: 10 },
         },
       });
 
-      mockGetDoc.mockImplementation((ref) => {
-        if (ref?.id === 'shape-123' || mockDoc.mock.calls.some((c) => c[2] === 'shape-123')) {
-          return Promise.resolve({
-            exists: () => true,
-            id: 'shape-123',
-            data: () => shape,
-          });
-        }
-        return Promise.resolve({
-          exists: () => true,
-          id: 'material-123',
-          data: () => material,
-        });
+      // Only the material is fetched from Firestore now
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'material-123',
+        data: () => material,
       });
 
       mockCalculateShape.mockReturnValue({
@@ -401,11 +383,18 @@ describe('BOM Calculations', () => {
       expect(result?.totalMaterialCost.amount).toBe(300); // 150 * 2
       expect(result?.fabricationCostPerUnit.amount).toBe(75);
       expect(result?.totalFabricationCost.amount).toBe(150); // 75 * 2
+
+      // The real local shape definition was passed to the calculator
+      expect(mockCalculateShape).toHaveBeenCalledWith(
+        expect.objectContaining({
+          shape: expect.objectContaining({ id: 'plate-rectangular', name: 'Rectangular Plate' }),
+        })
+      );
     });
 
     it('should return null on calculation error', async () => {
       const item = createMockBOMItem({
-        component: { type: 'SHAPE', shapeId: 'shape-123', materialId: 'material-123' },
+        component: { type: 'SHAPE', shapeId: 'plate-rectangular', materialId: 'material-123' },
       });
 
       mockGetDoc.mockRejectedValue(new Error('Database error'));
@@ -534,121 +523,64 @@ describe('BOM Calculations', () => {
     });
   });
 
-  describe('validateShapeParameters', () => {
-    it('should return invalid when shape not found', async () => {
-      mockGetDoc.mockResolvedValue({ exists: () => false });
-
-      const result = await validateShapeParameters(mockDb, 'shape-123', {});
+  describe('validateShapeParameters (real local dataset)', () => {
+    it('should return invalid when shape not found', () => {
+      const result = validateShapeParameters('no-such-shape', {});
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Shape not found');
     });
 
-    it('should validate required parameters', async () => {
-      const shape = createMockShape({
-        parameters: [
-          createMockShapeParameter({ name: 'L', label: 'Length', required: true }),
-          createMockShapeParameter({ name: 'W', label: 'Width', required: true }),
-        ],
-      });
+    it('should reject the retired index-based id scheme', () => {
+      const result = validateShapeParameters('shape-global-0', {});
 
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => shape,
-      });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Shape not found');
+    });
 
-      const result = await validateShapeParameters(mockDb, 'shape-123', { L: 100 });
+    it('should validate required parameters', () => {
+      // plate-rectangular requires L, W and t
+      const result = validateShapeParameters('plate-rectangular', { L: 100 });
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain("Required parameter 'Width' is missing");
+      expect(result.errors).toContain("Required parameter 'Thickness' is missing");
     });
 
-    it('should validate minimum values', async () => {
-      const shape = createMockShape({
-        parameters: [createMockShapeParameter({ name: 'L', label: 'Length', minValue: 10 })],
-      });
-
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => shape,
-      });
-
-      const result = await validateShapeParameters(mockDb, 'shape-123', { L: 5 });
+    it('should validate minimum values', () => {
+      // L has minValue 10
+      const result = validateShapeParameters('plate-rectangular', { L: 5, W: 50, t: 10 });
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain("Parameter 'Length' is below minimum value (10)");
     });
 
-    it('should validate maximum values', async () => {
-      const shape = createMockShape({
-        parameters: [createMockShapeParameter({ name: 'L', label: 'Length', maxValue: 1000 })],
-      });
-
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => shape,
-      });
-
-      const result = await validateShapeParameters(mockDb, 'shape-123', { L: 1500 });
+    it('should validate maximum values', () => {
+      // L has maxValue 20000
+      const result = validateShapeParameters('plate-rectangular', { L: 25000, W: 50, t: 10 });
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain("Parameter 'Length' exceeds maximum value (1000)");
+      expect(result.errors).toContain("Parameter 'Length' exceeds maximum value (20000)");
     });
 
-    it('should return valid when all constraints satisfied', async () => {
-      const shape = createMockShape({
-        parameters: [
-          createMockShapeParameter({
-            name: 'L',
-            label: 'Length',
-            required: true,
-            minValue: 10,
-            maxValue: 1000,
-          }),
-          createMockShapeParameter({
-            name: 'W',
-            label: 'Width',
-            required: true,
-            minValue: 5,
-            maxValue: 500,
-          }),
-        ],
-      });
-
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => shape,
-      });
-
-      const result = await validateShapeParameters(mockDb, 'shape-123', { L: 100, W: 50 });
+    it('should return valid when all constraints satisfied', () => {
+      const result = validateShapeParameters('plate-rectangular', { L: 100, W: 50, t: 10 });
 
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should return validation error on database failure', async () => {
-      mockGetDoc.mockRejectedValue(new Error('Database error'));
-
-      const result = await validateShapeParameters(mockDb, 'shape-123', {});
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Validation error occurred');
+    it('should accept default parameter values for every shape in the dataset', () => {
+      allShapes.forEach((shape) => {
+        const result = validateShapeParameters(shape.id, defaultParametersFor(shape.id));
+        expect(result.errors).toEqual([]);
+        expect(result.valid).toBe(true);
+      });
     });
 
-    it('should allow optional parameters to be missing', async () => {
-      const shape = createMockShape({
-        parameters: [
-          createMockShapeParameter({ name: 'L', label: 'Length', required: true }),
-          createMockShapeParameter({ name: 'note', label: 'Note', required: false }),
-        ],
-      });
-
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => shape,
-      });
-
-      const result = await validateShapeParameters(mockDb, 'shape-123', { L: 100 });
+    it('should allow optional parameters to be missing', () => {
+      // 'allowance' on plate-rectangular is optional
+      const result = validateShapeParameters('plate-rectangular', { L: 100, W: 50, t: 10 });
 
       expect(result.valid).toBe(true);
     });

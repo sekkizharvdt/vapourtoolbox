@@ -98,13 +98,6 @@ export enum ShapeCategory {
   NOZZLE_CUSTOM_RECTANGULAR = 'NOZZLE_CUSTOM_RECTANGULAR', // Custom rectangular nozzle
   MANWAY_ASSEMBLY = 'MANWAY_ASSEMBLY', // Manway with cover
   REINFORCEMENT_PAD = 'REINFORCEMENT_PAD', // Standalone reinforcement pad
-
-  // Custom Structural Shapes
-  CUSTOM_BOX_SECTION = 'CUSTOM_BOX_SECTION', // Built-up box section
-  CUSTOM_BRACKET = 'CUSTOM_BRACKET', // Custom bracket/support
-
-  // Custom Assemblies
-  CUSTOM_ASSEMBLY = 'CUSTOM_ASSEMBLY', // User-defined assembly
 }
 
 /**
@@ -131,9 +124,6 @@ export const SHAPE_CATEGORY_LABELS: Record<ShapeCategory, string> = {
   [ShapeCategory.NOZZLE_CUSTOM_RECTANGULAR]: 'Custom Rectangular Nozzle',
   [ShapeCategory.MANWAY_ASSEMBLY]: 'Manway Assembly',
   [ShapeCategory.REINFORCEMENT_PAD]: 'Reinforcement Pad',
-  [ShapeCategory.CUSTOM_BOX_SECTION]: 'Custom Box Section',
-  [ShapeCategory.CUSTOM_BRACKET]: 'Custom Bracket/Support',
-  [ShapeCategory.CUSTOM_ASSEMBLY]: 'Custom Assembly',
 };
 
 /**

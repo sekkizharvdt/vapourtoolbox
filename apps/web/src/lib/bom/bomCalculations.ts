@@ -10,16 +10,11 @@
 import { doc, getDoc, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
+import { getShapeById } from '@/lib/shapes/shapeData';
 import { calculateAllServiceCosts } from '@/lib/services/serviceCalculations';
 import { createLogger } from '@vapour/logger';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
-import type {
-  BOMItem,
-  BOMItemCostCalculation,
-  Material,
-  Shape,
-  ShapeParameters,
-} from '@vapour/types';
+import type { BOMItem, BOMItemCostCalculation, Material, ShapeParameters } from '@vapour/types';
 
 const logger = createLogger({ context: 'bomCalculations' });
 
@@ -162,9 +157,9 @@ export async function calculateItemCost(
       return null;
     }
 
-    // Fetch shape definition
-    const shapeDoc = await getDoc(doc(db, COLLECTIONS.SHAPES, item.component.shapeId));
-    if (!shapeDoc.exists()) {
+    // Shape definitions live in the local dataset (@/data/shapes), not Firestore
+    const shape = getShapeById(item.component.shapeId);
+    if (!shape) {
       logger.warn('Shape not found', { shapeId: item.component.shapeId });
       return null;
     }
@@ -176,7 +171,6 @@ export async function calculateItemCost(
       return null;
     }
 
-    const shape = docToTyped<Shape>(shapeDoc.id, shapeDoc.data());
     const material = docToTyped<Material>(materialDoc.id, materialDoc.data());
 
     // Calculate shape properties
@@ -358,19 +352,17 @@ export async function getMaterialPrice(db: Firestore, materialId: string): Promi
 /**
  * Validate shape parameters against shape definition
  */
-export async function validateShapeParameters(
-  db: Firestore,
+export function validateShapeParameters(
   shapeId: string,
   parameters: ShapeParameters
-): Promise<{ valid: boolean; errors: string[] }> {
+): { valid: boolean; errors: string[] } {
   try {
-    const shapeDoc = await getDoc(doc(db, COLLECTIONS.SHAPES, shapeId));
+    const shape = getShapeById(shapeId);
 
-    if (!shapeDoc.exists()) {
+    if (!shape) {
       return { valid: false, errors: ['Shape not found'] };
     }
 
-    const shape = shapeDoc.data() as Shape;
     const errors: string[] = [];
 
     // Check all required parameters are provided

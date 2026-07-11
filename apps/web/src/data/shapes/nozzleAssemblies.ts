@@ -4,17 +4,16 @@
  * Smart assemblies with ASME UG-37 auto-reinforcement and bolt clearance checking
  */
 
-import type { Shape } from '@vapour/types';
+import type { ShapeDefinition } from './index';
 import { ShapeCategory, MaterialCategory } from '@vapour/types';
 
 /**
  * 1. Standard Nozzle Assembly
  * Complete nozzle assembly with automatic reinforcement pad calculation
  */
-export const nozzleAssembly: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const nozzleAssembly: ShapeDefinition = {
+  id: 'nozzle-standard',
+  shapeCode: 'SHP-NOZZLE_STANDARD',
   name: 'Standard Nozzle Assembly',
   description:
     'Complete nozzle assembly with pipe, flange, and automatic ASME UG-37 reinforcement pad calculation. Includes bolt removal clearance check.',
@@ -266,10 +265,9 @@ export const nozzleAssembly: Omit<
  * 2. Custom Circular Nozzle
  * Custom circular nozzle with user-defined dimensions
  */
-export const customCircularNozzle: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const customCircularNozzle: ShapeDefinition = {
+  id: 'nozzle-custom-circular',
+  shapeCode: 'SHP-NOZZLE_CUSTOM_CIRCULAR',
   name: 'Custom Circular Nozzle',
   description:
     'Custom circular nozzle with user-defined OD, thickness, and projection. Includes ASME UG-37 reinforcement calculation.',
@@ -453,10 +451,9 @@ export const customCircularNozzle: Omit<
  * 3. Custom Rectangular Nozzle
  * Custom rectangular nozzle opening
  */
-export const customRectangularNozzle: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const customRectangularNozzle: ShapeDefinition = {
+  id: 'nozzle-custom-rectangular',
+  shapeCode: 'SHP-NOZZLE_CUSTOM_RECTANGULAR',
   name: 'Custom Rectangular Nozzle',
   description:
     'Custom rectangular nozzle opening for special applications. Requires custom reinforcement design.',
@@ -580,10 +577,9 @@ export const customRectangularNozzle: Omit<
  * 4. Manway Assembly
  * Complete manway assembly (separate from rectangular nozzle)
  */
-export const manwayAssembly: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const manwayAssembly: ShapeDefinition = {
+  id: 'manway-assembly',
+  shapeCode: 'SHP-MANWAY_ASSEMBLY',
   name: 'Manway Assembly',
   description:
     'Complete manway assembly for personnel access. May be purchased as pre-assembled unit or fabricated. Includes davit, cover, bolting.',
@@ -682,10 +678,9 @@ export const manwayAssembly: Omit<
  * 5. Reinforcement Pad
  * Standalone reinforcement pad for nozzle openings
  */
-export const reinforcementPad: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const reinforcementPad: ShapeDefinition = {
+  id: 'reinforcement-pad',
+  shapeCode: 'SHP-REINFORCEMENT_PAD',
   name: 'Reinforcement Pad',
   description:
     'Circular reinforcement pad for nozzle openings. Welded to shell to provide additional reinforcement area per ASME UG-37.',

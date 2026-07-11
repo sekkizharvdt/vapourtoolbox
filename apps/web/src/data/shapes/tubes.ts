@@ -4,7 +4,7 @@
  * - Straight Tube (custom fabricated, not catalog pipe)
  */
 
-import type { Shape } from '@vapour/types';
+import type { ShapeDefinition } from './index';
 import { ShapeCategory, MaterialCategory } from '@vapour/types';
 
 /**
@@ -12,10 +12,9 @@ import { ShapeCategory, MaterialCategory } from '@vapour/types';
  * Custom-fabricated straight tube with specified OD, thickness, and length
  * Different from catalog pipes - this is for custom dimensions
  */
-export const straightTube: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const straightTube: ShapeDefinition = {
+  id: 'tube-straight',
+  shapeCode: 'SHP-TUBE_STRAIGHT',
   name: 'Straight Tube',
   description:
     'Custom-fabricated straight tube for special applications requiring non-standard dimensions. For standard pipes, use the Materials Database. Calculates volume, weight, surface areas, and blank plate requirements for tube rolling.',

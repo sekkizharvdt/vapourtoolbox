@@ -3,12 +3,20 @@
  * Centralized export of all shape definitions
  */
 
+import type { Shape } from '@vapour/types';
 import { plateShapes } from './plates';
 import { tubeShapes } from './tubes';
 import { pressureVesselShapes } from './pressureVesselComponents';
 import { pressureVesselHeadShapes } from './pressureVesselHeads';
 import { heatExchangerShapes } from './heatExchangerComponents';
 import { nozzleAssemblyShapes } from './nozzleAssemblies';
+
+/**
+ * A shape definition as authored in the data files: a full Shape minus the
+ * audit-metadata fields, which are stamped at read time by lib/shapes/shapeData.
+ * `id` and `shapeCode` are hand-written and PERMANENT — BOM items persist them.
+ */
+export type ShapeDefinition = Omit<Shape, 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>;
 
 // Phase 1 Shapes (11 total)
 export const phase1Shapes = [

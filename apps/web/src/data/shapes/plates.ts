@@ -6,17 +6,16 @@
  * - Custom Plate
  */
 
-import type { Shape } from '@vapour/types';
+import type { ShapeDefinition } from './index';
 import { ShapeCategory, MaterialCategory } from '@vapour/types';
 
 /**
  * 1. Rectangular Plate
  * Standard rectangular plate with length, width, and thickness
  */
-export const rectangularPlate: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const rectangularPlate: ShapeDefinition = {
+  id: 'plate-rectangular',
+  shapeCode: 'SHP-PLATE_RECTANGULAR',
   name: 'Rectangular Plate',
   description:
     'Standard rectangular plate for general fabrication. Calculates weight, surface area, blank size, scrap percentage, edge preparation, and welding requirements.',
@@ -257,10 +256,9 @@ export const rectangularPlate: Omit<
  * 2. Circular Plate
  * Standard circular plate/disc with diameter and thickness
  */
-export const circularPlate: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const circularPlate: ShapeDefinition = {
+  id: 'plate-circular',
+  shapeCode: 'SHP-PLATE_CIRCULAR',
   name: 'Circular Plate',
   description:
     'Standard circular plate or disc for heads, flanges, or general fabrication. Calculates weight, surface area, blank size, circumference, and cutting requirements.',
@@ -474,10 +472,9 @@ export const circularPlate: Omit<
  * 3. Custom Plate
  * Custom-shaped plate with user-defined area and perimeter
  */
-export const customPlate: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const customPlate: ShapeDefinition = {
+  id: 'plate-custom',
+  shapeCode: 'SHP-PLATE_CUSTOM',
   name: 'Custom Plate',
   description:
     'Custom-shaped plate for irregular geometries. User provides area and perimeter measurements from CAD or manual calculation.',

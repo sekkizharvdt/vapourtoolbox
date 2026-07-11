@@ -4,17 +4,16 @@
  * Compliant with TEMA Standards
  */
 
-import type { Shape } from '@vapour/types';
+import type { ShapeDefinition } from './index';
 import { ShapeCategory, MaterialCategory } from '@vapour/types';
 
 /**
  * 1. HX Tube Bundle
  * Heat exchanger tube bundle assembly
  */
-export const hxTubeBundle: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const hxTubeBundle: ShapeDefinition = {
+  id: 'hx-tube-bundle',
+  shapeCode: 'SHP-HX_TUBE_BUNDLE',
   name: 'HX Tube Bundle',
   description:
     'Heat exchanger tube bundle for shell & tube heat exchangers. Calculates total tube material weight and surface area for heat transfer.',
@@ -195,10 +194,9 @@ export const hxTubeBundle: Omit<
  * 2. HX Tube Sheet
  * Heat exchanger tube sheet (tube-to-shell connection plate)
  */
-export const hxTubeSheet: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const hxTubeSheet: ShapeDefinition = {
+  id: 'hx-tube-sheet',
+  shapeCode: 'SHP-HX_TUBE_SHEET',
   name: 'HX Tube Sheet',
   description:
     'Heat exchanger tube sheet for mounting tubes. Perforated circular plate with tube holes arranged in triangular or square pitch.',
@@ -395,10 +393,9 @@ export const hxTubeSheet: Omit<
  * 3. HX Baffle
  * Heat exchanger baffle plate for directing shell-side flow
  */
-export const hxBaffle: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const hxBaffle: ShapeDefinition = {
+  id: 'hx-baffle',
+  shapeCode: 'SHP-HX_BAFFLE',
   name: 'HX Baffle',
   description:
     'Heat exchanger baffle plate for directing shell-side flow and supporting tubes. Segmental or disc-and-doughnut type with tube holes.',
@@ -577,10 +574,9 @@ export const hxBaffle: Omit<
  * 4. HX Tube Support
  * Heat exchanger tube support plate
  */
-export const hxTubeSupport: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const hxTubeSupport: ShapeDefinition = {
+  id: 'hx-tube-support',
+  shapeCode: 'SHP-HX_TUBE_SUPPORT',
   name: 'HX Tube Support',
   description:
     'Heat exchanger tube support plate for preventing tube vibration and sagging. Similar to baffle but with larger holes for less flow restriction.',

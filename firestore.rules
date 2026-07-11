@@ -2052,15 +2052,6 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // Engineering shapes catalog (sections, profiles, ASME standards)
-    match /shapes/{shapeId} {
-      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION
-      allow create: if hasPermission(262144) && isInternalUser() &&
-                       request.resource.data.tenantId == request.auth.token.tenantId; // MANAGE_ESTIMATION
-      allow update: if hasPermission(262144) && isInternalUser();
-      allow delete: if isSuperAdmin();
-    }
-
     // ── Project channels (slack-like) ──────────────
 
     match /projectChannels/{channelId} {

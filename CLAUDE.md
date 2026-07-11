@@ -12,7 +12,7 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
 ## Firestore Queries
 
-1. **`entityId` on transactions is the COUNTERPARTY (vendor/customer), NOT a tenant ID.** Tenant scoping uses `tenantId` everywhere — claims (`claims?.tenantId || 'default-entity'`), document fields, queries, types. Transaction queries do NOT filter by tenant (single-tenant system). The `entities` collection stores counterparties, not tenants. Global collections: `users`/`taskNotifications` (scoped by `userId`), `entities`, `materials`, `shapes`, `bought_out_items` (shared reference data). Never use `entityId` for tenant scoping.
+1. **`entityId` on transactions is the COUNTERPARTY (vendor/customer), NOT a tenant ID.** Tenant scoping uses `tenantId` everywhere — claims (`claims?.tenantId || 'default-entity'`), document fields, queries, types. Transaction queries do NOT filter by tenant (single-tenant system). The `entities` collection stores counterparties, not tenants. Global collections: `users`/`taskNotifications` (scoped by `userId`), `entities`, `materials`, `bought_out_items` (shared reference data). (Shapes are NOT a collection — they're a local TS dataset at `apps/web/src/data/shapes/`.) Never use `entityId` for tenant scoping.
 
 2. **Every `where()` + `orderBy()` combo MUST have a composite index** in `firestore.indexes.json`. Queries will silently fail in production without them.
 

@@ -4,17 +4,16 @@
  * Compliant with ASME Section VIII Division 1
  */
 
-import type { Shape } from '@vapour/types';
+import type { ShapeDefinition } from './index';
 import { ShapeCategory, MaterialCategory } from '@vapour/types';
 
 /**
  * 1. Cylindrical Shell
  * ASME UG-27 compliant cylindrical shell section
  */
-export const cylindricalShell: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const cylindricalShell: ShapeDefinition = {
+  id: 'shell-cylindrical',
+  shapeCode: 'SHP-SHELL_CYLINDRICAL',
   name: 'Cylindrical Shell',
   description:
     'ASME Section VIII Division 1 compliant cylindrical shell section (UG-27). For pressure vessels, tanks, and columns. Calculates material requirements for rolled and welded construction.',
@@ -238,10 +237,9 @@ export const cylindricalShell: Omit<
  * 2. Conical Shell
  * ASME UG-32 compliant conical shell section
  */
-export const conicalShell: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const conicalShell: ShapeDefinition = {
+  id: 'shell-conical',
+  shapeCode: 'SHP-SHELL_CONICAL',
   name: 'Conical Shell',
   description:
     'ASME Section VIII Division 1 compliant conical shell/reducer section (UG-32). Used for transitions between different diameters.',
@@ -416,10 +414,9 @@ export const conicalShell: Omit<
  * 3. Hemispherical Head
  * ASME UG-32(f) compliant hemispherical head
  */
-export const hemisphericalHead: Omit<
-  Shape,
-  'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-> = {
+export const hemisphericalHead: ShapeDefinition = {
+  id: 'head-hemispherical',
+  shapeCode: 'SHP-HEAD_HEMISPHERICAL',
   name: 'Hemispherical Head',
   description:
     'ASME Section VIII Division 1 compliant hemispherical head (UG-32(f)). Most efficient head design for pressure vessels.',

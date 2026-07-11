@@ -1,65 +1,15 @@
 /**
  * Shape Data Service Tests
  *
- * Tests for shape data retrieval and filtering functions.
+ * Tests run against the REAL shape dataset (no mock of @/data/shapes) —
+ * ids and shapeCodes are hand-written and permanent, so asserting on the
+ * real data is the point: BOM items persist `shapeId` forever.
  */
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { ShapeCategory } from '@vapour/types';
+import { allShapes } from '@/data/shapes';
 
-// Mock shape data
-const mockShapes = [
-  {
-    name: 'Rectangular Plate',
-    category: ShapeCategory.PLATE_RECTANGULAR,
-    parameters: [{ name: 'L', unit: 'mm', type: 'NUMBER', label: 'Length' }],
-    formulas: {},
-  },
-  {
-    name: 'Circular Plate',
-    category: ShapeCategory.PLATE_CIRCULAR,
-    parameters: [{ name: 'D', unit: 'mm', type: 'NUMBER', label: 'Diameter' }],
-    formulas: {},
-  },
-  {
-    name: 'Straight Tube',
-    category: ShapeCategory.TUBE_STRAIGHT,
-    parameters: [{ name: 'L', unit: 'mm', type: 'NUMBER', label: 'Length' }],
-    formulas: {},
-  },
-  {
-    name: 'Cylindrical Shell',
-    category: ShapeCategory.SHELL_CYLINDRICAL,
-    parameters: [{ name: 'D', unit: 'mm', type: 'NUMBER', label: 'Diameter' }],
-    formulas: {},
-  },
-  {
-    name: 'Hemispherical Head',
-    category: ShapeCategory.HEAD_HEMISPHERICAL,
-    parameters: [{ name: 'D', unit: 'mm', type: 'NUMBER', label: 'Diameter' }],
-    formulas: {},
-  },
-  {
-    name: 'Tube Bundle',
-    category: ShapeCategory.HX_TUBE_BUNDLE,
-    parameters: [{ name: 'N', unit: '', type: 'NUMBER', label: 'Number of Tubes' }],
-    formulas: {},
-  },
-  {
-    name: 'Nozzle Assembly',
-    category: ShapeCategory.NOZZLE_ASSEMBLY,
-    parameters: [{ name: 'NPS', unit: '', type: 'SELECT', label: 'Size' }],
-    formulas: {},
-  },
-];
-
-// Mock data/shapes module
-jest.mock('@/data/shapes', () => ({
-  allShapes: mockShapes,
-}));
-
-// Mock firebase/firestore
+// Mock firebase/firestore (Timestamp.now needs no app, but keep it deterministic)
 const mockTimestampNow = jest.fn();
 jest.mock('firebase/firestore', () => ({
   Timestamp: {
@@ -93,221 +43,179 @@ describe('shapeData', () => {
     mockTimestampNow.mockReturnValue(mockTimestamp);
   });
 
+  describe('stable hand-written identity (permanent invariants)', () => {
+    it('has exactly 20 shapes', () => {
+      expect(allShapes).toHaveLength(20);
+    });
+
+    it('every id is unique', () => {
+      const ids = allShapes.map((s) => s.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('every shapeCode is unique', () => {
+      const codes = allShapes.map((s) => s.shapeCode);
+      expect(new Set(codes).size).toBe(codes.length);
+    });
+
+    it('every id is a kebab-case slug', () => {
+      allShapes.forEach((shape) => {
+        expect(shape.id).toMatch(/^[a-z0-9-]+$/);
+      });
+    });
+
+    it('every shapeCode is SHP- + upper-snake of the id', () => {
+      allShapes.forEach((shape) => {
+        expect(shape.shapeCode).toBe(`SHP-${shape.id.toUpperCase().replace(/-/g, '_')}`);
+      });
+    });
+
+    it('pins the full id list — a failure here means an id was renamed, which BREAKS persisted BOM items', () => {
+      expect(allShapes.map((s) => s.id).sort()).toEqual(
+        [
+          'head-conical',
+          'head-ellipsoidal',
+          'head-flat',
+          'head-hemispherical',
+          'head-torispherical',
+          'hx-baffle',
+          'hx-tube-bundle',
+          'hx-tube-sheet',
+          'hx-tube-support',
+          'manway-assembly',
+          'nozzle-custom-circular',
+          'nozzle-custom-rectangular',
+          'nozzle-standard',
+          'plate-circular',
+          'plate-custom',
+          'plate-rectangular',
+          'reinforcement-pad',
+          'shell-cylindrical',
+          'shell-conical',
+          'tube-straight',
+        ].sort()
+      );
+    });
+  });
+
   describe('getShapesByCategory', () => {
-    it('should return shapes for plates category', () => {
+    it('should return the 3 plate shapes', () => {
       const shapes = getShapesByCategory('plates');
-
-      expect(shapes).toHaveLength(2);
-      expect(shapes.map((s) => s.name)).toContain('Rectangular Plate');
-      expect(shapes.map((s) => s.name)).toContain('Circular Plate');
+      expect(shapes.map((s) => s.id).sort()).toEqual([
+        'plate-circular',
+        'plate-custom',
+        'plate-rectangular',
+      ]);
     });
 
-    it('should return shapes for tubes category', () => {
+    it('should return the tube shape', () => {
       const shapes = getShapesByCategory('tubes');
-
-      expect(shapes).toHaveLength(1);
-      expect(shapes[0]?.name).toBe('Straight Tube');
+      expect(shapes.map((s) => s.id)).toEqual(['tube-straight']);
     });
 
-    it('should return shapes for vessels category', () => {
+    it('should return the 7 vessel shapes (2 shells + 5 heads)', () => {
       const shapes = getShapesByCategory('vessels');
-
-      expect(shapes).toHaveLength(2);
-      expect(shapes.map((s) => s.name)).toContain('Cylindrical Shell');
-      expect(shapes.map((s) => s.name)).toContain('Hemispherical Head');
+      expect(shapes.map((s) => s.id).sort()).toEqual([
+        'head-conical',
+        'head-ellipsoidal',
+        'head-flat',
+        'head-hemispherical',
+        'head-torispherical',
+        'shell-conical',
+        'shell-cylindrical',
+      ]);
     });
 
-    it('should return shapes for heatExchangers category', () => {
+    it('should return the 4 heat-exchanger shapes', () => {
       const shapes = getShapesByCategory('heatExchangers');
-
-      expect(shapes).toHaveLength(1);
-      expect(shapes[0]?.name).toBe('Tube Bundle');
+      expect(shapes.map((s) => s.id).sort()).toEqual([
+        'hx-baffle',
+        'hx-tube-bundle',
+        'hx-tube-sheet',
+        'hx-tube-support',
+      ]);
     });
 
-    it('should return shapes for nozzles category', () => {
+    it('should return the 5 nozzle shapes', () => {
       const shapes = getShapesByCategory('nozzles');
-
-      expect(shapes).toHaveLength(1);
-      expect(shapes[0]?.name).toBe('Nozzle Assembly');
+      expect(shapes.map((s) => s.id).sort()).toEqual([
+        'manway-assembly',
+        'nozzle-custom-circular',
+        'nozzle-custom-rectangular',
+        'nozzle-standard',
+        'reinforcement-pad',
+      ]);
     });
 
     it('should return empty array for invalid category', () => {
-      const shapes = getShapesByCategory('invalid-category');
-
-      expect(shapes).toHaveLength(0);
+      expect(getShapesByCategory('invalid-category')).toHaveLength(0);
     });
 
-    it('should add metadata to each shape', () => {
+    it('should stamp audit metadata on each shape', () => {
       const shapes = getShapesByCategory('plates');
-
-      shapes.forEach((shape) => {
-        expect(shape).toHaveProperty('id');
-        expect(shape).toHaveProperty('shapeCode');
-        expect(shape).toHaveProperty('createdAt');
-        expect(shape).toHaveProperty('updatedAt');
-        expect(shape).toHaveProperty('createdBy');
-        expect(shape).toHaveProperty('updatedBy');
-      });
-    });
-
-    it('should generate correct ID format', () => {
-      const shapes = getShapesByCategory('plates');
-
-      expect(shapes[0]?.id).toBe('shape-plates-0');
-      expect(shapes[1]?.id).toBe('shape-plates-1');
-    });
-
-    it('should generate correct shape code format', () => {
-      const shapes = getShapesByCategory('plates');
-
-      expect(shapes[0]?.shapeCode).toBe('SHP-PLATES-001');
-      expect(shapes[1]?.shapeCode).toBe('SHP-PLATES-002');
-    });
-
-    it('should set system as creator', () => {
-      const shapes = getShapesByCategory('plates');
-
-      shapes.forEach((shape) => {
-        expect(shape.createdBy).toBe('system');
-        expect(shape.updatedBy).toBe('system');
-      });
-    });
-
-    it('should set current timestamp', () => {
-      const shapes = getShapesByCategory('plates');
-
       shapes.forEach((shape) => {
         expect(shape.createdAt).toEqual(mockTimestamp);
         expect(shape.updatedAt).toEqual(mockTimestamp);
+        expect(shape.createdBy).toBe('system');
+        expect(shape.updatedBy).toBe('system');
       });
     });
   });
 
   describe('getAllShapes', () => {
-    it('should return all shapes', () => {
+    it('should return all 20 shapes with their hand-written ids intact', () => {
       const shapes = getAllShapes();
-
-      expect(shapes).toHaveLength(mockShapes.length);
-    });
-
-    it('should add metadata to all shapes', () => {
-      const shapes = getAllShapes();
-
-      shapes.forEach((shape, index) => {
-        expect(shape.id).toBe(`shape-global-${index}`);
-        expect(shape.shapeCode).toBe(`SHP-GLOBAL-${String(index + 1).padStart(3, '0')}`);
+      expect(shapes).toHaveLength(20);
+      shapes.forEach((shape, i) => {
+        expect(shape.id).toBe(allShapes[i]!.id);
+        expect(shape.shapeCode).toBe(allShapes[i]!.shapeCode);
       });
     });
 
     it('should preserve original shape properties', () => {
-      const shapes = getAllShapes();
-
-      const rectangularPlate = shapes.find((s) => s.name === 'Rectangular Plate');
+      const rectangularPlate = getAllShapes().find((s) => s.id === 'plate-rectangular');
       expect(rectangularPlate).toBeDefined();
+      expect(rectangularPlate?.name).toBe('Rectangular Plate');
       expect(rectangularPlate?.category).toBe(ShapeCategory.PLATE_RECTANGULAR);
-      expect(rectangularPlate?.parameters).toHaveLength(1);
+      expect(rectangularPlate?.parameters.length).toBeGreaterThan(0);
     });
   });
 
   describe('getShapeById', () => {
-    it('should return shape when found', () => {
-      const shape = getShapeById('shape-global-0');
-
-      expect(shape).toBeDefined();
-      expect(shape?.name).toBe('Rectangular Plate');
-    });
-
-    it('should return undefined for invalid ID', () => {
-      const shape = getShapeById('invalid-id');
-
-      expect(shape).toBeUndefined();
-    });
-
-    it('should return undefined for out-of-range index', () => {
-      const shape = getShapeById('shape-global-999');
-
-      expect(shape).toBeUndefined();
-    });
-
-    it('should add metadata to returned shape', () => {
-      const shape = getShapeById('shape-global-0');
-
-      expect(shape?.id).toBe('shape-global-0');
-      expect(shape?.shapeCode).toBe('SHP-GLOBAL-001');
-      expect(shape?.createdBy).toBe('system');
-    });
-
-    it('should return correct shape for each valid index', () => {
-      mockShapes.forEach((mockShape, index) => {
-        const shape = getShapeById(`shape-global-${index}`);
+    it('should look up every shape by its explicit id', () => {
+      allShapes.forEach((def) => {
+        const shape = getShapeById(def.id);
         expect(shape).toBeDefined();
-        expect(shape?.name).toBe(mockShape.name);
+        expect(shape?.name).toBe(def.name);
       });
+    });
+
+    it('should return undefined for an unknown id', () => {
+      expect(getShapeById('invalid-id')).toBeUndefined();
+    });
+
+    it('should return undefined for the retired index-based id scheme', () => {
+      expect(getShapeById('shape-global-0')).toBeUndefined();
+      expect(getShapeById('shape-plates-2')).toBeUndefined();
+    });
+
+    it('should stamp audit metadata on the returned shape', () => {
+      const shape = getShapeById('plate-rectangular');
+      expect(shape?.shapeCode).toBe('SHP-PLATE_RECTANGULAR');
+      expect(shape?.createdBy).toBe('system');
+      expect(shape?.createdAt).toEqual(mockTimestamp);
     });
   });
 
   describe('getAvailableCategories', () => {
-    it('should return all available category IDs', () => {
-      const categories = getAvailableCategories();
-
-      expect(categories).toContain('plates');
-      expect(categories).toContain('tubes');
-      expect(categories).toContain('vessels');
-      expect(categories).toContain('heatExchangers');
-      expect(categories).toContain('nozzles');
-    });
-
-    it('should return exactly 5 categories', () => {
-      const categories = getAvailableCategories();
-
-      expect(categories).toHaveLength(5);
-    });
-
-    it('should return consistent category IDs', () => {
-      const categories1 = getAvailableCategories();
-      const categories2 = getAvailableCategories();
-
-      expect(categories1).toEqual(categories2);
-    });
-  });
-
-  describe('Metadata Generation', () => {
-    it('should generate unique IDs for shapes in same category', () => {
-      const shapes = getShapesByCategory('plates');
-      const ids = shapes.map((s) => s.id);
-      const uniqueIds = new Set(ids);
-
-      expect(uniqueIds.size).toBe(ids.length);
-    });
-
-    it('should generate padded shape codes', () => {
-      const shapes = getAllShapes();
-
-      // All shape codes should have 3-digit padded numbers
-      shapes.forEach((shape) => {
-        expect(shape.shapeCode).toMatch(/SHP-[A-Z]+-\d{3}/);
-      });
-    });
-
-    it('should use category in ID for category-filtered shapes', () => {
-      const platesShapes = getShapesByCategory('plates');
-      const tubesShapes = getShapesByCategory('tubes');
-
-      platesShapes.forEach((shape) => {
-        expect(shape.id).toContain('plates');
-      });
-
-      tubesShapes.forEach((shape) => {
-        expect(shape.id).toContain('tubes');
-      });
-    });
-
-    it('should use GLOBAL in ID for getAllShapes', () => {
-      const shapes = getAllShapes();
-
-      shapes.forEach((shape) => {
-        expect(shape.id).toContain('global');
-      });
+    it('should return exactly the 5 category IDs', () => {
+      expect(getAvailableCategories().sort()).toEqual([
+        'heatExchangers',
+        'nozzles',
+        'plates',
+        'tubes',
+        'vessels',
+      ]);
     });
   });
 });
