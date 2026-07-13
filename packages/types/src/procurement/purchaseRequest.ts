@@ -5,6 +5,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
+import type { CatalogRef } from '../catalog';
 
 // ============================================================================
 // PURCHASE REQUEST TYPES
@@ -87,6 +88,13 @@ export interface PurchaseRequestItem {
 
   // Item type discriminator (defaults to MATERIAL for backward compat)
   itemType?: PurchaseRequestItemType;
+
+  /**
+   * Unified catalog linkage (Phase 2 facade — design 2026-06-15 §3.1).
+   * Written alongside the legacy per-kind id fields below; those stay
+   * readable for back-compat until every consumer reads catalogRef.
+   */
+  catalogRef?: CatalogRef;
 
   // Item details
   lineNumber: number;

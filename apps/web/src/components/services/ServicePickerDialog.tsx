@@ -7,7 +7,7 @@
  * when adding service line items to a purchase request.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
   Alert,
   Button,
@@ -59,6 +59,7 @@ import {
   ServiceCalculationMethod,
   SERVICE_CATEGORY_LABELS,
   SERVICE_CALCULATION_METHOD_LABELS,
+  getCatalogCategoryOptions,
 } from '@vapour/types';
 
 interface ServicePickerDialogProps {
@@ -79,6 +80,11 @@ interface ServicePickerDialogProps {
     defaultRateValue?: number;
     category?: ServiceCategory;
   };
+  /**
+   * Optional content rendered between the title and the dialog body —
+   * used by CatalogPickerDialog to inject the catalog-kind tabs.
+   */
+  headerSlot?: ReactNode;
 }
 
 export default function ServicePickerDialog({
@@ -87,6 +93,7 @@ export default function ServicePickerDialog({
   onSelect,
   categoryFilter,
   createDefaults,
+  headerSlot,
 }: ServicePickerDialogProps) {
   const { user, claims } = useAuth();
   const tenantId = claims?.tenantId || 'default-entity';
@@ -237,6 +244,7 @@ export default function ServicePickerDialog({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
+      {headerSlot}
       <DialogContent>
         {showCreate ? (
           /* Inline create form — minimum required fields. Extended editing
@@ -260,8 +268,8 @@ export default function ServicePickerDialog({
                   label="Category"
                   onChange={(e) => setCreateCategory(e.target.value as ServiceCategory)}
                 >
-                  {Object.entries(SERVICE_CATEGORY_LABELS).map(([key, label]) => (
-                    <MenuItem key={key} value={key}>
+                  {getCatalogCategoryOptions('SERVICE').map(({ value, label }) => (
+                    <MenuItem key={value} value={value}>
                       {label}
                     </MenuItem>
                   ))}
@@ -333,8 +341,9 @@ export default function ServicePickerDialog({
                   onChange={(e) => setCategory(e.target.value)}
                 >
                   <MenuItem value="">All Categories</MenuItem>
-                  {Object.entries(SERVICE_CATEGORY_LABELS).map(([key, label]) => (
-                    <MenuItem key={key} value={key}>
+                  {/* Category filter reads the unified taxonomy registry (design §3.4). */}
+                  {getCatalogCategoryOptions('SERVICE').map(({ value, label }) => (
+                    <MenuItem key={value} value={value}>
                       {label}
                     </MenuItem>
                   ))}

@@ -15,16 +15,28 @@ import {
   Alert,
   Divider,
   Typography,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
+import { Search as SearchIcon } from '@mui/icons-material';
 import { useState, useMemo } from 'react';
-import { BOMItemType, BOMComponentType, type Material, type Shape } from '@vapour/types';
+import {
+  BOMItemType,
+  BOMComponentType,
+  type CatalogRef,
+  type Material,
+  type Shape,
+} from '@vapour/types';
 import { BOM_ITEM_TYPE_LABELS } from '@vapour/types';
 import MaterialSelector from './MaterialSelector';
 import ShapeSelector from './ShapeSelector';
 import ShapeParameterInput from './ShapeParameterInput';
 import ShapeCalculationResults from './ShapeCalculationResults';
-import { getAllBoughtOutCategories } from '@/lib/bom/boughtOutHelpers';
+import CatalogPickerDialog, {
+  type CatalogSelection,
+} from '@/components/catalog/CatalogPickerDialog';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
+import { formatCurrency, formatMoney } from '@/lib/utils/formatters';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -64,6 +76,10 @@ export interface AddItemData {
   materialId?: string;
   shapeId?: string;
   parameters?: Record<string, number>;
+  /** Set when a bought-out component is picked from the bought_out_items catalog. */
+  boughtOutItemId?: string;
+  /** Unified catalog linkage written alongside the per-kind id (design 2026-06-15 §3.1). */
+  catalogRef?: CatalogRef;
 }
 
 export default function AddBOMItemDialog({
@@ -83,8 +99,11 @@ export default function AddBOMItemDialog({
   const [quantity, setQuantity] = useState<number>(1);
   const [unit, setUnit] = useState('nos');
 
-  // Bought-out specific
-  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  // Bought-out specific — a catalog selection (bought_out_items doc, or a
+  // material for legacy material-backed bought-out components). Replaces the
+  // old bought-out-as-MaterialCategory modeling (catalog unification stage 2).
+  const [catalogSelection, setCatalogSelection] = useState<CatalogSelection | null>(null);
+  const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
 
   // Shape-based specific
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
@@ -146,7 +165,8 @@ export default function AddBOMItemDialog({
     setDescription('');
     setQuantity(1);
     setUnit('nos');
-    setSelectedMaterial(null);
+    setCatalogSelection(null);
+    setCatalogPickerOpen(false);
     setSelectedShape(null);
     setShapeMaterial(null);
     setShapeParameters({});
@@ -172,8 +192,8 @@ export default function AddBOMItemDialog({
     const componentType: BOMComponentType = tabValue === 0 ? 'BOUGHT_OUT' : 'SHAPE';
 
     // Validate based on component type
-    if (componentType === 'BOUGHT_OUT' && !selectedMaterial) {
-      setError('Please select a material');
+    if (componentType === 'BOUGHT_OUT' && !catalogSelection) {
+      setError('Please select an item from the catalog');
       return;
     }
 
@@ -210,6 +230,11 @@ export default function AddBOMItemDialog({
         }
       }
 
+      // Bought-out: link the real catalog document. A bought_out_items pick
+      // writes boughtOutItemId (+ catalogRef) and NO materialId — costing
+      // skips such lines until the A2 pricing bridge. A Materials-tab pick
+      // (legacy material-backed bought-out component) keeps writing
+      // materialId so its costing behaves exactly as before.
       const data: AddItemData = {
         itemType,
         name,
@@ -219,10 +244,17 @@ export default function AddBOMItemDialog({
         componentType,
         materialId:
           componentType === 'BOUGHT_OUT'
-            ? selectedMaterial?.id
+            ? catalogSelection?.source.kind === 'RAW_MATERIAL'
+              ? catalogSelection.source.material.id
+              : undefined
             : componentType === 'SHAPE'
               ? shapeMaterial?.id
               : undefined,
+        boughtOutItemId:
+          componentType === 'BOUGHT_OUT' && catalogSelection?.source.kind === 'BOUGHT_OUT'
+            ? catalogSelection.source.boughtOutItem.id
+            : undefined,
+        catalogRef: componentType === 'BOUGHT_OUT' ? catalogSelection?.ref : undefined,
         shapeId: componentType === 'SHAPE' ? selectedShape?.id : undefined,
         parameters: componentType === 'SHAPE' ? numericParams : undefined,
       };
@@ -237,11 +269,12 @@ export default function AddBOMItemDialog({
     }
   };
 
-  // Auto-fill name from material when selected (bought-out tab)
-  const handleMaterialChange = (_materialId: string | null, material: Material | null) => {
-    setSelectedMaterial(material);
-    if (material && !name) {
-      setName(material.name);
+  // Bought-out tab: catalog pick (bought_out_items or materials backend)
+  const handleCatalogSelect = (selection: CatalogSelection) => {
+    setCatalogSelection(selection);
+    setCatalogPickerOpen(false);
+    if (!name) {
+      setName(selection.item.name);
     }
   };
 
@@ -277,18 +310,50 @@ export default function AddBOMItemDialog({
           </Tabs>
         </Box>
 
-        {/* Bought-Out Tab */}
+        {/* Bought-Out Tab — picks from the unified catalog (bought_out_items
+            or the legacy material-backed components in materials). */}
         <TabPanel value={tabValue} index={0}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <MaterialSelector
-              value={selectedMaterial?.id || null}
-              onChange={handleMaterialChange}
-              categories={getAllBoughtOutCategories()}
-              materialType="BOUGHT_OUT_COMPONENT"
-              label="Select Bought-Out Component *"
-              required
-              entityId={entityId}
-            />
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <TextField
+                label="Bought-Out Component *"
+                value={
+                  catalogSelection
+                    ? `${catalogSelection.ref.code} — ${catalogSelection.ref.name}`
+                    : ''
+                }
+                fullWidth
+                required
+                InputProps={{
+                  readOnly: true,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconButton
+                        size="small"
+                        onClick={() => setCatalogPickerOpen(true)}
+                        aria-label="Select from catalog"
+                      >
+                        <SearchIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                onClick={() => setCatalogPickerOpen(true)}
+                placeholder="Select from catalog"
+                helperText={
+                  catalogSelection?.ref.kind === 'BOUGHT_OUT'
+                    ? 'Linked to the Bought-Out database. Cost calculation for these lines is not wired yet — it currently uses material prices only.'
+                    : 'Pick from the Bought-Out database (or the Materials tab for material-backed components)'
+                }
+              />
+              <Button
+                variant="outlined"
+                onClick={() => setCatalogPickerOpen(true)}
+                sx={{ mt: 1, whiteSpace: 'nowrap' }}
+              >
+                Browse
+              </Button>
+            </Box>
 
             <TextField
               label="Item Type"
@@ -342,17 +407,24 @@ export default function AddBOMItemDialog({
               />
             </Box>
 
-            {selectedMaterial?.currentPrice && (
-              <Alert severity="info">
-                Unit Price:{' '}
-                {new Intl.NumberFormat('en-IN', {
-                  style: 'currency',
-                  currency: selectedMaterial.currentPrice.pricePerUnit.currency,
-                }).format(selectedMaterial.currentPrice.pricePerUnit.amount)}
-                {' / '}
-                {selectedMaterial.currentPrice.unit}
-              </Alert>
-            )}
+            {catalogSelection?.source.kind === 'RAW_MATERIAL' &&
+              catalogSelection.source.material.currentPrice && (
+                <Alert severity="info">
+                  Unit Price:{' '}
+                  {formatCurrency(
+                    catalogSelection.source.material.currentPrice.pricePerUnit.amount,
+                    catalogSelection.source.material.currentPrice.pricePerUnit.currency
+                  )}
+                  {' / '}
+                  {catalogSelection.source.material.currentPrice.unit}
+                </Alert>
+              )}
+            {catalogSelection?.source.kind === 'BOUGHT_OUT' &&
+              (catalogSelection.source.boughtOutItem.pricing?.listPrice?.amount ?? 0) > 0 && (
+                <Alert severity="info">
+                  List Price: {formatMoney(catalogSelection.source.boughtOutItem.pricing.listPrice)}
+                </Alert>
+              )}
           </Box>
         </TabPanel>
 
@@ -498,6 +570,17 @@ export default function AddBOMItemDialog({
           {loading ? 'Adding...' : 'Add Item'}
         </Button>
       </DialogActions>
+
+      {/* Unified catalog picker (catalog unification stage 2) — bought-out
+          components link real bought_out_items docs; the Materials tab stays
+          available for legacy material-backed components (still costed). */}
+      <CatalogPickerDialog
+        open={catalogPickerOpen}
+        onClose={() => setCatalogPickerOpen(false)}
+        onSelect={handleCatalogSelect}
+        defaultKind="BOUGHT_OUT"
+        kinds={['BOUGHT_OUT', 'RAW_MATERIAL']}
+      />
     </Dialog>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -73,6 +73,11 @@ interface MaterialPickerDialogProps {
     unit?: string;
     category?: MaterialCategory;
   };
+  /**
+   * Optional content rendered between the title and the dialog body —
+   * used by CatalogPickerDialog to inject the catalog-kind tabs.
+   */
+  headerSlot?: ReactNode;
 }
 
 type PickerView = 'categories' | 'list' | 'detail';
@@ -93,6 +98,7 @@ export default function MaterialPickerDialog({
   categories,
   requireVariantSelection = true,
   createDefaults,
+  headerSlot,
 }: MaterialPickerDialogProps) {
   const { db } = getFirebase();
   const { user, claims } = useAuth();
@@ -502,6 +508,7 @@ export default function MaterialPickerDialog({
           title
         )}
       </DialogTitle>
+      {headerSlot}
       <DialogContent>
         {showCreate && dupCandidates ? (
           /* Possible-duplicate gate (5C) — surfaced before creating. */

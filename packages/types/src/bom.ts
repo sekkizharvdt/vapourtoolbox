@@ -2,6 +2,9 @@
 // Week 1 Sprint - Simplified version for MVP
 
 import { Timestamp } from 'firebase/firestore';
+// Type-only: avoids a runtime cycle (catalog.ts derives its taxonomy from
+// service.ts, which imports bom.ts).
+import type { CatalogRef } from './catalog';
 import { TimestampFields, Money, CurrencyCode } from './common';
 import { BOMItemService, ServiceCostBreakdown } from './service';
 
@@ -180,6 +183,12 @@ export interface BOMItem {
     materialId?: string; // Link to Material Database
     materialCode?: string; // Material code for display
     materialGrade?: string; // Material grade for display (or model number for bought-out)
+    // For bought-out components picked from the bought_out_items catalog
+    // (catalog unification stage 2 / completion-plan A2). Such lines carry NO
+    // materialId — cost calculation skips them until the A2 pricing bridge.
+    boughtOutItemId?: string; // Link to bought_out_items collection
+    /** Unified catalog linkage (design 2026-06-15 §3.1), denormalized per rule 26. */
+    catalogRef?: CatalogRef;
   };
 
   // Calculated properties (auto-filled from shape calculations)
@@ -275,6 +284,10 @@ export interface CreateBOMItemInput {
   shapeId?: string;
   materialId?: string;
   parameters?: ShapeParameters;
+  /** Bought-out catalog link (bought_out_items doc id). */
+  boughtOutItemId?: string;
+  /** Unified catalog linkage written alongside the per-kind id. */
+  catalogRef?: CatalogRef;
 }
 
 /**

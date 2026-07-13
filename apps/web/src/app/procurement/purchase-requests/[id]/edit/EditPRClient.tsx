@@ -41,18 +41,16 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
-import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
-import ServicePickerDialog from '@/components/services/ServicePickerDialog';
-import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
-import { formatMaterialSpec } from '@/lib/materials';
+import CatalogPickerDialog, {
+  type CatalogSelection,
+} from '@/components/catalog/CatalogPickerDialog';
 import type {
   PurchaseRequest,
   PurchaseRequestAttachment,
-  Material,
-  MaterialVariant,
-  Service,
-  BoughtOutItem,
+  PurchaseRequestItem,
+  CatalogRef,
 } from '@vapour/types';
+import { itemTypeToCatalogKind, catalogKindToItemType } from '@vapour/types';
 import {
   getPurchaseRequestById,
   getPurchaseRequestItems,
@@ -63,6 +61,41 @@ import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { doc, collection, Timestamp, writeBatch } from 'firebase/firestore';
+
+/**
+ * Restore the unified catalogRef from a saved line (rule 22). Lines saved
+ * before Phase 2 carry only the legacy per-kind ids — synthesize the ref from
+ * them so saving the PR backfills catalogRef (migrate-on-write, design
+ * 2026-06-15 §5 back-compat).
+ */
+function resolveCatalogRef(item: PurchaseRequestItem): CatalogRef | undefined {
+  if (item.catalogRef) return item.catalogRef;
+  if (item.serviceId) {
+    return {
+      kind: 'SERVICE',
+      id: item.serviceId,
+      code: item.serviceCode ?? '',
+      name: item.serviceName ?? '',
+    };
+  }
+  if (item.boughtOutItemId) {
+    return {
+      kind: 'BOUGHT_OUT',
+      id: item.boughtOutItemId,
+      code: item.boughtOutItemCode ?? '',
+      name: item.boughtOutItemName ?? '',
+    };
+  }
+  if (item.materialId) {
+    return {
+      kind: 'RAW_MATERIAL',
+      id: item.materialId,
+      code: item.materialCode ?? '',
+      name: item.materialName ?? '',
+    };
+  }
+  return undefined;
+}
 
 interface LineItemFormData {
   id?: string;
@@ -79,6 +112,8 @@ interface LineItemFormData {
   boughtOutItemCode?: string;
   boughtOutItemName?: string;
   itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
+  /** Unified catalog linkage — written alongside the legacy per-kind ids. */
+  catalogRef?: CatalogRef;
   serviceId?: string;
   serviceCode?: string;
   serviceName?: string;
@@ -118,12 +153,8 @@ export default function EditPRPage() {
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
   const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
-  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
-  const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
-  const [servicePickerOpen, setServicePickerOpen] = useState(false);
-  const [servicePickerIndex, setServicePickerIndex] = useState<number>(0);
-  const [boughtOutPickerOpen, setBoughtOutPickerOpen] = useState(false);
-  const [boughtOutPickerIndex, setBoughtOutPickerIndex] = useState<number>(0);
+  const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
+  const [catalogPickerIndex, setCatalogPickerIndex] = useState<number>(0);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -192,6 +223,7 @@ export default function EditPRPage() {
           equipmentCode: item.equipmentCode || '',
           estimatedUnitCost: item.estimatedUnitCost || 0,
           itemType: item.itemType,
+          catalogRef: resolveCatalogRef(item),
           materialId: item.materialId,
           materialCode: item.materialCode,
           materialName: item.materialName,
@@ -273,76 +305,82 @@ export default function EditPRPage() {
     });
   };
 
-  const handleMaterialSelect = (
-    material: Material,
-    _variant?: MaterialVariant,
-    fullCode?: string
-  ) => {
+  /**
+   * One handler for every catalog kind. The user may switch tabs inside the
+   * picker, so the selected kind wins: the row's itemType follows the
+   * selection and every other kind's link is cleared. Writes the same legacy
+   * per-kind fields as before PLUS the unified catalogRef (rule 26).
+   */
+  const handleCatalogSelect = (selection: CatalogSelection) => {
     setLineItems((prev) => {
       const updated = [...prev];
-      const item = updated[materialPickerIndex];
+      const item = updated[catalogPickerIndex];
       if (item) {
-        updated[materialPickerIndex] = {
+        const cleared: LineItemFormData = {
           ...item,
-          description: material.name,
-          // Show the material's real spec, not the code (feedback CxERG78).
-          specification: item.specification?.trim()
-            ? item.specification
-            : formatMaterialSpec(material.specification) || fullCode || material.materialCode || '',
-          unit: (material.baseUnit || 'NOS').toUpperCase(),
-          materialId: material.id,
-          materialCode: material.materialCode,
-          materialName: material.name,
+          itemType: catalogKindToItemType(selection.ref.kind),
+          catalogRef: selection.ref,
+          materialId: undefined,
+          materialCode: undefined,
+          materialName: undefined,
+          boughtOutItemId: undefined,
+          boughtOutItemCode: undefined,
+          boughtOutItemName: undefined,
+          serviceId: undefined,
+          serviceCode: undefined,
+          serviceName: undefined,
+          serviceCategory: undefined,
+          turnaroundDays: undefined,
+          testMethodStandard: undefined,
+          sampleRequirements: undefined,
         };
+        const { source } = selection;
+        if (source.kind === 'RAW_MATERIAL') {
+          const { material, fullCode } = source;
+          updated[catalogPickerIndex] = {
+            ...cleared,
+            description: material.name,
+            // Show the material's real spec, not the code (feedback CxERG78).
+            specification: item.specification?.trim()
+              ? item.specification
+              : selection.item.specification || fullCode || material.materialCode || '',
+            unit: (material.baseUnit || 'NOS').toUpperCase(),
+            materialId: material.id,
+            materialCode: material.materialCode,
+            materialName: material.name,
+          };
+        } else if (source.kind === 'BOUGHT_OUT') {
+          const { boughtOutItem } = source;
+          updated[catalogPickerIndex] = {
+            ...cleared,
+            description: boughtOutItem.name,
+            specification: item.specification?.trim()
+              ? item.specification
+              : boughtOutItem.itemCode || '',
+            boughtOutItemId: boughtOutItem.id,
+            boughtOutItemCode: boughtOutItem.itemCode,
+            boughtOutItemName: boughtOutItem.name,
+          };
+        } else {
+          const { service } = source;
+          updated[catalogPickerIndex] = {
+            ...cleared,
+            description: service.name,
+            specification: service.description || '',
+            unit: (service.unit || 'NOS').toUpperCase(),
+            serviceId: service.id,
+            serviceCode: service.serviceCode,
+            serviceName: service.name,
+            serviceCategory: service.category,
+            turnaroundDays: service.estimatedTurnaroundDays,
+            testMethodStandard: service.testMethodStandard,
+            sampleRequirements: service.sampleRequirements,
+          };
+        }
       }
       return updated;
     });
-    setMaterialPickerOpen(false);
-  };
-
-  const handleServiceSelect = (service: Service) => {
-    setLineItems((prev) => {
-      const updated = [...prev];
-      const item = updated[servicePickerIndex];
-      if (item) {
-        updated[servicePickerIndex] = {
-          ...item,
-          itemType: 'SERVICE',
-          description: service.name,
-          specification: service.description || '',
-          unit: (service.unit || 'NOS').toUpperCase(),
-          serviceId: service.id,
-          serviceCode: service.serviceCode,
-          serviceName: service.name,
-          serviceCategory: service.category,
-          turnaroundDays: service.estimatedTurnaroundDays,
-          testMethodStandard: service.testMethodStandard,
-          sampleRequirements: service.sampleRequirements,
-        };
-      }
-      return updated;
-    });
-    setServicePickerOpen(false);
-  };
-
-  const handleBoughtOutSelect = (boughtOut: BoughtOutItem) => {
-    setLineItems((prev) => {
-      const updated = [...prev];
-      const item = updated[boughtOutPickerIndex];
-      if (item) {
-        updated[boughtOutPickerIndex] = {
-          ...item,
-          itemType: 'BOUGHT_OUT',
-          description: boughtOut.name,
-          specification: item.specification?.trim() ? item.specification : boughtOut.itemCode || '',
-          boughtOutItemId: boughtOut.id,
-          boughtOutItemCode: boughtOut.itemCode,
-          boughtOutItemName: boughtOut.name,
-        };
-      }
-      return updated;
-    });
-    setBoughtOutPickerOpen(false);
+    setCatalogPickerOpen(false);
   };
 
   // Per-line type — new rows inherit the header category, each line overridable
@@ -356,20 +394,15 @@ export default function EditPRPage() {
   const rowType = (item: LineItemFormData): 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =>
     item.itemType ?? defaultItemType;
 
+  // Initial tab for the catalog picker — follows the row it was opened for.
+  const catalogPickerRow = lineItems[catalogPickerIndex];
+  const catalogPickerRowType = catalogPickerRow ? rowType(catalogPickerRow) : defaultItemType;
+
+  // One dialog for all kinds — the row's type only picks the initial tab.
   const openPickerForRow = (index: number) => {
-    const item = lineItems[index];
-    if (!item) return;
-    const type = rowType(item);
-    if (type === 'SERVICE') {
-      setServicePickerIndex(index);
-      setServicePickerOpen(true);
-    } else if (type === 'BOUGHT_OUT') {
-      setBoughtOutPickerIndex(index);
-      setBoughtOutPickerOpen(true);
-    } else {
-      setMaterialPickerIndex(index);
-      setMaterialPickerOpen(true);
-    }
+    if (!lineItems[index]) return;
+    setCatalogPickerIndex(index);
+    setCatalogPickerOpen(true);
   };
 
   // Changing a line's type clears the previous type's master-data link.
@@ -381,6 +414,7 @@ export default function EditPRPage() {
       updated[index] = {
         ...item,
         itemType: newType,
+        catalogRef: undefined,
         materialId: undefined,
         materialCode: undefined,
         materialName: undefined,
@@ -515,6 +549,7 @@ export default function EditPRPage() {
               estimatedTotalCost: item.estimatedUnitCost * item.quantity,
             }),
             ...(item.itemType && { itemType: item.itemType }),
+            ...(item.catalogRef && { catalogRef: item.catalogRef }),
             ...(item.materialId && { materialId: item.materialId }),
             ...(item.materialCode && { materialCode: item.materialCode }),
             ...(item.materialName && { materialName: item.materialName }),
@@ -548,6 +583,7 @@ export default function EditPRPage() {
             estimatedTotalCost:
               item.estimatedUnitCost > 0 ? item.estimatedUnitCost * item.quantity : null,
             itemType: item.itemType || null,
+            catalogRef: item.catalogRef || null,
             materialId: item.materialId || null,
             materialCode: item.materialCode || null,
             materialName: item.materialName || null,
@@ -996,29 +1032,12 @@ export default function EditPRPage() {
         )}
       </Stack>
 
-      {/* Material Picker Dialog */}
-      <MaterialPickerDialog
-        open={materialPickerOpen}
-        onClose={() => setMaterialPickerOpen(false)}
-        onSelect={handleMaterialSelect}
-        title="Select Material for Line Item"
-        requireVariantSelection={false}
-      />
-
-      {/* Service Picker Dialog */}
-      <ServicePickerDialog
-        open={servicePickerOpen}
-        onClose={() => setServicePickerOpen(false)}
-        onSelect={handleServiceSelect}
-      />
-
-      {/* Bought-Out Picker Dialog */}
-      <BoughtOutPickerDialog
-        open={boughtOutPickerOpen}
-        onClose={() => setBoughtOutPickerOpen(false)}
-        onSelect={handleBoughtOutSelect}
-        tenantId={claims?.tenantId || 'default-entity'}
-        title="Select Bought-Out Item for Line Item"
+      {/* Unified Catalog Picker — Materials / Bought-Out / Services as tabs */}
+      <CatalogPickerDialog
+        open={catalogPickerOpen}
+        onClose={() => setCatalogPickerOpen(false)}
+        onSelect={handleCatalogSelect}
+        defaultKind={itemTypeToCatalogKind(catalogPickerRowType)}
       />
     </Box>
   );

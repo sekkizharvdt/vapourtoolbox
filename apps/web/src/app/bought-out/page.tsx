@@ -37,6 +37,7 @@ import {
   BoughtOutCategory,
   BOUGHT_OUT_CATEGORY_LABELS,
   ListBoughtOutItemsOptions,
+  getCatalogCategoryOptions,
 } from '@vapour/types';
 import { listBoughtOutItems, deleteBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -188,8 +189,9 @@ export default function BoughtOutPage() {
             scrollButtons="auto"
           >
             <Tab label="All Items" value="ALL" />
-            {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
-              <Tab key={key} label={label} value={key} />
+            {/* Category tabs read the unified taxonomy registry (design §3.4). */}
+            {getCatalogCategoryOptions('BOUGHT_OUT').map(({ value, label }) => (
+              <Tab key={value} label={label} value={value} />
             ))}
           </Tabs>
         </Box>

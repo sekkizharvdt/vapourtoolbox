@@ -379,12 +379,17 @@ export async function addBOMItem(
       quantity: input.quantity,
       unit: input.unit,
       component:
-        input.shapeId || input.materialId || input.componentType
+        input.shapeId || input.materialId || input.boughtOutItemId || input.componentType
           ? {
               type: input.componentType || 'SHAPE', // Default to SHAPE for backward compatibility
-              shapeId: input.shapeId,
-              materialId: input.materialId,
-              parameters: input.parameters,
+              // Conditional spreads — Firestore rejects nested `undefined` (rule 12).
+              ...(input.shapeId !== undefined && { shapeId: input.shapeId }),
+              ...(input.materialId !== undefined && { materialId: input.materialId }),
+              ...(input.parameters !== undefined && { parameters: input.parameters }),
+              ...(input.boughtOutItemId !== undefined && {
+                boughtOutItemId: input.boughtOutItemId,
+              }),
+              ...(input.catalogRef !== undefined && { catalogRef: input.catalogRef }),
             }
           : undefined,
       createdAt: now,

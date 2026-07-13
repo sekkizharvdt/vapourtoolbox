@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -36,6 +36,7 @@ import {
   type CreateBoughtOutItemInput,
   type CurrencyCode,
   BOUGHT_OUT_CATEGORY_LABELS,
+  getCatalogCategoryOptions,
 } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +52,11 @@ interface BoughtOutPickerDialogProps {
   /** Optional category filter — narrows the list when the row already has a category hint. */
   category?: BoughtOutCategory;
   title?: string;
+  /**
+   * Optional content rendered between the title and the dialog body —
+   * used by CatalogPickerDialog to inject the catalog-kind tabs.
+   */
+  headerSlot?: ReactNode;
 }
 
 /**
@@ -65,6 +71,7 @@ export default function BoughtOutPickerDialog({
   tenantId,
   category,
   title = 'Select Bought-Out Item',
+  headerSlot,
 }: BoughtOutPickerDialogProps) {
   const { db } = getFirebase();
   const { user } = useAuth();
@@ -239,6 +246,7 @@ export default function BoughtOutPickerDialog({
           title
         )}
       </DialogTitle>
+      {headerSlot}
       <DialogContent>
         {showCreate && dupCandidates ? (
           /* Possible-duplicate gate (5C) — surfaced before creating. */
@@ -304,8 +312,8 @@ export default function BoughtOutPickerDialog({
                 label="Category"
                 onChange={(e) => setCreateCategory(e.target.value as BoughtOutCategory)}
               >
-                {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
-                  <MenuItem key={key} value={key}>
+                {getCatalogCategoryOptions('BOUGHT_OUT').map(({ value, label }) => (
+                  <MenuItem key={value} value={value}>
                     {label}
                   </MenuItem>
                 ))}
@@ -388,8 +396,9 @@ export default function BoughtOutPickerDialog({
                   onChange={(e) => setCategoryFilter(e.target.value as BoughtOutCategory | 'ALL')}
                 >
                   <MenuItem value="ALL">All Categories</MenuItem>
-                  {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
-                    <MenuItem key={key} value={key}>
+                  {/* Category filter reads the unified taxonomy registry (design §3.4). */}
+                  {getCatalogCategoryOptions('BOUGHT_OUT').map(({ value, label }) => (
+                    <MenuItem key={value} value={value}>
                       {label}
                     </MenuItem>
                   ))}

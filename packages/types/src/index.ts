@@ -5,6 +5,7 @@ export * from './accounting';
 export * from './audit';
 export * from './bom';
 export * from './boughtOut';
+export * from './catalog';
 export * from './common';
 export * from './company';
 export * from './core';

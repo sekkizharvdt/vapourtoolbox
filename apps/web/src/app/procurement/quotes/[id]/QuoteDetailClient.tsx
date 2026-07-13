@@ -42,16 +42,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { PdfViewer } from '@/components/common/PdfViewer';
-import type {
-  VendorQuote,
-  VendorQuoteItem,
-  QuoteStatus,
-  QuoteItemType,
-  Material,
-  MaterialVariant,
-  Service,
-  BoughtOutItem,
-} from '@vapour/types';
+import type { VendorQuote, VendorQuoteItem, QuoteStatus, QuoteItemType } from '@vapour/types';
+import { catalogKindToItemType, itemTypeToCatalogKind } from '@vapour/types';
 import { canManageEstimation, QUOTE_LINE_LABELS } from '@vapour/constants';
 import { formatDate } from '@/lib/utils/formatters';
 import {
@@ -63,23 +55,15 @@ import {
   acceptQuoteItemPrice,
   updateVendorQuote,
 } from '@/lib/vendorQuotes/vendorQuoteService';
-import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
-import ServicePickerDialog from '@/components/services/ServicePickerDialog';
-import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
+import CatalogPickerDialog, {
+  type CatalogSelection,
+} from '@/components/catalog/CatalogPickerDialog';
 import { AcceptPriceDialog } from '../components/AcceptPriceDialog';
 import {
   EditQuoteHeaderDialog,
   type EditQuoteHeaderInput,
 } from '../components/EditQuoteHeaderDialog';
 import { offerStateMachine } from '@/lib/workflow/stateMachines';
-
-/** Normalized shape passed to the shared link writer, regardless of source picker. */
-interface LinkedItem {
-  itemType: QuoteItemType;
-  id: string;
-  name: string;
-  code: string;
-}
 
 /**
  * Plain-text labels for the button face. Status names like UNDER_REVIEW
@@ -333,21 +317,30 @@ export default function QuoteDetailClient() {
     setLinkingItemType(null);
   };
 
-  const handleLinked = async (linked: LinkedItem) => {
+  /**
+   * Shared link writer for every catalog kind (catalog unification stage 2).
+   * The user may switch kind tabs inside the unified picker, so the selected
+   * kind wins: the row's itemType follows the selection. Writes the legacy
+   * per-kind id PLUS the unified catalogRef; updateVendorQuoteItem clears the
+   * other kinds' stale ids when the catalogRef kind changes.
+   */
+  const handleLinked = async (selection: CatalogSelection) => {
     const itemId = linkingItemId;
     closeLinkPicker();
     if (!itemId) return;
+    const { ref } = selection;
     try {
       await updateVendorQuoteItem(
         db,
         itemId,
         {
-          itemType: linked.itemType,
-          ...(linked.itemType === 'MATERIAL' ? { materialId: linked.id } : {}),
-          ...(linked.itemType === 'SERVICE' ? { serviceId: linked.id } : {}),
-          ...(linked.itemType === 'BOUGHT_OUT' ? { boughtOutItemId: linked.id } : {}),
-          linkedItemName: linked.name,
-          linkedItemCode: linked.code,
+          itemType: catalogKindToItemType(ref.kind),
+          catalogRef: ref,
+          ...(ref.kind === 'RAW_MATERIAL' ? { materialId: ref.id } : {}),
+          ...(ref.kind === 'SERVICE' ? { serviceId: ref.id } : {}),
+          ...(ref.kind === 'BOUGHT_OUT' ? { boughtOutItemId: ref.id } : {}),
+          linkedItemName: ref.name,
+          linkedItemCode: ref.code,
         },
         user!.uid,
         claims?.permissions ?? 0
@@ -884,47 +877,18 @@ export default function QuoteDetailClient() {
         </Card>
       )}
 
-      {/* Dialogs — per-type pickers (same components the new-quote page uses).
-          Routed by the row's itemType; each adapts its result to handleLinked. */}
-      <MaterialPickerDialog
-        open={linkingItemType === 'MATERIAL'}
+      {/* Unified master-record picker (same dialog the new-quote and PR pages
+          use — catalog unification stage 2). The row's itemType picks the
+          initial tab; handleLinked normalizes the selection. */}
+      <CatalogPickerDialog
+        open={linkingItemId !== null && linkingItemType !== null && linkingItemType !== 'NOTE'}
         onClose={closeLinkPicker}
-        onSelect={(material: Material, _variant?: MaterialVariant, fullCode?: string) =>
-          handleLinked({
-            itemType: 'MATERIAL',
-            id: material.id,
-            name: material.name,
-            code: fullCode || material.materialCode,
-          })
+        onSelect={handleLinked}
+        defaultKind={
+          linkingItemType && linkingItemType !== 'NOTE'
+            ? itemTypeToCatalogKind(linkingItemType)
+            : 'RAW_MATERIAL'
         }
-        title="Link line item to material"
-        requireVariantSelection={false}
-      />
-      <ServicePickerDialog
-        open={linkingItemType === 'SERVICE'}
-        onClose={closeLinkPicker}
-        onSelect={(service: Service) =>
-          handleLinked({
-            itemType: 'SERVICE',
-            id: service.id,
-            name: service.name,
-            code: service.serviceCode,
-          })
-        }
-      />
-      <BoughtOutPickerDialog
-        open={linkingItemType === 'BOUGHT_OUT'}
-        onClose={closeLinkPicker}
-        onSelect={(item: BoughtOutItem) =>
-          handleLinked({
-            itemType: 'BOUGHT_OUT',
-            id: item.id,
-            name: item.name,
-            code: item.itemCode,
-          })
-        }
-        tenantId={claims?.tenantId || 'default-entity'}
-        title="Link line item to bought-out master"
       />
 
       <AcceptPriceDialog

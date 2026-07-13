@@ -64,23 +64,16 @@ import { httpsCallable, getFunctions } from 'firebase/functions';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import type {
-  BoughtOutItem,
-  CurrencyCode,
-  Material,
-  MaterialVariant,
-  RFQ,
-  Service,
-} from '@vapour/types';
+import type { CurrencyCode, RFQ } from '@vapour/types';
+import { catalogKindToItemType, itemTypeToCatalogKind } from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { createVendorQuote, computeQuoteLineAmounts } from '@/lib/vendorQuotes';
 import type { CreateVendorQuoteItemInput } from '@/lib/vendorQuotes';
 import { QUOTE_LINE_LABELS } from '@vapour/constants';
 import { listRFQs } from '@/lib/procurement/rfq';
-import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
-import ServicePickerDialog from '@/components/services/ServicePickerDialog';
-import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
-import { formatMaterialSpec } from '@/lib/materials';
+import CatalogPickerDialog, {
+  type CatalogSelection,
+} from '@/components/catalog/CatalogPickerDialog';
 
 interface RFQOption {
   id: string;
@@ -201,10 +194,9 @@ export default function NewProcurementQuotePage() {
   };
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
 
-  // Picker state
-  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
-  const [servicePickerOpen, setServicePickerOpen] = useState(false);
-  const [boughtOutPickerOpen, setBoughtOutPickerOpen] = useState(false);
+  // Picker state — one unified dialog for all kinds (catalog unification
+  // stage 2); the row's itemType only picks the initial tab.
+  const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
   const [pickerRowIndex, setPickerRowIndex] = useState<number>(-1);
 
   // --- Autosave / restore (data-loss protection) ---------------------------
@@ -562,10 +554,17 @@ export default function NewProcurementQuotePage() {
           ...(item.vendorNotes && { vendorNotes: item.vendorNotes }),
           // Auto-link bought-out lines the parser resolved. The picker is
           // bypassed for these — bought-out code chip shows on the row.
+          // catalogRef mirrors the legacy fields (design 2026-06-15 §3.1).
           ...(item.boughtOutItemId && {
             boughtOutItemId: item.boughtOutItemId,
             linkedItemCode: item.boughtOutCode,
             linkedItemName: item.description,
+            catalogRef: {
+              kind: 'BOUGHT_OUT' as const,
+              id: item.boughtOutItemId,
+              code: item.boughtOutCode ?? '',
+              name: item.description,
+            },
           }),
         });
         if (item.linkStatus) row.linkStatus = item.linkStatus;
@@ -610,6 +609,7 @@ export default function NewProcurementQuotePage() {
       // Switching a row TO note clears the master link; switching FROM note
       // to a real type leaves it unlinked so the user picks deliberately.
       if (field === 'itemType' && value === 'NOTE') {
+        updated.catalogRef = undefined;
         updated.materialId = undefined;
         updated.materialCode = undefined;
         updated.materialName = undefined;
@@ -630,75 +630,77 @@ export default function NewProcurementQuotePage() {
 
   const openPickerFor = (index: number) => {
     const row = lineItems[index];
-    if (!row) return;
+    if (!row || row.itemType === 'NOTE') return;
     setPickerRowIndex(index);
-    if (row.itemType === 'SERVICE') setServicePickerOpen(true);
-    else if (row.itemType === 'BOUGHT_OUT') setBoughtOutPickerOpen(true);
-    else if (row.itemType === 'MATERIAL') setMaterialPickerOpen(true);
+    setCatalogPickerOpen(true);
   };
 
-  const handleMaterialPicked = (
-    material: Material,
-    _variant?: MaterialVariant,
-    fullCode?: string
-  ) => {
+  /**
+   * One handler for every catalog kind (catalog unification stage 2). The
+   * user may switch kind tabs inside the picker, so the selected kind wins:
+   * the row's itemType follows the selection and the other kinds' legacy
+   * link fields are cleared. Writes the same legacy per-kind fields as the
+   * old per-kind handlers PLUS the unified catalogRef (design 2026-06-15
+   * §3.1, rule 26).
+   */
+  const handleCatalogPicked = (selection: CatalogSelection) => {
     if (pickerRowIndex < 0) return;
     setLineItems((prev) => {
       const next = [...prev];
       const row = next[pickerRowIndex];
       if (!row) return prev;
-      next[pickerRowIndex] = {
-        ...row,
-        materialId: material.id,
-        materialCode: fullCode || material.materialCode,
-        materialName: material.name,
-        // Show the material's real spec when the row has none yet (feedback
-        // CxERG78). Keep the AI-extracted description (the vendor's wording)
-        // so the user can still verify against the original document.
-        specification: row.specification?.trim()
-          ? row.specification
-          : formatMaterialSpec(material.specification),
-      };
-      return next;
-    });
-    setMaterialPickerOpen(false);
-  };
 
-  const handleServicePicked = (service: Service) => {
-    if (pickerRowIndex < 0) return;
-    setLineItems((prev) => {
-      const next = [...prev];
-      const row = next[pickerRowIndex];
-      if (!row) return prev;
-      next[pickerRowIndex] = {
+      const cleared: LineItemRow = {
         ...row,
-        serviceId: service.id,
-        serviceCode: service.serviceCode,
+        itemType: catalogKindToItemType(selection.ref.kind),
+        catalogRef: selection.ref,
+        materialId: undefined,
+        materialCode: undefined,
+        materialName: undefined,
+        serviceId: undefined,
+        serviceCode: undefined,
+        boughtOutItemId: undefined,
+        linkedItemName: undefined,
+        linkedItemCode: undefined,
       };
+      const { source } = selection;
+      if (source.kind === 'RAW_MATERIAL') {
+        const { material, fullCode } = source;
+        next[pickerRowIndex] = {
+          ...cleared,
+          materialId: material.id,
+          materialCode: fullCode || material.materialCode,
+          materialName: material.name,
+          // Show the material's real spec when the row has none yet (feedback
+          // CxERG78). Keep the AI-extracted description (the vendor's wording)
+          // so the user can still verify against the original document.
+          // selection.item.specification is already formatted by the mapper.
+          specification: row.specification?.trim()
+            ? row.specification
+            : (selection.item.specification ?? ''),
+        };
+      } else if (source.kind === 'SERVICE') {
+        next[pickerRowIndex] = {
+          ...cleared,
+          serviceId: source.service.id,
+          serviceCode: source.service.serviceCode,
+        };
+      } else {
+        const item = source.boughtOutItem;
+        next[pickerRowIndex] = {
+          ...cleared,
+          boughtOutItemId: item.id,
+          // Show the short itemCode (BO-YYYY-NNNN); specCode is an internal match key (5A).
+          linkedItemCode: item.itemCode,
+          linkedItemName: item.name,
+          // Clear AI-resolution flags; user has manually linked.
+          linkStatus: 'linked',
+          linkReason: undefined,
+        };
+      }
       return next;
     });
-    setServicePickerOpen(false);
-  };
-
-  const handleBoughtOutPicked = (item: BoughtOutItem) => {
-    if (pickerRowIndex < 0) return;
-    setLineItems((prev) => {
-      const next = [...prev];
-      const row = next[pickerRowIndex];
-      if (!row) return prev;
-      next[pickerRowIndex] = {
-        ...row,
-        boughtOutItemId: item.id,
-        // Show the short itemCode (BO-YYYY-NNNN); specCode is an internal match key (5A).
-        linkedItemCode: item.itemCode,
-        linkedItemName: item.name,
-        // Clear AI-resolution flags; user has manually linked.
-        linkStatus: 'linked',
-        linkReason: undefined,
-      };
-      return next;
-    });
-    setBoughtOutPickerOpen(false);
+    setCatalogPickerOpen(false);
   };
 
   const isRowLinked = (row: LineItemRow): boolean => {
@@ -1470,19 +1472,19 @@ export default function NewProcurementQuotePage() {
         </CardContent>
       </Card>
 
-      {/* Master-record pickers — same components used by the PR creation flow */}
-      <MaterialPickerDialog
-        open={materialPickerOpen}
-        onClose={() => setMaterialPickerOpen(false)}
-        onSelect={handleMaterialPicked}
-        title="Link line item to material"
-        requireVariantSelection={false}
-      />
-      <ServicePickerDialog
-        open={servicePickerOpen}
-        onClose={() => setServicePickerOpen(false)}
-        onSelect={handleServicePicked}
-        createDefaults={(() => {
+      {/* Unified master-record picker — same dialog the PR creation flow uses
+          (catalog unification stage 2). The row's type picks the initial tab. */}
+      <CatalogPickerDialog
+        open={catalogPickerOpen}
+        onClose={() => setCatalogPickerOpen(false)}
+        onSelect={handleCatalogPicked}
+        defaultKind={(() => {
+          const row = lineItems[pickerRowIndex];
+          return row && row.itemType !== 'NOTE'
+            ? itemTypeToCatalogKind(row.itemType)
+            : 'RAW_MATERIAL';
+        })()}
+        serviceCreateDefaults={(() => {
           const row = lineItems[pickerRowIndex];
           if (!row) return undefined;
           return {
@@ -1491,13 +1493,6 @@ export default function NewProcurementQuotePage() {
             ...(row.unitPrice && { defaultRateValue: row.unitPrice }),
           };
         })()}
-      />
-      <BoughtOutPickerDialog
-        open={boughtOutPickerOpen}
-        onClose={() => setBoughtOutPickerOpen(false)}
-        onSelect={handleBoughtOutPicked}
-        tenantId={claims?.tenantId || 'default-entity'}
-        title="Link line item to bought-out master"
       />
     </>
   );

@@ -16,6 +16,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
+import type { CatalogRef } from './catalog';
 import type { CurrencyCode } from './common';
 import type { OfferDeviation } from './procurement/offer';
 
@@ -222,6 +223,12 @@ export interface VendorQuoteItem {
 
   // --- Master-data links --------------------------------------------------
 
+  /**
+   * Unified catalog linkage (design 2026-06-15 §3.1). Written alongside the
+   * legacy per-kind ids below on every new link; older items may only carry
+   * the legacy fields (migrate-on-write).
+   */
+  catalogRef?: CatalogRef;
   materialId?: string;
   materialCode?: string;
   materialName?: string;

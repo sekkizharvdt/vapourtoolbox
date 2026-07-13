@@ -8,6 +8,7 @@ import type {
   PurchaseRequestType,
   PurchaseRequestCategory,
   PurchaseRequestStatus,
+  CatalogRef,
 } from '@vapour/types';
 
 export interface CreatePurchaseRequestInput {
@@ -43,6 +44,13 @@ export interface CreatePurchaseRequestInput {
 export interface CreatePurchaseRequestItemInput {
   // Item type (defaults to MATERIAL for backward compat)
   itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
+
+  /**
+   * Unified catalog linkage (Phase 2 facade — design 2026-06-15 §3.1).
+   * Written alongside the legacy per-kind id fields, which stay for
+   * back-compat until every consumer reads catalogRef.
+   */
+  catalogRef?: CatalogRef;
 
   // Item details
   description: string;

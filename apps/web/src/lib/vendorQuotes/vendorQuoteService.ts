@@ -10,6 +10,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -26,6 +27,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import type {
+  CatalogRef,
   CurrencyCode,
   OfferDeviation,
   QuoteItemType,
@@ -106,6 +108,8 @@ export interface CreateVendorQuoteItemInput {
   /** Detailed technical spec, separate from the general-name description. */
   specification?: string;
 
+  /** Unified catalog linkage, written alongside the legacy per-kind ids (design 2026-06-15 §3.1). */
+  catalogRef?: CatalogRef;
   materialId?: string;
   materialCode?: string;
   materialName?: string;
@@ -319,6 +323,7 @@ export async function createVendorQuote(
           description: item.description,
           specification: item.specification,
 
+          catalogRef: item.catalogRef,
           materialId: item.materialId,
           materialCode: item.materialCode,
           materialName: item.materialName,
@@ -694,6 +699,7 @@ export async function addVendorQuoteItem(
     description: input.description,
     specification: input.specification,
 
+    catalogRef: input.catalogRef,
     materialId: input.materialId,
     materialCode: input.materialCode,
     materialName: input.materialName,
@@ -753,6 +759,7 @@ export async function updateVendorQuoteItem(
       | 'discountValue'
       | 'notes'
       | 'vendorNotes'
+      | 'catalogRef'
       | 'materialId'
       | 'materialCode'
       | 'materialName'
@@ -787,6 +794,24 @@ export async function updateVendorQuoteItem(
   const data: Record<string, unknown> = { updatedAt: Timestamp.now() };
   for (const [k, v] of Object.entries(updates)) {
     if (v !== undefined) data[k] = v;
+  }
+
+  // A new catalog link supersedes any previous link of a different kind — the
+  // unified picker lets a re-link switch kinds (e.g. BOUGHT_OUT → MATERIAL),
+  // so remove the other kinds' legacy ids or the row would carry two
+  // contradictory master-data links. Explicit values in `updates` win.
+  if (updates.catalogRef) {
+    const LEGACY_LINK_FIELDS: Record<CatalogRef['kind'], string[]> = {
+      RAW_MATERIAL: ['materialId', 'materialCode', 'materialName'],
+      SERVICE: ['serviceId', 'serviceCode'],
+      BOUGHT_OUT: ['boughtOutItemId'],
+    };
+    for (const [kind, fields] of Object.entries(LEGACY_LINK_FIELDS)) {
+      if (kind === updates.catalogRef.kind) continue;
+      for (const field of fields) {
+        if (!(field in data)) data[field] = deleteField();
+      }
+    }
   }
 
   // Recompute net amount / GST / discount from the merged values (rule 21).

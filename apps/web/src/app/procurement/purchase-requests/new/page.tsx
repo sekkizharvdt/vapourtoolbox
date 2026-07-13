@@ -54,11 +54,10 @@ import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
 import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
-import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
-import ServicePickerDialog from '@/components/services/ServicePickerDialog';
-import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
-import { formatMaterialSpec } from '@/lib/materials';
-import type { Material, MaterialVariant, Service, BoughtOutItem } from '@vapour/types';
+import CatalogPickerDialog, {
+  type CatalogSelection,
+} from '@/components/catalog/CatalogPickerDialog';
+import { itemTypeToCatalogKind, catalogKindToItemType } from '@vapour/types';
 
 interface FormData {
   type: 'PROJECT' | 'BUDGETARY' | 'INTERNAL';
@@ -86,12 +85,8 @@ export default function NewPurchaseRequestPage() {
   >([]);
   const [excelDialogOpen, setExcelDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
-  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
-  const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
-  const [servicePickerOpen, setServicePickerOpen] = useState(false);
-  const [servicePickerIndex, setServicePickerIndex] = useState<number>(0);
-  const [boughtOutPickerOpen, setBoughtOutPickerOpen] = useState(false);
-  const [boughtOutPickerIndex, setBoughtOutPickerIndex] = useState<number>(0);
+  const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
+  const [catalogPickerIndex, setCatalogPickerIndex] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -153,71 +148,82 @@ export default function NewPurchaseRequestPage() {
     setDocumentDialogOpen(false);
   };
 
-  const handleMaterialSelect = (
-    material: Material,
-    _variant?: MaterialVariant,
-    fullCode?: string
-  ) => {
+  /**
+   * One handler for every catalog kind. The user may switch tabs inside the
+   * picker, so the selected kind (not the row's previous type) wins: the
+   * row's itemType is set from the selection and every other kind's
+   * master-data link is cleared. Writes the same legacy per-kind fields as
+   * before PLUS the unified catalogRef (design 2026-06-15 §3.1, rule 26).
+   */
+  const handleCatalogSelect = (selection: CatalogSelection) => {
     const updatedItems = [...lineItems];
-    const item = updatedItems[materialPickerIndex];
+    const item = updatedItems[catalogPickerIndex];
     if (item) {
-      updatedItems[materialPickerIndex] = {
+      const cleared: CreatePurchaseRequestItemInput = {
         ...item,
-        description: material.name,
-        // Auto-fill with the material's real spec (feedback CxERG78) — not the
-        // code; keep the user's text if they already typed a spec.
-        specification: item.specification?.trim()
-          ? item.specification
-          : formatMaterialSpec(material.specification) || fullCode || material.materialCode || '',
-        unit: (material.baseUnit || 'NOS').toUpperCase(),
-        materialId: material.id,
-        materialCode: material.materialCode,
-        materialName: material.name,
+        itemType: catalogKindToItemType(selection.ref.kind),
+        catalogRef: selection.ref,
+        materialId: undefined,
+        materialCode: undefined,
+        materialName: undefined,
+        boughtOutItemId: undefined,
+        boughtOutItemCode: undefined,
+        boughtOutItemName: undefined,
+        serviceId: undefined,
+        serviceCode: undefined,
+        serviceName: undefined,
+        serviceCategory: undefined,
+        turnaroundDays: undefined,
+        testMethodStandard: undefined,
+        sampleRequirements: undefined,
       };
+      const { source } = selection;
+      if (source.kind === 'RAW_MATERIAL') {
+        const { material, fullCode } = source;
+        updatedItems[catalogPickerIndex] = {
+          ...cleared,
+          description: material.name,
+          // Auto-fill with the material's real spec (feedback CxERG78) — not
+          // the code; keep the user's text if they already typed a spec.
+          specification: item.specification?.trim()
+            ? item.specification
+            : selection.item.specification || fullCode || material.materialCode || '',
+          unit: (material.baseUnit || 'NOS').toUpperCase(),
+          materialId: material.id,
+          materialCode: material.materialCode,
+          materialName: material.name,
+        };
+      } else if (source.kind === 'BOUGHT_OUT') {
+        const { boughtOutItem } = source;
+        updatedItems[catalogPickerIndex] = {
+          ...cleared,
+          description: boughtOutItem.name,
+          specification: item.specification?.trim()
+            ? item.specification
+            : boughtOutItem.itemCode || '',
+          boughtOutItemId: boughtOutItem.id,
+          boughtOutItemCode: boughtOutItem.itemCode,
+          boughtOutItemName: boughtOutItem.name,
+        };
+      } else {
+        const { service } = source;
+        updatedItems[catalogPickerIndex] = {
+          ...cleared,
+          description: service.name,
+          specification: service.description || '',
+          unit: (service.unit || 'NOS').toUpperCase(),
+          serviceId: service.id,
+          serviceCode: service.serviceCode,
+          serviceName: service.name,
+          serviceCategory: service.category,
+          turnaroundDays: service.estimatedTurnaroundDays,
+          testMethodStandard: service.testMethodStandard,
+          sampleRequirements: service.sampleRequirements,
+        };
+      }
       setLineItems(updatedItems);
     }
-    setMaterialPickerOpen(false);
-  };
-
-  const handleServiceSelect = (service: Service) => {
-    const updatedItems = [...lineItems];
-    const item = updatedItems[servicePickerIndex];
-    if (item) {
-      updatedItems[servicePickerIndex] = {
-        ...item,
-        itemType: 'SERVICE',
-        description: service.name,
-        specification: service.description || '',
-        unit: (service.unit || 'NOS').toUpperCase(),
-        serviceId: service.id,
-        serviceCode: service.serviceCode,
-        serviceName: service.name,
-        serviceCategory: service.category,
-        turnaroundDays: service.estimatedTurnaroundDays,
-        testMethodStandard: service.testMethodStandard,
-        sampleRequirements: service.sampleRequirements,
-      };
-      setLineItems(updatedItems);
-    }
-    setServicePickerOpen(false);
-  };
-
-  const handleBoughtOutSelect = (boughtOut: BoughtOutItem) => {
-    const updatedItems = [...lineItems];
-    const item = updatedItems[boughtOutPickerIndex];
-    if (item) {
-      updatedItems[boughtOutPickerIndex] = {
-        ...item,
-        itemType: 'BOUGHT_OUT',
-        description: boughtOut.name,
-        specification: item.specification?.trim() ? item.specification : boughtOut.itemCode || '',
-        boughtOutItemId: boughtOut.id,
-        boughtOutItemCode: boughtOut.itemCode,
-        boughtOutItemName: boughtOut.name,
-      };
-      setLineItems(updatedItems);
-    }
-    setBoughtOutPickerOpen(false);
+    setCatalogPickerOpen(false);
   };
 
   const isServiceCategory = formData.category === 'SERVICE';
@@ -234,20 +240,11 @@ export default function NewPurchaseRequestPage() {
   const rowType = (item: CreatePurchaseRequestItemInput): 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =>
     item.itemType ?? defaultItemType;
 
+  // One dialog for all kinds — the row's type only picks the initial tab.
   const openPickerForRow = (index: number) => {
-    const item = lineItems[index];
-    if (!item) return;
-    const type = rowType(item);
-    if (type === 'SERVICE') {
-      setServicePickerIndex(index);
-      setServicePickerOpen(true);
-    } else if (type === 'BOUGHT_OUT') {
-      setBoughtOutPickerIndex(index);
-      setBoughtOutPickerOpen(true);
-    } else {
-      setMaterialPickerIndex(index);
-      setMaterialPickerOpen(true);
-    }
+    if (!lineItems[index]) return;
+    setCatalogPickerIndex(index);
+    setCatalogPickerOpen(true);
   };
 
   // Changing a line's type clears any master-data link from the previous type so
@@ -260,6 +257,7 @@ export default function NewPurchaseRequestPage() {
       next[index] = {
         ...item,
         itemType: newType,
+        catalogRef: undefined,
         materialId: undefined,
         materialCode: undefined,
         materialName: undefined,
@@ -449,6 +447,10 @@ export default function NewPurchaseRequestPage() {
 
   const validItemsCount = lineItems.filter((item) => item.description.trim() !== '').length;
   const isProcessing = saving || submitting;
+
+  // Initial tab for the catalog picker — follows the row it was opened for.
+  const catalogPickerRow = lineItems[catalogPickerIndex];
+  const catalogPickerRowType = catalogPickerRow ? rowType(catalogPickerRow) : defaultItemType;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
@@ -1023,29 +1025,12 @@ export default function NewPurchaseRequestPage() {
         projectName={formData.projectName || undefined}
       />
 
-      {/* Material Picker Dialog */}
-      <MaterialPickerDialog
-        open={materialPickerOpen}
-        onClose={() => setMaterialPickerOpen(false)}
-        onSelect={handleMaterialSelect}
-        title="Select Material for Line Item"
-        requireVariantSelection={false}
-      />
-
-      {/* Service Picker Dialog */}
-      <ServicePickerDialog
-        open={servicePickerOpen}
-        onClose={() => setServicePickerOpen(false)}
-        onSelect={handleServiceSelect}
-      />
-
-      {/* Bought-Out Picker Dialog */}
-      <BoughtOutPickerDialog
-        open={boughtOutPickerOpen}
-        onClose={() => setBoughtOutPickerOpen(false)}
-        onSelect={handleBoughtOutSelect}
-        tenantId={tenantId}
-        title="Select Bought-Out Item for Line Item"
+      {/* Unified Catalog Picker — Materials / Bought-Out / Services as tabs */}
+      <CatalogPickerDialog
+        open={catalogPickerOpen}
+        onClose={() => setCatalogPickerOpen(false)}
+        onSelect={handleCatalogSelect}
+        defaultKind={itemTypeToCatalogKind(catalogPickerRowType)}
       />
     </Box>
   );

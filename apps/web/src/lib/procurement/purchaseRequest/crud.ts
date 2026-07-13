@@ -126,6 +126,9 @@ export async function createPurchaseRequest(
         // Item type
         ...(item.itemType && { itemType: item.itemType }),
 
+        // Unified catalog linkage (written alongside the legacy per-kind ids)
+        ...(item.catalogRef && { catalogRef: item.catalogRef }),
+
         // Material linkage (optional — for MATERIAL items)
         ...(item.materialId && { materialId: item.materialId }),
         ...(item.materialCode && { materialCode: item.materialCode }),

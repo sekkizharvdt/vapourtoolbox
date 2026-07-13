@@ -34,7 +34,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import { ServiceCategory, SERVICE_CATEGORY_LABELS } from '@vapour/types';
+import { ServiceCategory, SERVICE_CATEGORY_LABELS, getCatalogCategoryOptions } from '@vapour/types';
 import {
   collection,
   query,
@@ -168,8 +168,9 @@ export default function ServiceCatalogPage() {
             }}
           >
             <MenuItem value="">All Categories</MenuItem>
-            {Object.entries(SERVICE_CATEGORY_LABELS).map(([key, label]) => (
-              <MenuItem key={key} value={key}>
+            {/* Category filter reads the unified taxonomy registry (design §3.4). */}
+            {getCatalogCategoryOptions('SERVICE').map(({ value, label }) => (
+              <MenuItem key={value} value={value}>
                 {label}
               </MenuItem>
             ))}
