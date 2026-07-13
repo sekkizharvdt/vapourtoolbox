@@ -3,7 +3,7 @@
 **Date:** 2026-07-07
 **Goal:** Close the missing integrations so the app works as one machine: _thermal design → priced BOM → proposal → project → procurement → accounting_, with procurement prices feeding back into estimation and a weekly review cadence driving project execution.
 **Sources:** [known-gaps.md](../workflows/known-gaps.md) (code-verified 2026-07-03), [thermal calculators review](2026-07-06-thermal-calculators-review.md), three seam audits run 2026-07-07 (thermal→BOM→proposal, procurement→pricing, flow→projects), and status checks against the working tree on 2026-07-07.
-**Status:** ACTIVE — all gating decisions locked 2026-07-07 (see "Decisions locked" below). This is the master sequence for **all** open workstreams: it now folds in the shape-DB consolidation (Phase 0), the security-hardening scope (Track G), and the catalog `CatalogRef` facade (Phase 7). Execution not started.
+**Status:** ACTIVE — decisions locked 2026-07-07. **Phases 0, 3, 4, 5, 7 + C5 SHIPPED & DEPLOYED** (0: `ae8ed6eb` shapes; 3+C5: `c8308439` money integrity + fiscal close; 4: `4938e2ce` reliability+hardening; 5: `c3cd6b84` thermal correctness; 7: `84893d0c` catalog facade — all verified 2026-07-13, 5,804 web + 70 functions tests green, balances recalculated in prod). **REMAINING: Phase 1 (quote spine, IN PROGRESS), Phase 2 (execution loop), Phase 6 (scope-aware pricing + BOM→PR)**; ongoing: App Check enforcement flip after metrics settle, Track F opportunistic. Recorded follow-ups: comp-off grant-level tracking, heat-duty/heat-transfer dead-client retirement, catalog legacy id-triplet retirement after backfill.
 
 ---
 

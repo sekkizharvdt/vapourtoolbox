@@ -1,7 +1,7 @@
 # Shape Database Consolidation — Implementation Plan
 
 **Date:** 2026-07-07
-**Status:** APPROVED — scheduled as **Phase 0** of `2026-07-07-application-completion-plan.md` (first work item; do before real BOMs reference shapes)
+**Status:** COMPLETE — shipped in `ae8ed6eb` (2026-07-11), deployed 2026-07-13. All 5 phases landed: stable hand-written ids (pinned by test), bomCalculations reads the local dataset, Firestore shapes surface removed (collection const, rules, 8 composite indexes), legacy packages/functions copy deleted, dead enum values dropped, docs updated. Orphaned console indexes can be deleted manually at leisure.
 **Origin:** Shape-database completeness audit (this session). Findings: Firestore `shapes` collection is empty while BOM cost recalculation reads from it; shape IDs are minted from array index (fragile); a dead drifted copy with 1000×-wrong weight formulas sits in `packages/functions`; 3 `ShapeCategory` enum values have no shapes.
 
 ## Decision
