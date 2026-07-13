@@ -30,6 +30,11 @@ import { requireValidTransition } from '@/lib/utils/stateMachine';
 import { preventSelfApproval } from '@/lib/auth/authorizationService';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { paymentBatchStateMachine } from '@/lib/workflow/stateMachines';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
+import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
+import { createPaymentWithAllocationsAtomic } from './paymentHelpers';
+import { createInterprojectLoan } from './interprojectLoanService';
+import { roundToPaisa, getInrAmount } from './amountHelpers';
 import type {
   PaymentBatch,
   PaymentBatchStatus,
@@ -41,6 +46,7 @@ import type {
   ListPaymentBatchesOptions,
   PaymentBatchStats,
   VendorBill,
+  PaymentAllocation,
 } from '@vapour/types';
 
 const logger = createLogger({ context: 'paymentBatchService' });
@@ -657,6 +663,10 @@ export async function submitBatchForApproval(db: Firestore, batchId: string): Pr
   if (batch.totalPaymentAmount > batch.totalReceiptAmount) {
     throw new Error('Total payments exceed total receipts');
   }
+  if (!batch.bankAccountId || batch.bankAccountId === 'primary-bank') {
+    // 'primary-bank' is the legacy placeholder written before the account selector existed
+    throw new Error('Select the bank account to pay from before submitting the batch');
+  }
 
   await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
     status: 'PENDING_APPROVAL',
@@ -769,6 +779,315 @@ export async function rejectBatch(
       },
     }
   ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+}
+
+// ============================================
+// Batch Execution
+// ============================================
+
+export interface ExecuteBatchResult {
+  paid: number;
+  failed: number;
+  alreadyPaid: number;
+  loansCreated: number;
+  errors: Array<{ paymentId: string; entityName: string; error: string }>;
+}
+
+/**
+ * Update a single payment entry inside the batch's payments array.
+ * Firestore transaction because concurrent writers (retry, second tab)
+ * would otherwise clobber each other's array writes (rule 19).
+ */
+async function updateBatchPaymentEntry(
+  db: Firestore,
+  batchId: string,
+  paymentId: string,
+  patch: Partial<BatchPayment>
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) {
+      throw new Error(`Payment batch not found: ${batchId}`);
+    }
+    const payments = ((snap.data().payments as BatchPayment[]) || []).map((p) =>
+      p.id === paymentId ? (removeUndefinedValues({ ...p, ...patch }) as BatchPayment) : p
+    );
+    tx.update(ref, { payments, updatedAt: Timestamp.now() });
+  });
+}
+
+/**
+ * Execute an approved payment batch: create one POSTED VENDOR_PAYMENT
+ * transaction per pending payment (allocated to its bill when linked),
+ * mark entries PAID/FAILED, create interproject loans for cross-project
+ * payments, and complete the batch when nothing is left pending.
+ *
+ * Idempotent (rule 9): re-running skips PAID entries and retries FAILED
+ * ones, so a double-click or a partial failure can always be resumed.
+ */
+export async function executeBatch(
+  db: Firestore,
+  batchId: string,
+  executor: { uid: string; email?: string; displayName?: string; tenantId?: string }
+): Promise<ExecuteBatchResult> {
+  // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING on the affected collections — server-side gated
+  const batch = await getPaymentBatch(db, batchId);
+  if (!batch) {
+    throw new Error(`Payment batch not found: ${batchId}`);
+  }
+
+  if (!batch.bankAccountId || batch.bankAccountId === 'primary-bank') {
+    throw new Error('Select the bank account to pay from before executing the batch');
+  }
+  const bankSnap = await retryOnStaleToken(() =>
+    getDoc(doc(db, COLLECTIONS.ACCOUNTS, batch.bankAccountId))
+  );
+  if (!bankSnap.exists()) {
+    throw new Error(
+      `Bank account "${batch.bankAccountName || batch.bankAccountId}" not found in the chart of accounts`
+    );
+  }
+
+  // Claim the batch: APPROVED -> EXECUTING exactly once; EXECUTING = resume.
+  if (batch.status === 'APPROVED') {
+    requireValidTransition(paymentBatchStateMachine, batch.status, 'EXECUTING', 'PaymentBatch');
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+      const snap = await tx.get(ref);
+      const status = snap.data()?.status as PaymentBatchStatus | undefined;
+      if (status === 'EXECUTING') return; // a concurrent click already claimed it
+      if (status !== 'APPROVED') {
+        throw new Error(`Cannot execute a payment batch in status ${status}`);
+      }
+      tx.update(ref, { status: 'EXECUTING', updatedAt: Timestamp.now() });
+    });
+  } else if (batch.status !== 'EXECUTING') {
+    // Throws the standard descriptive invalid-transition error
+    requireValidTransition(paymentBatchStateMachine, batch.status, 'EXECUTING', 'PaymentBatch');
+  }
+
+  const result: ExecuteBatchResult = {
+    paid: 0,
+    failed: 0,
+    alreadyPaid: 0,
+    loansCreated: 0,
+    errors: [],
+  };
+
+  // Sequential on purpose: transaction-number generation and per-payment
+  // batch-doc updates stay ordered, and a mid-run failure leaves a clean,
+  // resumable trail.
+  for (const payment of batch.payments) {
+    if (payment.status === 'PAID') {
+      result.alreadyPaid++;
+      continue;
+    }
+    if (payment.status === 'SKIPPED') {
+      continue;
+    }
+
+    try {
+      if (!payment.entityId) {
+        throw new Error(
+          'Payment has no linked entity — link a vendor/employee entity to this payment before executing'
+        );
+      }
+
+      const gross = roundToPaisa(payment.amount);
+      const transactionNumber = await retryOnStaleToken(() =>
+        generateTransactionNumber('VENDOR_PAYMENT')
+      );
+      const now = Timestamp.now();
+
+      // One allocation against the linked bill; validated against the bill's
+      // real outstanding inside createPaymentWithAllocationsAtomic (rule 23).
+      let allocations: PaymentAllocation[] = [];
+      if (payment.linkedType === 'VENDOR_BILL' && payment.linkedId) {
+        const billSnap = await retryOnStaleToken(() =>
+          getDoc(doc(db, COLLECTIONS.TRANSACTIONS, payment.linkedId!))
+        );
+        if (!billSnap.exists()) {
+          throw new Error(
+            `Linked bill ${payment.linkedReference || payment.linkedId} no longer exists`
+          );
+        }
+        const billData = billSnap.data();
+        const billTotal = getInrAmount(billData);
+        const outstanding = roundToPaisa(billTotal - (billData.amountPaid ?? 0));
+        allocations = [
+          {
+            invoiceId: payment.linkedId,
+            invoiceNumber: payment.linkedReference || '',
+            originalAmount: billTotal,
+            allocatedAmount: gross,
+            remainingAmount: roundToPaisa(outstanding - gross),
+          },
+        ];
+      }
+
+      const paymentData: Record<string, unknown> = {
+        type: 'VENDOR_PAYMENT',
+        transactionNumber,
+        transactionDate: now,
+        date: now,
+        paymentDate: now,
+        entityId: payment.entityId,
+        entityName: payment.entityName,
+        paymentMethod: 'BANK_TRANSFER',
+        billAllocations: allocations,
+        tdsDeducted: !!payment.tdsAmount,
+        totalAmount: gross,
+        amount: gross,
+        baseAmount: gross,
+        currency: payment.currency || 'INR',
+        description: `${payment.linkedReference ? `${payment.linkedReference} — ` : ''}Payment to ${payment.entityName} (batch ${batch.batchNumber})`,
+        reference: batch.batchNumber,
+        status: 'POSTED',
+        bankAccountId: batch.bankAccountId,
+        attachments: [],
+        createdAt: now,
+        updatedAt: now,
+        createdBy: executor.uid,
+        paymentBatchId: batchId,
+      };
+      if (payment.tdsAmount) {
+        paymentData.tdsAmount = payment.tdsAmount;
+        if (payment.tdsSection) paymentData.tdsSection = payment.tdsSection;
+      }
+      if (payment.projectId) {
+        paymentData.projectId = payment.projectId;
+        paymentData.costCentreId = payment.projectId;
+      }
+
+      const txnId = await retryOnStaleToken(() =>
+        createPaymentWithAllocationsAtomic(db, paymentData, allocations)
+      );
+
+      await updateBatchPaymentEntry(db, batchId, payment.id, {
+        status: 'PAID',
+        paidTransactionId: txnId,
+        errorMessage: undefined, // clears a previous FAILED message on retry
+      });
+      result.paid++;
+
+      await logAuditEvent(
+        db,
+        createAuditContext(executor.uid, executor.email || '', executor.displayName || ''),
+        'PAYMENT_CREATED',
+        'PAYMENT',
+        txnId,
+        `Vendor payment ${transactionNumber} to ${payment.entityName} executed from batch ${batch.batchNumber}`,
+        {
+          entityName: transactionNumber,
+          metadata: {
+            paymentBatchId: batchId,
+            batchPaymentId: payment.id,
+            amount: gross,
+            billId: payment.linkedType === 'VENDOR_BILL' ? payment.linkedId : undefined,
+          },
+        }
+      ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error('[executeBatch] Payment failed', {
+        batchId,
+        paymentId: payment.id,
+        error,
+      });
+      await updateBatchPaymentEntry(db, batchId, payment.id, {
+        status: 'FAILED',
+        errorMessage: message,
+      });
+      result.failed++;
+      result.errors.push({ paymentId: payment.id, entityName: payment.entityName, error: message });
+    }
+  }
+
+  // Interproject loans for successfully paid cross-project payments.
+  // Idempotent via interprojectLoanId stamped on the payment entry.
+  const afterPayments = await getPaymentBatch(db, batchId);
+  if (afterPayments) {
+    for (const cross of detectCrossProjectPayments(afterPayments)) {
+      const entry = afterPayments.payments.find((p) => p.id === cross.payment.id);
+      if (!entry || entry.status !== 'PAID' || entry.interprojectLoanId) continue;
+      try {
+        const startDate = new Date();
+        const maturityDate = new Date(startDate);
+        maturityDate.setFullYear(maturityDate.getFullYear() + 1);
+        const loan = await retryOnStaleToken(() =>
+          createInterprojectLoan(db, {
+            lendingProjectId: cross.lendingProjectId,
+            borrowingProjectId: cross.borrowingProjectId,
+            principalAmount: roundToPaisa(entry.amount),
+            currency: entry.currency || 'INR',
+            interestRate: 0, // internal funding: interest-free bullet loan by default
+            interestCalculationMethod: 'SIMPLE',
+            startDate,
+            maturityDate,
+            repaymentFrequency: 'BULLET',
+            notes: `Auto-created from payment batch ${afterPayments.batchNumber} (payment to ${entry.entityName})`,
+            userId: executor.uid,
+            userName: executor.displayName || executor.email || executor.uid,
+            tenantId: executor.tenantId || 'default-entity',
+          })
+        );
+        if (!loan.success || !loan.loanId) {
+          throw new Error(loan.error || 'Loan creation returned no id');
+        }
+        await updateBatchPaymentEntry(db, batchId, entry.id, {
+          interprojectLoanId: loan.loanId,
+        });
+        result.loansCreated++;
+      } catch (error) {
+        // Degrade gracefully (rule 27): the payment itself succeeded; the loan
+        // can be created manually from /accounting/interproject-loans.
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('[executeBatch] Interproject loan creation failed', {
+          batchId,
+          paymentId: entry.id,
+          error,
+        });
+        result.errors.push({
+          paymentId: entry.id,
+          entityName: entry.entityName,
+          error: `Payment succeeded but interproject loan was not created: ${message}`,
+        });
+      }
+    }
+  }
+
+  // Complete the batch when nothing is left to pay
+  const finalBatch = await getPaymentBatch(db, batchId);
+  const unfinished = (finalBatch?.payments || []).filter(
+    (p) => p.status === 'PENDING' || p.status === 'FAILED'
+  );
+  if (finalBatch && unfinished.length === 0) {
+    requireValidTransition(paymentBatchStateMachine, 'EXECUTING', 'COMPLETED', 'PaymentBatch');
+    await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
+      status: 'COMPLETED',
+      executedAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+  }
+
+  logger.info('[executeBatch] Batch execution finished', { batchId, ...result });
+
+  await logAuditEvent(
+    db,
+    createAuditContext(executor.uid, executor.email || '', executor.displayName || ''),
+    'BATCH_EXECUTED',
+    'PAYMENT_BATCH',
+    batchId,
+    `Payment batch ${batch.batchNumber} executed: ${result.paid} paid, ${result.failed} failed, ${result.loansCreated} loans created`,
+    {
+      entityName: batch.batchNumber,
+      severity: 'WARNING',
+      metadata: { ...result, errors: result.errors.slice(0, 20) },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+
+  return result;
 }
 
 /**

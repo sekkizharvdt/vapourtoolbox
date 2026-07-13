@@ -35,7 +35,8 @@ export type StatusColorContext =
   | 'charterApproval'
   | 'documentRequirement'
   | 'commentResolution'
-  | 'workItem';
+  | 'workItem'
+  | 'accountingPeriod';
 
 /** Context for `getPriorityColor` — mirrors `StatusColorContext`'s design. */
 export type PriorityColorContext = 'project';
@@ -197,6 +198,12 @@ const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>>
   workItem: {
     PENDING: 'default',
     CANCELLED: 'default',
+  },
+  // Accounting period close/lock workflow (fiscal-years page)
+  accountingPeriod: {
+    OPEN: 'success',
+    CLOSED: 'warning',
+    LOCKED: 'error',
   },
 };
 

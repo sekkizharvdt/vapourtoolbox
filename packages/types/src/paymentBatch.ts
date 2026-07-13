@@ -150,6 +150,8 @@ export interface BatchPayment {
   status: BatchPaymentStatus;
   /** ID of VendorPayment transaction created when paid */
   paidTransactionId?: string;
+  /** ID of the InterprojectLoan auto-created for a cross-project payment */
+  interprojectLoanId?: string;
   /** Error message if payment failed */
   errorMessage?: string;
 

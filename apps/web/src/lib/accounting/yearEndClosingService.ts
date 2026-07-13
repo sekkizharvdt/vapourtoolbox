@@ -37,12 +37,24 @@ import type {
   LedgerEntry,
 } from '@vapour/types';
 import { generateTransactionNumber } from './transactionNumberGenerator';
+import { getFiscalYear as getDerivedFiscalYear } from './fiscalYearService';
+import { derivePeriodsForFiscalYear } from './fiscalYearHelpers';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'yearEndClosingService' });
 
 // Default retained earnings account code (Indian COA standard)
 const RETAINED_EARNINGS_CODE = '3100';
+
+/**
+ * Convert a Date / Firestore Timestamp / string to a value safe to write to
+ * Firestore (rule 14: runtime values may be Timestamps even when typed Date).
+ */
+function toWriteTimestamp(value: unknown): unknown {
+  if (value && typeof value === 'object' && 'toDate' in value) return value; // already a Timestamp
+  if (value instanceof Date) return Timestamp.fromDate(value);
+  return Timestamp.fromDate(new Date(value as string));
+}
 
 /**
  * Error thrown when year-end closing validation fails
@@ -67,6 +79,12 @@ export interface CreateYearEndClosingInput {
   userName: string;
   notes?: string;
   entityId: string;
+  /**
+   * Tenant id from auth claims (`claims?.tenantId || 'default-entity'`).
+   * Written to the fiscalYears / yearEndClosingEntries docs, whose security
+   * rules require `tenantId == request.auth.token.tenantId` on create.
+   */
+  tenantId?: string;
 }
 
 /**
@@ -288,22 +306,29 @@ export async function checkYearEndClosingReadiness(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Get fiscal year
+  // Get fiscal year. Fiscal years are derived from dates (see fiscalYearService)
+  // and the Firestore doc is only created lazily at year-end close — fall back
+  // to the derived FY when no doc exists yet.
   const fiscalYearDoc = await getDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId));
-  if (!fiscalYearDoc.exists()) {
-    return {
-      isReady: false,
-      fiscalYear: null,
-      openPeriods: [],
-      lockedPeriods: [],
-      closedPeriods: [],
-      retainedEarningsAccount: null,
-      errors: ['Fiscal year not found'],
-      warnings: [],
-    };
+  let fiscalYear: FiscalYear;
+  if (fiscalYearDoc.exists()) {
+    fiscalYear = docToTyped<FiscalYear>(fiscalYearDoc.id, fiscalYearDoc.data());
+  } else {
+    const derivedFy = getDerivedFiscalYear(db, fiscalYearId);
+    if (!derivedFy) {
+      return {
+        isReady: false,
+        fiscalYear: null,
+        openPeriods: [],
+        lockedPeriods: [],
+        closedPeriods: [],
+        retainedEarningsAccount: null,
+        errors: ['Fiscal year not found'],
+        warnings: [],
+      };
+    }
+    fiscalYear = derivedFy;
   }
-
-  const fiscalYear = docToTyped<FiscalYear>(fiscalYearDoc.id, fiscalYearDoc.data());
 
   // Check if already closed
   if (fiscalYear.isYearEndClosed) {
@@ -333,6 +358,37 @@ export async function checkYearEndClosingReadiness(
         break;
     }
   });
+
+  // Period docs are lazily persisted (a month with no doc is OPEN by
+  // convention) — supplement the query results with the derived months that
+  // have no persisted doc so never-closed months correctly block the close.
+  // Only derived-format ids ("FY-2025-26") have a monthly template.
+  if (/^FY-\d{4}-\d{2}$/.test(fiscalYearId)) {
+    const persistedNumbers = new Set(
+      [...openPeriods, ...closedPeriods, ...lockedPeriods]
+        .filter((p) => p.periodType !== 'ADJUSTMENT')
+        .map((p) => p.periodNumber)
+    );
+    for (const derived of derivePeriodsForFiscalYear(fiscalYearId)) {
+      if (!persistedNumbers.has(derived.periodNumber)) {
+        openPeriods.push({
+          id: `${fiscalYearId}-${String(derived.periodNumber).padStart(2, '0')}`,
+          fiscalYearId,
+          name: derived.name,
+          periodType: 'MONTH',
+          startDate: derived.startDate,
+          endDate: derived.endDate,
+          status: 'OPEN',
+          periodNumber: derived.periodNumber,
+          year: derived.year,
+          createdAt: derived.startDate,
+          createdBy: 'system',
+          updatedAt: derived.startDate,
+        } as AccountingPeriod);
+      }
+    }
+    openPeriods.sort((a, b) => a.periodNumber - b.periodNumber);
+  }
 
   // Check if all periods are closed or locked (adjustment periods can remain open for provisional close)
   const openNonAdjPeriods = openPeriods.filter((p) => p.periodType !== 'ADJUSTMENT');
@@ -443,6 +499,7 @@ export async function executeYearEndClosing(
   // rule8-exempt: period / fiscal terminal-state operation; the gate is the period-lock policy in firestore.rules and the calling page-level workflow guard
   // rule5-exempt: accounting workflow write; firestore.rules enforce MANAGE_ACCOUNTING — server-side gated
   const { fiscalYearId, userId, userName, notes } = input;
+  const tenantId = input.tenantId || 'default-entity';
 
   try {
     // Validate readiness
@@ -538,19 +595,31 @@ export async function executeYearEndClosing(
         updatedBy: userId,
       };
 
-      transaction.set(yearEndClosingRef, yearEndClosingData);
+      // tenantId is required by the yearEndClosingEntries create rule
+      transaction.set(yearEndClosingRef, { ...yearEndClosingData, tenantId });
 
-      // Update fiscal year status
+      // Update fiscal year status. Fiscal years are derived and the doc is
+      // created lazily — merge-set so the first year-end close creates it,
+      // carrying the identifying fields readiness/preview display later
+      // (tenantId is required by the fiscalYears create rule).
       const fiscalYearRef = doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId);
-      transaction.update(fiscalYearRef, {
-        isYearEndClosed: true,
-        yearEndClosingDate: Timestamp.fromDate(closingDate),
-        yearEndClosingJournalId: journalEntryRef.id,
-        closedBy: userId,
-        status: 'CLOSED',
-        updatedAt: Timestamp.now(),
-        updatedBy: userId,
-      });
+      transaction.set(
+        fiscalYearRef,
+        {
+          tenantId,
+          name: fiscalYear.name,
+          startDate: toWriteTimestamp(fiscalYear.startDate),
+          endDate: toWriteTimestamp(fiscalYear.endDate),
+          isYearEndClosed: true,
+          yearEndClosingDate: Timestamp.fromDate(closingDate),
+          yearEndClosingJournalId: journalEntryRef.id,
+          closedBy: userId,
+          status: 'CLOSED',
+          updatedAt: Timestamp.now(),
+          updatedBy: userId,
+        },
+        { merge: true }
+      );
 
       // Zero out revenue accounts
       for (const account of revenueAccounts) {
@@ -846,10 +915,10 @@ export async function reverseYearEndClosing(
 }
 
 /**
- * Create a closing journal entry (used by provisional and final close)
+ * Create a closing journal entry (provisional or final).
  *
- * This is a lower-level function called by fiscalYearService.provisionalClose()
- * and fiscalYearService.finalClose() to create the actual journal entry.
+ * Lower-level building block for closing flows that manage their own
+ * workflow; `executeYearEndClosing` above is the standard entry point.
  */
 export async function createClosingJournalEntry(
   db: Firestore,

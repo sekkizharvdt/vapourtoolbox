@@ -134,6 +134,23 @@ export const TRANSACTION_STATUS_LABELS = {
 } as const;
 
 /**
+ * Labels for `AccountingPeriod.status` (fiscal-period close/lock workflow).
+ * Rendered via `StatusChip` with `context="accountingPeriod"`.
+ */
+export const ACCOUNTING_PERIOD_STATUS_LABELS = {
+  OPEN: 'Open',
+  CLOSED: 'Closed',
+  LOCKED: 'Locked',
+} as const;
+
+/** Labels for `YearEndClosingEntry.status`. */
+export const YEAR_END_CLOSING_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  POSTED: 'Posted',
+  REVERSED: 'Reversed',
+} as const;
+
+/**
  * Labels for accounting `PaymentStatus` (UNPAID / PARTIALLY_PAID / PAID /
  * OVERDUE). Distinct from the procurement-side `PAYMENT_STATUS_LABELS`
  * above which tracks GR payment lifecycle.

@@ -66,8 +66,10 @@ export const TRANSACTION_TYPE_ROUTES: Record<TransactionType, string> = {
   VENDOR_BILL: '/accounting/bills',
   VENDOR_PAYMENT: '/accounting/payments',
   JOURNAL_ENTRY: '/accounting/journal-entries',
-  BANK_TRANSFER: '/accounting/bank-transfers',
-  EXPENSE_CLAIM: '/accounting/expense-claims',
+  // No dedicated list pages for these two — the transactions list has
+  // working Transfers/Expenses filters; dedicated pages are a future add.
+  BANK_TRANSFER: '/accounting/transactions',
+  EXPENSE_CLAIM: '/accounting/transactions',
   DIRECT_PAYMENT: '/accounting/payments',
   DIRECT_RECEIPT: '/accounting/payments',
 };

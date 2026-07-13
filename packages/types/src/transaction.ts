@@ -117,6 +117,10 @@ export interface BaseTransaction extends SoftDeleteFields {
   approvedAt?: Date;
   rejectionReason?: string;
 
+  // Sent-to-customer marker (customer invoices; set when APPROVED → POSTED)
+  sentAt?: Date;
+  sentBy?: string;
+
   // Approval workflow (optional - used by bills and invoices)
   submittedAt?: Date;
   submittedByUserId?: string;

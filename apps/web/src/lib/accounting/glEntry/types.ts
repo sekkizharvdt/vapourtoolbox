@@ -66,6 +66,44 @@ export interface PaymentGLInput {
 }
 
 /**
+ * Input for generating bank transfer GL entries
+ */
+export interface BankTransferGLInput {
+  fromAccountId: string; // Source bank account (credited)
+  fromAccountCode?: string;
+  fromAccountName?: string;
+  toAccountId: string; // Destination bank account (debited)
+  toAccountCode?: string;
+  toAccountName?: string;
+  amount: number; // Transfer amount (INR)
+  description?: string;
+  projectId?: string;
+}
+
+/**
+ * Single expense line for expense-claim GL generation
+ */
+export interface ExpenseClaimGLLine {
+  accountId: string; // Expense account (debited)
+  accountCode?: string;
+  accountName?: string;
+  description: string;
+  amount: number;
+}
+
+/**
+ * Input for generating expense claim GL entries
+ */
+export interface ExpenseClaimGLInput {
+  lines: ExpenseClaimGLLine[];
+  payableAccountId: string; // Employee-reimbursable liability account (credited)
+  payableAccountCode?: string;
+  payableAccountName?: string;
+  claimantName?: string;
+  projectId?: string;
+}
+
+/**
  * Result of GL entry generation
  */
 export interface GLGenerationResult {

@@ -36,6 +36,8 @@ import {
   Payment as PaymentIcon,
   Home as HomeIcon,
   AccountBalance as DirectPaymentIcon,
+  SwapHoriz as BankTransferIcon,
+  RequestQuote as ExpenseClaimIcon,
   Search as SearchIcon,
   FileDownload as DownloadIcon,
 } from '@mui/icons-material';
@@ -86,6 +88,14 @@ const RecordDirectReceiptDialog = dynamic(
     import('./components/RecordDirectReceiptDialog').then((mod) => mod.RecordDirectReceiptDialog),
   { ssr: false }
 );
+const CreateBankTransferDialog = dynamic(
+  () => import('./components/CreateBankTransferDialog').then((mod) => mod.CreateBankTransferDialog),
+  { ssr: false }
+);
+const CreateExpenseClaimDialog = dynamic(
+  () => import('./components/CreateExpenseClaimDialog').then((mod) => mod.CreateExpenseClaimDialog),
+  { ssr: false }
+);
 
 type PaymentType = 'all' | 'customer' | 'vendor' | 'direct' | 'direct-receipt';
 type Payment = CustomerPayment | VendorPayment;
@@ -114,6 +124,8 @@ export default function PaymentsPage() {
   const [vendorPaymentDialogOpen, setVendorPaymentDialogOpen] = useState(false);
   const [directPaymentDialogOpen, setDirectPaymentDialogOpen] = useState(false);
   const [directReceiptDialogOpen, setDirectReceiptDialogOpen] = useState(false);
+  const [bankTransferDialogOpen, setBankTransferDialogOpen] = useState(false);
+  const [expenseClaimDialogOpen, setExpenseClaimDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -162,6 +174,16 @@ export default function PaymentsPage() {
   const handleCreateDirectReceipt = () => {
     setEditingPayment(null);
     setDirectReceiptDialogOpen(true);
+  };
+
+  const handleCreateBankTransfer = () => {
+    setEditingPayment(null);
+    setBankTransferDialogOpen(true);
+  };
+
+  const handleCreateExpenseClaim = () => {
+    setEditingPayment(null);
+    setExpenseClaimDialogOpen(true);
   };
 
   const handleEdit = (payment: Payment) => {
@@ -223,6 +245,14 @@ export default function PaymentsPage() {
   const handleDirectReceiptDialogClose = () => {
     setDirectReceiptDialogOpen(false);
     setEditingPayment(null);
+  };
+
+  const handleBankTransferDialogClose = () => {
+    setBankTransferDialogOpen(false);
+  };
+
+  const handleExpenseClaimDialogClose = () => {
+    setExpenseClaimDialogOpen(false);
   };
 
   // Filter payments by type, month, and search term
@@ -419,6 +449,21 @@ export default function PaymentsPage() {
                 color="success"
               >
                 Direct Receipt
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<BankTransferIcon />}
+                onClick={handleCreateBankTransfer}
+              >
+                Bank Transfer
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ExpenseClaimIcon />}
+                onClick={handleCreateExpenseClaim}
+                color="warning"
+              >
+                Expense Claim
               </Button>
             </Stack>
           )}
@@ -704,6 +749,16 @@ export default function PaymentsPage() {
               })
             : null
         }
+      />
+
+      <CreateBankTransferDialog
+        open={bankTransferDialogOpen}
+        onClose={handleBankTransferDialogClose}
+      />
+
+      <CreateExpenseClaimDialog
+        open={expenseClaimDialogOpen}
+        onClose={handleExpenseClaimDialogClose}
       />
     </Box>
   );

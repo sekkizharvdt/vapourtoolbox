@@ -49,7 +49,6 @@
     "apps/web/src/lib/tasks/taskNotificationService.ts",
     "apps/web/src/lib/tasks/threadService.ts",
     "apps/web/src/lib/tasks/timeEntryService.ts",
-    "apps/web/src/lib/thermal/savedCalculationService.ts",
     "functions/src/accountBalances.ts",
     "functions/src/agentTaskExpiry.ts",
     "functions/src/aiHelp.ts",

@@ -6,7 +6,13 @@
  */
 
 import type { SystemAccountIds } from '../systemAccountResolver';
-import type { InvoiceGLInput, BillGLInput, PaymentGLInput } from './types';
+import type {
+  InvoiceGLInput,
+  BillGLInput,
+  PaymentGLInput,
+  BankTransferGLInput,
+  ExpenseClaimGLInput,
+} from './types';
 
 // Mock the system account resolver
 jest.mock('../systemAccountResolver', () => ({
@@ -19,6 +25,8 @@ import {
   generateBillGLEntries,
   generateCustomerPaymentGLEntries,
   generateVendorPaymentGLEntries,
+  generateBankTransferGLEntries,
+  generateExpenseClaimGLEntries,
 } from './generators';
 
 const mockGetSystemAccountIds = getSystemAccountIds as jest.MockedFunction<
@@ -636,5 +644,165 @@ describe('Double-entry invariant', () => {
     const result = await generateBillGLEntries(db, input);
     expect(result.isBalanced).toBe(true);
     expect(Math.abs(result.totalDebit - result.totalCredit)).toBeLessThan(0.01);
+  });
+});
+
+// ─────────────────────── Bank Transfer GL Entries ──────────────────────────
+
+describe('generateBankTransferGLEntries', () => {
+  const baseInput: BankTransferGLInput = {
+    fromAccountId: 'acc-bank-1',
+    fromAccountCode: '1101',
+    fromAccountName: 'HDFC Current Account',
+    toAccountId: 'acc-bank-2',
+    toAccountCode: '1102',
+    toAccountName: 'ICICI Current Account',
+    amount: 50000,
+  };
+
+  it('should debit the destination account and credit the source account with equal legs', () => {
+    const result = generateBankTransferGLEntries(baseInput);
+
+    expect(result.success).toBe(true);
+    expect(result.isBalanced).toBe(true);
+    expect(result.entries).toHaveLength(2);
+
+    const debitLeg = result.entries.find((e) => e.debit > 0);
+    const creditLeg = result.entries.find((e) => e.credit > 0);
+    expect(debitLeg?.accountId).toBe('acc-bank-2'); // destination debited
+    expect(debitLeg?.debit).toBe(50000);
+    expect(creditLeg?.accountId).toBe('acc-bank-1'); // source credited
+    expect(creditLeg?.credit).toBe(50000);
+    expect(result.totalDebit).toBe(result.totalCredit);
+  });
+
+  it('should round the amount to paisa', () => {
+    const result = generateBankTransferGLEntries({ ...baseInput, amount: 1000.005 });
+
+    expect(result.success).toBe(true);
+    expect(result.entries[0]?.debit).toBe(1000.01);
+    expect(result.entries[1]?.credit).toBe(1000.01);
+  });
+
+  it('should reject a transfer where source and destination are the same account', () => {
+    const result = generateBankTransferGLEntries({
+      ...baseInput,
+      toAccountId: 'acc-bank-1',
+      toAccountName: 'HDFC Current Account',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(' ')).toContain('must differ');
+  });
+
+  it('should reject a zero or negative amount', () => {
+    const zero = generateBankTransferGLEntries({ ...baseInput, amount: 0 });
+    const negative = generateBankTransferGLEntries({ ...baseInput, amount: -100 });
+
+    expect(zero.success).toBe(false);
+    expect(zero.errors.join(' ')).toContain('greater than zero');
+    expect(negative.success).toBe(false);
+  });
+
+  it('should carry the project as costCentreId on both legs', () => {
+    const result = generateBankTransferGLEntries({ ...baseInput, projectId: 'proj-1' });
+
+    expect(result.entries.every((e) => e.costCentreId === 'proj-1')).toBe(true);
+  });
+});
+
+// ─────────────────────── Expense Claim GL Entries ──────────────────────────
+
+describe('generateExpenseClaimGLEntries', () => {
+  const baseInput: ExpenseClaimGLInput = {
+    lines: [
+      {
+        accountId: 'acc-exp-travel',
+        accountCode: '5201',
+        accountName: 'Travel Expenses',
+        description: 'Taxi fare',
+        amount: 1200.5,
+      },
+      {
+        accountId: 'acc-exp-meals',
+        accountCode: '5202',
+        accountName: 'Meals & Entertainment',
+        description: 'Client lunch',
+        amount: 800.25,
+      },
+    ],
+    payableAccountId: 'acc-emp-payable',
+    payableAccountCode: '2500',
+    payableAccountName: 'Employee Reimbursements Payable',
+    claimantName: 'Test Employee',
+  };
+
+  it('should debit each expense line and credit the payable account with the total', () => {
+    const result = generateExpenseClaimGLEntries(baseInput);
+
+    expect(result.success).toBe(true);
+    expect(result.isBalanced).toBe(true);
+    expect(result.entries).toHaveLength(3);
+
+    const travelLeg = result.entries.find((e) => e.accountId === 'acc-exp-travel');
+    const mealsLeg = result.entries.find((e) => e.accountId === 'acc-exp-meals');
+    const payableLeg = result.entries.find((e) => e.accountId === 'acc-emp-payable');
+    expect(travelLeg?.debit).toBe(1200.5);
+    expect(mealsLeg?.debit).toBe(800.25);
+    expect(payableLeg?.credit).toBe(2000.75);
+    expect(payableLeg?.description).toContain('Test Employee');
+  });
+
+  it('should balance exactly when line amounts have floating-point residue', () => {
+    const result = generateExpenseClaimGLEntries({
+      ...baseInput,
+      lines: [
+        { accountId: 'acc-a', description: 'A', amount: 0.1 },
+        { accountId: 'acc-b', description: 'B', amount: 0.2 },
+        { accountId: 'acc-c', description: 'C', amount: 33.335 },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.totalDebit).toBe(result.totalCredit);
+    const payableLeg = result.entries.find((e) => e.accountId === 'acc-emp-payable');
+    // 0.1 + 0.2 + 33.34 (each leg rounded to paisa, credit = sum of rounded legs)
+    expect(payableLeg?.credit).toBe(33.64);
+  });
+
+  it('should reject a claim with no lines', () => {
+    const result = generateExpenseClaimGLEntries({ ...baseInput, lines: [] });
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(' ')).toContain('at least one expense line');
+  });
+
+  it('should reject a line without an account or with a non-positive amount', () => {
+    const noAccount = generateExpenseClaimGLEntries({
+      ...baseInput,
+      lines: [{ accountId: '', description: 'Missing account', amount: 100 }],
+    });
+    const zeroAmount = generateExpenseClaimGLEntries({
+      ...baseInput,
+      lines: [{ accountId: 'acc-x', description: 'Zero', amount: 0 }],
+    });
+
+    expect(noAccount.success).toBe(false);
+    expect(noAccount.errors.join(' ')).toContain('expense account is required');
+    expect(zeroAmount.success).toBe(false);
+    expect(zeroAmount.errors.join(' ')).toContain('greater than zero');
+  });
+
+  it('should reject a claim without a payable account', () => {
+    const result = generateExpenseClaimGLEntries({ ...baseInput, payableAccountId: '' });
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(' ')).toContain('Reimbursement payable account is required');
+  });
+
+  it('should carry the project as costCentreId on all legs', () => {
+    const result = generateExpenseClaimGLEntries({ ...baseInput, projectId: 'proj-9' });
+
+    expect(result.entries.every((e) => e.costCentreId === 'proj-9')).toBe(true);
   });
 });

@@ -13,6 +13,7 @@
 import {
   aggregateBalanceChanges,
   effectiveEntries,
+  rawLedgerEntries,
   roundToPaisa,
   type LedgerEntry,
   type TransactionLike,
@@ -84,8 +85,10 @@ export function runDataIntegrityChecks(input: {
   const live = transactions.filter((t) => !t.data.isDeleted);
 
   // ── 1. Per-transaction double entry (rule 21) ─────────────────────────────
+  // rawLedgerEntries, not effectiveEntries: a DRAFT with unbalanced entries
+  // should be flagged now, not on the day someone posts it.
   for (const txn of live) {
-    const entries = effectiveEntries(txn.data);
+    const entries = rawLedgerEntries(txn.data);
     if (entries.length === 0) continue;
     const debit = entries.reduce((s: number, e: LedgerEntry) => s + (e.debit || 0), 0);
     const credit = entries.reduce((s: number, e: LedgerEntry) => s + (e.credit || 0), 0);
@@ -143,7 +146,7 @@ export function runDataIntegrityChecks(input: {
       });
     }
     const seenMissingAccounts = new Set<string>();
-    for (const entry of effectiveEntries(txn.data)) {
+    for (const entry of rawLedgerEntries(txn.data)) {
       if (
         entry.accountId &&
         !accountIds.has(entry.accountId) &&

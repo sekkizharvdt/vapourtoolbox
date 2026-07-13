@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   // Lint and format TypeScript files in our actual project (exclude inputs/ and e2e/)
   'apps/web/**/*.{ts,tsx}': (filenames) => {
@@ -5,15 +7,25 @@ module.exports = {
     const nonTestFiles = filenames.filter((f) => !f.includes('.test.'));
     const commands = ['pnpm exec prettier --write ' + filenames.join(' ')];
 
-    // Run ESLint via Next.js lint (uses --max-warnings from package.json script)
+    // Run ESLint scoped to the STAGED files only. The whole-app
+    // `next lint` needs several GB of heap and gets OOM-killed on the
+    // codespace when many files are staged (CI still lints the whole app
+    // on every push, so nothing escapes).
     if (filenames.length > 0) {
-      commands.push(`pnpm --filter @vapour/web run lint`);
+      const fileArgs = filenames
+        .map((f) => `--file ${path.relative(path.join(__dirname, 'apps/web'), f)}`)
+        .join(' ');
+      commands.push(`pnpm --filter @vapour/web exec next lint --max-warnings=0 ${fileArgs}`);
     }
 
-    // Run related tests for non-test source files (exit 0 if no tests found)
+    // Run related tests for non-test source files. NOTE: lint-staged does not
+    // run commands through a shell, so `|| true` would be passed to jest as
+    // two positional args — and jest treats positionals as regex patterns,
+    // where `||` matches EVERYTHING (whole suite on every commit). Rely on
+    // --passWithNoTests instead.
     if (nonTestFiles.length > 0) {
       commands.push(
-        `pnpm --filter @vapour/web exec jest --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')} || true`
+        `pnpm --filter @vapour/web exec jest --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')}`
       );
     }
 
@@ -33,15 +45,17 @@ module.exports = {
     // Integration and Firestore-rules tests need Firebase emulators and are
     // excluded from the unit jest config (testPathIgnorePatterns:
     // '/__integration__/', '/__rules__/'). Running them here always finds 0
-    // tests and fails the hook, so skip them. Run jest directly (not
-    // `pnpm test --`, which injects a `--` that turns the flags into path
-    // patterns) and absorb "no tests found" with `|| true`.
+    // tests and fails the hook, so skip them. --runTestsByPath makes jest
+    // treat the args as file paths, NOT regex patterns (without it, and with
+    // the old non-shell `|| true` suffix, `||` was a match-all regex that ran
+    // the entire suite on every commit). --passWithNoTests absorbs the
+    // no-tests case.
     const unitTests = filenames.filter(
       (f) => !f.includes('/__integration__/') && !f.includes('/__rules__/')
     );
     if (unitTests.length === 0) return [];
     return [
-      `pnpm --filter @vapour/web exec jest --passWithNoTests --bail ${unitTests.join(' ')} || true`,
+      `pnpm --filter @vapour/web exec jest --passWithNoTests --bail --runTestsByPath ${unitTests.join(' ')}`,
     ];
   },
   // Package tests run through each package's own jest config

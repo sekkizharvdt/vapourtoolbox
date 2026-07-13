@@ -76,6 +76,8 @@ import {
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
+import { markInvoiceAsSent } from '@/lib/accounting/transactionApprovalService';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
@@ -265,6 +267,32 @@ export default function InvoicesPage() {
     setSubmitDialogOpen(false);
     setApproveDialogOpen(false);
     setSelectedInvoice(null);
+  };
+
+  const handleSendInvoice = async (invoice: CustomerInvoiceWithExtras) => {
+    if (!user) return;
+    const confirmed = await confirm({
+      title: 'Send Invoice',
+      message: `Mark invoice ${invoice.transactionNumber} to ${invoice.entityName || 'customer'} as sent? This moves it to POSTED — download the PDF and dispatch it to the customer.`,
+      confirmText: 'Mark as Sent',
+      confirmColor: 'primary',
+    });
+    if (!confirmed) return;
+
+    try {
+      await retryOnStaleToken(() =>
+        markInvoiceAsSent(
+          db,
+          invoice.id!,
+          user.uid,
+          user.displayName || user.email || user.uid,
+          claims?.permissions || 0
+        )
+      );
+      toast.success(`Invoice ${invoice.transactionNumber} marked as sent`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to mark invoice as sent');
+    }
   };
 
   // Void workflow handlers
@@ -610,7 +638,7 @@ export default function InvoicesPage() {
                           {
                             icon: <SendIcon />,
                             label: 'Send Invoice',
-                            onClick: () => {},
+                            onClick: () => handleSendInvoice(invoice),
                             show: canManage && invoice.status === 'APPROVED',
                           },
                           {

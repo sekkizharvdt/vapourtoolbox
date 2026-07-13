@@ -1,8 +1,8 @@
 'use client';
 
 // rule28-exempt: thin redirect page — auto-creates a DRAFT batch and routes
-// to the detail page where receipts/payments are added via dialogs. No form
-// fields here; the bank account placeholder mirrors the existing flow.
+// to the detail page where receipts/payments are added via dialogs. The bank
+// account is selected on the detail page; submit/execute block until it is.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -34,8 +34,8 @@ export default function NewPaymentBatchPage() {
         const batch = await createPaymentBatch(
           db,
           {
-            bankAccountId: 'primary-bank',
-            bankAccountName: 'Primary Bank Account',
+            bankAccountId: '',
+            bankAccountName: '',
             ...(claims?.tenantId ? { tenantId: claims.tenantId } : {}),
           },
           user.uid

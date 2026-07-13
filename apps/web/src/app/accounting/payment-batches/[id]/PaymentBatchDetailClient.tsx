@@ -45,10 +45,15 @@ import {
   submitBatchForApproval,
   approveBatch,
   rejectBatch,
+  executeBatch,
+  updatePaymentBatch,
   removeBatchReceipt,
   removeBatchPayment,
   detectCrossProjectPayments,
 } from '@/lib/accounting/paymentBatchService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
+import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import type {
   PaymentBatch,
   PaymentBatchStatus,
@@ -98,6 +103,8 @@ export default function PaymentBatchDetailClient() {
   const router = useRouter();
   const pathname = usePathname();
   const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
+  const { toast } = useToast();
 
   const [batchId, setBatchId] = useState<string | null>(null);
   const isNew = batchId === 'new';
@@ -128,6 +135,8 @@ export default function PaymentBatchDetailClient() {
   const isDraft = batch?.status === 'DRAFT';
   const isPending = batch?.status === 'PENDING_APPROVAL';
   const isApproved = batch?.status === 'APPROVED';
+  const isExecutingStatus = batch?.status === 'EXECUTING';
+  const needsBankAccount = !batch?.bankAccountId || batch?.bankAccountId === 'primary-bank';
 
   // Cross-project payments detection
   const crossProjectPayments = batch ? detectCrossProjectPayments(batch) : [];
@@ -181,13 +190,13 @@ export default function PaymentBatchDetailClient() {
             return;
           }
 
-          // TODO: Add bank account selector before creating
-          // For now, create with placeholder
+          // Bank account is chosen on the detail page while the batch is DRAFT;
+          // submit/execute are blocked until one is selected.
           const newBatch = await createPaymentBatch(
             db,
             {
-              bankAccountId: 'primary-bank', // Placeholder
-              bankAccountName: 'Primary Bank Account',
+              bankAccountId: '',
+              bankAccountName: '',
             },
             user.uid
           );
@@ -266,6 +275,73 @@ export default function PaymentBatchDetailClient() {
       setRejectReason('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject batch');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExecute = async () => {
+    if (!batch || !user) return;
+
+    const pendingCount = batch.payments.filter(
+      (p) => p.status === 'PENDING' || p.status === 'FAILED'
+    ).length;
+    const confirmed = await confirm({
+      title: isExecutingStatus ? 'Resume Batch Execution' : 'Execute Payment Batch',
+      message: `This will create ${pendingCount} vendor payment transaction${pendingCount !== 1 ? 's' : ''} totalling ${formatCurrency(batch.totalPaymentAmount)} from ${batch.bankAccountName}. Linked bills will be marked paid. This cannot be undone.`,
+      confirmText: 'Execute',
+      confirmColor: 'primary',
+    });
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const { db } = getFirebase();
+      const result = await executeBatch(db, batch.id, {
+        uid: user.uid,
+        email: user.email || undefined,
+        displayName: user.displayName || undefined,
+        tenantId: claims?.tenantId || 'default-entity',
+      });
+
+      if (result.failed > 0) {
+        setError(
+          `${result.paid} payment(s) executed, ${result.failed} failed: ` +
+            result.errors.map((e) => `${e.entityName}: ${e.error}`).join('; ')
+        );
+        toast.error(`${result.failed} payment(s) failed — fix the issues and execute again`);
+      } else {
+        toast.success(
+          `Batch executed: ${result.paid + result.alreadyPaid} payment(s) made` +
+            (result.loansCreated > 0 ? `, ${result.loansCreated} interproject loan(s) created` : '')
+        );
+      }
+
+      const updated = await getPaymentBatch(db, batch.id);
+      if (updated) setBatch(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to execute batch');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBankAccountChange = async (accountId: string | null, accountName: string) => {
+    if (!batch) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { db } = getFirebase();
+      await updatePaymentBatch(db, batch.id, {
+        bankAccountId: accountId || '',
+        bankAccountName: accountId ? accountName : '',
+      });
+      const updated = await getPaymentBatch(db, batch.id);
+      if (updated) setBatch(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update bank account');
     } finally {
       setSaving(false);
     }
@@ -446,14 +522,15 @@ export default function PaymentBatchDetailClient() {
               </Button>
             </>
           )}
-          {isApproved && hasManageAccess && (
+          {(isApproved || isExecutingStatus) && hasManageAccess && (
             <Button
               variant="contained"
               color="primary"
               startIcon={<ExecuteIcon />}
-              disabled={saving}
+              onClick={handleExecute}
+              disabled={saving || needsBankAccount}
             >
-              Execute Payments
+              {isExecutingStatus ? 'Resume Execution' : 'Execute Payments'}
             </Button>
           )}
         </Box>
@@ -466,6 +543,45 @@ export default function PaymentBatchDetailClient() {
       )}
 
       {saving && <LinearProgress sx={{ mb: 2 }} />}
+
+      {/* Bank account (paid from) */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        {isDraft && hasManageAccess ? (
+          <Box sx={{ maxWidth: 480 }}>
+            <AccountSelector
+              value={needsBankAccount ? null : batch.bankAccountId}
+              onChange={(id) => {
+                if (!id) handleBankAccountChange(null, '');
+              }}
+              onAccountSelect={(account) =>
+                handleBankAccountChange(account?.id || null, account?.name || '')
+              }
+              label="Bank Account (Paid from)"
+              filterByBankAccount
+              excludeGroups
+              required
+              disabled={saving}
+              error={needsBankAccount}
+              helperText={
+                needsBankAccount ? 'Required before the batch can be submitted' : undefined
+              }
+              placeholder="Search bank accounts..."
+            />
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography color="text.secondary">Paid from:</Typography>
+            <Typography fontWeight={600}>
+              {needsBankAccount ? 'No bank account selected' : batch.bankAccountName}
+            </Typography>
+            {needsBankAccount && (isApproved || isExecutingStatus) && (
+              <Typography variant="body2" color="error.main">
+                — select a bank account (reopen as draft) before executing
+              </Typography>
+            )}
+          </Box>
+        )}
+      </Paper>
 
       {/* Summary Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>

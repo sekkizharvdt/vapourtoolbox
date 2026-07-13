@@ -12,7 +12,15 @@
  */
 
 // Export types
-export type { InvoiceGLInput, BillGLInput, PaymentGLInput, GLGenerationResult } from './types';
+export type {
+  InvoiceGLInput,
+  BillGLInput,
+  PaymentGLInput,
+  BankTransferGLInput,
+  ExpenseClaimGLInput,
+  ExpenseClaimGLLine,
+  GLGenerationResult,
+} from './types';
 
 // Export generators
 export {
@@ -20,6 +28,8 @@ export {
   generateBillGLEntries,
   generateCustomerPaymentGLEntries,
   generateVendorPaymentGLEntries,
+  generateBankTransferGLEntries,
+  generateExpenseClaimGLEntries,
 } from './generators';
 
 // Export helpers

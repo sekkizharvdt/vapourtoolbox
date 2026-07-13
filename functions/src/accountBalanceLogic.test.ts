@@ -12,6 +12,7 @@
 import {
   calculateBalanceChanges,
   effectiveEntries,
+  rawLedgerEntries,
   resolveBalanceUpdate,
   aggregateBalanceChanges,
   roundToPaisa,
@@ -50,6 +51,61 @@ describe('effectiveEntries', () => {
   it('returns [] when entries is missing or malformed', () => {
     expect(effectiveEntries({ type: 'VENDOR_BILL' })).toEqual([]);
     expect(effectiveEntries({ entries: 'not-an-array' })).toEqual([]);
+  });
+});
+
+describe('posting boundary (decision 2026-07-11: balances move at APPROVED/POSTED only)', () => {
+  const entries = [entry('a1', 100, 0), entry('a2', 0, 100)];
+
+  it.each(['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'VOID'] as const)(
+    '%s transactions contribute nothing to balances',
+    (status) => {
+      expect(effectiveEntries(txn(entries, { status }))).toEqual([]);
+    }
+  );
+
+  it.each(['APPROVED', 'POSTED'] as const)('%s transactions contribute their entries', (status) => {
+    expect(effectiveEntries(txn(entries, { status }))).toHaveLength(2);
+  });
+
+  it('a transaction with NO status field contributes (legacy docs predate the workflow)', () => {
+    const legacy: TransactionLike = { type: 'JOURNAL_ENTRY', entries };
+    expect(effectiveEntries(legacy)).toHaveLength(2);
+  });
+
+  it('DRAFT → POSTED applies the full entries as the delta', () => {
+    const draft = txn(entries, { status: 'DRAFT' });
+    const posted = txn(entries, { status: 'POSTED' });
+    const delta = resolveBalanceUpdate(draft, posted);
+    expect(delta.get('a1')).toEqual({ debit: 100, credit: 0 });
+    expect(delta.get('a2')).toEqual({ debit: 0, credit: 100 });
+  });
+
+  it('POSTED → VOID reverses the entries', () => {
+    const posted = txn(entries, { status: 'POSTED' });
+    const voided = txn(entries, { status: 'VOID' });
+    const delta = resolveBalanceUpdate(posted, voided);
+    expect(delta.get('a1')).toEqual({ debit: -100, credit: 0 });
+    expect(delta.get('a2')).toEqual({ debit: 0, credit: -100 });
+  });
+
+  it('editing a DRAFT (both sides non-posting) produces no delta', () => {
+    const before = txn(entries, { status: 'DRAFT' });
+    const after = txn([entry('a1', 500, 0), entry('a2', 0, 500)], { status: 'DRAFT' });
+    expect(resolveBalanceUpdate(before, after).size).toBe(0);
+  });
+
+  it('aggregateBalanceChanges (recalculation) applies the same boundary', () => {
+    const totals = aggregateBalanceChanges([
+      txn(entries, { status: 'POSTED' }),
+      txn([entry('a1', 999, 0)], { status: 'DRAFT' }),
+    ]);
+    expect(totals.get('a1')).toEqual({ debit: 100, credit: 0 });
+  });
+
+  it('rawLedgerEntries ignores the posting boundary but still respects soft-delete', () => {
+    expect(rawLedgerEntries(txn(entries, { status: 'DRAFT' }))).toHaveLength(2);
+    expect(rawLedgerEntries(txn(entries, { status: 'DRAFT', isDeleted: true }))).toEqual([]);
   });
 });
 
@@ -93,10 +149,12 @@ describe('resolveBalanceUpdate — create', () => {
 });
 
 describe('resolveBalanceUpdate — update', () => {
-  it('returns empty delta when entries are unchanged (e.g. status-only edit)', () => {
+  it('returns empty delta when entries are unchanged and status stays on the posted side', () => {
+    // NOTE: DRAFT→POSTED is deliberately NOT a no-op any more — that is the
+    // posting event (see the posting-boundary suite). APPROVED→POSTED is.
     const entries = [entry('a1', 500, 0), entry('a2', 0, 500)];
     const delta = resolveBalanceUpdate(
-      txn(entries, { status: 'DRAFT' }),
+      txn(entries, { status: 'APPROVED' }),
       txn(entries, { status: 'POSTED' })
     );
     expect(delta.size).toBe(0);

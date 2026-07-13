@@ -13,7 +13,15 @@
 import type { Firestore } from 'firebase/firestore';
 import type { LedgerEntry } from '@vapour/types';
 import { getSystemAccountIds } from '../systemAccountResolver';
-import type { InvoiceGLInput, BillGLInput, PaymentGLInput, GLGenerationResult } from './types';
+import { roundToPaisa } from '../amountHelpers';
+import type {
+  InvoiceGLInput,
+  BillGLInput,
+  PaymentGLInput,
+  BankTransferGLInput,
+  ExpenseClaimGLInput,
+  GLGenerationResult,
+} from './types';
 import { calculateGSTAmount, validateAndReturnEntries } from './helpers';
 
 /**
@@ -558,4 +566,160 @@ export async function generateVendorPaymentGLEntries(
       errors: [`Failed to generate vendor payment GL entries: ${errorMessage}`],
     };
   }
+}
+
+/**
+ * Generate GL entries for a bank transfer (money moved between two bank accounts)
+ *
+ * Double-entry pattern:
+ * Dr. Destination Bank Account   (Asset increases)
+ *     Cr. Source Bank Account    (Asset decreases)
+ *
+ * Pure function — both accounts are user-selected, so no system-account
+ * lookup (and therefore no Firestore access) is needed.
+ *
+ * @param input - Transfer data
+ * @returns GL entries (balanced, equal legs)
+ */
+export function generateBankTransferGLEntries(input: BankTransferGLInput): GLGenerationResult {
+  const errors: string[] = [];
+  const entries: LedgerEntry[] = [];
+
+  const amount = roundToPaisa(input.amount);
+
+  if (!input.fromAccountId) {
+    errors.push('Source bank account is required');
+  }
+  if (!input.toAccountId) {
+    errors.push('Destination bank account is required');
+  }
+  if (input.fromAccountId && input.toAccountId && input.fromAccountId === input.toAccountId) {
+    errors.push(
+      `Source and destination bank accounts must differ (both are ${input.fromAccountName || input.fromAccountId})`
+    );
+  }
+  if (amount <= 0) {
+    errors.push(`Transfer amount must be greater than zero (got ${amount.toFixed(2)})`);
+  }
+
+  if (errors.length > 0) {
+    return {
+      success: false,
+      entries: [],
+      totalDebit: 0,
+      totalCredit: 0,
+      isBalanced: false,
+      errors,
+    };
+  }
+
+  const description = input.description || 'Bank transfer';
+
+  // Entry 1: Debit destination bank account (asset increases)
+  entries.push({
+    accountId: input.toAccountId,
+    accountCode: input.toAccountCode || '',
+    accountName: input.toAccountName || 'Bank Account',
+    debit: amount,
+    credit: 0,
+    description,
+    ...(input.projectId && { costCentreId: input.projectId }),
+  });
+
+  // Entry 2: Credit source bank account (asset decreases)
+  entries.push({
+    accountId: input.fromAccountId,
+    accountCode: input.fromAccountCode || '',
+    accountName: input.fromAccountName || 'Bank Account',
+    debit: 0,
+    credit: amount,
+    description,
+    ...(input.projectId && { costCentreId: input.projectId }),
+  });
+
+  return validateAndReturnEntries(entries, errors);
+}
+
+/**
+ * Generate GL entries for an employee expense claim
+ *
+ * Double-entry pattern:
+ * Dr. Expense Account (per line item)
+ *     Cr. Employee Reimbursements Payable (liability — user-selected;
+ *         no system contra account exists for expense claims, so the
+ *         dialog requires the user to pick the reimbursable liability
+ *         account explicitly)
+ *
+ * Pure function — all accounts are user-selected, so no system-account
+ * lookup (and therefore no Firestore access) is needed. Each line is
+ * rounded to paisa and the credit leg is the sum of the rounded lines,
+ * so the entries always balance exactly.
+ *
+ * @param input - Expense claim data
+ * @returns GL entries (balanced)
+ */
+export function generateExpenseClaimGLEntries(input: ExpenseClaimGLInput): GLGenerationResult {
+  const errors: string[] = [];
+  const entries: LedgerEntry[] = [];
+
+  if (!input.payableAccountId) {
+    errors.push('Reimbursement payable account is required');
+  }
+  if (!input.lines || input.lines.length === 0) {
+    errors.push('Expense claim must have at least one expense line');
+  }
+
+  input.lines?.forEach((line, index) => {
+    if (!line.accountId) {
+      errors.push(`Expense line ${index + 1} ("${line.description}"): expense account is required`);
+    }
+    if (roundToPaisa(line.amount) <= 0) {
+      errors.push(
+        `Expense line ${index + 1} ("${line.description}"): amount must be greater than zero (got ${line.amount})`
+      );
+    }
+  });
+
+  if (errors.length > 0) {
+    return {
+      success: false,
+      entries: [],
+      totalDebit: 0,
+      totalCredit: 0,
+      isBalanced: false,
+      errors,
+    };
+  }
+
+  let total = 0;
+  for (const line of input.lines) {
+    const lineAmount = roundToPaisa(line.amount);
+    total = roundToPaisa(total + lineAmount);
+
+    // Debit each expense account (expense increases)
+    entries.push({
+      accountId: line.accountId,
+      accountCode: line.accountCode || '',
+      accountName: line.accountName || line.description,
+      debit: lineAmount,
+      credit: 0,
+      description: line.description || 'Expense claim line',
+      ...(input.projectId && { costCentreId: input.projectId }),
+    });
+  }
+
+  // Credit employee-reimbursable liability account (liability increases)
+  entries.push({
+    accountId: input.payableAccountId,
+    accountCode: input.payableAccountCode || '',
+    accountName: input.payableAccountName || 'Employee Reimbursements Payable',
+    debit: 0,
+    credit: total,
+    description: input.claimantName
+      ? `Reimbursable to ${input.claimantName}`
+      : 'Expense claim reimbursable',
+    ...(input.projectId && { costCentreId: input.projectId }),
+  });
+
+  return validateAndReturnEntries(entries, errors);
 }

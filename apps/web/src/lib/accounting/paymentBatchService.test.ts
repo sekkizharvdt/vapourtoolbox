@@ -9,7 +9,30 @@ jest.mock('@vapour/firebase', () => ({
   COLLECTIONS: {
     PAYMENT_BATCHES: 'paymentBatches',
     TRANSACTIONS: 'transactions',
+    ACCOUNTS: 'accounts',
   },
+}));
+
+// Mocks for executeBatch collaborators
+const mockCreatePaymentAtomic = jest.fn();
+const mockCreateLoan = jest.fn();
+const mockGenerateTransactionNumber = jest.fn();
+
+jest.mock('@/lib/firebase/retryOnStaleToken', () => ({
+  retryOnStaleToken: <T>(fn: () => Promise<T>) => fn(),
+}));
+jest.mock('@/lib/accounting/transactionNumberGenerator', () => ({
+  generateTransactionNumber: (...args: unknown[]) => mockGenerateTransactionNumber(...args),
+}));
+jest.mock('./paymentHelpers', () => ({
+  createPaymentWithAllocationsAtomic: (...args: unknown[]) => mockCreatePaymentAtomic(...args),
+}));
+jest.mock('./interprojectLoanService', () => ({
+  createInterprojectLoan: (...args: unknown[]) => mockCreateLoan(...args),
+}));
+jest.mock('@/lib/audit/clientAuditService', () => ({
+  logAuditEvent: jest.fn().mockResolvedValue(undefined),
+  createAuditContext: jest.fn(() => ({})),
 }));
 
 // Mock Firebase Firestore
@@ -51,9 +74,14 @@ jest.mock('firebase/firestore', () => ({
   orderBy: jest.fn((field, direction) => ({ field, direction })),
   limit: jest.fn((n) => ({ limit: n })),
   runTransaction: (db: unknown, callback: unknown) => mockRunTransaction(db, callback),
-  Timestamp: {
-    now: jest.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 })),
-    fromDate: jest.fn((date: Date) => ({ seconds: date.getTime() / 1000, nanoseconds: 0 })),
+  // A real class so `value instanceof Timestamp` is valid (returns false for mock data)
+  Timestamp: class MockTimestamp {
+    static now() {
+      return { seconds: Date.now() / 1000, nanoseconds: 0 };
+    }
+    static fromDate(date: Date) {
+      return { seconds: date.getTime() / 1000, nanoseconds: 0 };
+    }
   },
 }));
 
@@ -81,9 +109,10 @@ import {
   addBatchPayment,
   calculateBatchTotals,
   detectCrossProjectPayments,
+  executeBatch,
 } from './paymentBatchService';
 import type { Firestore } from 'firebase/firestore';
-import type { PaymentBatch, AddBatchPaymentInput } from '@vapour/types';
+import type { PaymentBatch, AddBatchPaymentInput, BatchPayment } from '@vapour/types';
 
 describe('paymentBatchService', () => {
   const mockDb = {} as unknown as Firestore;
@@ -442,6 +471,204 @@ describe('paymentBatchService', () => {
           currency: 'INR',
         })
       ).rejects.toThrow('Cannot modify a batch that is not in DRAFT status');
+    });
+  });
+
+  describe('executeBatch', () => {
+    const executor = { uid: 'executor-1', email: 'x@y.z', displayName: 'Executor' };
+
+    /** Live in-memory batch doc that getDoc/runTransaction/updateDoc all share */
+    let batchDoc: Record<string, unknown>;
+
+    const basePayment = (overrides: Partial<BatchPayment>): BatchPayment => ({
+      id: 'p1',
+      payeeType: 'VENDOR',
+      entityId: 'vendor-1',
+      entityName: 'Vendor One',
+      amount: 10000,
+      currency: 'INR',
+      status: 'PENDING',
+      ...overrides,
+    });
+
+    const setupBatch = (overrides: Partial<Record<string, unknown>> = {}) => {
+      batchDoc = {
+        batchNumber: 'PB-2026-0001',
+        status: 'APPROVED',
+        bankAccountId: 'bank-1',
+        bankAccountName: 'HDFC Current',
+        receipts: [],
+        payments: [basePayment({ id: 'p1' })],
+        totalReceiptAmount: 50000,
+        totalPaymentAmount: 10000,
+        remainingBalance: 40000,
+        createdBy: 'creator-1',
+        createdAt: { seconds: 1, nanoseconds: 0 },
+        ...overrides,
+      };
+
+      // getDoc serves the batch doc, the bank account, and any linked bill
+      mockGetDoc.mockImplementation((ref: { id: string }) => {
+        if (ref.id === 'batch-1') {
+          return Promise.resolve({ exists: () => true, id: 'batch-1', data: () => batchDoc });
+        }
+        if (ref.id === 'bank-1') {
+          return Promise.resolve({
+            exists: () => true,
+            id: 'bank-1',
+            data: () => ({ name: 'HDFC Current', isBankAccount: true }),
+          });
+        }
+        if (ref.id === 'bill-1') {
+          return Promise.resolve({
+            exists: () => true,
+            id: 'bill-1',
+            data: () => ({ baseAmount: 10000, totalAmount: 10000, amountPaid: 0 }),
+          });
+        }
+        return Promise.resolve({ exists: () => false, data: () => ({}) });
+      });
+
+      // runTransaction reads/writes the live batch doc
+      transactionMockDocData = { exists: true, data: () => batchDoc };
+      mockTransactionUpdate.mockImplementation((_ref, patch) => Object.assign(batchDoc, patch));
+      mockUpdateDoc.mockImplementation((_ref, patch) => {
+        Object.assign(batchDoc, patch);
+        return Promise.resolve(undefined);
+      });
+
+      mockGenerateTransactionNumber.mockResolvedValue('VP/2026/0042');
+      mockCreatePaymentAtomic.mockResolvedValue('txn-1');
+      mockCreateLoan.mockResolvedValue({ success: true, loanId: 'loan-1' });
+    };
+
+    it('rejects execution from an invalid status', async () => {
+      setupBatch({ status: 'DRAFT' });
+      await expect(executeBatch(mockDb, 'batch-1', executor)).rejects.toThrow(/DRAFT/);
+      expect(mockCreatePaymentAtomic).not.toHaveBeenCalled();
+    });
+
+    it('rejects execution without a real bank account', async () => {
+      setupBatch({ bankAccountId: 'primary-bank' });
+      await expect(executeBatch(mockDb, 'batch-1', executor)).rejects.toThrow(
+        /Select the bank account/
+      );
+    });
+
+    it('executes pending payments, marks them PAID, and completes the batch', async () => {
+      setupBatch({
+        payments: [
+          basePayment({ id: 'p1', linkedType: 'VENDOR_BILL', linkedId: 'bill-1' }),
+          basePayment({ id: 'p2', entityId: 'vendor-2', entityName: 'Vendor Two' }),
+        ],
+      });
+
+      const result = await executeBatch(mockDb, 'batch-1', executor);
+
+      expect(result.paid).toBe(2);
+      expect(result.failed).toBe(0);
+      expect(mockCreatePaymentAtomic).toHaveBeenCalledTimes(2);
+
+      // Bill-linked payment carries a validated allocation
+      const [, paymentData, allocations] = mockCreatePaymentAtomic.mock.calls[0]!;
+      expect(paymentData.type).toBe('VENDOR_PAYMENT');
+      expect(paymentData.status).toBe('POSTED');
+      expect(paymentData.bankAccountId).toBe('bank-1');
+      expect(allocations).toHaveLength(1);
+      expect(allocations[0].invoiceId).toBe('bill-1');
+      expect(allocations[0].allocatedAmount).toBe(10000);
+
+      const payments = batchDoc.payments as BatchPayment[];
+      expect(payments.every((p) => p.status === 'PAID')).toBe(true);
+      expect(payments.every((p) => p.paidTransactionId === 'txn-1')).toBe(true);
+      expect(batchDoc.status).toBe('COMPLETED');
+    });
+
+    it('marks a failing payment FAILED with the real error and does not complete the batch', async () => {
+      setupBatch({
+        payments: [
+          basePayment({ id: 'p1' }),
+          basePayment({ id: 'p2', entityId: 'vendor-2', entityName: 'Vendor Two' }),
+        ],
+      });
+      mockCreatePaymentAtomic
+        .mockResolvedValueOnce('txn-1')
+        .mockRejectedValueOnce(new Error('Invalid allocation for bill-9: exceeds outstanding'));
+
+      const result = await executeBatch(mockDb, 'batch-1', executor);
+
+      expect(result.paid).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.errors[0]!.error).toContain('exceeds outstanding');
+
+      const payments = batchDoc.payments as BatchPayment[];
+      expect(payments.find((p) => p.id === 'p2')!.status).toBe('FAILED');
+      expect(payments.find((p) => p.id === 'p2')!.errorMessage).toContain('exceeds outstanding');
+      expect(batchDoc.status).toBe('EXECUTING'); // resumable, not COMPLETED
+    });
+
+    it('is idempotent: resuming skips PAID entries and only pays the rest', async () => {
+      setupBatch({
+        status: 'EXECUTING',
+        payments: [
+          basePayment({ id: 'p1', status: 'PAID', paidTransactionId: 'txn-old' }),
+          basePayment({ id: 'p2', entityId: 'vendor-2', entityName: 'Vendor Two' }),
+        ],
+      });
+
+      const result = await executeBatch(mockDb, 'batch-1', executor);
+
+      expect(result.alreadyPaid).toBe(1);
+      expect(result.paid).toBe(1);
+      expect(mockCreatePaymentAtomic).toHaveBeenCalledTimes(1);
+      const payments = batchDoc.payments as BatchPayment[];
+      expect(payments.find((p) => p.id === 'p1')!.paidTransactionId).toBe('txn-old');
+      expect(batchDoc.status).toBe('COMPLETED');
+    });
+
+    it('fails a payment with no linked entity instead of creating an unattributable transaction', async () => {
+      setupBatch({
+        payments: [basePayment({ id: 'p1', entityId: undefined })],
+      });
+
+      const result = await executeBatch(mockDb, 'batch-1', executor);
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0]!.error).toContain('no linked entity');
+      expect(mockCreatePaymentAtomic).not.toHaveBeenCalled();
+    });
+
+    it('creates an interproject loan for a paid cross-project payment', async () => {
+      setupBatch({
+        receipts: [
+          {
+            id: 'r1',
+            sourceType: 'CUSTOMER_PAYMENT',
+            description: 'Receipt from Project A',
+            amount: 50000,
+            currency: 'INR',
+            projectId: 'proj-A',
+            projectName: 'Project A',
+            receiptDate: '2026-07-01',
+          },
+        ],
+        payments: [basePayment({ id: 'p1', projectId: 'proj-B', projectName: 'Project B' })],
+      });
+
+      const result = await executeBatch(mockDb, 'batch-1', executor);
+
+      expect(result.loansCreated).toBe(1);
+      expect(mockCreateLoan).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          lendingProjectId: 'proj-A',
+          borrowingProjectId: 'proj-B',
+          principalAmount: 10000,
+          interestRate: 0,
+        })
+      );
+      const payments = batchDoc.payments as BatchPayment[];
+      expect(payments[0]!.interprojectLoanId).toBe('loan-1');
     });
   });
 });

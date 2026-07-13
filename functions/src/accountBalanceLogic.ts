@@ -5,11 +5,18 @@
  * can be unit-tested without emulators. The Firestore trigger and the
  * recalculation callable in accountBalances.ts are thin shells over this module.
  *
- * Core semantics: a soft-deleted transaction (isDeleted === true) contributes
- * NOTHING to account balances (CLAUDE.md rule 3). resolveBalanceUpdate treats
- * every write as "effective entries after minus effective entries before",
- * which uniformly handles create, update, hard delete, soft delete, restore,
- * and hard-delete-of-already-soft-deleted (no double reversal).
+ * Core semantics: a transaction contributes to account balances ONLY when it
+ * is (a) not soft-deleted (isDeleted !== true, CLAUDE.md rule 3) and (b) at or
+ * past the posting boundary — status APPROVED or POSTED (decision 2026-07-11:
+ * DRAFT / PENDING_APPROVAL / REJECTED / VOID entries must not move balances).
+ * A document with NO status field contributes (legacy docs predate the status
+ * workflow and are all real, posted business records).
+ *
+ * resolveBalanceUpdate treats every write as "effective entries after minus
+ * effective entries before", which uniformly handles create, update, hard
+ * delete, soft delete, restore, status transitions across the posting
+ * boundary (DRAFT→POSTED applies entries; POSTED→VOID reverses them), and
+ * hard-delete-of-already-soft-deleted (no double reversal).
  */
 
 export interface LedgerEntry {
@@ -39,11 +46,27 @@ export function roundToPaisa(n: number): number {
 }
 
 /**
+ * Statuses that must NOT move account balances. Exclusion-based on purpose:
+ * a doc with a missing/unknown status still contributes (legacy docs have no
+ * status field), matching the soft-delete convention of rule 3.
+ */
+const NON_POSTING_STATUSES = new Set(['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'VOID']);
+
+/** The raw ledger entries on a live (non-deleted) doc, ignoring the posting
+ * boundary. For integrity checks that must also inspect drafts. */
+export function rawLedgerEntries(txn: TransactionLike | null | undefined): LedgerEntry[] {
+  if (!txn || txn.isDeleted) return [];
+  return Array.isArray(txn.entries) ? (txn.entries as LedgerEntry[]) : [];
+}
+
+/**
  * The GL entries a transaction contributes to balances.
- * Missing doc, soft-deleted doc, or malformed entries field → contributes nothing.
+ * Missing doc, soft-deleted doc, non-posted status (DRAFT/PENDING_APPROVAL/
+ * REJECTED/VOID), or malformed entries field → contributes nothing.
  */
 export function effectiveEntries(txn: TransactionLike | null | undefined): LedgerEntry[] {
   if (!txn || txn.isDeleted) return [];
+  if (typeof txn.status === 'string' && NON_POSTING_STATUSES.has(txn.status)) return [];
   return Array.isArray(txn.entries) ? (txn.entries as LedgerEntry[]) : [];
 }
 

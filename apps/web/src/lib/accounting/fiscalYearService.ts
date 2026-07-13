@@ -48,8 +48,9 @@ export function getCurrentFiscalYear(): FiscalYear {
 }
 
 /**
- * Stub for dormant year-end closing code.
- * Returns a derived FY from its id string — never reads Firestore.
+ * Derive a FY object from its id string — never reads Firestore.
+ * Used by yearEndClosingService as the fallback when the lazily-created
+ * `fiscalYears` doc does not exist yet.
  */
 export function getFiscalYear(_db: Firestore, fiscalYearId: string): FiscalYear | null {
   const m = fiscalYearId.match(/^FY-(\d{4})-\d{2}$/);
@@ -416,36 +417,4 @@ export async function validateTransactionDate(db: Firestore, transactionDate: Da
       `Cannot post transaction: the accounting period for ${transactionDate.toLocaleDateString()} is closed. Ask an accountant to reopen the period.`
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Deprecated stubs — kept only so dormant year-end code compiles.
-// Invoke them and they will throw; they have no UI surface yet.
-// ---------------------------------------------------------------------------
-
-/** @deprecated Year-end UI is not wired; this throws. */
-export async function calculateYearEndBalances(
-  _db: Firestore,
-  _fiscalYearId: string
-): Promise<never> {
-  throw new Error('Year-end closing is not available yet.');
-}
-
-/** @deprecated See above. */
-export async function createAdjustmentPeriod(
-  _db: Firestore,
-  _fiscalYearId: string,
-  _userId: string
-): Promise<string> {
-  throw new Error('Year-end closing is not available yet.');
-}
-
-/** @deprecated See above. */
-export async function provisionalClose(): Promise<never> {
-  throw new Error('Year-end closing is not available yet.');
-}
-
-/** @deprecated See above. */
-export async function finalClose(): Promise<never> {
-  throw new Error('Year-end closing is not available yet.');
 }

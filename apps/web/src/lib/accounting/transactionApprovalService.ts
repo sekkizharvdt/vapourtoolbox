@@ -594,6 +594,87 @@ export function getTransactionAvailableActions(
   return baseActions;
 }
 
+/**
+ * Mark an APPROVED customer invoice as sent to the customer.
+ *
+ * This is the explicit POSTED step (gap 1.8): APPROVED → POSTED, stamping
+ * sentAt/sentBy. Under the 2026-07-11 posting boundary both APPROVED and
+ * POSTED contribute to GL balances, so POSTED purely marks "issued to the
+ * customer" — dispatching the PDF by email is a later enhancement.
+ */
+export async function markInvoiceAsSent(
+  db: Firestore,
+  transactionId: string,
+  userId: string,
+  userName: string,
+  userPermissions?: number
+): Promise<void> {
+  // rule19-exempt: single-field status transition guarded by the status check; concurrent senders converge to POSTED
+  validateRequiredId(transactionId, 'Invoice ID');
+  validateRequiredId(userId, 'User ID');
+  validateUserName(userName, 'User name');
+
+  if (userPermissions !== undefined) {
+    requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_ACCOUNTING, userId, 'send invoice');
+  }
+
+  try {
+    const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);
+    const transactionSnap = await getDoc(transactionRef);
+
+    if (!transactionSnap.exists()) {
+      throw new Error('Invoice not found');
+    }
+
+    const transaction = transactionSnap.data() as Record<string, unknown>;
+
+    if (transaction.type !== 'CUSTOMER_INVOICE') {
+      throw new Error(`Only customer invoices can be sent (got ${String(transaction.type)})`);
+    }
+    if (transaction.status === 'POSTED') {
+      // Idempotent (rule 9): a double-click or retry is a no-op
+      logger.info('Invoice already POSTED — send is a no-op', { transactionId });
+      return;
+    }
+    if (transaction.status !== 'APPROVED') {
+      throw new Error(
+        `Cannot send an invoice with status ${String(transaction.status)} — it must be APPROVED first`
+      );
+    }
+
+    await updateDoc(transactionRef, {
+      status: 'POSTED' as TransactionStatus,
+      sentAt: Timestamp.now(),
+      sentBy: userId,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    const displayNumber =
+      (transaction.transactionNumber as string) || (transaction.invoiceNumber as string) || '';
+    const entityName = (transaction.entityName as string) || 'customer';
+
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'INVOICE_POSTED',
+      'INVOICE',
+      transactionId,
+      `Invoice ${displayNumber} marked as sent to ${entityName} (POSTED)`,
+      {
+        entityName: displayNumber,
+        severity: 'WARNING',
+        metadata: { entityId: transaction.entityId, entityName },
+      }
+    );
+
+    logger.info('Invoice marked as sent (POSTED)', { transactionId, displayNumber });
+  } catch (error) {
+    logger.error('Error marking invoice as sent', { transactionId, error });
+    throw error;
+  }
+}
+
 // Re-export for backward compatibility
 export {
   submitTransactionForApproval as submitForApproval,

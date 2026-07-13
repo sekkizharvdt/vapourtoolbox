@@ -205,6 +205,7 @@ export type AuditAction =
   | 'BATCH_SUBMITTED'
   | 'BATCH_APPROVED'
   | 'BATCH_REJECTED'
+  | 'BATCH_EXECUTED'
   // Period / closing
   | 'PERIOD_REOPENED'
   | 'CLOSING_VOIDED'
