@@ -324,11 +324,35 @@ export async function approvePO(
 
       logger.info('Advance payment created', { paymentId });
     } catch (err) {
-      logger.error('Error creating advance payment (can be created manually)', {
+      // Graceful degrade (rule 27): the PO approval must not fail because the
+      // accounting handoff failed — but the user must learn about it, so raise
+      // an actionable task instead of only logging (known-gaps 2.3).
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.warn('Error creating advance payment (can be created manually)', {
         poId,
         error: err,
       });
-      // PO is approved, advance payment can be created manually through accounting
+      try {
+        const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+        await createTaskNotification({
+          type: 'actionable',
+          category: 'ACCOUNTING_HANDOFF_FAILED',
+          userId,
+          assignedBy: userId,
+          title: `Advance payment for PO ${po.number} failed to draft`,
+          message: `The automatic advance payment for PO ${po.number} could not be created — create it manually in Accounting. Error: ${errorMessage}`,
+          entityType: 'PURCHASE_ORDER',
+          entityId: poId,
+          linkUrl: `/procurement/pos/${poId}`,
+          priority: 'HIGH',
+        });
+      } catch (notifErr) {
+        // Last resort: the notification write itself failed; the warn log above remains.
+        logger.error('Failed to create ACCOUNTING_HANDOFF_FAILED notification', {
+          poId,
+          error: notifErr,
+        });
+      }
     }
   } else if (po.advancePaymentRequired && !bankAccountId) {
     logger.warn('Advance payment required but no bank account provided');

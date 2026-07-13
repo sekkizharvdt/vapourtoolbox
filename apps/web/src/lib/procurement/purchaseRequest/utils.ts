@@ -18,48 +18,53 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PurchaseRequest, PurchaseRequestItem, Project } from '@vapour/types';
+import { generateCounterBackedNumber } from '../generateProcurementNumber';
 
 /**
- * Generate PR number in format: PR/YYYY/XXXX
+ * Pure formatter for PR numbers: PR/YYYY/XXXX.
+ * Exported so tests can pin the byte-exact format.
+ */
+export function formatPRNumber(year: number, sequence: number): string {
+  return `PR/${year}/${String(sequence).padStart(4, '0')}`;
+}
+
+/**
+ * Generate PR number in format: PR/YYYY/XXXX, via the shared counter-backed
+ * generator (known-gaps 2.4 — the old read-latest-then-increment was
+ * race-prone). On first use for a year the counter seeds from the most
+ * recently created PR's sequence so the existing sequence continues.
+ *
+ * NOTE: functions/src/charterApproval.ts increments the SAME counter doc
+ * (`pr-{year}`) with the admin SDK — keep the key and format in sync.
  */
 export async function generatePRNumber(): Promise<string> {
   const { db } = getFirebase();
+  const year = new Date().getFullYear();
 
-  const now = new Date();
-  const year = now.getFullYear();
-
-  // Get the latest PR in the current year
-  const yearStart = new Date(year, 0, 1);
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59);
-
-  const q = query(
-    collection(db, COLLECTIONS.PURCHASE_REQUESTS),
-    where('createdAt', '>=', Timestamp.fromDate(yearStart)),
-    where('createdAt', '<=', Timestamp.fromDate(yearEnd)),
-    orderBy('createdAt', 'desc'),
-    limit(1)
-  );
-
-  const snapshot = await getDocs(q);
-
-  let sequence = 1;
-  if (!snapshot.empty && snapshot.docs[0]) {
-    const lastPR = snapshot.docs[0].data() as PurchaseRequest;
-    // Extract sequence from last PR number
-    // Supports both old format PR/YYYY/MM/XXXX and new format PR/YYYY/XXXX
-    const lastNumber = lastPR.number;
-    if (lastNumber && typeof lastNumber === 'string') {
-      const parts = lastNumber.split('/');
-      const lastSequenceStr = parts[parts.length - 1]; // Always the last segment
-      const lastSequence = parseInt(lastSequenceStr || '0', 10);
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1;
-      }
-    }
-  }
-
-  const sequenceStr = String(sequence).padStart(4, '0');
-  return `PR/${year}/${sequenceStr}`;
+  return generateCounterBackedNumber({
+    counterKey: `pr-${year}`,
+    counterType: 'purchase_request',
+    counterMeta: { year },
+    format: (sequence) => formatPRNumber(year, sequence),
+    seed: async () => {
+      // Latest PR in the current year (same lookup the old generator used).
+      const yearStart = new Date(year, 0, 1);
+      const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+      const q = query(
+        collection(db, COLLECTIONS.PURCHASE_REQUESTS),
+        where('createdAt', '>=', Timestamp.fromDate(yearStart)),
+        where('createdAt', '<=', Timestamp.fromDate(yearEnd)),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      const lastPR = snapshot.docs[0]?.data() as PurchaseRequest | undefined;
+      // Last segment works for both old (PR/YYYY/MM/XXXX) and new (PR/YYYY/XXXX) formats
+      const parts = typeof lastPR?.number === 'string' ? lastPR.number.split('/') : [];
+      const lastSequence = parseInt(parts[parts.length - 1] || '', 10);
+      return isNaN(lastSequence) ? 0 : lastSequence;
+    },
+  });
 }
 
 /**

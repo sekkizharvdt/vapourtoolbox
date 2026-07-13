@@ -677,8 +677,15 @@ export async function cancelOnDutyRequest(
         throw new Error('Cannot cancel on-duty request less than 1 day before the holiday');
       }
 
-      // If comp-off was granted, need to revoke it
-      // This will be handled in a future enhancement
+      // Revoke the granted comp-off credit BEFORE marking the request
+      // cancelled (known-gaps 2.8b). Order matters: if the revoke succeeds
+      // but the status update below fails, a retried cancel finds no active
+      // grant (revoke is idempotent) and completes; the reverse order could
+      // leave a cancelled request with a live credit.
+      if (request.compOffGranted) {
+        const { revokeCompOffForOnDuty } = await import('./compOffService');
+        await revokeCompOffForOnDuty(requestId, userId);
+      }
     }
 
     const now = Timestamp.now();

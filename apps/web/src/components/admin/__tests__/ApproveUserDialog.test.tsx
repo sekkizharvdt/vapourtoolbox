@@ -26,6 +26,15 @@ jest.mock('@vapour/firebase', () => ({
   },
 }));
 
+// The dialog reads the acting admin from useAuth (to stamp updatedBy and
+// attribute the audit event — gap 3.2); provide it without an AuthProvider.
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { uid: 'admin-1', email: 'admin@test.com', displayName: 'Admin One' },
+    claims: { permissions: -1, permissions2: -1 },
+  }),
+}));
+
 // Mock window.confirm for reject action
 const mockConfirm = jest.fn();
 window.confirm = mockConfirm;

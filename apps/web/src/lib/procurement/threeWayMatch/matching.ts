@@ -23,6 +23,17 @@ import {
 } from './utils';
 import { getDefaultToleranceConfig } from './queries';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import { generateCounterBackedNumber } from '../generateProcurementNumber';
+
+/**
+ * Pure formatter for three-way match numbers: TWM/YYYY/MM/XXXX.
+ * Exported so tests can pin the byte-exact format.
+ */
+export function formatMatchNumber(sequence: number, date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `TWM/${year}/${month}/${String(sequence).padStart(4, '0')}`;
+}
 
 const logger = createLogger({ context: 'threeWayMatchService' });
 
@@ -376,12 +387,23 @@ export async function performThreeWayMatch(
         invoiceAmount > toleranceConfig.autoApproveMaxAmount)
     );
 
+    // Counter-backed match number (known-gaps 2.4 — the old Date.now() suffix
+    // could collide). Legacy numbers used a 13-digit timestamp suffix, so
+    // 4-digit counter sequences can never collide with them — no seed needed.
+    const matchDate = new Date();
+    const matchNumber = await generateCounterBackedNumber({
+      counterKey: `twm-${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}`,
+      counterType: 'three_way_match',
+      counterMeta: { year: matchDate.getFullYear(), month: matchDate.getMonth() + 1 },
+      format: (sequence) => formatMatchNumber(sequence, matchDate),
+    });
+
     // Create 3-way match record
     const matchData: Omit<ThreeWayMatch, 'id'> & { tenantId?: string } = {
       // tenantId required by firestore.rules for threeWayMatches (rule #4 cleanup).
       // Inherit from the source PO.
       tenantId: po.tenantId,
-      matchNumber: `TWM/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${Date.now()}`,
+      matchNumber,
       purchaseOrderId,
       poNumber: po.number,
       goodsReceiptId,

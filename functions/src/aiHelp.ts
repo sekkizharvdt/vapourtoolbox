@@ -8,6 +8,11 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import Anthropic from '@anthropic-ai/sdk';
+import {
+  enforceFirestoreRateLimit,
+  AI_HELP_LIMIT,
+  RateLimitError,
+} from './utils/firestoreRateLimit';
 
 // Define the secret - must be set via: firebase functions:secrets:set ANTHROPIC_API_KEY
 const anthropicApiKey = defineSecret('ANTHROPIC_API_KEY');
@@ -157,6 +162,19 @@ export const aiHelp = onCall(
     // Verify user is authenticated
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated to use AI Help');
+    }
+
+    // Firestore-backed rate limit (shared across instances and cold starts) —
+    // every call bills Anthropic input+output tokens.
+    try {
+      await enforceFirestoreRateLimit(AI_HELP_LIMIT, request.auth.uid);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        throw new HttpsError('resource-exhausted', error.message, {
+          retryAfter: error.retryAfter,
+        });
+      }
+      throw error;
     }
 
     const { messages, currentPage } = request.data as AIHelpRequest;

@@ -560,8 +560,31 @@ export async function completeGR(
     try {
       await createBillFromGoodsReceipt(db, updatedGR, userId, userEmail, tenantId);
     } catch (err) {
-      // Log error but don't fail - GR is complete, bill can be created manually
-      logger.error('Error creating bill from GR (can be created manually)', { error: err, grId });
+      // Graceful degrade (rule 27): GR completion stands even if the bill
+      // auto-draft fails — but tell the user instead of only logging (known-gaps 2.3).
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.warn('Error creating bill from GR (can be created manually)', { error: err, grId });
+      try {
+        await createTaskNotification({
+          type: 'actionable',
+          category: 'ACCOUNTING_HANDOFF_FAILED',
+          userId,
+          assignedBy: userId,
+          title: `Vendor bill for GR ${gr.number} failed to draft`,
+          message: `The automatic vendor bill for goods receipt ${gr.number} (PO ${gr.poNumber}) could not be created — create it manually in Accounting. Error: ${errorMessage}`,
+          entityType: 'GOODS_RECEIPT',
+          entityId: grId,
+          linkUrl: `/procurement/goods-receipts/${grId}`,
+          priority: 'HIGH',
+          projectId: gr.projectId,
+        });
+      } catch (notifErr) {
+        // Last resort: the notification write itself failed; the warn log above remains.
+        logger.error('Failed to create ACCOUNTING_HANDOFF_FAILED notification', {
+          grId,
+          error: notifErr,
+        });
+      }
     }
   }
 
@@ -743,8 +766,32 @@ export async function approveGRForPayment(
       await createPaymentFromApprovedReceipt(db, updatedGR, bankAccountId, userId, userEmail);
     }
   } catch (err) {
-    // Log error - payment can be created manually through accounting module
-    logger.error('Error creating payment from GR (can be created manually)', { error: err, grId });
+    // Graceful degrade (rule 27): the payment clearance stands even if the
+    // payment auto-draft fails — but tell the user instead of only logging
+    // (known-gaps 2.3).
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logger.warn('Error creating payment from GR (can be created manually)', { error: err, grId });
+    try {
+      await createTaskNotification({
+        type: 'actionable',
+        category: 'ACCOUNTING_HANDOFF_FAILED',
+        userId,
+        assignedBy: userId,
+        title: `Vendor payment for GR ${gr.number} failed to draft`,
+        message: `The automatic vendor payment for goods receipt ${gr.number} (PO ${gr.poNumber}) could not be created — create it manually in Accounting. Error: ${errorMessage}`,
+        entityType: 'GOODS_RECEIPT',
+        entityId: grId,
+        linkUrl: `/procurement/goods-receipts/${grId}`,
+        priority: 'HIGH',
+        projectId: gr.projectId,
+      });
+    } catch (notifErr) {
+      // Last resort: the notification write itself failed; the warn log above remains.
+      logger.error('Failed to create ACCOUNTING_HANDOFF_FAILED notification', {
+        grId,
+        error: notifErr,
+      });
+    }
   }
 
   // Complete every GR_READY_FOR_PAYMENT task copy (non-critical) — the

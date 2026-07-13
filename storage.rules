@@ -16,49 +16,118 @@ service firebase.storage {
              math.floor(request.auth.token.permissions / permissionBit) % 2 == 1;
     }
 
-    // Project documents - authenticated users can read and write
+    // Project documents — document-control uploads only (submission files via
+    // submissionService, CRS via crsService, approval letters via
+    // approvalService — all under apps/web/src/lib/documents/).
+    //
+    // Enforces: write/delete gated on the document-workflow flags —
+    // MANAGE_DOCUMENTS (bit 27 = 134217728) OR SUBMIT_DOCUMENTS
+    // (bit 28 = 268435456) OR APPROVE_DOCUMENTS (bit 30 = 1073741824).
+    // MANAGE_DOCUMENTS alone would break engineers submitting revisions:
+    // firestore.rules allows documentSubmissions create with SUBMIT_DOCUMENTS,
+    // and the ENGINEER role preset carries SUBMIT but not MANAGE.
+    // Read: any authenticated user (external client reviewers must download
+    // CLIENT_VISIBLE document files; per-doc visibility is enforced at the
+    // Firestore level).
     match /projects/{projectId}/documents/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+
+      allow write: if hasPermission(134217728) || // MANAGE_DOCUMENTS
+                      hasPermission(268435456) || // SUBMIT_DOCUMENTS
+                      hasPermission(1073741824);  // APPROVE_DOCUMENTS
+
+      allow delete: if hasPermission(134217728) ||
+                       hasPermission(268435456) ||
+                       hasPermission(1073741824);
     }
 
     // Document uploads (via documentService) - general document storage
     // Path: documents/{projectId}/{module}/{entityType}/{entityId}/{filename}
+    //
+    // Enforces: MANAGE_DOCUMENTS (bit 27 = 134217728, same flag firestore.rules
+    // uses for masterDocuments) OR the manage flag of a module whose file
+    // browser writes here — MANAGE_ACCOUNTING (16384), MANAGE_PROCUREMENT
+    // (65536), MANAGE_PROPOSALS (2097152). The /accounting/files,
+    // /procurement/files and /proposals/files pages all upload via
+    // documentService into this prefix, so MANAGE_DOCUMENTS alone would
+    // break those flows.
+    // Read: any authenticated internal user.
     match /documents/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+
+      allow write: if hasPermission(134217728) || // MANAGE_DOCUMENTS
+                      hasPermission(16384) ||     // MANAGE_ACCOUNTING
+                      hasPermission(65536) ||     // MANAGE_PROCUREMENT
+                      hasPermission(2097152);     // MANAGE_PROPOSALS
+
+      allow delete: if hasPermission(134217728) ||
+                       hasPermission(16384) ||
+                       hasPermission(65536) ||
+                       hasPermission(2097152);
     }
 
     // Document templates
     // Path: templates/{filename}
+    //
+    // Enforces: write/delete MANAGE_DOCUMENTS (134217728) OR the module
+    // manage flags — MANAGE_ACCOUNTING (16384), MANAGE_PROCUREMENT (65536),
+    // MANAGE_PROPOSALS (2097152) — same union as documents/ above, since
+    // templates serve the same shared document tooling.
+    // Read: any authenticated user.
     match /templates/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+
+      allow write: if hasPermission(134217728) || // MANAGE_DOCUMENTS
+                      hasPermission(16384) ||     // MANAGE_ACCOUNTING
+                      hasPermission(65536) ||     // MANAGE_PROCUREMENT
+                      hasPermission(2097152);     // MANAGE_PROPOSALS
+
+      allow delete: if hasPermission(134217728) ||
+                       hasPermission(16384) ||
+                       hasPermission(65536) ||
+                       hasPermission(2097152);
     }
 
-    // Accounting files - authenticated users can read and write
+    // Accounting files (bank statements, supporting documents)
+    //
+    // Enforces: read VIEW_ACCOUNTING (bit 15 = 32768);
+    // write/delete MANAGE_ACCOUNTING (bit 14 = 16384).
     match /accounting/{allPaths=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if hasPermission(32768);
+
+      allow write: if hasPermission(16384);
+
+      allow delete: if hasPermission(16384);
     }
 
     // Customer Invoice attachments — supporting documents attached via the
     // Create/Edit Invoice dialog (FileUpload component).
     // Path: invoices/{invoiceNumber-or-'draft'}/{filename}
+    //
+    // Enforces: read VIEW_ACCOUNTING (bit 15 = 32768);
+    // write/delete MANAGE_ACCOUNTING (bit 14 = 16384).
     match /invoices/{invoiceRef}/{allPaths=**} {
-      allow read: if isAuthenticated();
+      allow read: if hasPermission(32768);
 
       // Max file size: 10MB (mirrors FileUpload's default maxSizeMB prop)
-      allow write: if isAuthenticated() &&
+      allow write: if hasPermission(16384) &&
                      request.resource.size < 10 * 1024 * 1024;
 
-      allow delete: if isAuthenticated();
+      allow delete: if hasPermission(16384);
     }
 
-    // Enquiry files - authenticated users can read and write
+    // Enquiry files (uploaded via enquiryService)
+    // Path: enquiries/{enquiryId}/{filename}
+    //
+    // Enforces: write/delete MANAGE_PROPOSALS (bit 21 = 2097152 —
+    // "Create/edit proposals and enquiries"); read stays any authenticated
+    // internal user (mirrors the procurement read posture).
     match /enquiries/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+
+      allow write: if hasPermission(2097152);
+
+      allow delete: if hasPermission(2097152);
     }
 
     // Document parsing - temporary uploads for AI parsing
@@ -80,31 +149,37 @@ service firebase.storage {
 
     // Purchase Request attachments - TDS, specs, datasheets, drawings
     // Path: procurement/pr/{prId}/attachments/{filename}
+    //
+    // Enforces: write/delete MANAGE_PROCUREMENT (bit 16 = 65536);
+    // read stays any authenticated internal user (mirrors vendor-quotes).
     match /procurement/pr/{prId}/attachments/{allPaths=**} {
       // Read: All authenticated internal users can read PR attachments
       allow read: if isAuthenticated();
 
       // Write: Users with MANAGE_PROCUREMENT permission can upload
       // Max file size: 25MB (PDFs, drawings can be large)
-      allow write: if isAuthenticated() &&
+      allow write: if hasPermission(65536) &&
                      request.resource.size < 25 * 1024 * 1024;
 
       // Delete: Users with MANAGE_PROCUREMENT permission
-      allow delete: if isAuthenticated();
+      allow delete: if hasPermission(65536);
     }
 
     // Purchase Order attachments - drawings, specs, certificates, service reports
     // Path: procurement/purchaseOrder/{poId}/attachments/{filename}
+    //
+    // Enforces: write/delete MANAGE_PROCUREMENT (bit 16 = 65536);
+    // read stays any authenticated internal user (mirrors vendor-quotes).
     match /procurement/purchaseOrder/{poId}/attachments/{allPaths=**} {
       // Read: All authenticated internal users can read PO attachments
       allow read: if isAuthenticated();
 
       // Write: Max file size 25MB (mirrors PR attachments)
-      allow write: if isAuthenticated() &&
+      allow write: if hasPermission(65536) &&
                      request.resource.size < 25 * 1024 * 1024;
 
-      // Delete: any authenticated internal user
-      allow delete: if isAuthenticated();
+      // Delete: Users with MANAGE_PROCUREMENT permission
+      allow delete: if hasPermission(65536);
     }
 
     // Feedback screenshots - users can upload to their own folder
@@ -142,39 +217,48 @@ service firebase.storage {
 
     // RFQ Offers - vendor quotation uploads
     // Path: offers/{rfqId}/{filename}
+    //
+    // Enforces: write/delete MANAGE_PROCUREMENT (bit 16 = 65536);
+    // read stays any authenticated internal user (mirrors vendor-quotes).
     match /offers/{rfqId}/{allPaths=**} {
       // Read: Authenticated users can read offers
       allow read: if isAuthenticated();
 
-      // Write: Authenticated users can upload offers
+      // Write: Users with MANAGE_PROCUREMENT can upload offers
       // Max file size: 25MB (PDFs, Excel files can be large)
-      allow write: if isAuthenticated() &&
+      allow write: if hasPermission(65536) &&
                      request.resource.size < 25 * 1024 * 1024;
 
-      // Delete: Authenticated users can delete
-      allow delete: if isAuthenticated();
+      // Delete: Users with MANAGE_PROCUREMENT permission
+      allow delete: if hasPermission(65536);
     }
 
     // RFQ PDFs - generated RFQ documents
     // Path: rfq-pdfs/{rfqId}/{filename}
+    //
+    // Enforces: write/delete MANAGE_PROCUREMENT (bit 16 = 65536);
+    // read stays any authenticated internal user (mirrors vendor-quotes).
     match /rfq-pdfs/{rfqId}/{allPaths=**} {
       allow read: if isAuthenticated();
 
-      allow write: if isAuthenticated() &&
+      allow write: if hasPermission(65536) &&
                      request.resource.size < 25 * 1024 * 1024;
 
-      allow delete: if isAuthenticated();
+      allow delete: if hasPermission(65536);
     }
 
     // Vendor Offers - quotation documents uploaded via materials module
     // Path: vendor-offers/{timestamp}_{filename}
+    //
+    // Enforces: write/delete MANAGE_PROCUREMENT (bit 16 = 65536);
+    // read stays any authenticated internal user (mirrors vendor-quotes).
     match /vendor-offers/{allPaths=**} {
       allow read: if isAuthenticated();
 
-      allow write: if isAuthenticated() &&
+      allow write: if hasPermission(65536) &&
                      request.resource.size < 25 * 1024 * 1024;
 
-      allow delete: if isAuthenticated();
+      allow delete: if hasPermission(65536);
     }
 
     // Vendor Quotes - quotation documents uploaded via the procurement

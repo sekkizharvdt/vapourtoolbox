@@ -20,6 +20,15 @@ const mockRunTransaction = jest.fn();
 const mockDoc = jest.fn();
 const mockCollection = jest.fn();
 
+// Mock the counter-backed number generator — the real module pulls in the
+// Firebase client singleton, which explodes under this file's partial
+// firebase/firestore mock. Format itself is pinned in documentNumberFormats.test.ts.
+const mockGenerateCounterBackedNumber = jest.fn();
+jest.mock('@/lib/procurement/generateProcurementNumber', () => ({
+  generateCounterBackedNumber: (...args: unknown[]) => mockGenerateCounterBackedNumber(...args),
+  generateProcurementNumber: jest.fn(),
+}));
+
 jest.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...args),
   doc: (...args: unknown[]) => mockDoc(...args),
@@ -178,6 +187,7 @@ describe('proposalService', () => {
     jest.clearAllMocks();
     mockDoc.mockReturnValue({ id: 'doc-ref' });
     mockCollection.mockReturnValue({ id: 'collection-ref' });
+    mockGenerateCounterBackedNumber.mockResolvedValue('PROP-26-01');
   });
 
   describe('createProposal', () => {
@@ -194,7 +204,7 @@ describe('proposalService', () => {
           data: () => mockClient,
         });
 
-      mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
+      // (number-query getDocs no longer queued — the counter-backed generator is mocked)
       mockAddDoc.mockResolvedValueOnce({ id: 'new-proposal-123' });
       mockUpdateDoc.mockResolvedValueOnce(undefined);
 
@@ -300,9 +310,8 @@ describe('proposalService', () => {
           data: () => mockClient,
         });
 
-      // Two getDocs calls: first the duplicate-active-proposal guard
-      // (findActiveProposalForEnquiry), then generateProposalNumber.
-      mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
+      // One getDocs call: the duplicate-active-proposal guard
+      // (findActiveProposalForEnquiry). The number generator is mocked.
       mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
       mockAddDoc.mockResolvedValueOnce({ id: 'minimal-proposal-123' });
       mockUpdateDoc.mockResolvedValueOnce(undefined);

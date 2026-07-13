@@ -151,19 +151,18 @@ export async function updateEmployeeHRProfile(
   userId: string,
   hrProfile: Partial<HRProfile>,
   updatedBy: string,
-  auditor?: { userName: string; userEmail: string },
-  userPermissions2?: number
+  userPermissions2: number,
+  auditor?: { userName: string; userEmail: string }
 ): Promise<void> {
   // rule19-exempt: edit form on an employee profile — read fetches current values for diffing/audit; last-write-wins acceptable for HR field edits
-  // HR-18: Validate caller has MANAGE_HR_PROFILES permission
-  if (userPermissions2 !== undefined) {
-    requirePermission(
-      userPermissions2,
-      PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
-      updatedBy,
-      'update employee HR profile'
-    );
-  }
+  // HR-18: Validate caller has MANAGE_HR_PROFILES permission (rule 5 —
+  // required param so no caller can skip the check)
+  requirePermission(
+    userPermissions2,
+    PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
+    updatedBy,
+    'update employee HR profile'
+  );
 
   const { db } = getFirebase();
 
@@ -234,19 +233,18 @@ export async function updateEmployeeBasicInfo(
     department?: string;
   },
   updatedBy: string,
-  auditor?: { userName: string; userEmail: string },
-  userPermissions2?: number
+  userPermissions2: number,
+  auditor?: { userName: string; userEmail: string }
 ): Promise<void> {
   // rule19-exempt: edit form on an employee profile — read fetches current values for diffing/audit; last-write-wins acceptable for HR field edits
-  // HR-18: Validate caller has MANAGE_HR_PROFILES permission
-  if (userPermissions2 !== undefined) {
-    requirePermission(
-      userPermissions2,
-      PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
-      updatedBy,
-      'update employee basic info'
-    );
-  }
+  // HR-18: Validate caller has MANAGE_HR_PROFILES permission (rule 5 —
+  // required param so no caller can skip the check)
+  requirePermission(
+    userPermissions2,
+    PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
+    updatedBy,
+    'update employee basic info'
+  );
 
   const { db } = getFirebase();
 

@@ -65,6 +65,8 @@ export const resetLeaveBalances = onSchedule(
         id: string;
         name: string;
         quota: number;
+        carryForwardAllowed: boolean;
+        maxCarryForward: number;
       }
       const leaveTypeMap = new Map<string, LeaveTypeInfo>();
       leaveTypesSnapshot.forEach((doc) => {
@@ -73,6 +75,8 @@ export const resetLeaveBalances = onSchedule(
           id: doc.id,
           name: data.name || data.code,
           quota: data.annualQuota || 0,
+          carryForwardAllowed: data.carryForwardAllowed === true,
+          maxCarryForward: data.maxCarryForward || 0,
         });
       });
 
@@ -81,23 +85,43 @@ export const resetLeaveBalances = onSchedule(
         id: 'sick',
         name: 'Sick Leave',
         quota: DEFAULT_SICK_LEAVE_QUOTA,
+        carryForwardAllowed: false,
+        maxCarryForward: 0,
       };
       const casualLeaveInfo = leaveTypeMap.get(CASUAL_LEAVE) || {
         id: 'casual',
         name: 'Casual Leave',
         quota: DEFAULT_CASUAL_LEAVE_QUOTA,
+        carryForwardAllowed: false,
+        maxCarryForward: 0,
+      };
+      // known-gaps 2.8c: COMP_OFF was previously excluded from the annual reset,
+      // so users started the new year with NO comp-off balance doc and unexpired
+      // credits became unusable. Comp-off starts at entitled 0 (earned, not
+      // granted annually); unexpired credits carry forward per the leave type's
+      // carryForwardAllowed/maxCarryForward configuration.
+      const compOffInfo = leaveTypeMap.get(COMP_OFF) || {
+        id: 'comp_off',
+        name: 'Compensatory Off',
+        quota: DEFAULT_COMP_OFF_QUOTA,
+        carryForwardAllowed: false,
+        maxCarryForward: 0,
       };
 
       logger.info('Quotas for new year', {
         sickLeaveQuota: sickLeaveInfo.quota,
         casualLeaveQuota: casualLeaveInfo.quota,
+        compOffCarryForwardAllowed: compOffInfo.carryForwardAllowed,
+        compOffMaxCarryForward: compOffInfo.maxCarryForward,
       });
 
       // Batch write for efficiency
       const batches: admin.firestore.WriteBatch[] = [];
       let currentBatch = db.batch();
       let operationCount = 0;
-      const MAX_BATCH_SIZE = 500;
+      // Firestore batch limit is 500 ops (rule 20); we add 3 docs per user
+      // between checks, so keep headroom below the hard limit.
+      const MAX_BATCH_SIZE = 495;
 
       let successCount = 0;
       let errorCount = 0;
@@ -163,6 +187,75 @@ export const resetLeaveBalances = onSchedule(
             pending: 0,
             available: casualLeaveInfo.quota,
             carryForward: 0,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: 'system',
+            updatedBy: 'system',
+          });
+          operationCount++;
+
+          // Create comp-off balance (known-gaps 2.8c). entitled stays 0 —
+          // comp-off is earned per grant, never granted annually. Unexpired,
+          // unconsumed credits carry forward when the leave type allows it:
+          //   carryForward = min(active grants unexpired at Jan 1,
+          //                      old-year available,  // FIFO usage assumption
+          //                      maxCarryForward)
+          // The daily expiry sweep (compOffExpiry.ts) later decrements this
+          // carryForward bucket as those grants hit their 1-year expiry.
+          let compOffCarryForward = 0;
+          if (compOffInfo.carryForwardAllowed) {
+            try {
+              const newYearStart = admin.firestore.Timestamp.fromDate(
+                new Date(`${newYear}-01-01T00:00:00+05:30`)
+              );
+              const [grantsSnap, oldBalanceSnap] = await Promise.all([
+                db
+                  .collection('hrCompOffGrants')
+                  .where('userId', '==', userId)
+                  .where('status', '==', 'active')
+                  .get(),
+                db
+                  .collection(HR_LEAVE_BALANCES)
+                  .where('userId', '==', userId)
+                  .where('leaveTypeCode', '==', COMP_OFF)
+                  .where('fiscalYear', '==', newYear - 1)
+                  .limit(1)
+                  .get(),
+              ]);
+              const unexpiredGrants = grantsSnap.docs.filter((g) => {
+                const expiry = g.data().expiryDate as admin.firestore.Timestamp | undefined;
+                return expiry && expiry.toMillis() > newYearStart.toMillis();
+              }).length;
+              const oldAvailable = oldBalanceSnap.docs[0]?.data()?.available || 0;
+              compOffCarryForward = Math.max(
+                0,
+                Math.min(unexpiredGrants, oldAvailable, compOffInfo.maxCarryForward)
+              );
+            } catch (carryErr) {
+              // Degrade to 0 carry-forward rather than failing the whole
+              // user's reset; the expiry sweep + manual reset can reconcile.
+              logger.warn('Failed to compute comp-off carry-forward, using 0', {
+                userId,
+                error: carryErr,
+              });
+            }
+          }
+
+          const compOffBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
+          currentBatch.set(compOffBalanceRef, {
+            userId,
+            tenantId,
+            userName: userData.displayName || userData.email || 'Unknown',
+            userEmail: userData.email || '',
+            leaveTypeId: compOffInfo.id,
+            leaveTypeCode: COMP_OFF,
+            leaveTypeName: compOffInfo.name,
+            fiscalYear: newYear,
+            entitled: DEFAULT_COMP_OFF_QUOTA,
+            used: 0,
+            pending: 0,
+            available: DEFAULT_COMP_OFF_QUOTA + compOffCarryForward,
+            carryForward: compOffCarryForward,
             createdAt: now,
             updatedAt: now,
             createdBy: 'system',

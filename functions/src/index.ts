@@ -103,6 +103,9 @@ export {
   seedLeaveTypes,
 } from './hr/leaveBalanceReset';
 
+// Comp-off expiry sweep (known-gaps 2.8a — 1-year grant expiry enforcement)
+export { expireCompOffGrants } from './hr/compOffExpiry';
+
 // Import AI Help function (beta feature)
 export { aiHelp } from './aiHelp';
 

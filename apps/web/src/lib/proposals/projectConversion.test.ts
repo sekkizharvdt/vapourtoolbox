@@ -23,6 +23,15 @@ const mockRunTransaction = jest.fn();
 // supplied so each transactional create gets a fresh predictable id.
 let nextProjectDocId = 'new-project-123';
 
+// Mock the counter-backed number generator — the real module pulls in the
+// Firebase client singleton, which explodes under this file's partial
+// firebase/firestore mock. Format itself is pinned in documentNumberFormats.test.ts.
+const mockGenerateCounterBackedNumber = jest.fn();
+jest.mock('@/lib/procurement/generateProcurementNumber', () => ({
+  generateCounterBackedNumber: (...args: unknown[]) => mockGenerateCounterBackedNumber(...args),
+  generateProcurementNumber: jest.fn(),
+}));
+
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(() => ({})),
   doc: jest.fn((_db, _collection, id) =>
@@ -169,6 +178,7 @@ describe('projectConversion', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     nextProjectDocId = 'new-project-123';
+    mockGenerateCounterBackedNumber.mockResolvedValue('PROJ-2026-0001');
     // Default: runTransaction invokes its callback with a tx whose get()
     // returns a fresh proposal (no projectId) and whose set/update bridge
     // to the existing mockAddDoc / mockUpdateDoc so test assertions on
@@ -826,7 +836,9 @@ describe('projectConversion', () => {
       await convertProposalToProject(mockDb, 'proposal-123', mockUserId, mockUserName, proposal);
 
       const updateData = mockUpdateDoc.mock.calls[0]?.[1];
-      expect(updateData?.projectNumber).toMatch(/^PROJ-\d{4}-\d{6}$/);
+      // Counter-backed format since gap 2.4: PROJ-YYYY-NNNN (was a 6-digit
+      // timestamp slice). Byte-exact format pinned in documentNumberFormats.test.ts.
+      expect(updateData?.projectNumber).toMatch(/^PROJ-\d{4}-\d{4}$/);
     });
   });
 });

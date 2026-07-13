@@ -20,6 +20,7 @@ import { updateEnquiryStatus } from '@/lib/enquiry/enquiryService';
 import { requirePermission, preventSelfApproval } from '@/lib/auth';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { proposalStateMachine } from '@/lib/workflow/stateMachines';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
 
 const logger = createLogger({ context: 'proposalApproval' });
 
@@ -73,9 +74,9 @@ export async function submitProposalForApproval(
     }
 
     // NB: submittedAt is the date the proposal was SENT TO THE CLIENT
-    // (written by handleSubmitToClient in PreviewClient). Do not write
-    // it here — submitting for internal approval is a different event,
-    // tracked by status=PENDING_APPROVAL plus the audit log below.
+    // (written by markProposalAsSubmitted). Do not write it here —
+    // submitting for internal approval is a different event, tracked by
+    // status=PENDING_APPROVAL plus the audit log below.
     await updateDoc(proposalRef, {
       status: 'PENDING_APPROVAL',
       submittedByUserId: userId,
@@ -551,17 +552,27 @@ export async function requestProposalChanges(
 /**
  * Mark proposal as submitted to client
  *
- * Changes status from APPROVED → SUBMITTED
+ * Changes status from APPROVED → SUBMITTED. Canonical submit-to-client
+ * path — writes the client-submission tracking fields (submittedAt,
+ * submittedByUserId/Name, submittedToClientAt) that the proposal PDF and
+ * detail page read.
  */
 export async function markProposalAsSubmitted(
   db: Firestore,
   proposalId: string,
-  userId: string
+  userId: string,
+  userName: string,
+  userPermissions: number
 ): Promise<void> {
-  // rule8-exempt: sync / mark / status-update helper invoked by the upstream workflow that already validated the transition; the parent function gates on requireValidTransition
-  // rule5-exempt: firestore.rules enforce per-collection permission (VIEW/MANAGE flags + project-scoped checks); client-side requirePermission is defense-in-depth deferred to future hardening
   // rule19-exempt: state-machine transition to SUBMITTED; idempotent — same target status
   try {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROPOSALS,
+      userId,
+      'submit proposal to client'
+    );
+
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
 
@@ -571,22 +582,31 @@ export async function markProposalAsSubmitted(
 
     const proposal = proposalSnap.data() as Proposal;
 
-    // Validate state machine transition (APPROVED -> SUBMITTED)
-    const transitionResult = proposalStateMachine.validateTransition(proposal.status, 'SUBMITTED');
-    if (!transitionResult.allowed) {
-      throw new Error(
-        transitionResult.reason || `Cannot submit proposal with status: ${proposal.status}`
-      );
-    }
+    // Validate state machine transition (APPROVED -> SUBMITTED), rule 8
+    requireValidTransition(proposalStateMachine, proposal.status, 'SUBMITTED', 'Proposal');
 
+    const now = Timestamp.now();
     await updateDoc(proposalRef, {
       status: 'SUBMITTED',
-      submittedToClientAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+      submittedAt: now,
+      submittedToClientAt: now,
+      submittedByUserId: userId,
+      submittedByUserName: userName,
+      updatedAt: now,
       updatedBy: userId,
     });
 
     logger.info('Proposal marked as submitted to client', { proposalId, userId });
+
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'PROPOSAL_SUBMITTED',
+      'PROPOSAL',
+      proposalId,
+      `Proposal ${proposal.proposalNumber} submitted to client`,
+      { entityName: proposal.proposalNumber, metadata: { toClient: true } }
+    ).catch((err) => logger.error('Failed to log audit event', { error: err }));
   } catch (error) {
     logger.error('Error marking proposal as submitted', { proposalId, error });
     throw error;

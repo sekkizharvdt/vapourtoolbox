@@ -101,7 +101,7 @@ export async function createWorkCompletionCertificate(
     message: `Work Completion Certificate ${wccNumber} has been issued for PO ${po.number} (${po.vendorName}). Please create a bill in accounting.`,
     entityType: 'WORK_COMPLETION_CERTIFICATE',
     entityId: wccRef.id,
-    linkUrl: `/procurement/work-completions/${wccRef.id}`,
+    linkUrl: `/procurement/work-completion/${wccRef.id}`,
     priority: 'HIGH',
     autoCompletable: true,
     projectId: input.projectId,

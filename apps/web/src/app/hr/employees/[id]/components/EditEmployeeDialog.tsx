@@ -290,8 +290,8 @@ export function EditEmployeeDialog({
           department: department || undefined,
         },
         user.uid,
-        auditor,
-        claims?.permissions2
+        claims?.permissions2 ?? 0,
+        auditor
       );
 
       // Build HR profile update - strip undefined values for Firestore
@@ -346,8 +346,8 @@ export function EditEmployeeDialog({
         employee.uid,
         hrProfileUpdate,
         user.uid,
-        auditor,
-        claims?.permissions2
+        claims?.permissions2 ?? 0,
+        auditor
       );
 
       setSaveSuccess(true);

@@ -41,6 +41,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ProcessValve, ProcessValveInput } from '@vapour/types';
 import { VALVE_TYPES, END_CONNECTIONS } from '@vapour/types';
 import { subscribeToValves, createValve, updateValve, deleteValve } from '@/lib/ssot/valveService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'ValvesTab' });
@@ -48,9 +49,10 @@ const logger = createLogger({ context: 'ValvesTab' });
 interface ValvesTabProps {
   projectId: string;
   userId: string;
+  accessCheck: SSOTAccessCheck;
 }
 
-export default function ValvesTab({ projectId, userId }: ValvesTabProps) {
+export default function ValvesTab({ projectId, userId, accessCheck }: ValvesTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [valves, setValves] = useState<ProcessValve[]>([]);
@@ -173,9 +175,9 @@ export default function ValvesTab({ projectId, userId }: ValvesTabProps) {
       };
 
       if (editingValve) {
-        await updateValve(projectId, editingValve.id, input, userId);
+        await updateValve(projectId, editingValve.id, input, userId, accessCheck);
       } else {
-        await createValve(projectId, input, userId);
+        await createValve(projectId, input, userId, accessCheck);
       }
 
       setFormOpen(false);
@@ -193,7 +195,7 @@ export default function ValvesTab({ projectId, userId }: ValvesTabProps) {
 
     setDeleting(true);
     try {
-      await deleteValve(projectId, deletingValve.id);
+      await deleteValve(projectId, deletingValve.id, userId, accessCheck);
       setDeleteDialogOpen(false);
       setDeletingValve(null);
     } catch (err) {

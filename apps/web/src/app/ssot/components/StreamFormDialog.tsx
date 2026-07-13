@@ -29,6 +29,7 @@ import {
 import type { ProcessStream, ProcessStreamInput, FluidType } from '@vapour/types';
 import { FLUID_TYPES } from '@vapour/types';
 import { createStream, updateStream } from '@/lib/ssot/streamService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { inferFluidType, calculateStreamProperties } from '@/lib/ssot/streamCalculations';
 import { createLogger } from '@vapour/logger';
 
@@ -39,6 +40,7 @@ interface StreamFormDialogProps {
   onClose: () => void;
   projectId: string;
   userId: string;
+  accessCheck: SSOTAccessCheck;
   stream?: ProcessStream | null;
 }
 
@@ -47,6 +49,7 @@ export default function StreamFormDialog({
   onClose,
   projectId,
   userId,
+  accessCheck,
   stream,
 }: StreamFormDialogProps) {
   const isEditing = !!stream;
@@ -180,9 +183,9 @@ export default function StreamFormDialog({
       };
 
       if (isEditing && stream) {
-        await updateStream(projectId, stream.id, input, userId);
+        await updateStream(projectId, stream.id, input, userId, accessCheck);
       } else {
-        await createStream(projectId, input, userId);
+        await createStream(projectId, input, userId, accessCheck);
       }
 
       onClose();

@@ -239,8 +239,9 @@ export const onEntityNameChange = onDocumentUpdated(
     const newName = after.name as string;
     const oldEmail = before.email as string;
     const newEmail = after.email as string;
-    const oldGstin = before.gstin as string;
-    const newGstin = after.gstin as string;
+    // GSTIN lives at taxIdentifiers.gstin on entity docs (see @vapour/types BusinessEntity), not top-level
+    const oldGstin = (before.taxIdentifiers as { gstin?: string } | undefined)?.gstin;
+    const newGstin = (after.taxIdentifiers as { gstin?: string } | undefined)?.gstin;
 
     // Check what changed
     const nameChanged = oldName !== newName && newName;

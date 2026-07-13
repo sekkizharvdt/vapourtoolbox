@@ -45,6 +45,21 @@ jest.mock('@vapour/firebase', () => ({
   },
 }));
 
+// Mock the counter-backed number generator (the real module pulls in the
+// Firebase client singleton, which explodes under this file's partial mocks).
+// The mock honors the seed/format contract — seed() reads existing docs via
+// this file's getDocs mocks, so the sequential-code tests keep their meaning.
+jest.mock('@/lib/procurement/generateProcurementNumber', () => ({
+  generateCounterBackedNumber: async (config: {
+    format: (n: number) => string;
+    seed?: () => Promise<number>;
+  }) => {
+    const base = config.seed ? await config.seed() : 0;
+    return config.format(base + 1);
+  },
+  generateProcurementNumber: jest.fn(),
+}));
+
 jest.mock('@vapour/logger', () => ({
   createLogger: () => ({
     info: jest.fn(),

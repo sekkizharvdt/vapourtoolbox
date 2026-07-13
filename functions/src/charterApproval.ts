@@ -38,18 +38,51 @@ interface ProcurementItem {
 }
 
 /**
- * Generate PR number (PR/YYYY/MM/XXXX)
+ * Generate PR number (PR/YYYY/XXXX) using an atomic transaction on the SAME
+ * `counters/pr-{year}` document that the client-side generator uses
+ * (apps/web/src/lib/procurement/purchaseRequest/utils.ts — known-gaps 2.4),
+ * so auto-drafted charter PRs share one sequence with user-created PRs.
+ * Keep counter key and format in sync with that file.
  */
 async function generatePRNumber(): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = new Date().getFullYear();
+  const counterRef = db.collection('counters').doc(`pr-${year}`);
 
-  // TODO: Implement proper counter logic
-  // For now, use timestamp-based number
-  const sequence = String(Date.now()).slice(-4);
+  return db.runTransaction(async (tx) => {
+    const counterDoc = await tx.get(counterRef);
 
-  return `PR/${year}/${month}/${sequence}`;
+    let sequence: number;
+    if (counterDoc.exists) {
+      sequence = (counterDoc.data()?.value || 0) + 1;
+      tx.update(counterRef, { value: sequence, updatedAt: Timestamp.now() });
+    } else {
+      // First use this year and the client hasn't created the counter either:
+      // seed from the most recently created PR so the sequence continues.
+      // (Admin SDK transactions allow queries, unlike the client SDK.)
+      const yearStart = Timestamp.fromDate(new Date(year, 0, 1));
+      const lastPRSnap = await tx.get(
+        db
+          .collection('purchaseRequests')
+          .where('createdAt', '>=', yearStart)
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+      );
+      const lastNumber = lastPRSnap.docs[0]?.data()?.number as string | undefined;
+      // Last segment works for both old (PR/YYYY/MM/XXXX) and new (PR/YYYY/XXXX) formats
+      const parts = typeof lastNumber === 'string' ? lastNumber.split('/') : [];
+      const seed = parseInt(parts[parts.length - 1] || '', 10);
+      sequence = (isNaN(seed) ? 0 : seed) + 1;
+      tx.set(counterRef, {
+        type: 'purchase_request',
+        year,
+        value: sequence,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    }
+
+    return `PR/${year}/${String(sequence).padStart(4, '0')}`;
+  });
 }
 
 /**
@@ -216,7 +249,20 @@ export const onCharterApproved = onDocumentUpdated(
     const tenantId = (after.tenantId as string) || 'default-entity';
     const procurementItems = (after.procurementItems || []) as ProcurementItem[];
     const approvedBy = after.charter?.authorization?.approvedBy || 'system';
-    const approvedByName = 'System'; // TODO: Look up user name from approvedBy UID
+
+    // Attribute the auto-drafted PRs to the approving user, not 'System'
+    let approvedByName = 'System';
+    if (approvedBy !== 'system') {
+      try {
+        const userSnap = await db.collection('users').doc(approvedBy).get();
+        const userData = userSnap.data();
+        approvedByName =
+          (userData?.displayName as string) || (userData?.email as string) || approvedBy;
+      } catch (error) {
+        // Degrade gracefully: PR creation must not fail on a name lookup
+        logger.warn(`[onCharterApproved] Failed to look up approver name for ${approvedBy}`, error);
+      }
+    }
 
     // Filter HIGH and CRITICAL priority items that haven't been drafted yet
     const itemsToDraft = procurementItems.filter(

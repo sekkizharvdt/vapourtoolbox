@@ -54,7 +54,9 @@ async function countActiveAdmins(): Promise<number> {
   return count;
 }
 
-// Permission flags - MUST match packages/constants/src/permissions.ts EXACTLY
+// Permission flags - MUST match packages/constants/src/permissions.ts EXACTLY.
+// The functions bundle deploys standalone (npm, no workspace deps), so the flags
+// are duplicated here; permissionFlagsDrift.test.ts fails CI on any divergence.
 const PERMISSION_FLAGS = {
   // User Management (bits 0-2)
   MANAGE_USERS: 1 << 0, // 1
@@ -94,13 +96,11 @@ const PERMISSION_FLAGS = {
   MANAGE_ESTIMATION: 1 << 18, // 262144
   VIEW_ESTIMATION: 1 << 19, // 524288
 
-  // Granular Accounting Permissions (bits 20-26)
-  MANAGE_CHART_OF_ACCOUNTS: 1 << 20, // 1048576 - Create/edit accounts
-  CREATE_TRANSACTIONS: 1 << 21, // 2097152 - Create transactions
-  APPROVE_TRANSACTIONS: 1 << 22, // 4194304 - Approve transactions
-  VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608 - View P&L, Balance Sheet, etc.
-  MANAGE_COST_CENTRES: 1 << 24, // 16777216 - Manage project cost centres
-  MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
+  // Proposal Management (bits 20-21)
+  VIEW_PROPOSALS: 1 << 20, // 1048576 - View proposals and enquiries
+  MANAGE_PROPOSALS: 1 << 21, // 2097152 - Create/edit proposals and enquiries
+
+  // bits 22-26 free (deprecated granular accounting flags — see packages/constants)
 
   // Document Management (bits 27-30)
   MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports

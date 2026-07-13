@@ -34,6 +34,7 @@ import type {
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { ref, uploadBytes, getDownloadURL, deleteObject, FirebaseStorage } from 'firebase/storage';
 import { requireOwnerOrPermission } from '@/lib/auth';
+import { generateCounterBackedNumber } from '@/lib/procurement/generateProcurementNumber';
 
 const logger = createLogger({ context: 'enquiryService' });
 
@@ -44,42 +45,46 @@ const COLLECTIONS = {
 };
 
 /**
- * Generate next enquiry number: ENQ-YY-NN
- * Format: ENQ-25-01, ENQ-25-02, etc.
+ * Pure formatter for enquiry numbers: ENQ-YY-NN (ENQ-25-01, ENQ-25-02, ...).
+ * Exported so tests can pin the byte-exact format.
+ */
+export function formatEnquiryNumber(year: number, sequence: number): string {
+  return `ENQ-${year.toString().slice(-2)}-${sequence.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Generate next enquiry number: ENQ-YY-NN, via the shared counter-backed
+ * generator (known-gaps 2.4 — the old query-max read was race-prone).
+ * On first use for a year the counter seeds from the current max enquiry
+ * number so the existing sequence continues.
  */
 async function generateEnquiryNumber(db: Firestore): Promise<string> {
   const year = new Date().getFullYear();
-  const twoDigitYear = year.toString().slice(-2); // Get last 2 digits
-  const prefix = `ENQ-${twoDigitYear}-`;
-
-  const q = query(
-    collection(db, COLLECTIONS.ENQUIRIES),
-    where('enquiryNumber', '>=', prefix),
-    where('enquiryNumber', '<', `ENQ-${(parseInt(twoDigitYear) + 1).toString().padStart(2, '0')}-`),
-    orderBy('enquiryNumber', 'desc'),
-    limit(1)
-  );
-
-  const snapshot = await getDocs(q);
-  let nextNumber = 1;
-
-  if (!snapshot.empty) {
-    const firstDoc = snapshot.docs[0];
-    if (firstDoc) {
-      const lastEnquiryNumber = firstDoc.data().enquiryNumber as string;
-      if (lastEnquiryNumber) {
-        const parts = lastEnquiryNumber.split('-');
-        if (parts.length >= 3 && parts[2]) {
-          const lastNumber = parseInt(parts[2], 10);
-          if (!isNaN(lastNumber)) {
-            nextNumber = lastNumber + 1;
-          }
-        }
-      }
-    }
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(2, '0')}`;
+  return generateCounterBackedNumber({
+    counterKey: `enquiry-${year}`,
+    counterType: 'enquiry',
+    counterMeta: { year },
+    format: (sequence) => formatEnquiryNumber(year, sequence),
+    seed: async () => {
+      const twoDigitYear = year.toString().slice(-2);
+      const prefix = `ENQ-${twoDigitYear}-`;
+      const q = query(
+        collection(db, COLLECTIONS.ENQUIRIES),
+        where('enquiryNumber', '>=', prefix),
+        where(
+          'enquiryNumber',
+          '<',
+          `ENQ-${(parseInt(twoDigitYear) + 1).toString().padStart(2, '0')}-`
+        ),
+        orderBy('enquiryNumber', 'desc'),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      const lastEnquiryNumber = snapshot.docs[0]?.data().enquiryNumber as string | undefined;
+      const lastNumber = parseInt(lastEnquiryNumber?.split('-')[2] ?? '', 10);
+      return isNaN(lastNumber) ? 0 : lastNumber;
+    },
+  });
 }
 
 /**

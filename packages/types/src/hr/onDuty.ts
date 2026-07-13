@@ -133,7 +133,12 @@ export interface CompOffGrant {
   expiryDate: Timestamp; // 1 year from grant
   grantedBy: string;
   fiscalYear: number;
-  status: 'active' | 'used' | 'expired';
+  status: 'active' | 'used' | 'expired' | 'revoked';
   usedByLeaveRequestId?: string;
+  /** Set by the scheduled expiry sweep when the grant lapses unused. */
+  expiredAt?: Timestamp;
+  /** Set when the underlying on-duty request is cancelled. */
+  revokedAt?: Timestamp;
+  revokedBy?: string;
   createdAt: Timestamp;
 }

@@ -7,7 +7,7 @@
  * Provides tabs for Streams, Equipment, Lines, Instruments, Valves, and Pipe Table.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Alert,
@@ -25,6 +25,7 @@ import { TableChart as TableChartIcon, Download as DownloadIcon } from '@mui/ico
 import { PageHeader, LoadingState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProjectsForUser } from '@/lib/projects/projectService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import type { Project } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { useToast } from '@/components/common/Toast';
@@ -101,6 +102,17 @@ export default function SSOTPage() {
 
     loadProjects();
   }, [user?.uid, claims]);
+
+  // PE-14/PE-18: write-access check passed to every tab — MANAGE_SSOT
+  // permission plus project scope (the visible project list is already
+  // "assignedProjects, or all projects for MANAGE_PROJECTS holders").
+  const accessCheck = useMemo<SSOTAccessCheck>(
+    () => ({
+      userPermissions2: claims?.permissions2 ?? 0,
+      userAssignedProjects: projects.map((p) => p.id),
+    }),
+    [claims?.permissions2, projects]
+  );
 
   const handleProjectChange = (event: SelectChangeEvent) => {
     setSelectedProjectId(event.target.value);
@@ -213,22 +225,46 @@ export default function SSOTPage() {
 
             {/* Tab Panels */}
             <TabPanel value={tabValue} index={0}>
-              <StreamsTab projectId={selectedProjectId} userId={user?.uid || ''} />
+              <StreamsTab
+                projectId={selectedProjectId}
+                userId={user?.uid || ''}
+                accessCheck={accessCheck}
+              />
             </TabPanel>
             <TabPanel value={tabValue} index={1}>
-              <EquipmentTab projectId={selectedProjectId} userId={user?.uid || ''} />
+              <EquipmentTab
+                projectId={selectedProjectId}
+                userId={user?.uid || ''}
+                accessCheck={accessCheck}
+              />
             </TabPanel>
             <TabPanel value={tabValue} index={2}>
-              <LinesTab projectId={selectedProjectId} userId={user?.uid || ''} />
+              <LinesTab
+                projectId={selectedProjectId}
+                userId={user?.uid || ''}
+                accessCheck={accessCheck}
+              />
             </TabPanel>
             <TabPanel value={tabValue} index={3}>
-              <InstrumentsTab projectId={selectedProjectId} userId={user?.uid || ''} />
+              <InstrumentsTab
+                projectId={selectedProjectId}
+                userId={user?.uid || ''}
+                accessCheck={accessCheck}
+              />
             </TabPanel>
             <TabPanel value={tabValue} index={4}>
-              <ValvesTab projectId={selectedProjectId} userId={user?.uid || ''} />
+              <ValvesTab
+                projectId={selectedProjectId}
+                userId={user?.uid || ''}
+                accessCheck={accessCheck}
+              />
             </TabPanel>
             <TabPanel value={tabValue} index={5}>
-              <PipeTableTab projectId={selectedProjectId} userId={user?.uid || ''} />
+              <PipeTableTab
+                projectId={selectedProjectId}
+                userId={user?.uid || ''}
+                accessCheck={accessCheck}
+              />
             </TabPanel>
           </>
         )}

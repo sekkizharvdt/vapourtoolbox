@@ -346,12 +346,28 @@ describe('approvalWorkflow', () => {
         data: () => ({ ...mockProposal, status: 'APPROVED' }),
       });
 
-      await markProposalAsSubmitted(mockDb, 'proposal-123', mockUserId);
+      await markProposalAsSubmitted(
+        mockDb,
+        'proposal-123',
+        mockUserId,
+        mockUserName,
+        mockPermissions
+      );
 
+      expect(requirePermission).toHaveBeenCalledWith(
+        mockPermissions,
+        PERMISSION_FLAGS.MANAGE_PROPOSALS,
+        mockUserId,
+        'submit proposal to client'
+      );
       expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
       const updateCall = mockUpdateDoc.mock.calls[0][1];
       expect(updateCall.status).toBe('SUBMITTED');
       expect(updateCall).toHaveProperty('submittedToClientAt');
+      expect(updateCall).toHaveProperty('submittedAt');
+      expect(updateCall.submittedByUserId).toBe(mockUserId);
+      expect(updateCall.submittedByUserName).toBe(mockUserName);
+      expect(updateCall.updatedBy).toBe(mockUserId);
     });
 
     it('should throw error when proposal not found', async () => {
@@ -359,9 +375,9 @@ describe('approvalWorkflow', () => {
         exists: () => false,
       });
 
-      await expect(markProposalAsSubmitted(mockDb, 'proposal-123', mockUserId)).rejects.toThrow(
-        'Proposal not found'
-      );
+      await expect(
+        markProposalAsSubmitted(mockDb, 'proposal-123', mockUserId, mockUserName, mockPermissions)
+      ).rejects.toThrow('Proposal not found');
     });
 
     it('should throw error when proposal is not APPROVED', async () => {
@@ -370,7 +386,9 @@ describe('approvalWorkflow', () => {
         data: () => ({ ...mockProposal, status: 'DRAFT' }),
       });
 
-      await expect(markProposalAsSubmitted(mockDb, 'proposal-123', mockUserId)).rejects.toThrow();
+      await expect(
+        markProposalAsSubmitted(mockDb, 'proposal-123', mockUserId, mockUserName, mockPermissions)
+      ).rejects.toThrow();
     });
   });
 

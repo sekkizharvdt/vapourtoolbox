@@ -47,6 +47,7 @@ import {
   deletePipeSize,
   seedDefaultPipeTable,
 } from '@/lib/ssot/pipeTableService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'PipeTableTab' });
@@ -54,9 +55,10 @@ const logger = createLogger({ context: 'PipeTableTab' });
 interface PipeTableTabProps {
   projectId: string;
   userId: string;
+  accessCheck: SSOTAccessCheck;
 }
 
-export default function PipeTableTab({ projectId, userId }: PipeTableTabProps) {
+export default function PipeTableTab({ projectId, userId, accessCheck }: PipeTableTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pipes, setPipes] = useState<PipeSize[]>([]);
@@ -148,9 +150,9 @@ export default function PipeTableTab({ projectId, userId }: PipeTableTabProps) {
       };
 
       if (editingPipe) {
-        await updatePipeSize(projectId, editingPipe.id, input, userId);
+        await updatePipeSize(projectId, editingPipe.id, input, userId, accessCheck);
       } else {
-        await createPipeSize(projectId, input, userId);
+        await createPipeSize(projectId, input, userId, accessCheck);
       }
 
       setFormOpen(false);
@@ -168,7 +170,7 @@ export default function PipeTableTab({ projectId, userId }: PipeTableTabProps) {
 
     setDeleting(true);
     try {
-      await deletePipeSize(projectId, deletingPipe.id);
+      await deletePipeSize(projectId, deletingPipe.id, userId, accessCheck);
       setDeleteDialogOpen(false);
       setDeletingPipe(null);
     } catch (err) {
@@ -183,7 +185,7 @@ export default function PipeTableTab({ projectId, userId }: PipeTableTabProps) {
     setSeeding(true);
     setError('');
     try {
-      await seedDefaultPipeTable(projectId, userId);
+      await seedDefaultPipeTable(projectId, userId, accessCheck);
       setSeedDialogOpen(false);
     } catch (err) {
       logger.error('Error seeding pipe table', { error: err });

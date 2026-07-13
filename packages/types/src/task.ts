@@ -55,6 +55,7 @@ export type TaskNotificationCategory =
   | 'BILL_REJECTED' // Informational: Your bill was rejected
   | 'PAYMENT_APPROVED' // Informational: Payment was approved
   | 'PAYMENT_COMPLETED' // Informational: Payment was completed
+  | 'ACCOUNTING_HANDOFF_FAILED' // Actionable: Auto-draft of a payment/bill from procurement failed — create it manually
   // Projects
   | 'MILESTONE_DUE' // Actionable: Complete milestone
   | 'PROJECT_UPDATE_REQUIRED' // Actionable: Update project status
@@ -92,6 +93,7 @@ export type TaskNotificationCategory =
   | 'ON_DUTY_APPROVED' // Informational: Your on-duty request was approved
   | 'ON_DUTY_REJECTED' // Informational: Your on-duty request was rejected
   | 'ON_DUTY_CANCELLED' // Informational: On-duty request was cancelled
+  | 'COMP_OFF_EXPIRED' // Informational: Comp-off credit(s) lapsed unused (1-year expiry)
   // HR / Travel Expenses
   | 'TRAVEL_EXPENSE_SUBMITTED' // Actionable: Review and approve/reject travel expense
   | 'TRAVEL_EXPENSE_APPROVED' // Informational: Your travel expense was approved
@@ -432,6 +434,7 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
       'GR_BILL_REQUIRED',
       'WCC_READY_FOR_BILLING',
       'THREE_WAY_MATCH_READY',
+      'ACCOUNTING_HANDOFF_FAILED',
     ],
     isDefault: true,
   },
@@ -485,6 +488,7 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
       'ON_DUTY_APPROVED',
       'ON_DUTY_REJECTED',
       'ON_DUTY_CANCELLED',
+      'COMP_OFF_EXPIRED',
       'TRAVEL_EXPENSE_SUBMITTED',
       'TRAVEL_EXPENSE_APPROVED',
       'TRAVEL_EXPENSE_REJECTED',

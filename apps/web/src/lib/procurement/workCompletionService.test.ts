@@ -128,6 +128,14 @@ describe('workCompletionService', () => {
           allPaymentsCompleted: true,
         })
       );
+
+      // Billing notification deep-link must use the real route (work-completion, singular)
+      const { createTaskNotification } = jest.requireMock('@/lib/tasks/taskNotificationService');
+      expect(createTaskNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          linkUrl: '/procurement/work-completion/new-wcc-id',
+        })
+      );
     });
 
     it('should throw error when PO does not exist', async () => {

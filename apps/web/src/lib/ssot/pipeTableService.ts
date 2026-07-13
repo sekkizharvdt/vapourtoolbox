@@ -263,11 +263,15 @@ export const DEFAULT_PIPE_TABLE: PipeSizeInput[] = [
 /**
  * Seed default pipe table for a project
  */
-export async function seedDefaultPipeTable(projectId: string, userId: string): Promise<void> {
+export async function seedDefaultPipeTable(
+  projectId: string,
+  userId: string,
+  accessCheck?: SSOTAccessCheck
+): Promise<void> {
   logger.info('Seeding default pipe table', { projectId });
 
   for (const pipe of DEFAULT_PIPE_TABLE) {
-    await createPipeSize(projectId, pipe, userId);
+    await createPipeSize(projectId, pipe, userId, accessCheck);
   }
 
   logger.info('Default pipe table seeded', { projectId, count: DEFAULT_PIPE_TABLE.length });

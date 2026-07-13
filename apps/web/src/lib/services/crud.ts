@@ -22,6 +22,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { docToTyped } from '../firebase/typeHelpers';
 import type { Service, ServiceCategory } from '@vapour/types';
+import { generateCounterBackedNumber } from '@/lib/procurement/generateProcurementNumber';
 
 const logger = createLogger({ context: 'serviceService:crud' });
 
@@ -177,32 +178,59 @@ export async function restoreService(
   logger.info('Service restored', { serviceId });
 }
 
+const SERVICE_CODE_PREFIXES: Record<string, string> = {
+  ENGINEERING: 'ENG',
+  FABRICATION: 'FAB',
+  INSPECTION: 'INS',
+  TESTING: 'TST',
+  TRANSPORTATION: 'TRN',
+  ERECTION: 'ERC',
+  COMMISSIONING: 'COM',
+  CONSULTING: 'CON',
+  CALIBRATION: 'CAL',
+  MAINTENANCE: 'MNT',
+  TRAINING: 'TRG',
+  OTHER: 'OTH',
+};
+
 /**
- * Generate a service code based on category
- * Format: SVC-{CATEGORY_PREFIX}-{SEQUENCE}
+ * Pure formatter for service codes: SVC-{CATEGORY_PREFIX}-{SEQUENCE}.
+ * Exported so tests can pin the byte-exact format.
+ */
+export function formatServiceCode(category: ServiceCategory | string, sequence: number): string {
+  const prefix = SERVICE_CODE_PREFIXES[category] || 'GEN';
+  return `SVC-${prefix}-${String(sequence).padStart(3, '0')}`;
+}
+
+/**
+ * Generate a service code based on category, via the shared counter-backed
+ * generator (known-gaps 2.4 — the old count-based scheme was race-prone and
+ * collided after soft-deletes). On first use for a category the counter seeds
+ * from the max existing code in that category so the sequence continues.
  */
 async function generateServiceCode(db: Firestore, category: ServiceCategory): Promise<string> {
-  const prefixMap: Record<string, string> = {
-    ENGINEERING: 'ENG',
-    FABRICATION: 'FAB',
-    INSPECTION: 'INS',
-    TESTING: 'TST',
-    TRANSPORTATION: 'TRN',
-    ERECTION: 'ERC',
-    COMMISSIONING: 'COM',
-    CONSULTING: 'CON',
-    CALIBRATION: 'CAL',
-    MAINTENANCE: 'MNT',
-    TRAINING: 'TRG',
-    OTHER: 'OTH',
-  };
+  const prefix = SERVICE_CODE_PREFIXES[category] || 'GEN';
 
-  const prefix = prefixMap[category] || 'GEN';
-
-  // Count existing services in this category to determine next sequence
-  const q = query(collection(db, COLLECTIONS.SERVICES), where('category', '==', category));
-  const snap = await getDocs(q);
-  const seq = String(snap.size + 1).padStart(3, '0');
-
-  return `SVC-${prefix}-${seq}`;
+  return generateCounterBackedNumber({
+    counterKey: `svc-${prefix}`,
+    counterType: 'service_code',
+    counterMeta: { category },
+    format: (sequence) => formatServiceCode(category, sequence),
+    seed: async () => {
+      // Max sequence across ALL services in the category, including
+      // soft-deleted ones — a deleted service's code must not be reissued.
+      const q = query(collection(db, COLLECTIONS.SERVICES), where('category', '==', category));
+      const snap = await getDocs(q);
+      let max = 0;
+      for (const d of snap.docs) {
+        const code = d.data().serviceCode;
+        if (typeof code !== 'string') continue;
+        const seq = parseInt(code.split('-')[2] || '', 10);
+        if (!isNaN(seq) && seq > max) max = seq;
+      }
+      // Old scheme used count+1, so a category with N docs may have codes up
+      // to SVC-XXX-NNN with N > max parsed — take the larger to be safe.
+      return Math.max(max, snap.size);
+    },
+  });
 }

@@ -5,6 +5,7 @@ import { getAuth, Auth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getFunctions, Functions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getFirebaseClientConfig } from './envConfig';
 import { createLogger } from '@vapour/utils';
 
@@ -19,6 +20,7 @@ let db: Firestore;
 let functions: Functions;
 let storage: FirebaseStorage;
 let emulatorConnected = false;
+let appCheckInitialized = false;
 
 /**
  * Initialize Firebase with validated configuration
@@ -34,6 +36,28 @@ export function initializeFirebase() {
   } else {
     // apps[0] is guaranteed to exist since we're in the else branch of !apps.length
     app = apps[0]!;
+  }
+
+  // App Check (security finding #4): activates only when a reCAPTCHA v3 site
+  // key is configured at build time, so environments without console setup are
+  // unaffected. Rollout: (1) register the web app in Firebase console App
+  // Check with a reCAPTCHA v3 key, (2) set NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY
+  // in the hosting build env, (3) monitor the console metrics, then (4) flip
+  // enforcement on Functions/Firestore/Storage in the console (or set
+  // enforceAppCheck: true on callables).
+  const appCheckSiteKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY;
+  if (!appCheckInitialized && typeof window !== 'undefined' && appCheckSiteKey) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(appCheckSiteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+      appCheckInitialized = true;
+      logger.info('✅ App Check initialized (reCAPTCHA v3)');
+    } catch (error) {
+      // Never block app startup on App Check — enforcement is opt-in server-side
+      logger.warn('App Check initialization failed', { error });
+    }
   }
 
   // Always initialize/update service instances

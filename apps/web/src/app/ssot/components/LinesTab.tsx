@@ -35,6 +35,7 @@ import { LoadingState, EmptyState } from '@vapour/ui';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ProcessLine, ProcessLineInput } from '@vapour/types';
 import { subscribeToLines, createLine, updateLine, deleteLine } from '@/lib/ssot/lineService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'LinesTab' });
@@ -42,9 +43,10 @@ const logger = createLogger({ context: 'LinesTab' });
 interface LinesTabProps {
   projectId: string;
   userId: string;
+  accessCheck: SSOTAccessCheck;
 }
 
-export default function LinesTab({ projectId, userId }: LinesTabProps) {
+export default function LinesTab({ projectId, userId, accessCheck }: LinesTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lines, setLines] = useState<ProcessLine[]>([]);
@@ -193,9 +195,9 @@ export default function LinesTab({ projectId, userId }: LinesTabProps) {
       };
 
       if (editingLine) {
-        await updateLine(projectId, editingLine.id, input, userId);
+        await updateLine(projectId, editingLine.id, input, userId, accessCheck);
       } else {
-        await createLine(projectId, input, userId);
+        await createLine(projectId, input, userId, accessCheck);
       }
 
       setFormOpen(false);
@@ -213,7 +215,7 @@ export default function LinesTab({ projectId, userId }: LinesTabProps) {
 
     setDeleting(true);
     try {
-      await deleteLine(projectId, deletingLine.id);
+      await deleteLine(projectId, deletingLine.id, userId, accessCheck);
       setDeleteDialogOpen(false);
       setDeletingLine(null);
     } catch (err) {

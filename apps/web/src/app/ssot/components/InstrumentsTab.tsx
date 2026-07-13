@@ -41,6 +41,7 @@ import {
   updateInstrument,
   deleteInstrument,
 } from '@/lib/ssot/instrumentService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'InstrumentsTab' });
@@ -48,9 +49,10 @@ const logger = createLogger({ context: 'InstrumentsTab' });
 interface InstrumentsTabProps {
   projectId: string;
   userId: string;
+  accessCheck: SSOTAccessCheck;
 }
 
-export default function InstrumentsTab({ projectId, userId }: InstrumentsTabProps) {
+export default function InstrumentsTab({ projectId, userId, accessCheck }: InstrumentsTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [instruments, setInstruments] = useState<ProcessInstrument[]>([]);
@@ -165,9 +167,9 @@ export default function InstrumentsTab({ projectId, userId }: InstrumentsTabProp
       };
 
       if (editingInstrument) {
-        await updateInstrument(projectId, editingInstrument.id, input, userId);
+        await updateInstrument(projectId, editingInstrument.id, input, userId, accessCheck);
       } else {
-        await createInstrument(projectId, input, userId);
+        await createInstrument(projectId, input, userId, accessCheck);
       }
 
       setFormOpen(false);
@@ -185,7 +187,7 @@ export default function InstrumentsTab({ projectId, userId }: InstrumentsTabProp
 
     setDeleting(true);
     try {
-      await deleteInstrument(projectId, deletingInstrument.id);
+      await deleteInstrument(projectId, deletingInstrument.id, userId, accessCheck);
       setDeleteDialogOpen(false);
       setDeletingInstrument(null);
     } catch (err) {

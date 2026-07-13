@@ -29,6 +29,7 @@ import { LoadingState, EmptyState } from '@vapour/ui';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ProcessStream } from '@vapour/types';
 import { subscribeToStreams, deleteStream } from '@/lib/ssot/streamService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { createLogger } from '@vapour/logger';
 import StreamFormDialog from './StreamFormDialog';
 
@@ -37,9 +38,10 @@ const logger = createLogger({ context: 'StreamsTab' });
 interface StreamsTabProps {
   projectId: string;
   userId: string;
+  accessCheck: SSOTAccessCheck;
 }
 
-export default function StreamsTab({ projectId, userId }: StreamsTabProps) {
+export default function StreamsTab({ projectId, userId, accessCheck }: StreamsTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [streams, setStreams] = useState<ProcessStream[]>([]);
@@ -96,7 +98,7 @@ export default function StreamsTab({ projectId, userId }: StreamsTabProps) {
 
     setDeleting(true);
     try {
-      await deleteStream(projectId, deletingStream.id);
+      await deleteStream(projectId, deletingStream.id, userId, accessCheck);
       setDeleteDialogOpen(false);
       setDeletingStream(null);
     } catch (err) {
@@ -243,6 +245,7 @@ export default function StreamsTab({ projectId, userId }: StreamsTabProps) {
         onClose={() => setFormOpen(false)}
         projectId={projectId}
         userId={userId}
+        accessCheck={accessCheck}
         stream={editingStream}
       />
 

@@ -66,8 +66,12 @@ async function ensureCompOffBalanceExists(
       name: 'Compensatory Off',
       description: 'Compensatory leave earned by working on holidays',
       annualQuota: 0,
-      carryForwardAllowed: true,
-      maxCarryForward: 20,
+      // Company policy (decided 2026-07-11): comp-off credits do NOT carry
+      // forward across fiscal years — matches seedLeaveTypes in
+      // functions/src/hr/leaveBalanceReset.ts. Unused credits expire via the
+      // 1-year grant expiry sweep or lapse at year end.
+      carryForwardAllowed: false,
+      maxCarryForward: 0,
       isPaid: true,
       requiresApproval: true,
       minNoticeDays: 0,
@@ -329,4 +333,111 @@ export async function findExpiringCompOffs(withinDays: number): Promise<
  */
 export function getExpiryWarningThreshold(): number {
   return 30; // Warn 30 days before expiry
+}
+
+/**
+ * Revoke the comp-off credit granted for a cancelled on-duty request
+ * (known-gaps 2.8b). Marks the grant `revoked` and decrements the user's
+ * COMP_OFF balance in one transaction.
+ *
+ * Idempotent (rule 9): only `active` grants are revoked; a retry after a
+ * partial failure finds no active grant and no-ops.
+ *
+ * Consumption is not linked to individual grants (usedByLeaveRequestId is
+ * never written), so if the user has already spent the credit the balance
+ * decrement is clamped at available >= 0 (FIFO assumption) and a warning is
+ * logged instead of driving the balance negative.
+ */
+export async function revokeCompOffForOnDuty(
+  onDutyRequestId: string,
+  revokedBy: string
+): Promise<void> {
+  // rule5-exempt: internal helper invoked only from cancelOnDutyRequest, which performs the permission check (owner-or-HR) before calling; firestore.rules gate the collections server-side
+  const { db } = getFirebase();
+
+  const grantsSnap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.HR_COMP_OFF_GRANTS),
+      where('onDutyRequestId', '==', onDutyRequestId),
+      where('status', '==', 'active')
+    )
+  );
+
+  if (grantsSnap.empty) {
+    logger.info('No active comp-off grant to revoke for on-duty request', { onDutyRequestId });
+    return;
+  }
+
+  const { runTransaction } = await import('firebase/firestore');
+
+  for (const grantDoc of grantsSnap.docs) {
+    const grantData = grantDoc.data();
+    const userId = grantData.userId as string;
+    const grantFiscalYear = grantData.fiscalYear as number;
+
+    // Resolve the balance doc holding this credit: prefer the current fiscal
+    // year (where the credit is usable), falling back to the grant's year.
+    const currentFiscalYear = getCurrentFiscalYear();
+    const balance =
+      (await getUserLeaveBalanceByType(userId, COMP_OFF_LEAVE_TYPE, currentFiscalYear)) ??
+      (await getUserLeaveBalanceByType(userId, COMP_OFF_LEAVE_TYPE, grantFiscalYear));
+
+    await runTransaction(db, async (transaction) => {
+      const grantRef = doc(db, COLLECTIONS.HR_COMP_OFF_GRANTS, grantDoc.id);
+      const grantSnap = await transaction.get(grantRef);
+      if (!grantSnap.exists() || grantSnap.data().status !== 'active') {
+        return; // Already revoked/used/expired — idempotent no-op
+      }
+
+      if (balance) {
+        const balanceRef = doc(db, COLLECTIONS.HR_LEAVE_BALANCES, balance.id);
+        const balanceSnap = await transaction.get(balanceRef);
+        if (balanceSnap.exists()) {
+          const b = balanceSnap.data();
+          const inGrantYearBucket = b.fiscalYear === grantFiscalYear;
+          const bucket = inGrantYearBucket ? 'entitled' : 'carryForward';
+          const bucketValue = (b[bucket] as number) || 0;
+          const available = (b.available as number) || 0;
+
+          // Clamp so a credit the user already consumed doesn't push
+          // available below zero (see function docs).
+          const decrement = Math.min(1, Math.max(0, bucketValue), Math.max(0, available));
+          if (decrement < 1) {
+            logger.warn('Comp-off revoke clamped — credit appears already consumed', {
+              onDutyRequestId,
+              userId,
+              grantId: grantDoc.id,
+              available,
+            });
+          }
+          if (decrement > 0) {
+            transaction.update(balanceRef, {
+              [bucket]: bucketValue - decrement,
+              available: available - decrement,
+              updatedAt: Timestamp.now(),
+              updatedBy: revokedBy,
+            });
+          }
+        }
+      } else {
+        logger.warn('COMP_OFF balance not found while revoking grant — grant marked only', {
+          onDutyRequestId,
+          userId,
+          grantId: grantDoc.id,
+        });
+      }
+
+      transaction.update(grantRef, {
+        status: 'revoked',
+        revokedAt: Timestamp.now(),
+        revokedBy,
+      });
+    });
+
+    logger.info('Comp-off grant revoked for cancelled on-duty request', {
+      onDutyRequestId,
+      grantId: grantDoc.id,
+      userId,
+    });
+  }
 }

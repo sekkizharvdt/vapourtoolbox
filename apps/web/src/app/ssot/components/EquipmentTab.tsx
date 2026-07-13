@@ -39,6 +39,7 @@ import {
   updateEquipment,
   deleteEquipment,
 } from '@/lib/ssot/equipmentService';
+import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'EquipmentTab' });
@@ -46,9 +47,10 @@ const logger = createLogger({ context: 'EquipmentTab' });
 interface EquipmentTabProps {
   projectId: string;
   userId: string;
+  accessCheck: SSOTAccessCheck;
 }
 
-export default function EquipmentTab({ projectId, userId }: EquipmentTabProps) {
+export default function EquipmentTab({ projectId, userId, accessCheck }: EquipmentTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [equipment, setEquipment] = useState<ProcessEquipment[]>([]);
@@ -148,9 +150,9 @@ export default function EquipmentTab({ projectId, userId }: EquipmentTabProps) {
       };
 
       if (editingEquipment) {
-        await updateEquipment(projectId, editingEquipment.id, input, userId);
+        await updateEquipment(projectId, editingEquipment.id, input, userId, accessCheck);
       } else {
-        await createEquipment(projectId, input, userId);
+        await createEquipment(projectId, input, userId, accessCheck);
       }
 
       setFormOpen(false);
@@ -168,7 +170,7 @@ export default function EquipmentTab({ projectId, userId }: EquipmentTabProps) {
 
     setDeleting(true);
     try {
-      await deleteEquipment(projectId, deletingEquipment.id);
+      await deleteEquipment(projectId, deletingEquipment.id, userId, accessCheck);
       setDeleteDialogOpen(false);
       setDeletingEquipment(null);
     } catch (err) {

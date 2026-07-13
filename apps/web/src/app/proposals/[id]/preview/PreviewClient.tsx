@@ -47,7 +47,8 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
+import { getProposalById } from '@/lib/proposals/proposalService';
+import { markProposalAsSubmitted } from '@/lib/proposals/approvalWorkflow';
 import { downloadProposalPDF, saveProposalPDF } from '@/lib/proposals/proposalPDF';
 import { buildDefaultTermsBlocks } from '@/lib/proposals/termsBlocks';
 import { computeCommercialSummary } from '@/lib/proposals/commercialSummary';
@@ -55,7 +56,6 @@ import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
 import type { Proposal, Money } from '@vapour/types';
 import { SCOPE_ITEM_CLASSIFICATION_LABELS } from '@vapour/types';
-import { Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 
@@ -176,18 +176,14 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
       setSubmitting(true);
       setError(null);
 
-      await updateProposal(
+      // Canonical submit-to-client path — validates the APPROVED → SUBMITTED
+      // state-machine transition server-side of the UI's status check.
+      await markProposalAsSubmitted(
         db,
         proposalId,
-        {
-          status: 'SUBMITTED',
-          submittedAt: Timestamp.now(),
-          submittedByUserId: user.uid,
-          submittedByUserName: user.displayName || user.email || 'Unknown',
-        },
         user.uid,
-        claims?.permissions ?? 0,
-        { allowWorkflowChange: true }
+        user.displayName || user.email || 'Unknown',
+        claims?.permissions ?? 0
       );
 
       toast.success('Proposal submitted to client successfully');

@@ -9,7 +9,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import { enforceRateLimit, writeRateLimiter, RateLimitError } from './utils/rateLimiter';
+import { enforceFirestoreRateLimit, WRITE_LIMIT, RateLimitError } from './utils/firestoreRateLimit';
 
 /**
  * Super Admin has all 27 permission bits set
@@ -295,7 +295,7 @@ export const seedAccountingIntegrations = onCall(
 
     // Rate limiting to prevent abuse
     try {
-      enforceRateLimit(writeRateLimiter, request.auth.uid);
+      await enforceFirestoreRateLimit(WRITE_LIMIT, request.auth.uid);
     } catch (error) {
       if (error instanceof RateLimitError) {
         throw new HttpsError('resource-exhausted', error.message, { retryAfter: error.retryAfter });
@@ -337,10 +337,12 @@ export const seedAccountingIntegrations = onCall(
       const batch = db.batch();
       const timestamp = admin.firestore.Timestamp.now();
 
+      const tenantId = (request.auth.token.tenantId as string | undefined) || 'default-entity';
       for (const integration of ACCOUNTING_INTEGRATIONS) {
         const docRef = db.collection('moduleIntegrations').doc();
         batch.set(docRef, {
           ...integration,
+          tenantId,
           createdBy: request.auth.uid,
           createdAt: timestamp,
           updatedAt: timestamp,

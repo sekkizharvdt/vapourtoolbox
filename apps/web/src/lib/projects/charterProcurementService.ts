@@ -9,6 +9,10 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import type { ProcurementItem, Project } from '@vapour/types';
+// Canonical counter-backed PR number generator (rule 16/32) — replaces the old
+// local timestamp-based PR/YYYY/MM/XXXX duplicate (known-gaps 2.4). Charter PRs
+// now share the same PR/YYYY/XXXX sequence as all other purchase requests.
+import { generatePRNumber } from '@/lib/procurement/purchaseRequest/utils';
 
 const logger = createLogger({ context: 'charterProcurementService' });
 
@@ -159,20 +163,6 @@ export async function deleteProcurementItem(
     logger.error('Failed to delete procurement item', { error, projectId, itemId });
     throw new Error('Failed to delete procurement item');
   }
-}
-
-/**
- * Generate PR number (PR/YYYY/MM/XXXX)
- */
-async function generatePRNumber(): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-
-  // Using timestamp-based sequence to ensure uniqueness
-  const sequence = String(Date.now()).slice(-4);
-
-  return `PR/${year}/${month}/${sequence}`;
 }
 
 /**

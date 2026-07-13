@@ -20,7 +20,7 @@ import type { DocumentSnapshot } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
-import { enforceRateLimit, writeRateLimiter, RateLimitError } from './utils/rateLimiter';
+import { enforceFirestoreRateLimit, WRITE_LIMIT, RateLimitError } from './utils/firestoreRateLimit';
 import {
   resolveBalanceUpdate,
   aggregateBalanceChanges,
@@ -130,7 +130,7 @@ export const recalculateAccountBalances = onCall(
 
     // Rate limiting check
     try {
-      enforceRateLimit(writeRateLimiter, request.auth.uid);
+      await enforceFirestoreRateLimit(WRITE_LIMIT, request.auth.uid);
     } catch (error) {
       if (error instanceof RateLimitError) {
         throw new HttpsError('resource-exhausted', error.message);

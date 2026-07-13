@@ -13,6 +13,11 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { parseOfferWithClaude, anthropicApiKey } from './parseOfferWithClaude';
+import {
+  enforceFirestoreRateLimit,
+  PARSE_OFFER_LIMIT,
+  RateLimitError,
+} from '../utils/firestoreRateLimit';
 
 interface RFQItemContext {
   id: string;
@@ -45,6 +50,19 @@ export const parseOffer = onCall(
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    // Firestore-backed rate limit — the most expensive callable in the app
+    // (Claude reads the whole uploaded document).
+    try {
+      await enforceFirestoreRateLimit(PARSE_OFFER_LIMIT, request.auth.uid);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        throw new HttpsError('resource-exhausted', error.message, {
+          retryAfter: error.retryAfter,
+        });
+      }
+      throw error;
     }
 
     const data = request.data as ParseOfferRequest;

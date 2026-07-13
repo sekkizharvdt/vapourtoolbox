@@ -3,7 +3,8 @@
 /**
  * Admin Section Layout
  *
- * Wraps all /admin/* pages with permission check for MANAGE_USERS.
+ * Wraps all /admin/* pages with permission check for MANAGE_USERS
+ * (permissions) or MANAGE_ADMIN (permissions2).
  * Provides consistent layout and access control.
  */
 
@@ -11,7 +12,12 @@ import { ReactNode } from 'react';
 import { Box, Alert, AlertTitle, Typography, Container } from '@mui/material';
 import { AdminPanelSettings as AdminIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
+import {
+  hasPermission,
+  hasPermission2,
+  PERMISSION_FLAGS,
+  PERMISSION_FLAGS_2,
+} from '@vapour/constants';
 import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
 import { usePathname } from 'next/navigation';
 import { PageBreadcrumbs, type BreadcrumbItem } from '@/components/common/PageBreadcrumbs';
@@ -70,9 +76,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { claims, user } = useAuth();
   const pathname = usePathname();
 
-  // Check if user has MANAGE_USERS permission (admin access)
+  // Admin access: MANAGE_USERS (permissions) or the declared MANAGE_ADMIN
+  // flag (permissions2) — either grants the /admin section.
   const userPermissions = claims?.permissions || 0;
-  const canAccessAdmin = hasPermission(userPermissions, PERMISSION_FLAGS.MANAGE_USERS);
+  const userPermissions2 = claims?.permissions2 || 0;
+  const canAccessAdmin =
+    hasPermission(userPermissions, PERMISSION_FLAGS.MANAGE_USERS) ||
+    hasPermission2(userPermissions2, PERMISSION_FLAGS_2.MANAGE_ADMIN);
 
   // Get breadcrumbs
   const breadcrumbs = getAdminBreadcrumbs(pathname);

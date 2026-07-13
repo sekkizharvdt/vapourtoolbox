@@ -57,6 +57,20 @@ jest.mock('@vapour/constants', () => ({
   hasPermission: jest.fn((perms: number, flag: number) => (perms & flag) !== 0),
 }));
 
+// Mock the counter-backed number generator (the real module pulls in the
+// Firebase client singleton, which explodes under this file's partial mocks).
+// Honors the seed/format contract so number-generation tests keep meaning.
+jest.mock('@/lib/procurement/generateProcurementNumber', () => ({
+  generateCounterBackedNumber: async (config: {
+    format: (n: number) => string;
+    seed?: () => Promise<number>;
+  }) => {
+    const base = config.seed ? await config.seed() : 0;
+    return config.format(base + 1);
+  },
+  generateProcurementNumber: jest.fn(),
+}));
+
 jest.mock('@/lib/auth', () => ({
   requireOwnerOrPermission: jest.fn(
     (userId: string, ownerId: string, perms: number, flag: number, _op: string) => {

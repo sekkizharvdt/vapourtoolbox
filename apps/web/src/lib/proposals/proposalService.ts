@@ -47,6 +47,7 @@ export {
 } from './proposalHelpers';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
+import { generateCounterBackedNumber } from '@/lib/procurement/generateProcurementNumber';
 import { seedPricingBlocksForComponents, createDefaultClientPricing } from './pricingBlocks';
 import { buildDefaultTermsBlocks } from './termsBlocks';
 
@@ -90,46 +91,46 @@ function formatClientAddress(addr: unknown): string {
 }
 
 /**
- * Generate next proposal number: PROP-YY-NN
- * Format: PROP-25-01, PROP-25-02, etc.
+ * Pure formatter for proposal numbers: PROP-YY-NN (PROP-25-01, PROP-25-02, ...).
+ * Exported so tests can pin the byte-exact format.
+ */
+export function formatProposalNumber(year: number, sequence: number): string {
+  return `PROP-${year.toString().slice(-2)}-${sequence.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Generate next proposal number: PROP-YY-NN, via the shared counter-backed
+ * generator (known-gaps 2.4 — the old query-max read was race-prone).
+ * On first use for a year the counter seeds from the current max proposal
+ * number so the existing sequence continues.
  */
 async function generateProposalNumber(db: Firestore): Promise<string> {
   const year = new Date().getFullYear();
-  const twoDigitYear = year.toString().slice(-2); // Get last 2 digits
-  const prefix = `PROP-${twoDigitYear}-`;
-
-  const q = query(
-    collection(db, COLLECTIONS.PROPOSALS),
-    where('proposalNumber', '>=', prefix),
-    where(
-      'proposalNumber',
-      '<',
-      `PROP-${(parseInt(twoDigitYear) + 1).toString().padStart(2, '0')}-`
-    ),
-    orderBy('proposalNumber', 'desc'),
-    limit(1)
-  );
-
-  const snapshot = await getDocs(q);
-  let nextNumber = 1;
-
-  if (!snapshot.empty) {
-    const firstDoc = snapshot.docs[0];
-    if (firstDoc) {
-      const lastProposalNumber = firstDoc.data().proposalNumber as string;
-      if (lastProposalNumber) {
-        const parts = lastProposalNumber.split('-');
-        if (parts.length >= 3 && parts[2]) {
-          const lastNumber = parseInt(parts[2], 10);
-          if (!isNaN(lastNumber)) {
-            nextNumber = lastNumber + 1;
-          }
-        }
-      }
-    }
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(2, '0')}`;
+  return generateCounterBackedNumber({
+    counterKey: `proposal-${year}`,
+    counterType: 'proposal',
+    counterMeta: { year },
+    format: (sequence) => formatProposalNumber(year, sequence),
+    seed: async () => {
+      const twoDigitYear = year.toString().slice(-2);
+      const prefix = `PROP-${twoDigitYear}-`;
+      const q = query(
+        collection(db, COLLECTIONS.PROPOSALS),
+        where('proposalNumber', '>=', prefix),
+        where(
+          'proposalNumber',
+          '<',
+          `PROP-${(parseInt(twoDigitYear) + 1).toString().padStart(2, '0')}-`
+        ),
+        orderBy('proposalNumber', 'desc'),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      const lastProposalNumber = snapshot.docs[0]?.data().proposalNumber as string | undefined;
+      const lastNumber = parseInt(lastProposalNumber?.split('-')[2] ?? '', 10);
+      return isNaN(lastNumber) ? 0 : lastNumber;
+    },
+  });
 }
 
 /**
@@ -585,10 +586,12 @@ export async function listProposals(
  * Update proposal.
  *
  * Edit lock: content updates are only accepted while status === DRAFT.
- * Workflow status transitions (e.g. "Submit to Client") pass
- * `allowWorkflowChange: true` to bypass the lock — those callers carry
- * their own state-machine validation. Everything else (Pricing, Scope,
- * Terms, Description, etc.) is locked once the proposal leaves DRAFT.
+ * Workflow-adjacent field edits (e.g. extending validityDate) pass
+ * `allowWorkflowChange: true` to bypass the lock. Status transitions
+ * themselves go through the dedicated workflow functions in
+ * approvalWorkflow.ts (e.g. markProposalAsSubmitted), which validate the
+ * state machine. Everything else (Pricing, Scope, Terms, Description,
+ * etc.) is locked once the proposal leaves DRAFT.
  */
 export async function updateProposal(
   db: Firestore,
@@ -599,10 +602,10 @@ export async function updateProposal(
   options?: { allowWorkflowChange?: boolean }
 ): Promise<void> {
   // rule8-exempt: this is a content update path, not a status transition.
-  // The status field may be passed by trusted callers via allowWorkflowChange
-  // (e.g. handleSubmitToClient in PreviewClient), which is the workflow's
-  // responsibility — the dedicated workflow functions in approvalWorkflow.ts
-  // perform requireValidTransition for the actual state-machine moves.
+  // Status transitions go through the dedicated workflow functions in
+  // approvalWorkflow.ts, which perform requireValidTransition for the
+  // actual state-machine moves; allowWorkflowChange only unlocks
+  // workflow-adjacent field edits (e.g. validityDate) after DRAFT.
   // rule19-exempt: the read here only enforces the DRAFT edit-lock; the
   // write that follows is independent and can converge under concurrent
   // edits to the same value (Firestore last-writer-wins on field-level

@@ -23,6 +23,7 @@ import {
 } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
+import { generateCounterBackedNumber } from '@/lib/procurement/generateProcurementNumber';
 import {
   buildValveSpecCode,
   buildPumpSpecCode,
@@ -307,37 +308,40 @@ export async function deleteBoughtOutItem(
 }
 
 /**
- * Generate next item code (BO-YYYY-NNNN)
+ * Pure formatter for bought-out item codes: BO-YYYY-NNNN.
+ * Exported so tests can pin the byte-exact format.
+ */
+export function formatBoughtOutItemCode(year: number, sequence: number): string {
+  return `BO-${year}-${String(sequence).padStart(4, '0')}`;
+}
+
+/**
+ * Generate next item code (BO-YYYY-NNNN), via the shared counter-backed
+ * generator (known-gaps 2.4 — the old query-max read was race-prone).
+ * On first use for a year the counter seeds from the current max item code
+ * so the existing sequence continues.
  */
 async function generateBoughtOutItemCode(db: Firestore): Promise<string> {
   const year = new Date().getFullYear();
-  const prefix = `BO-${year}-`;
 
-  // Query for highest number in current year
-  const q = query(
-    collection(db, COLLECTIONS.BOUGHT_OUT_ITEMS),
-    where('itemCode', '>=', prefix),
-    where('itemCode', '<', `BO-${year + 1}-`),
-    orderBy('itemCode', 'desc'),
-    limit(1)
-  );
-
-  const snapshot = await getDocs(q);
-
-  let nextNumber = 1;
-  if (!snapshot.empty) {
-    const docData = snapshot.docs[0]?.data();
-    if (docData && typeof docData.itemCode === 'string') {
-      const lastCode = docData.itemCode;
-      const parts = lastCode.split('-');
-      if (parts.length >= 3) {
-        const lastNumber = parseInt(parts[2] || '0', 10);
-        if (!isNaN(lastNumber)) {
-          nextNumber = lastNumber + 1;
-        }
-      }
-    }
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+  return generateCounterBackedNumber({
+    counterKey: `bo-${year}`,
+    counterType: 'bought_out_item',
+    counterMeta: { year },
+    format: (sequence) => formatBoughtOutItemCode(year, sequence),
+    seed: async () => {
+      const prefix = `BO-${year}-`;
+      const q = query(
+        collection(db, COLLECTIONS.BOUGHT_OUT_ITEMS),
+        where('itemCode', '>=', prefix),
+        where('itemCode', '<', `BO-${year + 1}-`),
+        orderBy('itemCode', 'desc'),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      const lastCode = snapshot.docs[0]?.data().itemCode as string | undefined;
+      const lastNumber = parseInt(lastCode?.split('-')[2] ?? '', 10);
+      return isNaN(lastNumber) ? 0 : lastNumber;
+    },
+  });
 }

@@ -34,6 +34,8 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { User, Department } from '@vapour/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import {
   getDepartmentOptions,
   PERMISSION_FLAGS,
@@ -55,6 +57,7 @@ interface ApproveUserDialogProps {
 }
 
 export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUserDialogProps) {
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -158,7 +161,27 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
         status: 'active',
         isActive: true,
         updatedAt: Timestamp.now(),
+        updatedBy: authUser?.uid || 'unknown',
       });
+
+      // Audit log: user approval is a permission grant (rule 18)
+      const auditCtx = createAuditContext(
+        authUser?.uid || 'unknown',
+        authUser?.email || '',
+        authUser?.displayName || ''
+      );
+      await logAuditEvent(
+        db,
+        auditCtx,
+        'USER_APPROVED',
+        'USER',
+        user.uid,
+        `Approved user ${user.email}`,
+        {
+          entityName: user.email,
+          metadata: { permissions, permissions2, department, jobTitle: jobTitle.trim() || null },
+        }
+      );
 
       // Note: Custom claims will be set by Cloud Function trigger
       onSuccess();
@@ -202,7 +225,24 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
         status: 'inactive',
         isActive: false,
         updatedAt: Timestamp.now(),
+        updatedBy: authUser?.uid || 'unknown',
       });
+
+      // Audit log: rejection of a pending signup (rule 18)
+      const auditCtx = createAuditContext(
+        authUser?.uid || 'unknown',
+        authUser?.email || '',
+        authUser?.displayName || ''
+      );
+      await logAuditEvent(
+        db,
+        auditCtx,
+        'USER_REJECTED',
+        'USER',
+        user.uid,
+        `Rejected user ${user.email}`,
+        { entityName: user.email }
+      );
 
       onSuccess();
       onClose();

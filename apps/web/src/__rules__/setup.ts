@@ -25,14 +25,31 @@ import {
 } from '@firebase/rules-unit-testing';
 
 const RULES_PATH = path.join(__dirname, '../../../../firestore.rules');
+const STORAGE_RULES_PATH = path.join(__dirname, '../../../../storage.rules');
 const PROJECT_ID = 'rules-test-project';
+const STORAGE_PROJECT_ID = 'storage-rules-test-project';
 
 let testEnv: RulesTestEnvironment | null = null;
+let storageTestEnv: RulesTestEnvironment | null = null;
 
 export async function checkEmulatorRunning(): Promise<boolean> {
   try {
     const response = await fetch('http://localhost:8080/');
     return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Storage emulator (port 9199 per firebase.json). Any HTTP response counts
+ * as "running" — the root path isn't a health endpoint, only reachability
+ * matters.
+ */
+export async function checkStorageEmulatorRunning(): Promise<boolean> {
+  try {
+    await fetch('http://localhost:9199/');
+    return true;
   } catch {
     return false;
   }
@@ -51,14 +68,43 @@ export async function initRulesTestEnv(): Promise<RulesTestEnvironment> {
   return testEnv;
 }
 
+/**
+ * Separate environment for Storage rules tests: loads the REAL storage.rules
+ * into the Storage emulator under its own projectId so it can't interfere
+ * with the Firestore rules environments.
+ */
+export async function initStorageRulesTestEnv(): Promise<RulesTestEnvironment> {
+  if (storageTestEnv) return storageTestEnv;
+  storageTestEnv = await initializeTestEnvironment({
+    projectId: STORAGE_PROJECT_ID,
+    storage: {
+      rules: fs.readFileSync(STORAGE_RULES_PATH, 'utf8'),
+      host: 'localhost',
+      port: 9199,
+    },
+  });
+  return storageTestEnv;
+}
+
 export async function clearFirestore(): Promise<void> {
   if (testEnv) await testEnv.clearFirestore();
+}
+
+export async function clearStorage(): Promise<void> {
+  if (storageTestEnv) await storageTestEnv.clearStorage();
 }
 
 export async function teardownRulesTestEnv(): Promise<void> {
   if (testEnv) {
     await testEnv.cleanup();
     testEnv = null;
+  }
+}
+
+export async function teardownStorageRulesTestEnv(): Promise<void> {
+  if (storageTestEnv) {
+    await storageTestEnv.cleanup();
+    storageTestEnv = null;
   }
 }
 
@@ -86,6 +132,25 @@ export function authedContext(uid: string, claims: TestClaims = {}): RulesTestCo
 export function unauthedContext(): RulesTestContext {
   if (!testEnv) throw new Error('Call initRulesTestEnv() first');
   return testEnv.unauthenticatedContext();
+}
+
+export function authedStorageContext(uid: string, claims: TestClaims = {}): RulesTestContext {
+  if (!storageTestEnv) throw new Error('Call initStorageRulesTestEnv() first');
+  return storageTestEnv.authenticatedContext(uid, claims);
+}
+
+/**
+ * Seed / inspect Storage objects bypassing rules entirely (admin-equivalent).
+ */
+export async function withStorageAdmin<T>(
+  fn: (context: RulesTestContext) => Promise<T>
+): Promise<T> {
+  if (!storageTestEnv) throw new Error('Call initStorageRulesTestEnv() first');
+  let result: T;
+  await storageTestEnv.withSecurityRulesDisabled(async (context) => {
+    result = await fn(context);
+  });
+  return result!;
 }
 
 /**

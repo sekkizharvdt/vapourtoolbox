@@ -14,6 +14,7 @@ import {
   deriveExclusions,
 } from './proposalHelpers';
 import { computeCommercialSummary } from './commercialSummary';
+import { generateCounterBackedNumber } from '@/lib/procurement/generateProcurementNumber';
 
 const logger = createLogger({ context: 'projectConversion' });
 
@@ -295,13 +296,29 @@ export async function convertProposalToProject(
 }
 
 /**
- * Generate unique project number
+ * Pure formatter for project numbers: PROJ-YYYY-NNNN.
+ * Exported so tests can pin the byte-exact format.
+ *
+ * Note: the pre-counter implementation used a 6-digit `Date.now()` slice as
+ * the suffix (e.g. PROJ-2026-483920). Counter-generated 4-digit suffixes can
+ * never collide with those legacy 6-digit values, so no seed is needed.
+ */
+export function formatProjectNumber(year: number, sequence: number): string {
+  return `PROJ-${year}-${String(sequence).padStart(4, '0')}`;
+}
+
+/**
+ * Generate unique project number via the shared counter-backed generator
+ * (known-gaps 2.4 — the old Date.now()-slice suffix could collide).
  */
 async function generateProjectNumber(_db: Firestore, _entityId: string): Promise<string> {
-  // Simple implementation - in production, use a counter or more sophisticated logic
   const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `PROJ-${year}-${timestamp}`;
+  return generateCounterBackedNumber({
+    counterKey: `project-${year}`,
+    counterType: 'project',
+    counterMeta: { year },
+    format: (sequence) => formatProjectNumber(year, sequence),
+  });
 }
 
 /**

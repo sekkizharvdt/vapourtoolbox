@@ -2,7 +2,11 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import { createAuditLog, getActorFromAuth } from '../utils/audit';
-import { enforceRateLimit, writeRateLimiter, RateLimitError } from '../utils/rateLimiter';
+import {
+  enforceFirestoreRateLimit,
+  WRITE_LIMIT,
+  RateLimitError,
+} from '../utils/firestoreRateLimit';
 import { requirePermission, CREATE_ENTITIES_BIT } from '../utils/requirePermission';
 
 /**
@@ -34,7 +38,7 @@ export const createEntity = onCall(async (request) => {
 
   // 2. Rate limiting check
   try {
-    enforceRateLimit(writeRateLimiter, userId);
+    await enforceFirestoreRateLimit(WRITE_LIMIT, userId);
   } catch (error) {
     if (error instanceof RateLimitError) {
       throw new HttpsError('resource-exhausted', error.message);

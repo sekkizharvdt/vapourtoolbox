@@ -44,6 +44,14 @@ jest.mock('../firebase', () => ({
   getFirebase: jest.fn(() => ({ db: {} })),
 }));
 
+// Mock the canonical PR number generator (counter-backed since gap 2.4; the
+// real module reaches the Firebase client singleton, which explodes under
+// this file's partial firestore mock). Format pinned in documentNumberFormats.test.ts.
+jest.mock('@/lib/procurement/purchaseRequest/utils', () => ({
+  ...jest.requireActual('@/lib/procurement/purchaseRequest/utils'),
+  generatePRNumber: jest.fn(async () => 'PR/2026/0001'),
+}));
+
 jest.mock('@vapour/firebase', () => ({
   COLLECTIONS: {
     PROJECTS: 'projects',
@@ -411,7 +419,9 @@ describe('Charter Procurement Service', () => {
       );
 
       expect(result.prId).toBeDefined();
-      expect(result.prNumber).toMatch(/^PR\/\d{4}\/\d{2}\/\d{4}$/);
+      // Canonical PR format since gap 2.4 — charter PRs share the same
+      // counter/sequence as user-created PRs (was PR/YYYY/MM/tttt).
+      expect(result.prNumber).toMatch(/^PR\/\d{4}\/\d{4}$/);
       expect(mockBatch.set).toHaveBeenCalledTimes(2); // PR and PR Item
       expect(mockBatch.update).toHaveBeenCalled(); // Update charter
       expect(mockBatch.commit).toHaveBeenCalled();
