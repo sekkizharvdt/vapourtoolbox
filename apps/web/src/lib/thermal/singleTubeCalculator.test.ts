@@ -46,6 +46,7 @@ import {
   getQuickSelectConductivity,
 } from './singleTubeCalculator';
 import type { SingleTubeInput } from '@vapour/types';
+import { MIN_WETTING_RATE_DESIGN } from './wettingConstants';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -184,6 +185,19 @@ describe('calculateSingleTube', () => {
     expect(result.wettingRatio).toBeGreaterThan(0);
   });
 
+  it('governing minimum wetting rate is the validated design minimum (0.03 kg/(m·s))', () => {
+    expect(result.minimumWettingRate).toBe(MIN_WETTING_RATE_DESIGN);
+    expect(result.minimumWettingRate).toBe(0.03);
+  });
+
+  it('still reports the El-Dessouky theoretical film-breakdown minimum as informational output', () => {
+    // Theoretical film-breakdown minimum is ~2e-4 kg/(m·s) — far below the
+    // validated design minimum, and must NOT govern the wetting status.
+    expect(result.wettingRateTheoreticalMin).toBeGreaterThan(0);
+    expect(result.wettingRateTheoreticalMin).toBeLessThan(0.001);
+    expect(result.wettingRateTheoreticalMin).toBeLessThan(result.minimumWettingRate);
+  });
+
   it('has a wetting status string', () => {
     expect(['excellent', 'good', 'marginal', 'poor']).toContain(result.wettingStatus);
   });
@@ -199,8 +213,9 @@ describe('calculateSingleTube', () => {
     expect(result.wallConductivity).toBe(138);
     expect(result.wallResistance).toBeGreaterThan(0);
     expect(result.boilingPointElevation).toBeGreaterThan(0);
-    expect(result.requiredArea).toBeGreaterThan(0);
-    expect(result.designArea).toBeGreaterThan(result.requiredArea);
+    // requiredArea/designArea/excessArea assertions removed with the fields:
+    // duty is computed FROM the installed area (Q = U·A·ΔT), so requiredArea
+    // = Q/(U·ΔT) was identically the installed area — a tautology, not a check.
   });
 
   it('has consistent heat/mass balance (condensation and evaporation latent heats)', () => {
@@ -239,6 +254,23 @@ describe('calculateSingleTube edge cases', () => {
     const result = calculateSingleTube(makeValidInput({ sprayFlowRate: 0.001 }));
     expect(result.wettingRatio).toBeLessThan(2);
     expect(result.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('grades 0.01 kg/(m·s) as poor with a warning (was "excellent" under the old El-Dessouky threshold)', () => {
+    // Gamma = sprayFlowRate / (L * 2) = 0.024 / (1.2 * 2) = 0.01 kg/(m·s)
+    const result = calculateSingleTube(makeValidInput({ sprayFlowRate: 0.024 }));
+    expect(result.wettingRate).toBeCloseTo(0.01, 6);
+    // 0.01 is ~40x the theoretical film-breakdown minimum (old logic said
+    // "excellent") but only 1/3 of the validated design minimum of 0.03.
+    expect(result.wettingStatus).toBe('poor');
+    expect(result.warnings.some((w) => w.includes('below the validated minimum'))).toBe(true);
+  });
+
+  it('grades 0.05 kg/(m·s) as good (above the 1.5x design target of 0.045)', () => {
+    // Gamma = 0.12 / (1.2 * 2) = 0.05 kg/(m·s) -> ratio 1.67
+    const result = calculateSingleTube(makeValidInput({ sprayFlowRate: 0.12 }));
+    expect(result.wettingRate).toBeCloseTo(0.05, 6);
+    expect(result.wettingStatus).toBe('good');
   });
 
   it('condensation HTC is higher than evaporation HTC for typical conditions', () => {
@@ -289,5 +321,75 @@ describe('getQuickSelectConductivity', () => {
 
   it('returns null for unknown material', () => {
     expect(getQuickSelectConductivity('Unobtanium')).toBeNull();
+  });
+});
+
+// ===========================================================================
+// Reference: in-tube condensation (Chato 0.555 + film-ΔT) and Chun-Seban
+// laminar film — added with the 2026-07 paired condensation fixes
+// ===========================================================================
+
+describe('in-tube condensation — Chato with film ΔT', () => {
+  // Independent re-implementation of Chato (1962) for the mocked property
+  // set, used to cross-check the calculator's internal film-ΔT iteration.
+  function chatoHTC(deltaTFilm: number): number {
+    const T_vap = 55;
+    const rho_l = 1000 - (T_vap - 20) * 0.3; // mocked getDensityLiquid
+    const rho_v = 0.05 + T_vap * 0.003; // mocked getDensityVapor
+    const mu = 2.414e-5 * Math.pow(10, 247.8 / (T_vap + 133.15));
+    const k = 0.569 + 0.0019 * T_vap - 8e-6 * T_vap * T_vap;
+    const hfg = (2500 - 2.4 * T_vap) * 1000; // mocked getLatentHeat, J/kg
+    const D_i = 0.0234;
+    const num = rho_l * (rho_l - rho_v) * 9.81 * hfg * Math.pow(k, 3);
+    const den = mu * D_i * Math.max(deltaTFilm, 0.05);
+    return 0.555 * Math.pow(num / den, 0.25);
+  }
+
+  it('inside HTC satisfies the Chato film-ΔT resistance balance', () => {
+    const result = calculateSingleTube(makeValidInput());
+    const dRatio = 25.4 / result.tubeID;
+
+    // Recover the converged film ΔT from the resistance balance the
+    // calculator iterates: ΔT_film = ΔT_eff · U · (D_o/D_i) / h_i
+    const deltaTFilm =
+      (result.effectiveDeltaT * result.overallHTC * dRatio) / result.insideFilm.htc;
+
+    // Hand-recomputed Chato at that film ΔT must reproduce the reported HTC
+    expect(
+      Math.abs(chatoHTC(deltaTFilm) - result.insideFilm.htc) / result.insideFilm.htc
+    ).toBeLessThan(0.01);
+
+    // The film ΔT is a small fraction of the overall driving ΔT (~2.2 K of
+    // ~19.3 K here) — using the full ΔT was the old bug
+    expect(deltaTFilm).toBeLessThan(0.3 * result.effectiveDeltaT);
+    expect(deltaTFilm).toBeGreaterThan(0.02 * result.effectiveDeltaT);
+  });
+
+  it('film-ΔT drive yields a higher HTC than the old full-ΔT shortcut', () => {
+    const result = calculateSingleTube(makeValidInput());
+    // Chato evaluated at the FULL effective ΔT (the old, wrong driving force,
+    // modulo the old 0.725 constant) gives ~7150 W/(m²·K); the film-ΔT value
+    // is ~12,370 W/(m²·K)
+    expect(result.insideFilm.htc).toBeGreaterThan(chatoHTC(result.effectiveDeltaT));
+  });
+
+  it('pins the typical-case inside HTC (regression for the paired fix)', () => {
+    // Pre-fix (0.725 × full 20 K spray ΔT): ~9,255 W/(m²·K)
+    // Post-fix (0.555 × iterated film ΔT ≈ 2.15 K): 12,370 W/(m²·K)
+    const result = calculateSingleTube(makeValidInput());
+    expect(Math.abs(result.insideFilm.htc - 12370) / 12370).toBeLessThan(0.01);
+  });
+});
+
+describe('outside film — Chun-Seban laminar branch', () => {
+  it('pins the laminar HTC to the published Chun-Seban form 0.822·Re^(−0.22)', () => {
+    // sprayFlowRate 0.05 kg/s → Γ = 0.05/(1.2·2) = 0.02083 kg/(m·s)
+    // μ (mocked, 35°C) = 0.001·e^(−0.3) = 7.4082e-4 → Re = 4Γ/μ = 112.49
+    // filmGroup = (k³ρ²g/μ²)^(1/3) with k=0.63, ρ=1023.5 → 16,727
+    // h = 0.822 × 16,727 × 112.49^(−0.22) = 4,865 W/(m²·K)
+    // (old 0.821·Re^(−1/3) form gave ~2,847 — matched no published correlation)
+    const result = calculateSingleTube(makeValidInput({ sprayFlowRate: 0.05 }));
+    expect(result.outsideFilm.flowRegime).toBe('Laminar Sheet');
+    expect(Math.abs(result.outsideFilm.htc - 4865) / 4865).toBeLessThan(0.01);
   });
 });

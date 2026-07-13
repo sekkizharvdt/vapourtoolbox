@@ -73,8 +73,6 @@ export interface GORInput {
   // TVC parameters (only used when configuration is MED_TVC)
   /** Entrainment ratio — kg entrained vapor / kg motive steam (typically 0.8-1.5) */
   tvcEntrainmentRatio?: number;
-  /** Compression ratio — discharge pressure / suction pressure */
-  tvcCompressionRatio?: number;
 
   // Plant capacity (optional — enables absolute flow calculations)
   /** Distillate production capacity in m³/day */

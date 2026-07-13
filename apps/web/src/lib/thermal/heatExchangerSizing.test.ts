@@ -258,6 +258,20 @@ describe('sizeHeatExchanger — warnings', () => {
     // Just verify warnings array is accessible
     expect(Array.isArray(result.warnings)).toBe(true);
   });
+
+  test('warns when bundle exceeds the largest standard shell (custom fabrication)', () => {
+    // Huge duty at modest HTC/LMTD → enormous area → bundle > 1524 mm.
+    // Previously this fallthrough was dead code (shellID was initialised to
+    // minShellID, so the `shellID < minShellID` guard never fired) and users
+    // got a raw non-standard shell ID with no warning.
+    const result = sizeHeatExchanger(
+      createInput({ heatDutyKW: 200000, lmtd: 5, overallHTC: 1500, tubeLength: 6 })
+    );
+    expect(result.shellID).toBeGreaterThan(1524);
+    expect(result.warnings.some((w) => w.includes('Custom fabrication required'))).toBe(true);
+    // Rounded to 25 mm as the code documents
+    expect(result.shellID % 25).toBe(0);
+  });
 });
 
 // ── Velocity calculators ─────────────────────────────────────────────────────

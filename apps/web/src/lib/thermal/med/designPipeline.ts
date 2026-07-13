@@ -230,9 +230,9 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     condenserApproach,
     condenserOutletTemp: condenserSWOutlet,
     ...(preheaterEffects.length > 0 && { preheaterEffects }),
-    nea: NEA,
-    demisterLoss: demLoss,
-    ductLoss: pdLoss,
+    // nea/demisterLoss/ductLoss are NOT passed: the engine computes its own
+    // per-effect losses and never read those inputs (removed as dead knobs).
+    // NEA/demLoss/pdLoss above remain in use for scenario/GOR estimation only.
     foulingResistance: input.foulingResistance ?? 0.00015,
     ...(input.bpeSafetyFactor &&
       input.bpeSafetyFactor !== 1.0 && { bpeSafetyFactor: input.bpeSafetyFactor }),

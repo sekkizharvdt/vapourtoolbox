@@ -87,6 +87,37 @@ describe('Heat Duty Calculator', () => {
       expect(result.heatDuty).toBeGreaterThan(600);
     });
 
+    it('should use water Cp (~4.18), not steam Cp, for seawater with undefined salinity', () => {
+      const input: SensibleHeatInput = {
+        fluidType: 'SEAWATER',
+        // salinity intentionally omitted
+        massFlowRate: 10,
+        inletTemperature: 30,
+        outletTemperature: 40,
+      };
+
+      const result = calculateSensibleHeat(input);
+
+      // Must take the seawater/water path (salinity ?? 0 → Cp ≈ 4.186),
+      // never fall into the steam branch (Cp = 2.0)
+      expect(result.specificHeat).toBeGreaterThan(4);
+      expect(result.specificHeat).toBeCloseTo(4.186, 2);
+    });
+
+    it('should use water Cp for seawater with salinity 0', () => {
+      const input: SensibleHeatInput = {
+        fluidType: 'SEAWATER',
+        salinity: 0,
+        massFlowRate: 10,
+        inletTemperature: 30,
+        outletTemperature: 40,
+      };
+
+      const result = calculateSensibleHeat(input);
+
+      expect(result.specificHeat).toBeGreaterThan(4);
+    });
+
     it('should handle steam with approximate specific heat', () => {
       const input: SensibleHeatInput = {
         fluidType: 'STEAM',
@@ -260,6 +291,88 @@ describe('Heat Duty Calculator', () => {
         expect(result.correctionFactor).toBeLessThanOrEqual(1);
         expect(result.correctionFactor).toBeGreaterThanOrEqual(0.7);
         expect(result.correctedLMTD).toBeLessThanOrEqual(result.lmtd);
+      });
+    });
+
+    describe('Shell-and-tube F-factor (Bowman-Mueller-Nagle reference values)', () => {
+      // P = (coldOut - coldIn) / (hotIn - coldIn), R = (hotIn - hotOut) / (coldOut - coldIn)
+
+      it('should give F ≈ 0.942 for P=0.5, R=0.5 (single shell)', () => {
+        // P = 40/80 = 0.5, R = 20/40 = 0.5
+        const result = calculateLMTD({
+          hotInlet: 100,
+          hotOutlet: 80,
+          coldInlet: 20,
+          coldOutlet: 60,
+          flowArrangement: 'SHELL_AND_TUBE',
+        });
+
+        // Hand-verified from F = (√(R²+1)/(R-1))·ln((1-P)/(1-PR)) / ln((2-P(R+1-√(R²+1)))/(2-P(R+1+√(R²+1))))
+        expect(result.correctionFactor).toBeCloseTo(0.942, 2);
+        expect(Math.abs(result.correctionFactor - 0.942)).toBeLessThan(0.005);
+      });
+
+      it('should give F ≈ 0.935 for P=0.2, R=3 (single shell)', () => {
+        // P = 20/100 = 0.2, R = 60/20 = 3
+        const result = calculateLMTD({
+          hotInlet: 120,
+          hotOutlet: 60,
+          coldInlet: 20,
+          coldOutlet: 40,
+          flowArrangement: 'SHELL_AND_TUBE',
+        });
+
+        expect(Math.abs(result.correctionFactor - 0.935)).toBeLessThan(0.005);
+      });
+
+      it('should give F ≈ 0.921 for P=0.4, R=1 (R=1 closed form)', () => {
+        // P = 40/100 = 0.4, R = 40/40 = 1
+        const result = calculateLMTD({
+          hotInlet: 120,
+          hotOutlet: 80,
+          coldInlet: 20,
+          coldOutlet: 60,
+          flowArrangement: 'SHELL_AND_TUBE',
+        });
+
+        // F = (P√2/(1-P)) / ln((2-P(2-√2))/(2-P(2+√2))) = 0.9209 at P=0.4
+        expect(Math.abs(result.correctionFactor - 0.9209)).toBeLessThan(0.005);
+      });
+
+      it('should approach F = 1 as P → 0', () => {
+        // P = 0.1/100 = 0.001, R = 1
+        const result = calculateLMTD({
+          hotInlet: 120,
+          hotOutlet: 119.9,
+          coldInlet: 20,
+          coldOutlet: 20.1,
+          flowArrangement: 'SHELL_AND_TUBE',
+        });
+
+        expect(result.correctionFactor).toBeGreaterThan(0.999);
+        expect(result.correctionFactor).toBeLessThanOrEqual(1.0);
+      });
+
+      it('should give F ≈ 0.973 for P=0.6, R=0.5 with 2 shell passes', () => {
+        // P = 60/100 = 0.6, R = 30/60 = 0.5
+        // W = ((1-PR)/(1-P))^(1/2) = 1.75^0.5, P_eff = (1-W)/(R-W) = 0.39238
+        // → F_single(0.39238, 0.5) = 0.9732
+        const input: LMTDInput = {
+          hotInlet: 120,
+          hotOutlet: 90,
+          coldInlet: 20,
+          coldOutlet: 80,
+          flowArrangement: 'SHELL_AND_TUBE',
+          shellPasses: 2,
+        };
+
+        const twoShell = calculateLMTD(input);
+        expect(Math.abs(twoShell.correctionFactor - 0.9732)).toBeLessThan(0.005);
+
+        // Same duty in a single shell has a lower F (0.8829) — more shells must help
+        const oneShell = calculateLMTD({ ...input, shellPasses: 1 });
+        expect(Math.abs(oneShell.correctionFactor - 0.8829)).toBeLessThan(0.005);
+        expect(twoShell.correctionFactor).toBeGreaterThan(oneShell.correctionFactor);
       });
     });
 

@@ -132,6 +132,23 @@ describe('Pump Sizing', () => {
       expect(result.headBreakdown.suctionFrictionHead).toBeGreaterThan(0);
     });
 
+    it('should warn when required power exceeds the largest standard motor', () => {
+      const result = calculateTDH({
+        ...baseInput,
+        flowRate: 5000, // ton/hr
+        staticHead: 100,
+      });
+      const largest = STANDARD_MOTOR_SIZES_KW[STANDARD_MOTOR_SIZES_KW.length - 1]!;
+      expect(result.motorPower).toBeGreaterThan(largest);
+      expect(result.recommendedMotorKW).toBe(largest); // capped
+      expect(result.warnings.some((w) => w.includes('custom motor required'))).toBe(true);
+    });
+
+    it('should not warn about motor size when within the standard range', () => {
+      const result = calculateTDH(baseInput);
+      expect(result.warnings.some((w) => w.includes('custom motor'))).toBe(false);
+    });
+
     it('should warn on negative TDH', () => {
       const result = calculateTDH({
         ...baseInput,

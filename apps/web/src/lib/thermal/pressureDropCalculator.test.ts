@@ -611,3 +611,63 @@ describe('Pressure Drop Calculator', () => {
     });
   });
 });
+
+// ============================================================================
+// External anchor — Crane TP-410 method, hand-solved Colebrook-White
+// ============================================================================
+
+describe('external anchor — Crane TP-410 method (hand-solved Colebrook-White)', () => {
+  /**
+   * Worked example computed INDEPENDENTLY of the code under test
+   * (the code uses the Swamee-Jain explicit approximation; the hand value
+   * below iterates the implicit Colebrook-White equation — Crane TP-410
+   * "Flow of Fluids", eq. 1-4/6-3 method — so agreement is meaningful).
+   *
+   * Case: water at 20 °C through 100 m of 4" Sch 40 commercial steel pipe.
+   *   ρ  = 998.2 kg/m³, μ = 1.002e-3 Pa·s  (Crane TP-410 App. A / NIST, 20 °C)
+   *   ID = 102.26 mm (ASME B36.10, 4" Sch 40), A = π/4·ID² = 8213.0 mm²
+   *   ε  = 0.045 mm (commercial steel, Crane ε = 0.0018 in = 0.0457 mm;
+   *        the code default 0.045 mm is used explicitly here)
+   *   ṁ  = 59.0 t/hr = 16.3889 kg/s
+   *
+   * Hand calculation:
+   *   Q  = 16.3889 / 998.2            = 0.016418 m³/s
+   *   v  = Q / A = 0.016418/8.2130e-3 = 1.9991 m/s
+   *   Re = ρvD/μ = 998.2·1.9991·0.10226/1.002e-3 = 203,651
+   *   ε/D = 0.045/102.26 = 4.4005e-4
+   *   Colebrook: 1/√f = −2·log10(ε/D/3.7 + 2.51/(Re·√f))
+   *     iterate from f = 0.02 → converges to f = 0.018475
+   *   h_f = f·(L/D)·v²/2g = 0.018475·(100/0.10226)·1.9991²/(2·9.81)
+   *       = 3.680 m of water
+   *   ΔP  = ρ·g·h_f = 998.2·9.81·3.680 = 36.03 kPa
+   *
+   * Swamee-Jain (code) gives f = 0.018578 (+0.56% vs Colebrook) — well
+   * inside the ±5% anchor tolerance.
+   */
+  it('water @ 20°C, 4" Sch 40, 100 m, 59 t/hr: friction ΔP within ±5% of hand Colebrook value', () => {
+    const result = calculatePressureDrop({
+      pipeNPS: 'CUSTOM',
+      // Exact ASME B36.10 4" Sch 40 bore — independent of the pipeService mock
+      customPipe: { id_mm: 102.26, area_mm2: 8213.0 },
+      pipeLength: 100,
+      flowRate: 59.0, // ton/hr
+      fluidDensity: 998.2, // kg/m³, water 20°C
+      fluidViscosity: 1.002e-3, // Pa·s, water 20°C
+      roughness: 0.045, // mm, commercial steel (Crane 0.0018 in)
+    });
+
+    // Velocity and Reynolds number are pure unit algebra — pin tightly
+    expect(result.velocity).toBeCloseTo(1.9991, 3);
+    expect(Math.abs(result.reynoldsNumber - 203651) / 203651).toBeLessThan(0.001);
+    expect(result.flowRegime).toBe('turbulent');
+
+    // Friction factor: hand Colebrook f = 0.018475 (±5%)
+    expect(Math.abs(result.frictionFactor - 0.018475) / 0.018475).toBeLessThan(0.05);
+
+    // Straight-pipe head loss: hand value 3.680 m of water (±5%)
+    expect(Math.abs(result.straightPipeLoss - 3.68) / 3.68).toBeLessThan(0.05);
+
+    // Total ΔP (no fittings, no elevation): hand value 36.03 kPa (±5%)
+    expect(Math.abs(result.totalPressureDropKPa - 36.03) / 36.03).toBeLessThan(0.05);
+  });
+});

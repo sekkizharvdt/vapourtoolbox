@@ -13,6 +13,8 @@ export function BundleDiagram({ result, input }: BundleDiagramProps) {
   const textCol = theme.palette.text.primary;
   const tubeCol = theme.palette.grey[400];
   const shellCol = theme.palette.grey[600];
+  const zoneCol = theme.palette.error.main;
+  const laneCol = theme.palette.info.main;
   if (!result || !input || result.totalTubes === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 2 }}>
@@ -51,6 +53,52 @@ export function BundleDiagram({ result, input }: BundleDiagramProps) {
         >
           {/* Shell circle */}
           <circle cx={cx} cy={cy} r={shellR} fill="none" stroke={shellCol} strokeWidth={2} />
+
+          {/* Vapour lanes (translucent strips, clipped to the shell) */}
+          {input.vapourLanes && input.vapourLanes.length > 0 && (
+            <>
+              <defs>
+                <clipPath id="bundle-shell-clip">
+                  <circle cx={cx} cy={cy} r={shellR} />
+                </clipPath>
+              </defs>
+              <g clipPath="url(#bundle-shell-clip)">
+                {input.vapourLanes.map((lane, i) => {
+                  // Lane centreline passes through (xRef, 0) at angleDeg from
+                  // horizontal; SVG y is flipped, so rotate by -angleDeg.
+                  const px = cx + lane.xRef;
+                  const laneLen = shellR * 2.4;
+                  return (
+                    <rect
+                      key={`lane-${i}`}
+                      x={px - laneLen / 2}
+                      y={cy - lane.width / 2}
+                      width={laneLen}
+                      height={lane.width}
+                      fill={laneCol}
+                      fillOpacity={0.12}
+                      transform={`rotate(${-lane.angleDeg} ${px} ${cy})`}
+                    />
+                  );
+                })}
+              </g>
+            </>
+          )}
+
+          {/* Nozzle exclusion zones (dashed outlines at their actual coordinates) */}
+          {input.exclusionZones?.map((zone, i) => (
+            <circle
+              key={`zone-${i}`}
+              cx={cx + zone.cx}
+              cy={cy - zone.cy}
+              r={zone.diameter / 2}
+              fill={zoneCol}
+              fillOpacity={0.12}
+              stroke={zoneCol}
+              strokeWidth={2}
+              strokeDasharray="8,5"
+            />
+          ))}
 
           {/* Centre lines */}
           <line

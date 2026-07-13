@@ -393,71 +393,75 @@ export const SCHEDULE_40_PIPES: PipeVariant[] = [
     area_mm2: 50870.5,
     weight_kgm: 60.29,
   },
+  // NPS >= 12": true Schedule 40 walls per ASME B36.10-2022 (Sch 40 diverges from
+  // STD/9.53 mm at 12" and above — the old entries here used STD walls, overstating
+  // flow area by up to ~5.6% at 24").
   {
     nps: '12',
     dn: '300',
     schedule: '40',
     od_mm: 323.85,
-    wt_mm: 9.53,
-    id_mm: 304.79,
-    area_mm2: 72966.3,
-    weight_kgm: 73.78,
+    wt_mm: 10.31,
+    id_mm: 303.23,
+    area_mm2: 72216.1,
+    weight_kgm: 79.72,
   },
   {
     nps: '14',
     dn: '350',
     schedule: '40',
     od_mm: 355.6,
-    wt_mm: 9.53,
-    id_mm: 336.54,
-    area_mm2: 88929.1,
-    weight_kgm: 81.25,
+    wt_mm: 11.13,
+    id_mm: 333.34,
+    area_mm2: 87270.0,
+    weight_kgm: 94.55,
   },
   {
     nps: '16',
     dn: '400',
     schedule: '40',
     od_mm: 406.4,
-    wt_mm: 9.53,
-    id_mm: 387.34,
-    area_mm2: 117854.4,
-    weight_kgm: 93.17,
+    wt_mm: 12.7,
+    id_mm: 381.0,
+    area_mm2: 114009.2,
+    weight_kgm: 123.31,
   },
   {
     nps: '18',
     dn: '450',
     schedule: '40',
     od_mm: 457.2,
-    wt_mm: 9.53,
-    id_mm: 438.14,
-    area_mm2: 150796.1,
-    weight_kgm: 105.09,
+    wt_mm: 14.27,
+    id_mm: 428.66,
+    area_mm2: 144316.4,
+    weight_kgm: 155.88,
   },
   {
     nps: '20',
     dn: '500',
     schedule: '40',
     od_mm: 508.0,
-    wt_mm: 9.53,
-    id_mm: 488.94,
-    area_mm2: 187754.4,
-    weight_kgm: 117.01,
+    wt_mm: 15.09,
+    id_mm: 477.82,
+    area_mm2: 179315.8,
+    weight_kgm: 183.43,
   },
   {
     nps: '24',
     dn: '600',
     schedule: '40',
     od_mm: 609.6,
-    wt_mm: 9.53,
-    id_mm: 590.54,
-    area_mm2: 273820.6,
-    weight_kgm: 140.85,
+    wt_mm: 17.48,
+    id_mm: 574.64,
+    area_mm2: 259347.2,
+    weight_kgm: 255.25,
   },
 ];
 
 /**
  * Static Schedule 10 pipe data as fallback
- * Data from ASME B36.10-2022 (1/2" through 12" — larger sizes not in seed data)
+ * Data from ASME B36.19M-2022 (Sch 10S, 1/2"–12" — Sch 10 and 10S walls coincide
+ * in this range) and ASME B36.10-2022 (Sch 10, 14"–24": 6.35 mm wall throughout).
  */
 export const SCHEDULE_10_PIPES: PipeVariant[] = [
   {
@@ -590,11 +594,62 @@ export const SCHEDULE_10_PIPES: PipeVariant[] = [
     area_mm2: 77802.3,
     weight_kgm: 35.98,
   },
+  // 14"–24": ASME B36.10-2022 Schedule 10 (wall 6.35 mm / 0.250")
+  {
+    nps: '14',
+    dn: '350',
+    schedule: '10',
+    od_mm: 355.6,
+    wt_mm: 6.35,
+    id_mm: 342.9,
+    area_mm2: 92347.4,
+    weight_kgm: 54.69,
+  },
+  {
+    nps: '16',
+    dn: '400',
+    schedule: '10',
+    od_mm: 406.4,
+    wt_mm: 6.35,
+    id_mm: 393.7,
+    area_mm2: 121736.5,
+    weight_kgm: 62.65,
+  },
+  {
+    nps: '18',
+    dn: '450',
+    schedule: '10',
+    od_mm: 457.2,
+    wt_mm: 6.35,
+    id_mm: 444.5,
+    area_mm2: 155179.2,
+    weight_kgm: 70.6,
+  },
+  {
+    nps: '20',
+    dn: '500',
+    schedule: '10',
+    od_mm: 508.0,
+    wt_mm: 6.35,
+    id_mm: 495.3,
+    area_mm2: 192675.5,
+    weight_kgm: 78.56,
+  },
+  {
+    nps: '24',
+    dn: '600',
+    schedule: '10',
+    od_mm: 609.6,
+    wt_mm: 6.35,
+    id_mm: 596.9,
+    area_mm2: 279829.2,
+    weight_kgm: 94.47,
+  },
 ];
 
 /**
  * Static Schedule 80 pipe data as fallback
- * Data from ASME B36.10-2022 (1/2" through 12" — larger sizes not in seed data)
+ * Data from ASME B36.10-2022 (1/2" through 24")
  */
 export const SCHEDULE_80_PIPES: PipeVariant[] = [
   {
@@ -726,6 +781,57 @@ export const SCHEDULE_80_PIPES: PipeVariant[] = [
     id_mm: 288.95,
     area_mm2: 65598.4,
     weight_kgm: 131.84,
+  },
+  // 14"–24": ASME B36.10-2022 Schedule 80
+  {
+    nps: '14',
+    dn: '350',
+    schedule: '80',
+    od_mm: 355.6,
+    wt_mm: 19.05,
+    id_mm: 317.5,
+    area_mm2: 79173.0,
+    weight_kgm: 158.11,
+  },
+  {
+    nps: '16',
+    dn: '400',
+    schedule: '80',
+    od_mm: 406.4,
+    wt_mm: 21.44,
+    id_mm: 363.52,
+    area_mm2: 103787.8,
+    weight_kgm: 203.54,
+  },
+  {
+    nps: '18',
+    dn: '450',
+    schedule: '80',
+    od_mm: 457.2,
+    wt_mm: 23.83,
+    id_mm: 409.54,
+    area_mm2: 131729.3,
+    weight_kgm: 254.68,
+  },
+  {
+    nps: '20',
+    dn: '500',
+    schedule: '80',
+    od_mm: 508.0,
+    wt_mm: 26.19,
+    id_mm: 455.62,
+    area_mm2: 163040.5,
+    weight_kgm: 311.19,
+  },
+  {
+    nps: '24',
+    dn: '600',
+    schedule: '80',
+    od_mm: 609.6,
+    wt_mm: 30.96,
+    id_mm: 547.68,
+    area_mm2: 235582.8,
+    weight_kgm: 441.8,
   },
 ];
 

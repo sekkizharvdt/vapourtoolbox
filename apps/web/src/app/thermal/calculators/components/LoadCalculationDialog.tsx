@@ -28,14 +28,15 @@ interface LoadCalculationDialogProps {
   open: boolean;
   onClose: () => void;
   onLoad: (inputs: Record<string, unknown>) => void;
-  calculatorType?: SavedCalculation['calculatorType'];
+  /** Required — omitting it would silently load from the wrong calculator's bucket */
+  calculatorType: SavedCalculation['calculatorType'];
 }
 
 export function LoadCalculationDialog({
   open,
   onClose,
   onLoad,
-  calculatorType = 'SIPHON_SIZING',
+  calculatorType,
 }: LoadCalculationDialogProps) {
   const { user } = useAuth();
   const [calculations, setCalculations] = useState<SavedCalculation[]>([]);

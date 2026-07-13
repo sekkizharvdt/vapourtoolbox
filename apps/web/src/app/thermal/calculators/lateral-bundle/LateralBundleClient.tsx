@@ -7,8 +7,8 @@ import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateTubeBundleGeometry,
   generateDefaultVapourLanes,
+  generateDefaultNozzleExclusions,
   type TubeBundleGeometryInput,
-  type ExclusionZone,
 } from '@/lib/thermal';
 import { LateralBundleInputs, LateralBundleResults, BundleDiagram } from './components';
 
@@ -75,25 +75,17 @@ export default function LateralBundleClient() {
 
       if (isNaN(sid) || sid <= 0 || isNaN(od) || od <= 0 || isNaN(p) || p <= 0) return null;
 
-      // Build exclusion zones for nozzles (positioned on the open side)
-      const exclusionZones: ExclusionZone[] = [];
       const shellR = sid / 2;
-      const nozzleXOffset = shellR * 0.3; // positioned on the open side
+      const shape = side === 'left' ? 'half_circle_left' : 'half_circle_right';
 
-      if (!isNaN(nd1) && nd1 > 0) {
-        exclusionZones.push({
-          cx: side === 'left' ? nozzleXOffset : -nozzleXOffset,
-          cy: shellR * 0.25, // upper nozzle
-          diameter: nd1,
-        });
-      }
-      if (!isNaN(nd2) && nd2 > 0) {
-        exclusionZones.push({
-          cx: side === 'left' ? nozzleXOffset : -nozzleXOffset,
-          cy: -shellR * 0.1, // centre-lower nozzle
-          diameter: nd2,
-        });
-      }
+      // Nozzle exclusion zones — placed INSIDE the tube field per the BARC
+      // arrangement (negative x for half_circle_left, mirrored for right)
+      const exclusionZones = generateDefaultNozzleExclusions(
+        shape,
+        shellR,
+        !isNaN(nd1) && nd1 > 0 ? nd1 : undefined,
+        !isNaN(nd2) && nd2 > 0 ? nd2 : undefined
+      );
 
       // Generate vapour lanes
       const vapourLanes =
@@ -102,7 +94,7 @@ export default function LateralBundleClient() {
           : undefined;
 
       const geoInput: TubeBundleGeometryInput = {
-        shape: side === 'left' ? 'half_circle_left' : 'half_circle_right',
+        shape,
         shellID: sid,
         tubeOD: od,
         tubeHoleDiameter: !isNaN(thd) && thd > 0 ? thd : undefined,

@@ -354,10 +354,9 @@ export const FlashChamberDatasheet = ({
               </Text>
             </View>
           </View>
-          <Text style={{ fontSize: 8, marginTop: 4, color: '#666' }}>
-            Heat Balance Error: {formatNumber(heatMassBalance.balanceError, 2)}% (
-            {heatMassBalance.isBalanced ? 'OK' : 'Check'})
-          </Text>
+          {/* "Heat Balance Error" line removed: vapor flow is solved FROM the
+              energy balance, so the error was identically ~0 — a tautology,
+              not a check. */}
         </View>
 
         {/* Chamber Dimensions */}

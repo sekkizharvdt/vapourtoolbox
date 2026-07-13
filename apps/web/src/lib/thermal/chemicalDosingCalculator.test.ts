@@ -342,11 +342,14 @@ describe('calculateCIP — core', () => {
     expect(result.systemVolumeLitres).toBeCloseTo(1500, 0);
     expect(result.systemVolume).toBeCloseTo(1.5, 2);
 
-    // Neat acid: 1500 L × 3% / 85% = 52.94 L
-    expect(result.neatAcidLitres).toBeCloseTo(52.94, 0);
+    // Neat acid mass: 1500 L × 1.0 kg/L × 3% / 85% = 52.94 kg
+    // (was 64.59 kg — old code computed litres without dividing by ρ_neat, then
+    // multiplied that volume by ρ_neat for mass, double-applying the neat
+    // density and overstating formic quantities by +22%)
+    expect(result.neatAcidMassKg).toBeCloseTo(52.94, 0);
 
-    // Neat acid mass: 52.94 L × 1.22 kg/L = 64.59 kg
-    expect(result.neatAcidMassKg).toBeCloseTo(64.59, 0);
+    // Neat acid volume: 52.94 kg / 1.22 kg/L = 43.39 L (was 52.94 L, same fix)
+    expect(result.neatAcidLitres).toBeCloseTo(43.39, 0);
   });
 
   test('system volume includes piping hold-up', () => {
@@ -457,22 +460,26 @@ describe('calculateCIP — validation', () => {
 // ── calculateCIP — acid types ────────────────────────────────────────────────
 
 describe('calculateCIP — different acids', () => {
+  // Expected formulas updated (old: system_L × target% / C_neat%): the neat
+  // volume must also divide by ρ_neat — the old code omitted that division and
+  // overstated neat litres by the neat-density factor (+22% formic, +24%
+  // citric, +16% HCl).
   test('formic acid uses 85% neat concentration', () => {
     const result = calculateCIP(createCIPInput({ acidType: 'formic' }));
-    // Neat litres = system_L × target% / 85%
-    const expected = (result.systemVolumeLitres * 3) / 85;
+    // Neat litres = system_L × ρ_dilute(1.0) × target% / 85% / ρ_neat(1.22)
+    const expected = (result.systemVolumeLitres * 3) / 85 / 1.22;
     expect(result.neatAcidLitres).toBeCloseTo(expected, 0);
   });
 
   test('citric acid uses 50% neat concentration', () => {
     const result = calculateCIP(createCIPInput({ acidType: 'citric' }));
-    const expected = (result.systemVolumeLitres * 3) / 50;
+    const expected = (result.systemVolumeLitres * 3) / 50 / 1.24;
     expect(result.neatAcidLitres).toBeCloseTo(expected, 0);
   });
 
   test('HCl uses 33% neat concentration', () => {
     const result = calculateCIP(createCIPInput({ acidType: 'hydrochloric' }));
-    const expected = (result.systemVolumeLitres * 3) / 33;
+    const expected = (result.systemVolumeLitres * 3) / 33 / 1.16;
     expect(result.neatAcidLitres).toBeCloseTo(expected, 0);
   });
 

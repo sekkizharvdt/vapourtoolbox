@@ -58,6 +58,7 @@ import {
   CropSquare as CentralIcon,
   Warning as ScalingIcon,
   AccountTree as MEDPlantIcon,
+  Insights as GORIcon,
   OpenInFull as ExpansionIcon,
   ArrowForward as ArrowForwardIcon,
   Search as SearchIcon,
@@ -291,7 +292,7 @@ const ALL_CALCULATORS: Calculator[] = [
       'Calculate shaft power, discharge conditions, and specific energy for isentropic vapor compression in MVC desalination.',
     icon: <MfgIcon sx={{ fontSize: 40 }} />,
     href: '/thermal/calculators/mvc',
-    status: 'coming_soon',
+    status: 'available',
     reference: 'Isentropic',
     keywords: ['shaft power', 'compression ratio', 'MVC', 'centrifugal compressor'],
   },
@@ -412,6 +413,24 @@ const ALL_CALCULATORS: Calculator[] = [
     ],
   },
   {
+    title: 'Performance Ratio / GOR',
+    description:
+      'Estimate Gain Output Ratio (GOR), steam consumption, and thermal performance of an MED plant — with live Tsat helper, temperature profile, and loss budget.',
+    icon: <GORIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/gor',
+    status: 'available',
+    reference: 'Screening Estimate',
+    keywords: [
+      'GOR',
+      'gain output ratio',
+      'performance ratio',
+      'steam economy',
+      'MED',
+      'TVC',
+      'specific steam consumption',
+    ],
+  },
+  {
     title: 'Vacuum System Design',
     description:
       'Size liquid ring vacuum pumps (LRVP) and steam ejector trains to maintain vacuum against NCG load and leakage.',
@@ -473,7 +492,11 @@ const CATEGORIES: CalculatorCategory[] = [
     description:
       'MED/MED-TVC plant design, process calculation, and complete equipment specification.',
     calculators: ALL_CALCULATORS.filter((c) =>
-      ['/thermal/calculators/med-designer', '/thermal/calculators/med-plant'].includes(c.href)
+      [
+        '/thermal/calculators/med-designer',
+        '/thermal/calculators/med-plant',
+        '/thermal/calculators/gor',
+      ].includes(c.href)
     ),
   },
   {

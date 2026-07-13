@@ -152,6 +152,19 @@ describe('DIAPHRAGM_ANALYSIS mode', () => {
       /not a standard size/i
     );
   });
+
+  it('warns when the vessel cannot equalize within the simulation time cap', () => {
+    // Huge vessel on the smallest DN — cannot equalize even after the
+    // simulation window doubles up to the 24h-order cap
+    const capped = calculateVacuumBreaker(
+      makeDiaphragmAnalysisInput({ totalVolume: 1e7, selectedDN: 15 })
+    );
+    expect(capped.warnings.some((w) => w.includes('simulation cap'))).toBe(true);
+  });
+
+  it('does not warn about the simulation cap when the vessel equalizes', () => {
+    expect(result.warnings.some((w) => w.includes('simulation cap'))).toBe(false);
+  });
 });
 
 // ===========================================================================
@@ -255,5 +268,52 @@ describe('input validation', () => {
     expect(() =>
       calculateVacuumBreaker(makeDiaphragmDesignInput({ maxPressureRiseRate: 0 }))
     ).toThrow(/rise rate/i);
+  });
+});
+
+// ===========================================================================
+// External anchor — choked (sonic) air flux, hand-computed
+// ===========================================================================
+
+describe('external anchor — choked air mass flux (isentropic nozzle theory)', () => {
+  /**
+   * Choked mass flux through an orifice for a perfect gas
+   * (Anderson, "Modern Compressible Flow", eq. 5.24; same form in ISO 9300
+   * and HEI 2629):
+   *
+   *   G = P0 · √(γ/(R·T0)) · (2/(γ+1))^((γ+1)/(2(γ−1)))
+   *
+   * Hand calculation for air at P0 = 101,325 Pa (1 atm), T0 = 298.15 K
+   * (25 °C), γ = 1.4, R = 287.058 J/(kg·K):
+   *
+   *   √(γ/(R·T0))   = √(1.4 / (287.058·298.15)) = √(1.6358e-5) = 4.0445e-3
+   *   (2/2.4)^(2.4/0.8) = (0.833333)^3 = 0.578704
+   *   G = 101,325 · 4.0445e-3 · 0.578704 = 237.16 kg/(s·m²)
+   *
+   * Independent cross-check: the classic air rule-of-thumb
+   *   G ≈ 0.0404·P0/√T0 = 0.0404·101325/√298.15 = 237.1 kg/(s·m²)  ✓
+   *
+   * With a DN 50 diaphragm (bore 19.63 cm²) and Cd = 0.6, the initial
+   * (choked) inflow is  ṁ = Cd·A·G = 0.6 · 19.63e-4 · 237.16 = 0.2793 kg/s.
+   */
+  it('chokedFluxPerCd at 25°C ambient within ±3% of hand value 237.16 kg/(s·m²)', () => {
+    const result = calculateVacuumBreaker(
+      makeDiaphragmAnalysisInput({
+        operatingPressureMbar: 100, // deep vacuum → initial flow is choked
+        burstPressureMbar: 100,
+        ambientTemperature: 25,
+        selectedDN: 50,
+      })
+    );
+
+    expect(Math.abs(result.chokedFluxPerCd - 237.16) / 237.16).toBeLessThan(0.03);
+
+    // Critical pressure ratio for γ = 1.4: (2/2.4)^3.5 = 0.5283
+    expect(result.criticalPressureRatio).toBeCloseTo(0.528, 3);
+
+    // First profile step: choked regime, ṁ = Cd·A·G = 0.2793 kg/s (±3%)
+    const first = result.pressureProfile[0]!;
+    expect(first.regime).toBe('choked');
+    expect(Math.abs(first.massFlowRate - 0.2793) / 0.2793).toBeLessThan(0.03);
   });
 });

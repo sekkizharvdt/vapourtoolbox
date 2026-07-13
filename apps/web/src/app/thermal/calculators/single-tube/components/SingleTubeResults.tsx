@@ -203,9 +203,15 @@ export function SingleTubeResults({ result }: SingleTubeResultsProps) {
               <TableCell align="right">{fmtSci(result.wettingRate)} kg/(m&middot;s)</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Min. Wetting Rate (&Gamma;min)</TableCell>
+              <TableCell>Min. Wetting Rate (&Gamma;min, validated design minimum)</TableCell>
               <TableCell align="right">
                 {fmtSci(result.minimumWettingRate)} kg/(m&middot;s)
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Theoretical Film-Breakdown Min. (El-Dessouky, informational)</TableCell>
+              <TableCell align="right">
+                {fmtSci(result.wettingRateTheoreticalMin)} kg/(m&middot;s)
               </TableCell>
             </TableRow>
             <TableRow>
@@ -293,28 +299,10 @@ export function SingleTubeResults({ result }: SingleTubeResultsProps) {
         )}
       </Paper>
 
-      {/* === Design Check === */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Design Check
-        </Typography>
-        <Table size="small">
-          <TableBody>
-            <TableRow>
-              <TableCell>Required Area</TableCell>
-              <TableCell align="right">{fmt(result.requiredArea, 4)} m&sup2;</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Installed Area</TableCell>
-              <TableCell align="right">{fmt(result.outerSurfaceArea, 4)} m&sup2;</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Excess Area</TableCell>
-              <TableCell align="right">{fmt(result.excessArea, 1)}%</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </Paper>
+      {/* The former "Design Check" panel was removed: the tube duty is computed
+          from the installed area (Q = U·A·ΔT), so "required area" was identically
+          the installed area and the displayed excess was always 0 — a tautology,
+          not a check. The installed area is shown in the geometry section. */}
     </Stack>
   );
 }

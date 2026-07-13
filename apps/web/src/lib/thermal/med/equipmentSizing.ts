@@ -30,6 +30,7 @@ import {
   MED_TUBE_CONDUCTIVITY,
   ROGNONI_REFERENCE,
 } from '@vapour/constants';
+import { MIN_WETTING_RATE_DESIGN } from '../wettingConstants';
 import type {
   MEDEffectResult,
   MEDFinalCondenserResult,
@@ -196,8 +197,11 @@ const DEFAULT_FOULING_DISTILLATE = 0.00005;
 /** Design margin for heat transfer area (fraction) */
 const AREA_DESIGN_MARGIN = 0.15;
 
-/** Minimum wetting rate for falling film (kg/(m·s)) — El-Dessouky correlation threshold */
-const MIN_WETTING_RATE = 0.03;
+/**
+ * Minimum wetting rate for falling film (kg/(m·s)) — validated design minimum
+ * (see ../wettingConstants.ts, the single source of truth for this limit).
+ */
+const MIN_WETTING_RATE = MIN_WETTING_RATE_DESIGN;
 
 /** Chun-Seban correlation coefficient for turbulent falling film */
 // h = 0.18 × Re^0.24 × Pr^0.66 × (μ²/(k³ρ²g))^(-1/3)

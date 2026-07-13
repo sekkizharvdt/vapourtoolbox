@@ -347,6 +347,7 @@ export default function SiphonSizingClient() {
       <LoadCalculationDialog
         open={loadDialogOpen}
         onClose={() => setLoadDialogOpen(false)}
+        calculatorType="SIPHON_SIZING"
         onLoad={(inputs) => {
           if (typeof inputs.upstreamPressure === 'string')
             setUpstreamPressure(inputs.upstreamPressure);

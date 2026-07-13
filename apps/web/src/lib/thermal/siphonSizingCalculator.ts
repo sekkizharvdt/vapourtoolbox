@@ -529,11 +529,14 @@ export function calculateSiphonSizing(
     pipeExceedsStandard = false;
   } else {
     const schedule = input.pipeSchedule || '40';
+    // Resolve the selected schedule's own dimension table — without this,
+    // selectPipeByVelocity falls back to the Schedule 40 static table and
+    // non-Sch-40 schedule selections become cosmetic.
     pipeResult = selectPipeByVelocity(
       volumetricFlow,
       input.targetVelocity,
       { min: SIPHON_VELOCITY_MIN, max: SIPHON_VELOCITY_MAX },
-      availablePipes,
+      availablePipes || getStaticPipes(schedule),
       schedule
     );
     pipeExceedsStandard = pipeResult.displayName.includes('(MAX)');
@@ -580,9 +583,10 @@ export function calculateSiphonSizing(
       fluidDensity: density,
       fluidViscosity: viscosity,
       fittings,
-      ...(input.customPipe
-        ? { customPipe: { id_mm: pipeResult.id_mm, area_mm2: pipeResult.area_mm2 } }
-        : {}),
+      // Always pass the actually-selected pipe (custom, override, or auto-selected
+      // schedule dims) so friction uses the same ID as the velocity — the bare
+      // pipeNPS lookup would recompute friction on Schedule 40 dimensions.
+      pipe: pipeResult,
     });
 
     // Calculate minimum height

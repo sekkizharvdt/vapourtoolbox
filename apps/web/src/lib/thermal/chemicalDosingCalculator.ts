@@ -628,11 +628,18 @@ export function calculateCIP(input: CIPInput): CIPResult {
   // Dilute solution volume = system volume (fill the system once)
   const diluteSolutionVolume = systemVolume;
 
-  // Neat acid volume: V_neat = V_system × (C_target / C_neat) × (ρ_dilute / ρ_neat)
-  // For dilute solutions, ρ_dilute ≈ ρ_water ≈ 1.0 kg/L (simplification, safe for 2-5%)
-  const neatAcidLitres = (systemVolumeLitres * cleaningConcentration) / acid.neatConcentration;
-  // neatAcidLitres is in L, neatDensity is kg/L → mass in kg
-  const neatAcidMassKg = neatAcidLitres * acid.neatDensity;
+  // Mass balance on the acid (concentrations are % w/w):
+  //   required neat-product mass: m_neat = V_system × ρ_dilute × (C_target / C_neat)
+  //   neat-product volume:        V_neat = m_neat / ρ_neat
+  // For dilute solutions, ρ_dilute ≈ ρ_water ≈ 1.0 kg/L (simplification, safe for 2-5%).
+  // (Previous code computed V_neat without dividing by ρ_neat and then multiplied
+  // the volume by ρ_neat for the mass — overstating both by the neat-density
+  // factor: +22% formic, +24% citric, +16% HCl.)
+  const DILUTE_SOLUTION_DENSITY_KG_L = 1.0;
+  const neatAcidMassKg =
+    (systemVolumeLitres * DILUTE_SOLUTION_DENSITY_KG_L * cleaningConcentration) /
+    acid.neatConcentration;
+  const neatAcidLitres = neatAcidMassKg / acid.neatDensity;
 
   // Dilution water
   const dilutionWaterVolume = systemVolume - neatAcidLitres / 1000; // m³

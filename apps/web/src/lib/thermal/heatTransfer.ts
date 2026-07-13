@@ -29,6 +29,8 @@ export interface PrandtlResult {
 export interface DittusBoelterResult {
   /** Nusselt number (dimensionless) */
   nusseltNumber: number;
+  /** Validity warnings (e.g. correlation applied outside its Re range) */
+  warnings: string[];
 }
 
 /** Input for tube-side HTC calculation */
@@ -59,6 +61,8 @@ export interface TubeSideHTCResult {
   prandtlNumber: number;
   /** Nusselt number */
   nusseltNumber: number;
+  /** Validity warnings (e.g. correlation applied outside its Re range) */
+  warnings: string[];
 }
 
 /** Input for Nusselt film condensation */
@@ -253,7 +257,15 @@ export function calculateDittusBoelter(
   const n = isHeating ? 0.4 : 0.3;
   const nusseltNumber = 0.023 * Math.pow(reynoldsNumber, 0.8) * Math.pow(prandtlNumber, n);
 
-  return { nusseltNumber };
+  const warnings: string[] = [];
+  if (reynoldsNumber < 10000) {
+    warnings.push(
+      `Re = ${Math.round(reynoldsNumber)} is below the Dittus-Boelter validity limit (Re > 10,000) — ` +
+        'flow is transitional or laminar and the calculated HTC is significantly overestimated'
+    );
+  }
+
+  return { nusseltNumber, warnings };
 }
 
 /**
@@ -275,7 +287,11 @@ export function calculateTubeSideHTC(input: TubeSideHTCInput): TubeSideHTCResult
   const { prandtlNumber } = calculatePrandtlNumber(specificHeat, viscosity, conductivity);
 
   // Nusselt number via Dittus-Boelter
-  const { nusseltNumber } = calculateDittusBoelter(reynoldsNumber, prandtlNumber, isHeating);
+  const { nusseltNumber, warnings } = calculateDittusBoelter(
+    reynoldsNumber,
+    prandtlNumber,
+    isHeating
+  );
 
   // Heat transfer coefficient: h = Nu × k / D
   const htc = (nusseltNumber * conductivity) / diameter;
@@ -285,6 +301,7 @@ export function calculateTubeSideHTC(input: TubeSideHTCInput): TubeSideHTCResult
     reynoldsNumber,
     prandtlNumber,
     nusseltNumber,
+    warnings,
   };
 }
 
@@ -334,6 +351,68 @@ export function calculateNusseltCondensation(
   const denominator = liquidViscosity * dimension * safeDeltaT;
 
   const htc = C * Math.pow(numerator / denominator, 0.25);
+
+  return { htc };
+}
+
+/** Input for Chato in-tube condensation calculation */
+export interface ChatoCondensationInput {
+  /** Condensate (liquid) density in kg/m³ */
+  liquidDensity: number;
+  /** Vapor density in kg/m³ */
+  vaporDensity: number;
+  /** Latent heat of vaporization in kJ/kg */
+  latentHeat: number;
+  /** Condensate thermal conductivity in W/(m·K) */
+  liquidConductivity: number;
+  /** Condensate dynamic viscosity in Pa·s */
+  liquidViscosity: number;
+  /** Tube INNER diameter in m */
+  tubeInnerDiameter: number;
+  /** Film temperature difference T_sat − T_wall in K (NOT the full sat-to-coolant ΔT) */
+  deltaT: number;
+}
+
+/**
+ * Calculate condensation HTC for stratified condensation INSIDE a horizontal
+ * tube using Chato's correlation (Chato, J.C., ASHRAE Journal 4(2), 1962):
+ *
+ *   h = 0.555 × [ρ_l × (ρ_l − ρ_v) × g × h_fg × k³ / (μ × D_i × (T_sat − T_wall))]^0.25
+ *
+ * The 0.555 constant applies to low-vapor-velocity stratified flow in
+ * horizontal tubes (the MED regime). It must NOT be confused with the
+ * external-tube Nusselt constant 0.725, and the driving ΔT is the film ΔT
+ * (T_sat − T_wall from the resistance balance), not the full ΔT to the
+ * coolant. Chato's h'_fg correction (+3/8·cp·ΔT) is omitted — for MED film
+ * ΔTs of 1-3 K it changes h by well under 1%.
+ *
+ * @param input - Chato condensation input
+ * @returns Condensation HTC result
+ */
+export function calculateChatoCondensation(input: ChatoCondensationInput): CondensationHTCResult {
+  const {
+    liquidDensity,
+    vaporDensity,
+    latentHeat,
+    liquidConductivity,
+    liquidViscosity,
+    tubeInnerDiameter,
+    deltaT,
+  } = input;
+
+  const hfgJoules = latentHeat * 1000;
+  const safeDeltaT = Math.max(deltaT, 0.05);
+
+  const numerator =
+    liquidDensity *
+    (liquidDensity - vaporDensity) *
+    GRAVITY *
+    hfgJoules *
+    Math.pow(liquidConductivity, 3);
+
+  const denominator = liquidViscosity * tubeInnerDiameter * safeDeltaT;
+
+  const htc = 0.555 * Math.pow(numerator / denominator, 0.25);
 
   return { htc };
 }

@@ -170,29 +170,31 @@ function calculateFFactorSingleShell(P: number, R: number): number {
   // Special case: P = 0 (no heat transfer)
   if (Math.abs(P) < 1e-6) return 1.0;
 
-  // Special case: R ≈ 1 (equal or near-equal capacity rates)
-  // Use the R=1 closed-form which is numerically stable (the general formula
-  // has S = √(R²+1)/(R-1) which diverges as R→1)
-  // F = (P * √2) / ((1-P) * ln((2-P*(2-√2))/(2-P*(2+√2))))
-  if (Math.abs(R - 1.0) < 0.3) {
+  // Special case: R ≈ 1 (equal capacity rates — the general formula has a
+  // 1/(R-1) prefactor that becomes 0/0 as R→1, so use the closed-form limit)
+  // F = (P·√2 / (1-P)) / ln((2 - P·(2-√2)) / (2 - P·(2+√2)))
+  if (Math.abs(R - 1.0) < 1e-4) {
     const sqrt2 = Math.SQRT2;
-    const num = P * sqrt2;
+    if (Math.abs(1 - P) < 1e-10) return 0.5; // P→1 at R=1: thermodynamic limit
+    const num = (P * sqrt2) / (1 - P);
     const denomArg = (2 - P * (2 - sqrt2)) / (2 - P * (2 + sqrt2));
     if (denomArg <= 0) return 0.5; // F is very low, approaching thermodynamic limit
-    const denom = (1 - P) * Math.log(denomArg);
+    const denom = Math.log(denomArg);
     if (Math.abs(denom) < 1e-10) return 1.0;
     return Math.max(0, Math.min(1.0, num / denom));
   }
 
-  // General case: R ≠ 1
-  // S = √(R² + 1) / (R - 1)
-  // F = S * ln((1 - P)/(1 - P*R)) / ln((2 - P*(R+1-S)) / (2 - P*(R+1+S)))
-  const S = Math.sqrt(R * R + 1) / (R - 1);
+  // General case: R ≠ 1 (Bowman-Mueller-Nagle, 1 shell pass, even tube passes)
+  // √(R²+1) appears bare inside the log arguments; the 1/(R-1) factor only
+  // multiplies the numerator log.
+  // F = (√(R²+1)/(R-1)) · ln((1-P)/(1-P·R))
+  //     / ln((2 - P·(R+1-√(R²+1))) / (2 - P·(R+1+√(R²+1))))
+  const sqrtR21 = Math.sqrt(R * R + 1);
   const numArg = (1 - P) / (1 - P * R);
   if (numArg <= 0) return 0.5; // Temperature cross
-  const num = S * Math.log(numArg);
+  const num = (sqrtR21 / (R - 1)) * Math.log(numArg);
 
-  const denomArg = (2 - P * (R + 1 - S)) / (2 - P * (R + 1 + S));
+  const denomArg = (2 - P * (R + 1 - sqrtR21)) / (2 - P * (R + 1 + sqrtR21));
   if (denomArg <= 0) return 0.5;
   const denom = Math.log(denomArg);
 
@@ -225,7 +227,7 @@ function calculateFFactorMultiShell(P: number, R: number, shellPasses: number): 
   // Convert overall P to per-shell P
   const N = shellPasses;
 
-  if (Math.abs(R - 1.0) < 1e-6) {
+  if (Math.abs(R - 1.0) < 1e-4) {
     // R = 1: P1 = P / (N - (N-1)*P)
     const P1 = P / (N - (N - 1) * P);
     return calculateFFactorSingleShell(P1, R);
@@ -267,8 +269,9 @@ export function calculateSensibleHeat(input: SensibleHeatInput): SensibleHeatRes
   const meanTemp = (inletTemperature + outletTemperature) / 2;
   let specificHeat: number;
 
-  if (fluidType === 'SEAWATER' && salinity) {
-    specificHeat = getSeawaterSpecificHeat(salinity, meanTemp);
+  if (fluidType === 'SEAWATER') {
+    // Salinity 0 / undefined is still water, never steam — Cp ≈ 4.18 kJ/(kg·K)
+    specificHeat = getSeawaterSpecificHeat(salinity ?? 0, meanTemp);
   } else if (fluidType === 'PURE_WATER') {
     // Pure water Cp via Sharqawy correlation at 0 ppm salinity
     specificHeat = getSeawaterSpecificHeat(0, meanTemp);

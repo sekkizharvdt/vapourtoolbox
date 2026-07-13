@@ -31,7 +31,11 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { Save as SaveIcon, FolderOpen as LoadIcon, RestartAlt as ResetIcon } from '@mui/icons-material';
+import {
+  Save as SaveIcon,
+  FolderOpen as LoadIcon,
+  RestartAlt as ResetIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateGOR,
@@ -308,7 +312,6 @@ export default function GORClient() {
   const [condenserApproach, setCondenserApproach] = useState('4');
   const [condenserTTD, setCondenserTTD] = useState('3');
   const [tvcEntrainmentRatio, setTvcEntrainmentRatio] = useState('1.0');
-  const [tvcCompressionRatio, setTvcCompressionRatio] = useState('');
   const [distillateCapacity, setDistillateCapacity] = useState('');
 
   // Dialog state
@@ -328,7 +331,6 @@ export default function GORClient() {
     setCondenserApproach('4');
     setCondenserTTD('3');
     setTvcEntrainmentRatio('1.0');
-    setTvcCompressionRatio('');
     setDistillateCapacity('');
   };
 
@@ -371,7 +373,6 @@ export default function GORClient() {
 
       const cap = parseFloat(distillateCapacity);
       const ra = parseFloat(tvcEntrainmentRatio);
-      const cr = parseFloat(tvcCompressionRatio);
 
       const result = calculateGOR({
         numberOfEffects: n,
@@ -385,7 +386,6 @@ export default function GORClient() {
         condenserApproach: ca,
         condenserTTD: cttd,
         ...(configuration === 'MED_TVC' && !isNaN(ra) && { tvcEntrainmentRatio: ra }),
-        ...(configuration === 'MED_TVC' && !isNaN(cr) && { tvcCompressionRatio: cr }),
         ...(!isNaN(cap) && cap > 0 && { distillateCapacity: cap }),
       });
 
@@ -405,7 +405,6 @@ export default function GORClient() {
     condenserApproach,
     condenserTTD,
     tvcEntrainmentRatio,
-    tvcCompressionRatio,
     distillateCapacity,
   ]);
 
@@ -426,7 +425,6 @@ export default function GORClient() {
       condenserApproach,
       condenserTTD,
       tvcEntrainmentRatio,
-      tvcCompressionRatio,
       distillateCapacity,
       steamSatTemp,
     }),
@@ -442,7 +440,6 @@ export default function GORClient() {
       condenserApproach,
       condenserTTD,
       tvcEntrainmentRatio,
-      tvcCompressionRatio,
       distillateCapacity,
       steamSatTemp,
     ]
@@ -639,15 +636,6 @@ export default function GORClient() {
                     value={tvcEntrainmentRatio}
                     onChange={(e) => setTvcEntrainmentRatio(e.target.value)}
                     helperText="kg entrained vapor / kg motive steam (typical 0.8\u20131.5)"
-                    fullWidth
-                    size="small"
-                  />
-                  <TextField
-                    label="Compression Ratio (optional)"
-                    type="number"
-                    value={tvcCompressionRatio}
-                    onChange={(e) => setTvcCompressionRatio(e.target.value)}
-                    helperText="Discharge pressure / suction pressure"
                     fullWidth
                     size="small"
                   />
@@ -1028,7 +1016,6 @@ export default function GORClient() {
           condenserApproach,
           condenserTTD,
           tvcEntrainmentRatio,
-          tvcCompressionRatio,
           distillateCapacity,
         }}
       />
@@ -1056,8 +1043,6 @@ export default function GORClient() {
           if (typeof inputs.condenserTTD === 'string') setCondenserTTD(inputs.condenserTTD);
           if (typeof inputs.tvcEntrainmentRatio === 'string')
             setTvcEntrainmentRatio(inputs.tvcEntrainmentRatio);
-          if (typeof inputs.tvcCompressionRatio === 'string')
-            setTvcCompressionRatio(inputs.tvcCompressionRatio);
           if (typeof inputs.distillateCapacity === 'string')
             setDistillateCapacity(inputs.distillateCapacity);
         }}

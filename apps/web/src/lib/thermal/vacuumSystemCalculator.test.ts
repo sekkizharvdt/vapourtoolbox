@@ -365,6 +365,26 @@ describe('calculateVacuumSystem — warnings', () => {
     expect(Array.isArray(result.warnings)).toBe(true);
   });
 
+  it('warns when motive steam pressure is at or below discharge pressure', () => {
+    const result = calculateVacuumSystem(
+      createInput({ motivePressureBar: 0.9, trainConfig: 'single_ejector' })
+    );
+    expect(result.warnings.some((w) => w.includes('cannot operate'))).toBe(true);
+  });
+
+  it('warns when the fallback entrainment ratio (Ra = 0.2) engages', () => {
+    const result = calculateVacuumSystem(
+      createInput({ motivePressureBar: 0.9, trainConfig: 'single_ejector' })
+    );
+    expect(result.warnings.some((w) => w.includes('Ra = 0.2'))).toBe(true);
+  });
+
+  it('does not warn about motive pressure for a normal ejector setup', () => {
+    const result = calculateVacuumSystem(createInput({ trainConfig: 'single_ejector' }));
+    expect(result.warnings.some((w) => w.includes('cannot operate'))).toBe(false);
+    expect(result.warnings.some((w) => w.includes('Ra = 0.2'))).toBe(false);
+  });
+
   it('warns about multiple parallel LRVP pumps', () => {
     const result = calculateVacuumSystem(createInput({ trainConfig: 'lrvp_only' }));
     const lrvpStage = result.stages.find((s) => s.type === 'lrvp')!;

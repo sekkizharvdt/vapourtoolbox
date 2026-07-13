@@ -447,6 +447,19 @@ export function calculateTubeBundleGeometry(
     warnings.push('No tubes fit within the specified boundary. Check dimensions.');
   }
 
+  // Exclusion zones that remove nothing are almost always misplaced (outside
+  // the tube field) — surface it instead of silently ignoring the input.
+  if (
+    input.exclusionZones &&
+    input.exclusionZones.length > 0 &&
+    tubesRemovedByExclusions === 0 &&
+    allTubes.length > 0
+  ) {
+    warnings.push(
+      'Nozzle exclusion zones do not intersect the tube field — check nozzle positions.'
+    );
+  }
+
   // Drainage clearance check (verify actual clearance from shell bottom)
   if (
     (input.shape === 'half_circle_left' ||
@@ -604,4 +617,39 @@ export function generateDefaultVapourLanes(
   }
 
   return lanes;
+}
+
+/**
+ * Generate default nozzle penetration exclusion zones matching the BARC
+ * reference arrangement (upper nozzle + centre-lower nozzle).
+ *
+ * Per the BARC as-built tube sheet, the nozzles penetrate INSIDE the tube
+ * field. For a half_circle_left bundle the tubes occupy x <= 0, so the zones
+ * sit at negative x; mirrored to positive x for half_circle_right; centred on
+ * the vertical axis for full_circle/rectangle bundles.
+ *
+ * @param shape Bundle boundary shape (determines which side holds the tube field)
+ * @param shellRadius Shell inner radius in mm
+ * @param nozzleDia1 Upper nozzle diameter in mm (placed at +0.25·R)
+ * @param nozzleDia2 Centre-lower nozzle diameter in mm (placed at -0.1·R)
+ * @returns Exclusion zones positioned inside the tube field
+ */
+export function generateDefaultNozzleExclusions(
+  shape: BundleShape,
+  shellRadius: number,
+  nozzleDia1?: number,
+  nozzleDia2?: number
+): ExclusionZone[] {
+  // Offset toward the side of the shell that actually contains tubes
+  const fieldSign = shape === 'half_circle_left' ? -1 : shape === 'half_circle_right' ? 1 : 0;
+  const cx = fieldSign * shellRadius * 0.3;
+
+  const zones: ExclusionZone[] = [];
+  if (nozzleDia1 !== undefined && nozzleDia1 > 0) {
+    zones.push({ cx, cy: shellRadius * 0.25, diameter: nozzleDia1 }); // upper nozzle
+  }
+  if (nozzleDia2 !== undefined && nozzleDia2 > 0) {
+    zones.push({ cx, cy: -shellRadius * 0.1, diameter: nozzleDia2 }); // centre-lower nozzle
+  }
+  return zones;
 }

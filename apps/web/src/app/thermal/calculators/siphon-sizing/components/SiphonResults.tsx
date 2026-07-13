@@ -517,6 +517,7 @@ export function SiphonResults({ result, inputs }: SiphonResultsProps) {
         open={saveDialogOpen}
         onClose={() => setSaveDialogOpen(false)}
         inputs={inputs as unknown as Record<string, unknown>}
+        calculatorType="SIPHON_SIZING"
       />
     </Stack>
   );

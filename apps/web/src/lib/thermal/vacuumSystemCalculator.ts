@@ -343,14 +343,27 @@ function sizeEjectorStage(
   motivePressureBar: number,
   dryNcgKgH: number,
   vapourKgH: number,
-  _suctionTempC: number
+  _suctionTempC: number,
+  warnings?: string[]
 ): {
   motiveSteamKgH: number;
   entrainmentRatio: number;
   compressionRatio: number;
 } {
+  const pushWarning = (w: string) => {
+    if (warnings && !warnings.includes(w)) warnings.push(w);
+  };
+
   const totalEntrainedKgH = dryNcgKgH + vapourKgH;
   const CR = dischargePressureBar / suctionPressureBar;
+
+  if (motivePressureBar <= dischargePressureBar) {
+    pushWarning(
+      `Motive steam pressure (${motivePressureBar} bar) is at or below the ejector discharge ` +
+        `pressure (${dischargePressureBar} bar) — the ejector cannot operate; increase motive ` +
+        'steam pressure. Results are not meaningful.'
+    );
+  }
 
   // Enthalpies from steam tables
   const motiveSatTempC = getSaturationTemperature(motivePressureBar);
@@ -366,6 +379,10 @@ function sizeEjectorStage(
   const den = hDischargeSat - hSuction;
   if (den <= 0 || num <= 0) {
     // Fallback for extreme conditions
+    pushWarning(
+      'Ejector operating conditions are outside the entrainment model range — a fixed fallback ' +
+        'entrainment ratio (Ra = 0.2) was assumed; motive steam figures are rough estimates only.'
+    );
     return {
       motiveSteamKgH: totalEntrainedKgH * 5,
       entrainmentRatio: 0.2,
@@ -784,7 +801,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         motivePressureBar,
         totalDryNcgKgH,
         vapourWithNcgKgH,
-        suctionTemperatureC
+        suctionTemperatureC,
+        warnings
       );
       totalMotiveSteamKgH = Math.round(ej.motiveSteamKgH * 10) / 10;
       stages.push({
@@ -815,7 +833,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         motivePressureBar,
         totalDryNcgKgH,
         vapourWithNcgKgH,
-        suctionTemperatureC
+        suctionTemperatureC,
+        warnings
       );
       const stage1MotiveSteam = Math.round(ej1.motiveSteamKgH * 10) / 10;
       totalMotiveSteamKgH += stage1MotiveSteam;
@@ -878,7 +897,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         motivePressureBar,
         stage2NcgKgH,
         stage2VapourKgH,
-        stage2TempC
+        stage2TempC,
+        warnings
       );
       const stage2MotiveSteam = Math.round(ej2.motiveSteamKgH * 10) / 10;
       totalMotiveSteamKgH += stage2MotiveSteam;
@@ -948,7 +968,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         motivePressureBar,
         totalDryNcgKgH,
         vapourWithNcgKgH,
-        suctionTemperatureC
+        suctionTemperatureC,
+        warnings
       );
       const ejMotiveSteam = Math.round(ej.motiveSteamKgH * 10) / 10;
       totalMotiveSteamKgH = ejMotiveSteam;

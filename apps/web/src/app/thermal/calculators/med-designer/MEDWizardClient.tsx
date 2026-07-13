@@ -40,6 +40,14 @@ import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 import { getFirebase } from '@/lib/firebase';
 import { computeCostEstimate } from '@/lib/thermal/med/costEstimation';
 import type { MEDCostEstimate } from '@/lib/thermal/med/designerTypes';
+import {
+  MED_WIZARD_DEFAULTS,
+  buildMEDSavePayload,
+  restoreMEDWizardState,
+  type VacuumConfig,
+  type GeoMode,
+  type GeoUniformFix,
+} from './medWizardPersistence';
 
 const STEPS = ['Design Inputs', 'Equipment & Geometry', 'Detailed Design', 'Review & Export'];
 
@@ -48,45 +56,53 @@ export default function MEDWizardClient() {
   const [activeStep, setActiveStep] = useState(0);
 
   // ── Step 1: Primary inputs ─────────────────────────────────────────────
-  const [steamFlow, setSteamFlow] = useState('0.79');
-  const [steamTemp, setSteamTemp] = useState('57');
-  const [swTemp, setSwTemp] = useState('30');
-  const [swSalinity, setSwSalinity] = useState('35000');
-  const [maxBrineSalinity, setMaxBrineSalinity] = useState('65000');
-  const [numberOfEffects, setNumberOfEffects] = useState('6');
-  const [condenserApproach, setCondenserApproach] = useState('4');
-  const [condenserOutletTemp, setCondenserOutletTemp] = useState('');
-  const [preheaterEffects, setPreheaterEffects] = useState<number[]>([]);
-  const [preheaterTempRise, setPreheaterTempRise] = useState('4');
-  const [preheaterTempRiseMap, setPreheaterTempRiseMap] = useState<Record<number, string>>({});
-  const [tvcEnabled, setTvcEnabled] = useState(false);
-  const [tvcMotivePressure, setTvcMotivePressure] = useState('10');
-  const [tvcSuperheat, setTvcSuperheat] = useState('0');
-  const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState('');
+  // Initializers come from MED_WIZARD_DEFAULTS so save/load fallbacks can't
+  // drift from fresh-wizard state (rule 22 round-trip; see medWizardPersistence.ts).
+  const [steamFlow, setSteamFlow] = useState(MED_WIZARD_DEFAULTS.steamFlow);
+  const [steamTemp, setSteamTemp] = useState(MED_WIZARD_DEFAULTS.steamTemp);
+  const [swTemp, setSwTemp] = useState(MED_WIZARD_DEFAULTS.swTemp);
+  const [swSalinity, setSwSalinity] = useState(MED_WIZARD_DEFAULTS.swSalinity);
+  const [maxBrineSalinity, setMaxBrineSalinity] = useState(MED_WIZARD_DEFAULTS.maxBrineSalinity);
+  const [numberOfEffects, setNumberOfEffects] = useState(MED_WIZARD_DEFAULTS.numberOfEffects);
+  const [condenserApproach, setCondenserApproach] = useState(MED_WIZARD_DEFAULTS.condenserApproach);
+  const [condenserOutletTemp, setCondenserOutletTemp] = useState(
+    MED_WIZARD_DEFAULTS.condenserOutletTemp
+  );
+  const [preheaterEffects, setPreheaterEffects] = useState<number[]>(
+    MED_WIZARD_DEFAULTS.preheaterEffects
+  );
+  const [preheaterTempRise, setPreheaterTempRise] = useState(MED_WIZARD_DEFAULTS.preheaterTempRise);
+  const [preheaterTempRiseMap, setPreheaterTempRiseMap] = useState<Record<number, string>>(
+    MED_WIZARD_DEFAULTS.preheaterTempRiseMap
+  );
+  const [tvcEnabled, setTvcEnabled] = useState(MED_WIZARD_DEFAULTS.tvcEnabled);
+  const [tvcMotivePressure, setTvcMotivePressure] = useState(MED_WIZARD_DEFAULTS.tvcMotivePressure);
+  const [tvcSuperheat, setTvcSuperheat] = useState(MED_WIZARD_DEFAULTS.tvcSuperheat);
+  const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState(
+    MED_WIZARD_DEFAULTS.tvcEntrainedEffect
+  );
 
   // ── Step 1: Advanced parameters ────────────────────────────────────────
-  const [tubeMaterial, setTubeMaterial] = useState('Al 5052');
-  const [nea, setNea] = useState('0.25');
-  const [demisterLoss, setDemisterLoss] = useState('0.15');
-  const [ductLoss, setDuctLoss] = useState('0.30');
-  const [foulingResistance, setFoulingResistance] = useState('0.00015');
-  const [bpeSafetyFactor, setBpeSafetyFactor] = useState('1.1');
-  const [designMargin, setDesignMargin] = useState('15');
-  const [includeBrineRecirculation, setIncludeBrineRecirculation] = useState(true);
-  const [antiscalantDose, setAntiscalantDose] = useState('2');
-  const [shellsPerEffect, setShellsPerEffect] = useState('1');
-  const [vacuumConfig, setVacuumConfig] = useState<
-    'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
-  >('two_stage_ejector');
-  const [includeTurndown, setIncludeTurndown] = useState(false);
+  const [tubeMaterial, setTubeMaterial] = useState(MED_WIZARD_DEFAULTS.tubeMaterial);
+  const [foulingResistance, setFoulingResistance] = useState(MED_WIZARD_DEFAULTS.foulingResistance);
+  const [bpeSafetyFactor, setBpeSafetyFactor] = useState(MED_WIZARD_DEFAULTS.bpeSafetyFactor);
+  const [designMargin, setDesignMargin] = useState(MED_WIZARD_DEFAULTS.designMargin);
+  const [includeBrineRecirculation, setIncludeBrineRecirculation] = useState(
+    MED_WIZARD_DEFAULTS.includeBrineRecirculation
+  );
+  const [antiscalantDose, setAntiscalantDose] = useState(MED_WIZARD_DEFAULTS.antiscalantDose);
+  const [shellsPerEffect, setShellsPerEffect] = useState(MED_WIZARD_DEFAULTS.shellsPerEffect);
+  const [vacuumConfig, setVacuumConfig] = useState<VacuumConfig>(MED_WIZARD_DEFAULTS.vacuumConfig);
+  const [includeTurndown, setIncludeTurndown] = useState(MED_WIZARD_DEFAULTS.includeTurndown);
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
-  const [geoMode, setGeoMode] = useState<'fixed_length' | 'fixed_tubes' | 'uniform'>(
-    'fixed_length'
+  const [geoMode, setGeoMode] = useState<GeoMode>(MED_WIZARD_DEFAULTS.geoMode);
+  const [geoValue, setGeoValue] = useState(MED_WIZARD_DEFAULTS.geoValue);
+  const [geoUniformFix, setGeoUniformFix] = useState<GeoUniformFix>(
+    MED_WIZARD_DEFAULTS.geoUniformFix
   );
-  const [geoValue, setGeoValue] = useState('1.2');
-  const [geoUniformFix, setGeoUniformFix] = useState<'tubes' | 'length'>('tubes');
-  const [uniformMargin, setUniformMargin] = useState('15'); // % overdesign above max duty effect
+  // % overdesign above max duty effect
+  const [uniformMargin, setUniformMargin] = useState(MED_WIZARD_DEFAULTS.uniformMargin);
 
   // ── PDF dialog ─────────────────────────────────────────────────────────
   const [reportOpen, setReportOpen] = useState(false);
@@ -199,9 +215,6 @@ export default function MEDWizardClient() {
             condenserSWOutlet: parseFloat(condenserOutletTemp),
           }),
         tubeMaterialName: tubeMaterial,
-        NEA: parseFloat(nea) || 0.25,
-        demisterLoss: parseFloat(demisterLoss) || 0.15,
-        pressureDropLoss: parseFloat(ductLoss) || 0.3,
         foulingResistance: parseFloat(foulingResistance) || 0.00015,
         bpeSafetyFactor: parseFloat(bpeSafetyFactor) || 1.1,
         designMargin: (parseFloat(designMargin) || 15) / 100,
@@ -244,9 +257,6 @@ export default function MEDWizardClient() {
     tvcSuperheat,
     tvcEntrainedEffect,
     tubeMaterial,
-    nea,
-    demisterLoss,
-    ductLoss,
     foulingResistance,
     bpeSafetyFactor,
     designMargin,
@@ -450,9 +460,6 @@ export default function MEDWizardClient() {
     setTvcSuperheat('0');
     setTvcEntrainedEffect('');
     setTubeMaterial('Al 5052');
-    setNea('0.25');
-    setDemisterLoss('0.15');
-    setDuctLoss('0.30');
     setFoulingResistance('0.00015');
     setDesignMargin('15');
     setGeoValue('1.2');
@@ -1248,7 +1255,7 @@ export default function MEDWizardClient() {
         open={saveOpen}
         onClose={() => setSaveOpen(false)}
         calculatorType="MED_DESIGNER"
-        inputs={{
+        inputs={buildMEDSavePayload({
           steamFlow,
           steamTemp,
           swTemp,
@@ -1258,63 +1265,63 @@ export default function MEDWizardClient() {
           condenserApproach,
           condenserOutletTemp,
           preheaterEffects,
+          preheaterTempRise,
+          preheaterTempRiseMap,
           tvcEnabled,
           tvcMotivePressure,
           tvcSuperheat,
           tvcEntrainedEffect,
+          tubeMaterial,
+          foulingResistance,
+          bpeSafetyFactor,
+          designMargin,
+          includeBrineRecirculation,
+          antiscalantDose,
+          shellsPerEffect,
+          vacuumConfig,
+          includeTurndown,
           geoMode,
           geoValue,
           geoUniformFix,
           uniformMargin,
-          tubeMaterial,
-          nea,
-          demisterLoss,
-          ductLoss,
-          foulingResistance,
-          designMargin,
-        }}
+        })}
       />
       <LoadCalculationDialog
         open={loadOpen}
         onClose={() => setLoadOpen(false)}
         calculatorType="MED_DESIGNER"
         onLoad={(inputs) => {
-          if (typeof inputs.steamFlow === 'string') setSteamFlow(inputs.steamFlow);
-          if (typeof inputs.steamTemp === 'string') setSteamTemp(inputs.steamTemp);
-          if (typeof inputs.swTemp === 'string') setSwTemp(inputs.swTemp);
-          if (typeof inputs.swSalinity === 'string') setSwSalinity(inputs.swSalinity);
-          if (typeof inputs.maxBrineSalinity === 'string')
-            setMaxBrineSalinity(inputs.maxBrineSalinity);
-          if (typeof inputs.numberOfEffects === 'string')
-            setNumberOfEffects(inputs.numberOfEffects);
-          if (typeof inputs.condenserApproach === 'string')
-            setCondenserApproach(inputs.condenserApproach);
-          if (typeof inputs.condenserOutletTemp === 'string')
-            setCondenserOutletTemp(inputs.condenserOutletTemp);
-          if (Array.isArray(inputs.preheaterEffects)) setPreheaterEffects(inputs.preheaterEffects);
-          if (typeof inputs.tvcEnabled === 'boolean') setTvcEnabled(inputs.tvcEnabled);
-          if (typeof inputs.tvcMotivePressure === 'string')
-            setTvcMotivePressure(inputs.tvcMotivePressure);
-          if (typeof inputs.tvcSuperheat === 'string') setTvcSuperheat(inputs.tvcSuperheat);
-          if (typeof inputs.tvcEntrainedEffect === 'string')
-            setTvcEntrainedEffect(inputs.tvcEntrainedEffect);
-          if (
-            inputs.geoMode === 'fixed_length' ||
-            inputs.geoMode === 'fixed_tubes' ||
-            inputs.geoMode === 'uniform'
-          )
-            setGeoMode(inputs.geoMode);
-          if (typeof inputs.geoValue === 'string') setGeoValue(inputs.geoValue);
-          if (inputs.geoUniformFix === 'tubes' || inputs.geoUniformFix === 'length')
-            setGeoUniformFix(inputs.geoUniformFix);
-          if (typeof inputs.uniformMargin === 'string') setUniformMargin(inputs.uniformMargin);
-          if (typeof inputs.tubeMaterial === 'string') setTubeMaterial(inputs.tubeMaterial);
-          if (typeof inputs.nea === 'string') setNea(inputs.nea);
-          if (typeof inputs.demisterLoss === 'string') setDemisterLoss(inputs.demisterLoss);
-          if (typeof inputs.ductLoss === 'string') setDuctLoss(inputs.ductLoss);
-          if (typeof inputs.foulingResistance === 'string')
-            setFoulingResistance(inputs.foulingResistance);
-          if (typeof inputs.designMargin === 'string') setDesignMargin(inputs.designMargin);
+          // Restore EVERY design input (rule 22 round-trip). Keys missing from
+          // old saves fall back to the fresh-wizard defaults.
+          const restored = restoreMEDWizardState(inputs);
+          setSteamFlow(restored.steamFlow);
+          setSteamTemp(restored.steamTemp);
+          setSwTemp(restored.swTemp);
+          setSwSalinity(restored.swSalinity);
+          setMaxBrineSalinity(restored.maxBrineSalinity);
+          setNumberOfEffects(restored.numberOfEffects);
+          setCondenserApproach(restored.condenserApproach);
+          setCondenserOutletTemp(restored.condenserOutletTemp);
+          setPreheaterEffects(restored.preheaterEffects);
+          setPreheaterTempRise(restored.preheaterTempRise);
+          setPreheaterTempRiseMap(restored.preheaterTempRiseMap);
+          setTvcEnabled(restored.tvcEnabled);
+          setTvcMotivePressure(restored.tvcMotivePressure);
+          setTvcSuperheat(restored.tvcSuperheat);
+          setTvcEntrainedEffect(restored.tvcEntrainedEffect);
+          setTubeMaterial(restored.tubeMaterial);
+          setFoulingResistance(restored.foulingResistance);
+          setBpeSafetyFactor(restored.bpeSafetyFactor);
+          setDesignMargin(restored.designMargin);
+          setIncludeBrineRecirculation(restored.includeBrineRecirculation);
+          setAntiscalantDose(restored.antiscalantDose);
+          setShellsPerEffect(restored.shellsPerEffect);
+          setVacuumConfig(restored.vacuumConfig);
+          setIncludeTurndown(restored.includeTurndown);
+          setGeoMode(restored.geoMode);
+          setGeoValue(restored.geoValue);
+          setGeoUniformFix(restored.geoUniformFix);
+          setUniformMargin(restored.uniformMargin);
           // Return to step 1 after loading
           setActiveStep(0);
         }}

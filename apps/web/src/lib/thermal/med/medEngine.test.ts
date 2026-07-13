@@ -518,3 +518,75 @@ describe('MED Engine — Recirculation', () => {
     expect(result.performance.gor).toBeLessThan(10);
   });
 });
+
+// ===========================================================================
+// External anchor — golden regression snapshot (BARC MED-TVC per-effect)
+// ===========================================================================
+
+describe('external anchor — golden regression snapshot (BARC MED-TVC per-effect profile)', () => {
+  /**
+   * Full per-effect regression pins captured 2026-07-13 from the validated
+   * engine, running the BARC MED-TVC configuration (BARC/IIT Madras plant:
+   * 1040 kg/hr motive steam @ 10 bar, 6 effects, 4 preheaters, as-built
+   * GOR = 9.61; the engine computes GOR = 10.05, inside the validated ±15%
+   * band).
+   *
+   * Unlike the GOR check above, these pins freeze the SHAPE of the cascade
+   * (per-effect temperature, vapor flow, brine flow, required area). Any
+   * future physics change that shifts the temperature profile, flash split,
+   * preheater peel-off, or HTC stack fails loudly here (±0.5% per value)
+   * instead of hiding inside the ±15% GOR tolerance. If a deliberate physics
+   * fix moves these numbers, re-baseline the table in the same commit and
+   * say why in the commit message.
+   */
+  const GOLDEN_INPUT: MEDEngineInput = {
+    steamFlow: 1040,
+    steamTemperature: 58.8,
+    numberOfEffects: 6,
+    seawaterInletTemp: 30,
+    seawaterSalinity: 35000,
+    maxBrineSalinity: 59400,
+    condenserApproach: 4,
+    tvcMotivePressure: 10,
+    preheaterEffects: [2, 3, 4, 5],
+  };
+
+  // effect | T (°C) | vapor out (kg/hr) | brine out (kg/hr) | required area (m²)
+  const GOLDEN_PROFILE = [
+    { effect: 1, temperature: 55.5, vaporFlow: 2102.99, brineFlow: 2143.36, area: 171.33 },
+    { effect: 2, temperature: 52.2, vaporFlow: 1915.32, brineFlow: 4345.09, area: 203.19 },
+    { effect: 3, temperature: 48.9, vaporFlow: 1744.45, brineFlow: 6730.27, area: 225.74 },
+    { effect: 4, temperature: 45.6, vaporFlow: 1560.85, brineFlow: 9286.44, area: 206.03 },
+    { effect: 5, temperature: 42.3, vaporFlow: 1384.7, brineFlow: 12025.2, area: 187.37 },
+    { effect: 6, temperature: 39.0, vaporFlow: 294.57, brineFlow: 14910.12, area: 169.21 },
+  ];
+
+  const golden = calculateMED(GOLDEN_INPUT);
+
+  it('converges and reproduces the golden GOR (10.05 ±0.5%)', () => {
+    expect(golden.converged).toBe(true);
+    expect(Math.abs(golden.performance.gor - 10.05) / 10.05).toBeLessThan(0.005);
+    expect(Math.abs(golden.performance.netDistillate - 10450) / 10450).toBeLessThan(0.005);
+  });
+
+  it('reproduces the golden TVC operating point (±0.5%)', () => {
+    expect(golden.tvc).not.toBeNull();
+    expect(Math.abs(golden.tvc!.entrainmentRatio - 1.0698) / 1.0698).toBeLessThan(0.005);
+    expect(Math.abs(golden.tvc!.dischargeFlow - 2152.64) / 2152.64).toBeLessThan(0.005);
+  });
+
+  it.each(GOLDEN_PROFILE)(
+    'effect $effect: temperature, vapor flow, brine flow, area all within ±0.5% of golden values',
+    ({ effect, temperature, vaporFlow, brineFlow, area }) => {
+      const e = golden.effects[effect - 1]!;
+      expect(e.effectNumber).toBe(effect);
+      expect(Math.abs(e.temperature - temperature) / temperature).toBeLessThan(0.005);
+      expect(Math.abs(e.totalVaporOut.flow - vaporFlow) / vaporFlow).toBeLessThan(0.005);
+      expect(Math.abs(e.totalBrineOut.flow - brineFlow) / brineFlow).toBeLessThan(0.005);
+
+      expect(golden.equipmentSizing).not.toBeNull();
+      const sized = golden.equipmentSizing!.evaporators[effect - 1]!;
+      expect(Math.abs(sized.requiredArea - area) / area).toBeLessThan(0.005);
+    }
+  );
+});

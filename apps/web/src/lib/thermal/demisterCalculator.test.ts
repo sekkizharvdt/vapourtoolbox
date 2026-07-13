@@ -662,3 +662,51 @@ describe('demisterCalculator', () => {
     });
   });
 });
+
+// ============================================================================
+// External anchor — GPSA Engineering Data Book Souders-Brown
+// ============================================================================
+
+describe('external anchor — GPSA Engineering Data Book (Souders-Brown)', () => {
+  /**
+   * GPSA Engineering Data Book, 13th ed., Section 7 (Separation Equipment):
+   * mesh-pad separators are sized with the Souders-Brown equation
+   *   V_max = K·√((ρ_L − ρ_V)/ρ_V)
+   * with a recommended K = 0.35 ft/s = 0.10668 m/s for standard wire-mesh
+   * pads in horizontal gas flow at near-atmospheric pressure.
+   *
+   * Case (hand-computed): low-pressure evaporator vapor,
+   *   ρ_V = 1.0 kg/m³, ρ_L = 1000 kg/m³
+   *   V_max = 0.10668 · √((1000 − 1.0)/1.0) = 0.10668 · 31.607 = 3.372 m/s
+   *
+   * The code's wire_mesh/horizontal K = 0.107 m/s (a metric rounding of
+   * 0.35 ft/s) gives V_max = 3.382 m/s — +0.3% vs the hand value.
+   *
+   * KNOWN DIVERGENCE (review finding — documented here, NOT fixed):
+   * flashChamberCalculator.ts uses its own SB_K_FACTOR table with
+   * WIRE_MESH = 0.09 m/s (≈0.30 ft/s, conservative), while this calculator
+   * uses 0.107 m/s horizontal / 0.076 m/s vertical. The same physical pad is
+   * therefore allowed ~19% more velocity here than in the flash-chamber
+   * sizing path. Consolidation is tracked by the 2026-07-06 thermal review.
+   */
+  it('wire mesh, ρV=1.0, ρL=1000: allowable velocity within ±5% of GPSA hand value', () => {
+    const result = calculateDemisterSizing({
+      vaporMassFlow: 2.5, // kg/s
+      vaporDensity: 1.0, // kg/m³
+      liquidDensity: 1000, // kg/m³
+      demisterType: 'wire_mesh',
+      orientation: 'horizontal',
+      designMargin: 0.8,
+      geometry: 'circular',
+    });
+
+    // Hand Souders-Brown: V_max = 0.10668·√999 = 3.372 m/s (±5%)
+    expect(Math.abs(result.maxVelocity - 3.372) / 3.372).toBeLessThan(0.05);
+
+    // Design velocity = 0.8·V_max = 2.698 m/s (±5%)
+    expect(Math.abs(result.designVelocity - 2.698) / 2.698).toBeLessThan(0.05);
+
+    // Required area follows directly: A = (ṁ/ρ_V)/V_design = 2.5/2.698 = 0.9266 m² (±5%)
+    expect(Math.abs(result.requiredArea - 0.9266) / 0.9266).toBeLessThan(0.05);
+  });
+});

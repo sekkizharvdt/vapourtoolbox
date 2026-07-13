@@ -2,14 +2,14 @@
  * Single Tube Analysis Calculator
  *
  * Analyses a single horizontal tube with:
- *   - Vapour condensing INSIDE the tube (Nusselt horizontal in-tube condensation)
+ *   - Vapour condensing INSIDE the tube (Chato stratified in-tube condensation)
  *   - Spray water evaporating on the OUTSIDE (Chun-Seban falling film)
  *
  * Calculates film thickness on both sides, heat transfer coefficients,
  * overall U-value, and complete heat & mass balance.
  *
  * References:
- * - Nusselt, W., "Die Oberflachenkondensation des Wasserdampfes," 1916
+ * - Chato, J.C., "Laminar Condensation Inside Horizontal and Inclined Tubes," ASHRAE Journal 4(2), 1962
  * - Chun, K.R. and Seban, R.A., "Heat Transfer to Evaporating Liquid Films," 1971
  * - El-Dessouky & Ettouney, "Fundamentals of Salt Water Desalination," 2002
  * - Sharqawy, M.H. et al., "Thermophysical properties of seawater," 2010
@@ -31,6 +31,8 @@ import type {
   FilmAnalysis,
   SingleTubeHeatMassBalance,
 } from '@vapour/types';
+import { MIN_WETTING_RATE_DESIGN, WETTING_RATE_DESIGN_TARGET } from './wettingConstants';
+import { calculateChatoCondensation } from './heatTransfer';
 
 // ============================================================================
 // Constants
@@ -38,7 +40,6 @@ import type {
 
 const g = 9.81; // m/s²
 const DEFAULT_FOULING = 0.00009; // m²·K/W
-const DEFAULT_DESIGN_MARGIN = 0.15;
 
 /**
  * Quick-select tube material defaults for the UI.
@@ -136,13 +137,16 @@ export function validateSingleTubeInput(input: SingleTubeInput): ValidationResul
 }
 
 // ============================================================================
-// Wetting limits (same as falling film calculator)
+// Wetting limits (same as falling film calculator and MED designer)
 // ============================================================================
 
+// Ratio thresholds against the validated design minimum of 0.03 kg/(m·s)
+// (MIN_WETTING_RATE_DESIGN in ./wettingConstants.ts) — mirrors the MED
+// designer grading in med/equipmentSizing.ts.
 const WETTING_LIMITS = {
-  EXCELLENT: 3.0,
-  GOOD: 2.0,
-  MARGINAL: 1.5,
+  EXCELLENT: 2.0, // Gamma >= 0.06 kg/(m·s)
+  GOOD: 1.5, // Gamma >= 0.045 kg/(m·s) (design target)
+  MARGINAL: 1.0, // Gamma >= 0.03 kg/(m·s)
 };
 
 // ============================================================================
@@ -163,7 +167,6 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
   // Resolve optional params
   const insideFouling = input.insideFouling ?? DEFAULT_FOULING;
   const outsideFouling = input.outsideFouling ?? DEFAULT_FOULING;
-  const designMargin = input.designMargin ?? DEFAULT_DESIGN_MARGIN;
 
   // ========================================================================
   // Tube geometry
@@ -212,19 +215,31 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
   // Factor 2: liquid flows on both sides of the horizontal tube
   const wettingRate = input.sprayFlowRate / (input.tubeLength * 2); // kg/(m·s)
 
-  // Minimum wetting rate (El-Dessouky & Ettouney 2002)
-  const gammaMin = 0.11 * Math.pow((mu_spray * mu_spray) / (rho_spray * sigma_spray), 1 / 3);
-  const wettingRatio = wettingRate / gammaMin;
+  // Governing limit: the validated design minimum (0.03 kg/(m·s)), NOT the
+  // El-Dessouky correlation. See ./wettingConstants.ts.
+  const minimumWettingRate = MIN_WETTING_RATE_DESIGN;
 
+  // El-Dessouky & Ettouney (2002) theoretical film-breakdown minimum —
+  // informational only; ~100× too permissive to use as a design limit.
+  const wettingRateTheoreticalMin =
+    0.11 * Math.pow((mu_spray * mu_spray) / (rho_spray * sigma_spray), 1 / 3);
+
+  const wettingRatio = wettingRate / minimumWettingRate;
+
+  // Wetting status (mirrors MED designer grading in med/equipmentSizing.ts)
   let wettingStatus: 'excellent' | 'good' | 'marginal' | 'poor';
-  if (wettingRatio > WETTING_LIMITS.EXCELLENT) wettingStatus = 'excellent';
-  else if (wettingRatio > WETTING_LIMITS.GOOD) wettingStatus = 'good';
-  else if (wettingRatio > WETTING_LIMITS.MARGINAL) wettingStatus = 'marginal';
+  if (wettingRatio >= WETTING_LIMITS.EXCELLENT) wettingStatus = 'excellent';
+  else if (wettingRatio >= WETTING_LIMITS.GOOD) wettingStatus = 'good';
+  else if (wettingRatio >= WETTING_LIMITS.MARGINAL) wettingStatus = 'marginal';
   else wettingStatus = 'poor';
 
-  if (wettingRatio < 1.5) {
+  if (wettingRatio < 1.0) {
     warnings.push(
-      `Wetting ratio (${wettingRatio.toFixed(2)}) below 1.5 — dry spots likely. Increase spray flow.`
+      `Wetting rate (${wettingRate.toFixed(4)} kg/(m·s)) is below the validated minimum (${MIN_WETTING_RATE_DESIGN} kg/(m·s)) — dry spots likely. Increase spray flow.`
+    );
+  } else if (wettingRatio < 1.5) {
+    warnings.push(
+      `Wetting rate (${wettingRate.toFixed(4)} kg/(m·s)) is below the design target (${WETTING_RATE_DESIGN_TARGET} kg/(m·s) = 1.5× minimum). Consider increasing spray flow.`
     );
   }
 
@@ -254,7 +269,10 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
 
   let htcOutside: number;
   if (filmReynoldsOut < 400) {
-    htcOutside = 0.821 * filmGroupOut * Math.pow(filmReynoldsOut, -1 / 3);
+    // Chun-Seban (1971) laminar evaporating film: Nu* = 0.822·Re^(−0.22)
+    // where Nu* = h·(ν²/g)^(1/3)/k. (The previous 0.821·Re^(−1/3) matched
+    // neither Chun-Seban nor Nusselt smooth-film theory, coefficient 1.47.)
+    htcOutside = 0.822 * filmGroupOut * Math.pow(filmReynoldsOut, -0.22);
   } else if (filmReynoldsOut < 1600) {
     htcOutside = 0.0038 * filmGroupOut * Math.pow(filmReynoldsOut, 0.4) * Math.pow(Pr_spray, 0.65);
   } else {
@@ -266,7 +284,7 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
     Math.pow((3 * mu_spray * wettingRate) / (rho_spray * rho_spray * g), 1 / 3) * 1000; // mm
 
   // ========================================================================
-  // Inside: Condensate film (Nusselt horizontal in-tube)
+  // Inside: Condensate film (Chato stratified in-tube condensation)
   // ========================================================================
 
   const T_vap = input.vapourTemperature;
@@ -278,15 +296,47 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
   const k_cond = getPureWaterConductivity(T_vap);
   const hfg_cond = getLatentHeat(T_vap); // kJ/kg
 
-  // ΔT across condensate film ≈ T_vap - T_spray (approximation for single tube)
-  const deltaT_cond = T_vap - T_spray;
+  // Wall resistance: R_wall = D_o × ln(D_o/D_i) / (2 × k_wall)
+  const wallResistance = (D_o * Math.log(D_o / D_i)) / (2 * wallConductivity);
 
-  // Nusselt horizontal in-tube condensation:
-  // h = 0.725 × [ρ_l × (ρ_l − ρ_v) × g × hfg × k³ / (μ × D_i × ΔT)]^0.25
-  const safeDeltaT = Math.max(deltaT_cond, 0.1);
-  const numerator = rho_cond * (rho_cond - rho_vap) * g * (hfg_cond * 1000) * Math.pow(k_cond, 3);
-  const denominator = mu_cond * D_i * safeDeltaT;
-  const htcInside = 0.725 * Math.pow(numerator / denominator, 0.25);
+  // Effective overall driving ΔT (vapour to boiling film, incl. BPE)
+  const T_boiling = T_spray + bpe;
+  const effectiveDeltaT = T_vap - T_boiling;
+
+  // Chato (1962) stratified in-tube condensation (constant 0.555, NOT the
+  // external-tube Nusselt 0.725), driven by the film ΔT = T_vap − T_wall —
+  // not the full vapour-to-spray ΔT. T_wall follows from the resistance
+  // balance: q = U·ΔT_eff flows through the inside film, so (on the OD basis)
+  // ΔT_film = q·(D_o/D_i)/h_i = ΔT_eff·U·(D_o/D_i)/h_i. Since h_i ∝ ΔT^(−1/4),
+  // solve by fixed-point iteration (converges in 2-3 passes).
+  const rOutsideOfFilm =
+    1 / htcOutside + outsideFouling + wallResistance + insideFouling * (D_o / D_i);
+  const totalDeltaT_in = Math.max(effectiveDeltaT, 0.1);
+
+  const chatoAt = (deltaTFilm: number): number =>
+    calculateChatoCondensation({
+      liquidDensity: rho_cond,
+      vaporDensity: rho_vap,
+      latentHeat: hfg_cond,
+      liquidConductivity: k_cond,
+      liquidViscosity: mu_cond,
+      tubeInnerDiameter: D_i,
+      deltaT: deltaTFilm,
+    }).htc;
+
+  let deltaTFilmIn = 0.5 * totalDeltaT_in;
+  let htcInside = chatoAt(deltaTFilmIn);
+  for (let iter = 0; iter < 10; iter++) {
+    const rInsideFilm = D_o / D_i / htcInside;
+    const uEst = 1 / (rOutsideOfFilm + rInsideFilm);
+    const nextDeltaTFilm = Math.max(totalDeltaT_in * uEst * rInsideFilm, 0.05);
+    const convergedFilm = Math.abs(nextDeltaTFilm - deltaTFilmIn) < 0.01;
+    deltaTFilmIn = nextDeltaTFilm;
+    htcInside = chatoAt(deltaTFilmIn);
+    if (convergedFilm) {
+      break;
+    }
+  }
 
   // Condensate film Reynolds (for reference)
   // Approximate: Re_cond = 4 × Γ_cond / μ_cond
@@ -309,26 +359,15 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
   // Overall HTC
   // ========================================================================
 
-  // Wall resistance: R_wall = D_o × ln(D_o/D_i) / (2 × k_wall)
-  const wallResistance = (D_o * Math.log(D_o / D_i)) / (2 * wallConductivity);
-
   // Overall HTC based on OD:
   // 1/U_o = 1/h_o + R_fo + R_wall + R_fi×(D_o/D_i) + (D_o/D_i)×(1/h_i)
-  const invU =
-    1 / htcOutside +
-    outsideFouling +
-    wallResistance +
-    insideFouling * (D_o / D_i) +
-    (D_o / D_i) * (1 / htcInside);
+  const invU = rOutsideOfFilm + (D_o / D_i) * (1 / htcInside);
 
   const overallHTC = 1 / invU;
 
   // ========================================================================
   // Thermal performance
   // ========================================================================
-
-  const T_boiling = T_spray + bpe;
-  const effectiveDeltaT = T_vap - T_boiling;
 
   if (effectiveDeltaT < 1) {
     warnings.push(
@@ -389,16 +428,6 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
   };
 
   // ========================================================================
-  // Design check
-  // ========================================================================
-
-  const requiredArea =
-    effectiveDeltaT > 0 ? heatDuty / (overallHTC * effectiveDeltaT) : outerSurfaceArea;
-  const designArea = requiredArea * (1 + designMargin);
-  const excessArea =
-    requiredArea > 0 ? ((outerSurfaceArea - requiredArea) / requiredArea) * 100 : 0;
-
-  // ========================================================================
   // Build result
   // ========================================================================
 
@@ -432,12 +461,10 @@ export function calculateSingleTube(input: SingleTubeInput): SingleTubeResult {
     boilingPointElevation: bpe,
     heatMassBalance,
     wettingRate,
-    minimumWettingRate: gammaMin,
+    minimumWettingRate,
+    wettingRateTheoreticalMin,
     wettingRatio,
     wettingStatus,
-    requiredArea,
-    designArea,
-    excessArea,
     warnings,
   };
 }

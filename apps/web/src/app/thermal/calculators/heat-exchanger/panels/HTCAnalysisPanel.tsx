@@ -129,7 +129,10 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
   const [loadOpen, setLoadOpen] = useState(false);
 
   // Calculations
-  const tubeSideComputed = useMemo((): { result: TubeSideHTCResult | null; error: string | null } => {
+  const tubeSideComputed = useMemo((): {
+    result: TubeSideHTCResult | null;
+    error: string | null;
+  } => {
     try {
       const density = parseFloat(tsDensity);
       const velocity = parseFloat(tsVelocity);
@@ -167,13 +170,19 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
         error: null,
       };
     } catch (err) {
-      return { result: null, error: err instanceof Error ? err.message : 'Tube-side calculation error' };
+      return {
+        result: null,
+        error: err instanceof Error ? err.message : 'Tube-side calculation error',
+      };
     }
   }, [tsDensity, tsVelocity, tsTubeID, tsViscosity, tsSpecificHeat, tsConductivity, tsIsHeating]);
 
   const tubeSideResult = tubeSideComputed.result;
 
-  const condensationComputed = useMemo((): { result: CondensationHTCResult | null; error: string | null } => {
+  const condensationComputed = useMemo((): {
+    result: CondensationHTCResult | null;
+    error: string | null;
+  } => {
     try {
       const liquidDensity = parseFloat(condLiquidDensity);
       const vaporDensity = parseFloat(condVaporDensity);
@@ -215,7 +224,10 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
         error: null,
       };
     } catch (err) {
-      return { result: null, error: err instanceof Error ? err.message : 'Shell-side calculation error' };
+      return {
+        result: null,
+        error: err instanceof Error ? err.message : 'Shell-side calculation error',
+      };
     }
   }, [
     condLiquidDensity,
@@ -265,7 +277,10 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
         error: null,
       };
     } catch (err) {
-      return { result: null, error: err instanceof Error ? err.message : 'Overall HTC calculation error' };
+      return {
+        result: null,
+        error: err instanceof Error ? err.message : 'Overall HTC calculation error',
+      };
     }
   }, [
     tubeSideResult,
@@ -518,11 +533,7 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
                 />
               </Paper>
 
-              {error && (
-                <Alert severity="error">
-                  {error}
-                </Alert>
-              )}
+              {error && <Alert severity="error">{error}</Alert>}
             </Stack>
           </Grid>
 
@@ -568,6 +579,16 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
                       </Stack>
                     )}
                   </Stack>
+
+                  {tubeSideResult && tubeSideResult.warnings.length > 0 && (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                      {tubeSideResult.warnings.map((w, i) => (
+                        <Typography key={i} variant="body2">
+                          {w}
+                        </Typography>
+                      ))}
+                    </Alert>
+                  )}
 
                   <Grid container spacing={2} mb={2}>
                     {tubeSideResult && (

@@ -254,6 +254,34 @@ describe('CONDENSER -- velocity', () => {
     const result = designHeatExchanger(createCondenserInput());
     expect(result.velocity.tubeSideReynolds).toBeGreaterThan(5000);
   });
+
+  it('warns when converged tube-side flow is below the Dittus-Boelter Re limit', () => {
+    // Single pass + tight LMTD + large temperature rise -> low tube-side velocity
+    const result = designHeatExchanger(
+      createCondenserInput({
+        tubeSide: {
+          fluid: 'SEAWATER',
+          salinity: 35000,
+          massFlowRate: 430,
+          inletTemp: 25,
+          outletTemp: 45,
+        },
+        shellSide: {
+          massFlowRate: 15,
+          saturationTemp: 55,
+        },
+        tubeGeometry: {
+          tubeSpecIndex: findTubeIndex(19.05, 16),
+          tubeMaterial: 'cuNi_90_10',
+          tubeLayout: 'triangular',
+          tubePasses: 1,
+          tubeLength: 4,
+        },
+      })
+    );
+    expect(result.velocity.tubeSideReynolds).toBeLessThan(10000);
+    expect(result.warnings.some((w) => w.includes('10,000'))).toBe(true);
+  });
 });
 
 describe('CONDENSER -- parameter effects', () => {
@@ -723,5 +751,83 @@ describe('Real-world: seawater preheater (liquid-liquid)', () => {
 
     const criticalWarnings = result.warnings.filter((w) => w.includes('did not converge'));
     expect(criticalWarnings).toHaveLength(0);
+  });
+});
+
+// ============================================================================
+// REFERENCE: BARC MED-TVC end condenser (re-baseline for the paired
+// condensation fixes: film-ΔT wall anchor + Kern N_r^(-1/6) bundle correction)
+// ============================================================================
+
+describe('Reference: BARC MED end condenser', () => {
+  /**
+   * Operating point mirrors the validated MED equipment-sizing BARC case
+   * (med/medEngine.test.ts / med/equipmentSizing.ts): last-effect vapor at
+   * ~38.2°C, seawater 30→35°C at ~80.9 t/hr (duty ~450 kW), titanium tubes,
+   * short tube (2.1 m), tube velocity ~1 m/s, MED fouling defaults
+   * (0.00009 tube / 0.00005 shell).
+   *
+   * BARC as-built overall U: 1700–1900 W/(m²·K) (includes NCG blanketing).
+   *
+   * Re-baseline (2026-07-12), this exact input:
+   *   - old code (wall ΔT anchored via U/h_tube, no bundle correction):
+   *       h_shell ≈ 14,930 → U ≈ 2,003
+   *   - film-ΔT anchor fix only (no Kern correction):
+   *       h_shell ≈ 21,810 → U ≈ 2,092
+   *   - both fixes (film-ΔT + Kern N_r^(-1/6), N_r ≈ 15):
+   *       h_shell ≈ 12,233 → U ≈ 1,946
+   * This model carries no NCG term; applying the 15% NCG derate the
+   * validated MED sizing model uses for the same plant gives U ≈ 1,892 —
+   * inside the as-built band. The MED sizing path itself computes 1,980
+   * for this condenser under its pinned 1400–2200 assertion.
+   */
+  function createBARCCondenserInput(): IterativeHXInput {
+    return {
+      exchangerType: 'CONDENSER',
+      tubeSide: {
+        fluid: 'SEAWATER',
+        salinity: 35000,
+        massFlowRate: 80.9, // ton/hr
+        inletTemp: 30,
+        outletTemp: 35,
+      },
+      shellSide: { massFlowRate: 0.645, saturationTemp: 38.2 },
+      flowArrangement: 'COUNTER',
+      tubeOrientation: 'horizontal',
+      tubeGeometry: {
+        tubeSpecIndex: findTubeIndex(19.05, 20),
+        tubeMaterial: 'titanium',
+        tubeLayout: 'triangular',
+        tubePasses: 4,
+        tubeLength: 2.1,
+      },
+      fouling: { tubeSide: 0.00009, shellSide: 0.00005 },
+    };
+  }
+
+  it('overall U lands in the BARC-validated band (no-NCG model: 1700-2050 W/m2K)', () => {
+    const result = designHeatExchanger(createBARCCondenserInput());
+
+    expect(result.converged).toBe(true);
+    expect(result.heatDuty.heatDutyKW).toBeGreaterThan(400);
+    expect(result.heatDuty.heatDutyKW).toBeLessThan(500);
+
+    // BARC band 1700-1900 + up to ~8% headroom for the NCG blanketing this
+    // model does not include (see block comment). A regression in either
+    // paired fix moves U far outside this window (wrong anchor alone: 2003+,
+    // missing Kern correction: 2092+ — and the pre-fix pairing sat at 2003
+    // only by error cancellation).
+    expect(result.htcResult.overallHTC).toBeGreaterThan(1700);
+    expect(result.htcResult.overallHTC).toBeLessThan(2050);
+  });
+
+  it('shell-side HTC reflects the Kern bundle correction (not single-tube Nusselt)', () => {
+    const result = designHeatExchanger(createBARCCondenserInput());
+
+    // Single-tube Nusselt at the converged film ΔT is ~19,000-22,000 W/(m²·K);
+    // the Kern average-row correction (N_r ≈ 15 → N_r^(-1/6) ≈ 0.64) must
+    // bring the bundle value down to the 10,000-14,000 range.
+    expect(result.shellSideHTC).toBeGreaterThan(10000);
+    expect(result.shellSideHTC).toBeLessThan(14000);
   });
 });

@@ -10,6 +10,7 @@ import {
   calculateDittusBoelter,
   calculateTubeSideHTC,
   calculateNusseltCondensation,
+  calculateChatoCondensation,
   calculateOverallHTC,
 } from './heatTransfer';
 
@@ -67,6 +68,17 @@ describe('Heat Transfer Correlations', () => {
       const { nusseltNumber } = calculateDittusBoelter(50000, 7, true);
       expect(nusseltNumber).toBeCloseTo(289, -1);
     });
+
+    it('should warn when Re is below the 10,000 validity limit', () => {
+      const { warnings } = calculateDittusBoelter(5000, 7, true);
+      expect(warnings.length).toBeGreaterThan(0);
+      expect(warnings[0]).toContain('10,000');
+    });
+
+    it('should not warn for fully turbulent flow', () => {
+      const { warnings } = calculateDittusBoelter(50000, 7, true);
+      expect(warnings).toHaveLength(0);
+    });
   });
 
   describe('calculateTubeSideHTC', () => {
@@ -104,6 +116,21 @@ describe('Heat Transfer Correlations', () => {
       const result1 = calculateTubeSideHTC({ ...base, velocity: 1 });
       const result2 = calculateTubeSideHTC({ ...base, velocity: 2 });
       expect(result2.htc).toBeGreaterThan(result1.htc);
+    });
+
+    it('should propagate the laminar-guard warning when Re < 10,000', () => {
+      const result = calculateTubeSideHTC({
+        density: 1000,
+        velocity: 0.1, // Re = 2500 in a 25mm tube
+        diameter: 0.025,
+        viscosity: 0.001,
+        specificHeat: 4.18,
+        conductivity: 0.6,
+        isHeating: true,
+      });
+      expect(result.reynoldsNumber).toBeLessThan(10000);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain('10,000');
     });
   });
 
@@ -167,6 +194,63 @@ describe('Heat Transfer Correlations', () => {
 
       expect(result.htc).toBeGreaterThan(0);
       expect(isFinite(result.htc)).toBe(true);
+    });
+  });
+
+  describe('calculateChatoCondensation', () => {
+    it('matches a hand-computed Chato (1962) reference value within 2%', () => {
+      // Hand calculation with round numbers:
+      //   ρ_l = 1000 kg/m³, ρ_v = 1 kg/m³, h_fg = 2400 kJ/kg,
+      //   k = 0.6 W/(m·K), μ = 0.001 Pa·s, D_i = 0.02 m, ΔT_film = 2 K
+      // numerator   = 1000 × 999 × 9.81 × 2.4e6 × 0.6³ = 5.08042e12
+      // denominator = 0.001 × 0.02 × 2               = 4.0e-5
+      // h = 0.555 × (1.27010e17)^0.25 = 0.555 × 18878 = 10477 W/(m²·K)
+      const { htc } = calculateChatoCondensation({
+        liquidDensity: 1000,
+        vaporDensity: 1,
+        latentHeat: 2400,
+        liquidConductivity: 0.6,
+        liquidViscosity: 0.001,
+        tubeInnerDiameter: 0.02,
+        deltaT: 2,
+      });
+
+      expect(Math.abs(htc - 10477) / 10477).toBeLessThan(0.02);
+    });
+
+    it('uses 0.555 (in-tube stratified), not the external-tube 0.725', () => {
+      // Same physical inputs through both correlations: the ratio must be
+      // exactly 0.555 / 0.725.
+      const shared = {
+        liquidDensity: 960,
+        vaporDensity: 0.6,
+        latentHeat: 2257,
+        liquidConductivity: 0.68,
+        liquidViscosity: 0.00028,
+        deltaT: 2,
+      };
+      const chato = calculateChatoCondensation({ ...shared, tubeInnerDiameter: 0.022 });
+      const nusselt = calculateNusseltCondensation({
+        ...shared,
+        dimension: 0.022,
+        orientation: 'horizontal',
+      });
+
+      expect(chato.htc / nusselt.htc).toBeCloseTo(0.555 / 0.725, 6);
+    });
+
+    it('clamps near-zero film deltaT gracefully', () => {
+      const { htc } = calculateChatoCondensation({
+        liquidDensity: 960,
+        vaporDensity: 0.6,
+        latentHeat: 2257,
+        liquidConductivity: 0.68,
+        liquidViscosity: 0.00028,
+        tubeInnerDiameter: 0.022,
+        deltaT: 0,
+      });
+      expect(htc).toBeGreaterThan(0);
+      expect(isFinite(htc)).toBe(true);
     });
   });
 

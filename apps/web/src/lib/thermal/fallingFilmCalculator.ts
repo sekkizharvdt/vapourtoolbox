@@ -11,8 +11,8 @@
  *   Journal of Heat Transfer, Vol. 93, pp. 391-396, 1971.
  * - El-Dessouky, H.T. and Ettouney, H.M., "Fundamentals of Salt Water
  *   Desalination," Elsevier, 2002.
- * - Nusselt, W., "Die Oberflachenkondensation des Wasserdampfes," VDI-Zeitschrift,
- *   Vol. 60, pp. 541-546, 1916.
+ * - Chato, J.C., "Laminar Condensation Inside Horizontal and Inclined Tubes,"
+ *   ASHRAE Journal, Vol. 4, No. 2, 1962 (in-tube condensation, constant 0.555).
  * - Sharqawy, M.H., Lienhard V, J.H., and Zubair, S.M., "Thermophysical
  *   properties of seawater," Desalination and Water Treatment, Vol. 16, 2010.
  */
@@ -27,6 +27,8 @@ import {
   getDensityLiquid,
   getDensityVapor,
 } from '@vapour/constants';
+import { MIN_WETTING_RATE_DESIGN, WETTING_RATE_DESIGN_TARGET } from './wettingConstants';
+import { calculateChatoCondensation } from './heatTransfer';
 
 // ============================================================================
 // Constants
@@ -39,7 +41,6 @@ const g = 9.81;
 const DEFAULT_FOULING_RESISTANCE = 0.00009;
 
 /** Default design margin (15%) */
-const DEFAULT_DESIGN_MARGIN = 0.15;
 
 // ============================================================================
 // Exported Constants
@@ -73,13 +74,21 @@ export const STANDARD_TUBE_SIZES: {
 ];
 
 /**
- * Wetting ratio thresholds for falling film quality assessment
+ * Wetting ratio thresholds for falling film quality assessment.
+ *
+ * The ratio is Gamma / MIN_WETTING_RATE_DESIGN (0.03 kg/(m·s), the validated
+ * design minimum — see ./wettingConstants.ts). Thresholds mirror the MED
+ * designer's grading in med/equipmentSizing.ts:
+ *   ratio >= 2.0 (Gamma >= 0.06)  -> excellent
+ *   ratio >= 1.5 (Gamma >= 0.045, the design target) -> good
+ *   ratio >= 1.0 (Gamma >= 0.03)  -> marginal
+ *   ratio <  1.0 -> poor (dry spots likely)
  */
 export const WETTING_LIMITS = {
-  EXCELLENT: 3.0, // Gamma/Gamma_min > 3
-  GOOD: 2.0, // 2 < ratio <= 3
-  MARGINAL: 1.5, // 1.5 < ratio <= 2
-  // Below 1.5: poor (dry spots likely)
+  EXCELLENT: 2.0, // Gamma/Gamma_min >= 2
+  GOOD: 1.5, // 1.5 <= ratio < 2 (design target)
+  MARGINAL: 1.0, // 1.0 <= ratio < 1.5
+  // Below 1.0: poor (dry spots likely)
 };
 
 // ============================================================================
@@ -107,14 +116,14 @@ export interface FallingFilmInput {
 
   // Optional
   foulingResistance?: number; // m²·K/W — total fouling (default 0.00009)
-  designMargin?: number; // fraction 0-1 (default 0.15 = 15%)
 }
 
 export interface FallingFilmResult {
   // Wetting analysis
   wettingRate: number; // kg/(m·s) — actual Gamma
-  minimumWettingRate: number; // kg/(m·s) — Gamma_min
-  wettingRatio: number; // Gamma/Gamma_min (should be > 1.5)
+  minimumWettingRate: number; // kg/(m·s) — validated design minimum (0.03), governs wetting status
+  wettingRateTheoreticalMin: number; // kg/(m·s) — El-Dessouky theoretical film-breakdown minimum (informational only)
+  wettingRatio: number; // Gamma / minimumWettingRate (>= 1.5 meets the design target)
   wettingStatus: 'excellent' | 'good' | 'marginal' | 'poor';
 
   // Film characteristics
@@ -142,10 +151,6 @@ export interface FallingFilmResult {
   bundleHeight: number; // mm
   rowSpacing: number; // mm
   pitch: number; // mm
-
-  // Design check
-  designArea: number; // m² (with margin)
-  excessArea: number; // % excess over required
 
   // Warnings
   warnings: string[];
@@ -274,10 +279,6 @@ export function validateFallingFilmInput(input: FallingFilmInput): ValidationRes
   if (input.foulingResistance !== undefined && input.foulingResistance < 0) {
     errors.push('Fouling resistance cannot be negative');
   }
-  if (input.designMargin !== undefined && (input.designMargin < 0 || input.designMargin > 1)) {
-    errors.push('Design margin must be between 0 and 1');
-  }
-
   return {
     isValid: errors.length === 0,
     errors,
@@ -307,7 +308,6 @@ export function calculateFallingFilm(input: FallingFilmInput): FallingFilmResult
 
   // Resolve optional parameters
   const foulingResistance = input.foulingResistance ?? DEFAULT_FOULING_RESISTANCE;
-  const designMargin = input.designMargin ?? DEFAULT_DESIGN_MARGIN;
 
   // Convert tube dimensions to metres
   const D_o = input.tubeOD / 1000; // m
@@ -346,29 +346,39 @@ export function calculateFallingFilm(input: FallingFilmInput): FallingFilmResult
   // 3. Minimum Wetting Rate (Gamma_min)
   // ========================================================================
 
+  // Governing limit: the validated design minimum (0.03 kg/(m·s)), NOT the
+  // El-Dessouky correlation. See ./wettingConstants.ts.
+  const minimumWettingRate = MIN_WETTING_RATE_DESIGN; // kg/(m·s)
+
   // El-Dessouky & Ettouney (2002) correlation for horizontal tubes:
   // Gamma_min = 0.11 * (mu_l² / (rho_l * sigma))^(1/3)
-  const gammaMin = 0.11 * Math.pow((mu_l * mu_l) / (rho_l * sigma), 1 / 3); // kg/(m·s)
+  // Theoretical film-breakdown minimum (~2.4e-4 kg/(m·s)) — informational
+  // only; ~100× too permissive to use as a design limit.
+  const wettingRateTheoreticalMin = 0.11 * Math.pow((mu_l * mu_l) / (rho_l * sigma), 1 / 3); // kg/(m·s)
 
-  // Wetting ratio
-  const wettingRatio = wettingRate / gammaMin;
+  // Wetting ratio against the validated design minimum
+  const wettingRatio = wettingRate / minimumWettingRate;
 
-  // Wetting status
+  // Wetting status (mirrors MED designer grading in med/equipmentSizing.ts)
   let wettingStatus: 'excellent' | 'good' | 'marginal' | 'poor';
-  if (wettingRatio > WETTING_LIMITS.EXCELLENT) {
+  if (wettingRatio >= WETTING_LIMITS.EXCELLENT) {
     wettingStatus = 'excellent';
-  } else if (wettingRatio > WETTING_LIMITS.GOOD) {
+  } else if (wettingRatio >= WETTING_LIMITS.GOOD) {
     wettingStatus = 'good';
-  } else if (wettingRatio > WETTING_LIMITS.MARGINAL) {
+  } else if (wettingRatio >= WETTING_LIMITS.MARGINAL) {
     wettingStatus = 'marginal';
   } else {
     wettingStatus = 'poor';
   }
 
   // Wetting warnings
-  if (wettingRatio < 1.5) {
+  if (wettingRatio < 1.0) {
     warnings.push(
-      `Wetting ratio (${wettingRatio.toFixed(2)}) is below 1.5 — dry spots are likely. Increase feed flow or reduce tubes per row.`
+      `Wetting rate (${wettingRate.toFixed(4)} kg/(m·s)) is below the validated minimum (${MIN_WETTING_RATE_DESIGN} kg/(m·s)) — dry spots are likely. Increase feed flow or reduce tubes per row.`
+    );
+  } else if (wettingRatio < 1.5) {
+    warnings.push(
+      `Wetting rate (${wettingRate.toFixed(4)} kg/(m·s)) is below the design target (${WETTING_RATE_DESIGN_TARGET} kg/(m·s) = 1.5× minimum). Consider increasing feed flow.`
     );
   }
   if (wettingRatio > 6) {
@@ -407,8 +417,10 @@ export function calculateFallingFilm(input: FallingFilmInput): FallingFilmResult
 
   let filmHTC: number; // W/(m²·K)
   if (filmReynolds < 400) {
-    // Laminar film
-    filmHTC = 0.821 * filmGroup * Math.pow(filmReynolds, -1 / 3);
+    // Chun-Seban (1971) laminar evaporating film: Nu* = 0.822·Re^(−0.22)
+    // where Nu* = h·(ν²/g)^(1/3)/k. (The previous 0.821·Re^(−1/3) matched
+    // neither Chun-Seban nor Nusselt smooth-film theory, coefficient 1.47.)
+    filmHTC = 0.822 * filmGroup * Math.pow(filmReynolds, -0.22);
   } else if (filmReynolds < 1600) {
     // Wavy-laminar
     filmHTC = 0.0038 * filmGroup * Math.pow(filmReynolds, 0.4) * Math.pow(Pr_l, 0.65);
@@ -418,7 +430,7 @@ export function calculateFallingFilm(input: FallingFilmInput): FallingFilmResult
   }
 
   // ========================================================================
-  // 6. Condensation HTC (inside tubes) — Nusselt horizontal tube
+  // 6. Condensation HTC (inside tubes) — Chato stratified in-tube
   // ========================================================================
 
   // Condensate properties at steam temperature (pure water)
@@ -426,45 +438,63 @@ export function calculateFallingFilm(input: FallingFilmInput): FallingFilmResult
   const rho_v_steam = getDensityVapor(input.steamTemperature); // kg/m³
   const mu_l_steam = getPureWaterViscosity(input.steamTemperature); // Pa·s
   const k_l_steam = getPureWaterConductivity(input.steamTemperature); // W/(m·K)
-  const hfg = getLatentHeat(input.steamTemperature) * 1000; // Convert kJ/kg to J/kg
+  const hfg = getLatentHeat(input.steamTemperature); // kJ/kg (Chato helper converts internally)
 
-  // Temperature difference for Nusselt condensation
-  // Use steamTemp - feedTemp as the driving ΔT across the condensate film
-  const deltaT_cond = input.steamTemperature - input.feedTemperature;
+  // Wall resistance: (D_o * ln(D_o/D_i)) / (2 * k_wall)
+  const wallResistance = (D_o * Math.log(D_o / D_i)) / (2 * k_wall); // m²·K/W
 
-  // Nusselt horizontal tube condensation:
-  // h_cond = 0.725 * [rho_l * (rho_l - rho_v) * g * hfg * k_l³ / (mu_l * D_i * ΔT)]^0.25
-  const condensationHTC =
-    0.725 *
-    Math.pow(
-      (rho_l_steam * (rho_l_steam - rho_v_steam) * g * hfg * Math.pow(k_l_steam, 3)) /
-        (mu_l_steam * D_i * deltaT_cond),
-      0.25
-    );
+  // Boiling point elevation and effective driving ΔT (needed for the
+  // condensation film ΔT balance below)
+  const bpe = getBoilingPointElevation(input.feedSalinity, input.feedTemperature);
+  const T_boiling = input.feedTemperature + bpe;
+  const effectiveTempDiff = input.steamTemperature - T_boiling;
+
+  // Chato (1962) stratified in-tube condensation (constant 0.555, NOT the
+  // external-tube Nusselt 0.725), driven by the film ΔT = T_steam − T_wall —
+  // not the full steam-to-feed ΔT. T_wall follows from the resistance
+  // balance: q = U·ΔT_eff flows through the inside film, so (on the OD basis)
+  // ΔT_film = q·(D_o/D_i)/h_cond = ΔT_eff·U·(D_o/D_i)/h_cond. Since
+  // h ∝ ΔT^(−1/4), solve by fixed-point iteration (converges in 2-3 passes).
+  const rOutsideOfFilm = 1 / filmHTC + wallResistance + foulingResistance;
+  const totalDeltaT_cond = Math.max(effectiveTempDiff, 0.1);
+
+  const chatoAt = (deltaTFilm: number): number =>
+    calculateChatoCondensation({
+      liquidDensity: rho_l_steam,
+      vaporDensity: rho_v_steam,
+      latentHeat: hfg,
+      liquidConductivity: k_l_steam,
+      liquidViscosity: mu_l_steam,
+      tubeInnerDiameter: D_i,
+      deltaT: deltaTFilm,
+    }).htc;
+
+  let deltaTFilm = 0.5 * totalDeltaT_cond;
+  let condensationHTC = chatoAt(deltaTFilm);
+  for (let iter = 0; iter < 10; iter++) {
+    const rInsideFilm = D_o / D_i / condensationHTC;
+    const uEst = 1 / (rOutsideOfFilm + rInsideFilm);
+    const nextDeltaTFilm = Math.max(totalDeltaT_cond * uEst * rInsideFilm, 0.05);
+    const convergedFilm = Math.abs(nextDeltaTFilm - deltaTFilm) < 0.01;
+    deltaTFilm = nextDeltaTFilm;
+    condensationHTC = chatoAt(deltaTFilm);
+    if (convergedFilm) {
+      break;
+    }
+  }
 
   // ========================================================================
   // 7. Overall Heat Transfer Coefficient
   // ========================================================================
 
-  // Wall resistance: (D_o * ln(D_o/D_i)) / (2 * k_wall)
-  const wallResistance = (D_o * Math.log(D_o / D_i)) / (2 * k_wall); // m²·K/W
-
   // Overall HTC based on OD:
   // 1/U_o = 1/h_film + R_wall + (D_o/D_i)*(1/h_cond) + R_fouling
-  const invU =
-    1 / filmHTC + wallResistance + (D_o / D_i) * (1 / condensationHTC) + foulingResistance;
+  const invU = rOutsideOfFilm + (D_o / D_i) * (1 / condensationHTC);
   const overallHTC = 1 / invU; // W/(m²·K)
 
   // ========================================================================
   // 8. Heat Transfer Area & Evaporation
   // ========================================================================
-
-  // Boiling point elevation
-  const bpe = getBoilingPointElevation(input.feedSalinity, input.feedTemperature);
-
-  // Effective temperature difference
-  const T_boiling = input.feedTemperature + bpe;
-  const effectiveTempDiff = input.steamTemperature - T_boiling;
 
   // Warnings for temperature difference
   if (effectiveTempDiff < 1) {
@@ -520,23 +550,16 @@ export function calculateFallingFilm(input: FallingFilmInput): FallingFilmResult
   const bundleWidth = (tubesPerRow - 1) * pitch + input.tubeOD; // mm
   const bundleHeight = (input.tubeRows - 1) * rowSpacing + input.tubeOD; // mm
 
-  // ========================================================================
-  // 10. Design Check
-  // ========================================================================
-
-  // Required area from heat duty (without margin)
-  const requiredArea =
-    effectiveTempDiff > 0
-      ? (heatDutyKW * 1000) / (overallHTC * effectiveTempDiff)
-      : heatTransferArea;
-  const designArea = requiredArea * (1 + designMargin);
-  const excessArea =
-    requiredArea > 0 ? ((heatTransferArea - requiredArea) / requiredArea) * 100 : 0;
+  // NOTE: the former "design check" (requiredArea = Q/(U·ΔT) vs installed area,
+  // designArea = 1.15× that) was removed — Q itself is computed as
+  // U·A_installed·ΔT, so the excess was identically 0 and the check was a
+  // tautology. There is no independent specified duty input to check against.
 
   return {
     // Wetting analysis
     wettingRate,
-    minimumWettingRate: gammaMin,
+    minimumWettingRate,
+    wettingRateTheoreticalMin,
     wettingRatio,
     wettingStatus,
 
@@ -565,10 +588,6 @@ export function calculateFallingFilm(input: FallingFilmInput): FallingFilmResult
     bundleHeight,
     rowSpacing,
     pitch,
-
-    // Design check
-    designArea,
-    excessArea,
 
     // Warnings
     warnings,

@@ -15,6 +15,7 @@ import {
   calculateTubeBundleWithSprayClearance,
   estimateSprayZoneClearance,
   generateDefaultVapourLanes,
+  generateDefaultNozzleExclusions,
 } from './tubeBundleGeometry';
 
 describe('BARC Tube Sheet Validation', () => {
@@ -129,6 +130,71 @@ describe('Wetting Cutback — maxTubeFieldWidth', () => {
     const middleRows = result.rows.filter((r) => r.tubeCount >= 27 && r.tubeCount <= 31);
     // Most rows should be in this range when width is capped
     expect(middleRows.length).toBeGreaterThan(result.rows.length * 0.5);
+  });
+});
+
+describe('Nozzle Exclusion Zone Placement (generateDefaultNozzleExclusions)', () => {
+  // Lateral-bundle calculator defaults (Ø175 upper + Ø273 centre-lower nozzles)
+  const shellID = 2338;
+  const shellR = shellID / 2;
+
+  it('places zones INSIDE the tube field: negative x for half_circle_left', () => {
+    const zones = generateDefaultNozzleExclusions('half_circle_left', shellR, 175, 273);
+    expect(zones).toHaveLength(2);
+    for (const z of zones) {
+      expect(z.cx).toBeLessThan(0); // tube field is at x <= 0
+    }
+    expect(zones[0]).toEqual({ cx: -shellR * 0.3, cy: shellR * 0.25, diameter: 175 });
+    expect(zones[1]).toEqual({ cx: -shellR * 0.3, cy: -shellR * 0.1, diameter: 273 });
+  });
+
+  it('mirrors zones to positive x for half_circle_right', () => {
+    const zones = generateDefaultNozzleExclusions('half_circle_right', shellR, 175, 273);
+    for (const z of zones) {
+      expect(z.cx).toBeGreaterThan(0);
+    }
+  });
+
+  it('omits zones for missing/invalid nozzle diameters', () => {
+    expect(generateDefaultNozzleExclusions('half_circle_left', shellR)).toHaveLength(0);
+    expect(
+      generateDefaultNozzleExclusions('half_circle_left', shellR, undefined, 273)
+    ).toHaveLength(1);
+    expect(generateDefaultNozzleExclusions('half_circle_left', shellR, 0, -5)).toHaveLength(0);
+  });
+
+  it('reference Ø175/Ø273 case removes tubes from a half_circle_left bundle', () => {
+    // Mirrors the lateral-bundle calculator defaults, including vapour lanes
+    const zones = generateDefaultNozzleExclusions('half_circle_left', shellR, 175, 273);
+    const result = calculateTubeBundleGeometry({
+      shape: 'half_circle_left',
+      shellID,
+      tubeOD: 25.4,
+      tubeHoleDiameter: 28.4,
+      pitch: 33.4,
+      edgeClearance: 4.6,
+      vapourLanes: generateDefaultVapourLanes(shellR, 4, 60),
+      exclusionZones: zones,
+    });
+    // Ø175 zone ≈ 33 tube pitches, Ø273 zone ≈ 74 — expect a solid removal count
+    expect(result.tubesRemovedByExclusions).toBeGreaterThan(30);
+    expect(result.warnings.some((w) => w.includes('exclusion zones do not intersect'))).toBe(false);
+  });
+
+  it('warns when exclusion zones do not intersect the tube field (old buggy placement)', () => {
+    // The pre-fix client placed zones at +0.3·R for half_circle_left — the open side
+    const result = calculateTubeBundleGeometry({
+      shape: 'half_circle_left',
+      shellID,
+      exclusionZones: [
+        { cx: shellR * 0.3, cy: shellR * 0.25, diameter: 175 },
+        { cx: shellR * 0.3, cy: -shellR * 0.1, diameter: 273 },
+      ],
+    });
+    expect(result.tubesRemovedByExclusions).toBe(0);
+    expect(
+      result.warnings.some((w) => w.includes('exclusion zones do not intersect the tube field'))
+    ).toBe(true);
   });
 });
 

@@ -581,11 +581,11 @@ function calculateHeatMassBalance(
     heatDuty: brineHeatDuty,
   };
 
-  // Calculate balance
+  // Stream totals. No balance "check" is reported: the vapor flow is solved
+  // FROM this energy balance upstream, so input and output match by
+  // construction — a balanceError computed here was a tautology (always ~0).
   const heatInput = inletHeatDuty;
   const heatOutput = vaporHeatDuty + brineHeatDuty;
-  const balanceError = Math.abs((heatInput - heatOutput) / heatInput) * 100;
-  const isBalanced = balanceError < 1; // Less than 1% error
 
   return {
     inlet,
@@ -593,8 +593,6 @@ function calculateHeatMassBalance(
     brine,
     heatInput,
     heatOutput,
-    balanceError,
-    isBalanced,
   };
 }
 

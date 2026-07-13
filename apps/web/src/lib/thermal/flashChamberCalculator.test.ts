@@ -360,11 +360,17 @@ describe('flashChamberCalculator', () => {
         expect(vapor.flowRate).toBeLessThan(inlet.flowRate);
       });
 
-      it('should verify heat balance is close to zero', () => {
+      it('heat input equals heat output by construction', () => {
         const input = createValidInput();
         const result = calculateFlashChamber(input);
 
-        expect(result.heatMassBalance.balanceError).toBeLessThan(5); // Less than 5% error
+        // balanceError/isBalanced fields were removed: vapor flow is solved
+        // FROM the energy balance, so in==out is true by construction and the
+        // old <5% assertion could never fail. Keep a consistency assertion on
+        // the stream totals instead — 0.1% relative tolerance absorbs the
+        // enthalpy-table rounding accumulated across the three streams.
+        const { heatInput, heatOutput } = result.heatMassBalance;
+        expect(Math.abs(heatOutput - heatInput) / heatInput).toBeLessThan(0.001);
       });
     });
 

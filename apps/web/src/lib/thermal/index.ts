@@ -260,6 +260,10 @@ export {
   type ScalingPoint,
 } from './foulingScalingCalculator';
 
+// Wetting rate design limits (single source of truth — used by falling film,
+// single tube, and the MED designer)
+export { MIN_WETTING_RATE_DESIGN, WETTING_RATE_DESIGN_TARGET } from './wettingConstants';
+
 // Falling Film Evaporator
 export {
   calculateFallingFilm,
@@ -374,6 +378,7 @@ export {
   calculateBundleArea,
   estimateSprayZoneClearance,
   generateDefaultVapourLanes,
+  generateDefaultNozzleExclusions,
   type TubePosition,
   type RowInfo,
   type VapourLane,

@@ -11,8 +11,10 @@ import {
   type SiphonSizingInput,
 } from './siphonSizingCalculator';
 
-// Mock pipeService
+// Mock pipeService — keep the real module (getStaticPipes etc.) and only stub
+// the auto-selection so tests control which pipe is picked
 jest.mock('./pipeService', () => ({
+  ...jest.requireActual('./pipeService'),
   selectPipeByVelocity: jest.fn(
     (
       volumetricFlow: number,
@@ -408,7 +410,11 @@ describe('Siphon Sizing Calculator', () => {
       expect(result.velocity).toBeGreaterThan(0);
     });
 
-    it('should pass customPipe through to pressure drop calculator', () => {
+    // Updated expectation: the calculator now always passes the selected pipe
+    // variant via `pipe` (custom, override, or auto-selected) so friction is
+    // computed on the same ID as the velocity — previously only custom pipes
+    // bypassed the Sch 40 NPS lookup (via `customPipe`).
+    it('should pass custom pipe dims through to pressure drop calculator', () => {
       const { calculatePressureDrop: mockCalcPD } = jest.requireMock('./pressureDropCalculator');
       mockCalcPD.mockClear();
 
@@ -416,20 +422,23 @@ describe('Siphon Sizing Calculator', () => {
 
       expect(mockCalcPD).toHaveBeenCalled();
       const callArgs = mockCalcPD.mock.calls[0][0];
-      expect(callArgs.customPipe).toBeDefined();
-      expect(callArgs.customPipe.id_mm).toBe(700);
-      expect(callArgs.customPipe.area_mm2).toBeCloseTo((Math.PI / 4) * 700 * 700, 0);
+      expect(callArgs.pipe).toBeDefined();
+      expect(callArgs.pipe.id_mm).toBe(700);
+      expect(callArgs.pipe.area_mm2).toBeCloseTo((Math.PI / 4) * 700 * 700, 0);
     });
 
-    it('should not pass customPipe for standard auto-sized pipe', () => {
+    it('should pass the auto-selected pipe dims to the pressure drop calculator', () => {
       const { calculatePressureDrop: mockCalcPD } = jest.requireMock('./pressureDropCalculator');
       mockCalcPD.mockClear();
 
-      calculateSiphonSizing(baseInput);
+      const result = calculateSiphonSizing(baseInput);
 
       expect(mockCalcPD).toHaveBeenCalled();
       const callArgs = mockCalcPD.mock.calls[0][0];
-      expect(callArgs.customPipe).toBeUndefined();
+      // Friction must be computed on the pipe that was actually selected
+      expect(callArgs.pipe).toBeDefined();
+      expect(callArgs.pipe.id_mm).toBe(result.pipe.id_mm);
+      expect(callArgs.pipe.area_mm2).toBe(result.pipe.area_mm2);
     });
 
     it('should report velocity warnings for custom pipe', () => {

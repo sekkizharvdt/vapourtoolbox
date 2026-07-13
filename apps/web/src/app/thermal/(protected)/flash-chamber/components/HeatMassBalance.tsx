@@ -17,10 +17,8 @@ import {
   TableHead,
   TableRow,
   Box,
-  Chip,
   Stack,
 } from '@mui/material';
-import { CheckCircle as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import type { HeatMassBalance as HeatMassBalanceType } from '@vapour/types';
 import { formatNumber } from '@/lib/utils/formatters';
 
@@ -37,14 +35,11 @@ export function HeatMassBalance({ balance }: HeatMassBalanceProps) {
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
+      {/* The "Balanced" chip was removed: the vapor flow is solved FROM the
+          energy balance, so the balance closes by construction and the chip
+          could never show anything but "Balanced" (tautology, not a check). */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">Heat & Mass Balance</Typography>
-        <Chip
-          icon={balance.isBalanced ? <CheckIcon /> : <WarningIcon />}
-          label={balance.isBalanced ? 'Balanced' : `Error: ${balance.balanceError.toFixed(2)}%`}
-          color={balance.isBalanced ? 'success' : 'warning'}
-          variant="outlined"
-        />
       </Stack>
 
       <TableContainer>

@@ -23,6 +23,34 @@ import type { SavedCalculation } from '@vapour/types';
 type CalculatorType = SavedCalculation['calculatorType'];
 
 /**
+ * Recursively remove `undefined` values from a payload before writing to
+ * Firestore (rule 12 — Firestore rejects `undefined`).
+ *
+ * - Object keys whose value is `undefined` are dropped.
+ * - Arrays are preserved as arrays; `undefined` elements become `null`
+ *   (dropping them would silently shift indices).
+ * - Only plain objects and arrays are recursed into — Date, Firestore
+ *   Timestamp, FieldValue sentinels, etc. are passed through untouched.
+ */
+export function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => (item === undefined ? null : stripUndefined(item))) as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const proto = Object.getPrototypeOf(value);
+    // Non-plain objects (Date, Timestamp, FieldValue, class instances) pass through as-is
+    if (proto !== Object.prototype && proto !== null) return value;
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (val === undefined) continue;
+      result[key] = stripUndefined(val);
+    }
+    return result as T;
+  }
+  return value;
+}
+
+/**
  * Save a calculation to Firestore
  */
 export async function saveCalculation(
@@ -33,14 +61,17 @@ export async function saveCalculation(
   inputs: Record<string, unknown>
 ): Promise<string> {
   // rule5-exempt: firestore.rules enforce the permission for this collection — client-side requirePermission is defense-in-depth deferred to a future hardening pass (the static-export build can't make client-side gates load-bearing)
-  const docRef = await addDoc(collection(db, COLLECTIONS.SAVED_CALCULATIONS), {
-    userId,
-    calculatorType,
-    name,
-    inputs,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  const docRef = await addDoc(
+    collection(db, COLLECTIONS.SAVED_CALCULATIONS),
+    stripUndefined({
+      userId,
+      calculatorType,
+      name,
+      inputs,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  );
   return docRef.id;
 }
 

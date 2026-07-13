@@ -81,12 +81,9 @@ export interface MEDEngineInput {
    *  The engine will size each preheater and route condensate automatically. */
   preheaterEffects?: number[];
 
-  /** NEA per effect in °C (default 0.25) */
-  nea?: number;
-  /** Demister pressure drop loss per effect in °C (default 0.15) */
-  demisterLoss?: number;
-  /** Duct pressure drop loss per effect in °C (default 0.30) */
-  ductLoss?: number;
+  // NOTE: former `nea`/`demisterLoss`/`ductLoss` inputs were removed — the
+  // engine always computed its own per-effect NEA (flash-fraction based) and
+  // demister/duct ΔP losses and never read them, so they were dead knobs.
 
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;

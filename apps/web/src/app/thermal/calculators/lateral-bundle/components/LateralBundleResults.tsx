@@ -79,18 +79,14 @@ export function LateralBundleResults({ result, tubeOD, tubeLength }: LateralBund
               <TableCell>Area per Meter</TableCell>
               <TableCell align="right">{fmt(result.areaPerMeter, 3)} m&sup2;/m</TableCell>
             </TableRow>
-            {result.tubesRemovedByLanes > 0 && (
-              <TableRow>
-                <TableCell>Tubes Removed by Vapour Lanes</TableCell>
-                <TableCell align="right">{result.tubesRemovedByLanes}</TableCell>
-              </TableRow>
-            )}
-            {result.tubesRemovedByExclusions > 0 && (
-              <TableRow>
-                <TableCell>Tubes Removed by Nozzle Exclusions</TableCell>
-                <TableCell align="right">{result.tubesRemovedByExclusions}</TableCell>
-              </TableRow>
-            )}
+            <TableRow>
+              <TableCell>Tubes Removed by Vapour Lanes</TableCell>
+              <TableCell align="right">{result.tubesRemovedByLanes}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Tubes Removed by Nozzle Exclusions</TableCell>
+              <TableCell align="right">{result.tubesRemovedByExclusions}</TableCell>
+            </TableRow>
           </TableBody>
         </Table>
       </Paper>

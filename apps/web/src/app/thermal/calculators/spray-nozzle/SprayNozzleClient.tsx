@@ -579,11 +579,7 @@ export default function SprayNozzleClient() {
               </Typography>
             </Box>
 
-            {error && (
-              <Alert severity="error">
-                {error}
-              </Alert>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
           </Stack>
         </Grid>
 
@@ -745,6 +741,16 @@ function SelectionResults({
 
   return (
     <Stack spacing={3}>
+      {result.warnings.length > 0 && (
+        <Alert severity="warning">
+          {result.warnings.map((w, i) => (
+            <Typography key={i} variant="body2">
+              {w}
+            </Typography>
+          ))}
+        </Alert>
+      )}
+
       {/* Summary bar */}
       <Paper sx={{ p: 2 }}>
         <Stack
@@ -982,6 +988,16 @@ function LayoutResults({
 
   return (
     <Stack spacing={3}>
+      {result.warnings.length > 0 && (
+        <Alert severity="warning">
+          {result.warnings.map((w, i) => (
+            <Typography key={i} variant="body2">
+              {w}
+            </Typography>
+          ))}
+        </Alert>
+      )}
+
       {/* Summary bar */}
       <Paper sx={{ p: 2 }}>
         <Stack

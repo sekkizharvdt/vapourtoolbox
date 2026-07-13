@@ -44,12 +44,6 @@ const GenerateReportDialog = lazy(() =>
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
-// Water viscosity approximation (Pa·s)
-function getWaterViscosity(tempC: number): number {
-  const factor = 1 + 0.0168 * tempC - 0.000133 * tempC * tempC;
-  return 0.001 / factor;
-}
-
 export default function PressureDropClient() {
   // Pipe parameters
   const [selectedNPS, setSelectedNPS] = useState<string>('4');
@@ -129,7 +123,12 @@ export default function PressureDropClient() {
 
     switch (fluidType) {
       case 'water':
-        return getWaterViscosity(temp);
+        try {
+          // Pure water = seawater correlation at 0 salinity (IAPWS/MIT-based)
+          return getSeawaterViscosity(0, temp);
+        } catch {
+          return 0.001;
+        }
       case 'seawater':
         try {
           return getSeawaterViscosity(sal, temp);
@@ -201,11 +200,7 @@ export default function PressureDropClient() {
           Darcy-Weisbach equation with Colebrook-White friction factor.
         </Typography>
         <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-          <Button
-            startIcon={<LoadIcon />}
-            size="small"
-            onClick={() => setLoadOpen(true)}
-          >
+          <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadOpen(true)}>
             Load Saved
           </Button>
           <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>

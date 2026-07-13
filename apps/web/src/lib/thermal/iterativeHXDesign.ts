@@ -42,6 +42,7 @@ import {
 import {
   calculateTubeSideHTC,
   calculateNusseltCondensation,
+  applyBundleCorrection,
   calculateKernShellSideHTC,
   calculateMostinskiBoiling,
   calculateOverallHTC,
@@ -177,6 +178,7 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
   let finalShellSideHTC = 0;
   let finalSizingResult = null as ReturnType<typeof sizeHeatExchanger> | null;
   let finalVelocity = 0;
+  let tubeSideHTCWarnings: string[] = [];
 
   const tubeSpec = STANDARD_TUBES[tubeGeometry.tubeSpecIndex];
   if (!tubeSpec) {
@@ -217,6 +219,7 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
     let tubeSideHTC: number;
     if (velocity < MIN_VELOCITY) {
       tubeSideHTC = 500;
+      tubeSideHTCWarnings = [];
       if (i === 0) {
         warnings.push(
           `Tube-side velocity is very low (${velocity.toFixed(3)} m/s). ` +
@@ -234,6 +237,10 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
         isHeating,
       });
       tubeSideHTC = htcResult.htc;
+      // Keep only the latest iteration's validity warnings (e.g. Re < 10,000
+      // Dittus-Boelter guard) — geometry changes each iteration, and the
+      // converged iteration is the one the final design uses.
+      tubeSideHTCWarnings = htcResult.warnings;
     }
 
     // d. Calculate shell-side HTC (type-dependent)
@@ -243,11 +250,13 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
         satProps,
         shellProps,
         tubeODm: tubeSpec.od_mm / 1000,
+        tubeIDm,
         orientation: tubeOrientation,
         tubeMeanTemp,
         shellSide,
-        currentU: assumedU,
         tubeSideHTC,
+        wallConductivity: material.conductivity,
+        fouling,
         sizing,
         heatDutyKW: heatDuty.heatDutyKW,
         tubeGeometry,
@@ -322,6 +331,12 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
   );
 
   addVelocityWarnings(finalVelocity, warnings);
+
+  for (const w of tubeSideHTCWarnings) {
+    if (!warnings.includes(w)) {
+      warnings.push(w);
+    }
+  }
 
   for (const w of sizing.warnings) {
     if (!warnings.includes(w)) {
@@ -625,11 +640,13 @@ interface ShellSideHTCContext {
   satProps: SaturationFluidProperties | null;
   shellProps: FluidProperties | null;
   tubeODm: number;
+  tubeIDm: number;
   orientation: IterativeHXInput['tubeOrientation'];
   tubeMeanTemp: number;
   shellSide: IterativeHXInput['shellSide'];
-  currentU: number;
   tubeSideHTC: number;
+  wallConductivity: number;
+  fouling: IterativeHXInput['fouling'];
   sizing: ReturnType<typeof sizeHeatExchanger>;
   heatDutyKW: number;
   tubeGeometry: IterativeHXInput['tubeGeometry'];
@@ -652,39 +669,90 @@ function calculateShellSideHTCDispatch(
 }
 
 /**
- * Shell-side HTC for condenser: Nusselt film condensation with wall temperature estimation.
+ * Shell-side HTC for condenser: Nusselt film condensation with Kern bundle
+ * correction, driven by the film ΔT (T_sat − T_wall).
+ *
+ * T_wall comes from the tube-side resistance balance: the heat flux
+ * q = U·(T_sat − T_coolant) flows through the tube-side film, tube-side
+ * fouling, the wall, and shell-side fouling, so (referred to the tube OD)
+ *
+ *   T_wall = T_coolant + q·R_inside,   ΔT_film = T_sat − T_wall
+ *
+ * where R_inside = (do/di)/h_i + R_f,i·(do/di) + R_wall + R_f,o. Since the
+ * Nusselt coefficient itself depends on ΔT_film (h ∝ ΔT^−¼), the film ΔT is
+ * solved by fixed-point iteration — it converges in 2-3 passes.
+ *
+ * For horizontal bundles the single-tube coefficient is derated by the Kern
+ * average-row correction h_bundle = h_1 · N_r^(−1/6), with N_r the average
+ * number of tubes in a vertical column ≈ (2/3)·(D_bundle / pitch)
+ * (Kern 1950; Sinnott, Coulson & Richardson Vol. 6). Vertical bundles have
+ * no row inundation (condensate runs down each tube), so N_r = 1.
  */
 function calculateShellSideHTCForCondenser(ctx: ShellSideHTCContext): number {
-  const { satProps, tubeODm, orientation, tubeMeanTemp, shellSide, currentU, tubeSideHTC } = ctx;
+  const {
+    satProps,
+    tubeODm,
+    tubeIDm,
+    orientation,
+    tubeMeanTemp,
+    shellSide,
+    tubeSideHTC,
+    wallConductivity,
+    fouling,
+    sizing,
+  } = ctx;
   const ss = asCondensing(shellSide);
 
   if (!satProps) {
     throw new Error('Saturation properties required for condenser');
   }
 
-  // Estimate wall temperature
-  let wallTemp: number;
-  if (tubeSideHTC > 0 && currentU > 0) {
-    const fraction = Math.min(0.9, currentU / tubeSideHTC);
-    wallTemp = ss.saturationTemp - fraction * (ss.saturationTemp - tubeMeanTemp);
-  } else {
-    wallTemp = (ss.saturationTemp + tubeMeanTemp) / 2;
+  const totalDeltaT = Math.max(ss.saturationTemp - tubeMeanTemp, 0.1);
+
+  // All resistances between the condensate film base (outer wall surface)
+  // and the coolant, referred to the tube OD — same basis as calculateOverallHTC.
+  const diameterRatio = tubeODm / tubeIDm;
+  const wallResistance = (tubeODm * Math.log(diameterRatio)) / (2 * wallConductivity);
+  const hTube = tubeSideHTC > 0 ? tubeSideHTC : 500;
+  const rInside =
+    diameterRatio / hTube + fouling.tubeSide * diameterRatio + wallResistance + fouling.shellSide;
+
+  // Kern average-row bundle correction (horizontal bundles only)
+  let nRows = 1;
+  if (orientation === 'horizontal' && sizing.tubePitch > 0) {
+    nRows = Math.max(1, Math.round((2 / 3) * (sizing.bundleDiameter / sizing.tubePitch)));
   }
 
-  const deltaT = Math.max(ss.saturationTemp - wallTemp, 0.1);
+  const bundleHTCAt = (deltaTFilm: number): number => {
+    const { htc } = calculateNusseltCondensation({
+      liquidDensity: satProps.density,
+      vaporDensity: satProps.vaporDensity,
+      latentHeat: satProps.latentHeat,
+      liquidConductivity: satProps.thermalConductivity,
+      liquidViscosity: satProps.viscosity,
+      dimension: tubeODm,
+      deltaT: deltaTFilm,
+      orientation,
+    });
+    return applyBundleCorrection(htc, nRows);
+  };
 
-  const { htc } = calculateNusseltCondensation({
-    liquidDensity: satProps.density,
-    vaporDensity: satProps.vaporDensity,
-    latentHeat: satProps.latentHeat,
-    liquidConductivity: satProps.thermalConductivity,
-    liquidViscosity: satProps.viscosity,
-    dimension: tubeODm,
-    deltaT,
-    orientation,
-  });
+  // Fixed-point iteration on the film ΔT: ΔT_film = ΔT_total · U / h_bundle
+  // (equivalently ΔT_total − q·R_inside).
+  let deltaTFilm = 0.5 * totalDeltaT;
+  let htcBundle = bundleHTCAt(deltaTFilm);
+  for (let k = 0; k < 10; k++) {
+    const uEst = 1 / (1 / htcBundle + rInside);
+    const nextDeltaTFilm = Math.max((totalDeltaT * uEst) / htcBundle, 0.1);
+    const converged = Math.abs(nextDeltaTFilm - deltaTFilm) < 0.01;
+    deltaTFilm = nextDeltaTFilm;
+    htcBundle = bundleHTCAt(deltaTFilm);
+    if (converged) {
+      break;
+    }
+  }
 
-  return htc;
+  return htcBundle;
 }
 
 /**

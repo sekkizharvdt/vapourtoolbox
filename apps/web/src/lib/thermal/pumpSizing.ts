@@ -206,6 +206,13 @@ export function calculateTDH(input: PumpSizingInput): PumpSizingResult {
   if (pumpEfficiency < 0.5) {
     warnings.push('Low pump efficiency — verify with manufacturer data');
   }
+  const largestStandardMotorKW = STANDARD_MOTOR_SIZES_KW[STANDARD_MOTOR_SIZES_KW.length - 1] ?? 0;
+  if (motorPower > largestStandardMotorKW) {
+    warnings.push(
+      `Required motor power (${motorPower.toFixed(1)} kW) exceeds the largest standard motor ` +
+        `(${largestStandardMotorKW} kW) — custom motor required; the recommended motor size shown is capped`
+    );
+  }
 
   return {
     totalDifferentialHead,

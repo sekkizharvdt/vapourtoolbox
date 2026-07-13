@@ -284,7 +284,6 @@ export default function FallingFilmClient() {
 
   // Design parameters
   const [foulingResistance, setFoulingResistance] = useState<string>('0.00009');
-  const [designMargin, setDesignMargin] = useState<string>('15');
 
   // Dialog state
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -309,7 +308,6 @@ export default function FallingFilmClient() {
     setPitchRatio('1.25');
     setTubeRows('');
     setFoulingResistance('0.00009');
-    setDesignMargin('15');
   };
 
   // Auto-set tube OD/ID when selecting a standard size
@@ -339,7 +337,6 @@ export default function FallingFilmClient() {
       const pr = parseFloat(pitchRatio);
       const rows = parseInt(tubeRows, 10);
       const fouling = parseFloat(foulingResistance);
-      const margin = parseFloat(designMargin) / 100;
 
       // Wait until all required fields are filled
       if (
@@ -376,7 +373,6 @@ export default function FallingFilmClient() {
         pitchRatio: pr,
         tubeRows: rows,
         foulingResistance: isNaN(fouling) ? undefined : fouling,
-        designMargin: isNaN(margin) ? undefined : margin,
       };
 
       // Validate first
@@ -404,7 +400,6 @@ export default function FallingFilmClient() {
     pitchRatio,
     tubeRows,
     foulingResistance,
-    designMargin,
   ]);
 
   // Sync error state from useMemo
@@ -431,7 +426,6 @@ export default function FallingFilmClient() {
       pitchRatio,
       tubeRows,
       foulingResistance,
-      designMargin,
     }),
     [
       feedFlowRate,
@@ -447,7 +441,6 @@ export default function FallingFilmClient() {
       pitchRatio,
       tubeRows,
       foulingResistance,
-      designMargin,
     ]
   );
 
@@ -468,11 +461,7 @@ export default function FallingFilmClient() {
         film evaporators
       </Typography>
       <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
-        <Button
-          startIcon={<LoadIcon />}
-          size="small"
-          onClick={() => setLoadOpen(true)}
-        >
+        <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadOpen(true)}>
           Load Saved
         </Button>
         <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
@@ -750,24 +739,6 @@ export default function FallingFilmClient() {
                     },
                   }}
                 />
-                <TextField
-                  label="Design Margin"
-                  value={designMargin}
-                  onChange={(e) => setDesignMargin(e.target.value)}
-                  fullWidth
-                  size="small"
-                  type="number"
-                  helperText="Extra area beyond calculated requirement. Typical: 10-20%"
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <Typography variant="caption" sx={{ ml: 1 }}>
-                          %
-                        </Typography>
-                      ),
-                    },
-                  }}
-                />
               </Stack>
             </Paper>
 
@@ -888,10 +859,18 @@ export default function FallingFilmClient() {
                     </TableRow>
                     <TableRow>
                       <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                        Minimum Wetting Rate (&Gamma;_min)
+                        Minimum Wetting Rate (&Gamma;_min, validated design minimum)
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                         {calcResult.minimumWettingRate.toFixed(5)} kg/(m&middot;s)
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                        Theoretical Film-Breakdown Minimum (El-Dessouky, informational)
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                        {calcResult.wettingRateTheoreticalMin.toFixed(5)} kg/(m&middot;s)
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -936,9 +915,9 @@ export default function FallingFilmClient() {
 
                 <Box sx={{ mt: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
                   <Typography variant="caption" color="text.secondary">
-                    <strong>Thresholds:</strong> Excellent &gt; {WETTING_LIMITS.EXCELLENT} | Good
-                    &gt; {WETTING_LIMITS.GOOD} | Marginal &gt; {WETTING_LIMITS.MARGINAL} | Poor &lt;{' '}
-                    {WETTING_LIMITS.MARGINAL}
+                    <strong>Thresholds</strong> (&Gamma; / validated design minimum): Excellent &ge;{' '}
+                    {WETTING_LIMITS.EXCELLENT} | Good &ge; {WETTING_LIMITS.GOOD} | Marginal &ge;{' '}
+                    {WETTING_LIMITS.MARGINAL} | Poor &lt; {WETTING_LIMITS.MARGINAL}
                   </Typography>
                 </Box>
               </Paper>
@@ -1142,10 +1121,13 @@ export default function FallingFilmClient() {
                 </Table>
               </Paper>
 
-              {/* Design Check */}
+              {/* Installed area (the former "Design Check" panel was removed:
+                  the duty is computed FROM the installed area, so its
+                  "required vs installed" comparison was a tautology — excess
+                  was always exactly 0) */}
               <Paper sx={{ p: 3 }}>
                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  Design Check
+                  Heat Transfer Area
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 <Table size="small">
@@ -1156,36 +1138,6 @@ export default function FallingFilmClient() {
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
                         {calcResult.heatTransferArea.toFixed(2)} m&sup2;
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                        Design Area (with {designMargin}% margin)
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                        {calcResult.designArea.toFixed(2)} m&sup2;
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                        Excess Area
-                      </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{
-                          fontWeight: 'bold',
-                          fontSize: '0.8rem',
-                          color:
-                            calcResult.excessArea >= 0
-                              ? calcResult.excessArea > 50
-                                ? '#f57f17'
-                                : '#2e7d32'
-                              : '#c62828',
-                        }}
-                      >
-                        {calcResult.excessArea >= 0 ? '+' : ''}
-                        {calcResult.excessArea.toFixed(1)}%
-                        {calcResult.excessArea < 0 && ' (UNDERSIZED)'}
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -1270,7 +1222,6 @@ export default function FallingFilmClient() {
           pitchRatio,
           tubeRows,
           foulingResistance,
-          designMargin,
           selectedTubeSize,
         }}
       />
@@ -1296,7 +1247,8 @@ export default function FallingFilmClient() {
           if (typeof inputs.tubeRows === 'string') setTubeRows(inputs.tubeRows);
           if (typeof inputs.foulingResistance === 'string')
             setFoulingResistance(inputs.foulingResistance);
-          if (typeof inputs.designMargin === 'string') setDesignMargin(inputs.designMargin);
+          // designMargin in old saves is intentionally ignored — the field was
+          // removed with the tautological design-area check
           if (typeof inputs.selectedTubeSize === 'string')
             setSelectedTubeSize(inputs.selectedTubeSize);
         }}

@@ -21,14 +21,15 @@ interface SaveCalculationDialogProps {
   open: boolean;
   onClose: () => void;
   inputs: Record<string, unknown>;
-  calculatorType?: SavedCalculation['calculatorType'];
+  /** Required — omitting it would silently save into the wrong calculator's bucket */
+  calculatorType: SavedCalculation['calculatorType'];
 }
 
 export function SaveCalculationDialog({
   open,
   onClose,
   inputs,
-  calculatorType = 'SIPHON_SIZING',
+  calculatorType,
 }: SaveCalculationDialogProps) {
   const { user } = useAuth();
   const [name, setName] = useState('');

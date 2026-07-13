@@ -238,6 +238,16 @@ describe('selectSprayNozzles', () => {
     }
   });
 
+  it('warns when operating pressure is outside the catalogue band', () => {
+    const result = selectSprayNozzles({ ...baseInput, operatingPressure: 12, tolerance: 0.5 });
+    expect(result.warnings.some((w) => w.includes('catalogue'))).toBe(true);
+  });
+
+  it('does not warn when operating pressure is inside the catalogue band', () => {
+    const result = selectSprayNozzles(baseInput);
+    expect(result.warnings).toHaveLength(0);
+  });
+
   it('works for all four categories', () => {
     const categories: NozzleCategory[] = [
       'full_cone_circular',
@@ -295,6 +305,16 @@ describe('calculateNozzleLayout', () => {
     expect(() => calculateNozzleLayout({ ...baseInput, bundleLength: 0 })).toThrow();
     expect(() => calculateNozzleLayout({ ...baseInput, bundleWidth: 0 })).toThrow();
     expect(() => calculateNozzleLayout({ ...baseInput, totalFlow: 0 })).toThrow();
+  });
+
+  it('warns when operating pressure is outside the catalogue band', () => {
+    const result = calculateNozzleLayout({ ...baseInput, operatingPressure: 12 });
+    expect(result.warnings.some((w) => w.includes('catalogue'))).toBe(true);
+  });
+
+  it('does not warn when operating pressure is inside the catalogue band', () => {
+    const result = calculateNozzleLayout(baseInput);
+    expect(result.warnings).toHaveLength(0);
   });
 
   it('derived height respects min/max bounds', () => {

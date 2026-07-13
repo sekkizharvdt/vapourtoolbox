@@ -452,6 +452,14 @@ function calculateDiaphragmAnalysis(input: DiaphragmAnalysisInput): DiaphragmAna
     sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
   }
 
+  if (sim.finalPressure < P1 * 0.99) {
+    warnings.push(
+      `Vessel does not equalize within the ${Math.round(totalTimeSec / 3600)} h simulation cap — ` +
+        'the reported equalization time is truncated. The selected DN is likely undersized; ' +
+        'choose a larger valve or more breakers.'
+    );
+  }
+
   if (input.operatingPressureMbar < 50) {
     warnings.push('Very deep vacuum (< 50 mbar abs). Ensure vessel is rated for full vacuum.');
   }
@@ -531,6 +539,14 @@ function calculateDiaphragmDesign(input: DiaphragmDesignInput): DiaphragmDesignR
   while (sim.finalPressure < P1 * 0.99 && totalTimeSec < 86400) {
     totalTimeSec *= 2;
     sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
+  }
+
+  if (sim.finalPressure < P1 * 0.99) {
+    warnings.push(
+      `Vessel does not equalize within the ${Math.round(totalTimeSec / 3600)} h simulation cap — ` +
+        'the reported equalization time is truncated. The selected DN is likely undersized; ' +
+        'choose a larger valve or more breakers.'
+    );
   }
 
   if (input.operatingPressureMbar < 50) {

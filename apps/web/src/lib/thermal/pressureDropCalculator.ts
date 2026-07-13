@@ -80,6 +80,13 @@ export interface PressureDropInput {
   elevationChange?: number;
   /** Custom pipe dimensions — bypasses NPS lookup when provided */
   customPipe?: { id_mm: number; area_mm2: number };
+  /**
+   * Pre-resolved pipe variant — takes precedence over both `customPipe` and the
+   * `pipeNPS` lookup (which only knows the Schedule 40 static table). Pass this
+   * when the line uses a non-Sch-40 schedule so friction is computed on the same
+   * ID as the velocity.
+   */
+  pipe?: PipeVariant;
 }
 
 /**
@@ -310,9 +317,12 @@ function calculateTurbulentFrictionFactor(
 export function calculatePressureDrop(input: PressureDropInput): PressureDropResult {
   const warnings: string[] = [];
 
-  // Get pipe data — use custom dimensions if provided, otherwise lookup by NPS
+  // Get pipe data — prefer a pre-resolved variant, then custom dimensions,
+  // otherwise lookup by NPS (Schedule 40 static table)
   let pipe: PipeVariant;
-  if (input.customPipe) {
+  if (input.pipe) {
+    pipe = input.pipe;
+  } else if (input.customPipe) {
     const { id_mm, area_mm2 } = input.customPipe;
     pipe = {
       nps: 'CUSTOM',

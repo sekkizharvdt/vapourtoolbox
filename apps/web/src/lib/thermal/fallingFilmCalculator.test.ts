@@ -55,6 +55,7 @@ import {
   WETTING_LIMITS,
 } from './fallingFilmCalculator';
 import type { FallingFilmInput } from './fallingFilmCalculator';
+import { MIN_WETTING_RATE_DESIGN } from './wettingConstants';
 
 // ============================================================================
 // Test Helpers
@@ -173,10 +174,9 @@ describe('fallingFilmCalculator', () => {
       expect(result.isValid).toBe(false);
     });
 
-    it('rejects design margin outside 0-1', () => {
-      const result = validateFallingFilmInput(getTypicalInput({ designMargin: 1.5 }));
-      expect(result.isValid).toBe(false);
-    });
+    // 'rejects design margin outside 0-1' removed: the designMargin input was
+    // deleted along with the tautological design-area check (requiredArea was
+    // always identical to installed area because Q = U·A·ΔT).
 
     it('warns when tube count does not divide evenly by rows', () => {
       const result = validateFallingFilmInput(
@@ -239,10 +239,19 @@ describe('fallingFilmCalculator', () => {
       expect(result.wettingRate).toBeCloseTo(expectedWettingRate, 6);
     });
 
-    it('minimum wetting rate is positive and much smaller than typical wetting rate', () => {
+    it('governing minimum wetting rate is the validated design minimum (0.03 kg/(m·s))', () => {
       const result = calculateFallingFilm(getTypicalInput());
-      expect(result.minimumWettingRate).toBeGreaterThan(0);
-      expect(result.minimumWettingRate).toBeLessThan(result.wettingRate);
+      expect(result.minimumWettingRate).toBe(MIN_WETTING_RATE_DESIGN);
+      expect(result.minimumWettingRate).toBe(0.03);
+    });
+
+    it('still reports the El-Dessouky theoretical film-breakdown minimum as informational output', () => {
+      const result = calculateFallingFilm(getTypicalInput());
+      // Theoretical film-breakdown minimum is ~2e-4 kg/(m·s) — far below the
+      // validated design minimum, and must NOT govern the wetting status.
+      expect(result.wettingRateTheoreticalMin).toBeGreaterThan(0);
+      expect(result.wettingRateTheoreticalMin).toBeLessThan(0.001);
+      expect(result.wettingRateTheoreticalMin).toBeLessThan(result.minimumWettingRate);
     });
 
     it('wetting ratio equals wettingRate / minimumWettingRate', () => {
@@ -250,20 +259,42 @@ describe('fallingFilmCalculator', () => {
       expect(result.wettingRatio).toBeCloseTo(result.wettingRate / result.minimumWettingRate, 4);
     });
 
-    it('classifies excellent wetting when ratio > 3.0', () => {
-      // Use a high feed flow to get a high wetting ratio
-      const result = calculateFallingFilm(getTypicalInput({ feedFlowRate: 200 }));
-      if (result.wettingRatio > WETTING_LIMITS.EXCELLENT) {
-        expect(result.wettingStatus).toBe('excellent');
-      }
+    it('grades 0.01 kg/(m·s) as poor with a warning (was "excellent" under the old El-Dessouky threshold)', () => {
+      // Gamma = feed / (tubesPerRow * L * 2) = 7.2 / (60 * 6 * 2) = 0.01 kg/(m·s)
+      const result = calculateFallingFilm(getTypicalInput({ feedFlowRate: 7.2 }));
+      expect(result.wettingRate).toBeCloseTo(0.01, 6);
+      // 0.01 is ~40x the theoretical film-breakdown minimum (old logic said
+      // "excellent") but only 1/3 of the validated design minimum.
+      expect(result.wettingStatus).toBe('poor');
+      expect(result.warnings.some((w) => w.includes('below the validated minimum'))).toBe(true);
     });
 
-    it('warns on low wetting ratio (< 1.5)', () => {
+    it('grades 0.05 kg/(m·s) as good (above the 1.5x design target of 0.045)', () => {
+      // Gamma = 36 / (60 * 6 * 2) = 0.05 kg/(m·s) -> ratio 1.67
+      const result = calculateFallingFilm(getTypicalInput({ feedFlowRate: 36 }));
+      expect(result.wettingRate).toBeCloseTo(0.05, 6);
+      expect(result.wettingStatus).toBe('good');
+    });
+
+    it('grades wetting just above the minimum (0.03-0.045) as marginal', () => {
+      // Gamma = 25.2 / (60 * 6 * 2) = 0.035 kg/(m·s) -> ratio 1.17
+      const result = calculateFallingFilm(getTypicalInput({ feedFlowRate: 25.2 }));
+      expect(result.wettingStatus).toBe('marginal');
+      expect(result.warnings.some((w) => w.includes('below the design target'))).toBe(true);
+    });
+
+    it('classifies excellent wetting when ratio >= 2.0', () => {
+      // Gamma = 200 / (60 * 6 * 2) = 0.278 kg/(m·s) -> ratio 9.3
+      const result = calculateFallingFilm(getTypicalInput({ feedFlowRate: 200 }));
+      expect(result.wettingRatio).toBeGreaterThanOrEqual(WETTING_LIMITS.EXCELLENT);
+      expect(result.wettingStatus).toBe('excellent');
+    });
+
+    it('warns on wetting below the validated minimum', () => {
       // Use very low feed flow to get a low wetting ratio
       const result = calculateFallingFilm(getTypicalInput({ feedFlowRate: 0.5 }));
-      if (result.wettingRatio < 1.5) {
-        expect(result.warnings.some((w) => w.includes('Wetting ratio'))).toBe(true);
-      }
+      expect(result.wettingRatio).toBeLessThan(1.0);
+      expect(result.warnings.some((w) => w.includes('below the validated minimum'))).toBe(true);
     });
 
     it('warns on excessive wetting ratio (> 6)', () => {
@@ -336,6 +367,65 @@ describe('fallingFilmCalculator', () => {
       const result = calculateFallingFilm(getTypicalInput());
       expect(result.filmHTC).toBeGreaterThan(100);
       expect(result.filmHTC).toBeLessThan(50000);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Reference: Chato in-tube condensation + Chun-Seban laminar film
+  // (added with the 2026-07 paired condensation fixes)
+  // --------------------------------------------------------------------------
+  describe('condensation HTC — Chato with film ΔT', () => {
+    // Independent re-implementation of Chato (1962) for the mocked property
+    // set at 65°C steam, used to cross-check the internal film-ΔT iteration.
+    function chatoHTC(deltaTFilm: number): number {
+      const T = 65;
+      const rho_l = 1000 - (T - 20) * 0.3; // mocked getDensityLiquid
+      const rho_v = 0.05 + T * 0.003; // mocked getDensityVapor
+      const mu = 2.414e-5 * Math.pow(10, 247.8 / (T + 133.15));
+      const k = 0.569 + 0.0019 * T - 8e-6 * T * T;
+      const hfg = (2500 - 2.4 * T) * 1000; // mocked getLatentHeat, J/kg
+      const D_i = 0.0221;
+      const num = rho_l * (rho_l - rho_v) * 9.81 * hfg * Math.pow(k, 3);
+      const den = mu * D_i * Math.max(deltaTFilm, 0.05);
+      return 0.555 * Math.pow(num / den, 0.25);
+    }
+
+    it('condensation HTC satisfies the Chato film-ΔT resistance balance', () => {
+      const result = calculateFallingFilm(getTypicalInput());
+      const dRatio = 25.4 / 22.1;
+
+      // Recover the converged film ΔT from the balance the calculator
+      // iterates: ΔT_film = ΔT_eff · U · (D_o/D_i) / h_cond
+      const deltaTFilm =
+        (result.effectiveTemperatureDiff * result.overallHTC * dRatio) / result.condensationHTC;
+
+      expect(
+        Math.abs(chatoHTC(deltaTFilm) - result.condensationHTC) / result.condensationHTC
+      ).toBeLessThan(0.01);
+
+      // Film ΔT is a small fraction of the effective ΔT (~0.39 K of ~4.27 K
+      // here) — using the full steam-to-feed ΔT was the old bug
+      expect(deltaTFilm).toBeLessThan(0.3 * result.effectiveTemperatureDiff);
+    });
+
+    it('pins the typical-case condensation HTC (regression for the paired fix)', () => {
+      // Pre-fix (0.725 × full 5 K steam-to-feed ΔT): ~13,887 W/(m²·K)
+      // Post-fix (0.555 × iterated film ΔT ≈ 0.39 K): 20,114 W/(m²·K)
+      const result = calculateFallingFilm(getTypicalInput());
+      expect(Math.abs(result.condensationHTC - 20114) / 20114).toBeLessThan(0.01);
+    });
+  });
+
+  describe('film HTC — Chun-Seban laminar branch', () => {
+    it('pins the laminar HTC to the published Chun-Seban form 0.822·Re^(−0.22)', () => {
+      // feedFlowRate 20 kg/s → Γ = 20/(60·6·2) = 0.02778 kg/(m·s)
+      // μ (mocked, 60°C) = 0.001·e^(−0.8) = 4.4933e-4 → Re = 4Γ/μ = 247.28
+      // filmGroup = (k³ρ²g/μ²)^(1/3) with k = 0.63, ρ = 1016 → 23,235
+      // h = 0.822 × filmGroup × 247.28^(−0.22) = 5,682 W/(m²·K)
+      // (old 0.821·Re^(−1/3) form gave ~3,039 — matched no published correlation)
+      const result = calculateFallingFilm(getTypicalInput({ feedFlowRate: 20 }));
+      expect(result.flowRegime).toBe('Laminar Sheet');
+      expect(Math.abs(result.filmHTC - 5682) / 5682).toBeLessThan(0.01);
     });
   });
 
@@ -455,10 +545,14 @@ describe('fallingFilmCalculator', () => {
       expect(oneInch!.id).toBe(22.1);
     });
 
-    it('WETTING_LIMITS has correct thresholds', () => {
-      expect(WETTING_LIMITS.EXCELLENT).toBe(3.0);
-      expect(WETTING_LIMITS.GOOD).toBe(2.0);
-      expect(WETTING_LIMITS.MARGINAL).toBe(1.5);
+    it('WETTING_LIMITS mirrors the MED designer grading (ratio vs validated design minimum)', () => {
+      expect(WETTING_LIMITS.EXCELLENT).toBe(2.0);
+      expect(WETTING_LIMITS.GOOD).toBe(1.5);
+      expect(WETTING_LIMITS.MARGINAL).toBe(1.0);
+    });
+
+    it('MIN_WETTING_RATE_DESIGN is the validated 0.03 kg/(m·s) gold standard', () => {
+      expect(MIN_WETTING_RATE_DESIGN).toBe(0.03);
     });
   });
 });

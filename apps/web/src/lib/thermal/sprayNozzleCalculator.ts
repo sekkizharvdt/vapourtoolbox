@@ -99,6 +99,8 @@ export interface SprayNozzleResult {
   /** Flow required per nozzle (lpm) */
   flowPerNozzle: number;
   numberOfNozzles: number;
+  /** Validity warnings (e.g. operating pressure outside the catalogue data band) */
+  warnings: string[];
 }
 
 // ── Layout Types ──────────────────────────────────────────────────────────────
@@ -179,6 +181,8 @@ export interface NozzleLayoutResult {
   overshootMargin: number;
   minOverlap: number;
   totalFlow: number;
+  /** Validity warnings (e.g. operating pressure outside the catalogue data band) */
+  warnings: string[];
 }
 
 // ── Catalogue Data ───────────────────────────────────────────────────────────
@@ -2047,6 +2051,37 @@ export function calculateFlowAtPressure(
 }
 
 /**
+ * Warn when the operating pressure lies outside the catalogue data band
+ * for a nozzle category. Spray angles are clamped at the band edges, but
+ * flows keep extrapolating via Q ∝ P^n — increasingly inaccurate outside
+ * the band.
+ *
+ * The band is the union of the category's angle-data pressures, including
+ * per-nozzle overrides.
+ */
+function catalogueBandWarning(
+  config: NozzleCategoryConfig,
+  operatingPressure: number
+): string | null {
+  let bandLow = config.anglePressures[0];
+  let bandHigh = config.anglePressures[2];
+  for (const nozzle of config.nozzles) {
+    if (nozzle.anglePressures) {
+      bandLow = Math.min(bandLow, nozzle.anglePressures[0]);
+      bandHigh = Math.max(bandHigh, nozzle.anglePressures[2]);
+    }
+  }
+  if (operatingPressure < bandLow || operatingPressure > bandHigh) {
+    return (
+      `Operating pressure (${operatingPressure} bar) is outside the catalogue data band ` +
+      `(${bandLow}–${bandHigh} bar) — flows are extrapolated via Q ∝ P^n and spray angles are ` +
+      'clamped at the band edge; verify selection with manufacturer data'
+    );
+  }
+  return null;
+}
+
+/**
  * Interpolate spray angle at operating pressure from three data points.
  * Uses linear interpolation between the nearest two points.
  */
@@ -2148,12 +2183,17 @@ export function selectSprayNozzles(input: SprayNozzleInput): SprayNozzleResult {
   // Sort by absolute deviation (closest match first)
   matches.sort((a, b) => Math.abs(a.deviationPercent) - Math.abs(b.deviationPercent));
 
+  const warnings: string[] = [];
+  const bandWarning = catalogueBandWarning(config, operatingPressure);
+  if (bandWarning) warnings.push(bandWarning);
+
   return {
     matches,
     category,
     operatingPressure,
     flowPerNozzle: Math.round(flowPerNozzle * 100) / 100,
     numberOfNozzles,
+    warnings,
   };
 }
 
@@ -2319,6 +2359,10 @@ export function calculateNozzleLayout(input: NozzleLayoutInput): NozzleLayoutRes
     return Math.abs(a.deviationPercent) - Math.abs(b.deviationPercent);
   });
 
+  const warnings: string[] = [];
+  const bandWarning = catalogueBandWarning(config, operatingPressure);
+  if (bandWarning) warnings.push(bandWarning);
+
   return {
     matches,
     category,
@@ -2331,6 +2375,7 @@ export function calculateNozzleLayout(input: NozzleLayoutInput): NozzleLayoutRes
     overshootMargin,
     minOverlap,
     totalFlow,
+    warnings,
   };
 }
 

@@ -174,11 +174,9 @@ export interface HeatMassBalance {
   /** Total heat output in kW */
   heatOutput: number;
 
-  /** Balance error as percentage (ideally < 1%) */
-  balanceError: number;
-
-  /** Whether the balance is within acceptable tolerance */
-  isBalanced: boolean;
+  // NOTE: the former balanceError/isBalanced fields were removed — the vapor
+  // flow is solved FROM this energy balance, so the "check" compared the
+  // equation against itself and could never report an imbalance (tautology).
 }
 
 /**
@@ -1089,8 +1087,6 @@ export interface SingleTubeInput {
   insideFouling?: number;
   /** Outside fouling resistance in m²·K/W (default 0.00009) */
   outsideFouling?: number;
-  /** Design margin fraction 0-1 (default 0.15) */
-  designMargin?: number;
 }
 
 /**
@@ -1174,20 +1170,19 @@ export interface SingleTubeResult {
   // --- Wetting analysis (outside) ---
   /** Wetting rate Gamma in kg/(m·s) */
   wettingRate: number;
-  /** Minimum wetting rate in kg/(m·s) */
+  /** Governing minimum wetting rate in kg/(m·s) — validated design minimum (0.03) */
   minimumWettingRate: number;
-  /** Wetting ratio (Gamma / Gamma_min) */
+  /** El-Dessouky theoretical film-breakdown minimum in kg/(m·s) — informational only */
+  wettingRateTheoreticalMin: number;
+  /** Wetting ratio (Gamma / validated design minimum) */
   wettingRatio: number;
   /** Wetting quality assessment */
   wettingStatus: 'excellent' | 'good' | 'marginal' | 'poor';
 
-  // --- Design check ---
-  /** Required area for the heat duty in m² */
-  requiredArea: number;
-  /** Installed area with design margin in m² */
-  designArea: number;
-  /** Excess area percentage */
-  excessArea: number;
+  // NOTE: the former "design check" outputs (requiredArea/designArea/excessArea)
+  // were removed — the tube's duty is itself computed as U·A·ΔT from the
+  // installed area, so requiredArea = Q/(U·ΔT) was identically the installed
+  // area and the check was a tautology (excess always exactly 0).
 
   /** Warnings and notes */
   warnings: string[];

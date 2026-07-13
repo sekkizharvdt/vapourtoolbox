@@ -32,7 +32,6 @@ export interface GORReportInputs {
   condenserApproach: string;
   condenserTTD: string;
   tvcEntrainmentRatio: string;
-  tvcCompressionRatio: string;
   distillateCapacity: string;
   steamSatTemp: number | null;
 }
@@ -94,12 +93,7 @@ export const GORReportPDF = ({
     { label: 'Condenser Approach', value: `${inputs.condenserApproach} \u00B0C` },
     { label: 'Condenser TTD', value: `${inputs.condenserTTD} \u00B0C` },
     ...(inputs.configuration === 'MED_TVC'
-      ? [
-          { label: 'TVC Entrainment Ratio', value: inputs.tvcEntrainmentRatio },
-          ...(inputs.tvcCompressionRatio
-            ? [{ label: 'TVC Compression Ratio', value: inputs.tvcCompressionRatio }]
-            : []),
-        ]
+      ? [{ label: 'TVC Entrainment Ratio', value: inputs.tvcEntrainmentRatio }]
       : []),
   ];
 

@@ -316,18 +316,20 @@ export function sizeHeatExchanger(input: HeatExchangerInput): HeatExchangerResul
   const minShellID = bundleDiameter + clearance;
 
   // Select next standard shell size
-  let shellID = minShellID;
-  for (const stdShell of STANDARD_SHELL_IDS_MM) {
-    if (stdShell >= minShellID) {
-      shellID = stdShell;
-      break;
-    }
-  }
-  // If larger than all standard sizes
-  if (shellID < minShellID) {
+  // (previous version compared `shellID < minShellID` after initialising
+  // shellID = minShellID, so the "custom fabrication" branch was unreachable
+  // and oversized bundles returned a raw non-standard ID with no warning)
+  const standardShell = STANDARD_SHELL_IDS_MM.find((stdShell) => stdShell >= minShellID);
+  let shellID: number;
+  if (standardShell !== undefined) {
+    shellID = standardShell;
+  } else {
+    // Larger than all standard sizes
     shellID = Math.ceil(minShellID / 25) * 25; // round to nearest 25mm
     warnings.push(
-      `Shell diameter ${shellID} mm exceeds standard TEMA sizes. Custom fabrication required.`
+      `Shell diameter ${shellID} mm exceeds the largest standard TEMA size ` +
+        `(${STANDARD_SHELL_IDS_MM[STANDARD_SHELL_IDS_MM.length - 1]} mm). ` +
+        `Custom fabrication required — non-standard shell.`
     );
   }
 

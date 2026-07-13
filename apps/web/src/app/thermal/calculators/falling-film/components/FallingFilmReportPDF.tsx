@@ -35,7 +35,6 @@ export interface FallingFilmReportInputs {
   pitchRatio: string;
   tubeRows: string;
   foulingResistance: string;
-  designMargin: string;
 }
 
 interface FallingFilmReportPDFProps {
@@ -237,19 +236,11 @@ export const FallingFilmReportPDF = ({
     },
   ];
 
-  // Design check rows
+  // Installed-area rows (the former "design check" rows were removed: duty is
+  // computed from the installed area, so the required/excess comparison was a
+  // tautology \u2014 excess was always exactly 0)
   const designRows = [
     { param: 'Installed HT Area', value: fmt(result.heatTransferArea, 2), unit: 'm\u00B2' },
-    {
-      param: `Design Area (${inputs.designMargin}% margin)`,
-      value: fmt(result.designArea, 2),
-      unit: 'm\u00B2',
-    },
-    {
-      param: 'Excess Area',
-      value: `${result.excessArea >= 0 ? '+' : ''}${fmt(result.excessArea, 1)}%`,
-      unit: result.excessArea < 0 ? 'UNDERSIZED' : '',
-    },
   ];
 
   return (
@@ -316,8 +307,13 @@ export const FallingFilmReportPDF = ({
                 unit: 'kg/(m\u00B7s)',
               },
               {
-                param: 'Minimum Wetting Rate (\u0393_min)',
+                param: 'Minimum Wetting Rate (\u0393_min, validated design minimum)',
                 value: fmt(result.minimumWettingRate, 5),
+                unit: 'kg/(m\u00B7s)',
+              },
+              {
+                param: 'Theoretical Film-Breakdown Minimum (El-Dessouky, informational)',
+                value: fmt(result.wettingRateTheoreticalMin, 5),
                 unit: 'kg/(m\u00B7s)',
               },
               {
@@ -389,8 +385,8 @@ export const FallingFilmReportPDF = ({
           />
         </ReportSection>
 
-        {/* Design Check */}
-        <ReportSection title="Design Check">
+        {/* Heat transfer area */}
+        <ReportSection title="Heat Transfer Area">
           <ReportTable
             columns={[
               { key: 'param', header: 'Parameter', width: '50%' },
