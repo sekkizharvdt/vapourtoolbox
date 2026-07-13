@@ -6,7 +6,7 @@
 
 **Test baseline: 32 suites, 1,144 tests, all passing** (Jest, `apps/web`).
 
-**Status (updated 2026-07-07):** Findings register — none of H1–H5 or the medium items fixed yet. Remediation is sequenced in `2026-07-07-application-completion-plan.md` **Track E**; execute via that plan, keep this doc as the source of record for defect details.
+**Status (updated 2026-07-13):** REMEDIATED — H1–H5, the condenser pairs, the quick wins, the medium batch, and one external anchor per calculator (all within 0.6% of hand-computed references) landed in the Phase-5 thermal commit. Remaining from this review: heat-duty/heat-transfer dead-client retirement (live panels import their exports) and the Track-F feature adds. Test baseline now ~1,217 thermal tests including the BARC per-effect golden snapshot.
 
 ---
 

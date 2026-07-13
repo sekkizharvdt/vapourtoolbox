@@ -8,7 +8,7 @@ A comprehensive security review of the Vapour Toolbox application covering authe
 **Date**: March 15, 2026
 **Scope**: Full application — Firestore rules, Cloud Functions, client services, storage, HTTP headers
 
-**Status (updated 2026-07-07, scope locked):** Findings 1 (storage rules), 2 (rate limiting) and 4 (App Check) are scheduled as completion-plan **Track G / Phase 4**. By user decision: finding 6 (Gmail SMTP) stays as-is on cost grounds; findings 3/7/8 (CSP, MFA, console.log) parked until after the spine. Per-finding state:
+**Status (updated 2026-07-13):** Track G SHIPPED — finding 1 (storage rules: all wide-open paths permission-gated, 16 emulator tests), finding 2 (Firestore-backed rate limiting; aiHelp/parseOffer were previously unlimited), finding 4 (App Check client wiring; console registration + enforcement flip are the remaining manual steps). By user decision: finding 6 (Gmail SMTP) stays as-is on cost grounds; findings 3/7/8 (CSP, MFA, console.log) parked. Per-finding state:
 
 | #   | Finding                             | Severity | Status 2026-07-07                                                                                                         |
 | --- | ----------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |

@@ -609,6 +609,7 @@ export async function markInvoiceAsSent(
   userName: string,
   userPermissions?: number
 ): Promise<void> {
+  // rule8-exempt: transactions have no shared state machine (this file's approve/reject/submit are equally exempt); the explicit status guards below enforce the only legal transition APPROVED->POSTED and make retries a no-op
   // rule19-exempt: single-field status transition guarded by the status check; concurrent senders converge to POSTED
   validateRequiredId(transactionId, 'Invoice ID');
   validateRequiredId(userId, 'User ID');
