@@ -36,17 +36,20 @@ import {
   AccountBalance as TotalIcon,
   Visibility as ViewIcon,
   AddCard as RecordPaymentIcon,
+  PostAdd as JournalIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, documentId } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
-import { getInrAmount, deriveOutstanding } from '@/lib/accounting/amountHelpers';
+import { getInrAmount, deriveOutstanding, roundToPaisa } from '@/lib/accounting/amountHelpers';
+import { resolveTransactionDate } from '@/components/accounting/FiscalYearFilter';
+import type { JournalEntryPrefill } from '../../journal-entries/components/CreateJournalEntryDialog';
 
 const CreateBillDialog = dynamic(
   () => import('../../bills/components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
@@ -68,6 +71,13 @@ const RecordCustomerPaymentDialog = dynamic(
   () =>
     import('../../payments/components/RecordCustomerPaymentDialog').then(
       (mod) => mod.RecordCustomerPaymentDialog
+    ),
+  { ssr: false }
+);
+const CreateJournalEntryDialog = dynamic(
+  () =>
+    import('../../journal-entries/components/CreateJournalEntryDialog').then(
+      (mod) => mod.CreateJournalEntryDialog
     ),
   { ssr: false }
 );
@@ -100,7 +110,8 @@ function getAgingColor(daysOverdue: number): 'warning' | 'error' | 'default' {
 
 export default function OverdueItemsPage() {
   const router = useRouter();
-  useAuth();
+  const { claims } = useAuth();
+  const tenantId = claims?.tenantId || 'default-entity';
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<OverdueItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<OverdueItem[]>([]);
@@ -120,6 +131,10 @@ export default function OverdueItemsPage() {
   // Record payment dialog state
   const [vendorPaymentOpen, setVendorPaymentOpen] = useState(false);
   const [customerPaymentOpen, setCustomerPaymentOpen] = useState(false);
+
+  // Close-via-journal dialog state
+  const [journalDialogOpen, setJournalDialogOpen] = useState(false);
+  const [journalPrefill, setJournalPrefill] = useState<JournalEntryPrefill | null>(null);
 
   const fetchOverdueItems = async () => {
     setLoading(true);
@@ -395,6 +410,60 @@ export default function OverdueItemsPage() {
     }
   };
 
+  // Open the journal dialog pre-filled to settle a payable (feedback OUHs7SRu3v2iFUogK8K2).
+  // The linked-bill mechanism (settleLinkedTransactionViaJournal) closes the bill
+  // once the entry is saved as Approved/Posted.
+  const handleCloseViaJournal = async (item: OverdueItem) => {
+    const bill = item.fullData as VendorBill;
+    const billNumber = bill.vendorInvoiceNumber || item.transactionNumber;
+    const billDate = resolveTransactionDate(bill.billDate ?? bill.date);
+    const outstanding = roundToPaisa(item.outstandingAmount);
+
+    // Entity roles are needed so the dialog can resolve the AP control account
+    // for the debit line (selector callbacks don't fire on pre-filled values).
+    let entityRoles: string[] | undefined;
+    try {
+      if (bill.entityId) {
+        const { db } = getFirebase();
+        const entitySnap = await getDoc(doc(db, COLLECTIONS.ENTITIES, bill.entityId));
+        entityRoles = entitySnap.exists() ? (entitySnap.data().roles ?? undefined) : undefined;
+      }
+    } catch (err) {
+      // Degrade gracefully: the dialog asks the user to pick the account manually
+      console.error('[OverdueItemsPage] Could not fetch entity roles for JE prefill:', err);
+    }
+
+    setJournalPrefill({
+      description: `Being settlement of vendor bill ${billNumber}${
+        billDate ? ` dated ${formatDate(billDate)}` : ''
+      } — ${item.entityName}`,
+      reference: billNumber,
+      linkedVendorBillId: item.id,
+      entries: [
+        {
+          accountId: '',
+          debit: outstanding,
+          credit: 0,
+          description: `Settle bill ${billNumber}`,
+          costCentreId: undefined,
+          entityId: bill.entityId ?? undefined,
+          entityName: item.entityName || undefined,
+          entityRoles,
+        },
+        {
+          accountId: '',
+          debit: 0,
+          credit: outstanding,
+          description: '',
+          costCentreId: undefined,
+          entityId: undefined,
+          entityName: undefined,
+        },
+      ],
+    });
+    setJournalDialogOpen(true);
+  };
+
   const receivables = items.filter((i) => i.type === 'CUSTOMER_INVOICE');
   const payables = items.filter((i) => i.type === 'VENDOR_BILL');
   const totalReceivable = receivables.reduce((sum, i) => sum + i.outstandingAmount, 0);
@@ -631,6 +700,18 @@ export default function OverdueItemsPage() {
                             Pay
                           </Button>
                         </Tooltip>
+                        {item.type === 'VENDOR_BILL' && (
+                          <Tooltip title="Close via Journal Entry">
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<JournalIcon />}
+                              onClick={() => void handleCloseViaJournal(item)}
+                            >
+                              JE
+                            </Button>
+                          </Tooltip>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -680,6 +761,18 @@ export default function OverdueItemsPage() {
           setCustomerPaymentOpen(false);
           fetchOverdueItems();
         }}
+      />
+
+      {/* Close-via-journal dialog */}
+      <CreateJournalEntryDialog
+        open={journalDialogOpen}
+        onClose={() => {
+          setJournalDialogOpen(false);
+          setJournalPrefill(null);
+          fetchOverdueItems();
+        }}
+        prefill={journalPrefill}
+        tenantId={tenantId}
       />
     </Box>
   );

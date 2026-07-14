@@ -59,10 +59,24 @@ interface TransactionOption {
   transactionNumber: string;
 }
 
+/**
+ * Seeds a NEW journal entry (ignored when editingEntry is set). Used by the
+ * Data Health overdue page to pre-fill a bill-settlement entry.
+ */
+export interface JournalEntryPrefill {
+  /** YYYY-MM-DD */
+  date?: string;
+  description?: string;
+  reference?: string;
+  linkedVendorBillId?: string;
+  entries?: LedgerEntryForm[];
+}
+
 interface CreateJournalEntryDialogProps {
   open: boolean;
   onClose: () => void;
   editingEntry?: JournalEntry | null;
+  prefill?: JournalEntryPrefill | null;
   tenantId: string;
 }
 
@@ -82,7 +96,7 @@ function getDateString(date: unknown): string {
   return '';
 }
 
-interface LedgerEntryForm extends Omit<LedgerEntry, 'accountName' | 'accountCode'> {
+export interface LedgerEntryForm extends Omit<LedgerEntry, 'accountName' | 'accountCode'> {
   accountName?: string;
   accountCode?: string;
   // Store entity roles to resolve control account later
@@ -93,6 +107,7 @@ export function CreateJournalEntryDialog({
   open,
   onClose,
   editingEntry,
+  prefill,
   tenantId,
 }: CreateJournalEntryDialogProps) {
   // rule19-exempt: dialog reads accounts/entities for selectors and writes a new journal-entry doc — different documents; the read does not mutate
@@ -150,6 +165,39 @@ export function CreateJournalEntryDialog({
         setEntries(editingEntry.entries || []);
         setLinkedCustomerInvoiceId(editingEntry.linkedCustomerInvoiceId || '');
         setLinkedVendorBillId(editingEntry.linkedVendorBillId || '');
+      } else if (prefill) {
+        // New entry seeded by a caller (e.g. Data Health "close via journal")
+        setDate(prefill.date || new Date().toISOString().split('T')[0] || '');
+        setDescription(prefill.description || '');
+        setReference(prefill.reference || '');
+        setProjectId(null);
+        setStatus('DRAFT');
+        setLinkedCustomerInvoiceId('');
+        setLinkedVendorBillId(prefill.linkedVendorBillId || '');
+        setEntries(
+          prefill.entries && prefill.entries.length >= 2
+            ? prefill.entries
+            : [
+                {
+                  accountId: '',
+                  debit: 0,
+                  credit: 0,
+                  description: '',
+                  costCentreId: undefined,
+                  entityId: undefined,
+                  entityName: undefined,
+                },
+                {
+                  accountId: '',
+                  debit: 0,
+                  credit: 0,
+                  description: '',
+                  costCentreId: undefined,
+                  entityId: undefined,
+                  entityName: undefined,
+                },
+              ]
+        );
       } else {
         setDate(new Date().toISOString().split('T')[0] || '');
         setDescription('');
@@ -181,7 +229,7 @@ export function CreateJournalEntryDialog({
       }
       setError('');
     }
-  }, [open, editingEntry]);
+  }, [open, editingEntry, prefill]);
 
   // Load invoice and bill options when dialog opens
   useEffect(() => {
@@ -651,6 +699,17 @@ export function CreateJournalEntryDialog({
             )}
           />
         </Grid>
+
+        {(linkedVendorBillId || linkedCustomerInvoiceId) &&
+          status !== 'POSTED' &&
+          status !== 'APPROVED' && (
+            <Grid size={{ xs: 12 }}>
+              <Alert severity="info">
+                The linked {linkedVendorBillId ? 'bill' : 'invoice'} is settled only when this entry
+                is saved as Approved or Posted — a Draft does not reduce its outstanding amount.
+              </Alert>
+            </Grid>
+          )}
 
         <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>
