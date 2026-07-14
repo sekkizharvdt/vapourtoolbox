@@ -39,8 +39,8 @@ import type {
 } from '@vapour/types';
 import { requirePermission } from '@/lib/auth';
 import { addMaterialPrice } from '@/lib/materials/pricing';
-import { updateBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 import { addBoughtOutPrice } from '@/lib/boughtOut/pricing';
+import { addServiceRate } from '@/lib/services/rates';
 import { computeQuoteLineAmounts } from './lineMath';
 
 const logger = createLogger({ context: 'vendorQuoteService' });
@@ -921,41 +921,34 @@ export async function acceptQuoteItemPrice(
       quote.tenantId || 'default-entity'
     );
   } else if (item.itemType === 'SERVICE' && item.serviceId) {
-    await addDoc(
-      collection(db, COLLECTIONS.SERVICE_RATES),
-      stripUndefined({
-        tenantId: quote.tenantId,
+    // Canonical rate write: appends the serviceRates history row AND
+    // denormalizes Service.currentRate so BOM costing picks the rate up
+    // as the PROCURED_RATE tier of the fallback chain.
+    await addServiceRate(
+      db,
+      {
+        ...(quote.tenantId && { tenantId: quote.tenantId }),
         serviceId: item.serviceId,
         rateValue: item.unitPrice,
         currency: quote.currency,
+        ...(quote.vendorId && { vendorId: quote.vendorId }),
+        ...(quote.vendorName && { vendorName: quote.vendorName }),
+        documentReference: quote.number,
+        sourceQuoteId: quote.id,
         effectiveDate: now,
         isActive: true,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: userId,
-        updatedBy: userId,
-      })
+      },
+      userId
     );
     logger.info('Service rate recorded from quote', {
       serviceId: item.serviceId,
       quoteNumber: quote.number,
     });
   } else if (item.itemType === 'BOUGHT_OUT' && item.boughtOutItemId) {
-    // Update the catalog's current list price (so the picker keeps showing
-    // the latest accepted price) AND append a price-history record so the
-    // detail page can show how this item's price has moved across vendors.
-    await updateBoughtOutItem(
-      db,
-      item.boughtOutItemId,
-      {
-        pricing: {
-          listPrice: { amount: item.unitPrice, currency: quote.currency },
-          currency: quote.currency,
-          ...(quote.vendorId ? { vendorId: quote.vendorId } : {}),
-        },
-      },
-      userId
-    );
+    // Append a price-history record; addBoughtOutPrice also denormalizes
+    // the catalog's current list price (pricing.listPrice/effectiveDate)
+    // when this price is active and at least as new as the existing one —
+    // so the picker keeps showing the latest accepted price.
     await addBoughtOutPrice(
       db,
       {

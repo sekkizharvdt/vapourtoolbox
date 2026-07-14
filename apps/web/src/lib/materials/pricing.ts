@@ -23,6 +23,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { MaterialPrice, CurrencyCode } from '@vapour/types';
 import { getMaterialById } from './crud';
+import { addBoughtOutPrice } from '@/lib/boughtOut/pricing';
 
 const logger = createLogger({ context: 'materialService:pricing' });
 
@@ -187,24 +188,67 @@ export async function getCurrentPrice(
 
 export interface ProcurementPriceItem {
   materialId?: string;
+  /** Bought-out catalog link — priced into bought_out_prices (A2 bridge). */
+  boughtOutItemId?: string;
+  /**
+   * Service catalog link. Service rates flow through the explicit
+   * accept-price action (serviceRates), not this bulk feedback — but a line
+   * with a serviceId is still LINKED, so it isn't counted as leakage.
+   */
+  serviceId?: string;
   unitPrice: number;
   unit: string;
 }
 
 /**
- * Record prices from procurement events back to the material database.
+ * Count lines with no catalog linkage at all — the "free-text leakage" whose
+ * prices can't feed future estimates. NOTE lines are ignored (they carry no
+ * price). Shared by recordProcurementPrices and the UI nudges after PO
+ * creation / quote evaluation.
+ */
+export function countUnlinkedPriceLines(
+  items: Array<{
+    materialId?: string;
+    boughtOutItemId?: string;
+    serviceId?: string;
+    itemType?: string;
+  }>
+): number {
+  return items.filter(
+    (item) =>
+      item.itemType !== 'NOTE' && !item.materialId && !item.boughtOutItemId && !item.serviceId
+  ).length;
+}
+
+/** Result of a procurement price feedback pass. */
+export interface RecordProcurementPricesResult {
+  /** Lines written to materialPrices / bought_out_prices. */
+  recorded: number;
+  /**
+   * Lines with no catalog linkage at all (no materialId, boughtOutItemId, or
+   * serviceId) — their prices are lost to future estimates. Surfaced so UIs
+   * can nudge the user to link items.
+   */
+  unlinked: number;
+}
+
+/**
+ * Record prices from procurement events back to the material and bought-out
+ * catalogs (materialPrices + material.currentPrice; bought_out_prices +
+ * bought_out_items.pricing.listPrice).
  *
  * Fire-and-forget — errors are logged but never thrown, so procurement
  * operations are not blocked by pricing failures.
  *
  * @param db - Firestore instance
- * @param items - Line items (only those with materialId are processed)
+ * @param items - Line items (those with materialId or boughtOutItemId are processed)
  * @param vendorId - Vendor entity ID
  * @param vendorName - Vendor display name
  * @param documentRef - Source document reference (PO number or offer ref)
  * @param currency - Currency code
  * @param priceType - 'budgetary' (offer evaluation) or 'confirmed' (PO creation)
  * @param userId - User performing the action
+ * @returns Counts of recorded and unlinked lines (see RecordProcurementPricesResult)
  */
 export async function recordProcurementPrices(
   db: Firestore,
@@ -216,10 +260,22 @@ export async function recordProcurementPrices(
   priceType: 'budgetary' | 'confirmed',
   userId: string,
   tenantId: string
-): Promise<void> {
+): Promise<RecordProcurementPricesResult> {
   const itemsWithMaterial = items.filter((item) => item.materialId);
+  // materialId wins when both are present (mirrors BOM costing priority)
+  const itemsWithBoughtOut = items.filter((item) => !item.materialId && item.boughtOutItemId);
+  const unlinked = countUnlinkedPriceLines(items);
 
-  if (itemsWithMaterial.length === 0) return;
+  if (unlinked > 0) {
+    logger.warn('Procurement lines not linked to any catalog item — prices not recorded', {
+      unlinked,
+      total: items.length,
+      documentRef,
+    });
+  }
+
+  const toRecord = itemsWithMaterial.length + itemsWithBoughtOut.length;
+  if (toRecord === 0) return { recorded: 0, unlinked };
 
   const now = Timestamp.now();
   const isForecast = priceType === 'budgetary';
@@ -227,8 +283,8 @@ export async function recordProcurementPrices(
     ? `Budgetary price from vendor quote (${documentRef})`
     : `Confirmed price from PO (${documentRef})`;
 
-  const results = await Promise.allSettled(
-    itemsWithMaterial.map((item) =>
+  const results = await Promise.allSettled([
+    ...itemsWithMaterial.map((item) =>
       addMaterialPrice(
         db,
         {
@@ -248,21 +304,48 @@ export async function recordProcurementPrices(
         userId,
         tenantId
       )
-    )
-  );
+    ),
+    // Mirror of the material path for bought-out catalog lines (A2 bridge).
+    // Budgetary prices are history-only (isActive false → no listPrice
+    // denorm); confirmed prices also update the catalog's current price.
+    ...itemsWithBoughtOut.map((item) =>
+      addBoughtOutPrice(
+        db,
+        {
+          boughtOutItemId: item.boughtOutItemId!,
+          unitPrice: item.unitPrice,
+          unit: item.unit,
+          currency,
+          vendorId,
+          vendorName,
+          sourceType: 'VENDOR_QUOTE',
+          effectiveDate: now,
+          isActive: !isForecast,
+          documentReference: documentRef,
+          remarks,
+          tenantId,
+        },
+        userId
+      )
+    ),
+  ]);
 
   const failed = results.filter((r) => r.status === 'rejected');
   if (failed.length > 0) {
     logger.error('Some procurement prices failed to record', {
-      total: itemsWithMaterial.length,
+      total: toRecord,
       failed: failed.length,
       documentRef,
     });
   } else {
     logger.info('Procurement prices recorded', {
-      count: itemsWithMaterial.length,
+      count: toRecord,
+      materials: itemsWithMaterial.length,
+      boughtOut: itemsWithBoughtOut.length,
       priceType,
       documentRef,
     });
   }
+
+  return { recorded: toRecord - failed.length, unlinked };
 }

@@ -10,19 +10,85 @@
  * - Custom Formula Evaluation
  */
 
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, type Firestore } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 import { formatCurrency } from '@/lib/utils/formatters';
 import type {
   BOMItemService,
+  ResolvedServiceRate,
   ServiceCostBreakdown,
   ServiceCostCalculationInput,
   ServiceCostCalculationResult,
+  ServiceRateSource,
   Money,
   CurrencyCode,
 } from '@vapour/types';
+import { getServiceById } from './crud';
 
 const logger = createLogger({ context: 'serviceCalculations' });
+
+/**
+ * Resolve procured/default rates for the services assigned to a BOM item.
+ *
+ * This is the async boundary of the rate fallback chain: service cost math
+ * is synchronous, so the caller (BOM costing) resolves rates from the
+ * service master docs first and passes the map into
+ * `calculateAllServiceCosts`. Procured rates come from `Service.currentRate`
+ * (denormalized from the serviceRates history by `addServiceRate`), defaults
+ * from `Service.defaultRateValue` / `defaultCustomFormula`.
+ *
+ * Failures degrade gracefully: an unresolvable service gets an empty entry,
+ * so its lines fall back to rate override or 0-with-warning.
+ */
+export async function resolveServiceRates(
+  db: Firestore,
+  services: BOMItemService[] | undefined
+): Promise<Record<string, ResolvedServiceRate>> {
+  if (!services || services.length === 0) return {};
+
+  const uniqueIds = [...new Set(services.map((s) => s.serviceId))];
+  const entries = await Promise.all(
+    uniqueIds.map(async (serviceId): Promise<[string, ResolvedServiceRate]> => {
+      try {
+        const service = await getServiceById(db, serviceId);
+        if (!service) {
+          logger.warn('Service not found while resolving rates', { serviceId });
+          return [serviceId, {}];
+        }
+        const resolved: ResolvedServiceRate = {
+          ...(service.currentRate?.rateValue !== undefined && {
+            procuredRateValue: service.currentRate.rateValue,
+          }),
+          ...(service.currentRate?.currency !== undefined && {
+            procuredCurrency: service.currentRate.currency,
+          }),
+          ...(service.currentRate?.customFormula !== undefined && {
+            procuredCustomFormula: service.currentRate.customFormula,
+          }),
+          ...(service.defaultRateValue !== undefined && {
+            defaultRateValue: service.defaultRateValue,
+          }),
+          ...(service.defaultCurrency !== undefined && {
+            defaultCurrency: service.defaultCurrency,
+          }),
+          ...(service.defaultCustomFormula !== undefined && {
+            defaultCustomFormula: service.defaultCustomFormula,
+          }),
+        };
+        return [serviceId, resolved];
+      } catch (error) {
+        // Graceful degradation: costing continues with override-or-zero.
+        logger.warn('Failed to resolve service rates — falling back to override/0', {
+          serviceId,
+          error,
+        });
+        return [serviceId, {}];
+      }
+    })
+  );
+
+  return Object.fromEntries(entries);
+}
 
 /**
  * Calculate service costs for a BOM item
@@ -39,7 +105,8 @@ export function calculateAllServiceCosts(
   materialCost: number,
   fabricationCost: number,
   quantity: number,
-  currency: CurrencyCode
+  currency: CurrencyCode,
+  resolvedRates?: Record<string, ResolvedServiceRate>
 ): {
   serviceCostPerUnit: Money;
   totalServiceCost: Money;
@@ -66,6 +133,7 @@ export function calculateAllServiceCosts(
         fabricationCost,
         quantity,
         currency,
+        resolvedRate: resolvedRates?.[service.serviceId],
       });
 
       breakdown.push(result.breakdown);
@@ -92,12 +160,56 @@ export function calculateAllServiceCosts(
 export function calculateServiceCost(
   input: ServiceCostCalculationInput
 ): ServiceCostCalculationResult {
-  const { service, materialCost, fabricationCost, quantity, currency } = input;
+  const { service, materialCost, fabricationCost, quantity, currency, resolvedRate } = input;
 
-  // Determine which rate to use (override or default from service)
-  const rateValue = service.rateOverride?.rateValue ?? 0;
-  const customFormula = service.rateOverride?.customFormula;
-  const rateCurrency = service.rateOverride?.currency || currency;
+  // Resolve the rate via the fallback chain (completion-plan A2):
+  //   rate override → procured rate (Service.currentRate, denormalized from
+  //   serviceRates) → service default (Service.defaultRateValue) → 0 + warn.
+  // For CUSTOM_FORMULA the "rate" is the formula, so the chain selects the
+  // first tier that actually carries a formula; numeric methods select the
+  // first tier with a rate value.
+  let rateValue = 0;
+  let customFormula: string | undefined;
+  let rateCurrency: CurrencyCode = currency;
+  let rateSource: ServiceRateSource = 'NONE';
+
+  const isFormulaMethod = service.calculationMethod === 'CUSTOM_FORMULA';
+
+  if (
+    service.rateOverride &&
+    (!isFormulaMethod || service.rateOverride.customFormula !== undefined)
+  ) {
+    rateValue = service.rateOverride.rateValue;
+    customFormula = service.rateOverride.customFormula;
+    rateCurrency = service.rateOverride.currency || currency;
+    rateSource = 'OVERRIDE';
+  } else if (
+    resolvedRate &&
+    (isFormulaMethod
+      ? resolvedRate.procuredCustomFormula !== undefined
+      : resolvedRate.procuredRateValue !== undefined)
+  ) {
+    rateValue = resolvedRate.procuredRateValue ?? 0;
+    customFormula = resolvedRate.procuredCustomFormula;
+    rateCurrency = resolvedRate.procuredCurrency || currency;
+    rateSource = 'PROCURED_RATE';
+  } else if (
+    resolvedRate &&
+    (isFormulaMethod
+      ? resolvedRate.defaultCustomFormula !== undefined
+      : resolvedRate.defaultRateValue !== undefined)
+  ) {
+    rateValue = resolvedRate.defaultRateValue ?? 0;
+    customFormula = resolvedRate.defaultCustomFormula;
+    rateCurrency = resolvedRate.defaultCurrency || currency;
+    rateSource = 'DEFAULT';
+  } else {
+    logger.warn('No rate found for service — costing 0', {
+      serviceId: service.serviceId,
+      serviceName: service.serviceName,
+      calculationMethod: service.calculationMethod,
+    });
+  }
 
   let costPerUnit = 0;
   let calculationDetails = '';
@@ -159,7 +271,8 @@ export function calculateServiceCost(
     costPerUnit: { amount: costPerUnit, currency },
     totalCost: { amount: costPerUnit * quantity, currency },
     calculationDetails,
-    isOverridden: !!service.rateOverride,
+    isOverridden: rateSource === 'OVERRIDE',
+    rateSource,
     calculatedAt: Timestamp.now(),
   };
 

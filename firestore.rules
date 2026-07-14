@@ -1107,8 +1107,16 @@ service cloud.firestore {
                        request.resource.data.tenantId == request.auth.token.tenantId &&
                        request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
 
-      // Update: Users with MANAGE_ESTIMATION permission
-      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      // Update: Users with MANAGE_ESTIMATION permission. Procurement
+      // (MANAGE_PROCUREMENT bit 16 = 65536) may update ONLY the pricing
+      // denormalization fields — the A2 price feedback loop (quote accept /
+      // PO creation / GR bill) refreshes pricing.listPrice via
+      // addBoughtOutPrice without granting catalog stewardship.
+      allow update: if isInternalUser() &&
+                       (hasPermission(262144) || // MANAGE_ESTIMATION (bit 18)
+                        (hasPermission(65536) && // MANAGE_PROCUREMENT (bit 16)
+                         request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['pricing', 'updatedAt', 'updatedBy'])));
 
       // Delete: Soft delete only (set isActive = false), MANAGE_ESTIMATION permission
       allow delete: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
@@ -1127,20 +1135,30 @@ service cloud.firestore {
                        request.resource.data.tenantId == request.auth.token.tenantId &&
                        request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
 
-      // Update: Users with MANAGE_ESTIMATION permission
-      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      // Update: Users with MANAGE_ESTIMATION permission. Procurement
+      // (MANAGE_PROCUREMENT bit 16 = 65536) may update ONLY the rate
+      // denormalization fields — quote accept refreshes currentRate via
+      // addServiceRate without granting catalog stewardship.
+      allow update: if isInternalUser() &&
+                       (hasPermission(262144) || // MANAGE_ESTIMATION (bit 18)
+                        (hasPermission(65536) && // MANAGE_PROCUREMENT (bit 16)
+                         request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['currentRate', 'lastRateUpdate', 'updatedAt', 'updatedBy'])));
 
       // Delete: Super admins only
       allow delete: if isSuperAdmin();
     }
 
-    // Service Rates Subcollection (historical pricing data)
+    // Service Rates (top-level historical pricing data, written on quote
+    // accept — mirrors materialPrices / bought_out_prices)
     match /serviceRates/{rateId} {
       // Read: Users with VIEW_ESTIMATION or MANAGE_ESTIMATION permission (manage implies view)
       allow read: if isInternalUser() && (hasPermission(524288) || hasPermission(262144)); // VIEW_ESTIMATION (bit 19) or MANAGE_ESTIMATION (bit 18)
 
-      // Create: Users with MANAGE_ESTIMATION permission
-      allow create: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      // Create: catalog stewards (MANAGE_ESTIMATION bit 18) or procurement
+      // (MANAGE_PROCUREMENT bit 16 = 65536) — quote accept records the
+      // procured rate, mirroring the bought_out_prices permission model
+      allow create: if (hasPermission(262144) || hasPermission(65536)) && isInternalUser();
 
       // Update: Users with MANAGE_ESTIMATION permission
       allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
@@ -1271,6 +1289,19 @@ service cloud.firestore {
           ) &&
           resource.data.bomId == bomId;
       }
+    }
+
+    // Thermal → BOM export: free-text material string → catalog item mapping
+    // (completion plan A3). Doc id derives from the normalized source string.
+    match /thermalMaterialMappings/{mappingId} {
+      // Read: Internal users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create/Update: Users with MANAGE_ESTIMATION permission
+      allow create, update: if isInternalUser() && hasPermission(262144); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: MANAGE_ESTIMATION or Super Admin
+      allow delete: if isInternalUser() && (hasPermission(262144) || isSuperAdmin());
     }
 
     // ============================================

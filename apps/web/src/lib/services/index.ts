@@ -6,3 +6,4 @@
 
 export * from './serviceCalculations';
 export * from './crud';
+export * from './rates';

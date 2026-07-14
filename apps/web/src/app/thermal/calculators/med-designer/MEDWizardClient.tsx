@@ -24,6 +24,7 @@ import {
   Download as DownloadIcon,
   Save as SaveIcon,
   FolderOpen as FolderOpenIcon,
+  PlaylistAdd as ExportBOMIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { designMED, type MEDDesignerResult } from '@/lib/thermal';
@@ -37,6 +38,7 @@ import { AuxiliaryEquipmentSections } from './components/AuxiliaryEquipmentSecti
 import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
+import { ExportToBOMDialog } from './components/ExportToBOMDialog';
 import { getFirebase } from '@/lib/firebase';
 import { computeCostEstimate } from '@/lib/thermal/med/costEstimation';
 import type { MEDCostEstimate } from '@/lib/thermal/med/designerTypes';
@@ -110,6 +112,9 @@ export default function MEDWizardClient() {
   // ── Save/Load ─────────────────────────────────────────────────────────
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
+
+  // ── Export to Estimation BOM (A3) ─────────────────────────────────────
+  const [exportBomOpen, setExportBomOpen] = useState(false);
 
   // ── Derived values ──────────────────────────────────────────────────────
   const nEff = parseInt(numberOfEffects, 10) || 6;
@@ -915,6 +920,14 @@ export default function MEDWizardClient() {
               >
                 PDF Report
               </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ExportBOMIcon />}
+                onClick={() => setExportBomOpen(true)}
+                disabled={!bom}
+              >
+                Export to Estimation BOM
+              </Button>
             </Stack>
           </Paper>
 
@@ -1246,6 +1259,14 @@ export default function MEDWizardClient() {
             onClose={() => setReportOpen(false)}
             result={designResult}
             options={[]}
+          />
+
+          {/* Export to Estimation BOM (A3) */}
+          <ExportToBOMDialog
+            open={exportBomOpen}
+            onClose={() => setExportBomOpen(false)}
+            bom={bom}
+            designResult={designResult}
           />
         </Stack>
       )}

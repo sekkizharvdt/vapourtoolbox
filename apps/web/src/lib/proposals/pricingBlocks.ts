@@ -6,6 +6,7 @@
  */
 
 import type {
+  BOM,
   CurrencyCode,
   PricingBlock,
   WorkComponent,
@@ -13,6 +14,7 @@ import type {
   PerMandayCostBlock,
   LumpSumLinesBlock,
   BOMCostSheetBlock,
+  LinkedBomSnapshot,
   ClientPricing,
 } from '@vapour/types';
 
@@ -169,8 +171,80 @@ export function recomputeBlockSubtotal(block: PricingBlock): PricingBlock {
       };
     }
     case 'BOM_COST_SHEET': {
-      // Subtotal computed elsewhere from linked BOM totals; pass through.
-      return block;
+      // Sum the denormalized cost snapshots of the linked BOMs (rule 26).
+      // Snapshots for BOMs no longer in linkedBomIds are dropped so an
+      // unlink can never leave a phantom cost behind.
+      const snapshots = (block.linkedBomSnapshots ?? []).filter((s) =>
+        block.linkedBomIds.includes(s.bomId)
+      );
+      return {
+        ...block,
+        linkedBomSnapshots: snapshots,
+        subtotal: round2(snapshots.reduce((s, x) => s + (x.totalCostAmount || 0), 0)),
+      };
     }
   }
+}
+
+/* ─── BOM cost sheet linkage helpers (all pure) ───────────────────────── */
+
+/**
+ * Build the denormalized snapshot for a BOM (rule 26: id + display fields
+ * + the cost that drives the subtotal). INR basis — BOM summaries are INR.
+ */
+export function bomToSnapshot(bom: BOM): LinkedBomSnapshot {
+  return {
+    bomId: bom.id,
+    bomCode: bom.bomCode,
+    name: bom.name,
+    totalCostAmount: round2(bom.summary?.totalCost?.amount ?? 0),
+  };
+}
+
+/**
+ * Link a BOM to a BOM_COST_SHEET block. Idempotent — re-linking an
+ * already-linked BOM just replaces its snapshot with the fresh one.
+ */
+export function linkBomToBlock(
+  block: BOMCostSheetBlock,
+  snapshot: LinkedBomSnapshot
+): BOMCostSheetBlock {
+  const linkedBomIds = block.linkedBomIds.includes(snapshot.bomId)
+    ? block.linkedBomIds
+    : [...block.linkedBomIds, snapshot.bomId];
+  const linkedBomSnapshots = [
+    ...(block.linkedBomSnapshots ?? []).filter((s) => s.bomId !== snapshot.bomId),
+    snapshot,
+  ];
+  return recomputeBlockSubtotal({
+    ...block,
+    linkedBomIds,
+    linkedBomSnapshots,
+  }) as BOMCostSheetBlock;
+}
+
+/** Unlink a BOM from a BOM_COST_SHEET block (id + snapshot + subtotal). */
+export function unlinkBomFromBlock(block: BOMCostSheetBlock, bomId: string): BOMCostSheetBlock {
+  return recomputeBlockSubtotal({
+    ...block,
+    linkedBomIds: block.linkedBomIds.filter((id) => id !== bomId),
+    linkedBomSnapshots: (block.linkedBomSnapshots ?? []).filter((s) => s.bomId !== bomId),
+  }) as BOMCostSheetBlock;
+}
+
+/**
+ * Refresh a block's snapshots against freshly fetched BOM data (the rule 13
+ * sync strategy for this denormalization). BOMs that could not be fetched
+ * (deleted, permission, offline) keep their existing snapshot — the block
+ * degrades gracefully instead of zeroing the cost basis.
+ */
+export function refreshBomSnapshots(
+  block: BOMCostSheetBlock,
+  currentSnapshots: LinkedBomSnapshot[]
+): BOMCostSheetBlock {
+  const byId = new Map(currentSnapshots.map((s) => [s.bomId, s]));
+  const linkedBomSnapshots = block.linkedBomIds
+    .map((id) => byId.get(id) ?? (block.linkedBomSnapshots ?? []).find((s) => s.bomId === id))
+    .filter((s): s is LinkedBomSnapshot => s !== undefined);
+  return recomputeBlockSubtotal({ ...block, linkedBomSnapshots }) as BOMCostSheetBlock;
 }

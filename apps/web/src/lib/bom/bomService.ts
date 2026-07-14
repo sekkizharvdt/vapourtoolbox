@@ -20,6 +20,7 @@ import {
   updateDoc,
   writeBatch,
   runTransaction,
+  deleteField,
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
@@ -337,6 +338,151 @@ export async function listBOMs(
     })) as BOM[];
   } catch (error) {
     logger.error('Error listing BOMs', { options, error });
+    throw error;
+  }
+}
+
+/**
+ * Stamp the proposal back-link on a BOM (rule 26 denormalization — the BOM
+ * editor shows "Linked to proposal <number>" from these fields).
+ * Idempotent: re-linking simply rewrites the same values.
+ */
+export async function setBOMProposalLink(
+  db: Firestore,
+  bomId: string,
+  link: { proposalId: string; proposalNumber?: string },
+  userId: string
+): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
+  try {
+    const bomRef = doc(db, COLLECTIONS.BOMS, bomId);
+    await updateDoc(bomRef, {
+      proposalId: link.proposalId,
+      // Conditional value — Firestore rejects `undefined` (rule 12).
+      proposalNumber: link.proposalNumber ?? deleteField(),
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+    logger.info('BOM proposal link set', { bomId, proposalId: link.proposalId });
+  } catch (error) {
+    logger.error('Error setting BOM proposal link', { bomId, error });
+    throw error;
+  }
+}
+
+/**
+ * Clear the proposal back-link on a BOM, but only if it still points at
+ * `proposalId` — a BOM re-linked to a different proposal in the meantime is
+ * left untouched. Transaction per rule 19 (conditional read-modify-write).
+ */
+export async function clearBOMProposalLink(
+  db: Firestore,
+  bomId: string,
+  proposalId: string,
+  userId: string
+): Promise<void> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
+  try {
+    const bomRef = doc(db, COLLECTIONS.BOMS, bomId);
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(bomRef);
+      if (!snap.exists()) return; // BOM deleted — nothing to clear
+      if ((snap.data() as BOM).proposalId !== proposalId) return; // points elsewhere — leave it
+      tx.update(bomRef, {
+        proposalId: deleteField(),
+        proposalNumber: deleteField(),
+        updatedAt: Timestamp.now(),
+        updatedBy: userId,
+      });
+    });
+    logger.info('BOM proposal link cleared', { bomId, proposalId });
+  } catch (error) {
+    logger.error('Error clearing BOM proposal link', { bomId, error });
+    throw error;
+  }
+}
+
+/**
+ * Create a BOM together with a flat list of items in one call (thermal → BOM
+ * export and future bulk imports). Items get sequential root-level numbers
+ * ("1", "2", ...) in input order; batches are chunked at 500 ops (rule 20).
+ * The summary is recalculated once at the end (costs are computed separately
+ * via calculateAllItemCosts — same as the editor's flow).
+ */
+export async function createBOMWithItems(
+  db: Firestore,
+  input: CreateBOMInput,
+  itemInputs: CreateBOMItemInput[],
+  userId: string
+): Promise<{ bom: BOM; itemIds: string[] }> {
+  // rule5-exempt: estimation/BOM write; firestore.rules enforce MANAGE_ESTIMATION on the affected collections — server-side gated
+  try {
+    logger.info('Creating BOM with items', { name: input.name, itemCount: itemInputs.length });
+
+    const bom = await createBOM(db, input, userId);
+    const itemsRef = collection(db, COLLECTIONS.BOMS, bom.id, COLLECTIONS.BOM_ITEMS);
+    const now = Timestamp.now();
+    const itemIds: string[] = [];
+
+    // Chunk batches at 500 operations (rule 20).
+    for (let start = 0; start < itemInputs.length; start += 500) {
+      const batch = writeBatch(db);
+      const slice = itemInputs.slice(start, start + 500);
+
+      slice.forEach((item, offset) => {
+        const index = start + offset;
+        const itemRef = doc(itemsRef);
+        itemIds.push(itemRef.id);
+
+        // Same document shape as addBOMItem (single source of conventions).
+        const itemData: Omit<BOMItem, 'id'> = {
+          bomId: bom.id,
+          itemNumber: (index + 1).toString(),
+          itemType: item.itemType,
+          level: 0,
+          sortOrder: index + 1,
+          name: item.name,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          component:
+            item.shapeId || item.materialId || item.boughtOutItemId || item.componentType
+              ? {
+                  type: item.componentType || 'SHAPE',
+                  // Conditional spreads — Firestore rejects nested `undefined` (rule 12).
+                  ...(item.shapeId !== undefined && { shapeId: item.shapeId }),
+                  ...(item.materialId !== undefined && { materialId: item.materialId }),
+                  ...(item.parameters !== undefined && { parameters: item.parameters }),
+                  ...(item.boughtOutItemId !== undefined && {
+                    boughtOutItemId: item.boughtOutItemId,
+                  }),
+                  ...(item.catalogRef !== undefined && { catalogRef: item.catalogRef }),
+                }
+              : undefined,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: userId,
+          updatedBy: userId,
+        };
+
+        const cleanedItemData = Object.fromEntries(
+          Object.entries(itemData).filter(([, value]) => value !== undefined)
+        );
+
+        batch.set(itemRef, cleanedItemData);
+      });
+
+      await batch.commit();
+    }
+
+    // One summary pass for the whole import (itemCount, weights; costs land
+    // after calculateAllItemCosts).
+    await recalculateBOMSummary(db, bom.id, userId);
+
+    logger.info('BOM with items created', { bomId: bom.id, itemCount: itemIds.length });
+    return { bom, itemIds };
+  } catch (error) {
+    logger.error('Error creating BOM with items', { name: input.name, error });
     throw error;
   }
 }

@@ -16,10 +16,13 @@ import {
   Home as HomeIcon,
   Add as AddIcon,
   Calculate as CalculateIcon,
+  Link as LinkIcon,
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getBOMById, getBOMItems, addBOMItem } from '@/lib/bom/bomService';
@@ -57,6 +60,37 @@ export default function BOMEditorClient() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [bomId, setBomId] = useState<string | null>(null);
+  const [linkedProposalNumber, setLinkedProposalNumber] = useState<string | null>(null);
+
+  // Back-link chip data: prefer the denormalized proposalNumber on the BOM;
+  // fall back to a getDoc on the proposal. Degrades to a generic label when
+  // the proposal is missing or unreadable.
+  useEffect(() => {
+    let cancelled = false;
+    setLinkedProposalNumber(null);
+    const proposalId = bom?.proposalId;
+    if (!proposalId || !db) return;
+    if (bom.proposalNumber) {
+      setLinkedProposalNumber(bom.proposalNumber);
+      return;
+    }
+    const fetchNumber = async () => {
+      try {
+        const snap = await getDoc(doc(db, COLLECTIONS.PROPOSALS, proposalId));
+        if (!cancelled && snap.exists()) {
+          setLinkedProposalNumber((snap.data().proposalNumber as string) ?? null);
+        }
+      } catch (err) {
+        // Graceful degrade: chip renders without the number (user may lack
+        // proposal read permission, or the proposal was deleted).
+        logger.warn('Could not fetch linked proposal number', { proposalId, err });
+      }
+    };
+    fetchNumber();
+    return () => {
+      cancelled = true;
+    };
+  }, [bom?.proposalId, bom?.proposalNumber, db]);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -189,6 +223,20 @@ export default function BOMEditorClient() {
                 {bom.name}
               </Typography>
               <Chip label={bom.status} color={statusColors[bom.status]} size="small" />
+              {bom.proposalId && (
+                <Chip
+                  icon={<LinkIcon />}
+                  label={
+                    linkedProposalNumber
+                      ? `Linked to proposal ${linkedProposalNumber}`
+                      : 'Linked to a proposal'
+                  }
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  onClick={() => router.push(`/proposals/${bom.proposalId}`)}
+                />
+              )}
             </Box>
             <Typography variant="body2" color="text.secondary">
               BOM Code: {bom.bomCode}

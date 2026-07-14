@@ -123,6 +123,8 @@ export const COLLECTIONS = {
   // BOM (Bill of Materials) - Week 1 Sprint
   BOMS: 'boms',
   BOM_ITEMS: 'items', // Subcollection under boms/{bomId}/items
+  // Thermal → BOM export: free-text material string → catalog item mapping (A3)
+  THERMAL_MATERIAL_MAPPINGS: 'thermalMaterialMappings',
 
   // Material Database (Phase 1)
   MATERIALS: 'materials',

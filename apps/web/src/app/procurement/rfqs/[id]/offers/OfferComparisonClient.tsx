@@ -50,12 +50,14 @@ import {
   type VendorQuoteComparisonStat,
 } from '@/lib/vendorQuotes';
 import { formatCurrency, calculatePriceScore } from '@/lib/procurement/offerHelpers';
+import { useToast } from '@/components/common/Toast';
 import type { VendorQuote } from '@vapour/types';
 
 export default function OfferComparisonPage() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, claims } = useAuth();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -117,7 +119,7 @@ export default function OfferComparisonPage() {
     if (!user || !selectedOfferId) return;
 
     try {
-      await evaluateVendorQuote(
+      const { unlinkedPriceLines } = await evaluateVendorQuote(
         getFirebase().db,
         selectedOfferId,
         {
@@ -128,6 +130,12 @@ export default function OfferComparisonPage() {
         user.uid,
         user.displayName || 'Unknown'
       );
+      if (unlinkedPriceLines > 0) {
+        // Soft nudge — evaluation succeeded; this only flags price-feedback leakage.
+        toast.info(
+          `${unlinkedPriceLines} line(s) not linked to a catalog item — their prices won't improve future estimates`
+        );
+      }
       setEvaluationDialogOpen(false);
       await loadComparison();
     } catch (err) {

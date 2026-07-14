@@ -110,9 +110,22 @@ jest.mock('@/lib/utils/stateMachine', () => ({
   requireValidTransition: (...args: unknown[]) => mockRequireValidTransition(...args),
 }));
 
-const mockRecordProcurementPrices = jest.fn().mockResolvedValue(undefined);
+const mockRecordProcurementPrices = jest.fn().mockResolvedValue({ recorded: 0, unlinked: 0 });
 jest.mock('@/lib/materials/pricing', () => ({
   recordProcurementPrices: (...args: unknown[]) => mockRecordProcurementPrices(...args),
+  // Mirror of the real counting logic (pure function) so evaluateVendorQuote's
+  // returned unlinkedPriceLines is meaningful in tests.
+  countUnlinkedPriceLines: (
+    items: Array<{
+      materialId?: string;
+      boughtOutItemId?: string;
+      serviceId?: string;
+      itemType?: string;
+    }>
+  ) =>
+    items.filter(
+      (i) => i.itemType !== 'NOTE' && !i.materialId && !i.boughtOutItemId && !i.serviceId
+    ).length,
 }));
 
 const mockIncrementOffersEvaluated = jest.fn().mockResolvedValue(undefined);
@@ -559,6 +572,47 @@ describe('evaluateVendorQuote', () => {
     await expect(
       evaluateVendorQuote({} as never, 'q-1', {}, 'user-1', 'Alice')
     ).resolves.not.toThrow();
+  });
+
+  it('returns the count of price lines with no catalog linkage (leakage nudge)', async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'q-1',
+      data: () => makeQuote(),
+    });
+    const items = [
+      { id: 'i-1', itemType: 'MATERIAL', materialId: 'mat-1', unitPrice: 10, unit: 'KG' },
+      { id: 'i-2', itemType: 'BOUGHT_OUT', boughtOutItemId: 'bo-1', unitPrice: 20, unit: 'NOS' },
+      { id: 'i-3', itemType: 'SERVICE', serviceId: 'svc-1', unitPrice: 30, unit: 'LOT' },
+      { id: 'i-4', itemType: 'MATERIAL', unitPrice: 40, unit: 'NOS' }, // unlinked
+      { id: 'i-5', itemType: 'NOTE', unitPrice: 0, unit: '' }, // ignored
+    ];
+    // getVendorQuoteItems fetch
+    mockGetDocs.mockResolvedValueOnce({
+      docs: items.map((i) => ({ id: i.id, data: () => i })),
+    });
+
+    const result = await evaluateVendorQuote({} as never, 'q-1', {}, 'user-1', 'Alice');
+
+    expect(result.unlinkedPriceLines).toBe(1);
+    // Price feedback got the linkage fields (NOTE line filtered out)
+    const recorded = mockRecordProcurementPrices.mock.calls[0]?.[1] as Array<
+      Record<string, unknown>
+    >;
+    expect(recorded).toHaveLength(4);
+    expect(recorded[1]).toMatchObject({ boughtOutItemId: 'bo-1' });
+    expect(recorded[2]).toMatchObject({ serviceId: 'svc-1' });
+  });
+
+  it('returns 0 unlinked lines for quotes without a linked vendor (no feedback loop)', async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'q-1',
+      data: () => makeQuote({ vendorId: undefined }),
+    });
+    const result = await evaluateVendorQuote({} as never, 'q-1', {}, 'user-1', 'Alice');
+    expect(result.unlinkedPriceLines).toBe(0);
+    expect(mockRecordProcurementPrices).not.toHaveBeenCalled();
   });
 });
 

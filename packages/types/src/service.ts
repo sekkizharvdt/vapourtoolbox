@@ -116,6 +116,16 @@ export interface Service extends TimestampFields {
   deliverables?: string[]; // e.g., "Test Certificate", "Analysis Report"
   tags?: string[]; // Searchable tags
 
+  /**
+   * Latest procured rate (denormalized from the serviceRates history, mirroring
+   * Material.currentPrice). Written by `addServiceRate` when a newer active
+   * rate lands (quote accept / manual entry); read by BOM service costing as
+   * the PROCURED_RATE tier of the rate fallback chain.
+   */
+  currentRate?: ServiceRate;
+  /** When currentRate was last denormalized (mirrors Material.lastPriceUpdate). */
+  lastRateUpdate?: Timestamp;
+
   // Organization
   tenantId: string; // Multi-tenant support
   isActive: boolean;
@@ -133,11 +143,22 @@ export interface Service extends TimestampFields {
 export interface ServiceRate extends TimestampFields {
   id: string;
   serviceId: string; // Parent service reference
+  /** Multi-tenancy (written on create; older rows may lack it). */
+  tenantId?: string;
 
   // Rate Configuration
   rateValue: number; // Percentage or amount depending on calculation method
   currency?: CurrencyCode; // Only for FIXED_AMOUNT and PER_UNIT
   customFormula?: string; // For CUSTOM_FORMULA method
+
+  // Source linkage (mirrors MaterialPrice / BoughtOutPrice conventions)
+  vendorId?: string;
+  /** Denormalized for display. */
+  vendorName?: string;
+  /** Human-readable doc number (quote number, PO number). */
+  documentReference?: string;
+  /** Firestore doc id of the source quote — lets the UI link back. */
+  sourceQuoteId?: string;
 
   // Applicability Overrides
   applicableToCategories?: BOMCategory[];
@@ -183,6 +204,30 @@ export interface BOMItemService {
 }
 
 /**
+ * Which tier of the rate fallback chain priced a service line:
+ * OVERRIDE (BOM-item rate override) → PROCURED_RATE (Service.currentRate,
+ * denormalized from serviceRates) → DEFAULT (Service.defaultRateValue) →
+ * NONE (no rate anywhere; costed at 0 with a warning).
+ */
+export type ServiceRateSource = 'OVERRIDE' | 'PROCURED_RATE' | 'DEFAULT' | 'NONE';
+
+/**
+ * Rates resolved for one service at the async boundary (BOM item load),
+ * passed into the synchronous cost calculation. Built by
+ * `resolveServiceRates` from the service master doc.
+ */
+export interface ResolvedServiceRate {
+  /** From Service.currentRate (latest procured rate). */
+  procuredRateValue?: number;
+  procuredCurrency?: CurrencyCode;
+  procuredCustomFormula?: string;
+  /** From Service.defaultRateValue / defaultCurrency / defaultCustomFormula. */
+  defaultRateValue?: number;
+  defaultCurrency?: CurrencyCode;
+  defaultCustomFormula?: string;
+}
+
+/**
  * Service Cost Breakdown
  * Detailed breakdown of service cost calculation
  */
@@ -203,6 +248,11 @@ export interface ServiceCostBreakdown {
 
   // Metadata
   isOverridden: boolean;
+  /**
+   * Which fallback tier priced this line. Optional because breakdowns stored
+   * before the A2 rate chain shipped don't carry it; always set on new calcs.
+   */
+  rateSource?: ServiceRateSource;
   calculatedAt: Timestamp;
 }
 
@@ -215,6 +265,8 @@ export interface ServiceCostCalculationInput {
   fabricationCost: number; // Fabrication cost per unit
   quantity: number;
   currency: CurrencyCode;
+  /** Procured/default rates resolved at the async boundary (see ResolvedServiceRate). */
+  resolvedRate?: ResolvedServiceRate;
 }
 
 /**

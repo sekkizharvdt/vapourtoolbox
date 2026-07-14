@@ -12,7 +12,14 @@
  */
 
 import { Timestamp } from 'firebase/firestore';
-import type { BOMItemService, ServiceCostBreakdown, CurrencyCode, Money } from '@vapour/types';
+import type {
+  BOMItemService,
+  ResolvedServiceRate,
+  Service,
+  ServiceCostBreakdown,
+  CurrencyCode,
+  Money,
+} from '@vapour/types';
 import { ServiceCategory, ServiceCalculationMethod } from '@vapour/types';
 
 // Mock Firebase Timestamp
@@ -31,6 +38,19 @@ jest.mock('@vapour/logger', () => ({
     warn: jest.fn(),
   })),
 }));
+
+// Mock the service CRUD module (resolveServiceRates reads service masters)
+const mockGetServiceById = jest.fn();
+jest.mock('./crud', () => ({
+  getServiceById: (...args: unknown[]) => mockGetServiceById(...args),
+}));
+
+// Import after mocks
+import {
+  calculateServiceCost,
+  calculateAllServiceCosts,
+  resolveServiceRates,
+} from './serviceCalculations';
 
 describe('Service Cost Calculations', () => {
   describe('Percentage of Material Cost', () => {
@@ -655,5 +675,201 @@ describe('Service Cost Calculations', () => {
 
       expect(service.rateOverride?.currency).toBe('USD');
     });
+  });
+});
+
+// ============================================================================
+// Rate fallback chain (completion-plan A2):
+// OVERRIDE → PROCURED_RATE (Service.currentRate) → DEFAULT → NONE (0 + warn)
+// ============================================================================
+
+function makeService(overrides: Partial<BOMItemService> = {}): BOMItemService {
+  return {
+    serviceId: 'svc-1',
+    serviceName: 'Fabrication QC',
+    serviceCategory: ServiceCategory.INSPECTION,
+    calculationMethod: ServiceCalculationMethod.PERCENTAGE_OF_MATERIAL,
+    isManualOverride: false,
+    addedBy: 'user-1',
+    addedAt: Timestamp.now(),
+    ...overrides,
+  };
+}
+
+describe('calculateServiceCost — rate fallback chain', () => {
+  const base = { materialCost: 10000, fabricationCost: 2000, quantity: 2 };
+
+  it('OVERRIDE: uses the item-level rate override and flags rateSource', () => {
+    const result = calculateServiceCost({
+      service: makeService({ rateOverride: { rateValue: 15 } }),
+      ...base,
+      currency: 'INR',
+      resolvedRate: { procuredRateValue: 10, defaultRateValue: 5 },
+    });
+    expect(result.costPerUnit.amount).toBe(1500); // 15% of 10,000
+    expect(result.breakdown.rateSource).toBe('OVERRIDE');
+    expect(result.breakdown.isOverridden).toBe(true);
+    expect(result.breakdown.rateApplied).toBe(15);
+  });
+
+  it('PROCURED_RATE: falls back to the procured rate when no override', () => {
+    const result = calculateServiceCost({
+      service: makeService(),
+      ...base,
+      currency: 'INR',
+      resolvedRate: { procuredRateValue: 10, defaultRateValue: 5 },
+    });
+    expect(result.costPerUnit.amount).toBe(1000); // 10% of 10,000
+    expect(result.breakdown.rateSource).toBe('PROCURED_RATE');
+    expect(result.breakdown.isOverridden).toBe(false);
+  });
+
+  it('DEFAULT: falls back to the service default when no override or procured rate', () => {
+    const result = calculateServiceCost({
+      service: makeService(),
+      ...base,
+      currency: 'INR',
+      resolvedRate: { defaultRateValue: 5 },
+    });
+    expect(result.costPerUnit.amount).toBe(500); // 5% of 10,000
+    expect(result.breakdown.rateSource).toBe('DEFAULT');
+  });
+
+  it('NONE: costs 0 when no rate exists anywhere', () => {
+    const result = calculateServiceCost({
+      service: makeService(),
+      ...base,
+      currency: 'INR',
+    });
+    expect(result.costPerUnit.amount).toBe(0);
+    expect(result.breakdown.rateSource).toBe('NONE');
+  });
+
+  it('NONE: empty resolved-rate entry (unresolvable service) also costs 0', () => {
+    const result = calculateServiceCost({
+      service: makeService(),
+      ...base,
+      currency: 'INR',
+      resolvedRate: {},
+    });
+    expect(result.costPerUnit.amount).toBe(0);
+    expect(result.breakdown.rateSource).toBe('NONE');
+  });
+
+  it('PER_UNIT: procured rate applies with its own currency', () => {
+    const result = calculateServiceCost({
+      service: makeService({ calculationMethod: ServiceCalculationMethod.PER_UNIT }),
+      ...base,
+      currency: 'INR',
+      resolvedRate: { procuredRateValue: 750, procuredCurrency: 'INR' },
+    });
+    expect(result.costPerUnit.amount).toBe(750);
+    expect(result.totalCost.amount).toBe(1500); // × quantity 2
+    expect(result.breakdown.rateSource).toBe('PROCURED_RATE');
+  });
+
+  it('CUSTOM_FORMULA: chain selects the first tier that carries a formula', () => {
+    // Procured tier has only a numeric rate — for a formula method the chain
+    // must skip it and use the default tier's formula.
+    const result = calculateServiceCost({
+      service: makeService({ calculationMethod: ServiceCalculationMethod.CUSTOM_FORMULA }),
+      ...base,
+      currency: 'INR',
+      resolvedRate: {
+        procuredRateValue: 10,
+        defaultCustomFormula: 'materialCost * 0.05',
+      },
+    });
+    expect(result.costPerUnit.amount).toBe(500);
+    expect(result.breakdown.rateSource).toBe('DEFAULT');
+  });
+
+  it('CUSTOM_FORMULA: procured formula beats default formula', () => {
+    const result = calculateServiceCost({
+      service: makeService({ calculationMethod: ServiceCalculationMethod.CUSTOM_FORMULA }),
+      ...base,
+      currency: 'INR',
+      resolvedRate: {
+        procuredCustomFormula: 'materialCost * 0.10',
+        defaultCustomFormula: 'materialCost * 0.05',
+      },
+    });
+    expect(result.costPerUnit.amount).toBe(1000);
+    expect(result.breakdown.rateSource).toBe('PROCURED_RATE');
+  });
+});
+
+describe('calculateAllServiceCosts — resolved rate map plumbing', () => {
+  it('passes each service its own resolved rate entry', () => {
+    const services = [
+      makeService({ serviceId: 'svc-a', serviceName: 'A' }),
+      makeService({ serviceId: 'svc-b', serviceName: 'B' }),
+    ];
+    const resolvedRates: Record<string, ResolvedServiceRate> = {
+      'svc-a': { procuredRateValue: 10 },
+      'svc-b': { defaultRateValue: 5 },
+    };
+
+    const result = calculateAllServiceCosts(services, 10000, 0, 1, 'INR', resolvedRates);
+
+    expect(result.serviceCostPerUnit.amount).toBe(1500); // 1000 + 500
+    expect(result.serviceBreakdown.map((b) => b.rateSource)).toEqual(['PROCURED_RATE', 'DEFAULT']);
+  });
+
+  it('without a resolved map, services with no override cost 0 (NONE)', () => {
+    const result = calculateAllServiceCosts([makeService()], 10000, 0, 1, 'INR');
+    expect(result.serviceCostPerUnit.amount).toBe(0);
+    expect(result.serviceBreakdown[0]?.rateSource).toBe('NONE');
+  });
+});
+
+describe('resolveServiceRates — async boundary', () => {
+  beforeEach(() => {
+    mockGetServiceById.mockReset();
+  });
+
+  it('returns {} for undefined or empty service lists without fetching', async () => {
+    expect(await resolveServiceRates({} as never, undefined)).toEqual({});
+    expect(await resolveServiceRates({} as never, [])).toEqual({});
+    expect(mockGetServiceById).not.toHaveBeenCalled();
+  });
+
+  it('maps currentRate (procured) and defaults from the service master', async () => {
+    mockGetServiceById.mockResolvedValueOnce({
+      id: 'svc-1',
+      currentRate: { rateValue: 12, currency: 'INR' },
+      defaultRateValue: 8,
+      defaultCurrency: 'USD',
+    } as unknown as Service);
+
+    const map = await resolveServiceRates({} as never, [makeService()]);
+
+    expect(map['svc-1']).toEqual({
+      procuredRateValue: 12,
+      procuredCurrency: 'INR',
+      defaultRateValue: 8,
+      defaultCurrency: 'USD',
+    });
+  });
+
+  it('fetches each unique serviceId once', async () => {
+    mockGetServiceById.mockResolvedValue({ id: 'svc-1', defaultRateValue: 5 });
+    await resolveServiceRates({} as never, [
+      makeService(),
+      makeService(), // duplicate serviceId
+    ]);
+    expect(mockGetServiceById).toHaveBeenCalledTimes(1);
+  });
+
+  it('degrades to an empty entry when the service fetch fails', async () => {
+    mockGetServiceById.mockRejectedValueOnce(new Error('offline'));
+    const map = await resolveServiceRates({} as never, [makeService()]);
+    expect(map['svc-1']).toEqual({});
+  });
+
+  it('degrades to an empty entry when the service does not exist', async () => {
+    mockGetServiceById.mockResolvedValueOnce(null);
+    const map = await resolveServiceRates({} as never, [makeService()]);
+    expect(map['svc-1']).toEqual({});
   });
 });

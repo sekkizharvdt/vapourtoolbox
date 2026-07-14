@@ -29,7 +29,7 @@ import { requirePermission, preventSelfApproval } from '@/lib/auth';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { offerStateMachine, rfqStateMachine } from '@/lib/workflow/stateMachines';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
-import { recordProcurementPrices } from '@/lib/materials/pricing';
+import { countUnlinkedPriceLines, recordProcurementPrices } from '@/lib/materials/pricing';
 import { incrementOffersEvaluated } from '@/lib/procurement/rfq';
 import { getQuotesByRFQ, getVendorQuoteById, getVendorQuoteItems } from './vendorQuoteService';
 
@@ -296,13 +296,18 @@ export async function withdrawVendorQuote(
 // Evaluate / Recommend
 // ============================================================================
 
+/**
+ * Evaluate a vendor quote. Returns the number of price lines that carry no
+ * catalog linkage (material / bought-out / service) so the UI can nudge the
+ * user — those prices can't feed future estimates.
+ */
 export async function evaluateVendorQuote(
   db: Firestore,
   quoteId: string,
   input: EvaluateVendorQuoteInput,
   userId: string,
   userName: string
-): Promise<void> {
+): Promise<{ unlinkedPriceLines: number }> {
   // rule8-exempt: workflow function called by an upstream gate that already validated the transition
   // rule5-exempt: entity-management write; firestore.rules enforce MANAGE_ENTITIES / MANAGE_PROCUREMENT — server-side gated
   const quote = await getVendorQuoteById(db, quoteId);
@@ -339,29 +344,47 @@ export async function evaluateVendorQuote(
     }
   }
 
-  // Record budgetary prices to the material database (fire-and-forget).
-  // Only meaningful for quotes with a linked vendor entity — unsolicited
-  // / offline quotes from un-registered vendors skip the price feedback loop.
+  // Record budgetary prices to the material / bought-out catalogs
+  // (fire-and-forget). Only meaningful for quotes with a linked vendor
+  // entity — unsolicited / offline quotes from un-registered vendors skip
+  // the price feedback loop. The items fetch is awaited so the unlinked-line
+  // count can be returned for the UI nudge; the price writes stay
+  // non-blocking.
+  let unlinkedPriceLines = 0;
   if (quote.vendorId) {
     const linkedVendorId = quote.vendorId;
-    getVendorQuoteItems(db, quoteId)
-      .then((items) =>
-        recordProcurementPrices(
-          db,
-          items.map((i) => ({ materialId: i.materialId, unitPrice: i.unitPrice, unit: i.unit })),
-          linkedVendorId,
-          quote.vendorName,
-          `${quote.number} (${quote.vendorName})`,
-          (quote.currency as CurrencyCode) || 'INR',
-          'budgetary',
-          userId,
-          quote.tenantId || 'default-entity'
-        )
-      )
-      .catch((err) => logger.error('Failed to record budgetary prices', { quoteId, error: err }));
+    try {
+      const items = await getVendorQuoteItems(db, quoteId);
+      const priceLines = items
+        .filter((i) => i.itemType !== 'NOTE')
+        .map((i) => ({
+          materialId: i.materialId,
+          boughtOutItemId: i.boughtOutItemId,
+          serviceId: i.serviceId,
+          unitPrice: i.unitPrice,
+          unit: i.unit,
+        }));
+      unlinkedPriceLines = countUnlinkedPriceLines(priceLines);
+      recordProcurementPrices(
+        db,
+        priceLines,
+        linkedVendorId,
+        quote.vendorName,
+        `${quote.number} (${quote.vendorName})`,
+        (quote.currency as CurrencyCode) || 'INR',
+        'budgetary',
+        userId,
+        quote.tenantId || 'default-entity'
+      ).catch((err) => logger.error('Failed to record budgetary prices', { quoteId, error: err }));
+    } catch (err) {
+      // Non-fatal: the evaluation itself succeeded; only the price feedback
+      // (and its nudge count) is skipped.
+      logger.error('Failed to record budgetary prices', { quoteId, error: err });
+    }
   }
 
   logger.info('Vendor quote evaluated', { quoteId });
+  return { unlinkedPriceLines };
 }
 
 export async function markVendorQuoteAsRecommended(

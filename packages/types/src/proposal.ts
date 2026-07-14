@@ -57,20 +57,6 @@ export const PROJECT_PHASE_ORDER: ProjectPhase[] = [
 ];
 
 /**
- * Linked BOM Reference
- * Reference to a BOM (Bill of Materials) linked to a scope item for cost estimation
- */
-export interface LinkedBOM {
-  bomId: string;
-  bomCode: string; // Denormalized for display (e.g., "EST-2025-0001")
-  bomName: string; // Denormalized for display
-  category?: string; // BOM category (e.g., "Heat Exchanger", "Engineering")
-  totalCost: Money; // Snapshot of total cost at time of linking
-  linkedAt: Timestamp;
-  linkedBy: string;
-}
-
-/**
  * Scope Item
  * Individual item in the scope matrix (service, supply, or exclusion)
  * Note: No costing fields - estimation is done via linked BOMs
@@ -103,16 +89,6 @@ export interface ScopeItem {
 
   // Optional notes
   notes?: string;
-
-  // Estimation - Linked BOMs for cost calculation
-  linkedBOMs?: LinkedBOM[];
-
-  // Calculated estimation summary (derived from linked BOMs)
-  estimationSummary?: {
-    totalCost: Money;
-    bomCount: number;
-    lastUpdated?: Timestamp;
-  };
 }
 
 /**
@@ -352,14 +328,8 @@ export interface UnifiedScopeItem {
   // For SUPPLY items
   quantity?: number;
   unit?: string; // nos, kg, m, lot, etc.
-
-  // Estimation linkage (carried from old model)
-  linkedBOMs?: LinkedBOM[];
-  estimationSummary?: {
-    totalCost: Money;
-    bomCount: number;
-    lastUpdated?: Timestamp;
-  };
+  // NOTE: BOM cost linkage lives on the Costing tab's BOM_COST_SHEET
+  // pricing block (BOMCostSheetBlock.linkedBomIds), not on scope items.
 
   order: number;
   notes?: string;

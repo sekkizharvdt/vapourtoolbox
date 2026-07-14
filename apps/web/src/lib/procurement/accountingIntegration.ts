@@ -46,6 +46,7 @@ import {
   completeActionableTask,
 } from '../tasks/taskNotificationService';
 import { addMaterialPrice } from '../materials/pricing';
+import { addBoughtOutPrice } from '../boughtOut/pricing';
 
 /**
  * Error types for integration failures
@@ -362,8 +363,9 @@ export async function createBillFromGoodsReceipt(
       updatedAt: Timestamp.now(),
     });
 
-    // Write actual landed cost to materialPrices for every line item backed by a
-    // material-master reference. See PROCUREMENT-MATERIALS-AUDIT-2026-04-24.md #2.
+    // Write actual landed cost to materialPrices (material-master lines) /
+    // bought_out_prices (bought-out catalog lines) for every accepted line.
+    // See PROCUREMENT-MATERIALS-AUDIT-2026-04-24.md #2 + completion-plan A2.
     // Non-fatal: bill creation has already succeeded; don't roll back on write failure.
     const billDate = Timestamp.now();
     const currency = (purchaseOrder.currency as CurrencyCode) || 'INR';
@@ -371,34 +373,68 @@ export async function createBillFromGoodsReceipt(
       const acceptedQty = grItem.acceptedQuantity || 0;
       if (acceptedQty <= 0) continue;
       const poItem = purchaseOrderItems.find((p) => p.id === grItem.poItemId);
-      if (!poItem || !poItem.materialId) continue;
-      try {
-        await addMaterialPrice(
-          db,
-          {
+      if (!poItem) continue;
+      const remarks = `Landed cost from bill ${transactionNumber} (GR ${goodsReceipt.number || goodsReceipt.id})`;
+      if (poItem.materialId) {
+        try {
+          await addMaterialPrice(
+            db,
+            {
+              materialId: poItem.materialId,
+              pricePerUnit: { amount: poItem.unitPrice, currency },
+              unit: poItem.unit || 'NOS',
+              currency,
+              vendorId: purchaseOrder.vendorId,
+              vendorName: purchaseOrder.vendorName || '',
+              sourceType: 'VENDOR_INVOICE',
+              effectiveDate: billDate,
+              isActive: true,
+              isForecast: false,
+              documentReference: transactionNumber,
+              sourceQuoteId: billId,
+              remarks,
+            },
+            userId,
+            tenantId || 'default-entity'
+          );
+        } catch (priceErr) {
+          logger.warn('Failed to capture material price from bill', {
             materialId: poItem.materialId,
-            pricePerUnit: { amount: poItem.unitPrice, currency },
-            unit: poItem.unit || 'NOS',
-            currency,
-            vendorId: purchaseOrder.vendorId,
-            vendorName: purchaseOrder.vendorName || '',
-            sourceType: 'VENDOR_INVOICE',
-            effectiveDate: billDate,
-            isActive: true,
-            isForecast: false,
-            documentReference: transactionNumber,
-            sourceQuoteId: billId,
-            remarks: `Landed cost from bill ${transactionNumber} (GR ${goodsReceipt.number || goodsReceipt.id})`,
-          },
-          userId,
-          tenantId || 'default-entity'
-        );
-      } catch (priceErr) {
-        logger.warn('Failed to capture material price from bill', {
-          materialId: poItem.materialId,
-          billId,
-          priceErr,
-        });
+            billId,
+            priceErr,
+          });
+        }
+      } else if (poItem.boughtOutItemId) {
+        // A2 bridge: mirror of the material path for bought-out catalog
+        // lines — appends bought_out_prices history and (via
+        // addBoughtOutPrice) denormalizes the latest active price onto the
+        // bought_out_items doc.
+        try {
+          await addBoughtOutPrice(
+            db,
+            {
+              boughtOutItemId: poItem.boughtOutItemId,
+              unitPrice: poItem.unitPrice,
+              unit: poItem.unit || 'NOS',
+              currency,
+              vendorId: purchaseOrder.vendorId,
+              ...(purchaseOrder.vendorName && { vendorName: purchaseOrder.vendorName }),
+              sourceType: 'VENDOR_INVOICE',
+              effectiveDate: billDate,
+              isActive: true,
+              documentReference: transactionNumber,
+              remarks,
+              ...(tenantId && { tenantId }),
+            },
+            userId
+          );
+        } catch (priceErr) {
+          logger.warn('Failed to capture bought-out price from bill', {
+            boughtOutItemId: poItem.boughtOutItemId,
+            billId,
+            priceErr,
+          });
+        }
       }
     }
 

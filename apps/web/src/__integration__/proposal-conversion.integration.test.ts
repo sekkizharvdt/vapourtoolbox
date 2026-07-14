@@ -75,7 +75,6 @@ function buildProposal(overrides: Partial<Proposal> = {}): Proposal {
               name: 'Pump Skid',
               classification: 'SUPPLY',
               included: true,
-              estimationSummary: { totalCost: { amount: 150000, currency: 'INR' }, bomCount: 1 },
               order: 0,
             },
             {

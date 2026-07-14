@@ -98,10 +98,29 @@ export interface LumpSumLinesBlock extends PricingBlockBase {
 
 /* ─── BOM cost sheet ────────────────────────────────────────────────── */
 
+/**
+ * Denormalized snapshot of one linked BOM (rule 26): identifying fields +
+ * the cost that drives the block subtotal. Taken at link time and kept in
+ * sync (rule 13) by the "Refresh from BOMs" action plus an automatic
+ * refresh whenever the Costing tab loads the proposal.
+ */
+export interface LinkedBomSnapshot {
+  bomId: string;
+  bomCode: string; // e.g. "EST-2026-0001"
+  name: string;
+  /** BOM.summary.totalCost.amount — INR cost basis at link/refresh time. */
+  totalCostAmount: number;
+}
+
 export interface BOMCostSheetBlock extends PricingBlockBase {
   kind: 'BOM_COST_SHEET';
-  /** References to docs in the boms collection. Subtotal = sum of their totalCost. */
+  /** References to docs in the boms collection. Subtotal = sum of the snapshot costs below. */
   linkedBomIds: string[];
+  /**
+   * Cost snapshots for each linked BOM. The synchronous subtotal recompute
+   * sums these; refresh re-fetches each BOM's current summary.totalCost.
+   */
+  linkedBomSnapshots?: LinkedBomSnapshot[];
 }
 
 /**

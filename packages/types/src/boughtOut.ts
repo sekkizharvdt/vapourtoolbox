@@ -486,6 +486,14 @@ export interface BoughtOutItem extends TimestampFields {
     moq?: number; // Minimum order quantity
     vendorId?: string; // Link to entity
     lastUpdated: Timestamp;
+    /**
+     * Effective date of the price behind listPrice (mirrors
+     * Material.currentPrice.effectiveDate). Written by the
+     * `addBoughtOutPrice` denormalization so an older-dated quote can't
+     * overwrite a newer accepted price. Absent on hand-edited records —
+     * treated as older than any incoming price.
+     */
+    effectiveDate?: Timestamp;
   };
 
   // Documentation

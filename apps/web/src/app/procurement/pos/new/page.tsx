@@ -32,7 +32,9 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { VendorQuote, POCommercialTerms, CommercialTermsTemplate } from '@vapour/types';
-import { getVendorQuoteById } from '@/lib/vendorQuotes';
+import { getVendorQuoteById, getVendorQuoteItems } from '@/lib/vendorQuotes';
+import { countUnlinkedPriceLines } from '@/lib/materials/pricing';
+import { useToast } from '@/components/common/Toast';
 import { createPOFromOffer } from '@/lib/procurement/purchaseOrderService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 import {
@@ -52,6 +54,7 @@ export default function NewPOPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, claims } = useAuth();
+  const { toast } = useToast();
   const offerId = searchParams.get('offerId');
 
   const [loading, setLoading] = useState(true);
@@ -252,6 +255,17 @@ export default function NewPOPage() {
       );
       const advancePercentage = advanceMilestone?.percentage || 0;
 
+      // Soft nudge: count quote lines with no catalog linkage — their prices
+      // can't feed materialPrices / bought_out_prices, so future estimates
+      // won't improve. Non-blocking; failures are silently ignored.
+      let unlinkedPriceLines = 0;
+      try {
+        const quoteItems = await getVendorQuoteItems(getFirebase().db, offerId);
+        unlinkedPriceLines = countUnlinkedPriceLines(quoteItems);
+      } catch {
+        // Nudge-only lookup — PO creation proceeds regardless.
+      }
+
       const poId = await createPOFromOffer(
         offerId,
         {
@@ -276,6 +290,12 @@ export default function NewPOPage() {
         user.displayName || 'Unknown',
         claims?.permissions || 0
       );
+
+      if (unlinkedPriceLines > 0) {
+        toast.info(
+          `${unlinkedPriceLines} line(s) not linked to a catalog item — their prices won't improve future estimates`
+        );
+      }
 
       router.push(`/procurement/pos/${poId}`);
     } catch (err) {

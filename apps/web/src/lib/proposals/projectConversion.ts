@@ -69,7 +69,13 @@ export async function convertProposalToProject(
       lineNumber: idx + 1,
       description: item.name || `Line Item ${idx + 1}`,
       executionType: 'IN_HOUSE' as const,
-      estimatedCost: item.estimationSummary?.totalCost?.amount ?? 0,
+      // Per-line estimates start at 0 and get filled in on the project's
+      // Budget tab. (The legacy ScopeItem.estimationSummary path was
+      // type-only — no record ever carried it — and was deleted in A1;
+      // the proposal's real total flows into budget.estimated below via
+      // computeCommercialSummary, and BOM costs live on the Costing tab's
+      // BOM_COST_SHEET pricing blocks.)
+      estimatedCost: 0,
       currency: 'INR' as const,
       status: 'PLANNED' as const,
       scopeLinkage: {

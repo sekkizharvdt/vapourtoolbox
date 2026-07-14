@@ -105,6 +105,11 @@ jest.mock('@/lib/boughtOut/pricing', () => ({
   addBoughtOutPrice: (...args: unknown[]) => mockAddBoughtOutPrice(...args),
 }));
 
+const mockAddServiceRate = jest.fn().mockResolvedValue({ id: 'rate-1' });
+jest.mock('@/lib/services/rates', () => ({
+  addServiceRate: (...args: unknown[]) => mockAddServiceRate(...args),
+}));
+
 // Import after mocks
 import {
   createVendorQuote,
@@ -201,6 +206,7 @@ beforeEach(() => {
   mockAddMaterialPrice.mockReset().mockResolvedValue({ id: 'price-1' });
   mockUpdateBoughtOutItem.mockReset().mockResolvedValue(undefined);
   mockAddBoughtOutPrice.mockReset().mockResolvedValue({ id: 'bo-price-1' });
+  mockAddServiceRate.mockReset().mockResolvedValue({ id: 'rate-1' });
   // Default fall-through for the chained queries' final consumer
   // (e.g. recalcQuoteTotals after the last queued response).
   mockUpdateDoc.mockResolvedValue(undefined);
@@ -930,33 +936,35 @@ describe('acceptQuoteItemPrice', () => {
     expect(mockAddBoughtOutPrice).not.toHaveBeenCalled();
   });
 
-  it('SERVICE line → writes to serviceRates, NOT to material/bought-out paths', async () => {
+  it('SERVICE line → records rate via addServiceRate (history + currentRate denorm), NOT material/bought-out paths', async () => {
     setupItem(
       makeItem({
         itemType: 'SERVICE',
         serviceId: 'svc-1',
         unitPrice: 5000,
         unit: 'LOT',
-      })
+      }),
+      makeQuote({ vendorId: 'v-1', vendorName: 'Acme', currency: 'INR' })
     );
-    mockAddDoc.mockResolvedValueOnce({ id: 'rate-1' });
     mockUpdateDoc.mockResolvedValue(undefined);
     mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
     await acceptQuoteItemPrice({} as never, 'qi-1', 'user-1', MANAGE_PROCUREMENT_PERMISSIONS);
 
     expect(mockAddMaterialPrice).not.toHaveBeenCalled();
-    expect(mockUpdateBoughtOutItem).not.toHaveBeenCalled();
-    expect(mockAddDoc).toHaveBeenCalled();
-    const written = mockAddDoc.mock.calls[0]?.[1] as {
-      serviceId: string;
-      rateValue: number;
-    };
-    expect(written.serviceId).toBe('svc-1');
-    expect(written.rateValue).toBe(5000);
+    expect(mockAddBoughtOutPrice).not.toHaveBeenCalled();
+    expect(mockAddServiceRate).toHaveBeenCalledTimes(1);
+    expect(mockAddServiceRate.mock.calls[0]?.[1]).toMatchObject({
+      serviceId: 'svc-1',
+      rateValue: 5000,
+      currency: 'INR',
+      vendorId: 'v-1',
+      vendorName: 'Acme',
+      isActive: true,
+    });
   });
 
-  it('BOUGHT_OUT line → updates listPrice AND appends price-history record', async () => {
+  it('BOUGHT_OUT line → appends price-history record (which denormalizes listPrice)', async () => {
     setupItem(
       makeItem({
         itemType: 'BOUGHT_OUT',
@@ -970,9 +978,6 @@ describe('acceptQuoteItemPrice', () => {
     mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
     await acceptQuoteItemPrice({} as never, 'qi-1', 'user-1', MANAGE_PROCUREMENT_PERMISSIONS);
-
-    expect(mockUpdateBoughtOutItem).toHaveBeenCalledTimes(1);
-    expect(mockUpdateBoughtOutItem.mock.calls[0]?.[1]).toBe('bo-1');
 
     expect(mockAddBoughtOutPrice).toHaveBeenCalledTimes(1);
     expect(mockAddBoughtOutPrice.mock.calls[0]?.[1]).toMatchObject({
@@ -995,8 +1000,8 @@ describe('acceptQuoteItemPrice', () => {
     await acceptQuoteItemPrice({} as never, 'qi-1', 'user-1', MANAGE_PROCUREMENT_PERMISSIONS);
 
     expect(mockAddMaterialPrice).not.toHaveBeenCalled();
-    expect(mockUpdateBoughtOutItem).not.toHaveBeenCalled();
     expect(mockAddBoughtOutPrice).not.toHaveBeenCalled();
+    expect(mockAddServiceRate).not.toHaveBeenCalled();
     // priceAccepted update still issued
     expect(mockUpdateDoc).toHaveBeenCalled();
   });

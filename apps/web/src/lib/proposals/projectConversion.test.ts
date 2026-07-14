@@ -479,10 +479,6 @@ describe('projectConversion', () => {
                   description: 'Main equipment',
                   classification: 'SUPPLY',
                   included: true,
-                  estimationSummary: {
-                    totalCost: { amount: 100000, currency: 'INR' },
-                    bomCount: 1,
-                  },
                   order: 0,
                 },
                 {
@@ -492,7 +488,6 @@ describe('projectConversion', () => {
                   description: 'Supporting component',
                   classification: 'SUPPLY',
                   included: true,
-                  estimationSummary: { totalCost: { amount: 50000, currency: 'INR' }, bomCount: 1 },
                   order: 1,
                 },
                 {
@@ -516,12 +511,14 @@ describe('projectConversion', () => {
       await convertProposalToProject(mockDb, 'proposal-123', mockUserId, mockUserName, proposal);
 
       const projectData = mockAddDoc.mock.calls[0]?.[1];
-      // Only SUPPLY items become budget line items (not SERVICE)
+      // Only SUPPLY items become budget line items (not SERVICE). Per-line
+      // estimates start at 0 (the legacy scope-item estimationSummary path
+      // was deleted in A1); the proposal total flows via budget.estimated.
       expect(projectData?.charter?.budgetLineItems).toHaveLength(2);
       expect(projectData?.charter?.budgetLineItems?.[0]?.description).toBe('Equipment A');
-      expect(projectData?.charter?.budgetLineItems?.[0]?.estimatedCost).toBe(100000);
+      expect(projectData?.charter?.budgetLineItems?.[0]?.estimatedCost).toBe(0);
       expect(projectData?.charter?.budgetLineItems?.[1]?.description).toBe('Component B');
-      expect(projectData?.charter?.budgetLineItems?.[1]?.estimatedCost).toBe(50000);
+      expect(projectData?.charter?.budgetLineItems?.[1]?.estimatedCost).toBe(0);
     });
 
     it('should omit budgetLineItems for service-only proposals and write no nested undefined', async () => {
@@ -790,7 +787,7 @@ describe('projectConversion', () => {
       expect(projectData?.tags).toEqual([]);
     });
 
-    it('should handle supply items with no estimation summary', async () => {
+    it('should default supply-item estimated cost to zero', async () => {
       const proposal = createMockProposal({
         unifiedScopeMatrix: {
           categories: [
@@ -807,7 +804,6 @@ describe('projectConversion', () => {
                   classification: 'SUPPLY',
                   included: true,
                   order: 0,
-                  // No estimationSummary
                 },
               ],
               order: 0,

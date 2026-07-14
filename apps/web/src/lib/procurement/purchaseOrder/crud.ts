@@ -409,6 +409,8 @@ export async function createPOFromOffer(
           materialId?: string;
           materialCode?: string;
           materialName?: string;
+          boughtOutItemId?: string;
+          catalogRef?: unknown;
           itemType?: string;
           serviceId?: string;
           serviceCode?: string;
@@ -439,6 +441,8 @@ export async function createPOFromOffer(
                 materialId: rfqItemData.materialId,
                 materialCode: rfqItemData.materialCode,
                 materialName: rfqItemData.materialName,
+                boughtOutItemId: rfqItemData.boughtOutItemId,
+                catalogRef: rfqItemData.catalogRef,
                 itemType: rfqItemData.itemType,
                 serviceId: rfqItemData.serviceId,
                 serviceCode: rfqItemData.serviceCode,
@@ -555,6 +559,13 @@ export async function createPOFromOffer(
         if (matCode) poItemData.materialCode = matCode;
         if (matName) poItemData.materialName = matName;
 
+        // Bought-out catalog linkage (prefer offer item, fallback to RFQ item)
+        // — feeds the bought_out_prices loop on PO creation and GR→bill (A2)
+        const boughtOutId = item.boughtOutItemId || rfqItemInfo.boughtOutItemId;
+        if (boughtOutId) poItemData.boughtOutItemId = boughtOutId;
+        const catalogRef = item.catalogRef || rfqItemInfo.catalogRef;
+        if (catalogRef) poItemData.catalogRef = catalogRef;
+
         // Service catalog linkage (from RFQ item)
         if (rfqItemInfo.itemType) poItemData.itemType = rfqItemInfo.itemType;
         if (rfqItemInfo.serviceId) poItemData.serviceId = rfqItemInfo.serviceId;
@@ -590,10 +601,20 @@ export async function createPOFromOffer(
 
       await batch.commit();
 
-      // Record confirmed prices to material database (fire-and-forget)
+      // Record confirmed prices to the material / bought-out catalogs
+      // (fire-and-forget). Unlinked lines are counted + warned inside; the
+      // PO-create UI shows the nudge from its own item fetch.
       recordProcurementPrices(
         db,
-        offerItems.map((i) => ({ materialId: i.materialId, unitPrice: i.unitPrice, unit: i.unit })),
+        offerItems
+          .filter((i) => i.itemType !== 'NOTE')
+          .map((i) => ({
+            materialId: i.materialId,
+            boughtOutItemId: i.boughtOutItemId,
+            serviceId: i.serviceId,
+            unitPrice: i.unitPrice,
+            unit: i.unit,
+          })),
         offer.vendorId,
         offer.vendorName,
         poNumber,

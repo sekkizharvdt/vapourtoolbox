@@ -11,10 +11,18 @@ import { doc, getDoc, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
 import { getShapeById } from '@/lib/shapes/shapeData';
-import { calculateAllServiceCosts } from '@/lib/services/serviceCalculations';
+import { calculateAllServiceCosts, resolveServiceRates } from '@/lib/services/serviceCalculations';
+import { getBoughtOutItemById } from '@/lib/boughtOut/boughtOutService';
+import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 import { createLogger } from '@vapour/logger';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
-import type { BOMItem, BOMItemCostCalculation, Material, ShapeParameters } from '@vapour/types';
+import type {
+  BOMItem,
+  BOMItemCostCalculation,
+  CurrencyCode,
+  Material,
+  ShapeParameters,
+} from '@vapour/types';
 
 const logger = createLogger({ context: 'bomCalculations' });
 
@@ -25,16 +33,21 @@ const logger = createLogger({ context: 'bomCalculations' });
 /**
  * Calculate cost for a bought-out item
  *
- * For bought-out items, cost is based directly on material price (no fabrication cost)
+ * For bought-out items, cost is direct (no fabrication cost). Pricing source:
+ * - Components linked via `materialId` price from the material master's
+ *   `currentPrice` (legacy path — pipes/flanges/fittings kept in materials).
+ * - Components linked via `boughtOutItemId` (no materialId) price from the
+ *   bought_out_items catalog doc's `pricing.listPrice`, which the
+ *   procurement feedback loop keeps current (completion-plan A2 bridge).
  */
 export async function calculateBoughtOutItemCost(
   db: Firestore,
   item: BOMItem
 ): Promise<BOMItemCostCalculation | null> {
   try {
-    // Skip if no component or materialId defined
-    if (!item.component || !item.component.materialId) {
-      logger.debug('Item has no material, skipping cost calculation', {
+    // Skip if no component or no priceable linkage defined
+    if (!item.component || (!item.component.materialId && !item.component.boughtOutItemId)) {
+      logger.debug('Item has no material or bought-out link, skipping cost calculation', {
         itemId: item.id,
       });
       return null;
@@ -49,42 +62,78 @@ export async function calculateBoughtOutItemCost(
       return null;
     }
 
-    // Fetch material definition
-    const materialDoc = await getDoc(doc(db, COLLECTIONS.MATERIALS, item.component.materialId));
-    if (!materialDoc.exists()) {
-      logger.warn('Material not found', { materialId: item.component.materialId });
-      return null;
+    let weight = 0;
+    let materialCostPerUnit = 0;
+    let currency: CurrencyCode = 'INR';
+
+    if (item.component.materialId) {
+      // Fetch material definition
+      const materialDoc = await getDoc(doc(db, COLLECTIONS.MATERIALS, item.component.materialId));
+      if (!materialDoc.exists()) {
+        logger.warn('Material not found', { materialId: item.component.materialId });
+        return null;
+      }
+
+      const material = docToTyped<Material>(materialDoc.id, materialDoc.data());
+
+      // Get material price
+      materialCostPerUnit = material.currentPrice?.pricePerUnit.amount ?? 0;
+      currency = material.currentPrice?.pricePerUnit.currency || 'INR';
+
+      // Weight from material document (weightPerPiece_kg for flanges/fittings,
+      // weightPerMeter_kg for pipes). Materials sold per kg (raw stock —
+      // thermal → BOM export lines) weigh exactly 1 kg per unit, so
+      // totalWeight = quantity.
+      weight =
+        material.baseUnit === 'kg'
+          ? 1
+          : material.baseUnit === 'meter'
+            ? material.weightPerMeter_kg || 0
+            : material.weightPerPiece_kg || 0;
+    } else {
+      // A2 bridge: price from the bought_out_items catalog doc
+      const boughtOutItem = await getBoughtOutItemById(db, item.component.boughtOutItemId!);
+      if (!boughtOutItem) {
+        logger.warn('Bought-out item not found', {
+          itemId: item.id,
+          boughtOutItemId: item.component.boughtOutItemId,
+        });
+        return null;
+      }
+
+      const listPrice = boughtOutItem.pricing?.listPrice;
+      if (!listPrice || !(listPrice.amount > 0)) {
+        // Expected for catalog entries created without a price — skip the
+        // line (no cost written) rather than pricing it at 0.
+        logger.debug('Bought-out item has no usable price, skipping cost calculation', {
+          itemId: item.id,
+          boughtOutItemId: item.component.boughtOutItemId,
+        });
+        return null;
+      }
+
+      materialCostPerUnit = roundToPaisa(listPrice.amount);
+      currency = listPrice.currency || boughtOutItem.pricing.currency || 'INR';
+      weight = 0; // Catalog carries no weight data
     }
 
-    const material = docToTyped<Material>(materialDoc.id, materialDoc.data());
-
-    // Get material price
-    const materialPrice = material.currentPrice?.pricePerUnit.amount ?? 0;
-    const currency = material.currentPrice?.pricePerUnit.currency || 'INR';
-
-    // For bought-out items:
-    // - Weight from material document (weightPerPiece_kg for flanges/fittings, weightPerMeter_kg for pipes)
-    // - No fabrication cost (no fabrication needed)
-    // - Cost is direct from material price
-    const weight =
-      material.baseUnit === 'meter'
-        ? material.weightPerMeter_kg || 0
-        : material.weightPerPiece_kg || 0;
-    const materialCostPerUnit = materialPrice;
     const fabricationCostPerUnit = 0; // No fabrication for bought-out items
 
     // Apply quantity (for pipes, quantity = meters; for flanges/fittings, quantity = pieces)
     const totalWeight = weight * item.quantity;
-    const totalMaterialCost = materialCostPerUnit * item.quantity;
+    const totalMaterialCost = roundToPaisa(materialCostPerUnit * item.quantity);
     const totalFabricationCost = 0;
 
-    // Phase 3: Calculate service costs
+    // Phase 3: Calculate service costs (procured/default rates resolved at
+    // this async boundary — see resolveServiceRates)
+    const resolvedRates = await resolveServiceRates(db, item.services);
     const serviceCosts = calculateAllServiceCosts(
       item.services,
       materialCostPerUnit,
       fabricationCostPerUnit,
       item.quantity,
-      currency
+      currency,
+      resolvedRates
     );
 
     logger.info('Bought-out item cost calculated', {
@@ -192,13 +241,16 @@ export async function calculateItemCost(
     const totalMaterialCost = materialCostPerUnit * item.quantity;
     const totalFabricationCost = fabricationCostPerUnit * item.quantity;
 
-    // Phase 3: Calculate service costs
+    // Phase 3: Calculate service costs (procured/default rates resolved at
+    // this async boundary — see resolveServiceRates)
+    const resolvedRates = await resolveServiceRates(db, item.services);
     const serviceCosts = calculateAllServiceCosts(
       item.services,
       materialCostPerUnit,
       fabricationCostPerUnit,
       item.quantity,
-      currency
+      currency,
+      resolvedRates
     );
 
     logger.info('Item cost calculated', {

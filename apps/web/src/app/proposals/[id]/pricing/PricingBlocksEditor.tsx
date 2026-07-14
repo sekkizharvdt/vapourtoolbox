@@ -39,8 +39,11 @@ import {
   Add as AddIcon,
   AddCircleOutline as AddRowIcon,
   Delete as DeleteIcon,
+  LinkOff as UnlinkIcon,
+  Refresh as RefreshIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
+import type { Firestore } from 'firebase/firestore';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
@@ -51,16 +54,25 @@ import {
   createPerMandayBlock,
   createLumpSumBlock,
   createBOMCostSheetBlock,
+  bomToSnapshot,
+  linkBomToBlock,
+  unlinkBomFromBlock,
+  refreshBomSnapshots,
 } from '@/lib/proposals/pricingBlocks';
+import { getBOMById, setBOMProposalLink, clearBOMProposalLink } from '@/lib/bom/bomService';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
+import BOMPickerDialog from '@/components/bom/BOMPickerDialog';
 import { useToast } from '@/components/common/Toast';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { CURRENCIES } from '@vapour/constants';
 import type {
+  BOM,
   PricingBlock,
   ManpowerRosterBlock,
   PerMandayCostBlock,
   LumpSumLinesBlock,
   BOMCostSheetBlock,
+  LinkedBomSnapshot,
   Proposal,
   CurrencyCode,
 } from '@vapour/types';
@@ -78,6 +90,40 @@ const blockKindLabels = {
   LUMP_SUM_LINES: 'Lump-sum lines',
   BOM_COST_SHEET: 'Equipment from estimation',
 } as const;
+
+/**
+ * Fetch the current summary.totalCost of every BOM linked by any
+ * BOM_COST_SHEET block and rebuild the snapshots. BOMs that fail to fetch
+ * (deleted, permission) keep their last-known snapshot via
+ * refreshBomSnapshots' merge, so the cost basis never silently zeroes.
+ */
+async function refreshLinkedBomBlocks(
+  db: Firestore,
+  blocks: PricingBlock[]
+): Promise<{ blocks: PricingBlock[]; changed: boolean }> {
+  const ids = new Set<string>();
+  for (const b of blocks) {
+    if (b.kind === 'BOM_COST_SHEET') b.linkedBomIds.forEach((id) => ids.add(id));
+  }
+  if (ids.size === 0) return { blocks, changed: false };
+
+  const fresh: LinkedBomSnapshot[] = [];
+  await Promise.all(
+    [...ids].map(async (id) => {
+      try {
+        const bom = await getBOMById(db, id);
+        if (bom) fresh.push(bomToSnapshot(bom));
+      } catch (err) {
+        // Graceful degrade: keep the stale snapshot for this BOM.
+        console.warn('[PricingBlocksEditor] BOM snapshot refresh failed', id, err);
+      }
+    })
+  );
+
+  const next = blocks.map((b) => (b.kind === 'BOM_COST_SHEET' ? refreshBomSnapshots(b, fresh) : b));
+  const changed = JSON.stringify(next) !== JSON.stringify(blocks);
+  return { blocks: next, changed };
+}
 
 export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) {
   const pathname = usePathname();
@@ -118,6 +164,18 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
         }
         setProposal(p);
         setBlocks(p.pricingBlocks ?? []);
+
+        // Rule 13 sync strategy: automatically refresh linked-BOM cost
+        // snapshots when the Costing tab loads. Only for DRAFT proposals —
+        // a submitted/accepted quote's cost basis stays frozen as saved.
+        if (p.status === 'DRAFT') {
+          const refreshed = await refreshLinkedBomBlocks(db, p.pricingBlocks ?? []);
+          if (cancelled) return;
+          if (refreshed.changed) {
+            setBlocks(refreshed.blocks);
+            setDirty(true); // costs moved since last save — prompt a re-save
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           console.error('[PricingBlocksEditor] load failed', err);
@@ -143,8 +201,19 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
   };
 
   const removeBlock = (id: string) => {
+    const removed = blocks.find((b) => b.id === id);
     setBlocks((prev) => prev.filter((b) => b.id !== id));
     setDirty(true);
+    // Removing a BOM cost sheet unlinks its BOMs — clear their back-links
+    // (only where they still point at this proposal). Best-effort: a failed
+    // clear leaves a stale chip on the BOM, never blocks the block removal.
+    if (removed?.kind === 'BOM_COST_SHEET' && db && user && proposal) {
+      for (const bomId of removed.linkedBomIds) {
+        retryOnStaleToken(() => clearBOMProposalLink(db, bomId, proposal.id, user.uid)).catch(
+          (err) => console.error('[PricingBlocksEditor] failed to clear BOM back-link', bomId, err)
+        );
+      }
+    }
   };
 
   const addBlock = (kind: PricingBlock['kind']) => {
@@ -248,6 +317,7 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
               key={block.id}
               block={block}
               currency={currency}
+              proposal={proposal}
               onChange={(updater) => updateBlock(block.id, updater)}
               onRemove={() => removeBlock(block.id)}
             />
@@ -283,11 +353,12 @@ export default function PricingBlocksEditor({ proposalId: propId }: Props = {}) 
 interface BlockCardProps {
   block: PricingBlock;
   currency: CurrencyCode;
+  proposal: Proposal | null;
   onChange: (updater: (b: PricingBlock) => PricingBlock) => void;
   onRemove: () => void;
 }
 
-function BlockCard({ block, currency, onChange, onRemove }: BlockCardProps) {
+function BlockCard({ block, currency, proposal, onChange, onRemove }: BlockCardProps) {
   return (
     <Card variant="outlined">
       <CardContent>
@@ -326,7 +397,14 @@ function BlockCard({ block, currency, onChange, onRemove }: BlockCardProps) {
           <PerMandayEditor block={block} currency={currency} onChange={onChange} />
         )}
         {block.kind === 'LUMP_SUM_LINES' && <LumpSumEditor block={block} onChange={onChange} />}
-        {block.kind === 'BOM_COST_SHEET' && <BOMPlaceholder block={block} currency={currency} />}
+        {block.kind === 'BOM_COST_SHEET' && (
+          <BOMCostSheetEditor
+            block={block}
+            currency={currency}
+            proposal={proposal}
+            onChange={onChange}
+          />
+        )}
 
         <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
           <Typography variant="subtitle1">
@@ -662,16 +740,169 @@ function LumpSumEditor({
   );
 }
 
-/* ─── BOM cost sheet placeholder ──────────────────────────────────────── */
+/* ─── BOM cost sheet editor ───────────────────────────────────────────── */
 
-function BOMPlaceholder({ block, currency }: { block: BOMCostSheetBlock; currency: CurrencyCode }) {
+function BOMCostSheetEditor({
+  block,
+  currency,
+  proposal,
+  onChange,
+}: {
+  block: BOMCostSheetBlock;
+  currency: CurrencyCode;
+  proposal: Proposal | null;
+  onChange: (updater: (b: PricingBlock) => PricingBlock) => void;
+}) {
+  const db = useFirestore();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Snapshots in linked order — the render source for the table rows.
+  const snapshots = useMemo(() => {
+    const byId = new Map((block.linkedBomSnapshots ?? []).map((s) => [s.bomId, s]));
+    return block.linkedBomIds
+      .map((id) => byId.get(id))
+      .filter((s): s is LinkedBomSnapshot => s !== undefined);
+  }, [block]);
+
+  const handlePicked = async (boms: BOM[]) => {
+    if (boms.length === 0) return;
+    // Link + snapshot + subtotal in one pure update (rule 26 denorm at link time).
+    onChange((b) =>
+      boms.reduce((acc, bom) => linkBomToBlock(acc, bomToSnapshot(bom)), b as BOMCostSheetBlock)
+    );
+    // Stamp the proposal back-link on each BOM (rule 35: wrapped in
+    // retryOnStaleToken). Best-effort — a failed stamp never undoes the link.
+    if (!db || !user || !proposal) return;
+    for (const bom of boms) {
+      try {
+        await retryOnStaleToken(() =>
+          setBOMProposalLink(
+            db,
+            bom.id,
+            { proposalId: proposal.id, proposalNumber: proposal.proposalNumber },
+            user.uid
+          )
+        );
+      } catch (err) {
+        console.error('[BOMCostSheetEditor] back-link stamp failed', bom.id, err);
+        toast.error(`Linked ${bom.bomCode}, but could not stamp the proposal link on the BOM.`);
+      }
+    }
+  };
+
+  const handleUnlink = async (snapshot: LinkedBomSnapshot) => {
+    onChange((b) => unlinkBomFromBlock(b as BOMCostSheetBlock, snapshot.bomId));
+    // Clear the back-link only if it still points at this proposal.
+    if (!db || !user || !proposal) return;
+    try {
+      await retryOnStaleToken(() =>
+        clearBOMProposalLink(db, snapshot.bomId, proposal.id, user.uid)
+      );
+    } catch (err) {
+      console.error('[BOMCostSheetEditor] back-link clear failed', snapshot.bomId, err);
+      toast.error(
+        `Unlinked ${snapshot.bomCode}, but could not clear the proposal link on the BOM.`
+      );
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (!db || block.linkedBomIds.length === 0) return;
+    try {
+      setRefreshing(true);
+      const fresh: LinkedBomSnapshot[] = [];
+      let missing = 0;
+      await Promise.all(
+        block.linkedBomIds.map(async (id) => {
+          try {
+            const bom = await getBOMById(db, id);
+            if (bom) fresh.push(bomToSnapshot(bom));
+            else missing += 1;
+          } catch (err) {
+            // Graceful degrade: keep the last-known snapshot for this BOM.
+            console.warn('[BOMCostSheetEditor] BOM refresh fetch failed', id, err);
+            missing += 1;
+          }
+        })
+      );
+      onChange((b) => refreshBomSnapshots(b as BOMCostSheetBlock, fresh));
+      if (missing > 0) {
+        toast.warning(
+          `Costs refreshed — ${missing} BOM${missing === 1 ? '' : 's'} could not be fetched, kept last saved cost.`
+        );
+      } else {
+        toast.success('Costs refreshed from BOMs');
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
-    <Alert severity="info" icon={false}>
-      <Typography variant="body2">
-        BOM linking comes in the next ship — for now this block holds your equipment cost basis of{' '}
-        <strong>{formatCurrency(block.subtotal || 0, currency)}</strong> as 0 until you wire it to
-        the estimation module.
-      </Typography>
-    </Alert>
+    <>
+      {snapshots.length === 0 ? (
+        <Alert severity="info" icon={false}>
+          <Typography variant="body2">
+            No BOMs linked yet. Use <strong>Link BOMs</strong> below to pull equipment cost from the
+            estimation module.
+          </Typography>
+        </Alert>
+      ) : (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>BOM Code</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell align="right">Cost</TableCell>
+                <TableCell align="right" />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {snapshots.map((snap) => (
+                <TableRow key={snap.bomId}>
+                  <TableCell>{snap.bomCode}</TableCell>
+                  <TableCell>{snap.name}</TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(snap.totalCostAmount || 0, currency)}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Unlink this BOM">
+                      <IconButton size="small" onClick={() => handleUnlink(snap)}>
+                        <UnlinkIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Button startIcon={<AddRowIcon />} size="small" onClick={() => setPickerOpen(true)}>
+          Link BOMs
+        </Button>
+        <Button
+          startIcon={refreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
+          size="small"
+          onClick={handleRefresh}
+          disabled={refreshing || block.linkedBomIds.length === 0}
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh from BOMs'}
+        </Button>
+      </Stack>
+
+      <BOMPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={handlePicked}
+        excludeIds={block.linkedBomIds}
+        currentProposalId={proposal?.id}
+      />
+    </>
   );
 }

@@ -82,6 +82,7 @@ jest.mock('./costConfig', () => ({
 import {
   generateBOMCode,
   createBOM,
+  createBOMWithItems,
   getBOMById,
   updateBOM,
   deleteBOM,
@@ -225,6 +226,111 @@ describe('BOM Service', () => {
       mockAddDoc.mockRejectedValue(new Error('Firestore error'));
 
       await expect(createBOM(mockDb, createBOMInput, userId)).rejects.toThrow('Firestore error');
+    });
+  });
+
+  describe('createBOMWithItems', () => {
+    const createBOMInput: CreateBOMInput = {
+      name: 'MED 500 m³/day — 13 Jul 2026',
+      category: 'GENERAL_EQUIPMENT' as BOMCategory,
+      tenantId: 'entity-123',
+    };
+
+    let itemCounter = 0;
+    let mockBatch: { set: jest.Mock; commit: jest.Mock };
+
+    beforeEach(() => {
+      itemCounter = 0;
+      // Counter doc for generateBOMCode (first getDoc), then the BOM doc for
+      // recalculateBOMSummary's getBOMById.
+      mockGetDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValue({
+        exists: () => true,
+        id: 'bom-new',
+        data: () => ({ tenantId: 'entity-123' }),
+      });
+      mockSetDoc.mockResolvedValue(undefined);
+      mockAddDoc.mockResolvedValue({ id: 'bom-new' });
+      mockDoc.mockImplementation(() => ({ id: `item-${++itemCounter}` }));
+      mockBatch = { set: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) };
+      mockWriteBatch.mockReturnValue(mockBatch);
+      // getBOMItems inside recalculateBOMSummary
+      mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
+      mockUpdateDoc.mockResolvedValue(undefined);
+    });
+
+    const itemInputs: CreateBOMItemInput[] = [
+      {
+        itemType: BOMItemType.MATERIAL,
+        name: 'Evaporator Shell E-01',
+        description: 'Material: Duplex SS',
+        quantity: 2255.5,
+        unit: 'kg',
+        componentType: 'BOUGHT_OUT',
+        materialId: 'mat-1',
+        catalogRef: { kind: 'RAW_MATERIAL', id: 'mat-1', code: 'RM-0042', name: 'Duplex SS' },
+      },
+      {
+        itemType: BOMItemType.PART,
+        name: '[UNMAPPED] Vacuum System',
+        description: 'Material (unmapped): SS316L / Cast Iron',
+        quantity: 1,
+        unit: 'lot',
+      },
+    ];
+
+    it('creates the BOM, batch-writes items with sequential numbers, and recalculates once', async () => {
+      const { bom, itemIds } = await createBOMWithItems(mockDb, createBOMInput, itemInputs, userId);
+
+      expect(bom.id).toBe('bom-new');
+      expect(itemIds).toHaveLength(2);
+
+      expect(mockBatch.set).toHaveBeenCalledTimes(2);
+      expect(mockBatch.commit).toHaveBeenCalledTimes(1);
+
+      const firstWrite = mockBatch.set.mock.calls[0]![1] as Record<string, unknown>;
+      expect(firstWrite).toMatchObject({
+        bomId: 'bom-new',
+        itemNumber: '1',
+        level: 0,
+        sortOrder: 1,
+        quantity: 2255.5,
+        unit: 'kg',
+        component: {
+          type: 'BOUGHT_OUT',
+          materialId: 'mat-1',
+          catalogRef: { kind: 'RAW_MATERIAL', id: 'mat-1', code: 'RM-0042', name: 'Duplex SS' },
+        },
+        createdBy: userId,
+      });
+      // component must not carry undefined per-kind ids (rule 12)
+      expect('boughtOutItemId' in (firstWrite.component as object)).toBe(false);
+
+      const secondWrite = mockBatch.set.mock.calls[1]![1] as Record<string, unknown>;
+      expect(secondWrite).toMatchObject({ itemNumber: '2', sortOrder: 2 });
+      // Unmapped line: no component field at all (cleaned, rule 12)
+      expect('component' in secondWrite).toBe(false);
+
+      // Summary recalculated once (updateBOM inside recalculateBOMSummary)
+      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
+    });
+
+    it('chunks writes at 500 operations per batch (rule 20)', async () => {
+      const many: CreateBOMItemInput[] = Array.from({ length: 501 }, (_, i) => ({
+        itemType: BOMItemType.MATERIAL,
+        name: `Line ${i + 1}`,
+        quantity: 1,
+        unit: 'kg',
+      }));
+
+      const { itemIds } = await createBOMWithItems(mockDb, createBOMInput, many, userId);
+
+      expect(itemIds).toHaveLength(501);
+      expect(mockWriteBatch).toHaveBeenCalledTimes(2); // 500 + 1
+      expect(mockBatch.set).toHaveBeenCalledTimes(501);
+      expect(mockBatch.commit).toHaveBeenCalledTimes(2);
+      // Numbering continues across chunks
+      const lastWrite = mockBatch.set.mock.calls[500]![1] as Record<string, unknown>;
+      expect(lastWrite).toMatchObject({ itemNumber: '501', sortOrder: 501 });
     });
   });
 

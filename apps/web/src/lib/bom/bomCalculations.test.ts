@@ -57,8 +57,16 @@ jest.mock('@/lib/shapes/shapeCalculator', () => ({
 
 // Mock service calculations
 const mockCalculateAllServiceCosts = jest.fn();
+const mockResolveServiceRates = jest.fn();
 jest.mock('@/lib/services/serviceCalculations', () => ({
   calculateAllServiceCosts: (...args: unknown[]) => mockCalculateAllServiceCosts(...args),
+  resolveServiceRates: (...args: unknown[]) => mockResolveServiceRates(...args),
+}));
+
+// Mock bought-out catalog reads (A2 pricing bridge)
+const mockGetBoughtOutItemById = jest.fn();
+jest.mock('@/lib/boughtOut/boughtOutService', () => ({
+  getBoughtOutItemById: (...args: unknown[]) => mockGetBoughtOutItemById(...args),
 }));
 
 // Import after mocks
@@ -139,6 +147,8 @@ describe('BOM Calculations', () => {
       totalServiceCost: { amount: 0, currency: 'INR' },
       serviceBreakdown: [],
     });
+    mockResolveServiceRates.mockResolvedValue({});
+    mockGetBoughtOutItemById.mockResolvedValue(null);
   });
 
   describe('calculateBoughtOutItemCost', () => {
@@ -150,7 +160,7 @@ describe('BOM Calculations', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when component has no materialId', async () => {
+    it('should return null when component has neither materialId nor boughtOutItemId', async () => {
       const item = createMockBOMItem({
         component: { type: 'BOUGHT_OUT' },
       });
@@ -204,6 +214,28 @@ describe('BOM Calculations', () => {
       expect(result?.totalWeight).toBe(0);
       expect(result?.fabricationCostPerUnit.amount).toBe(0); // No fabrication
       expect(result?.totalFabricationCost.amount).toBe(0);
+    });
+
+    it('weighs kg-baseUnit materials at 1 kg per unit (thermal export lines)', async () => {
+      // Raw stock priced per kg: quantity IS the weight, so totalWeight = quantity
+      const material = createMockMaterial({ baseUnit: 'kg' });
+      const item = createMockBOMItem({
+        quantity: 2255.5, // kg
+        unit: 'kg',
+        component: { type: 'BOUGHT_OUT', materialId: 'material-123' },
+      });
+
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'material-123',
+        data: () => material,
+      });
+
+      const result = await calculateBoughtOutItemCost(mockDb, item);
+
+      expect(result?.weight).toBe(1);
+      expect(result?.totalWeight).toBe(2255.5);
+      expect(result?.totalMaterialCost.amount).toBe(225550); // 100/kg × 2255.5 kg
     });
 
     it('should use INR as default currency when not specified', async () => {
@@ -282,6 +314,133 @@ describe('BOM Calculations', () => {
 
       expect(result?.serviceCostPerUnit.amount).toBe(25);
       expect(result?.totalServiceCost.amount).toBe(50);
+    });
+
+    // ------------------------------------------------------------------
+    // A2 bridge: bought-out catalog pricing (boughtOutItemId, no materialId)
+    // ------------------------------------------------------------------
+
+    const makeBoughtOutDoc = (overrides: Record<string, unknown> = {}) => ({
+      id: 'bo-1',
+      name: 'Gate Valve DN50',
+      category: 'VALVE',
+      pricing: {
+        listPrice: { amount: 12500, currency: 'INR' },
+        currency: 'INR',
+        lastUpdated: { seconds: 1703318400, nanoseconds: 0 },
+      },
+      ...overrides,
+    });
+
+    it('prices a boughtOutItemId component from bought_out_items listPrice', async () => {
+      mockGetBoughtOutItemById.mockResolvedValue(makeBoughtOutDoc());
+      const item = createMockBOMItem({
+        quantity: 3,
+        component: { type: 'BOUGHT_OUT', boughtOutItemId: 'bo-1' },
+      });
+
+      const result = await calculateBoughtOutItemCost(mockDb, item);
+
+      expect(mockGetBoughtOutItemById).toHaveBeenCalledWith(mockDb, 'bo-1');
+      expect(result).not.toBeNull();
+      expect(result?.materialCostPerUnit.amount).toBe(12500);
+      expect(result?.materialCostPerUnit.currency).toBe('INR');
+      expect(result?.totalMaterialCost.amount).toBe(37500); // 12500 × 3
+      expect(result?.fabricationCostPerUnit.amount).toBe(0);
+      expect(result?.weight).toBe(0); // catalog carries no weight data
+      // Must not have touched the materials collection
+      expect(mockGetDoc).not.toHaveBeenCalled();
+    });
+
+    it('rounds bought-out prices to paisa (rule 21)', async () => {
+      mockGetBoughtOutItemById.mockResolvedValue(
+        makeBoughtOutDoc({
+          pricing: {
+            listPrice: { amount: 100.333, currency: 'INR' },
+            currency: 'INR',
+            lastUpdated: { seconds: 1703318400, nanoseconds: 0 },
+          },
+        })
+      );
+      const item = createMockBOMItem({
+        quantity: 3,
+        component: { type: 'BOUGHT_OUT', boughtOutItemId: 'bo-1' },
+      });
+
+      const result = await calculateBoughtOutItemCost(mockDb, item);
+
+      expect(result?.materialCostPerUnit.amount).toBe(100.33);
+      expect(result?.totalMaterialCost.amount).toBe(300.99); // rounded at total too
+    });
+
+    it('skips (returns null) when the bought-out item has no usable price', async () => {
+      mockGetBoughtOutItemById.mockResolvedValue(
+        makeBoughtOutDoc({
+          pricing: {
+            listPrice: { amount: 0, currency: 'INR' },
+            currency: 'INR',
+            lastUpdated: { seconds: 1703318400, nanoseconds: 0 },
+          },
+        })
+      );
+      const item = createMockBOMItem({
+        component: { type: 'BOUGHT_OUT', boughtOutItemId: 'bo-1' },
+      });
+
+      expect(await calculateBoughtOutItemCost(mockDb, item)).toBeNull();
+    });
+
+    it('skips (returns null) when the bought-out item does not exist', async () => {
+      mockGetBoughtOutItemById.mockResolvedValue(null);
+      const item = createMockBOMItem({
+        component: { type: 'BOUGHT_OUT', boughtOutItemId: 'bo-missing' },
+      });
+
+      expect(await calculateBoughtOutItemCost(mockDb, item)).toBeNull();
+    });
+
+    it('prefers the materialId path when a component carries both links', async () => {
+      const material = createMockMaterial();
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'material-123',
+        data: () => material,
+      });
+      const item = createMockBOMItem({
+        quantity: 2,
+        component: { type: 'BOUGHT_OUT', materialId: 'material-123', boughtOutItemId: 'bo-1' },
+      });
+
+      const result = await calculateBoughtOutItemCost(mockDb, item);
+
+      expect(result?.materialCostPerUnit.amount).toBe(100); // material price, not listPrice
+      expect(mockGetBoughtOutItemById).not.toHaveBeenCalled();
+    });
+
+    it('passes resolved service rates into calculateAllServiceCosts', async () => {
+      mockGetBoughtOutItemById.mockResolvedValue(makeBoughtOutDoc());
+      const resolved = { 'svc-1': { procuredRateValue: 10 } };
+      mockResolveServiceRates.mockResolvedValue(resolved);
+      const item = createMockBOMItem({
+        component: { type: 'BOUGHT_OUT', boughtOutItemId: 'bo-1' },
+        services: [
+          {
+            serviceId: 'svc-1',
+            serviceName: 'Test Service',
+            serviceCategory: ServiceCategory.ENGINEERING,
+            calculationMethod: ServiceCalculationMethod.PERCENTAGE_OF_MATERIAL,
+            isManualOverride: false,
+            addedBy: 'test-user',
+            addedAt: { seconds: 1703318400, nanoseconds: 0 } as unknown as Timestamp,
+          },
+        ],
+      });
+
+      await calculateBoughtOutItemCost(mockDb, item);
+
+      expect(mockResolveServiceRates).toHaveBeenCalledWith(mockDb, item.services);
+      // resolved map forwarded as the 6th argument
+      expect(mockCalculateAllServiceCosts.mock.calls[0]?.[5]).toBe(resolved);
     });
   });
 

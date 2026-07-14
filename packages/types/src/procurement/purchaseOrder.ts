@@ -5,6 +5,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
+import type { CatalogRef } from '../catalog';
 
 // ============================================================================
 // PURCHASE ORDER TYPES
@@ -238,8 +239,15 @@ export interface PurchaseOrderItem {
   materialCode?: string;
   materialName?: string;
 
+  // Bought-out catalog linkage (carried from offer/RFQ chain — A2 pricing
+  // bridge: lets PO/GR/bill events feed bought_out_prices the same way
+  // materialId feeds materialPrices)
+  boughtOutItemId?: string;
+  /** Unified catalog linkage, denormalized alongside the per-kind id (rule 26). */
+  catalogRef?: CatalogRef;
+
   // Service catalog linkage (carried from offer/RFQ chain)
-  itemType?: 'MATERIAL' | 'SERVICE';
+  itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
   serviceId?: string;
   serviceCode?: string;
   serviceName?: string;

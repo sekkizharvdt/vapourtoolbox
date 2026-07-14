@@ -3,7 +3,8 @@
  *
  * The price-history service mirrors `materials/pricing.ts` for the
  * bought-out catalog. Tests cover:
- * - addBoughtOutPrice: writes the doc, stamps audit fields, passes through tenantId
+ * - addBoughtOutPrice: writes the doc, stamps audit fields, passes through tenantId,
+ *   denormalizes the latest active price onto bought_out_items.pricing (A2)
  * - getBoughtOutPriceHistory: orders newest-first, applies vendor / date / limit filters
  */
 
@@ -12,11 +13,31 @@ import type { BoughtOutPrice } from '@vapour/types';
 
 const mockGetDocs = jest.fn();
 const mockAddDoc = jest.fn();
+const mockGetDoc = jest.fn();
+const mockUpdateDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((_db: unknown, name: string) => ({ collection: name })),
+  doc: jest.fn((_db: unknown, name: string, id: string) => ({ doc: [name, id] })),
   addDoc: (...args: unknown[]) => mockAddDoc(...args),
+  getDoc: (...args: unknown[]) => mockGetDoc(...args),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
+  updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
+  // The denorm path runs in a transaction (rule 19); bridge tx.get/tx.update
+  // to the same mocks so the assertions below keep their meaning. tx.update
+  // is sync in the real API, so any simulated rejection from mockUpdateDoc
+  // is captured and re-awaited here (otherwise Node kills the worker on the
+  // unhandled rejection).
+  runTransaction: async (_db: unknown, cb: (tx: unknown) => Promise<unknown>) => {
+    let pendingUpdate: unknown;
+    await cb({
+      get: (...args: unknown[]) => mockGetDoc(...args),
+      update: (...args: unknown[]) => {
+        pendingUpdate = mockUpdateDoc(...args);
+      },
+    });
+    if (pendingUpdate instanceof Promise) await pendingUpdate;
+  },
   query: jest.fn((...args: unknown[]) => ({ query: args })),
   where: jest.fn((field: string, op: string, value: unknown) => ({ where: [field, op, value] })),
   orderBy: jest.fn((field: string, dir?: string) => ({ orderBy: [field, dir] })),
@@ -65,6 +86,12 @@ function ts(date: Date): Timestamp {
 beforeEach(() => {
   mockGetDocs.mockReset();
   mockAddDoc.mockReset().mockResolvedValue({ id: 'price-new' });
+  // Default: parent item exists with no priced pricing block → denorm proceeds
+  mockGetDoc.mockReset().mockResolvedValue({
+    exists: () => true,
+    data: () => ({ pricing: { listPrice: { amount: 0, currency: 'INR' }, currency: 'INR' } }),
+  });
+  mockUpdateDoc.mockReset().mockResolvedValue(undefined);
 });
 
 // ============================================================================
@@ -150,6 +177,55 @@ describe('addBoughtOutPrice', () => {
     expect(written.documentReference).toBe('Q-2025-0001');
     expect(written.sourceQuoteId).toBe('q-1');
     expect(written.sourceQuoteItemId).toBe('qi-1');
+  });
+
+  it('denormalizes an active price onto the parent bought_out_items pricing block', async () => {
+    await addBoughtOutPrice({} as never, baseInput, 'user-1');
+    expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
+    const written = mockUpdateDoc.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(written['pricing.listPrice']).toEqual({ amount: 12500, currency: 'INR' });
+    expect(written['pricing.currency']).toBe('INR');
+    expect(written['pricing.effectiveDate']).toBe(baseInput.effectiveDate);
+    expect(written['pricing.lastUpdated']).toBeDefined();
+    expect(written.updatedBy).toBe('user-1');
+    // Dot-path update — must NOT replace the whole pricing map (would drop leadTime/moq)
+    expect(written.pricing).toBeUndefined();
+  });
+
+  it('does NOT denormalize an inactive (budgetary/forecast) price', async () => {
+    await addBoughtOutPrice({} as never, { ...baseInput, isActive: false }, 'user-1');
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+    // History row is still written
+    expect(mockAddDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT overwrite a newer current price with an older-dated one', async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        pricing: {
+          listPrice: { amount: 99999, currency: 'INR' },
+          currency: 'INR',
+          effectiveDate: ts(new Date('2025-06-01')), // newer than the incoming 2025-01-15
+        },
+      }),
+    });
+    await addBoughtOutPrice({} as never, baseInput, 'user-1');
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  it('still returns the history row when the parent item is missing (denorm skipped)', async () => {
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false });
+    const result = await addBoughtOutPrice({} as never, baseInput, 'user-1');
+    expect(result.id).toBe('price-new');
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when the denorm update fails (history row already written)', async () => {
+    mockUpdateDoc.mockRejectedValueOnce(new Error('permission-denied'));
+    await expect(addBoughtOutPrice({} as never, baseInput, 'user-1')).resolves.toMatchObject({
+      boughtOutItemId: 'bo-1',
+    });
   });
 
   it('handles each PriceSourceType value', async () => {
