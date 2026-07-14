@@ -44,7 +44,6 @@
     "apps/web/src/lib/proposals/proposalAttachmentService.ts",
     "apps/web/src/lib/proposals/proposalTemplateService.ts",
     "apps/web/src/lib/tasks/manualTaskService.ts",
-    "apps/web/src/lib/tasks/meetingService.ts",
     "apps/web/src/lib/tasks/mentionService.ts",
     "apps/web/src/lib/tasks/taskNotificationService.ts",
     "apps/web/src/lib/tasks/threadService.ts",
