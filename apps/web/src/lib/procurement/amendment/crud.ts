@@ -10,6 +10,7 @@ import {
   getDoc,
   addDoc,
   serverTimestamp,
+  Timestamp,
   type Firestore,
   writeBatch,
   runTransaction,
@@ -63,6 +64,23 @@ const ALLOWED_AMENDMENT_FIELDS = new Set([
   'advancePercentage',
   'advanceAmount',
 ]);
+
+/**
+ * PO fields that store Firestore Timestamps. The amendment form supplies date
+ * values as YYYY-MM-DD strings, so they must be converted before writing.
+ */
+const AMENDMENT_DATE_FIELDS = new Set(['expectedDeliveryDate']);
+
+function toTimestampValue(value: unknown): Timestamp | null {
+  if (!value) return null;
+  if (value instanceof Timestamp) return value;
+  if (typeof value === 'object' && 'toDate' in value) return value as Timestamp;
+  const parsed = new Date(value as string | number | Date);
+  if (isNaN(parsed.getTime())) {
+    throw new Error(`Amendment contains an invalid date value: ${String(value)}`);
+  }
+  return Timestamp.fromDate(parsed);
+}
 
 /**
  * Create a new purchase order amendment
@@ -433,8 +451,10 @@ export async function approveAmendment(
 
     // Apply changes to PO
     const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, amendment.purchaseOrderId);
+    // The PO keeps its real lifecycle status (feedback wsvWR2UnRSlwYmxMTi4w);
+    // the amendment is tracked via lastAmendmentNumber/lastAmendmentDate and
+    // shown in its own column on the PO list.
     const updateData: Record<string, unknown> = {
-      status: 'AMENDED',
       lastAmendmentNumber: amendment.amendmentNumber,
       lastAmendmentDate: serverTimestamp(),
       grandTotal: amendment.newGrandTotal,
@@ -457,7 +477,12 @@ export async function approveAmendment(
           `Amendment cannot modify field "${change.field}". Only financial, terms, delivery, and header fields can be amended.`
         );
       }
-      updateData[change.field] = change.newValue;
+      // Date fields arrive from the amendment form as YYYY-MM-DD strings;
+      // the PO stores Timestamps — convert or the PO detail page crashes
+      // rendering the amended doc (feedback wsvWR2UnRSlwYmxMTi4w).
+      updateData[change.field] = AMENDMENT_DATE_FIELDS.has(change.field)
+        ? toTimestampValue(change.newValue)
+        : change.newValue;
     });
 
     batch.update(poRef, updateData);

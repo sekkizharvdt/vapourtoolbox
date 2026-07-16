@@ -52,7 +52,11 @@ import { PERMISSION_FLAGS } from '@vapour/constants';
  *                          \-> REJECTED -> DRAFT (revision)
  *
  * CANCELLED is reachable from DRAFT, PENDING_APPROVAL, APPROVED, ISSUED
- * AMENDED is reachable from ISSUED, ACKNOWLEDGED, IN_PROGRESS
+ *
+ * AMENDED is legacy-only (feedback wsvWR2UnRSlwYmxMTi4w): applying an
+ * amendment no longer changes the PO status — amendments are tracked via
+ * lastAmendmentNumber/lastAmendmentDate instead. The AMENDED state keeps
+ * exit transitions so POs stuck in it can return to the lifecycle.
  *
  * IN_PROGRESS is auto-set when a Packing List is created or a payment is
  * recorded against the PO; DELIVERED is auto-set when a Goods Receipt fully
@@ -61,34 +65,36 @@ import { PERMISSION_FLAGS } from '@vapour/constants';
  * functions/src/procurementPaymentStatus.ts). COMPLETED stays a manual
  * action — closing a PO can involve steps beyond delivery/payment.
  */
-export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = createStateMachine({
-  transitions: {
-    DRAFT: ['PENDING_APPROVAL', 'CANCELLED'],
-    // Two named approvers, sequential (review 2.3): first → final → approved.
-    // DRAFT from either pending stage is "Return with Comments" — a named
-    // approver sends the PO back for revision (feedback sUjQ9E0O9tS9YZHqEtox).
-    PENDING_APPROVAL: ['PENDING_FINAL_APPROVAL', 'REJECTED', 'DRAFT', 'CANCELLED'],
-    PENDING_FINAL_APPROVAL: ['APPROVED', 'REJECTED', 'DRAFT', 'CANCELLED'],
-    APPROVED: ['ISSUED', 'CANCELLED'],
-    REJECTED: ['DRAFT'], // Allow revision
-    // DELIVERED direct from ISSUED covers a GR fully receiving a PO whose
-    // IN_PROGRESS auto-advance (on PL creation / payment) didn't fire yet.
-    ISSUED: ['ACKNOWLEDGED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED', 'AMENDED'],
-    ACKNOWLEDGED: ['IN_PROGRESS', 'DELIVERED', 'AMENDED'],
-    IN_PROGRESS: ['DELIVERED', 'COMPLETED', 'AMENDED'],
-    DELIVERED: ['COMPLETED'],
-    COMPLETED: [], // Terminal
-    CANCELLED: [], // Terminal
-    AMENDED: ['DRAFT'], // Amended PO can be revised
-  },
-  transitionPermissions: {
-    // Key format: "FROM_TO". Approval transitions are gated by APPROVER IDENTITY
-    // (the two designated approvers), not a permission flag, so they're not
-    // listed here — see requireApprover() in the workflow.
-    APPROVED_ISSUED: PERMISSION_FLAGS.MANAGE_PROCUREMENT, // Or could be CREATE_PO
-  },
-  terminalStates: ['COMPLETED', 'CANCELLED'],
-});
+export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> =
+  createStateMachine<PurchaseOrderStatus>({
+    transitions: {
+      DRAFT: ['PENDING_APPROVAL', 'CANCELLED'],
+      // Two named approvers, sequential (review 2.3): first → final → approved.
+      // DRAFT from either pending stage is "Return with Comments" — a named
+      // approver sends the PO back for revision (feedback sUjQ9E0O9tS9YZHqEtox).
+      PENDING_APPROVAL: ['PENDING_FINAL_APPROVAL', 'REJECTED', 'DRAFT', 'CANCELLED'],
+      PENDING_FINAL_APPROVAL: ['APPROVED', 'REJECTED', 'DRAFT', 'CANCELLED'],
+      APPROVED: ['ISSUED', 'CANCELLED'],
+      REJECTED: ['DRAFT'], // Allow revision
+      // DELIVERED direct from ISSUED covers a GR fully receiving a PO whose
+      // IN_PROGRESS auto-advance (on PL creation / payment) didn't fire yet.
+      ISSUED: ['ACKNOWLEDGED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'],
+      ACKNOWLEDGED: ['IN_PROGRESS', 'DELIVERED'],
+      IN_PROGRESS: ['DELIVERED', 'COMPLETED'],
+      DELIVERED: ['COMPLETED'],
+      COMPLETED: [], // Terminal
+      CANCELLED: [], // Terminal
+      // Legacy exits only — nothing transitions INTO AMENDED anymore.
+      AMENDED: ['ISSUED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'DELIVERED', 'DRAFT'],
+    },
+    transitionPermissions: {
+      // Key format: "FROM_TO". Approval transitions are gated by APPROVER IDENTITY
+      // (the two designated approvers), not a permission flag, so they're not
+      // listed here — see requireApprover() in the workflow.
+      APPROVED_ISSUED: PERMISSION_FLAGS.MANAGE_PROCUREMENT, // Or could be CREATE_PO
+    },
+    terminalStates: ['COMPLETED', 'CANCELLED'],
+  });
 
 // ============================================================================
 // PO Amendment State Machine

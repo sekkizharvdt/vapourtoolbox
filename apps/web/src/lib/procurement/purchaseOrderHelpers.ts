@@ -121,7 +121,18 @@ export function formatExpectedDelivery(po: PurchaseOrder): string {
     return 'Not specified';
   }
 
-  const expectedDate = po.expectedDeliveryDate.toDate();
+  // Rule 14: runtime value may be a Timestamp, Date, or (legacy amended POs)
+  // a YYYY-MM-DD string — never call .toDate() unguarded.
+  const raw = po.expectedDeliveryDate as unknown;
+  const expectedDate =
+    typeof raw === 'object' && raw !== null && 'toDate' in raw
+      ? (raw as { toDate: () => Date }).toDate()
+      : raw instanceof Date
+        ? raw
+        : new Date(raw as string | number);
+  if (isNaN(expectedDate.getTime())) {
+    return 'Not specified';
+  }
   const now = new Date();
   const diffTime = expectedDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

@@ -284,7 +284,7 @@ export default function PurchaseOrdersPage() {
         </FilterBar>
 
         {/* PO Table (desktop / tablet) — UI-STANDARDS rule 8.2: this table
-            has 9 columns which would break at xs; we render a card stack
+            has 10 columns which would break at xs; we render a card stack
             below for that breakpoint instead. */}
         <TableContainer
           component={Paper}
@@ -297,6 +297,7 @@ export default function PurchaseOrdersPage() {
                 <TableCell>Source RFQ</TableCell>
                 <TableCell>Vendor</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Amend. No.</TableCell>
                 <TableCell align="right">Amount</TableCell>
                 <TableCell>Delivery</TableCell>
                 <TableCell>Payment</TableCell>
@@ -306,9 +307,9 @@ export default function PurchaseOrdersPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading purchase orders..." variant="table" colSpan={9} />
+                <LoadingState message="Loading purchase orders..." variant="table" colSpan={10} />
               ) : filteredPOs.length === 0 ? (
-                <EmptyState message="No purchase orders found" variant="table" colSpan={9} />
+                <EmptyState message="No purchase orders found" variant="table" colSpan={10} />
               ) : (
                 paginatedPOs.map((po) => {
                   const deliveryStatus = getDeliveryStatus(po);
@@ -347,6 +348,20 @@ export default function PurchaseOrdersPage() {
                           color={getPOStatusColor(po.status)}
                           size="small"
                         />
+                      </TableCell>
+                      <TableCell>
+                        {po.lastAmendmentNumber ? (
+                          <Chip
+                            label={`Amd ${po.lastAmendmentNumber}`}
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            —
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight="medium">
@@ -483,6 +498,14 @@ export default function PurchaseOrdersPage() {
                           color={getPOStatusColor(po.status)}
                           size="small"
                         />
+                        {po.lastAmendmentNumber ? (
+                          <Chip
+                            label={`Amd ${po.lastAmendmentNumber}`}
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                          />
+                        ) : null}
                         <Chip
                           label={deliveryStatus.text}
                           color={deliveryStatus.color}

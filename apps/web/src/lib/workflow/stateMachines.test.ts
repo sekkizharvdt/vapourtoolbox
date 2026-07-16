@@ -65,10 +65,17 @@ describe('purchaseOrderStateMachine', () => {
       expect(purchaseOrderStateMachine.canTransitionTo('ISSUED', 'CANCELLED')).toBe(true);
     });
 
-    it('should allow amendments from issued states', () => {
-      expect(purchaseOrderStateMachine.canTransitionTo('ISSUED', 'AMENDED')).toBe(true);
-      expect(purchaseOrderStateMachine.canTransitionTo('ACKNOWLEDGED', 'AMENDED')).toBe(true);
-      expect(purchaseOrderStateMachine.canTransitionTo('IN_PROGRESS', 'AMENDED')).toBe(true);
+    it('should not transition INTO the legacy AMENDED status (amendments keep the lifecycle status)', () => {
+      expect(purchaseOrderStateMachine.canTransitionTo('ISSUED', 'AMENDED')).toBe(false);
+      expect(purchaseOrderStateMachine.canTransitionTo('ACKNOWLEDGED', 'AMENDED')).toBe(false);
+      expect(purchaseOrderStateMachine.canTransitionTo('IN_PROGRESS', 'AMENDED')).toBe(false);
+    });
+
+    it('should allow legacy AMENDED POs to exit back to the lifecycle', () => {
+      expect(purchaseOrderStateMachine.canTransitionTo('AMENDED', 'ISSUED')).toBe(true);
+      expect(purchaseOrderStateMachine.canTransitionTo('AMENDED', 'IN_PROGRESS')).toBe(true);
+      expect(purchaseOrderStateMachine.canTransitionTo('AMENDED', 'DELIVERED')).toBe(true);
+      expect(purchaseOrderStateMachine.canTransitionTo('AMENDED', 'DRAFT')).toBe(true);
     });
   });
 

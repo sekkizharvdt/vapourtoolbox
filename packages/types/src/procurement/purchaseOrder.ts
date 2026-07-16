@@ -119,6 +119,12 @@ export interface PurchaseOrder {
   // Status
   status: PurchaseOrderStatus;
 
+  // Amendment tracking — written when an amendment is applied. The status
+  // itself is NOT changed to AMENDED (feedback wsvWR2UnRSlwYmxMTi4w); the PO
+  // list shows these in an "Amend. No." column instead.
+  lastAmendmentNumber?: number; // sequential: 1, 2, 3...
+  lastAmendmentDate?: Timestamp;
+
   // Approval workflow
   submittedForApprovalAt?: Timestamp;
   submittedBy?: string;
