@@ -16,21 +16,11 @@ The (formerly) broken chain:
 2. **Convert to Project** requires `status === 'ACCEPTED'` (`projectConversion.ts:265`), so the button never appeared through the standard flow. _(Unblocked by 1.)_
 3. Enquiry **Mark as Won / Lost** (`EnquiryDetailClient.tsx:246` → `updateEnquiryStatus`) updates only the enquiry — it does not transition the linked proposal. _(Still open, mitigated: proposal-side outcome now syncs enquiry.)_
 
-**Next step — verify `convertProposalToProject` end-to-end with the real case.** Acceptance checklist from the signed agreement:
-
-- Client: Desolenator B.V. (entity must exist with CUSTOMER role).
-- **USD-denominated proposal** (lump sum USD 7,958) — client pricing currency/fxRate must survive conversion; project `budget.estimated` comes from `computeCommercialSummary().targetRevenueInr`, so confirm the INR target is right for a USD quote.
-- 3 payment milestones (20% / 50% / 30%) → `deliveryPeriod.milestones` → payment terms.
-- Deliverables (daily reports, equipment register, instrument schedule, cable & wiring register, photo record, baseline survey report, exit briefing) → charter deliverables / document requirements.
-- 2-week duration incl. 5 days on-site → project dates from `durationInWeeks`.
-- Related gaps 0.2 and 2.x below should be considered in the same design pass since conversion exercises them.
+**Verified end-to-end 2026-07-14 (completion plan Phase 2 acceptance test) — conversion itself works, but confirmed a real gap it exposes.** The proposal converted cleanly (`status: ACCEPTED`, `projectId` set, budget ₹756,000 matches the USD 7,957.89 × fx 95 quote), but `convertProposalToProject` copies the _submitted proposal_ into the charter verbatim with no way to reconcile against the _signed agreement_ — confirmed live: the project carries the proposal's 3-week schedule, not the agreement's 2 weeks; payment terms are unstructured text with no retention modeling (agreement specifies 60 days + 15% retention); `charter.deliverables` is empty (agreement specifies 8 items); milestone 3's real trigger (submission + client acceptance, 30-day window) isn't captured. **Closed by a new Order Acceptance charter section** (`c75976cd`) — a structured, approved record of the signed document's terms that overwrites the charter's authoritative fields on approval; works retroactively on already-converted projects, so it applies to this project without special-case code. **Desolenator's actual signed terms still need to be entered through that UI** — a data-entry/business-decision step for a human, not scripted.
 
 ### 0.2 Charter approval: no submit step, no self-approval prevention, duplicate cost centres
 
-Immediately downstream of 0.1 — the first thing the new project hits.
-
-- Charter goes straight DRAFT → APPROVED by any `MANAGE_PROJECTS` user, including its author; `PENDING_APPROVAL` is defined but never written (`CharterTab.tsx:110-188`). Every other approval flow in the app has `preventSelfApproval`; this one doesn't.
-- `onProjectCreated` (`functions/src/projects.ts:19`) creates a cost centre at project creation **and** `CharterTab.proceedWithApproval` (`CharterTab.tsx:159`) calls `createProjectCostCentre` again on charter approval — potential duplicate.
+**Status: ✅ FIXED 2026-07-14 (`c75976cd`, completion plan Phase 2 / B4).** Charter now goes DRAFT → PENDING_APPROVAL → APPROVED/REJECTED via `charterApprovalService.ts`, mirroring the canonical proposal approval workflow: `preventSelfApproval`, `requireValidTransition`, audit events, and approver task notifications. Cost-centre creation on approval is idempotent (only fires when the project has no `costCentreId` yet), closing the duplicate-creation risk with `onProjectCreated`.
 
 ---
 
@@ -86,7 +76,7 @@ Immediately downstream of 0.1 — the first thing the new project hits.
 | 4.1  | Procurement    | Amendment can't be recalled — `PENDING_APPROVAL` only → APPROVED/REJECTED (terminal); mis-addressed amendments must be rejected and re-raised                                                  | `stateMachines.ts` (amendment)                     |
 | 4.2  | Procurement    | GR `PENDING` state dead — creation writes directly at `IN_PROGRESS`                                                                                                                            | `goodsReceiptService.ts`                           |
 | 4.3  | Procurement    | RFQ "issue to vendors" is a status stamp only — PDF + vendor email are `// Future` comments                                                                                                    | `rfq/workflow.ts`                                  |
-| 4.4  | Sales/Projects | Budget 90%/100% threshold alerts logged only; task notifications TODO                                                                                                                          | `projectFinancials.ts:162`                         |
+| 4.4  | Sales/Projects | ~~Budget 90%/100% threshold alerts logged only~~ **FIXED 2026-07-14** (`c75976cd`) — one-shot `taskNotification`s via `budgetAlerts.ts`, idempotent per threshold                              | `projectFinancials.ts:162`                         |
 | 4.5  | Entities       | Role filter offers `SUPPLIER` but Create dialog only allows VENDOR/CUSTOMER/PARTNER — filter can never match; duplicate-_name_ precheck is server-only (client checks email/PAN/GSTIN)         | `entities/page.tsx:342`, `CreateEntityDialog.tsx`  |
 | 4.6  | SSOT           | Excel export is a "coming soon" toast; tag-string references have no cascade/integrity checks (deleting a stream leaves dangling `inputDataTag`/`fluidIn` refs)                                | `ssot/page.tsx:117`, services                      |
 | 4.7  | Thermal        | Save/Load uneven — `desuperheating`, `tvc`, `vacuum-breaker`, `heat-transfer`, `med-plant` have types but no wired dialogs; `gor`/`heat-transfer`/`heat-duty` routes missing from the hub grid | `thermal/calculators/**`                           |
