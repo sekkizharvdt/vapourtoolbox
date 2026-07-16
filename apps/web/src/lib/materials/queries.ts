@@ -116,8 +116,11 @@ export async function queryMaterials(
       }
     }
 
-    if (isActive !== undefined) {
-      materialQuery = query(materialQuery, where('isActive', '==', isActive));
+    // isActive === true is filtered client-side below: where('isActive','==',true)
+    // would silently drop docs missing the field (rule 3's soft-delete trap),
+    // and missing isActive means active. Explicit false still queries directly.
+    if (isActive === false) {
+      materialQuery = query(materialQuery, where('isActive', '==', false));
     }
 
     if (isStandard !== undefined) {
@@ -139,6 +142,14 @@ export async function queryMaterials(
     let materials: Material[] = snapshot.docs
       .slice(0, limitResults)
       .map((doc) => docToTyped<Material>(doc.id, doc.data()));
+
+    // Superseded parent docs from the piping-family migration never belong in
+    // listings — filtered here so module pages and pickers can't diverge.
+    materials = materials.filter((m) => m.isMigrated !== true);
+
+    if (isActive === true) {
+      materials = materials.filter((m) => m.isActive !== false);
+    }
 
     // Apply needsReview filter client-side (no composite index needed).
     if (options.needsReviewOnly) {
@@ -181,12 +192,14 @@ export async function searchMaterials(
   try {
     logger.debug('Searching materials', { searchText });
 
-    // Fetch all active materials (consider adding pagination for large datasets)
+    // Fetch the whole collection window (small dataset): a narrow
+    // `limit(limitResults * 2)` ordered by updatedAt made older materials
+    // unreachable via search (feedback huqiaePA959XRjGnHwwq). isActive is
+    // filtered client-side so docs missing the field still match.
     const q = query(
       collection(db, COLLECTIONS.MATERIALS),
-      where('isActive', '==', true),
       orderBy('updatedAt', 'desc'),
-      limit(limitResults * 2) // Fetch more to account for filtering
+      limit(1000)
     );
 
     const snapshot = await getDocs(q);
@@ -197,6 +210,7 @@ export async function searchMaterials(
 
     snapshot.docs.forEach((doc) => {
       const material = docToTyped<Material>(doc.id, doc.data());
+      if (material.isActive === false || material.isMigrated === true) return;
 
       const matchesSearch =
         material.name.toLowerCase().includes(searchLower) ||

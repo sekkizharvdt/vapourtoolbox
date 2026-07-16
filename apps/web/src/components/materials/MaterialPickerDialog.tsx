@@ -232,13 +232,18 @@ export default function MaterialPickerDialog({
         const families = await queryPipingFamilies(db, selectedGroup.categories);
         setMaterials(families);
       } else {
+        // Same query shape as the Materials module sub-pages (feedback
+        // huqiaePA959XRjGnHwwq): sort by name — ordering by materialCode
+        // silently drops docs missing that field — and match the module's
+        // 500 limit so both surfaces list identical materials.
         const result = await queryMaterials(db, {
           categories: selectedGroup.categories,
-          sortField: 'materialCode',
+          isActive: true,
+          sortField: 'name',
           sortDirection: 'asc',
-          limitResults: 200,
+          limitResults: 500,
         });
-        setMaterials(result.materials.filter((m) => m.isActive !== false && m.isMigrated !== true));
+        setMaterials(result.materials);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load materials');
@@ -890,10 +895,22 @@ export default function MaterialPickerDialog({
                                     )}
                                   </Box>
                                 }
+                                // Same spec set as the search view (feedback
+                                // 9DQ3NavwViLutF8trF93): users identify items by
+                                // spec, not just the code.
                                 secondary={
                                   <>
                                     <Typography variant="body2">{material.name}</Typography>
-                                    <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                                    {material.description && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        {material.description}
+                                      </Typography>
+                                    )}
+                                    <Stack
+                                      direction="row"
+                                      spacing={0.5}
+                                      sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 0.5 }}
+                                    >
                                       {material.specification?.standard && (
                                         <Chip
                                           label={material.specification.standard}
@@ -904,6 +921,27 @@ export default function MaterialPickerDialog({
                                       {material.specification?.grade && (
                                         <Chip
                                           label={material.specification.grade}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                      )}
+                                      {material.specification?.finish && (
+                                        <Chip
+                                          label={material.specification.finish}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                      )}
+                                      {material.specification?.schedule && (
+                                        <Chip
+                                          label={material.specification.schedule}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                      )}
+                                      {material.specification?.nominalSize && (
+                                        <Chip
+                                          label={material.specification.nominalSize}
                                           size="small"
                                           variant="outlined"
                                         />

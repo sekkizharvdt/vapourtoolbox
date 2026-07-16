@@ -139,12 +139,40 @@ describe('Material Querying & Search', () => {
       ]);
     });
 
-    it('should filter by isActive', async () => {
+    it('should filter isActive=true client-side (docs missing the field count as active)', async () => {
+      const docs = [
+        createMockMaterial({ id: 'm1', name: 'Active' }),
+        createMockMaterial({ id: 'm2', name: 'Inactive', isActive: false }),
+        createMockMaterial({ id: 'm3', name: 'NoFlag', isActive: undefined }),
+      ].map((m) => ({ id: m.id, data: () => m }));
+      mockGetDocs.mockResolvedValue({ docs, size: docs.length });
+
+      const result = await queryMaterials(mockDb, { isActive: true });
+
+      // No where clause — filtering happens client-side so docs missing the
+      // field are still included.
+      expect(mockWhere).not.toHaveBeenCalledWith('isActive', '==', true);
+      expect(result.materials.map((m) => m.name)).toEqual(['Active', 'NoFlag']);
+    });
+
+    it('should query isActive=false directly', async () => {
       mockGetDocs.mockResolvedValue({ docs: [], size: 0 });
 
-      await queryMaterials(mockDb, { isActive: true });
+      await queryMaterials(mockDb, { isActive: false });
 
-      expect(mockWhere).toHaveBeenCalledWith('isActive', '==', true);
+      expect(mockWhere).toHaveBeenCalledWith('isActive', '==', false);
+    });
+
+    it('should exclude migrated parent docs', async () => {
+      const docs = [
+        createMockMaterial({ id: 'm1', name: 'Current' }),
+        createMockMaterial({ id: 'm2', name: 'OldParent', isMigrated: true }),
+      ].map((m) => ({ id: m.id, data: () => m }));
+      mockGetDocs.mockResolvedValue({ docs, size: docs.length });
+
+      const result = await queryMaterials(mockDb);
+
+      expect(result.materials.map((m) => m.name)).toEqual(['Current']);
     });
 
     it('should filter by isStandard', async () => {
@@ -230,7 +258,8 @@ describe('Material Querying & Search', () => {
       });
 
       expect(mockWhere).toHaveBeenCalledWith('category', '==', 'PLATES_STAINLESS_STEEL');
-      expect(mockWhere).toHaveBeenCalledWith('isActive', '==', true);
+      // isActive=true is a client-side filter, not a where clause
+      expect(mockWhere).not.toHaveBeenCalledWith('isActive', '==', true);
       expect(mockWhere).toHaveBeenCalledWith('isStandard', '==', false);
     });
   });
@@ -343,12 +372,19 @@ describe('Material Querying & Search', () => {
       expect(result).toHaveLength(10);
     });
 
-    it('should only search active materials', async () => {
-      mockGetDocs.mockResolvedValue({ docs: [] });
+    it('should exclude inactive and migrated materials client-side', async () => {
+      const docs = [
+        createMockMaterial({ id: 'm1', name: 'test one' }),
+        createMockMaterial({ id: 'm2', name: 'test two', isActive: false }),
+        createMockMaterial({ id: 'm3', name: 'test three', isMigrated: true }),
+      ].map((m) => ({ id: m.id, data: () => m }));
+      mockGetDocs.mockResolvedValue({ docs });
 
-      await searchMaterials(mockDb, 'test');
+      const result = await searchMaterials(mockDb, 'test');
 
-      expect(mockWhere).toHaveBeenCalledWith('isActive', '==', true);
+      // isActive is filtered client-side (docs missing the field still match)
+      expect(mockWhere).not.toHaveBeenCalledWith('isActive', '==', true);
+      expect(result.map((m) => m.name)).toEqual(['test one']);
     });
 
     it('should throw error on search failure', async () => {
