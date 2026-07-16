@@ -20,6 +20,8 @@ import {
   Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import type { Project } from '@vapour/types';
+import { CHARTER_APPROVAL_STATUS_LABELS, ORDER_ACCEPTANCE_STATUS_LABELS } from '@vapour/constants';
+import { StatusChip } from '@vapour/ui';
 import { formatDate, formatCurrencyCode } from '@/lib/utils/formatters';
 
 interface OverviewTabProps {
@@ -34,7 +36,6 @@ export function OverviewTab({ project }: OverviewTabProps) {
   };
 
   const progress = project.progress?.percentage || 0;
-  const charterApproved = project.charter?.authorization?.approvalStatus === 'APPROVED';
 
   return (
     <Box>
@@ -223,10 +224,10 @@ export function OverviewTab({ project }: OverviewTabProps) {
                       <ListItemText
                         primary="Authorization Status"
                         secondary={
-                          <Chip
-                            label={project.charter?.authorization?.approvalStatus ?? 'DRAFT'}
-                            size="small"
-                            color={charterApproved ? 'success' : 'warning'}
+                          <StatusChip
+                            status={project.charter?.authorization?.approvalStatus ?? 'DRAFT'}
+                            labels={CHARTER_APPROVAL_STATUS_LABELS}
+                            context="charterApproval"
                           />
                         }
                         primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
@@ -262,6 +263,19 @@ export function OverviewTab({ project }: OverviewTabProps) {
                         secondary={`${project.charter.risks?.length || 0} identified`}
                         primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                         secondaryTypographyProps={{ variant: 'body1' }}
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemText
+                        primary="Order Acceptance"
+                        secondary={
+                          <StatusChip
+                            status={project.charter?.orderAcceptance?.status ?? 'DRAFT'}
+                            labels={ORDER_ACCEPTANCE_STATUS_LABELS}
+                            context="orderAcceptance"
+                          />
+                        }
+                        primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                       />
                     </ListItem>
                   </List>

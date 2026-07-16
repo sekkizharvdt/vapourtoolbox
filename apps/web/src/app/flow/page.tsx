@@ -13,6 +13,7 @@ import {
   Inbox as InboxIcon,
   Groups as TeamIcon,
   EventNote as MeetingsIcon,
+  RateReview as PortfolioIcon,
 } from '@mui/icons-material';
 import { ModuleLandingPage, type ModuleSection } from '@/components/modules';
 
@@ -57,6 +58,14 @@ export default function FlowPage() {
           description: 'Record meetings and auto-generate action items as tasks',
           icon: <MeetingsIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
           path: '/flow/meetings',
+        },
+        {
+          id: 'portfolio',
+          title: 'Portfolio Review',
+          description:
+            'Cross-project weekly review agenda — open tasks, deliverables, procurement, and budget per active project',
+          icon: <PortfolioIcon sx={{ fontSize: 48, color: 'error.main' }} />,
+          path: '/flow/portfolio',
         },
       ],
     },

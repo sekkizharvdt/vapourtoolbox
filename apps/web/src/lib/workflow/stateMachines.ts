@@ -38,7 +38,7 @@ import type {
   AgentRunStatus,
   AgentTaskStatus,
 } from '@vapour/types';
-import type { ProposalStatus } from '@vapour/types';
+import type { ProposalStatus, CharterApprovalStatus, OrderAcceptanceStatus } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 
 // ============================================================================
@@ -146,6 +146,66 @@ export const proposalStateMachine: StateMachine<ProposalStatus> = createStateMac
     PENDING_APPROVAL_DRAFT: PERMISSION_FLAGS.MANAGE_PROPOSALS, // Return for revision
   },
   terminalStates: ['ACCEPTED', 'EXPIRED', 'REJECTED'],
+});
+
+// ============================================================================
+// Project Charter Approval State Machine
+// ============================================================================
+
+/**
+ * Project charter authorization workflow (charter.authorization.approvalStatus):
+ *
+ * DRAFT -> PENDING_APPROVAL -> APPROVED
+ *                          \-> DRAFT (rejected — returned for revision with a reason)
+ *
+ * APPROVED is terminal: the onCharterApproved Cloud Function auto-drafts PRs
+ * and the client creates the project cost centre on the transition TO
+ * APPROVED, so an approved charter is never reopened.
+ */
+export const charterApprovalStateMachine: StateMachine<CharterApprovalStatus> = createStateMachine({
+  transitions: {
+    DRAFT: ['PENDING_APPROVAL'],
+    PENDING_APPROVAL: ['APPROVED', 'DRAFT'], // DRAFT = rejection / return for revision
+    APPROVED: [], // Terminal
+  },
+  transitionPermissions: {
+    DRAFT_PENDING_APPROVAL: PERMISSION_FLAGS.MANAGE_PROJECTS,
+    PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_PROJECTS,
+    PENDING_APPROVAL_DRAFT: PERMISSION_FLAGS.MANAGE_PROJECTS,
+  },
+  terminalStates: ['APPROVED'],
+});
+
+// ============================================================================
+// Order Acceptance State Machine
+// ============================================================================
+
+/**
+ * Order Acceptance workflow (charter.orderAcceptance.status):
+ *
+ * DRAFT -> PENDING_APPROVAL -> APPROVED (terms applied to charter)
+ *                          \-> REJECTED -> DRAFT (reopened for revision)
+ *
+ * Unlike the charter authorization machine above, rejection lands on a
+ * distinct REJECTED state (not DRAFT directly) so the rejection reason
+ * persists until someone explicitly reopens it — see
+ * apps/web/src/lib/projects/orderAcceptanceService.ts `reopenOrderAcceptance`.
+ * APPROVED is terminal: approval is the one-shot "apply to charter" step.
+ */
+export const orderAcceptanceStateMachine: StateMachine<OrderAcceptanceStatus> = createStateMachine({
+  transitions: {
+    DRAFT: ['PENDING_APPROVAL'],
+    PENDING_APPROVAL: ['APPROVED', 'REJECTED'],
+    APPROVED: [], // Terminal — terms applied to the charter
+    REJECTED: ['DRAFT'], // Reopened for revision
+  },
+  transitionPermissions: {
+    DRAFT_PENDING_APPROVAL: PERMISSION_FLAGS.MANAGE_PROJECTS,
+    PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_PROJECTS,
+    PENDING_APPROVAL_REJECTED: PERMISSION_FLAGS.MANAGE_PROJECTS,
+    REJECTED_DRAFT: PERMISSION_FLAGS.MANAGE_PROJECTS,
+  },
+  terminalStates: ['APPROVED'],
 });
 
 // ============================================================================

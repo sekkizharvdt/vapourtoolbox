@@ -35,8 +35,10 @@ import type {
   CreateMeetingInput,
   MeetingActionItemInput,
   ManualTaskPriority,
+  ManualTaskStatus,
 } from '@vapour/types';
 import { AuthorizationError } from '@/lib/auth/authorizationService';
+import { getManualTasksByIds } from './manualTaskService';
 
 // ============================================================================
 // HELPERS
@@ -59,6 +61,8 @@ function docToMeeting(id: string, data: DocumentData): Meeting {
     finalizedAt: data.finalizedAt,
     projectId: data.projectId,
     projectName: data.projectName,
+    nextMeetingId: data.nextMeetingId,
+    previousMeetingId: data.previousMeetingId,
     tenantId: data.tenantId,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
@@ -111,6 +115,7 @@ export async function createMeeting(
     status: 'draft',
     ...(input.projectId && { projectId: input.projectId }),
     ...(input.projectName && { projectName: input.projectName }),
+    ...(input.previousMeetingId && { previousMeetingId: input.previousMeetingId }),
     tenantId,
     createdAt: now,
   };
@@ -132,6 +137,7 @@ export async function createMeeting(
     status: 'draft',
     projectId: input.projectId,
     projectName: input.projectName,
+    previousMeetingId: input.previousMeetingId,
     tenantId,
     createdAt: now,
   };
@@ -443,6 +449,9 @@ export async function finalizeMeeting(
         meetingId,
         meetingTitle: meeting.title,
         meetingDate: meeting.date,
+        // B1: propagate the meeting's project link onto generated tasks
+        ...(meeting.projectId && { projectId: meeting.projectId }),
+        ...(meeting.projectName && { projectName: meeting.projectName }),
         tenantId,
         createdAt: now,
       };
@@ -463,5 +472,190 @@ export async function finalizeMeeting(
     });
 
     return actionableItems.length;
+  });
+}
+
+// ============================================================================
+// WEEKLY REVIEW CADENCE (Track B2)
+// ============================================================================
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Decide which action items carry forward into the next review meeting.
+ *
+ * An item carries forward when its work is still open:
+ * - it never generated a task (row was saved without action/assignee), or
+ * - its generated task is missing from `taskStatusById` (task was deleted —
+ *   treated as unresolved rather than silently dropped), or
+ * - its generated task is still `todo` / `in_progress`.
+ *
+ * Items whose task reached a terminal state (`done`, `cancelled`) do NOT
+ * carry forward.
+ *
+ * Pure function — exported for unit tests.
+ */
+export function selectCarryForwardItems(
+  items: MeetingActionItem[],
+  taskStatusById: Record<string, ManualTaskStatus | undefined>
+): MeetingActionItem[] {
+  return items.filter((item) => {
+    if (!item.generatedTaskId) return true;
+    const status = taskStatusById[item.generatedTaskId];
+    if (status === undefined) return true;
+    return status === 'todo' || status === 'in_progress';
+  });
+}
+
+/**
+ * Next review date: same weekday and time, +7 days.
+ * Pure function — exported for unit tests.
+ */
+export function computeNextReviewDate(date: Timestamp): Timestamp {
+  return Timestamp.fromMillis(date.toMillis() + WEEK_MS);
+}
+
+/**
+ * Derive the next review's title: `Weekly review — <project/team> — <date>`.
+ *
+ * The middle segment is the meeting's project name when linked; otherwise the
+ * previous title is reused (with an existing "Weekly review — X — date"
+ * pattern unwrapped so titles don't nest week over week).
+ *
+ * Pure function — exported for unit tests.
+ */
+export function deriveNextReviewTitle(
+  meeting: Pick<Meeting, 'title' | 'projectName'>,
+  nextDate: Date
+): string {
+  let base = meeting.projectName;
+  if (!base) {
+    const match = meeting.title.match(/^Weekly review — (.+?) — .+$/);
+    base = match ? match[1] : meeting.title;
+  }
+  const dateStr = nextDate.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  return `Weekly review — ${base} — ${dateStr}`;
+}
+
+/**
+ * Seed the next meeting's agenda (plain-text field, same shape the meeting
+ * editor already renders) with the carried-forward open action items.
+ * Returns undefined when nothing carries forward.
+ *
+ * Pure function — exported for unit tests.
+ */
+export function buildCarryForwardAgenda(
+  previousTitle: string,
+  carriedItems: MeetingActionItem[]
+): string | undefined {
+  if (carriedItems.length === 0) return undefined;
+  const lines = carriedItems.map((item) => {
+    const label = item.action || item.description || '(no action recorded)';
+    return `- ${label} — ${item.assigneeName || 'Unassigned'}`;
+  });
+  return `Carried forward from "${previousTitle}":\n${lines.join('\n')}`;
+}
+
+/**
+ * "Start next review" on a finalized meeting: create next week's meeting
+ * (same weekday +7 days, same time/duration/location/attendees/project link)
+ * with an agenda seeded from still-open action items.
+ *
+ * Idempotent (rule 9): if the meeting already has `nextMeetingId` — checked
+ * both before and inside the transaction — the existing meeting is returned
+ * instead of creating a duplicate. The new meeting gets `previousMeetingId`.
+ */
+export async function startNextReview(
+  db: Firestore,
+  meetingId: string,
+  userId: string,
+  userName: string,
+  tenantId: string
+): Promise<{ meetingId: string; created: boolean }> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
+  // rule18-exempt: low-risk meeting state — audit pending Phase 0 audit expansion
+  const meeting = await getMeetingById(db, meetingId);
+  if (!meeting) {
+    throw new Error('Meeting not found');
+  }
+  if (meeting.status !== 'finalized') {
+    throw new Error('Only a finalized meeting can start the next review');
+  }
+  // Fast idempotency path — next review already exists
+  if (meeting.nextMeetingId) {
+    return { meetingId: meeting.nextMeetingId, created: false };
+  }
+
+  // Authorization: caller must be creator or attendee (matches finalizeMeeting)
+  const isCreator = meeting.createdBy === userId;
+  const isAttendee = meeting.attendeeIds?.includes(userId);
+  if (!isCreator && !isAttendee) {
+    throw new AuthorizationError(
+      'Only the meeting creator or an attendee can start the next review',
+      undefined,
+      userId,
+      'start next review'
+    );
+  }
+
+  // Carry-forward: open action items = generated task not done/cancelled
+  const items = await getActionItems(db, meetingId);
+  const taskIds = [
+    ...new Set(items.map((i) => i.generatedTaskId).filter((id): id is string => !!id)),
+  ];
+  const tasks = await getManualTasksByIds(db, taskIds);
+  const taskStatusById: Record<string, ManualTaskStatus | undefined> = {};
+  for (const task of tasks) {
+    taskStatusById[task.id] = task.status;
+  }
+  const carriedItems = selectCarryForwardItems(items, taskStatusById);
+
+  const nextDate = computeNextReviewDate(meeting.date);
+  const title = deriveNextReviewTitle(meeting, nextDate.toDate());
+  const agenda = buildCarryForwardAgenda(meeting.title, carriedItems);
+
+  const meetingRef = doc(db, COLLECTIONS.MEETINGS, meetingId);
+
+  return runTransaction(db, async (transaction) => {
+    // Idempotency re-check inside the transaction (rule 9): a concurrent
+    // click may have created the next meeting between the read above and now.
+    const snap = await transaction.get(meetingRef);
+    if (!snap.exists()) {
+      throw new Error('Meeting not found');
+    }
+    const existingNextId = snap.data().nextMeetingId as string | undefined;
+    if (existingNextId) {
+      return { meetingId: existingNextId, created: false };
+    }
+
+    const now = Timestamp.now();
+    const newRef = doc(collection(db, COLLECTIONS.MEETINGS));
+
+    const newMeetingData: Record<string, unknown> = {
+      title,
+      date: nextDate,
+      ...(meeting.duration && { duration: meeting.duration }),
+      ...(meeting.location && { location: meeting.location }),
+      createdBy: userId,
+      createdByName: userName,
+      attendeeIds: meeting.attendeeIds,
+      attendeeNames: meeting.attendeeNames,
+      ...(agenda && { agenda }),
+      status: 'draft',
+      ...(meeting.projectId && { projectId: meeting.projectId }),
+      ...(meeting.projectName && { projectName: meeting.projectName }),
+      previousMeetingId: meetingId,
+      tenantId,
+      createdAt: now,
+    };
+
+    transaction.set(newRef, newMeetingData);
+    transaction.update(meetingRef, { nextMeetingId: newRef.id, updatedAt: now });
+
+    return { meetingId: newRef.id, created: true };
   });
 }

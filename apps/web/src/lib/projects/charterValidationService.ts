@@ -212,6 +212,21 @@ export function validateCharterForApproval(charter: ProjectCharter | undefined):
     }
   }
 
+  // 7. Order Acceptance (soft warning only — never blocks approval; a
+  // charter can be legitimately approved before a signed order exists, e.g.
+  // early mobilisation). Flags the gap seen in Phase 2 acceptance testing:
+  // convertProposalToProject copies proposal data 1:1, and without an
+  // applied order acceptance record the charter may silently diverge from
+  // what the customer actually signed (schedule, payment terms, retention,
+  // deliverables register, key personnel).
+  if (!charter.orderAcceptance || charter.orderAcceptance.applied !== true) {
+    warnings.push(
+      'No order acceptance recorded — charter reflects the submitted proposal, not a signed ' +
+        'customer order. If a signed PO/agreement exists with different terms (schedule, payment, ' +
+        'retention, deliverables), record it under Order Acceptance before approving.'
+    );
+  }
+
   // Calculate completion percentage
   const completedSections = Object.values(sections).filter(Boolean).length;
   const totalSections = Object.keys(sections).length;

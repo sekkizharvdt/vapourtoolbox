@@ -129,12 +129,19 @@ export interface Project extends TimestampFields, SoftDeleteFields {
   lastActivityAt?: Timestamp;
   lastActivityBy?: string;
 
-  // Progress (optional, can be computed)
+  // Progress — derived from charter deliverables (accepted / total).
+  // Written by the deliverable service on every deliverable change.
   progress?: {
     percentage: number;
     completedMilestones: number;
     totalMilestones: number;
   };
+
+  // Budget threshold alert stamps (one-shot; written by the
+  // projectFinancials Cloud Function when utilization first crosses the
+  // threshold — never cleared if utilization later drops back below).
+  budgetAlert90SentAt?: Timestamp;
+  budgetAlert100SentAt?: Timestamp;
 }
 
 /**
@@ -171,6 +178,16 @@ export interface ProjectMilestone extends TimestampFields {
 export type ProjectType = 'THERMAL_DESALINATION' | 'MANUFACTURING' | 'CONSTRUCTION' | 'OTHER';
 
 /**
+ * Charter approval workflow status.
+ *
+ * DRAFT → PENDING_APPROVAL → APPROVED; rejection returns the charter to
+ * DRAFT with a rejectionReason (house pattern — mirrors proposals).
+ * There is no terminal REJECTED state (verified zero such records in prod
+ * before removal, 2026-07-14).
+ */
+export type CharterApprovalStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED';
+
+/**
  * Project Authorization & Approval
  */
 export interface ProjectAuthorization {
@@ -178,9 +195,14 @@ export interface ProjectAuthorization {
   sponsorUserId?: string;
   sponsorTitle: string;
   authorizedDate?: Timestamp;
-  approvalStatus: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  approvalStatus: CharterApprovalStatus;
+  /** User who submitted the charter for approval (separation of duty — cannot approve it themselves) */
+  submittedBy?: string;
+  submittedByName?: string;
+  submittedAt?: Timestamp;
   approvedBy?: string;
   approvedAt?: Timestamp;
+  /** Reason given by the approver when returning the charter to DRAFT */
   rejectionReason?: string;
   budgetAuthority: string; // Person/department authorizing budget
 }
@@ -482,6 +504,96 @@ export interface ProjectConstraint {
 }
 
 /**
+ * Order Acceptance workflow status.
+ *
+ * DRAFT -> PENDING_APPROVAL -> APPROVED, with rejection to REJECTED and a
+ * `reopenOrderAcceptance` action returning REJECTED -> DRAFT for revision.
+ * Unlike `CharterApprovalStatus`, REJECTED is a distinct (non-terminal)
+ * state here — mirrors `AmendmentStatus`, not the charter authorization
+ * shape, because a rejected order-acceptance record legitimately needs a
+ * "why" that outlives the DRAFT bounce (@vapour/types procurement/amendments.ts).
+ */
+export type OrderAcceptanceStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+
+/**
+ * A single payment milestone recorded against the signed order/agreement —
+ * distinct from `CharterBudgetLineItem` (internal cost breakdown); this is
+ * the customer-facing billing schedule.
+ */
+export interface OrderAcceptanceMilestone {
+  description: string;
+  paymentPercentage: number;
+  triggerType: 'SUBMISSION' | 'ACCEPTANCE' | 'DATE' | 'OTHER';
+  /** e.g. "30-day deemed-acceptance window" */
+  triggerDescription?: string;
+}
+
+/**
+ * A deliverable entry captured from the signed order/agreement's
+ * deliverables register. On approval these are folded into
+ * `ProjectCharter.deliverables` via `saveDeliverablesBatch` /
+ * `mergeDeliverablesBatch` (apps/web/src/lib/projects/deliverableService.ts).
+ */
+export interface OrderAcceptanceDeliverable {
+  name: string;
+  description?: string;
+  type: ProjectDeliverable['type'];
+}
+
+/**
+ * Structured terms captured from the signed customer order/agreement,
+ * grouped by category (schedule / payment / scope) — conceptually mirrors
+ * `PurchaseOrderChange`'s per-category granularity
+ * (packages/types/src/procurement/amendments.ts) without a full amendment
+ * ledger, since this is a single embedded record, not a change history.
+ */
+export interface OrderAcceptanceTerms {
+  scheduleDurationDays?: number;
+  scheduleStartDate?: Timestamp;
+  scheduleNotes?: string;
+  paymentTermsDays?: number;
+  retentionPercentage?: number;
+  paymentMilestones?: OrderAcceptanceMilestone[];
+  deliverables?: OrderAcceptanceDeliverable[];
+  keyPersonnel?: { name: string; role: string }[];
+  otherTermsNotes?: string;
+}
+
+/**
+ * Order Acceptance record — the delta between what was proposed and what
+ * the customer actually signed. Embedded on `ProjectCharter.orderAcceptance`
+ * with its own DRAFT -> PENDING_APPROVAL -> APPROVED/REJECTED lifecycle
+ * (mirrors `charter.authorization`'s embedded-object pattern, not a
+ * top-level collection). Approval is the "apply" step: it writes `terms`
+ * onto the charter's authoritative fields (`deliveryPeriod`, `paymentTerms`,
+ * `keyPersonnel`, `deliverables`) — see
+ * apps/web/src/lib/projects/orderAcceptanceService.ts `approveOrderAcceptance`.
+ */
+export interface OrderAcceptanceRecord {
+  /** e.g. "PO26XP062901" */
+  documentReference?: string;
+  /** Signature date of the order/agreement */
+  documentDate?: Timestamp;
+  contractValue?: Money;
+  terms: OrderAcceptanceTerms;
+  status: OrderAcceptanceStatus;
+  submittedBy?: string;
+  submittedByName?: string;
+  submittedAt?: Timestamp;
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: Timestamp;
+  rejectionReason?: string;
+  /** Whether `terms` have been written onto the charter's authoritative fields */
+  applied: boolean;
+  appliedAt?: Timestamp;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedBy?: string;
+  updatedAt?: Timestamp;
+}
+
+/**
  * Project Charter (comprehensive project authorization document)
  */
 export interface ProjectCharter {
@@ -525,4 +637,20 @@ export interface ProjectCharter {
   }[];
   qualityStandards?: string[];
   complianceRequirements?: string[];
+
+  // Order Acceptance — the signed customer order/agreement, when it differs
+  // from the proposal the charter was seeded from. See OrderAcceptanceRecord.
+  orderAcceptance?: OrderAcceptanceRecord;
+
+  // Authoritative once orderAcceptance.applied === true (written by
+  // approveOrderAcceptance). Until then, payment terms live only in the
+  // proposal / budget line items the charter was created from.
+  paymentTerms?: {
+    termsDays?: number;
+    retentionPercentage?: number;
+    milestones?: OrderAcceptanceMilestone[];
+  };
+
+  // Authoritative once orderAcceptance.applied === true.
+  keyPersonnel?: { name: string; role: string }[];
 }

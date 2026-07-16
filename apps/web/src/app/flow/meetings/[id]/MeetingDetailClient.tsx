@@ -40,7 +40,11 @@ import {
   Flag as FlagIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  EventRepeat as NextReviewIcon,
+  ArrowBack as PreviousIcon,
 } from '@mui/icons-material';
+import { StatusChip } from '@vapour/ui';
+import { MANUAL_TASK_STATUS_LABELS } from '@vapour/constants';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/common/Toast';
@@ -49,8 +53,16 @@ import {
   subscribeToActionItems,
   finalizeMeeting,
   deleteMeeting,
+  startNextReview,
 } from '@/lib/tasks/meetingService';
-import type { Meeting, MeetingActionItem, ManualTaskPriority } from '@vapour/types';
+import { getManualTasksByIds } from '@/lib/tasks/manualTaskService';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
+import type {
+  Meeting,
+  MeetingActionItem,
+  ManualTaskPriority,
+  ManualTaskStatus,
+} from '@vapour/types';
 
 const PRIORITY_COLORS: Record<ManualTaskPriority, 'default' | 'info' | 'warning' | 'error'> = {
   LOW: 'default',
@@ -83,6 +95,9 @@ export default function MeetingDetailClient() {
   const [finalizing, setFinalizing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [startingNextReview, setStartingNextReview] = useState(false);
+  // B2: live status of the tasks generated from this meeting's action items
+  const [taskStatusById, setTaskStatusById] = useState<Record<string, ManualTaskStatus>>({});
 
   // Load meeting
   useEffect(() => {
@@ -114,18 +129,49 @@ export default function MeetingDetailClient() {
     return () => unsubscribe();
   }, [db, meetingId]);
 
+  // B2: batch-fetch live task statuses for generated tasks (one-shot reads,
+  // refreshed when the action items change — no per-row listeners)
+  useEffect(() => {
+    if (!db || meeting?.status !== 'finalized') return;
+
+    const taskIds = actionItems
+      .map((item) => item.generatedTaskId)
+      .filter((id): id is string => !!id);
+    if (taskIds.length === 0) return;
+
+    let cancelled = false;
+    getManualTasksByIds(db, taskIds)
+      .then((tasks) => {
+        if (cancelled) return;
+        const statusMap: Record<string, ManualTaskStatus> = {};
+        for (const task of tasks) statusMap[task.id] = task.status;
+        setTaskStatusById(statusMap);
+      })
+      .catch((err) => {
+        // Graceful degrade: the table falls back to the "Task Created" chip
+        console.error('[MeetingDetail] Failed to load task statuses:', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [db, meeting?.status, actionItems]);
+
   const handleFinalize = useCallback(async () => {
     if (!db || !user || !meeting || !meetingId) return;
 
     try {
       setFinalizing(true);
 
-      const taskCount = await finalizeMeeting(
-        db,
-        meetingId,
-        user.uid,
-        user.displayName || user.email || 'Unknown',
-        tenantId
+      // rule 35: wrap the multi-write finalize in the stale-token retry
+      const taskCount = await retryOnStaleToken(() =>
+        finalizeMeeting(
+          db,
+          meetingId,
+          user.uid,
+          user.displayName || user.email || 'Unknown',
+          tenantId
+        )
       );
 
       // Reload meeting to get updated status
@@ -139,6 +185,38 @@ export default function MeetingDetailClient() {
       setFinalizing(false);
     }
   }, [db, user, meeting, meetingId, tenantId, toast]);
+
+  // B2: Start (or open) next week's review meeting
+  const handleStartNextReview = useCallback(async () => {
+    if (!db || !user || !meetingId || !meeting) return;
+
+    // Idempotency (rule 9/10): if the next review already exists, open it
+    if (meeting.nextMeetingId) {
+      router.push(`/flow/meetings/${meeting.nextMeetingId}`);
+      return;
+    }
+
+    try {
+      setStartingNextReview(true);
+      // rule 35: wrap the create+update transaction in the stale-token retry
+      const result = await retryOnStaleToken(() =>
+        startNextReview(
+          db,
+          meetingId,
+          user.uid,
+          user.displayName || user.email || 'Unknown',
+          tenantId
+        )
+      );
+      if (result.created) {
+        toast.success('Next review meeting created');
+      }
+      router.push(`/flow/meetings/${result.meetingId}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start next review');
+      setStartingNextReview(false);
+    }
+  }, [db, user, meetingId, meeting, tenantId, toast, router]);
 
   // FL-23: Delete draft meeting with confirmation
   const handleDelete = useCallback(async () => {
@@ -223,7 +301,7 @@ export default function MeetingDetailClient() {
           </Typography>
         </Box>
 
-        {isDraft && (
+        {isDraft ? (
           <Stack direction="row" spacing={1}>
             <Button
               variant="outlined"
@@ -241,6 +319,30 @@ export default function MeetingDetailClient() {
               disabled={finalizing || deleting || actionableItems.length === 0}
             >
               {finalizing ? 'Finalizing...' : `Finalize (${actionableItems.length} tasks)`}
+            </Button>
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            {meeting.previousMeetingId && (
+              <Button
+                variant="outlined"
+                startIcon={<PreviousIcon />}
+                onClick={() => router.push(`/flow/meetings/${meeting.previousMeetingId}`)}
+              >
+                Previous review
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<NextReviewIcon />}
+              onClick={handleStartNextReview}
+              disabled={startingNextReview}
+            >
+              {meeting.nextMeetingId
+                ? 'Open next review'
+                : startingNextReview
+                  ? 'Creating...'
+                  : 'Start next review'}
             </Button>
           </Stack>
         )}
@@ -363,7 +465,15 @@ export default function MeetingDetailClient() {
                     </TableCell>
                     {!isDraft && (
                       <TableCell>
-                        {item.generatedTaskId ? (
+                        {item.generatedTaskId && taskStatusById[item.generatedTaskId] ? (
+                          // B2: live status of the generated task (rule 29)
+                          <StatusChip
+                            status={taskStatusById[item.generatedTaskId] ?? 'todo'}
+                            labels={MANUAL_TASK_STATUS_LABELS}
+                            context="manualTask"
+                            variant="outlined"
+                          />
+                        ) : item.generatedTaskId ? (
                           <Chip
                             label="Task Created"
                             size="small"

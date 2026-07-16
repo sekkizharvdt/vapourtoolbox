@@ -360,6 +360,48 @@ describe('Charter Validation Service', () => {
       });
     });
 
+    describe('order acceptance warning', () => {
+      it('warns when no order acceptance has been recorded, without blocking approval', () => {
+        const charter = createValidCharter();
+        const result = validateCharterForApproval(charter);
+
+        expect(result.warnings.some((w) => w.includes('No order acceptance recorded'))).toBe(true);
+        // Soft warning only (rule: never blocks charter approval) — isValid
+        // and completionPercentage are unaffected.
+        expect(result.isValid).toBe(true);
+        expect(result.completionPercentage).toBe(100);
+      });
+
+      it('warns when an order acceptance record exists but has not been applied yet', () => {
+        const charter = createValidCharter();
+        charter.orderAcceptance = {
+          terms: {},
+          status: 'PENDING_APPROVAL',
+          applied: false,
+          createdBy: 'user-001',
+          createdAt: Timestamp.now(),
+        };
+        const result = validateCharterForApproval(charter);
+
+        expect(result.warnings.some((w) => w.includes('No order acceptance recorded'))).toBe(true);
+      });
+
+      it('does not warn once order acceptance terms have been applied to the charter', () => {
+        const charter = createValidCharter();
+        charter.orderAcceptance = {
+          terms: {},
+          status: 'APPROVED',
+          applied: true,
+          appliedAt: Timestamp.now(),
+          createdBy: 'user-001',
+          createdAt: Timestamp.now(),
+        };
+        const result = validateCharterForApproval(charter);
+
+        expect(result.warnings.some((w) => w.includes('No order acceptance recorded'))).toBe(false);
+      });
+    });
+
     describe('completion percentage', () => {
       it('should calculate correct percentage with partial completion', () => {
         const charter = createValidCharter();

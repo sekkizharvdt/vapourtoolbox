@@ -1942,9 +1942,13 @@ service cloud.firestore {
       // Create: Internal users can create meetings
       allow create: if isInternalUser();
 
-      // Update: Meeting creator can update, or admins
+      // Update: Meeting creator or an attendee can update, or admins.
+      // Attendees are included because the service layer (finalizeMeeting,
+      // startNextReview) explicitly allows attendees to finalize a meeting
+      // and stamp nextMeetingId.
       allow update: if isInternalUser() && (
                        isOwner(resource.data.createdBy) ||
+                       request.auth.uid in resource.data.attendeeIds ||
                        isAdmin()
                      );
 

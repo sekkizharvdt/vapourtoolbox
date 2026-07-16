@@ -60,6 +60,9 @@ export type TaskNotificationCategory =
   | 'MILESTONE_DUE' // Actionable: Complete milestone
   | 'PROJECT_UPDATE_REQUIRED' // Actionable: Update project status
   | 'PROJECT_DELIVERABLE_DUE' // Actionable: Submit deliverable
+  | 'CHARTER_SUBMITTED' // Actionable: Review and approve/reject project charter
+  | 'CHARTER_APPROVED' // Informational: Your project charter was approved
+  | 'CHARTER_REJECTED' // Informational: Your project charter was returned for revision
   // Document Management
   | 'DOCUMENT_ASSIGNED' // Actionable: Work on assigned document
   | 'DOCUMENT_SUBMISSION_REQUIRED' // Actionable: Submit document for PM review
@@ -363,7 +366,14 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
     name: 'General',
     icon: 'Hash',
     description: 'Project-wide announcements and updates',
-    categories: ['MILESTONE_DUE', 'PROJECT_UPDATE_REQUIRED', 'PROJECT_DELIVERABLE_DUE'],
+    categories: [
+      'MILESTONE_DUE',
+      'PROJECT_UPDATE_REQUIRED',
+      'PROJECT_DELIVERABLE_DUE',
+      'CHARTER_SUBMITTED',
+      'CHARTER_APPROVED',
+      'CHARTER_REJECTED',
+    ],
     isDefault: true,
   },
   procurement: {
@@ -524,6 +534,7 @@ export function isApprovalCategory(category: TaskNotificationCategory): boolean 
     'INVOICE_APPROVAL_REQUIRED',
     'BILL_SUBMITTED',
     'PROPOSAL_SUBMITTED',
+    'CHARTER_SUBMITTED',
     'DOCUMENT_INTERNAL_REVIEW',
     'DOCUMENT_COMMENTS_RESOLVED',
     'LEAVE_SUBMITTED',
@@ -714,6 +725,10 @@ export interface Meeting {
   finalizedAt?: Timestamp;
   projectId?: string;
   projectName?: string;
+  /** Set when "Start next review" has created the follow-up meeting (idempotency guard). */
+  nextMeetingId?: string;
+  /** Set on a meeting created via "Start next review" — points back at the source meeting. */
+  previousMeetingId?: string;
   tenantId: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
@@ -750,6 +765,7 @@ export interface CreateMeetingInput {
   notes?: string;
   projectId?: string;
   projectName?: string;
+  previousMeetingId?: string;
 }
 
 /**

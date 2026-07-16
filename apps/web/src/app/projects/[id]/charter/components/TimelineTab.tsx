@@ -31,6 +31,7 @@ import {
 import type { Timestamp } from 'firebase/firestore';
 import type { Project } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import { computeProjectProgress } from '@/lib/projects/deliverableService';
 
 interface TimelineTabProps {
   project: Project;
@@ -48,7 +49,9 @@ interface TimelineEvent {
 }
 
 export function TimelineTab({ project }: TimelineTabProps) {
-  const parseDateToObject = (date?: Timestamp | Date | { toDate: () => Date } | string): Date | null => {
+  const parseDateToObject = (
+    date?: Timestamp | Date | { toDate: () => Date } | string
+  ): Date | null => {
     if (!date) return null;
     if (date instanceof Date) return date;
     if (typeof date === 'object' && 'toDate' in date) return date.toDate();
@@ -211,8 +214,12 @@ export function TimelineTab({ project }: TimelineTabProps) {
       : 0;
   const remainingDays =
     projectEndDate && projectEndDate > today ? getDaysDifference(projectEndDate) : 0;
-  const progressPercentage =
+  const timeElapsedPercentage =
     totalDuration > 0 ? Math.min((elapsedDays / totalDuration) * 100, 100).toFixed(1) : '0';
+
+  // Real progress = accepted deliverables / total deliverables (always computed
+  // live from the charter so it can't go stale)
+  const deliverableProgress = computeProjectProgress(project.charter?.deliverables ?? []);
 
   const upcomingEvents = timelineEvents.filter((e) => e.status === 'upcoming').length;
   const overdueEvents = timelineEvents.filter((e) => e.status === 'overdue').length;
@@ -265,8 +272,15 @@ export function TimelineTab({ project }: TimelineTabProps) {
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Progress
               </Typography>
-              <Typography variant="h4">{progressPercentage}%</Typography>
-              <Typography variant="caption">time elapsed</Typography>
+              <Typography variant="h4">{deliverableProgress.percentage}%</Typography>
+              <Typography variant="caption">
+                {deliverableProgress.totalMilestones > 0
+                  ? `${deliverableProgress.completedMilestones} of ${deliverableProgress.totalMilestones} deliverables accepted`
+                  : 'no deliverables defined'}
+              </Typography>
+              <Typography variant="caption" display="block" color="text.secondary">
+                {timeElapsedPercentage}% of time elapsed
+              </Typography>
             </CardContent>
           </Card>
         </Grid>

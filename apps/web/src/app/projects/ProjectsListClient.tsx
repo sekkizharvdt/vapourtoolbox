@@ -53,6 +53,7 @@ import {
   Visibility as ViewIcon,
   Home as HomeIcon,
   Folder as FilesIcon,
+  RateReview as ReviewIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -298,6 +299,13 @@ export default function ProjectsListClient() {
           subtitle="Manage projects from initiation to completion"
           action={
             <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<ReviewIcon />}
+                onClick={() => router.push('/flow/portfolio')}
+              >
+                Portfolio Review
+              </Button>
               <Button
                 variant="outlined"
                 startIcon={<FilesIcon />}

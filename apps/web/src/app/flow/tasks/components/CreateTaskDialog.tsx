@@ -31,6 +31,8 @@ import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/common/Toast';
 import { createManualTask } from '@/lib/tasks/manualTaskService';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
+import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { COLLECTIONS } from '@vapour/firebase';
 import { Timestamp } from 'firebase/firestore';
 import type { ManualTaskPriority } from '@vapour/types';
@@ -58,6 +60,9 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
   const [assignee, setAssignee] = useState<UserOption | null>(null);
   const [priority, setPriority] = useState<ManualTaskPriority>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
+  // B1: optional project linkage (ManualTask.projectId / projectName)
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +112,7 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
     }
   }, [open, user, users]);
 
-  // Reset on close
+  // Reset on close (rule 14b: create-only dialog — every field re-initialised)
   useEffect(() => {
     if (!open) {
       setTitle('');
@@ -115,6 +120,8 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
       setAssignee(null);
       setPriority('MEDIUM');
       setDueDate('');
+      setProjectId(null);
+      setProjectName(undefined);
       setError(null);
     }
   }, [open]);
@@ -131,19 +138,24 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
       setSaving(true);
       setError(null);
 
-      await createManualTask(
-        db,
-        {
-          title: title.trim(),
-          description: description.trim() || undefined,
-          assigneeId: assignee.uid,
-          assigneeName: assignee.displayName,
-          priority,
-          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : undefined,
-        },
-        user.uid,
-        user.displayName || user.email || 'Unknown',
-        tenantId
+      // rule 35: wrap the assignee read + task write in the stale-token retry
+      await retryOnStaleToken(() =>
+        createManualTask(
+          db,
+          {
+            title: title.trim(),
+            description: description.trim() || undefined,
+            assigneeId: assignee.uid,
+            assigneeName: assignee.displayName,
+            priority,
+            dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : undefined,
+            projectId: projectId || undefined,
+            projectName: projectId ? projectName : undefined,
+          },
+          user.uid,
+          user.displayName || user.email || 'Unknown',
+          tenantId
+        )
       );
 
       toast.success('Task created');
@@ -214,6 +226,18 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
               );
             }}
             renderInput={(params) => <TextField {...params} label="Assignee" required />}
+          />
+
+          <ProjectSelector
+            value={projectId}
+            onChange={(id, name) => {
+              setProjectId(id);
+              setProjectName(name);
+            }}
+            label="Project (optional)"
+            includeCostCentres={false}
+            disabled={saving}
+            size="medium"
           />
 
           <Box sx={{ display: 'flex', gap: 2 }}>

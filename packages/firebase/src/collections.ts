@@ -12,7 +12,6 @@ export const COLLECTIONS = {
   ENTITY_CONTACTS: 'entity_contacts',
   PROJECTS: 'projects',
   PROJECT_ACTIVITIES: 'project_activities',
-  PROJECT_MILESTONES: 'project_milestones',
   INVITATIONS: 'invitations', // External CLIENT_PM invitations
   NOTIFICATIONS: 'notifications', // In-app notifications
   AUDIT_LOGS: 'auditLogs', // System audit trail for security and compliance

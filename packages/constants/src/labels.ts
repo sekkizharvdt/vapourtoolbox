@@ -212,6 +212,24 @@ export const PROPOSAL_STATUS_LABELS = {
   EXPIRED: 'Expired',
 } as const;
 
+/** Labels for `CharterApprovalStatus` (project charter authorization workflow). */
+export const CHARTER_APPROVAL_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  APPROVED: 'Approved',
+} as const;
+
+/**
+ * Labels for `OrderAcceptanceStatus` (charter.orderAcceptance workflow —
+ * records the signed customer order/agreement's delta from the proposal).
+ */
+export const ORDER_ACCEPTANCE_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+} as const;
+
 /**
  * Labels for `WorkComponent` — the atomic kinds of work a proposal can cover.
  * Title is the short label; description is the one-liner shown on the picker card.
@@ -293,4 +311,35 @@ export const MANUAL_TASK_PRIORITY_LABELS = {
   MEDIUM: 'Medium',
   HIGH: 'High',
   URGENT: 'Urgent',
+} as const;
+
+/** Labels for `ManualTaskStatus`. Lowercase enum values match existing type. */
+export const MANUAL_TASK_STATUS_LABELS = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  done: 'Done',
+  cancelled: 'Cancelled',
+} as const;
+
+// ============================================================================
+// PROJECTS — charter deliverable + procurement-item labels (B3 portfolio dashboard)
+// ============================================================================
+
+/** Labels for `ProjectDeliverable['status']`. */
+export const DELIVERABLE_STATUS_LABELS = {
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  SUBMITTED: 'Submitted',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+} as const;
+
+/** Labels for `ProcurementItem['status']` (charter procurement planning items). */
+export const PROCUREMENT_ITEM_STATUS_LABELS = {
+  PLANNING: 'Planning',
+  PR_DRAFTED: 'PR Drafted',
+  RFQ_ISSUED: 'RFQ Issued',
+  PO_PLACED: 'PO Placed',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
 } as const;

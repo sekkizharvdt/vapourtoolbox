@@ -37,6 +37,7 @@ import { useProjectPage } from '../components/useProjectPage';
 import { ProjectSubPageWrapper } from '../components/ProjectSubPageWrapper';
 import { formatDate } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { saveDeliverable, deleteDeliverable } from '@/lib/projects/deliverableService';
 
 // Lazy load dialog components
 const ObjectiveFormDialog = lazy(() =>
@@ -158,33 +159,8 @@ function ObjectivesContent({ project }: { project: Project }) {
 
     try {
       const { db } = getFirebase();
-      const projectRef = doc(db, COLLECTIONS.PROJECTS, project.id);
-
-      let updatedDeliverables: ProjectDeliverable[];
-      if (deliverableData.id) {
-        // Update existing
-        updatedDeliverables = deliverables.map(
-          (d): ProjectDeliverable =>
-            d.id === deliverableData.id ? { ...d, ...deliverableData } : d
-        );
-      } else {
-        // Add new
-        const newDeliverable: ProjectDeliverable = {
-          id: `del-${crypto.randomUUID().slice(0, 8)}`,
-          name: deliverableData.name,
-          description: deliverableData.description,
-          type: deliverableData.type,
-          status: deliverableData.status,
-          acceptanceCriteria: deliverableData.acceptanceCriteria,
-        };
-        updatedDeliverables = [...deliverables, newDeliverable];
-      }
-
-      await updateDoc(projectRef, {
-        'charter.deliverables': updatedDeliverables,
-        updatedAt: Timestamp.now(),
-        updatedBy: userId,
-      });
+      // Canonical write path — recomputes project progress in the same transaction
+      await saveDeliverable(db, project.id, deliverableData, userId, claims?.permissions ?? 0);
 
       setDeliverableDialogOpen(false);
       setEditingDeliverable(undefined);
@@ -211,15 +187,8 @@ function ObjectivesContent({ project }: { project: Project }) {
 
     try {
       const { db } = getFirebase();
-      const projectRef = doc(db, COLLECTIONS.PROJECTS, project.id);
-
-      const updatedDeliverables = deliverables.filter((d) => d.id !== deliverableId);
-
-      await updateDoc(projectRef, {
-        'charter.deliverables': updatedDeliverables,
-        updatedAt: Timestamp.now(),
-        updatedBy: userId,
-      });
+      // Canonical write path — recomputes project progress in the same transaction
+      await deleteDeliverable(db, project.id, deliverableId, userId, claims?.permissions ?? 0);
     } catch (err) {
       console.error('[ObjectivesPage] Error deleting deliverable:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete deliverable');

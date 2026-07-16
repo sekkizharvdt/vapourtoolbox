@@ -18,6 +18,7 @@ import {
   getDocs,
   updateDoc,
   deleteDoc,
+  documentId,
   query,
   where,
   orderBy,
@@ -63,6 +64,8 @@ function docToManualTask(id: string, data: DocumentData): ManualTask {
     projectName: data.projectName,
     proposalId: data.proposalId,
     meetingId: data.meetingId,
+    meetingTitle: data.meetingTitle,
+    meetingDate: data.meetingDate,
     tags: data.tags,
     tenantId: data.tenantId,
     createdAt: data.createdAt,
@@ -155,6 +158,31 @@ export async function getManualTaskById(db: Firestore, taskId: string): Promise<
 
   if (!docSnap.exists()) return null;
   return docToManualTask(docSnap.id, docSnap.data());
+}
+
+/**
+ * Batch-fetch manual tasks by document ID (chunked `in` queries — no
+ * composite index required, no N+1 reads). Missing/deleted tasks are simply
+ * absent from the result.
+ */
+export async function getManualTasksByIds(db: Firestore, taskIds: string[]): Promise<ManualTask[]> {
+  const uniqueIds = [...new Set(taskIds)].filter(Boolean);
+  if (uniqueIds.length === 0) return [];
+
+  // Firestore `in` supports up to 30 disjunctions per query
+  const CHUNK_SIZE = 30;
+  const chunks: string[][] = [];
+  for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+    chunks.push(uniqueIds.slice(i, i + CHUNK_SIZE));
+  }
+
+  const snapshots = await Promise.all(
+    chunks.map((chunk) =>
+      getDocs(query(collection(db, COLLECTIONS.MANUAL_TASKS), where(documentId(), 'in', chunk)))
+    )
+  );
+
+  return snapshots.flatMap((snapshot) => snapshot.docs.map((d) => docToManualTask(d.id, d.data())));
 }
 
 /**

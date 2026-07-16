@@ -33,10 +33,12 @@ export type StatusColorContext =
   | 'purchaseRequest'
   | 'transmittal'
   | 'charterApproval'
+  | 'orderAcceptance'
   | 'documentRequirement'
   | 'commentResolution'
   | 'workItem'
-  | 'accountingPeriod';
+  | 'accountingPeriod'
+  | 'manualTask';
 
 /** Context for `getPriorityColor` — mirrors `StatusColorContext`'s design. */
 export type PriorityColorContext = 'project';
@@ -183,6 +185,11 @@ const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>>
   charterApproval: {
     APPROVED: 'success',
   },
+  // Order acceptance context — charter.orderAcceptance.status. REJECTED is
+  // a distinct non-terminal state here (base map already colors it error).
+  orderAcceptance: {
+    APPROVED: 'success',
+  },
   // Charter document-requirement context (a per-deliverable status, distinct
   // from the master-document workflow status in the `document` context)
   documentRequirement: {
@@ -204,6 +211,13 @@ const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>>
     OPEN: 'success',
     CLOSED: 'warning',
     LOCKED: 'error',
+  },
+  // Manual task status (`ManualTaskStatus` — lowercase enum values)
+  manualTask: {
+    todo: 'default',
+    in_progress: 'warning',
+    done: 'success',
+    cancelled: 'error',
   },
 };
 
