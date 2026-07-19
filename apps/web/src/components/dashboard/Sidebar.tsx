@@ -46,7 +46,6 @@ import {
   ChevronRight as ChevronRightIcon,
   Inventory as InventoryIcon,
   LocalShipping as LocalShippingIcon,
-  Thermostat as ThermostatIcon,
   Storage as StorageIcon,
   AdminPanelSettings as AdminIcon,
   Settings as SettingsIcon,
@@ -90,7 +89,6 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'thermal-calcs': <CalculateIcon />,
   procurement: <ShoppingCartIcon />,
   accounting: <AccountBalanceIcon />,
-  'thermal-desal': <ThermostatIcon />,
   'process-data': <StorageIcon />,
   'service-catalog': <ServicesIcon />,
   'material-database': <InventoryIcon />,
@@ -164,8 +162,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
     id: 'engineering',
     label: 'ENGINEERING DATA',
     moduleIds: [
-      'thermal-desal', // Thermal Desal Design - requires VIEW_THERMAL_DESAL (permissions2)
-      'process-data', // Process Data - shares VIEW_THERMAL_DESAL
+      'process-data', // Process Data - requires VIEW_THERMAL_DESAL (permissions2)
       'service-catalog', // Service Catalog - open to all
       'material-database', // Material DB - open to all
       'shape-database', // Shape DB - open to all

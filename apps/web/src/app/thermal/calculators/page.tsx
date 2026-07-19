@@ -60,6 +60,10 @@ import {
   AccountTree as MEDPlantIcon,
   Insights as GORIcon,
   OpenInFull as ExpansionIcon,
+  Thermostat as FlashChamberIcon,
+  Opacity as CondenserIcon,
+  Bolt as EjectorIcon,
+  Factory as ReferenceProjectsIcon,
   ArrowForward as ArrowForwardIcon,
   Search as SearchIcon,
   Close as CloseIcon,
@@ -477,6 +481,44 @@ const ALL_CALCULATORS: Calculator[] = [
     reference: 'Spraying Systems Co.',
     keywords: ['nozzle', 'spray', 'catalogue', 'distribution', 'orifice'],
   },
+
+  // --- Plant Design (equipment sizing & reference) ---
+  {
+    title: 'Flash Chamber',
+    description:
+      'Design flash evaporation chambers with heat/mass balance, sizing calculations, nozzle sizing, and NPSHa calculation.',
+    icon: <FlashChamberIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/flash-chamber',
+    status: 'available',
+    keywords: ['flash chamber', 'flash evaporation', 'chamber sizing', 'NPSHa'],
+  },
+  {
+    title: 'Condenser',
+    description:
+      'Design surface condensers for vapor condensation with tube layout, heat transfer, and cooling water calculations.',
+    icon: <CondenserIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/condenser',
+    status: 'coming_soon',
+    keywords: ['condenser', 'surface condenser', 'tube layout', 'cooling water'],
+  },
+  {
+    title: 'Ejector',
+    description:
+      'Design steam ejectors for vacuum generation with entrainment ratio and performance curve calculations.',
+    icon: <EjectorIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/ejector',
+    status: 'coming_soon',
+    keywords: ['ejector', 'steam ejector', 'entrainment ratio', 'vacuum generation'],
+  },
+  {
+    title: 'Reference Projects',
+    description:
+      'As-built design data from real MED-TVC desalination projects (Campiche, CADAFE, MORON) for engineering reference and validation.',
+    icon: <ReferenceProjectsIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/reference-projects',
+    status: 'available',
+    keywords: ['reference', 'as-built', 'Campiche', 'CADAFE', 'MORON', 'validation'],
+  },
 ];
 
 // Build a lookup map by href for recently-used resolution
@@ -496,6 +538,10 @@ const CATEGORIES: CalculatorCategory[] = [
         '/thermal/calculators/med-designer',
         '/thermal/calculators/med-plant',
         '/thermal/calculators/gor',
+        '/thermal/flash-chamber',
+        '/thermal/condenser',
+        '/thermal/ejector',
+        '/thermal/reference-projects',
       ].includes(c.href)
     ),
   },

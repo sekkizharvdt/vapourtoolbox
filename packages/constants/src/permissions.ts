@@ -296,7 +296,7 @@ export const PERMISSION_FLAGS_2 = {
   VIEW_BOUGHT_OUT_DB: 1 << 4, // 16
   MANAGE_BOUGHT_OUT_DB: 1 << 5, // 32
 
-  // Thermal Desalination (bits 6-7) - includes Flash Chamber
+  // Thermal Desalination (bits 6-7) - gates Process Data (SSOT); Flash Chamber moved to open Thermal Calculators
   VIEW_THERMAL_DESAL: 1 << 6, // 64
   MANAGE_THERMAL_DESAL: 1 << 7, // 128
 
@@ -370,7 +370,7 @@ export function canManageBoughtOutDB(permissions2: number): boolean {
 }
 
 /**
- * Thermal Desalination permission helpers (includes Flash Chamber)
+ * Thermal Desalination permission helpers (gates Process Data / SSOT)
  */
 export function canViewThermalDesal(permissions2: number): boolean {
   return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL);

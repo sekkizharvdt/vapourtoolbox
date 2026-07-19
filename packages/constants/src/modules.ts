@@ -212,21 +212,6 @@ export const MODULES: Record<string, ModuleDefinition> = {
     priority: 8,
   },
 
-  THERMAL_DESAL: {
-    id: 'thermal-desal',
-    name: 'Thermal Desalination Design',
-    shortName: 'Thermal Desal',
-    collapsedLabel: 'Desal',
-    description: 'Design calculations for thermal desalination processes (MED/MSF)',
-    icon: 'Thermostat',
-    color: '#EF4444', // Red
-    path: '/thermal',
-    status: 'active',
-    requiredPermissions2: 64, // VIEW_THERMAL_DESAL (PERMISSION_FLAGS_2)
-    category: 'application',
-    priority: 9,
-  },
-
   THERMAL_CALCS: {
     id: 'thermal-calcs',
     name: 'Thermal Calculators',

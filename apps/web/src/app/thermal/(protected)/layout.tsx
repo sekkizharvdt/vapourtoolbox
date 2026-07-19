@@ -1,15 +1,11 @@
 'use client';
 
 import { ModuleLayout } from '@/components/layouts/ModuleLayout';
-import { canViewThermalDesal } from '@vapour/constants';
 
+// No permission check — merged into Thermal Calculators, open to all authenticated users.
 export default function ThermalDesalLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ModuleLayout
-      permissionCheck2={canViewThermalDesal}
-      moduleName="Thermal Desalination"
-      moduleId="thermal-desal"
-    >
+    <ModuleLayout moduleName="Thermal Calculators" moduleId="thermal-calcs">
       {children}
     </ModuleLayout>
   );

@@ -449,7 +449,8 @@ export function computeVacuumSystem(
   swTempC: number,
   salinityGkg: number,
   systemVolumeM3: number,
-  trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
+  trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid',
+  condenserApproachC: number
 ): MEDVacuumResult | undefined {
   try {
     // HEI air leakage tables are for power plant condensers with many flanged
@@ -473,6 +474,7 @@ export function computeVacuumSystem(
       motivePressureBar: 8, // 8 bar motive steam
       coolingWaterTempC: swTempC,
       sealWaterTempC: swTempC,
+      interCondenserApproachC: condenserApproachC,
       trainConfig,
       evacuationVolumeM3: systemVolumeM3, // full volume for evacuation time calc
     });

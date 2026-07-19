@@ -926,7 +926,32 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
           'Suction pressure below 50 mbar is challenging for LRVP. Consider a hybrid ejector + LRVP configuration.'
         );
       }
-      const pump = sizeLRVP(designSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
+
+      // NCG is extracted at the condenser's cold (seawater-inlet) end, not at
+      // the bulk last-effect saturation temperature — same modeling already
+      // used for the hybrid config's inter-condenser outlet (see
+      // calculateInterCondenser). Using the bulk temperature here made the
+      // vapour/NCG ratio blow up (P_sat ≈ P_suction), grossly oversizing the
+      // LRVP and its power.
+      const lrvpVentTempC = coolingWaterTempC + approachC;
+      const lrvpVapourWithNcgKgH =
+        Math.round(vapourWithNCG(totalDryNcgKgH, lrvpVentTempC, suctionPressureBar) * 100) / 100;
+      const lrvpTotalSuctionFlowKgH =
+        Math.round((totalDryNcgKgH + lrvpVapourWithNcgKgH) * 100) / 100;
+      const lrvpSuctionVolumeM3h =
+        Math.round(
+          volumetricFlow(
+            lrvpTotalSuctionFlowKgH,
+            totalDryNcgKgH,
+            lrvpVapourWithNcgKgH,
+            lrvpVentTempC,
+            suctionPressureBar
+          ) * 10
+        ) / 10;
+      const lrvpDesignSuctionVolumeM3h =
+        Math.round(lrvpSuctionVolumeM3h * (1 + designMargin) * 10) / 10;
+
+      const pump = sizeLRVP(lrvpDesignSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
       totalPowerKW = pump.totalPowerKW;
 
       stages.push({
@@ -936,9 +961,9 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         dischargePressureMbar,
         compressionRatio: Math.round(overallCR * 100) / 100,
         dryNcgInKgH: totalDryNcgKgH,
-        vapourInKgH: vapourWithNcgKgH,
-        totalSuctionKgH: totalSuctionFlowKgH,
-        suctionVolumeM3h: designSuctionVolumeM3h,
+        vapourInKgH: lrvpVapourWithNcgKgH,
+        totalSuctionKgH: lrvpTotalSuctionFlowKgH,
+        suctionVolumeM3h: lrvpDesignSuctionVolumeM3h,
         lrvpModel: pump.model,
         lrvpRatedCapacityM3h: pump.ratedCapacityM3h,
         lrvpCorrectionFactor: pump.correctionFactor,

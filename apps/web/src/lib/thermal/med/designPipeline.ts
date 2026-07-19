@@ -497,7 +497,8 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
       return sum + Math.PI * shellR * shellR * shellL;
     }, 0),
     input.vacuumTrainConfig ??
-      (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid')
+      (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid'),
+    condenserApproach
   );
 
   // ── 10. Optional analyses ───────────────────────────────────────────

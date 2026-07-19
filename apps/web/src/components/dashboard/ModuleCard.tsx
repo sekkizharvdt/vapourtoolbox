@@ -27,7 +27,6 @@ import {
   AccountBalance as AccountBalanceIcon,
   ShoppingCart as ShoppingCartIcon,
   Calculate as CalculateIcon,
-  Thermostat as ThermostatIcon,
   Description as DescriptionIcon,
   ArrowForward as ArrowForwardIcon,
   Inventory as InventoryIcon,
@@ -50,7 +49,6 @@ const moduleConfig: Record<string, { icon: React.ReactNode; color: string }> = {
   estimation: { icon: <CalculateIcon />, color: '#6366F1' }, // Indigo
   'material-database': { icon: <InventoryIcon />, color: '#059669' }, // Emerald
   'bought-out-database': { icon: <LocalShippingIcon />, color: '#0D9488' }, // Teal
-  'thermal-desal': { icon: <ThermostatIcon />, color: '#EF4444' }, // Red
   'proposal-management': { icon: <AssignmentIcon />, color: '#10B981' }, // Green
 };
 
