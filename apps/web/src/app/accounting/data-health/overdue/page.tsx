@@ -410,56 +410,72 @@ export default function OverdueItemsPage() {
     }
   };
 
-  // Open the journal dialog pre-filled to settle a payable (feedback OUHs7SRu3v2iFUogK8K2).
-  // The linked-bill mechanism (settleLinkedTransactionViaJournal) closes the bill
-  // once the entry is saved as Approved/Posted.
+  // Open the journal dialog pre-filled to settle a payable or receivable
+  // (feedback OUHs7SRu3v2iFUogK8K2 / VmwuKmp1sLoClNjFULCg). Settlement fires
+  // via settleLinkedTransactionViaJournal once the entry is Approved/Posted:
+  // bills settle from the entity's DEBIT line, invoices from its CREDIT line.
   const handleCloseViaJournal = async (item: OverdueItem) => {
-    const bill = item.fullData as VendorBill;
-    const billNumber = bill.vendorInvoiceNumber || item.transactionNumber;
-    const billDate = resolveTransactionDate(bill.billDate ?? bill.date);
+    const isBill = item.type === 'VENDOR_BILL';
+    const txn = item.fullData;
+    const docNumber = isBill
+      ? (txn as VendorBill).vendorInvoiceNumber || item.transactionNumber
+      : item.transactionNumber;
+    const docDate = resolveTransactionDate(
+      isBill
+        ? ((txn as VendorBill).billDate ?? txn.date)
+        : ((txn as CustomerInvoice).invoiceDate ?? txn.date)
+    );
     const outstanding = roundToPaisa(item.outstandingAmount);
 
-    // Entity roles are needed so the dialog can resolve the AP control account
-    // for the debit line (selector callbacks don't fire on pre-filled values).
+    // The entity line needs a role so the dialog can resolve its control
+    // account (selector callbacks don't fire on pre-filled values). Pass ONLY
+    // the flow-relevant role: for dual-role entities the resolver picks AR/AP
+    // by debit-vs-credit direction, which lands on the wrong account for
+    // settlements (bill settlements DEBIT AP; invoice settlements CREDIT AR).
+    const settlementRole = isBill ? 'VENDOR' : 'CUSTOMER';
     let entityRoles: string[] | undefined;
     try {
-      if (bill.entityId) {
+      if (txn.entityId) {
         const { db } = getFirebase();
-        const entitySnap = await getDoc(doc(db, COLLECTIONS.ENTITIES, bill.entityId));
-        entityRoles = entitySnap.exists() ? (entitySnap.data().roles ?? undefined) : undefined;
+        const entitySnap = await getDoc(doc(db, COLLECTIONS.ENTITIES, txn.entityId));
+        const roles: string[] = entitySnap.exists() ? (entitySnap.data().roles ?? []) : [];
+        entityRoles = roles.includes(settlementRole) ? [settlementRole] : roles;
       }
     } catch (err) {
       // Degrade gracefully: the dialog asks the user to pick the account manually
       console.error('[OverdueItemsPage] Could not fetch entity roles for JE prefill:', err);
     }
 
+    const docLabel = isBill ? 'vendor bill' : 'customer invoice';
+    const entityLine = {
+      accountId: '',
+      debit: isBill ? outstanding : 0,
+      credit: isBill ? 0 : outstanding,
+      description: `Settle ${docLabel} ${docNumber}`,
+      costCentreId: undefined,
+      entityId: txn.entityId ?? undefined,
+      entityName: item.entityName || undefined,
+      entityRoles,
+    };
+    const contraLine = {
+      accountId: '',
+      debit: isBill ? 0 : outstanding,
+      credit: isBill ? outstanding : 0,
+      description: '',
+      costCentreId: undefined,
+      entityId: undefined,
+      entityName: undefined,
+    };
+
     setJournalPrefill({
-      description: `Being settlement of vendor bill ${billNumber}${
-        billDate ? ` dated ${formatDate(billDate)}` : ''
+      description: `Being settlement of ${docLabel} ${docNumber}${
+        docDate ? ` dated ${formatDate(docDate)}` : ''
       } — ${item.entityName}`,
-      reference: billNumber,
-      linkedVendorBillId: item.id,
-      entries: [
-        {
-          accountId: '',
-          debit: outstanding,
-          credit: 0,
-          description: `Settle bill ${billNumber}`,
-          costCentreId: undefined,
-          entityId: bill.entityId ?? undefined,
-          entityName: item.entityName || undefined,
-          entityRoles,
-        },
-        {
-          accountId: '',
-          debit: 0,
-          credit: outstanding,
-          description: '',
-          costCentreId: undefined,
-          entityId: undefined,
-          entityName: undefined,
-        },
-      ],
+      reference: docNumber,
+      ...(isBill ? { linkedVendorBillId: item.id } : { linkedCustomerInvoiceId: item.id }),
+      // Entity line first for bills (debit AP), contra first for invoices so
+      // the debit line always leads.
+      entries: isBill ? [entityLine, contraLine] : [contraLine, entityLine],
     });
     setJournalDialogOpen(true);
   };
@@ -700,18 +716,16 @@ export default function OverdueItemsPage() {
                             Pay
                           </Button>
                         </Tooltip>
-                        {item.type === 'VENDOR_BILL' && (
-                          <Tooltip title="Close via Journal Entry">
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<JournalIcon />}
-                              onClick={() => void handleCloseViaJournal(item)}
-                            >
-                              JE
-                            </Button>
-                          </Tooltip>
-                        )}
+                        <Tooltip title="Close via Journal Entry">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<JournalIcon />}
+                            onClick={() => void handleCloseViaJournal(item)}
+                          >
+                            JE
+                          </Button>
+                        </Tooltip>
                       </Box>
                     </TableCell>
                   </TableRow>

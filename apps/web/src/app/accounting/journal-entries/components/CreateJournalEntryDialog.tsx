@@ -69,6 +69,7 @@ export interface JournalEntryPrefill {
   description?: string;
   reference?: string;
   linkedVendorBillId?: string;
+  linkedCustomerInvoiceId?: string;
   entries?: LedgerEntryForm[];
 }
 
@@ -172,7 +173,7 @@ export function CreateJournalEntryDialog({
         setReference(prefill.reference || '');
         setProjectId(null);
         setStatus('DRAFT');
-        setLinkedCustomerInvoiceId('');
+        setLinkedCustomerInvoiceId(prefill.linkedCustomerInvoiceId || '');
         setLinkedVendorBillId(prefill.linkedVendorBillId || '');
         setEntries(
           prefill.entries && prefill.entries.length >= 2
