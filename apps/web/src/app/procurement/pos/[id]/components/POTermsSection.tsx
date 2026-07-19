@@ -408,45 +408,54 @@ export function POTermsSection({ po }: POTermsSectionProps) {
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
+            {/* Each section only renders when its *Required flag isn't false —
+                same guards as the PO PDF (feedback 0vBGWs7hXkeEljuIOHxS);
+                undefined/true still shows for POs predating the flags. */}
             <Stack spacing={2}>
               <Stack direction="row" spacing={4}>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Freight
-                  </Typography>
-                  <Typography variant="body2">
-                    {SCOPE_LABELS[terms.freightScope] || terms.freightScope}
-                    {terms.freightScope === 'CUSTOMER' && terms.freightPaymentType && (
-                      <> — {terms.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}</>
-                    )}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Transport
-                  </Typography>
-                  <Typography variant="body2">
-                    {SCOPE_LABELS[terms.transportScope] || terms.transportScope}
-                    {terms.deliveryType && (
-                      <> — {terms.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery</>
-                    )}
-                  </Typography>
-                  {terms.transporterName && (
-                    <Typography variant="caption" color="text.secondary">
-                      Transporter: {terms.transporterName}
+                {terms.freightRequired !== false && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Freight
                     </Typography>
-                  )}
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Transit Insurance
-                  </Typography>
-                  <Typography variant="body2">
-                    {SCOPE_LABELS[terms.transitInsuranceScope] || terms.transitInsuranceScope}
-                  </Typography>
-                </Box>
+                    <Typography variant="body2">
+                      {SCOPE_LABELS[terms.freightScope] || terms.freightScope}
+                      {terms.freightScope === 'CUSTOMER' && terms.freightPaymentType && (
+                        <> — {terms.freightPaymentType === 'PREPAID' ? 'Prepaid' : 'To-Pay'}</>
+                      )}
+                    </Typography>
+                  </Box>
+                )}
+                {terms.transportRequired !== false && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Transport
+                    </Typography>
+                    <Typography variant="body2">
+                      {SCOPE_LABELS[terms.transportScope] || terms.transportScope}
+                      {terms.deliveryType && (
+                        <> — {terms.deliveryType === 'DOOR' ? 'Door' : 'Godown'} delivery</>
+                      )}
+                    </Typography>
+                    {terms.transporterName && (
+                      <Typography variant="caption" color="text.secondary">
+                        Transporter: {terms.transporterName}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+                {terms.transitInsuranceRequired !== false && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Transit Insurance
+                    </Typography>
+                    <Typography variant="body2">
+                      {SCOPE_LABELS[terms.transitInsuranceScope] || terms.transitInsuranceScope}
+                    </Typography>
+                  </Box>
+                )}
               </Stack>
-              {terms.transitInsuranceInstruction && (
+              {terms.transitInsuranceRequired !== false && terms.transitInsuranceInstruction && (
                 <Box>
                   <Typography variant="subtitle2" color="text.secondary">
                     Transit Insurance Instruction
@@ -456,26 +465,28 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   </Typography>
                 </Box>
               )}
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Erection & Commissioning
-                </Typography>
-                <Typography variant="body2">
-                  {ERECTION_LABELS[terms.erectionScope] || terms.erectionScope}
-                  {terms.erectionScope === 'CUSTOM' && terms.erectionCustomText && (
-                    <> - {terms.erectionCustomText}</>
-                  )}
-                  {terms.erectionScope === 'VENDOR' &&
-                    (() => {
-                      const inc = [
-                        terms.erectionIncludesTransport && 'transportation',
-                        terms.erectionIncludesFood && 'food',
-                        terms.erectionIncludesAccommodation && 'accommodation',
-                      ].filter(Boolean);
-                      return inc.length > 0 ? <> — incl. {inc.join(', ')}</> : null;
-                    })()}
-                </Typography>
-              </Box>
+              {terms.erectionRequired !== false && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Erection & Commissioning
+                  </Typography>
+                  <Typography variant="body2">
+                    {ERECTION_LABELS[terms.erectionScope] || terms.erectionScope}
+                    {terms.erectionScope === 'CUSTOM' && terms.erectionCustomText && (
+                      <> - {terms.erectionCustomText}</>
+                    )}
+                    {terms.erectionScope === 'VENDOR' &&
+                      (() => {
+                        const inc = [
+                          terms.erectionIncludesTransport && 'transportation',
+                          terms.erectionIncludesFood && 'food',
+                          terms.erectionIncludesAccommodation && 'accommodation',
+                        ].filter(Boolean);
+                        return inc.length > 0 ? <> — incl. {inc.join(', ')}</> : null;
+                      })()}
+                  </Typography>
+                </Box>
+              )}
             </Stack>
           </AccordionDetails>
         </Accordion>
