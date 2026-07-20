@@ -21,7 +21,7 @@ import {
 
 export interface VacuumSystemReportInputs {
   suctionPressure: string;
-  suctionTemperature: string;
+  coolantInletTemp: string;
   dischargePressure: string;
   includeManualNcg: boolean;
   includeHeiLeakage: boolean;
@@ -77,7 +77,8 @@ export const VacuumSystemReportPDF = ({
 }: VacuumSystemReportPDFProps) => {
   const leftParams = [
     { label: 'Suction Pressure', value: `${inputs.suctionPressure} mbar abs` },
-    { label: 'Suction Temperature', value: `${inputs.suctionTemperature} \u00B0C` },
+    { label: 'Coolant Inlet Temperature', value: `${inputs.coolantInletTemp} \u00B0C` },
+    { label: 'Vent Gas Temperature (computed)', value: `${result.suctionTemperatureC} \u00B0C` },
     { label: 'Discharge Pressure', value: `${inputs.dischargePressure} mbar abs` },
     { label: 'NCG Sources', value: ncgSourcesLabel(inputs) },
   ];
@@ -187,7 +188,7 @@ export const VacuumSystemReportPDF = ({
                 value: `${result.designSuctionVolumeM3h} m\u00B3/h`,
               },
               {
-                label: 'Sat. Pressure at Suction Temp',
+                label: 'Sat. Pressure at Vent Temp',
                 value: `${result.satPressureAtSuctionMbar} mbar`,
               },
             ]}

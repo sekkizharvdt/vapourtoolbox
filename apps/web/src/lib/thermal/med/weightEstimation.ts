@@ -106,13 +106,13 @@ export function estimatePlantWeight(
   shellThkMM: number = 8,
   tubeSheetThkMM: number = 8
 ): MEDWeightEstimate {
-  const shellIDmm = result.inputs.shellID ?? 1800;
   const tubeOD = result.inputs.tubeOD ?? 25.4;
   const tubeWall = result.inputs.tubeWallThickness ?? 1.0;
   const tubeMat = (result.inputs.tubeMaterialName ?? 'Al 5052').toLowerCase();
   const tubeDensity = tubeMat.includes('ti') ? DENSITY.ti_gr2 : DENSITY.al_5052;
 
   const evaporatorShells: ShellWeight[] = result.effects.map((e) => {
+    const shellIDmm = e.shellODmm - 2 * shellThkMM;
     const shellLength = e.shellLengthMM; // includes tube + sheets + 2×750mm access
     return estimateShellWeight(
       shellIDmm,
@@ -140,7 +140,7 @@ export function estimatePlantWeight(
 
   // Operating weight: dry + water hold-up (~30% of shell volume)
   const shellVolume = result.effects.reduce((sum, e) => {
-    const D = shellIDmm / 1000;
+    const D = (e.shellODmm - 2 * shellThkMM) / 1000;
     const L = e.tubeLength + 0.2;
     return sum + (Math.PI / 4) * D * D * L * 0.3;
   }, 0);

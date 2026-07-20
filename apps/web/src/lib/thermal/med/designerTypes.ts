@@ -88,13 +88,9 @@ export interface MEDDesignerInput {
   tiTubeLength?: number;
   /** Target tube-side velocity for Ti equipment in m/s (default 1.6, range 1.4-1.8) */
   tiTargetVelocity?: number;
-  /** Override condenser U-value W/(m²·K) — default derived from tube material */
-  condenserU?: number;
-  /** Override preheater U-value W/(m²·K) — default derived from tube material */
-  preheaterU?: number;
   /** Anti-scalant dose in mg/L (default 2) */
   antiscalantDoseMgL?: number;
-  /** Vacuum system train configuration (default 'hybrid') */
+  /** Vacuum system train configuration (default: single_ejector <=4 effects, two_stage_ejector <=8, else hybrid) */
   vacuumTrainConfig?: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid';
   /** Include turndown analysis at 30/50/70/100% load (default false — computationally expensive) */
   includeTurndown?: boolean;
@@ -430,6 +426,7 @@ export interface MEDVacuumResult {
   totalPowerKW: number;
   trainConfig: string;
   evacuationTimeMinutes: number;
+  warnings: string[];
 }
 
 /** All auxiliary equipment results */

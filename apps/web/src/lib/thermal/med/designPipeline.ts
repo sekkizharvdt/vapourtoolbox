@@ -30,7 +30,7 @@ import type {
   MEDDesignOption,
   MEDScenarioRow,
 } from './designerTypes';
-import { resolveDesignerDefaults, toMEDPlantInputs } from './inputAdapter';
+import { resolveDesignerDefaults, toMEDPlantInputs, mapTubeMaterial } from './inputAdapter';
 import {
   composeDesignerEffects,
   composeDesignerCondenser,
@@ -238,9 +238,8 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
       input.bpeSafetyFactor !== 1.0 && { bpeSafetyFactor: input.bpeSafetyFactor }),
     evapTubeOD: tubeOD,
     evapTubeWall: tubeWall,
-    evapTubeLength: (resolved.resolvedDefaults.tubeLength as number) ?? maxTubeLength,
-    evapTubeMaterial: ((resolved.resolvedDefaults.tubeMaterial as string) ??
-      'titanium') as MEDEngineInput['evapTubeMaterial'],
+    evapTubeLength: maxTubeLength,
+    evapTubeMaterial: mapTubeMaterial(resolved.tubeMaterialName),
     // TVC: pass through when enabled
     ...(input.tvcEnabled &&
       input.tvcMotivePressure && {
@@ -487,7 +486,6 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
 
   const vacuumSystem = computeVacuumSystem(
     effects[nEff - 1]!.pressure,
-    effects[nEff - 1]!.vapourOutTemp,
     makeUpFeed / (swDensity / 1000),
     input.seawaterTemperature,
     swSalinity / 1000,
@@ -497,9 +495,37 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
       return sum + Math.PI * shellR * shellR * shellL;
     }, 0),
     input.vacuumTrainConfig ??
-      (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid'),
-    condenserApproach
+      (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid')
   );
+
+  if (!vacuumSystem) {
+    warnings.push(
+      'Vacuum system sizing failed for the selected train at this operating pressure ' +
+        '(e.g. a single-stage LRVP cannot reach below its seal-water blank-off pressure). ' +
+        'Choose a different vacuum train configuration, use colder seal water, or verify the last-effect pressure.'
+    );
+  }
+
+  if (vacuumSystem?.warnings?.length) {
+    warnings.push(...vacuumSystem.warnings);
+  }
+
+  // LRVP-only trains always run at high compression ratio at this suction
+  // pressure — flag the specific-energy figure so it reads as expected
+  // physics, not a sizing defect. Deliberately no "switch to hybrid" advice:
+  // the tool has no way to know whether steam is actually available (e.g.
+  // solar-thermal plants driven by ~68°C hot water have none at all, and
+  // hybrid/ejector configs all assume 8 bar steam motive).
+  if (vacuumSystem?.trainConfig === 'lrvp_only' && totalDistillate > 0) {
+    const kWhPerM3 = vacuumSystem.totalPowerKW / totalDistillate;
+    warnings.push(
+      `LRVP-only vacuum train: ${vacuumSystem.totalPowerKW.toFixed(1)} kW ` +
+        `(${kWhPerM3.toFixed(2)} kWh/m³ of distillate) to maintain ` +
+        `${vacuumSystem.lastEffectPressureMbar} mbar suction. High power is ` +
+        `expected at this pressure due to the large compression ratio, not a ` +
+        `sizing error.`
+    );
+  }
 
   // ── 10. Optional analyses ───────────────────────────────────────────
   const result: MEDDesignerResult = {
@@ -606,7 +632,11 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
 
   // Weight estimation
   try {
-    result.weightEstimate = estimatePlantWeight(result);
+    result.weightEstimate = estimatePlantWeight(
+      result,
+      Number(result.inputs.resolvedDefaults.shellThickness ?? 8),
+      Number(result.inputs.resolvedDefaults.tubeSheetThickness ?? 8)
+    );
   } catch {
     // Weight estimation is non-critical
   }
@@ -642,7 +672,11 @@ export function generateDesignOptionsPipeline(input: MEDDesignerInput): MEDDesig
         label = `Option — Balanced (${n} effects)`;
       else label = `Option — Compact (${n} effects)`;
 
-      const weight = estimatePlantWeight(result);
+      const weight = estimatePlantWeight(
+        result,
+        Number(result.inputs.resolvedDefaults.shellThickness ?? 8),
+        Number(result.inputs.resolvedDefaults.tubeSheetThickness ?? 8)
+      );
 
       options.push({
         effects: n,

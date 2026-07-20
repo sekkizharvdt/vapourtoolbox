@@ -29,6 +29,7 @@ import {
   getSeawaterSpecificHeat,
   getSeawaterThermalConductivity,
   getBoilingPointElevation,
+  NEA_FLASH_FRACTION,
 } from '@vapour/constants';
 
 /* ─── Local styles ──────────────────────────────────────────── */
@@ -301,7 +302,6 @@ export function MEDVerificationReportPDF({
                   },
                   { label: 'Seawater Salinity', value: `${salinity} ppm` },
                   { label: 'Condenser SW Discharge', value: `${rd.condenserSWOutlet}°C` },
-                  { label: 'Target GOR', value: fmt(r.inputs.targetGOR) },
                   { label: 'Number of Effects', value: nEff.toString() },
                   { label: 'Number of Preheaters', value: r.preheaters.length.toString() },
                 ]}
@@ -474,9 +474,8 @@ export function MEDVerificationReportPDF({
             <Text style={{ fontSize: 6, color: REPORT_THEME.textMuted }}>
               Working dT = Incoming vapour − Brine T | Total Loss = BPE + NEA + Demister + Duct dP |
               Vap. Out = Effect saturation T − (NEA + Demister + Duct dP) | NEA ={' '}
-              {(Number(r.inputs.resolvedDefaults.NEA_FLASH_FRACTION ?? 0.1) * 100).toFixed(0)}% of
-              Flash ΔT (E1 = 0: no cascaded brine) | Vapour out of Effect N = incoming vapour to
-              Effect N+1
+              {(NEA_FLASH_FRACTION * 100).toFixed(0)}% of Flash ΔT (E1 = 0: no cascaded brine) |
+              Vapour out of Effect N = incoming vapour to Effect N+1
             </Text>
           </View>
         </ReportSection>

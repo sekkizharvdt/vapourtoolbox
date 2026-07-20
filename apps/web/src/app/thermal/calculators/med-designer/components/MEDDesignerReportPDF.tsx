@@ -157,7 +157,6 @@ export function MEDDesignerReportPDF({
                     value: `${fmt(r.inputs.steamFlow, 2)} T/h @ ${fmt(r.inputs.steamTemperature)}°C`,
                   },
                   { label: 'Seawater Temp', value: `${fmt(r.inputs.seawaterTemperature)}°C` },
-                  { label: 'Target GOR', value: fmt(r.inputs.targetGOR) },
                   {
                     label: 'SW Salinity',
                     value: `${r.inputs.resolvedDefaults.seawaterSalinity} ppm`,
@@ -449,7 +448,7 @@ export function MEDDesignerReportPDF({
                   { label: 'Dished Heads', value: '2:1 Semi-Ellipsoidal (each shell)' },
                   {
                     label: 'Bundle Type',
-                    value: `Lateral (${r.inputs.resolvedDefaults.bundleType ?? 'lateral'})`,
+                    value: 'Lateral',
                   },
                 ]}
               />

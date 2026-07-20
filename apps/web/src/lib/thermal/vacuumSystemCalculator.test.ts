@@ -12,14 +12,16 @@ import {
 
 function createInput(overrides: Partial<VacuumSystemInput> = {}): VacuumSystemInput {
   return {
-    suctionPressureMbar: 40,
-    suctionTemperatureC: 30,
+    suctionPressureMbar: 70,
+    coolantInletTempC: 28,
     dischargePressureMbar: 1013,
     ncgMode: 'manual',
     dryNcgFlowKgH: 5,
     motivePressureBar: 10,
-    coolingWaterTempC: 32,
-    sealWaterTempC: 32,
+    coolingWaterTempC: 28,
+    // 28 °C seal water blanks off ≈ 38 mbar, so a 70 mbar suction is feasible
+    // single-stage LRVP (keeps lrvp_only in the generic config loop below valid).
+    sealWaterTempC: 28,
     trainConfig: 'two_stage_ejector',
     ...overrides,
   };
@@ -35,7 +37,7 @@ describe('calculateVacuumSystem — basic', () => {
     expect(result.totalSuctionFlowKgH).toBeGreaterThan(0);
     expect(result.totalSuctionVolumeM3h).toBeGreaterThan(0);
     expect(result.stages.length).toBeGreaterThan(0);
-    expect(result.suctionPressureMbar).toBe(40);
+    expect(result.suctionPressureMbar).toBe(70);
   });
 
   it('includes vapour with NCG', () => {
@@ -273,7 +275,7 @@ describe('calculateVacuumSystem — LRVP stages', () => {
       createInput({
         trainConfig: 'lrvp_only',
         suctionPressureMbar: 200,
-        suctionTemperatureC: 20,
+        coolantInletTempC: 20,
         dryNcgFlowKgH: 1,
       })
     );
@@ -406,5 +408,67 @@ describe('calculateVacuumSystem — validation', () => {
 
   it('throws for negative NCG flow in manual mode', () => {
     expect(() => calculateVacuumSystem(createInput({ dryNcgFlowKgH: -1 }))).toThrow();
+  });
+});
+
+// ── Vent temperature & LRVP blank-off physics ────────────────────────────────
+
+describe('calculateVacuumSystem — vent temperature', () => {
+  it('computes vent temp from coolant inlet + approach, below saturation', () => {
+    // 200 mbar → Tsat ≈ 60°C; coolant inlet 25°C → vent ≈ 27°C (inlet + 2), not the bulk Tsat
+    const result = calculateVacuumSystem(
+      createInput({ suctionPressureMbar: 200, coolantInletTempC: 25 })
+    );
+    expect(result.suctionTemperatureC).toBeGreaterThan(26);
+    expect(result.suctionTemperatureC).toBeLessThan(29);
+  });
+
+  it('caps vent temp at saturation temperature when coolant inlet is warm', () => {
+    // 70 mbar → Tsat ≈ 39°C; coolant inlet 50°C → vent capped at Tsat, not 52°C
+    const result = calculateVacuumSystem(
+      createInput({ suctionPressureMbar: 70, coolantInletTempC: 50 })
+    );
+    expect(result.suctionTemperatureC).toBeLessThanOrEqual(40);
+  });
+
+  it('Gas-Load suction volume matches the lrvp_only stage suction volume', () => {
+    // Regression: the two panels used to disagree ~4× because the lrvp_only case
+    // recomputed its own vent temperature. They must now be identical.
+    const result = calculateVacuumSystem(
+      createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 68, coolantInletTempC: 28 })
+    );
+    const lrvpStage = result.stages.find((s) => s.type === 'lrvp')!;
+    expect(lrvpStage.suctionVolumeM3h).toBe(result.designSuctionVolumeM3h);
+    expect(lrvpStage.totalSuctionKgH).toBe(result.totalSuctionFlowKgH);
+  });
+});
+
+describe('calculateVacuumSystem — LRVP blank-off', () => {
+  it('is feasible above the seal-water blank-off pressure', () => {
+    // 28°C seal → blank-off ≈ 38 mbar; 68 mbar suction is feasible
+    const result = calculateVacuumSystem(
+      createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 68, sealWaterTempC: 28 })
+    );
+    const lrvpStage = result.stages.find((s) => s.type === 'lrvp')!;
+    expect(lrvpStage.lrvpTotalPowerKW).toBeGreaterThan(0);
+  });
+
+  it('throws when suction pressure is at/below the seal-water blank-off', () => {
+    // 30°C seal → blank-off ≈ 42 mbar; 35 mbar suction is unreachable single-stage
+    expect(() =>
+      calculateVacuumSystem(
+        createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 35, sealWaterTempC: 30 })
+      )
+    ).toThrow(/blank-off/i);
+  });
+
+  it('warmer seal water needs a larger pump at the same duty (capacity derate)', () => {
+    const cold = calculateVacuumSystem(
+      createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 90, sealWaterTempC: 20 })
+    ).stages.find((s) => s.type === 'lrvp')!;
+    const warm = calculateVacuumSystem(
+      createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 90, sealWaterTempC: 30 })
+    ).stages.find((s) => s.type === 'lrvp')!;
+    expect(warm.lrvpRequiredCapacityM3h!).toBeGreaterThan(cold.lrvpRequiredCapacityM3h!);
   });
 });

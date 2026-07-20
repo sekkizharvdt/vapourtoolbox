@@ -61,7 +61,7 @@ import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 export default function VacuumSystemClient() {
   // Operating conditions
   const [suctionPressure, setSuctionPressure] = useState<string>('70');
-  const [suctionTemperature, setSuctionTemperature] = useState<string>('39');
+  const [coolantInletTemp, setCoolantInletTemp] = useState<string>('28');
   const [dischargePressure, setDischargePressure] = useState<string>('1013');
 
   // NCG load — additive sources
@@ -97,7 +97,7 @@ export default function VacuumSystemClient() {
 
   const handleReset = () => {
     setSuctionPressure('70');
-    setSuctionTemperature('39');
+    setCoolantInletTemp('28');
     setDischargePressure('1013');
     setIncludeManualNcg(true);
     setIncludeHeiLeakage(false);
@@ -117,31 +117,35 @@ export default function VacuumSystemClient() {
     setDesignMargin('10');
   };
 
-  // ── Saturation temperature at suction pressure ──────────────────────────
+  // ── Computed vent-gas temperature (coolant inlet + approach, capped at Tsat) ──
+  // Mirrors ventGasTemperatureC() in vacuumSystemCalculator.ts (VENT_APPROACH_C = 2).
 
-  const satTempInfo = useMemo(() => {
+  const ventInfo = useMemo(() => {
     const p = parseFloat(suctionPressure);
-    const t = parseFloat(suctionTemperature);
-    if (isNaN(p) || p <= 0) return null;
+    const tCoolant = parseFloat(coolantInletTemp);
+    if (isNaN(p) || p <= 0 || isNaN(tCoolant)) return null;
     try {
       const tSat = getSaturationTemperature(p / 1000); // mbar → bar
-      const tSatRound = Math.round(tSat * 10) / 10;
-      const subcooling = !isNaN(t) ? Math.round((tSat - t) * 10) / 10 : null;
-      return { tSat: tSatRound, subcooling };
+      const tVent = Math.min(tSat, tCoolant + 2);
+      return {
+        tSat: Math.round(tSat * 10) / 10,
+        tVent: Math.round(tVent * 10) / 10,
+        capped: tCoolant + 2 >= tSat,
+      };
     } catch {
       return null;
     }
-  }, [suctionPressure, suctionTemperature]);
+  }, [suctionPressure, coolantInletTemp]);
 
   // ── Calculation ────────────────────────────────────────────────────────
 
   const computed = useMemo(() => {
     try {
       const pSuction = parseFloat(suctionPressure);
-      const tSuction = parseFloat(suctionTemperature);
+      const tCoolant = parseFloat(coolantInletTemp);
       const pDischarge = parseFloat(dischargePressure);
       if (isNaN(pSuction) || pSuction <= 0) return null;
-      if (isNaN(tSuction) || tSuction < 0) return null;
+      if (isNaN(tCoolant) || tCoolant < 0) return null;
       if (isNaN(pDischarge) || pDischarge <= pSuction) return null;
 
       const pMotive = parseFloat(motivePressure);
@@ -152,7 +156,7 @@ export default function VacuumSystemClient() {
       return {
         result: calculateVacuumSystem({
           suctionPressureMbar: pSuction,
-          suctionTemperatureC: tSuction,
+          coolantInletTempC: tCoolant,
           dischargePressureMbar: pDischarge,
           ncgMode: 'combined',
           includeManualNcg,
@@ -179,7 +183,7 @@ export default function VacuumSystemClient() {
     }
   }, [
     suctionPressure,
-    suctionTemperature,
+    coolantInletTemp,
     dischargePressure,
     includeManualNcg,
     includeHeiLeakage,
@@ -204,7 +208,7 @@ export default function VacuumSystemClient() {
 
   const allInputs = {
     suctionPressure,
-    suctionTemperature,
+    coolantInletTemp,
     dischargePressure,
     includeManualNcg,
     includeHeiLeakage,
@@ -306,23 +310,18 @@ export default function VacuumSystemClient() {
                   }}
                 />
                 <TextField
-                  label="Suction Temperature"
-                  value={suctionTemperature}
-                  onChange={(e) => setSuctionTemperature(e.target.value)}
+                  label="Coolant Inlet Temperature"
+                  value={coolantInletTemp}
+                  onChange={(e) => setCoolantInletTemp(e.target.value)}
                   fullWidth
                   size="small"
                   type="number"
-                  error={
-                    satTempInfo !== null &&
-                    satTempInfo.subcooling !== null &&
-                    satTempInfo.subcooling < 2
-                  }
                   helperText={
-                    satTempInfo
-                      ? satTempInfo.subcooling !== null && satTempInfo.subcooling < 2
-                        ? `Tsat = ${satTempInfo.tSat}\u00B0C at suction pressure \u2014 vent gas should be subcooled 3\u20135\u00B0C below Tsat`
-                        : `Tsat = ${satTempInfo.tSat}\u00B0C at suction pressure (${satTempInfo.subcooling}\u00B0C subcooling)`
-                      : 'Vent gas temperature'
+                    ventInfo
+                      ? ventInfo.capped
+                        ? `Vent gas = ${ventInfo.tVent}\u00B0C (capped at Tsat = ${ventInfo.tSat}\u00B0C) \u2014 offtake at cold end`
+                        : `Vent gas = ${ventInfo.tVent}\u00B0C (inlet + 2\u00B0C, Tsat = ${ventInfo.tSat}\u00B0C)`
+                      : 'Tube-side seawater/cooling-water inlet temperature'
                   }
                   slotProps={{
                     input: {
@@ -652,11 +651,7 @@ export default function VacuumSystemClient() {
               </Stack>
             </Paper>
 
-            {error && (
-              <Alert severity="error">
-                {error}
-              </Alert>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
           </Stack>
         </Grid>
 
@@ -710,8 +705,8 @@ export default function VacuumSystemClient() {
         onLoad={(inputs) => {
           if (typeof inputs.suctionPressure === 'string')
             setSuctionPressure(inputs.suctionPressure);
-          if (typeof inputs.suctionTemperature === 'string')
-            setSuctionTemperature(inputs.suctionTemperature);
+          if (typeof inputs.coolantInletTemp === 'string')
+            setCoolantInletTemp(inputs.coolantInletTemp);
           if (typeof inputs.dischargePressure === 'string')
             setDischargePressure(inputs.dischargePressure);
           if (typeof inputs.includeManualNcg === 'boolean')

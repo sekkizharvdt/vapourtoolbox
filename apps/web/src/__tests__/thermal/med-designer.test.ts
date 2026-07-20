@@ -190,3 +190,24 @@ describe('MED Designer — Design Options Comparison', () => {
     );
   });
 });
+
+describe('MED Designer — vacuum system warnings reach the top-level result', () => {
+  // Regression test: computeVacuumSystem() used to silently drop
+  // calculateVacuumSystem()'s warnings (including the LRVP <50 mbar warning)
+  // before they ever reached MEDDesignerResult.warnings.
+  const result = designMED({
+    steamFlow: 5,
+    steamTemperature: 65,
+    seawaterTemperature: 25,
+    targetGOR: 6,
+    numberOfEffects: 8,
+    vacuumTrainConfig: 'lrvp_only',
+  });
+
+  it('forwards vacuum-system warnings into the top-level warnings array', () => {
+    expect(result.vacuumSystem).toBeDefined();
+    expect(
+      result.warnings.some((w) => w.includes('LRVP-only vacuum train') && w.includes('kWh/m³'))
+    ).toBe(true);
+  });
+});

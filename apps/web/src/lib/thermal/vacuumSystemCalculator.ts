@@ -36,10 +36,24 @@ const M_AIR = 28.97;
 const M_H2O = 18.015;
 /** Universal gas constant (J / mol·K) */
 const R_UNIV = 8.314;
-/** Reference seal water temperature for LRVP rating (°C) */
-const LRVP_REF_SEAL_TEMP = 15;
-/** Reference saturation pressure at LRVP rated conditions (bar) */
-const LRVP_REF_SAT_PRESSURE = getSaturationPressure(LRVP_REF_SEAL_TEMP);
+
+/**
+ * Vent-gas approach: the NCG offtake nozzle sits at the condenser's first-pass
+ * (cold) tube entry, so the extracted gas is cooled to within a couple of °C of
+ * the tube-side coolant inlet temperature. Vent gas ≈ coolant inlet + this Δ,
+ * capped at the vapour-space saturation temperature.
+ */
+const VENT_APPROACH_C = 2;
+
+/**
+ * LRVP frame-table rating basis. The `capacityM3h` values in LRVP_FRAME_SIZES are
+ * the actual suction capacity at this reference suction pressure and seal-water
+ * temperature. Capacity at other conditions is scaled by the blank-off formula
+ * in sizeLRVP(). (Documented assumption — re-anchor if real single-stage
+ * catalogue curves are obtained; the *form* of the correction is the physics.)
+ */
+const LRVP_RATING_SUCTION_MBAR = 100;
+const LRVP_RATING_SEAL_TEMP_C = 15;
 
 // ── HEI Air Leakage Table ────────────────────────────────────────────────────
 
@@ -88,8 +102,12 @@ export interface VacuumSystemInput {
   // ── Operating conditions ──────────────────────────────────────────
   /** Suction pressure at condenser vent (mbar abs) */
   suctionPressureMbar: number;
-  /** Suction temperature (°C) — typically close to saturation at suction P */
-  suctionTemperatureC: number;
+  /**
+   * Tube-side coolant inlet temperature (°C) — seawater/cooling-water entering
+   * the condenser. The vent-gas temperature (and hence the vapour carried with
+   * the NCG) is derived from this via ventGasTemperatureC(), not entered directly.
+   */
+  coolantInletTempC: number;
   /** Discharge pressure (mbar abs) — typically atmospheric ~1013 mbar */
   dischargePressureMbar: number;
 
@@ -221,6 +239,7 @@ export interface VacuumSystemResult {
 
   // ── Conditions ────────────────────────────────────────────────────
   suctionPressureMbar: number;
+  /** Computed vent-gas temperature (°C) — coolant inlet + approach, capped at Tsat */
   suctionTemperatureC: number;
   dischargePressureMbar: number;
   satPressureAtSuctionMbar: number;
@@ -274,6 +293,20 @@ function heiAirLeakage(volumeM3: number): number {
     }
   }
   return last.leakageKgH;
+}
+
+/**
+ * Vent-gas temperature at the NCG offtake.
+ *
+ * The offtake nozzle is located at the condenser's cold (first-pass tube entry)
+ * end, so the extracted gas is cooled to roughly the tube-side coolant inlet
+ * temperature plus a small approach — never above the vapour-space saturation
+ * temperature at suction pressure. This sets how much water vapour rides with
+ * the NCG (Dalton's law) and therefore the volumetric load the pump/ejector sees.
+ */
+function ventGasTemperatureC(suctionPressureMbar: number, coolantInletTempC: number): number {
+  const tSat = getSaturationTemperature(suctionPressureMbar / 1000);
+  return Math.min(tSat, coolantInletTempC + VENT_APPROACH_C);
 }
 
 /**
@@ -396,8 +429,12 @@ function sizeEjectorStage(
   const etaMixing = 0.82;
   const etaDiffuser = 0.75;
 
-  // CR correction factor: exponential decay
-  const crFactor = CR <= 1 ? 1 : Math.exp(-1.0 * (CR - 1));
+  // CR correction factor: entrainment falls as compression ratio rises, but not
+  // to zero across a realistic per-stage CR range (~2–8). The old exp(-(CR-1))
+  // decayed far too fast (CR=4 → 0.05), forcing the Ra clamp floor on every deep-
+  // vacuum stage. Gentler decay with a floor is a simplified interim correlation
+  // pending a proper ejector rebuild against the Huang model in tvcCalculator.ts.
+  const crFactor = CR <= 1 ? 1 : Math.max(0.2, Math.exp(-0.35 * (CR - 1)));
 
   const etaEjector = etaNozzle * etaMixing * etaDiffuser * crFactor;
   let raActual = raTheo * etaEjector;
@@ -428,15 +465,33 @@ function sizeEjectorStage(
 }
 
 /**
+ * LRVP capacity fraction at a given suction pressure and seal-water temperature,
+ * relative to the frame-table rating point.
+ *
+ * A liquid ring pump's capacity is limited by how close the suction pressure is
+ * to the seal water's own vapour pressure: as P_suction → P_sat(T_seal) the seal
+ * water flashes into the swept volume and the pump blanks off (zero capacity).
+ * This single vapour-pressure-difference relation captures both the warm-seal
+ * derate AND the deep-vacuum roll-off (they are the same physics):
+ *
+ *   fraction = (P_suction − P_sat(T_seal)) / (P_ref − P_sat(T_ref))
+ *
+ * At P_suction = P_sat(T_seal) the fraction is 0 — the physical blank-off /
+ * ultimate-vacuum limit for a single-stage LRVP.
+ */
+function lrvpCapacityFraction(suctionPressureMbar: number, sealWaterTempC: number): number {
+  const pBlankMbar = getSaturationPressure(sealWaterTempC) * 1000;
+  const pRefNum = LRVP_RATING_SUCTION_MBAR - getSaturationPressure(LRVP_RATING_SEAL_TEMP_C) * 1000;
+  return Math.max(0, (suctionPressureMbar - pBlankMbar) / pRefNum);
+}
+
+/**
  * Size a liquid ring vacuum pump.
  *
- * LRVP actual capacity decreases as seal water temperature increases
- * because the vapour pressure of the seal water rises, reducing the
- * effective pumping capacity.
- *
- * Correction factor (Ryans & Roper):
- *   f = (P_sat(T_ref_high) - P_sat(T_seal)) / (P_sat(T_ref_high) - P_sat(T_ref_low))
- * where T_ref_high = 33 °C (upper catalogue reference), T_ref_low = 15 °C.
+ * Capacity at the operating point is scaled from the frame rating by the
+ * blank-off relation in lrvpCapacityFraction(). Throws when the suction pressure
+ * is at or below the seal-water blank-off pressure — a single-stage LRVP
+ * physically cannot reach that vacuum with that seal temperature.
  */
 function sizeLRVP(
   requiredCapacityM3h: number,
@@ -451,31 +506,17 @@ function sizeLRVP(
   count: number;
   totalPowerKW: number;
 } {
-  // Seal water temperature correction
-  const tRefHigh = 33; // °C
-  const pSatHigh = getSaturationPressure(tRefHigh);
-  const pSatSeal = getSaturationPressure(sealWaterTempC);
-  const pSatRef = LRVP_REF_SAT_PRESSURE;
+  const pBlankMbar = Math.round(getSaturationPressure(sealWaterTempC) * 1000 * 10) / 10;
+  const effectiveFactor = lrvpCapacityFraction(suctionPressureMbar, sealWaterTempC);
 
-  // Correction factor: how much capacity is lost due to warm seal water
-  let correctionFactor: number;
-  if (pSatHigh - pSatRef > 1e-6) {
-    correctionFactor = Math.max(0.3, Math.min(1.0, (pSatHigh - pSatSeal) / (pSatHigh - pSatRef)));
-  } else {
-    correctionFactor = 1.0;
+  if (effectiveFactor <= 0.02) {
+    throw new Error(
+      `Single-stage LRVP cannot reach ${suctionPressureMbar} mbar with ${sealWaterTempC}°C seal water ` +
+        `(blank-off ≈ ${pBlankMbar} mbar). Use colder seal water or a two-stage LRVP / hybrid train.`
+    );
   }
 
-  // Additional correction for deep vacuum (below ~100 mbar)
-  // LRVP capacity drops significantly at very low suction pressures
-  const suctionBar = suctionPressureMbar / 1000;
-  const deepVacuumFactor =
-    suctionBar < 0.1
-      ? 0.5 + 5 * suctionBar // Linear ramp: 50% at 0 mbar, 100% at 100 mbar
-      : 1.0;
-
-  const effectiveFactor = correctionFactor * deepVacuumFactor;
-
-  // Required rated capacity (at reference conditions)
+  // Required rated capacity (at the frame rating point)
   const requiredCorrectedCapacity = requiredCapacityM3h / effectiveFactor;
 
   // Select the best frame size — minimize total power for the required capacity.
@@ -572,25 +613,24 @@ function calculateInterCondenser(
 /**
  * Calculate evacuation time from atmospheric pressure to operating vacuum.
  *
- * Uses numerical integration: at each pressure step, the LRVP effective
- * capacity is calculated (with temperature and deep-vacuum corrections),
- * and the time to pump down through that pressure increment is computed.
+ * Uses numerical integration: at each pressure step, the pump's effective
+ * capacity at that pressure is evaluated via `capacityAtPressureM3h` and the
+ * time to pump down through the increment is computed.
  *
  * For an ideal gas in a constant-volume vessel:
  *   dt = V × dP / (S(P) × P_step)
  * where S(P) is the pump's volumetric capacity at pressure P.
  *
- * Since LRVP capacity degrades at deep vacuum, we integrate numerically
- * in 20 equal log-spaced pressure steps.
+ * Integrated numerically in 20 equal log-spaced pressure steps. The
+ * capacity-vs-pressure function is supplied by the caller so pump-down uses the
+ * same blank-off physics as the steady-state sizing (capacity rises toward
+ * atmospheric, falls to zero at blank-off).
  */
 function calculateEvacuationTime(
   vesselVolumeM3: number,
   startPressureMbar: number,
   endPressureMbar: number,
-  _sealWaterTempC: number,
-  pumpCapacityM3h: number,
-  pumpCount: number,
-  correctionFactor: number
+  capacityAtPressureM3h: (pressureMbar: number) => number
 ): {
   totalMinutes: number;
   steps: { pressureMbar: number; capacityM3h: number; cumulativeMinutes: number }[];
@@ -600,7 +640,6 @@ function calculateEvacuationTime(
   const logEnd = Math.log(endPressureMbar);
   const dLog = (logStart - logEnd) / nSteps;
 
-  const totalRatedCapacity = pumpCapacityM3h * pumpCount;
   let cumulativeMinutes = 0;
   const steps: { pressureMbar: number; capacityM3h: number; cumulativeMinutes: number }[] = [];
 
@@ -609,12 +648,8 @@ function calculateEvacuationTime(
     const pLow = Math.exp(logStart - (i + 1) * dLog);
     const pMid = (pHigh + pLow) / 2;
 
-    // Deep vacuum correction at mid-point pressure
-    const suctionBar = pMid / 1000;
-    const deepVacuumFactor = suctionBar < 0.1 ? 0.5 + 5 * suctionBar : 1.0;
-
-    // Effective capacity at this pressure
-    const effectiveCapacity = totalRatedCapacity * correctionFactor * deepVacuumFactor;
+    // Effective capacity at this pressure (caller-supplied physics)
+    const effectiveCapacity = capacityAtPressureM3h(pMid);
 
     if (effectiveCapacity <= 0) {
       cumulativeMinutes = Infinity;
@@ -651,7 +686,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
   const warnings: string[] = [];
   const {
     suctionPressureMbar,
-    suctionTemperatureC,
+    coolantInletTempC,
     dischargePressureMbar,
     ncgMode,
     motivePressureBar,
@@ -669,8 +704,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
       `Suction pressure (${suctionPressureMbar} mbar) must be positive and less than discharge pressure (${dischargePressureMbar} mbar).`
     );
   }
-  if (suctionTemperatureC < 0 || suctionTemperatureC > 100) {
-    throw new Error('Suction temperature must be between 0 and 100 °C.');
+  if (coolantInletTempC < 0 || coolantInletTempC > 100) {
+    throw new Error('Coolant inlet temperature must be between 0 and 100 °C.');
   }
   if (motivePressureBar <= 0) {
     throw new Error('Motive steam pressure must be positive.');
@@ -681,7 +716,9 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
 
   const suctionPressureBar = suctionPressureMbar / 1000;
   const dischargePressureBar = dischargePressureMbar / 1000;
-  const satPressureAtSuction = getSaturationPressure(suctionTemperatureC);
+  // Vent-gas temperature (offtake at cold end) drives the vapour carried with NCG.
+  const ventTempC = ventGasTemperatureC(suctionPressureMbar, coolantInletTempC);
+  const satPressureAtSuction = getSaturationPressure(ventTempC);
   const satPressureAtSuctionMbar = satPressureAtSuction * 1000;
 
   // ── NCG load estimation ───────────────────────────────────────────────────
@@ -765,7 +802,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
   // ── Vapour load at suction conditions ──────────────────────────────────────
 
   const vapourWithNcgKgH =
-    Math.round(vapourWithNCG(totalDryNcgKgH, suctionTemperatureC, suctionPressureBar) * 100) / 100;
+    Math.round(vapourWithNCG(totalDryNcgKgH, ventTempC, suctionPressureBar) * 100) / 100;
   const totalSuctionFlowKgH = Math.round((totalDryNcgKgH + vapourWithNcgKgH) * 100) / 100;
   const totalSuctionVolumeM3h =
     Math.round(
@@ -773,7 +810,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         totalSuctionFlowKgH,
         totalDryNcgKgH,
         vapourWithNcgKgH,
-        suctionTemperatureC,
+        ventTempC,
         suctionPressureBar
       ) * 10
     ) / 10;
@@ -801,7 +838,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         motivePressureBar,
         totalDryNcgKgH,
         vapourWithNcgKgH,
-        suctionTemperatureC,
+        ventTempC,
         warnings
       );
       totalMotiveSteamKgH = Math.round(ej.motiveSteamKgH * 10) / 10;
@@ -833,7 +870,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         motivePressureBar,
         totalDryNcgKgH,
         vapourWithNcgKgH,
-        suctionTemperatureC,
+        ventTempC,
         warnings
       );
       const stage1MotiveSteam = Math.round(ej1.motiveSteamKgH * 10) / 10;
@@ -920,38 +957,11 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
     }
 
     case 'lrvp_only': {
-      // LRVP handles full compression from suction to discharge
-      if (suctionPressureMbar < 50) {
-        warnings.push(
-          'Suction pressure below 50 mbar is challenging for LRVP. Consider a hybrid ejector + LRVP configuration.'
-        );
-      }
-
-      // NCG is extracted at the condenser's cold (seawater-inlet) end, not at
-      // the bulk last-effect saturation temperature — same modeling already
-      // used for the hybrid config's inter-condenser outlet (see
-      // calculateInterCondenser). Using the bulk temperature here made the
-      // vapour/NCG ratio blow up (P_sat ≈ P_suction), grossly oversizing the
-      // LRVP and its power.
-      const lrvpVentTempC = coolingWaterTempC + approachC;
-      const lrvpVapourWithNcgKgH =
-        Math.round(vapourWithNCG(totalDryNcgKgH, lrvpVentTempC, suctionPressureBar) * 100) / 100;
-      const lrvpTotalSuctionFlowKgH =
-        Math.round((totalDryNcgKgH + lrvpVapourWithNcgKgH) * 100) / 100;
-      const lrvpSuctionVolumeM3h =
-        Math.round(
-          volumetricFlow(
-            lrvpTotalSuctionFlowKgH,
-            totalDryNcgKgH,
-            lrvpVapourWithNcgKgH,
-            lrvpVentTempC,
-            suctionPressureBar
-          ) * 10
-        ) / 10;
-      const lrvpDesignSuctionVolumeM3h =
-        Math.round(lrvpSuctionVolumeM3h * (1 + designMargin) * 10) / 10;
-
-      const pump = sizeLRVP(lrvpDesignSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
+      // LRVP handles full compression from suction to discharge. The vapour load
+      // (from the computed vent-gas temperature) and volumetric flow are the
+      // shared values computed above — the same every train config uses. The
+      // blank-off feasibility limit is enforced inside sizeLRVP().
+      const pump = sizeLRVP(designSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
       totalPowerKW = pump.totalPowerKW;
 
       stages.push({
@@ -961,9 +971,9 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         dischargePressureMbar,
         compressionRatio: Math.round(overallCR * 100) / 100,
         dryNcgInKgH: totalDryNcgKgH,
-        vapourInKgH: lrvpVapourWithNcgKgH,
-        totalSuctionKgH: lrvpTotalSuctionFlowKgH,
-        suctionVolumeM3h: lrvpDesignSuctionVolumeM3h,
+        vapourInKgH: vapourWithNcgKgH,
+        totalSuctionKgH: totalSuctionFlowKgH,
+        suctionVolumeM3h: designSuctionVolumeM3h,
         lrvpModel: pump.model,
         lrvpRatedCapacityM3h: pump.ratedCapacityM3h,
         lrvpCorrectionFactor: pump.correctionFactor,
@@ -993,7 +1003,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         motivePressureBar,
         totalDryNcgKgH,
         vapourWithNcgKgH,
-        suctionTemperatureC,
+        ventTempC,
         warnings
       );
       const ejMotiveSteam = Math.round(ej.motiveSteamKgH * 10) / 10;
@@ -1091,37 +1101,47 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
 
   if (input.evacuationVolumeM3 && input.evacuationVolumeM3 > 0) {
     evacuationVolumeM3 = input.evacuationVolumeM3;
-    // Find LRVP stage for pump parameters, or size a dedicated evacuation pump
+    // Pump-down capacity at each pressure uses the same blank-off physics as the
+    // steady-state sizing: capacity rises toward atmospheric (capped at 1.5×
+    // rating for realistic open-suction displacement) and falls to zero at
+    // blank-off. Capacity fraction is evaluated per-pressure during integration.
+    const evacCapacityFn = (totalRatedCapacityM3h: number) => (pMbar: number) =>
+      totalRatedCapacityM3h * Math.min(1.5, lrvpCapacityFraction(pMbar, sealWaterTempC));
+
     const lrvpStage = stages.find((s) => s.type === 'lrvp');
-    if (lrvpStage && lrvpStage.lrvpRatedCapacityM3h && lrvpStage.lrvpCorrectionFactor) {
+    if (lrvpStage && lrvpStage.lrvpRatedCapacityM3h) {
+      const totalRated = lrvpStage.lrvpRatedCapacityM3h * (lrvpStage.lrvpCount ?? 1);
       const evac = calculateEvacuationTime(
         evacuationVolumeM3,
         dischargePressureMbar, // start from atmospheric
         suctionPressureMbar, // pump down to operating vacuum
-        sealWaterTempC,
-        lrvpStage.lrvpRatedCapacityM3h,
-        lrvpStage.lrvpCount ?? 1,
-        lrvpStage.lrvpCorrectionFactor
+        evacCapacityFn(totalRated)
       );
       evacuationTimeMinutes = evac.totalMinutes;
       evacuationSteps = evac.steps;
     } else if (trainConfig === 'single_ejector' || trainConfig === 'two_stage_ejector') {
-      // For ejector-only configs, size a temporary LRVP for evacuation
-      const evacPump = sizeLRVP(designSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
-      const evac = calculateEvacuationTime(
-        evacuationVolumeM3,
-        dischargePressureMbar,
-        suctionPressureMbar,
-        sealWaterTempC,
-        evacPump.ratedCapacityM3h,
-        evacPump.count,
-        evacPump.correctionFactor
-      );
-      evacuationTimeMinutes = evac.totalMinutes;
-      evacuationSteps = evac.steps;
-      warnings.push(
-        `Evacuation time estimated using ${evacPump.count > 1 ? `${evacPump.count}× ` : ''}${evacPump.model} (${evacPump.totalPowerKW} kW). Ejector trains require a separate pump or hogging ejector for initial evacuation.`
-      );
+      // For ejector-only configs, size a temporary LRVP for evacuation. If the
+      // operating vacuum is below the temp LRVP's blank-off, sizeLRVP throws —
+      // skip the estimate and flag that a hogging ejector is needed instead.
+      try {
+        const evacPump = sizeLRVP(designSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
+        const totalRated = evacPump.ratedCapacityM3h * evacPump.count;
+        const evac = calculateEvacuationTime(
+          evacuationVolumeM3,
+          dischargePressureMbar,
+          suctionPressureMbar,
+          evacCapacityFn(totalRated)
+        );
+        evacuationTimeMinutes = evac.totalMinutes;
+        evacuationSteps = evac.steps;
+        warnings.push(
+          `Evacuation time estimated using ${evacPump.count > 1 ? `${evacPump.count}× ` : ''}${evacPump.model} (${evacPump.totalPowerKW} kW). Ejector trains require a separate pump or hogging ejector for initial evacuation.`
+        );
+      } catch {
+        warnings.push(
+          'Evacuation time not estimated: operating vacuum is below the blank-off of a liquid-ring evacuation pump at this seal-water temperature. A hogging ejector or colder seal water is required for initial evacuation.'
+        );
+      }
     }
   }
 
@@ -1137,11 +1157,11 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
   }
   if (vapourWithNcgKgH > totalDryNcgKgH * 50) {
     const tSat = getSaturationTemperature(suctionPressureBar);
-    const subcooling = Math.round((tSat - suctionTemperatureC) * 10) / 10;
+    const subcooling = Math.round((tSat - ventTempC) * 10) / 10;
     if (subcooling < 3) {
       warnings.push(
-        `Water vapour load is very high relative to NCG. Suction temperature (${suctionTemperatureC}\u00B0C) is within ${subcooling}\u00B0C of saturation (${Math.round(tSat * 10) / 10}\u00B0C). ` +
-          'The vent gas should be subcooled 3\u20135\u00B0C below Tsat in the condenser NCG cooling section to reduce vapour carry-over.'
+        `Water vapour load is very high relative to NCG. Vent gas (${ventTempC}\u00B0C, from coolant inlet ${coolantInletTempC}\u00B0C) is within ${subcooling}\u00B0C of saturation (${Math.round(tSat * 10) / 10}\u00B0C). ` +
+          'A colder tube-side coolant inlet would subcool the vent gas further and reduce vapour carry-over.'
       );
     } else {
       warnings.push(
@@ -1171,7 +1191,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
     totalSuctionVolumeM3h,
     designSuctionVolumeM3h,
     suctionPressureMbar,
-    suctionTemperatureC,
+    suctionTemperatureC: Math.round(ventTempC * 10) / 10,
     dischargePressureMbar,
     satPressureAtSuctionMbar: Math.round(satPressureAtSuctionMbar * 10) / 10,
     stages,

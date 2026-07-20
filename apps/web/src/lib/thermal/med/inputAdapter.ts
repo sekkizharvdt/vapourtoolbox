@@ -121,6 +121,17 @@ export function resolveDesignerDefaults(
     NEA,
     demisterLoss: demLoss,
     pressureDropLoss: pdLoss,
+    bpeSafetyFactor: input.bpeSafetyFactor ?? 1.0,
+    foulingResistance: input.foulingResistance ?? 0.00015,
+    minimumWettingRate: minGamma,
+    includeBrineRecirculation: includeRecirc,
+    shellThickness: shellThkMM,
+    tubeSheetThickness: tubeSheetThkMM,
+    tubeSheetAccess: tubeSheetAccessMM,
+    antiscalantDoseMgL: input.antiscalantDoseMgL ?? 2,
+    vacuumTrainConfig:
+      input.vacuumTrainConfig ??
+      (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid'),
   };
 
   return {
@@ -161,7 +172,7 @@ export function resolveDesignerDefaults(
  * Map tube material name to TubeMaterial enum value.
  * The designer uses free-form strings; the core solver uses an enum.
  */
-function mapTubeMaterial(name: string): TubeMaterial {
+export function mapTubeMaterial(name: string): TubeMaterial {
   const lower = name.toLowerCase();
   if (lower.includes('titanium') || lower.includes('ti')) return 'titanium';
   if (lower.includes('al') && lower.includes('brass')) return 'al_brass';

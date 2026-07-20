@@ -444,13 +444,11 @@ export function computeDosing(
 
 export function computeVacuumSystem(
   lastEffectPressureMbar: number,
-  lastEffectTempC: number,
   swFlowM3h: number,
   swTempC: number,
   salinityGkg: number,
   systemVolumeM3: number,
-  trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid',
-  condenserApproachC: number
+  trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
 ): MEDVacuumResult | undefined {
   try {
     // HEI air leakage tables are for power plant condensers with many flanged
@@ -462,7 +460,9 @@ export function computeVacuumSystem(
 
     const result = calculateVacuumSystem({
       suctionPressureMbar: lastEffectPressureMbar - 2, // 2 mbar vent line ΔP
-      suctionTemperatureC: lastEffectTempC,
+      // Vent gas is extracted at the condenser cold end (seawater inlet); the
+      // calculator derives the vent temperature from this coolant inlet temp.
+      coolantInletTempC: swTempC,
       dischargePressureMbar: 1013,
       ncgMode: 'combined',
       includeHeiLeakage: true,
@@ -474,7 +474,6 @@ export function computeVacuumSystem(
       motivePressureBar: 8, // 8 bar motive steam
       coolingWaterTempC: swTempC,
       sealWaterTempC: swTempC,
-      interCondenserApproachC: condenserApproachC,
       trainConfig,
       evacuationVolumeM3: systemVolumeM3, // full volume for evacuation time calc
     });
@@ -486,6 +485,7 @@ export function computeVacuumSystem(
       totalPowerKW: result.totalPowerKW,
       trainConfig,
       evacuationTimeMinutes: result.evacuationTimeMinutes ?? 0,
+      warnings: result.warnings,
     };
   } catch {
     return undefined;
