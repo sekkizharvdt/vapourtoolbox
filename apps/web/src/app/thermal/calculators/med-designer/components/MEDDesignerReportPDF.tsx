@@ -354,8 +354,16 @@ export function MEDDesignerReportPDF({
                     value: `${fmt(r.makeUpFeed)} T/h @ ${fmt(r.inputs.seawaterTemperature)}°C`,
                   },
                   {
-                    label: 'Distillate Out',
+                    label: 'Distillate Out (net product)',
                     value: `${fmt(r.totalDistillate, 2)} T/h (${fmt(r.totalDistillateM3Day, 0)} m³/d)`,
+                  },
+                  {
+                    label: 'Gross Distillate (hotwell)',
+                    value: `${fmt(r.grossDistillate, 2)} T/h — extraction pump duty`,
+                  },
+                  {
+                    label: 'Steam Condensate Return',
+                    value: `${fmt(r.steamCondensateReturn, 2)} T/h — branched to heat source`,
                   },
                   {
                     label: 'Brine Blowdown',
@@ -615,6 +623,40 @@ export function MEDDesignerReportPDF({
             striped
           />
         </ReportSection>
+
+        {/* Plant electrical summary */}
+        {r.plantPower && r.plantPower.consumers.length > 0 && (
+          <ReportSection title="11. Plant Electrical Summary">
+            <ReportTable
+              columns={[
+                { key: 'consumer', header: 'Consumer', width: '46%' },
+                { key: 'power', header: 'Power (kW)', width: '18%', align: 'right' },
+                { key: 'specific', header: 'kWh/m³', width: '18%', align: 'right' },
+                { key: 'share', header: 'Share', width: '18%', align: 'right' },
+              ]}
+              rows={[
+                ...r.plantPower.consumers.map((c) => ({
+                  consumer: c.service,
+                  power: fmt(c.runningPowerKW, 2),
+                  specific: fmt(c.kWhPerM3, 3),
+                  share: `${fmt((c.runningPowerKW / r.plantPower!.totalPowerKW) * 100, 0)}%`,
+                })),
+                {
+                  consumer: 'TOTAL',
+                  power: fmt(r.plantPower.totalPowerKW, 2),
+                  specific: fmt(r.plantPower.totalKWhPerM3, 3),
+                  share: '100%',
+                },
+              ]}
+              striped
+            />
+            <Text style={{ fontSize: 7, marginTop: 4, color: REPORT_THEME.textSecondary }}>
+              Electrical demand per m³ of net product ({fmt(r.plantPower.netDistillateM3h, 1)}{' '}
+              m³/h). Duty machines only — standby pumps excluded. Distinct from the plant&apos;s
+              thermal specific energy.
+            </Text>
+          </ReportSection>
+        )}
 
         {notes && <NotesSection notes={notes} />}
         <ListFooter label="Vapour Toolbox — MED Plant Designer (Detailed Report)" />

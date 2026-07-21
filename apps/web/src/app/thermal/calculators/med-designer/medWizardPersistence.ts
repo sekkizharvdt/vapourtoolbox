@@ -57,6 +57,9 @@ export interface MEDWizardDesignState {
   antiscalantDose: string;
   shellsPerEffect: string;
   vacuumConfig: VacuumConfig;
+  sealWaterTemp: string;
+  sealWaterClosedLoop: boolean;
+  sealWaterChillerCOP: string;
   includeTurndown: boolean;
   // Step 2: geometry selection
   geoMode: GeoMode;
@@ -94,6 +97,9 @@ export const MED_WIZARD_DEFAULTS: MEDWizardDesignState = {
   antiscalantDose: '2',
   shellsPerEffect: '1',
   vacuumConfig: 'two_stage_ejector',
+  sealWaterTemp: '',
+  sealWaterClosedLoop: false,
+  sealWaterChillerCOP: '5',
   includeTurndown: false,
   geoMode: 'fixed_length',
   geoValue: '1.2',
@@ -128,6 +134,9 @@ const MED_WIZARD_SAVE_KEY_MAP: Record<keyof MEDWizardDesignState, true> = {
   antiscalantDose: true,
   shellsPerEffect: true,
   vacuumConfig: true,
+  sealWaterTemp: true,
+  sealWaterClosedLoop: true,
+  sealWaterChillerCOP: true,
   includeTurndown: true,
   geoMode: true,
   geoValue: true,
@@ -218,6 +227,9 @@ export function restoreMEDWizardState(payload: Record<string, unknown>): MEDWiza
     antiscalantDose: asString(payload.antiscalantDose, d.antiscalantDose),
     shellsPerEffect: asString(payload.shellsPerEffect, d.shellsPerEffect),
     vacuumConfig: asEnum(payload.vacuumConfig, VACUUM_CONFIGS, d.vacuumConfig),
+    sealWaterTemp: asString(payload.sealWaterTemp, d.sealWaterTemp),
+    sealWaterClosedLoop: asBoolean(payload.sealWaterClosedLoop, d.sealWaterClosedLoop),
+    sealWaterChillerCOP: asString(payload.sealWaterChillerCOP, d.sealWaterChillerCOP),
     includeTurndown: asBoolean(payload.includeTurndown, d.includeTurndown),
     geoMode: asEnum(payload.geoMode, GEO_MODES, d.geoMode),
     geoValue: asString(payload.geoValue, d.geoValue),

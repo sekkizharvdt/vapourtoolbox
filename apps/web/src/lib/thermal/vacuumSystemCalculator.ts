@@ -55,6 +55,19 @@ const VENT_APPROACH_C = 2;
 const LRVP_RATING_SUCTION_MBAR = 100;
 const LRVP_RATING_SEAL_TEMP_C = 15;
 
+/**
+ * Closed-loop seal water: a plain seawater-cooled exchanger can bring the seal
+ * water down to roughly the coolant inlet plus this approach. Below that, active
+ * refrigeration (a chiller) is required.
+ */
+const SEAL_COOLER_APPROACH_C = 3;
+/**
+ * Default COP for the seal-water chiller. The lift is small (e.g. 25 °C chilled
+ * water rejecting to ~30 °C seawater), so a good COP is achievable; overridable
+ * via `sealWaterChillerCOP` since it drives the parasitic-power trade-off.
+ */
+const DEFAULT_SEAL_CHILLER_COP = 5.0;
+
 // ── HEI Air Leakage Table ────────────────────────────────────────────────────
 
 /**
@@ -152,8 +165,21 @@ export interface VacuumSystemInput {
   interCondenserApproachC?: number;
 
   // ── LRVP parameters ───────────────────────────────────────────────
-  /** Seal water temperature (°C) */
+  /**
+   * Seal water temperature (°C). Sets the LRVP blank-off pressure
+   * (P_blank = P_sat(T_seal)) and is therefore the dominant lever on pump size
+   * at deep vacuum. Independent of the coolant inlet — a closed loop can be
+   * chilled below seawater temperature.
+   */
   sealWaterTempC: number;
+  /**
+   * Closed-loop seal water (pump discharge → separator → vent → cooler → pump).
+   * When true, the cooling duty, chiller power, make-up rate and net power are
+   * computed so the parasitic cost of chilling is visible.
+   */
+  sealWaterClosedLoop?: boolean;
+  /** Seal-water chiller COP (default 5.0) — only used when refrigeration is required */
+  sealWaterChillerCOP?: number;
 
   // ── Configuration ─────────────────────────────────────────────────
   trainConfig: TrainConfig;
@@ -216,6 +242,42 @@ export interface StageResult {
   vapourCondensedKgH?: number;
 }
 
+/** Closed-loop seal water system result */
+export interface SealLoopResult {
+  /** Seal water temperature maintained (°C) */
+  sealWaterTempC: number;
+  /** LRVP blank-off pressure at this seal temperature (mbar abs) */
+  blankOffMbar: number;
+  /** True when the target is below what a seawater-cooled exchanger can reach */
+  chillerRequired: boolean;
+  /** Heat rejected by the seal-water cooler (kW) — pump shaft work + vapour condensation */
+  coolingDutyKW: number;
+  /** Vapour condensing into the ring (kg/h) — the latent part of the cooling duty */
+  vapourCondensedKgH: number;
+  /** Chiller electrical input (kW) — zero when seawater cooling suffices */
+  chillerPowerKW: number;
+  /** Assumed chiller COP */
+  chillerCOP: number;
+  /** Make-up water (kg/h) — vapour leaving saturated with the vented NCG */
+  makeupWaterKgH: number;
+  /** Net vacuum-system power (kW) — LRVP + chiller */
+  netPowerKW: number;
+}
+
+/** One row of the seal-water temperature sensitivity sweep */
+export interface SealWaterSensitivityRow {
+  sealWaterTempC: number;
+  blankOffMbar: number;
+  /** False when the suction pressure is at/below blank-off at this seal temperature */
+  feasible: boolean;
+  lrvpModel?: string;
+  lrvpCount?: number;
+  lrvpPowerKW?: number;
+  chillerDutyKW?: number;
+  chillerPowerKW?: number;
+  netPowerKW?: number;
+}
+
 export interface VacuumSystemResult {
   // ── NCG load breakdown ────────────────────────────────────────────
   /** Air leakage into the system (kg/h dry air) */
@@ -253,6 +315,8 @@ export interface VacuumSystemResult {
   totalPowerKW: number;
   trainConfig: TrainConfig;
   designMargin: number;
+  /** Closed-loop seal water result — present only when sealWaterClosedLoop is set */
+  sealLoop?: SealLoopResult;
 
   // ── Evacuation time ──────────────────────────────────────────────
   /** Evacuation volume (m³) — if specified */
@@ -554,6 +618,62 @@ function sizeLRVP(
     powerKW: bestModel.powerKW,
     count: bestCount,
     totalPowerKW: Math.round(bestTotalPower * 10) / 10,
+  };
+}
+
+/**
+ * Closed-loop seal water system: LRVP discharge (seal water + compressed gas) →
+ * separator → NCG vents to atmosphere → seal water through a cooler → back to
+ * the pump, with make-up for the vapour that leaves with the vent.
+ *
+ * The cooler must reject the pump's shaft work (essentially all of it ends up as
+ * heat in the liquid ring) plus the latent heat of the suction vapour that
+ * condenses into the ring. Gas sensible cooling is ~0.003 kW here — negligible,
+ * not modelled.
+ *
+ * Whether that duty needs refrigeration depends on the target: a plain
+ * seawater-cooled exchanger reaches about (coolant inlet + SEAL_COOLER_APPROACH_C);
+ * only below that is a chiller — and its parasitic power — actually required.
+ */
+function computeSealLoop(params: {
+  sealWaterTempC: number;
+  coolantInletTempC: number;
+  dischargePressureBar: number;
+  totalDryNcgKgH: number;
+  vapourWithNcgKgH: number;
+  lrvpPowerKW: number;
+  chillerCOP: number;
+}): SealLoopResult {
+  const {
+    sealWaterTempC,
+    coolantInletTempC,
+    dischargePressureBar,
+    totalDryNcgKgH,
+    vapourWithNcgKgH,
+    lrvpPowerKW,
+    chillerCOP,
+  } = params;
+
+  // Vapour leaving saturated with the vented gas at discharge conditions; the
+  // rest condenses into the seal water. Also the closed loop's make-up rate.
+  const vapourOutKgH = vapourWithNCG(totalDryNcgKgH, sealWaterTempC, dischargePressureBar);
+  const vapourCondensedKgH = Math.max(0, vapourWithNcgKgH - vapourOutKgH);
+  const latentKW = (vapourCondensedKgH * getLatentHeat(sealWaterTempC)) / 3600;
+  const coolingDutyKW = lrvpPowerKW + latentKW;
+
+  const chillerRequired = sealWaterTempC < coolantInletTempC + SEAL_COOLER_APPROACH_C;
+  const chillerPowerKW = chillerRequired && chillerCOP > 0 ? coolingDutyKW / chillerCOP : 0;
+
+  return {
+    sealWaterTempC,
+    blankOffMbar: Math.round(getSaturationPressure(sealWaterTempC) * 1000 * 10) / 10,
+    chillerRequired,
+    coolingDutyKW: Math.round(coolingDutyKW * 100) / 100,
+    vapourCondensedKgH: Math.round(vapourCondensedKgH * 1000) / 1000,
+    chillerPowerKW: Math.round(chillerPowerKW * 100) / 100,
+    chillerCOP,
+    makeupWaterKgH: Math.round(vapourOutKgH * 1000) / 1000,
+    netPowerKW: Math.round((lrvpPowerKW + chillerPowerKW) * 100) / 100,
   };
 }
 
@@ -1091,6 +1211,29 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
   totalCoolingWaterM3h = Math.round(totalCoolingWaterM3h * 100) / 100;
   totalPowerKW = Math.round(totalPowerKW * 10) / 10;
 
+  // ── Closed-loop seal water ──────────────────────────────────────────────────
+
+  let sealLoop: SealLoopResult | undefined;
+  if (input.sealWaterClosedLoop && totalPowerKW > 0) {
+    sealLoop = computeSealLoop({
+      sealWaterTempC,
+      coolantInletTempC,
+      dischargePressureBar,
+      totalDryNcgKgH,
+      vapourWithNcgKgH,
+      lrvpPowerKW: totalPowerKW,
+      chillerCOP: input.sealWaterChillerCOP ?? DEFAULT_SEAL_CHILLER_COP,
+    });
+    if (sealLoop.chillerRequired) {
+      warnings.push(
+        `Closed-loop seal water at ${sealWaterTempC}°C needs refrigeration (below the ` +
+          `~${Math.round(coolantInletTempC + SEAL_COOLER_APPROACH_C)}°C a seawater-cooled exchanger can reach): ` +
+          `${sealLoop.coolingDutyKW} kW duty → ${sealLoop.chillerPowerKW} kW chiller input at COP ${sealLoop.chillerCOP}. ` +
+          `Net vacuum power ${sealLoop.netPowerKW} kW vs ${totalPowerKW} kW for the LRVP alone.`
+      );
+    }
+  }
+
   // ── Evacuation time ─────────────────────────────────────────────────────────
 
   let evacuationVolumeM3: number | undefined;
@@ -1200,9 +1343,51 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
     totalPowerKW,
     trainConfig,
     designMargin,
+    ...(sealLoop && { sealLoop }),
     evacuationVolumeM3,
     evacuationTimeMinutes,
     evacuationSteps,
     warnings,
   };
+}
+
+/** Default seal-water temperatures for the sensitivity sweep (°C) */
+export const DEFAULT_SEAL_WATER_SWEEP_C = [20, 22, 25, 28, 30, 33, 35];
+
+/**
+ * Sweep LRVP performance across seal-water temperatures.
+ *
+ * Seal temperature sets the blank-off pressure (P_blank = P_sat(T_seal)), so at
+ * deep vacuum it is the dominant lever on pump size and power. This re-runs the
+ * sizing at each temperature so the trade-off — a smaller pump versus the chiller
+ * power needed to hold a colder loop — is visible rather than implied.
+ *
+ * Temperatures whose blank-off sits at or above the suction pressure are returned
+ * as `feasible: false` rather than throwing.
+ */
+export function sealWaterSensitivity(
+  input: VacuumSystemInput,
+  tempsC: number[] = DEFAULT_SEAL_WATER_SWEEP_C
+): SealWaterSensitivityRow[] {
+  return tempsC.map((sealWaterTempC) => {
+    const blankOffMbar = Math.round(getSaturationPressure(sealWaterTempC) * 1000 * 10) / 10;
+    try {
+      const result = calculateVacuumSystem({ ...input, sealWaterTempC });
+      const lrvpStage = result.stages.find((s) => s.type === 'lrvp');
+      return {
+        sealWaterTempC,
+        blankOffMbar,
+        feasible: true,
+        lrvpModel: lrvpStage?.lrvpModel,
+        lrvpCount: lrvpStage?.lrvpCount,
+        lrvpPowerKW: result.totalPowerKW,
+        chillerDutyKW: result.sealLoop?.coolingDutyKW,
+        chillerPowerKW: result.sealLoop?.chillerPowerKW,
+        netPowerKW: result.sealLoop?.netPowerKW ?? result.totalPowerKW,
+      };
+    } catch {
+      // Below blank-off at this seal temperature — not achievable single-stage.
+      return { sealWaterTempC, blankOffMbar, feasible: false };
+    }
+  });
 }

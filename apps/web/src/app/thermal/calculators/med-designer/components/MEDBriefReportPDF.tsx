@@ -242,8 +242,14 @@ export function MEDBriefReportPDF({
                 tds: String(r.inputs.resolvedDefaults.seawaterSalinity),
               },
               {
-                stream: 'Distillate (out)',
+                stream: 'Distillate — net product (out)',
                 flow: fmt(r.totalDistillate, 2),
+                temp: fmt(r.effects[r.effects.length - 1]?.vapourOutTemp ?? 38),
+                tds: '< 5',
+              },
+              {
+                stream: 'Steam condensate return (out)',
+                flow: fmt(r.steamCondensateReturn, 2),
                 temp: fmt(r.effects[r.effects.length - 1]?.vapourOutTemp ?? 38),
                 tds: '< 5',
               },

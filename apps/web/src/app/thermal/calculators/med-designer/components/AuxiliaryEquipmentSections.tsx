@@ -292,13 +292,108 @@ export function AuxiliaryEquipmentSections({ result }: { result: MEDDesignerResu
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Power</TableCell>
+                  <TableCell>Seal Water Temperature</TableCell>
+                  <TableCell align="right">
+                    {fmt(result.vacuumSystem.sealWaterTempC, 1)} °C
+                    {result.vacuumSystem.sealLoop &&
+                      ` (blank-off ${fmt(result.vacuumSystem.sealLoop.blankOffMbar, 0)} mbar)`}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>{result.vacuumSystem.sealLoop ? 'LRVP Power' : 'Power'}</TableCell>
                   <TableCell align="right">{fmt(result.vacuumSystem.totalPowerKW, 1)} kW</TableCell>
                 </TableRow>
+                {result.vacuumSystem.sealLoop && (
+                  <>
+                    <TableRow>
+                      <TableCell>Seal Loop Cooling Duty</TableCell>
+                      <TableCell align="right">
+                        {fmt(result.vacuumSystem.sealLoop.coolingDutyKW, 1)} kW
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Seal Water Chiller</TableCell>
+                      <TableCell align="right">
+                        {result.vacuumSystem.sealLoop.chillerRequired
+                          ? `${fmt(result.vacuumSystem.sealLoop.chillerPowerKW, 1)} kW (COP ${fmt(result.vacuumSystem.sealLoop.chillerCOP, 1)})`
+                          : 'Not required — seawater cooling suffices'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Make-up Water</TableCell>
+                      <TableCell align="right">
+                        {fmt(result.vacuumSystem.sealLoop.makeupWaterKgH, 2)} kg/h
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Net Vacuum Power</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                        {fmt(result.vacuumSystem.sealLoop.netPowerKW, 1)} kW
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
                 <TableRow>
                   <TableCell>Evacuation Time</TableCell>
                   <TableCell align="right">
                     {fmt(result.vacuumSystem.evacuationTimeMinutes, 0)} min
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </AccordionDetails>
+        </Accordion>
+      )}
+
+      {/* ── Plant Electrical Summary ────────────────────────────── */}
+      {result.plantPower && result.plantPower.consumers.length > 0 && (
+        <Accordion defaultExpanded={false}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="subtitle2">Plant Electrical Summary</Typography>
+              <Chip
+                label={`${fmt(result.plantPower.totalKWhPerM3, 2)} kWh/m³`}
+                size="small"
+                variant="outlined"
+              />
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              Electrical demand per m³ of net product ({fmt(result.plantPower.netDistillateM3h, 1)}{' '}
+              m³/h). Duty machines only — standby pumps excluded. Separate from the plant&apos;s
+              thermal specific energy.
+            </Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Consumer</TableCell>
+                  <TableCell align="right">Power (kW)</TableCell>
+                  <TableCell align="right">kWh/m³</TableCell>
+                  <TableCell align="right">Share</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {result.plantPower.consumers.map((c) => (
+                  <TableRow key={c.service}>
+                    <TableCell>{c.service}</TableCell>
+                    <TableCell align="right">{fmt(c.runningPowerKW, 2)}</TableCell>
+                    <TableCell align="right">{fmt(c.kWhPerM3, 3)}</TableCell>
+                    <TableCell align="right">
+                      {fmt((c.runningPowerKW / result.plantPower!.totalPowerKW) * 100, 0)}%
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                    {fmt(result.plantPower.totalPowerKW, 2)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                    {fmt(result.plantPower.totalKWhPerM3, 3)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                    100%
                   </TableCell>
                 </TableRow>
               </TableBody>

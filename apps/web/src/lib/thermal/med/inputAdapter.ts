@@ -129,6 +129,9 @@ export function resolveDesignerDefaults(
     tubeSheetThickness: tubeSheetThkMM,
     tubeSheetAccess: tubeSheetAccessMM,
     antiscalantDoseMgL: input.antiscalantDoseMgL ?? 2,
+    sealWaterTempC: input.sealWaterTempC ?? input.seawaterTemperature,
+    sealWaterClosedLoop: input.sealWaterClosedLoop ?? false,
+    sealWaterChillerCOP: input.sealWaterChillerCOP ?? 5.0,
     vacuumTrainConfig:
       input.vacuumTrainConfig ??
       (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid'),

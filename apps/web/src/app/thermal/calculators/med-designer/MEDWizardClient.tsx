@@ -95,6 +95,13 @@ export default function MEDWizardClient() {
   const [antiscalantDose, setAntiscalantDose] = useState(MED_WIZARD_DEFAULTS.antiscalantDose);
   const [shellsPerEffect, setShellsPerEffect] = useState(MED_WIZARD_DEFAULTS.shellsPerEffect);
   const [vacuumConfig, setVacuumConfig] = useState<VacuumConfig>(MED_WIZARD_DEFAULTS.vacuumConfig);
+  const [sealWaterTemp, setSealWaterTemp] = useState(MED_WIZARD_DEFAULTS.sealWaterTemp);
+  const [sealWaterClosedLoop, setSealWaterClosedLoop] = useState(
+    MED_WIZARD_DEFAULTS.sealWaterClosedLoop
+  );
+  const [sealWaterChillerCOP, setSealWaterChillerCOP] = useState(
+    MED_WIZARD_DEFAULTS.sealWaterChillerCOP
+  );
   const [includeTurndown, setIncludeTurndown] = useState(MED_WIZARD_DEFAULTS.includeTurndown);
 
   // ── Step 2: Geometry selection ──────────────────────────────────────────
@@ -235,6 +242,11 @@ export default function MEDWizardClient() {
         includeBrineRecirculation,
         antiscalantDoseMgL: parseFloat(antiscalantDose) || 2,
         vacuumTrainConfig: vacuumConfig,
+        ...(parseFloat(sealWaterTemp) > 0 && { sealWaterTempC: parseFloat(sealWaterTemp) }),
+        ...(sealWaterClosedLoop && { sealWaterClosedLoop: true }),
+        ...(parseFloat(sealWaterChillerCOP) > 0 && {
+          sealWaterChillerCOP: parseFloat(sealWaterChillerCOP),
+        }),
         ...(parseInt(shellsPerEffect) > 1 && { shellsPerEffect: parseInt(shellsPerEffect) }),
         ...(includeTurndown && { includeTurndown: true }),
         ...overrides,
@@ -270,6 +282,9 @@ export default function MEDWizardClient() {
     includeBrineRecirculation,
     antiscalantDose,
     vacuumConfig,
+    sealWaterTemp,
+    sealWaterClosedLoop,
+    sealWaterChillerCOP,
     shellsPerEffect,
     includeTurndown,
   ]);
@@ -562,6 +577,12 @@ export default function MEDWizardClient() {
           antiscalantDose={antiscalantDose}
           onAntiscalantDoseChange={setAntiscalantDose}
           vacuumConfig={vacuumConfig}
+          sealWaterTemp={sealWaterTemp}
+          onSealWaterTempChange={setSealWaterTemp}
+          sealWaterClosedLoop={sealWaterClosedLoop}
+          onSealWaterClosedLoopChange={setSealWaterClosedLoop}
+          sealWaterChillerCOP={sealWaterChillerCOP}
+          onSealWaterChillerCOPChange={setSealWaterChillerCOP}
           shellsPerEffect={shellsPerEffect}
           onShellsPerEffectChange={setShellsPerEffect}
           onVacuumConfigChange={(v) =>
@@ -745,6 +766,18 @@ export default function MEDWizardClient() {
                   <TableCell align="right">
                     {fmt(designResult.totalDistillate, 2)} T/h (
                     {Math.round(designResult.totalDistillateM3Day)} m&sup3;/day)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Gross Distillate (hotwell)</TableCell>
+                  <TableCell align="right">
+                    {fmt(designResult.grossDistillate, 2)} T/h (extraction pump duty)
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Steam Condensate Return (out)</TableCell>
+                  <TableCell align="right">
+                    {fmt(designResult.steamCondensateReturn, 2)} T/h (branched back to heat source)
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -1300,6 +1333,9 @@ export default function MEDWizardClient() {
           antiscalantDose,
           shellsPerEffect,
           vacuumConfig,
+          sealWaterTemp,
+          sealWaterClosedLoop,
+          sealWaterChillerCOP,
           includeTurndown,
           geoMode,
           geoValue,
@@ -1338,6 +1374,9 @@ export default function MEDWizardClient() {
           setAntiscalantDose(restored.antiscalantDose);
           setShellsPerEffect(restored.shellsPerEffect);
           setVacuumConfig(restored.vacuumConfig);
+          setSealWaterTemp(restored.sealWaterTemp);
+          setSealWaterClosedLoop(restored.sealWaterClosedLoop);
+          setSealWaterChillerCOP(restored.sealWaterChillerCOP);
           setIncludeTurndown(restored.includeTurndown);
           setGeoMode(restored.geoMode);
           setGeoValue(restored.geoValue);

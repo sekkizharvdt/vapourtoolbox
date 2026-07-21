@@ -211,3 +211,47 @@ describe('MED Designer — vacuum system warnings reach the top-level result', (
     ).toBe(true);
   });
 });
+
+describe('MED Designer — gross vs net distillate and plant power', () => {
+  const result = designMED({
+    steamFlow: 0.65,
+    steamTemperature: 58,
+    seawaterTemperature: 28,
+    targetGOR: 6,
+    numberOfEffects: 8,
+    vacuumTrainConfig: 'lrvp_only',
+  });
+
+  it('gross distillate = net product + motive-steam condensate', () => {
+    expect(result.grossDistillate).toBeCloseTo(result.totalDistillate + 0.65, 3);
+    expect(result.steamCondensateReturn).toBeCloseTo(0.65, 3);
+    // Net stays the headline saleable product
+    expect(result.totalDistillate).toBeLessThan(result.grossDistillate);
+  });
+
+  it('sizes the distillate extraction pump on gross, not net', () => {
+    const pump = result.auxiliaryEquipment.pumps.find((p) => p.service === 'Distillate Pump')!;
+    expect(pump.flowRate).toBeCloseTo(result.grossDistillate, 3);
+  });
+
+  it('provides the steam-condensate return line downstream of the branch', () => {
+    const lines = result.auxiliaryEquipment.lineSizing;
+    const extraction = lines.find((l) => l.service === 'Distillate Extraction Header')!;
+    const product = lines.find((l) => l.service === 'Distillate Product')!;
+    const ret = lines.find((l) => l.service === 'Steam Condensate Return')!;
+    expect(extraction).toBeDefined();
+    // Extraction header carries gross; the branch splits into product + return
+    expect(product.flowRate + ret.flowRate).toBeCloseTo(extraction.flowRate, 2);
+  });
+
+  it('plant power totals its consumers and reports kWh/m³ of net product', () => {
+    const pp = result.plantPower!;
+    expect(pp).toBeDefined();
+    const summed = pp.consumers.reduce((s, c) => s + c.runningPowerKW, 0);
+    expect(pp.totalPowerKW).toBeCloseTo(summed, 1);
+    expect(pp.totalKWhPerM3).toBeCloseTo(pp.totalPowerKW / pp.netDistillateM3h, 2);
+    // The vacuum train should appear alongside the pumps
+    expect(pp.consumers.some((c) => c.category === 'vacuum')).toBe(true);
+    expect(pp.consumers.some((c) => c.category === 'pump')).toBe(true);
+  });
+});

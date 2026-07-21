@@ -4,6 +4,7 @@
 
 import {
   calculateVacuumSystem,
+  sealWaterSensitivity,
   type VacuumSystemInput,
   type TrainConfig,
 } from './vacuumSystemCalculator';
@@ -470,5 +471,103 @@ describe('calculateVacuumSystem — LRVP blank-off', () => {
       createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 90, sealWaterTempC: 30 })
     ).stages.find((s) => s.type === 'lrvp')!;
     expect(warm.lrvpRequiredCapacityM3h!).toBeGreaterThan(cold.lrvpRequiredCapacityM3h!);
+  });
+});
+
+// ── Closed-loop seal water ───────────────────────────────────────────────────
+
+describe('calculateVacuumSystem — closed-loop seal water', () => {
+  const closedLoop = (overrides: Partial<VacuumSystemInput> = {}) =>
+    calculateVacuumSystem(
+      createInput({
+        trainConfig: 'lrvp_only',
+        suctionPressureMbar: 68,
+        coolantInletTempC: 28,
+        sealWaterClosedLoop: true,
+        ...overrides,
+      })
+    );
+
+  it('is absent unless the closed loop is enabled', () => {
+    const result = calculateVacuumSystem(
+      createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 68 })
+    );
+    expect(result.sealLoop).toBeUndefined();
+  });
+
+  it('cooling duty is the LRVP power plus vapour condensation', () => {
+    const result = closedLoop({ sealWaterTempC: 25 });
+    const loop = result.sealLoop!;
+    expect(loop.coolingDutyKW).toBeGreaterThan(result.totalPowerKW);
+    expect(loop.vapourCondensedKgH).toBeGreaterThan(0);
+  });
+
+  it('needs no chiller when the target is within reach of seawater cooling', () => {
+    // coolant inlet 28°C + 3°C approach = 31°C reachable without refrigeration
+    const loop = closedLoop({ sealWaterTempC: 32 }).sealLoop!;
+    expect(loop.chillerRequired).toBe(false);
+    expect(loop.chillerPowerKW).toBe(0);
+    expect(loop.netPowerKW).toBe(closedLoop({ sealWaterTempC: 32 }).totalPowerKW);
+  });
+
+  it('requires a chiller below the seawater-reachable temperature, and nets it out', () => {
+    const result = closedLoop({ sealWaterTempC: 25 });
+    const loop = result.sealLoop!;
+    expect(loop.chillerRequired).toBe(true);
+    expect(loop.chillerPowerKW).toBeGreaterThan(0);
+    // Net power must include the parasitic chiller load — not a free lunch
+    expect(loop.netPowerKW).toBeCloseTo(result.totalPowerKW + loop.chillerPowerKW, 1);
+  });
+
+  it('a higher COP reduces the chiller power for the same duty', () => {
+    const low = closedLoop({ sealWaterTempC: 25, sealWaterChillerCOP: 3 }).sealLoop!;
+    const high = closedLoop({ sealWaterTempC: 25, sealWaterChillerCOP: 8 }).sealLoop!;
+    expect(high.chillerPowerKW).toBeLessThan(low.chillerPowerKW);
+  });
+
+  it('make-up water is small and positive (only the vapour leaving with the vent)', () => {
+    const loop = closedLoop({ sealWaterTempC: 25 }).sealLoop!;
+    expect(loop.makeupWaterKgH).toBeGreaterThan(0);
+    expect(loop.makeupWaterKgH).toBeLessThan(1); // ~0.05 kg/h expected
+  });
+});
+
+describe('sealWaterSensitivity', () => {
+  const baseInput = createInput({
+    trainConfig: 'lrvp_only',
+    suctionPressureMbar: 68,
+    coolantInletTempC: 28,
+  });
+
+  it('returns a row per temperature with the blank-off pressure', () => {
+    const rows = sealWaterSensitivity(baseInput, [25, 30]);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.sealWaterTempC).toBe(25);
+    // P_sat(25°C) ≈ 32 mbar
+    expect(rows[0]!.blankOffMbar).toBeGreaterThan(28);
+    expect(rows[0]!.blankOffMbar).toBeLessThan(36);
+  });
+
+  it('colder seal water needs no more power than warmer (monotonic benefit)', () => {
+    const rows = sealWaterSensitivity(baseInput, [22, 25, 28, 30]).filter((r) => r.feasible);
+    expect(rows.length).toBeGreaterThan(1);
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i]!.lrvpPowerKW!).toBeGreaterThanOrEqual(rows[i - 1]!.lrvpPowerKW!);
+    }
+  });
+
+  it('marks temperatures whose blank-off exceeds suction as infeasible, without throwing', () => {
+    // P_sat(45°C) ≈ 96 mbar > 68 mbar suction — unreachable single-stage
+    const rows = sealWaterSensitivity(baseInput, [45]);
+    expect(rows[0]!.feasible).toBe(false);
+    expect(rows[0]!.lrvpPowerKW).toBeUndefined();
+  });
+
+  it('includes chiller power in netPowerKW when the closed loop is enabled', () => {
+    const rows = sealWaterSensitivity({ ...baseInput, sealWaterClosedLoop: true }, [25]).filter(
+      (r) => r.feasible
+    );
+    expect(rows[0]!.chillerPowerKW).toBeGreaterThan(0);
+    expect(rows[0]!.netPowerKW!).toBeGreaterThan(rows[0]!.lrvpPowerKW!);
   });
 });

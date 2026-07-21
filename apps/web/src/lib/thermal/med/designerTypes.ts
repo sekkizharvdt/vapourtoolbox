@@ -16,6 +16,8 @@
  *    MEDPreheaterResult, renamed to avoid collision with @vapour/types)
  */
 
+import type { SealLoopResult } from '../vacuumSystemCalculator';
+
 // ============================================================================
 // Input
 // ============================================================================
@@ -92,6 +94,15 @@ export interface MEDDesignerInput {
   antiscalantDoseMgL?: number;
   /** Vacuum system train configuration (default: single_ejector <=4 effects, two_stage_ejector <=8, else hybrid) */
   vacuumTrainConfig?: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid';
+  /**
+   * LRVP seal water temperature (°C, default = seawater temperature). Sets the
+   * blank-off pressure and is the dominant lever on LRVP size at deep vacuum.
+   */
+  sealWaterTempC?: number;
+  /** Closed-loop seal water with separator + cooler (default false) */
+  sealWaterClosedLoop?: boolean;
+  /** Seal-water chiller COP (default 5.0) */
+  sealWaterChillerCOP?: number;
   /** Include turndown analysis at 30/50/70/100% load (default false — computationally expensive) */
   includeTurndown?: boolean;
   /** Route recirculated brine through preheater chain before spraying (default false) */
@@ -426,7 +437,33 @@ export interface MEDVacuumResult {
   totalPowerKW: number;
   trainConfig: string;
   evacuationTimeMinutes: number;
+  /** Seal water temperature used for LRVP sizing (°C) */
+  sealWaterTempC: number;
+  /** Closed-loop seal water result — present only when the closed loop is enabled */
+  sealLoop?: SealLoopResult;
   warnings: string[];
+}
+
+/** One electrical consumer in the plant power summary */
+export interface MEDPowerConsumer {
+  service: string;
+  category: 'pump' | 'vacuum' | 'auxiliary';
+  /** Duty power only — a '1+1' pump set runs one and holds one standby */
+  runningPowerKW: number;
+  /** Specific energy contribution — runningPowerKW / net distillate m³/h */
+  kWhPerM3: number;
+}
+
+/**
+ * Plant electrical summary. Distinct from the *thermal* specific energy reported
+ * on design options — this is pumping + vacuum electrical demand per m³ of
+ * saleable (net) product.
+ */
+export interface MEDPlantPower {
+  consumers: MEDPowerConsumer[];
+  totalPowerKW: number;
+  totalKWhPerM3: number;
+  netDistillateM3h: number;
 }
 
 /** All auxiliary equipment results */
@@ -638,8 +675,17 @@ export interface MEDDesignerResult {
   preheaters: MEDDesignerPreheater[];
 
   // ── Summary ──────────────────────────────────────────────────────────
+  /** Net distillate — the saleable product (T/h) */
   totalDistillate: number; // T/h
   totalDistillateM3Day: number;
+  /**
+   * Gross condensate extracted from the condenser hotwell (T/h) = net product +
+   * motive-steam condensate. This is what the distillate extraction pump and its
+   * header carry, before the steam-condensate branch is returned to the source.
+   */
+  grossDistillate: number; // T/h
+  /** Motive-steam condensate branched back to the heat source (T/h) */
+  steamCondensateReturn: number; // T/h
   achievedGOR: number;
   totalEvaporatorArea: number; // m²
   totalBrineRecirculation: number; // T/h
@@ -649,6 +695,9 @@ export interface MEDDesignerResult {
   numberOfShells: number;
 
   auxiliaryEquipment: MEDAuxiliaryEquipment;
+
+  /** Plant electrical summary — pumps + vacuum, with per-consumer kWh/m³ */
+  plantPower?: MEDPlantPower;
 
   /** Per-effect vapour path geometry (demister pad + steam flow cutout from engine) */
   vaporPathGeometry?: {

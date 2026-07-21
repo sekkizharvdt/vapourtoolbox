@@ -29,6 +29,8 @@ import type {
   MEDDesignerResult,
   MEDDesignOption,
   MEDScenarioRow,
+  MEDPlantPower,
+  MEDPowerConsumer,
 } from './designerTypes';
 import { resolveDesignerDefaults, toMEDPlantInputs, mapTubeMaterial } from './inputAdapter';
 import {
@@ -495,7 +497,12 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
       return sum + Math.PI * shellR * shellR * shellL;
     }, 0),
     input.vacuumTrainConfig ??
-      (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid')
+      (nEff <= 4 ? 'single_ejector' : nEff <= 8 ? 'two_stage_ejector' : 'hybrid'),
+    {
+      ...(input.sealWaterTempC !== undefined && { tempC: input.sealWaterTempC }),
+      ...(input.sealWaterClosedLoop && { closedLoop: true }),
+      ...(input.sealWaterChillerCOP !== undefined && { chillerCOP: input.sealWaterChillerCOP }),
+    }
   );
 
   if (!vacuumSystem) {
@@ -527,6 +534,44 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     );
   }
 
+  // ── 9c. Plant electrical summary ────────────────────────────────────
+  // Per-consumer kW and kWh/m³ of *net* (saleable) product, so the relative
+  // weight of each pump versus the vacuum system is visible. This is electrical
+  // demand — distinct from the thermal specific energy on the design options.
+  const netDistillateM3h = totalDistillate; // T/h ≈ m³/h for distillate (density ≈ 1)
+  const plantPower: MEDPlantPower | undefined = (() => {
+    if (netDistillateM3h <= 0) return undefined;
+    const consumers: MEDPowerConsumer[] = [];
+    const add = (service: string, category: MEDPowerConsumer['category'], kW: number) => {
+      if (!(kW > 0)) return;
+      consumers.push({
+        service,
+        category,
+        runningPowerKW: Math.round(kW * 100) / 100,
+        kWhPerM3: Math.round((kW / netDistillateM3h) * 1000) / 1000,
+      });
+    };
+
+    // Pumps: '1+1' means one duty + one standby, so only the duty pump draws power.
+    for (const p of auxiliaryEquipment.pumps) add(p.service, 'pump', p.motorPower);
+    if (vacuumSystem) {
+      add(
+        vacuumSystem.trainConfig === 'lrvp_only' ? 'LRVP' : 'Vacuum System',
+        'vacuum',
+        vacuumSystem.totalPowerKW
+      );
+      add('Seal Water Chiller', 'auxiliary', vacuumSystem.sealLoop?.chillerPowerKW ?? 0);
+    }
+
+    const totalPowerKW = consumers.reduce((s, c) => s + c.runningPowerKW, 0);
+    return {
+      consumers,
+      totalPowerKW: Math.round(totalPowerKW * 100) / 100,
+      totalKWhPerM3: Math.round((totalPowerKW / netDistillateM3h) * 1000) / 1000,
+      netDistillateM3h: Math.round(netDistillateM3h * 100) / 100,
+    };
+  })();
+
   // ── 10. Optional analyses ───────────────────────────────────────────
   const result: MEDDesignerResult = {
     inputs: { ...input, resolvedDefaults: resolved.resolvedDefaults },
@@ -538,6 +583,11 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     preheaters,
     totalDistillate,
     totalDistillateM3Day,
+    // Gross = net product + motive-steam condensate; both arrive at the condenser
+    // hotwell, so the extraction pump carries gross and the steam condensate is
+    // branched back to the heat source downstream.
+    grossDistillate: Math.round((totalDistillate + input.steamFlow) * 1000) / 1000,
+    steamCondensateReturn: input.steamFlow,
     achievedGOR,
     totalEvaporatorArea: totalArea,
     totalBrineRecirculation: totalRecirc,
@@ -546,6 +596,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     spraySalinity,
     numberOfShells: nEff * (shellsPerEffect > 1 ? shellsPerEffect : 1),
     auxiliaryEquipment,
+    ...(plantPower && { plantPower }),
     vaporPathGeometry:
       engineResult.vaporPathGeometry.length > 0 ? engineResult.vaporPathGeometry : undefined,
     dosing: dosing ?? undefined,

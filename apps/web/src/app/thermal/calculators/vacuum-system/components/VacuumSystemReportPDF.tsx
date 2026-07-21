@@ -94,6 +94,31 @@ export const VacuumSystemReportPDF = ({
     ...(inputs.trainConfig === 'lrvp_only' || inputs.trainConfig === 'hybrid'
       ? [{ label: 'Seal Water Temperature', value: `${inputs.sealWaterTemp} \u00B0C` }]
       : []),
+    ...(result.sealLoop
+      ? [
+          {
+            label: 'Seal Water Loop',
+            value: result.sealLoop.chillerRequired
+              ? `Closed loop, chilled (COP ${result.sealLoop.chillerCOP})`
+              : 'Closed loop, seawater-cooled',
+          },
+          {
+            label: 'Seal Loop Cooling Duty',
+            value: `${result.sealLoop.coolingDutyKW} kW`,
+          },
+          {
+            label: 'Seal Water Chiller Power',
+            value: result.sealLoop.chillerRequired
+              ? `${result.sealLoop.chillerPowerKW} kW`
+              : 'Not required',
+          },
+          {
+            label: 'Seal Loop Make-up Water',
+            value: `${result.sealLoop.makeupWaterKgH} kg/h`,
+          },
+          { label: 'Net Vacuum Power', value: `${result.sealLoop.netPowerKW} kW` },
+        ]
+      : []),
     { label: 'Design Margin', value: `${inputs.designMargin}%` },
   ];
 

@@ -240,6 +240,13 @@ export function computeAuxiliaryEquipment(
   const lineSizing: MEDLineSizing[] = [];
   const swDensity = getSeawaterDensity(ctx.swSalinity, ctx.swTemp);
 
+  // All condensate — product distillate AND the motive-steam condensate — cascades
+  // to the final condenser hotwell (the lowest pressure in the plant), so the
+  // extraction pump and its header carry the GROSS flow. The steam-condensate
+  // fraction is branched back to the heat source downstream of the pump.
+  const grossDistillate = ctx.totalDistillate + ctx.steamFlow;
+  const distillateDensity = getDensityLiquid(ctx.swTemp + 5);
+
   const lineSpecs: {
     service: string;
     flowTh: number;
@@ -262,9 +269,26 @@ export function computeAuxiliaryEquipment(
       velLimits: { min: 0.5, max: 2.5 },
     },
     {
-      service: 'Distillate Header',
+      // Condenser hotwell → extraction pump: carries product + steam condensate
+      service: 'Distillate Extraction Header',
+      flowTh: grossDistillate,
+      density: distillateDensity,
+      targetVel: 1.0,
+      velLimits: { min: 0.5, max: 2.0 },
+    },
+    {
+      // Downstream of the branch — product to storage
+      service: 'Distillate Product',
       flowTh: ctx.totalDistillate,
-      density: getDensityLiquid(ctx.swTemp + 5),
+      density: distillateDensity,
+      targetVel: 1.0,
+      velLimits: { min: 0.5, max: 2.0 },
+    },
+    {
+      // Downstream of the branch — motive-steam condensate back to the heat source
+      service: 'Steam Condensate Return',
+      flowTh: ctx.steamFlow,
+      density: distillateDensity,
       targetVel: 1.0,
       velLimits: { min: 0.5, max: 2.0 },
     },
@@ -336,8 +360,10 @@ export function computeAuxiliaryEquipment(
       qty: '1+1',
     },
     {
+      // Extracts everything from the condenser hotwell (product + steam condensate);
+      // the steam-condensate branch is taken off this pump's discharge.
       service: 'Distillate Pump',
-      flowTh: ctx.totalDistillate,
+      flowTh: ctx.totalDistillate + ctx.steamFlow,
       density: getDensityLiquid(ctx.swTemp + 5),
       staticHead: 3,
       dischargePressure: 2.0,
@@ -448,7 +474,13 @@ export function computeVacuumSystem(
   swTempC: number,
   salinityGkg: number,
   systemVolumeM3: number,
-  trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid'
+  trainConfig: 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid',
+  sealWater?: {
+    /** Seal water temperature (°C) — defaults to the seawater temperature */
+    tempC?: number;
+    closedLoop?: boolean;
+    chillerCOP?: number;
+  }
 ): MEDVacuumResult | undefined {
   try {
     // HEI air leakage tables are for power plant condensers with many flanged
@@ -473,7 +505,10 @@ export function computeVacuumSystem(
       salinityGkg,
       motivePressureBar: 8, // 8 bar motive steam
       coolingWaterTempC: swTempC,
-      sealWaterTempC: swTempC,
+      // Seal water defaults to seawater, but a closed loop can be chilled below it
+      sealWaterTempC: sealWater?.tempC ?? swTempC,
+      ...(sealWater?.closedLoop && { sealWaterClosedLoop: true }),
+      ...(sealWater?.chillerCOP !== undefined && { sealWaterChillerCOP: sealWater.chillerCOP }),
       trainConfig,
       evacuationVolumeM3: systemVolumeM3, // full volume for evacuation time calc
     });
@@ -485,6 +520,8 @@ export function computeVacuumSystem(
       totalPowerKW: result.totalPowerKW,
       trainConfig,
       evacuationTimeMinutes: result.evacuationTimeMinutes ?? 0,
+      sealWaterTempC: sealWater?.tempC ?? swTempC,
+      ...(result.sealLoop && { sealLoop: result.sealLoop }),
       warnings: result.warnings,
     };
   } catch {

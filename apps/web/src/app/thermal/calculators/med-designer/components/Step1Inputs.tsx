@@ -73,6 +73,12 @@ interface Step1InputsProps {
   onAntiscalantDoseChange: (v: string) => void;
   vacuumConfig: string;
   onVacuumConfigChange: (v: string) => void;
+  sealWaterTemp: string;
+  onSealWaterTempChange: (v: string) => void;
+  sealWaterClosedLoop: boolean;
+  onSealWaterClosedLoopChange: (v: boolean) => void;
+  sealWaterChillerCOP: string;
+  onSealWaterChillerCOPChange: (v: string) => void;
   shellsPerEffect: string;
   onShellsPerEffectChange: (v: string) => void;
   includeTurndown: boolean;
@@ -136,6 +142,12 @@ export function Step1Inputs({
   onAntiscalantDoseChange,
   vacuumConfig,
   onVacuumConfigChange,
+  sealWaterTemp,
+  onSealWaterTempChange,
+  sealWaterClosedLoop,
+  onSealWaterClosedLoopChange,
+  sealWaterChillerCOP,
+  onSealWaterChillerCOPChange,
   shellsPerEffect,
   onShellsPerEffectChange,
   includeTurndown,
@@ -568,6 +580,45 @@ export function Step1Inputs({
                 <MenuItem value="3">3 (split)</MenuItem>
               </TextField>
             </Box>
+            {/* Seal water — sets the LRVP blank-off pressure, the dominant lever
+                on pump size at deep vacuum. */}
+            {(vacuumConfig === 'lrvp_only' || vacuumConfig === 'hybrid') && (
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <TextField
+                  size="small"
+                  label="Seal Water Temperature"
+                  value={sealWaterTemp}
+                  onChange={(e) => onSealWaterTempChange(e.target.value)}
+                  type="number"
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+                  }}
+                  helperText="Blank-off = Psat(T); colder = smaller LRVP"
+                  sx={{ maxWidth: 210 }}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={sealWaterClosedLoop}
+                      onChange={(e) => onSealWaterClosedLoopChange(e.target.checked)}
+                    />
+                  }
+                  label="Closed-loop seal water"
+                />
+                {sealWaterClosedLoop && (
+                  <TextField
+                    size="small"
+                    label="Chiller COP"
+                    value={sealWaterChillerCOP}
+                    onChange={(e) => onSealWaterChillerCOPChange(e.target.value)}
+                    type="number"
+                    helperText="Only if chilling below seawater"
+                    sx={{ maxWidth: 190 }}
+                  />
+                )}
+              </Box>
+            )}
             <FormControlLabel
               control={
                 <Checkbox

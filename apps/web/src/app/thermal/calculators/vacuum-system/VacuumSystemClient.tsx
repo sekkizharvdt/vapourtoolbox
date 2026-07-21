@@ -46,9 +46,11 @@ import {
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateVacuumSystem,
+  sealWaterSensitivity,
   type TrainConfig,
   type VacuumSystemResult,
   type StageResult,
+  type SealWaterSensitivityRow,
 } from '@/lib/thermal/vacuumSystemCalculator';
 import { getSaturationTemperature } from '@vapour/constants';
 import { VacuumTrainDiagram } from './components/VacuumTrainDiagram';
@@ -85,6 +87,8 @@ export default function VacuumSystemClient() {
 
   // LRVP parameters
   const [sealWaterTemp, setSealWaterTemp] = useState<string>('32');
+  const [sealWaterClosedLoop, setSealWaterClosedLoop] = useState<boolean>(false);
+  const [sealWaterChillerCOP, setSealWaterChillerCOP] = useState<string>('5');
 
   // Configuration
   const [trainConfig, setTrainConfig] = useState<TrainConfig>('two_stage_ejector');
@@ -113,6 +117,8 @@ export default function VacuumSystemClient() {
     setCoolingWaterTemp('32');
     setInterCondenserApproach('5');
     setSealWaterTemp('32');
+    setSealWaterClosedLoop(false);
+    setSealWaterChillerCOP('5');
     setTrainConfig('two_stage_ejector');
     setDesignMargin('10');
   };
@@ -172,6 +178,8 @@ export default function VacuumSystemClient() {
           coolingWaterTempC: parseFloat(coolingWaterTemp) || 32,
           interCondenserApproachC: parseFloat(interCondenserApproach) || 5,
           sealWaterTempC: parseFloat(sealWaterTemp) || 32,
+          sealWaterClosedLoop,
+          sealWaterChillerCOP: parseFloat(sealWaterChillerCOP) || 5,
           trainConfig,
           designMargin: isNaN(margin) ? 0.1 : margin,
           evacuationVolumeM3: parseFloat(evacuationVolume) || undefined,
@@ -198,6 +206,8 @@ export default function VacuumSystemClient() {
     coolingWaterTemp,
     interCondenserApproach,
     sealWaterTemp,
+    sealWaterClosedLoop,
+    sealWaterChillerCOP,
     trainConfig,
     designMargin,
     evacuationVolume,
@@ -205,6 +215,43 @@ export default function VacuumSystemClient() {
 
   const result = computed?.result ?? null;
   const error = computed?.error ?? null;
+
+  // Seal-water sweep — only meaningful for trains that actually contain an LRVP
+  const sealSensitivity = useMemo(() => {
+    if (!result || (trainConfig !== 'lrvp_only' && trainConfig !== 'hybrid')) return null;
+    const pSuction = parseFloat(suctionPressure);
+    const tCoolant = parseFloat(coolantInletTemp);
+    const pDischarge = parseFloat(dischargePressure);
+    if (isNaN(pSuction) || isNaN(tCoolant) || isNaN(pDischarge)) return null;
+    try {
+      return sealWaterSensitivity({
+        suctionPressureMbar: pSuction,
+        coolantInletTempC: tCoolant,
+        dischargePressureMbar: pDischarge,
+        ncgMode: 'combined',
+        includeManualNcg,
+        includeHeiLeakage,
+        includeSeawaterGas,
+        dryNcgFlowKgH: parseFloat(dryNcgFlow) || undefined,
+        systemVolumeM3: parseFloat(systemVolume) || undefined,
+        connectionCount: parseInt(connectionCount, 10) || undefined,
+        seawaterFlowM3h: parseFloat(seawaterFlow) || undefined,
+        seawaterTemperatureC: parseFloat(seawaterTemp) || undefined,
+        salinityGkg: parseFloat(salinity) || undefined,
+        motivePressureBar: parseFloat(motivePressure) || 8,
+        coolingWaterTempC: parseFloat(coolingWaterTemp) || 32,
+        interCondenserApproachC: parseFloat(interCondenserApproach) || 5,
+        sealWaterTempC: parseFloat(sealWaterTemp) || 32,
+        sealWaterClosedLoop,
+        sealWaterChillerCOP: parseFloat(sealWaterChillerCOP) || 5,
+        trainConfig,
+        designMargin: (parseFloat(designMargin) || 10) / 100,
+      });
+    } catch {
+      return null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computed, trainConfig, sealWaterTemp, sealWaterClosedLoop, sealWaterChillerCOP]);
 
   const allInputs = {
     suctionPressure,
@@ -223,6 +270,8 @@ export default function VacuumSystemClient() {
     coolingWaterTemp,
     interCondenserApproach,
     sealWaterTemp,
+    sealWaterClosedLoop,
+    sealWaterChillerCOP,
     trainConfig,
     designMargin,
     evacuationVolume,
@@ -583,24 +632,47 @@ export default function VacuumSystemClient() {
                   </>
                 )}
                 {(trainConfig === 'lrvp_only' || trainConfig === 'hybrid') && (
-                  <TextField
-                    label="Seal Water Temperature"
-                    value={sealWaterTemp}
-                    onChange={(e) => setSealWaterTemp(e.target.value)}
-                    fullWidth
-                    size="small"
-                    type="number"
-                    helperText="LRVP seal water supply temperature"
-                    slotProps={{
-                      input: {
-                        endAdornment: (
-                          <Typography variant="caption" sx={{ ml: 1 }}>
-                            &deg;C
-                          </Typography>
-                        ),
-                      },
-                    }}
-                  />
+                  <>
+                    <TextField
+                      label="Seal Water Temperature"
+                      value={sealWaterTemp}
+                      onChange={(e) => setSealWaterTemp(e.target.value)}
+                      fullWidth
+                      size="small"
+                      type="number"
+                      helperText="Sets blank-off = Psat(T) — colder gives a smaller LRVP"
+                      slotProps={{
+                        input: {
+                          endAdornment: (
+                            <Typography variant="caption" sx={{ ml: 1 }}>
+                              &deg;C
+                            </Typography>
+                          ),
+                        },
+                      }}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={sealWaterClosedLoop}
+                          onChange={(e) => setSealWaterClosedLoop(e.target.checked)}
+                        />
+                      }
+                      label="Closed-loop seal water (separator + cooler)"
+                    />
+                    {sealWaterClosedLoop && (
+                      <TextField
+                        label="Chiller COP"
+                        value={sealWaterChillerCOP}
+                        onChange={(e) => setSealWaterChillerCOP(e.target.value)}
+                        fullWidth
+                        size="small"
+                        type="number"
+                        helperText="Used only when chilling below seawater temperature"
+                      />
+                    )}
+                  </>
                 )}
                 <TextField
                   label="Design Margin"
@@ -660,6 +732,8 @@ export default function VacuumSystemClient() {
           {result ? (
             <VacuumResults
               result={result}
+              sealSensitivity={sealSensitivity}
+              currentSealTempC={parseFloat(sealWaterTemp) || 32}
               onReportOpen={() => setReportOpen(true)}
               onSaveOpen={() => setSaveDialogOpen(true)}
             />
@@ -728,6 +802,10 @@ export default function VacuumSystemClient() {
           if (typeof inputs.interCondenserApproach === 'string')
             setInterCondenserApproach(inputs.interCondenserApproach);
           if (typeof inputs.sealWaterTemp === 'string') setSealWaterTemp(inputs.sealWaterTemp);
+          if (typeof inputs.sealWaterClosedLoop === 'boolean')
+            setSealWaterClosedLoop(inputs.sealWaterClosedLoop);
+          if (typeof inputs.sealWaterChillerCOP === 'string')
+            setSealWaterChillerCOP(inputs.sealWaterChillerCOP);
           if (typeof inputs.trainConfig === 'string')
             setTrainConfig(inputs.trainConfig as TrainConfig);
           if (typeof inputs.designMargin === 'string') setDesignMargin(inputs.designMargin);
@@ -750,10 +828,14 @@ const TRAIN_LABELS: Record<TrainConfig, string> = {
 
 function VacuumResults({
   result,
+  sealSensitivity,
+  currentSealTempC,
   onReportOpen,
   onSaveOpen,
 }: {
   result: VacuumSystemResult;
+  sealSensitivity: SealWaterSensitivityRow[] | null;
+  currentSealTempC: number;
   onReportOpen: () => void;
   onSaveOpen: () => void;
 }) {
@@ -919,6 +1001,107 @@ function VacuumResults({
           )}
         </Grid>
       </Paper>
+
+      {/* Closed-loop seal water */}
+      {result.sealLoop && (
+        <Paper sx={{ p: 2, bgcolor: 'info.50', border: '1px solid', borderColor: 'info.main' }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Closed-Loop Seal Water
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem
+                label="Seal Water / Blank-off"
+                value={`${result.sealLoop.sealWaterTempC}°C / ${result.sealLoop.blankOffMbar} mbar`}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem label="Cooling Duty" value={`${result.sealLoop.coolingDutyKW} kW`} />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem
+                label="Chiller Power"
+                value={
+                  result.sealLoop.chillerRequired
+                    ? `${result.sealLoop.chillerPowerKW} kW (COP ${result.sealLoop.chillerCOP})`
+                    : 'Not required'
+                }
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem label="Make-up Water" value={`${result.sealLoop.makeupWaterKgH} kg/h`} />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem label="Net Vacuum Power" value={`${result.sealLoop.netPowerKW} kW`} />
+            </Grid>
+          </Grid>
+          {!result.sealLoop.chillerRequired && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              A seawater-cooled exchanger reaches this temperature — no refrigeration needed.
+            </Typography>
+          )}
+        </Paper>
+      )}
+
+      {/* Seal water sensitivity */}
+      {sealSensitivity && sealSensitivity.length > 0 && (
+        <TableContainer component={Paper}>
+          <Box sx={{ p: 2, pb: 0 }}>
+            <Typography variant="subtitle2" fontWeight="bold">
+              Seal Water Temperature Sensitivity
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Seal temperature sets the blank-off pressure, so it is the dominant lever on LRVP size
+              at deep vacuum. Net power includes the chiller when the closed loop is enabled.
+            </Typography>
+          </Box>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold' }}>Seal Water (&deg;C)</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  Blank-off (mbar)
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Pump</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  LRVP (kW)
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  Chiller (kW)
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  Net (kW)
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sealSensitivity.map((row) => (
+                <TableRow
+                  key={row.sealWaterTempC}
+                  sx={{
+                    opacity: row.feasible ? 1 : 0.5,
+                    bgcolor:
+                      row.sealWaterTempC === currentSealTempC ? 'action.selected' : undefined,
+                  }}
+                >
+                  <TableCell>{row.sealWaterTempC}</TableCell>
+                  <TableCell align="right">{row.blankOffMbar}</TableCell>
+                  <TableCell>
+                    {row.feasible
+                      ? `${row.lrvpCount && row.lrvpCount > 1 ? `${row.lrvpCount}× ` : ''}${row.lrvpModel ?? '—'}`
+                      : 'Below blank-off'}
+                  </TableCell>
+                  <TableCell align="right">{row.feasible ? row.lrvpPowerKW : '—'}</TableCell>
+                  <TableCell align="right">
+                    {row.feasible ? (row.chillerPowerKW ?? '—') : '—'}
+                  </TableCell>
+                  <TableCell align="right">{row.feasible ? row.netPowerKW : '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Evacuation Time */}
       {result.evacuationTimeMinutes != null && result.evacuationVolumeM3 != null && (
