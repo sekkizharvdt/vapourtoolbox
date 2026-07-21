@@ -43,7 +43,8 @@ jobs:
       - name: Check for prohibited type casts
         run: |
           echo "🔍 Checking for 'as any' usage..."
-          if grep -r "as any" apps/web/src --include="*.ts" --include="*.tsx" | grep -v "node_modules"; then
+          # Word-bounded: prose in string literals ("has any", "as anyone") is not a cast.
+          if grep -rE "\bas[[:space:]]+any\b" apps/web/src --include="*.ts" --include="*.tsx" | grep -v "node_modules"; then
             echo "❌ Found 'as any' type casts! Please use proper typing instead."
             echo "See docs/TYPESCRIPT_GUIDELINES.md for guidance."
             exit 1
