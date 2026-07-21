@@ -24,6 +24,8 @@ import KeyboardIcon from '@mui/icons-material/Keyboard';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import HistoryIcon from '@mui/icons-material/History';
 import FeedbackIcon from '@mui/icons-material/Feedback';
+import BusinessIcon from '@mui/icons-material/Business';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 import type { GuideSection } from './types';
 import { GettingStartedSection } from './GettingStartedSection';
@@ -35,6 +37,8 @@ import { MaterialsSection } from './MaterialsSection';
 import { AccountingSection } from './AccountingSection';
 import { HRSection } from './HRSection';
 import { ThermalCalculatorsSection } from './ThermalCalculatorsSection';
+import { EntitiesSection } from './EntitiesSection';
+import { AdminSection } from './AdminSection';
 import { FeedbackSection } from './FeedbackSection';
 import { KeyboardShortcutsSection } from './KeyboardShortcutsSection';
 import { TipsSection } from './TipsSection';
@@ -108,6 +112,18 @@ export function UserGuide({ defaultSection }: { defaultSection?: string }) {
       title: 'Thermal Calculators',
       icon: <ThermostatIcon />,
       content: <ThermalCalculatorsSection />,
+    },
+    {
+      id: 'entities',
+      title: 'Entities & Process Data',
+      icon: <BusinessIcon />,
+      content: <EntitiesSection />,
+    },
+    {
+      id: 'admin',
+      title: 'Administration & Permissions',
+      icon: <AdminPanelSettingsIcon />,
+      content: <AdminSection />,
     },
     {
       id: 'feedback',

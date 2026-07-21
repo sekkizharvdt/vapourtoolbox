@@ -6,6 +6,7 @@
 
 import { Box, Typography, Chip, Stack } from '@mui/material';
 import { StepGuide } from './helpers';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function ProposalsSection() {
   return (
@@ -61,6 +62,7 @@ export function ProposalsSection() {
         <Chip label="Awarded" color="success" size="small" />
         <Chip label="Lost" color="error" size="small" />
       </Stack>
+      <WorkflowGuide moduleId="proposals" />
     </Box>
   );
 }

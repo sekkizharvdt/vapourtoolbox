@@ -12,6 +12,7 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import GroupsIcon from '@mui/icons-material/Groups';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import { FeatureCard, StepGuide } from './helpers';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function FlowSection() {
   return (
@@ -115,6 +116,7 @@ export function FlowSection() {
           },
         ]}
       />
+      <WorkflowGuide moduleId="flow" />
     </Box>
   );
 }

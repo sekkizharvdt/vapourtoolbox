@@ -1,0 +1,761 @@
+# Administration, Users & Permissions — Workflow Testing
+
+> How to use this: [Testing guide](README.md) · Report problems at **Feedback** in the app (the speech-bubble icon in the top bar), putting the test ID at the start of the title — e.g. "UAT-ADM-08 — Procurement did not appear in the sidebar".
+
+## What this module does
+
+Administration controls who can sign in to Vapour Toolbox and what each person is allowed to see and do. An admin invites or approves people, ticks the permissions they need, and every module in the app appears or disappears from that person's sidebar and dashboard accordingly. The same area holds the record of who did what (Activity Feed and Audit Logs), the queue where staff bug reports and feature requests are triaged, the approval inbox for AI agent actions, and the housekeeping surfaces — HR Setup, Settings and Trash.
+
+Permissions are the heart of this module. Most of the tests below are about proving that a tick box in the user editor really does open or close a part of the app.
+
+## Before you start
+
+- **Permissions you need:** **Manage Users** (this is what opens the whole Administration area). A few tests also need you to be a super admin — those are flagged.
+- **A second user — yes, most of this module needs one.** You cannot properly test permissions on yourself: removing your own **Manage Users** locks you out of the admin area, and you would then need another admin to let you back in. Set up a **test user** — a second company account you control the mailbox for — and do all granting/revoking on that account.
+  - The second user needs **no permission at all** to start. You will grant and revoke them one at a time.
+  - You will need to sign in as that user, so use a second browser profile or a private/incognito window. Keep your admin session open in the normal window.
+- **Test data you need first:** none for the permission tests. For the Trash tests (UAT-ADM-22, UAT-ADM-23) you need one procurement document you are willing to delete and one accounting transaction you are willing to delete.
+
+### Permission changes are not always instant — read this before filing a bug
+
+When you change someone's permissions, their **already-open session** usually catches up on its own within a few seconds to a couple of minutes. Sometimes it takes longer.
+
+**If the second user does not see the change straight away, that is not a bug.** Have them:
+
+1. Refresh the page. Wait up to two minutes.
+2. If it still has not changed, sign out (avatar menu, top right → **Logout**) and sign back in. That always makes it immediate.
+
+Only report a problem if the change is still missing **after a full sign-out and sign-in**. Every test below that changes a permission repeats this reminder.
+
+### The two permission editors — what the tick boxes are called
+
+The app has two places to set permissions, and they list the same permissions under slightly different names. Both are correct; do not report the difference as a bug.
+
+**In Invite User and Review & Approve** — one flat list of tick boxes, split into **Permissions** and **Admin Permissions**:
+
+| Permissions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Admin Permissions                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| View Projects · Manage Projects · View Entities · Create Entities · View Accounting · Manage Accounting · View Procurement · Manage Procurement · View Estimation · Manage Estimation · View Proposals · Manage Proposals · View Thermal Desalination · Manage Thermal Desalination · View Process Data (SSOT) · Manage Process Data (SSOT) · Manage Material Database · Manage Shape Database · Manage Bought Out Items · Manage HR Settings · Approve Leaves · Manage HR Profiles · Inspect Goods · Approve Goods Receipts | Manage Users · View Users · Edit Entities · Delete Entities · Manage Company Settings · View Analytics · Export Data · View Time Reports · Manage Company Documents · Configure Thermal Calculators · Manage Admin Panel |
+
+**In Edit User** — the same permissions grouped into collapsible module rows. The tick box **on the module row itself is the View permission**; open the row to reach the rest:
+
+| Module row (tick = View) | Tick boxes inside the row                        |
+| ------------------------ | ------------------------------------------------ |
+| Projects                 | Manage                                           |
+| Entities                 | Create, Edit, Delete                             |
+| Procurement              | Manage, Inspect Goods, Approve GR                |
+| Accounting               | Manage                                           |
+| Estimation               | Manage                                           |
+| Proposals & Enquiries    | Manage                                           |
+| Material Database        | Manage                                           |
+| Shape Database           | Manage                                           |
+| Bought Out Items         | Manage                                           |
+| Thermal Desalination     | Manage                                           |
+| Thermal Calculators      | Manage                                           |
+| Process Data (SSOT)      | Manage                                           |
+| Admin Panel              | Manage                                           |
+| HR & Leave Management    | Manage Settings, Approve Leaves, Manage Profiles |
+
+And under the **Admin Permissions** heading of the same dialog:
+
+| Module row (tick = View) | Tick boxes inside the row       |
+| ------------------------ | ------------------------------- |
+| User Management          | Manage Users                    |
+| Analytics & Reporting    | Export                          |
+| Company Settings         | Manage                          |
+| Time Tracking            | Manage                          |
+| Document Management      | Manage, Submit, Review, Approve |
+
+Some parts of the app need no permission at all and are open to everyone who can sign in: Flow (tasks & time), Company Documents (viewing), Thermal Calculators (viewing), Material / Shape / Bought Out databases (viewing), and the everyday HR screens (My Leaves, Expenses, Calendar, Directory). A user with zero permissions still sees these.
+
+## Test index
+
+| ID         | Workflow                                                      | Needs a 2nd user? | Est. time |
+| ---------- | ------------------------------------------------------------- | ----------------- | --------- |
+| UAT-ADM-01 | Sign in and sign out                                          | No                | 5 min     |
+| UAT-ADM-02 | The dashboard shows only what you are allowed to use          | No                | 5 min     |
+| UAT-ADM-03 | Open the Administration area and every one of its pages       | No                | 10 min    |
+| UAT-ADM-04 | Invite a new user — every field, round-trip check             | Yes               | 15 min    |
+| UAT-ADM-05 | A brand-new account waits on **Account Pending Approval**     | Yes               | 10 min    |
+| UAT-ADM-06 | Approve a pending user, and reject one                        | Yes               | 15 min    |
+| UAT-ADM-07 | Edit a user — every field, round-trip check                   | Yes               | 15 min    |
+| UAT-ADM-08 | Granting a permission makes the module appear                 | Yes               | 25 min    |
+| UAT-ADM-09 | Revoking a permission hides the module and blocks the address | Yes               | 15 min    |
+| UAT-ADM-10 | View-only vs Manage — what a viewer cannot do                 | Yes               | 15 min    |
+| UAT-ADM-11 | Action and approval permissions (goods, leave, entities)      | Yes               | 20 min    |
+| UAT-ADM-12 | A limited user cannot reach Administration (from their side)  | Yes               | 10 min    |
+| UAT-ADM-13 | Deactivate and reactivate a user; the last-admin safeguard    | Yes               | 15 min    |
+| UAT-ADM-14 | Permission Matrix and CSV export                              | No                | 10 min    |
+| UAT-ADM-15 | Activity Feed                                                 | No                | 10 min    |
+| UAT-ADM-16 | Audit Logs — find the permission change you just made         | No                | 15 min    |
+| UAT-ADM-17 | Report a bug — every field, round-trip check                  | No                | 20 min    |
+| UAT-ADM-18 | Request a feature and track it in Your Submissions            | No                | 10 min    |
+| UAT-ADM-19 | Triage feedback as an admin                                   | Yes               | 15 min    |
+| UAT-ADM-20 | AI agent runs (observability)                                 | No                | 5 min     |
+| UAT-ADM-21 | AI agent approval inbox                                       | No                | 5 min     |
+| UAT-ADM-22 | Procurement Trash — delete and restore                        | No                | 10 min    |
+| UAT-ADM-23 | Accounting Trash — restore and delete permanently             | No                | 10 min    |
+| UAT-ADM-24 | Super-admin area and the System Status gate                   | No                | 10 min    |
+| UAT-ADM-25 | Full Access — one click grants everything                     | Yes               | 10 min    |
+
+---
+
+## UAT-ADM-01 — Sign in and sign out
+
+**Goal:** Confirm both sign-in methods work and that signing out really ends the session.
+**Who:** Any staff member with a company account.
+**Before you start:** You know your own company email address. Nothing else needed.
+
+| #   | Do this                                                                                                | You should see                                                                                                                                                    | Pass? | Notes |
+| --- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Open the app while signed out.                                                                         | The **Vapour Toolbox** sign-in card, with "Sign in to continue", a **Sign in with Google** button, and below it a link **Sign in with email link (no password)**. | ☐     |       |
+| 2   | Read the small print at the bottom of the card.                                                        | "Internal users: @vapourdesal.com" and "External clients: Use invited email address".                                                                             | ☐     |       |
+| 3   | Click **Sign in with Google** and pick your company account.                                           | The pop-up closes and you land on the dashboard, headed **Welcome back, <your name>**.                                                                            | ☐     |       |
+| 4   | Click your avatar (top right) → **Logout**.                                                            | You are returned to the sign-in card.                                                                                                                             | ☐     |       |
+| 5   | Click **Sign in with email link (no password)**, type your company email, click **Send sign-in link**. | A green confirmation appears on the card.                                                                                                                         | ☐     |       |
+| 6   | Open the email that arrives and click the link in it.                                                  | The app opens, signs you in without asking for a password, and lands on the dashboard.                                                                            | ☐     |       |
+| 7   | Sign out again, then press the browser Back button.                                                    | You are not let back in — you stay on, or are returned to, the sign-in card.                                                                                      | ☐     |       |
+
+**Also check:**
+
+- The email link arrives within a couple of minutes. If it does not, look in the junk folder before reporting.
+- After step 3, the sidebar on the left shows category headings in capitals (DAILY OPERATIONS, SALES & ESTIMATION, and so on). Which ones you see depends on your permissions — that is tested in UAT-ADM-08.
+
+**Should NOT be possible:**
+
+- Signing in with a personal email address (Gmail, Outlook, etc.) that has never been invited — the app must sign you straight back out with an "unauthorized domain" style message. It must not let you in and then fail later.
+- Reaching any page of the app by typing its address while signed out.
+
+---
+
+## UAT-ADM-02 — The dashboard shows only what you are allowed to use
+
+**Goal:** Confirm the dashboard is filtered by your permissions and is not a fixed list.
+**Who:** Any signed-in user.
+**Before you start:** Signed in as yourself (UAT-ADM-01).
+
+| #   | Do this                                                     | You should see                                                                                                                  | Pass? | Notes |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Go to the dashboard (the app's landing page after sign-in). | **Welcome back, <your name>** and below it "Here's what needs your attention today", plus a hint that ⌘K opens search.          | ☐     |       |
+| 2   | Scroll to the **Available Modules** heading.                | A grid of module cards. Each card carries a live count or figure for that module.                                               | ☐     |       |
+| 3   | Compare the cards against the sidebar.                      | Every module card has a matching sidebar entry. Nothing is on the dashboard that is missing from the sidebar.                   | ☐     |       |
+| 4   | Look below the grid.                                        | A single-line **Coming Soon:** strip naming modules that are not built yet. These are text only — they are not clickable cards. | ☐     |       |
+| 5   | Click any one module card.                                  | It opens that module's landing page.                                                                                            | ☐     |       |
+
+**Also check:**
+
+- Note down the exact list of module cards you see. UAT-ADM-08 and UAT-ADM-09 compare a second user's list against permission changes, and it helps to know what "everything" looks like.
+
+---
+
+## UAT-ADM-03 — Open the Administration area and every one of its pages
+
+**Goal:** Confirm every admin page loads and shows live figures.
+**Who:** An admin — you need **Manage Users**.
+**Before you start:** Signed in as an admin.
+
+| #   | Do this                                                                                                                                                             | You should see                                                                                                                                                                             | Pass? | Notes |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----- |
+| 1   | In the sidebar, find the **ADMINISTRATION** heading and click **Administration**.                                                                                   | The Administration landing page, with three figures across the top: **Active Users**, **Open Feedback**, **Pending Approvals**.                                                            | ☐     |       |
+| 2   | Check the three figures are numbers, not blanks or spinners after a couple of seconds.                                                                              | Real counts. **Pending Approvals** is the combined count of purchase orders waiting for approval, purchase requests submitted, and leave requests waiting.                                 | ☐     |       |
+| 3   | Below the figures, review the card grid.                                                                                                                            | Cards for User Management, Company Settings, User Feedback, Activity Feed, Audit Logs, Data Backup, Email Management, Task Analytics, Agent Inbox, Agent Runs, System Status and HR Setup. | ☐     |       |
+| 4   | The sidebar entry for Administration expands into sub-pages. Click each in turn: **Users**, **Feedback**, **Activity**, **Audit Logs**, **HR Setup**, **Settings**. | Each page opens without an error, and a breadcrumb trail appears at the top starting with **Administration**.                                                                              | ☐     |       |
+| 5   | On **Users**, check the page heading.                                                                                                                               | **User Management** — "Manage users, permissions, and module access", with **Permission Matrix** and **Invite User** buttons at the top right.                                             | ☐     |       |
+| 6   | On **HR Setup**, check the two tabs.                                                                                                                                | **Leave Types** and **Leave Balances**.                                                                                                                                                    | ☐     |       |
+| 7   | On **Settings**, check the page loads its sections.                                                                                                                 | Sections including **Email Configuration** and **Notification Recipients**.                                                                                                                | ☐     |       |
+| 8   | Return to the Administration landing page and click **Agent Inbox**, then **Agent Runs**, then browser-Back each time.                                              | Both pages open. They are very likely to be empty — see UAT-ADM-20 and UAT-ADM-21.                                                                                                         | ☐     |       |
+
+**Also check:**
+
+- The **Open Feedback** figure counts items that are **New** or **In Progress** only. After UAT-ADM-19 marks something **Resolved**, this figure should drop by one.
+
+---
+
+## UAT-ADM-04 — Invite a new user — every field, round-trip check
+
+**Goal:** Send an invitation carrying pre-set permissions, so the invitee is active the moment they first sign in — with no manual approval step.
+**Who:** An admin with **Manage Users**.
+**Before you start:**
+
+- A company email address that has **never** signed in to the app and has no pending invitation. If your test user already exists, use UAT-ADM-07 instead and come back to this test with a fresh address.
+- Invitations are valid for 30 days.
+
+| #   | Do this                                                                                                                                        | You should see                                                                                                                            | Pass? | Notes |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration → **Users** → **Invite User**.                                                                                                  | The **Invite User** dialog.                                                                                                               | ☐     |       |
+| 2   | Fill in **every** field: Email Address, Display Name, Job Title, and pick a Department.                                                        | All four accept input. Department is marked required.                                                                                     | ☐     |       |
+| 3   | Under **Quick Presets**, click **Viewer**.                                                                                                     | A set of tick boxes turns on by itself in the Permissions list below.                                                                     | ☐     |       |
+| 4   | Now tick these individually: **View Procurement**, **Manage Procurement**, **View Accounting**, **Inspect Goods**.                             | Each tick box turns on and stays on.                                                                                                      | ☐     |       |
+| 5   | Read the blue note above the tick boxes.                                                                                                       | An **Open to all:** line naming the parts of the app that need no permission.                                                             | ☐     |       |
+| 6   | Click **Send Invitation**.                                                                                                                     | A green message: "Invitation sent to <email>. They will receive their permissions when they first sign in." The dialog closes on its own. | ☐     |       |
+| 7   | Reopen **Invite User** and enter the _same_ email again, tick any permission, pick a department, click **Send Invitation**.                    | A red error: "A pending invitation already exists for this email address." Nothing is sent.                                               | ☐     |       |
+| 8   | Have the invited person sign in for the first time (second browser profile).                                                                   | They land straight on the dashboard — **not** on a pending-approval screen.                                                               | ☐     |       |
+| 9   | **Round-trip check.** Back in your admin window, Administration → **Users**, find the new person, click the **Edit User** action on their row. | The **Edit User** dialog opens showing the Display Name, Job Title and Department you invited them with — nothing blank, nothing changed. | ☐     |       |
+| 10  | In that dialog, expand **Procurement** and **Accounting**.                                                                                     | Procurement's row tick box (View) is on, **Manage** is on, **Inspect Goods** is on. Accounting's row tick box (View) is on.               | ☐     |       |
+| 11  | Close the dialog with **Cancel**.                                                                                                              | No change is saved.                                                                                                                       | ☐     |       |
+
+**Also check:**
+
+- The permissions you ticked at invitation time are exactly the ones the user ends up with — nothing extra was added, nothing was dropped.
+- The new person appears in the Users table with status chip **active**, not **pending**.
+
+**Should NOT be possible:**
+
+- Sending an invitation with no permissions ticked — the dialog must refuse with "At least one permission is required".
+- Sending an invitation with no Department — the dialog must refuse with "Department is required".
+- Inviting someone who already has an account — the dialog must refuse with "A user with this email already exists. Use the edit button to update their permissions."
+- Sending an invitation to a badly formed email address — the dialog must refuse with "Please enter a valid email address".
+
+---
+
+## UAT-ADM-05 — A brand-new account waits on **Account Pending Approval**
+
+**Goal:** Confirm somebody who signs in without an invitation is parked with no access until an admin approves them.
+**Who:** A person outside the company domain, with no invitation waiting. Plus an admin to watch the queue.
+**Before you start:**
+
+- An email address that is **not** on the company domain and that has **no** pending invitation. If you have no such address to hand, skip to UAT-ADM-06 and approve whoever is already in the pending queue.
+- Everyone with a company email address is let in automatically with basic viewing access — they never reach this screen. This test is about outside addresses only.
+
+| #   | Do this                                                                         | You should see                                                                                                                                                                                                    | Pass? | Notes |
+| --- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | In a private window, sign in for the first time with the outside email address. | The **Account Pending Approval** screen — "Your account has been created but is awaiting administrator approval", with a **Sign Out** button and a support contact address.                                       | ☐     |       |
+| 2   | From that screen, try to reach the dashboard by typing its address.             | You are sent back to **Account Pending Approval**. No module, list or record is reachable.                                                                                                                        | ☐     |       |
+| 3   | Click **Sign Out**, then sign in again with the same address.                   | You land on **Account Pending Approval** again — the state persists.                                                                                                                                              | ☐     |       |
+| 4   | In your admin window, go to Administration → **Users**.                         | An amber panel at the top of the page headed "**1 User Awaiting Approval**" (or a higher count), with the new person listed and a **Review & Approve** button. The panel appears without you refreshing the page. | ☐     |       |
+
+**Should NOT be possible:**
+
+- The pending person seeing any module card, list or record.
+- The pending person reaching the Administration area.
+
+---
+
+## UAT-ADM-06 — Approve a pending user, and reject one
+
+**Goal:** Turn a pending account into a working one with the right permissions, and confirm rejection shuts an account down.
+**Who:** An admin with **Manage Users**.
+**Before you start:** At least one person in the amber "Awaiting Approval" panel — from UAT-ADM-05, or already in the queue.
+
+| #   | Do this                                                                                                                                    | You should see                                                                                                                                  | Pass? | Notes |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration → **Users** → in the amber panel, click **Review & Approve** on the pending person.                                         | The **Approve New User** dialog, showing their Name, Email and when they signed up.                                                             | ☐     |       |
+| 2   | Fill in **Job Title** and pick a **Department**.                                                                                           | Both accept input; Department is required.                                                                                                      | ☐     |       |
+| 3   | Click **Approve User** without ticking any permission.                                                                                     | A red error: "At least one permission is required". Nothing is saved.                                                                           | ☐     |       |
+| 4   | Under **Quick Presets**, click **Engineering**.                                                                                            | A block of tick boxes turns on.                                                                                                                 | ☐     |       |
+| 5   | Click **Clear**, then tick just **View Projects** and **View Estimation** by hand.                                                         | Only those two are on.                                                                                                                          | ☐     |       |
+| 6   | Read the blue note at the bottom of the dialog.                                                                                            | "Once approved, the user will be able to sign in with their assigned permissions."                                                              | ☐     |       |
+| 7   | Click **Approve User**.                                                                                                                    | The dialog closes. The amber panel loses that person (or disappears entirely) without you refreshing.                                           | ☐     |       |
+| 8   | Find the person in the Users table below.                                                                                                  | Their status chip now reads **active**, their Department chip shows, and their Module Access column shows chips for the modules they can reach. | ☐     |       |
+| 9   | Ask that person to refresh their browser (or sign out and back in — see the note at the top of this document).                             | They land on the dashboard. Their Available Modules include Projects and Estimation.                                                            | ☐     |       |
+| 10  | **Rejection.** With a _second_ pending person in the queue, click **Review & Approve**, then click **Reject** (bottom left of the dialog). | A browser confirmation asking "Are you sure you want to reject <name>? This will mark them as inactive."                                        | ☐     |       |
+| 11  | Confirm the rejection.                                                                                                                     | The dialog closes; that person leaves the amber panel and appears in the Users table with status chip **inactive**.                             | ☐     |       |
+| 12  | Ask the rejected person to try to sign in.                                                                                                 | They cannot get into the app.                                                                                                                   | ☐     |       |
+
+**Also check:**
+
+- The person you approved has _only_ the two permissions you ticked at step 5 — the Engineering preset you tried at step 4 must not have leaked through after you clicked **Clear**.
+
+**Should NOT be possible:**
+
+- Approving with no Department chosen — the dialog must refuse with "Department is required".
+- A rejected person signing in and reaching any module.
+
+---
+
+## UAT-ADM-07 — Edit a user — every field, round-trip check
+
+**Goal:** Change a person's details and permissions, and confirm that when you reopen the record nothing was lost or silently altered. **This is the single most valuable test in this document** — losing a saved field on reopen is the most common defect in this app.
+**Who:** An admin with **Manage Users**.
+**Before you start:** Your test user exists (UAT-ADM-04 or UAT-ADM-06). Do **not** run this on your own account.
+
+| #   | Do this                                                                                                                           | You should see                                                                                                                               | Pass? | Notes |
+| --- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration → **Users** → **Edit User** on your test user's row.                                                               | The **Edit User** dialog. The **Email** box is filled in and greyed out, with the note "Email cannot be changed".                            | ☐     |       |
+| 2   | Change **Display Name**. Fill in **Phone**, **Mobile**, **Job Title**, and change **Department**. Leave **Status** on **Active**. | All accept input.                                                                                                                            | ☐     |       |
+| 3   | Under **Module Permissions**, tick the row tick box on **Projects** (that is View), then expand the row and tick **Manage**.      | Both are on. The row's counter on the right changes to **2/2**.                                                                              | ☐     |       |
+| 4   | Expand **Entities**, tick its row tick box (View), then tick **Create** inside.                                                   | Both on. Counter reads **2/4**.                                                                                                              | ☐     |       |
+| 5   | Expand **Procurement**, tick its row tick box (View), then tick **Manage**, **Inspect Goods** and **Approve GR** inside.          | All four on. Counter reads **4/4**.                                                                                                          | ☐     |       |
+| 6   | Expand **HR & Leave Management** and tick **Approve Leaves**.                                                                     | On.                                                                                                                                          | ☐     |       |
+| 7   | Under **Admin Permissions**, expand **Analytics & Reporting**, tick its row tick box (View), then tick **Export** inside.         | Both on.                                                                                                                                     | ☐     |       |
+| 8   | Click **Save Changes**.                                                                                                           | A green banner: "**User updated successfully!** Permission changes take effect automatically." The dialog closes itself after a few seconds. | ☐     |       |
+| 9   | **Round-trip.** Reopen **Edit User** on the same person.                                                                          | Display Name, Phone, Mobile, Job Title, Department and Status are exactly what you saved. Nothing is blank.                                  | ☐     |       |
+| 10  | Expand Projects, Entities, Procurement, HR & Leave Management and Analytics & Reporting one by one.                               | Every tick you made at steps 3–7 is still on, and nothing you did **not** tick is on.                                                        | ☐     |       |
+| 11  | **Save again without changing anything.** Click **Save Changes**.                                                                 | The green banner again.                                                                                                                      | ☐     |       |
+| 12  | Reopen **Edit User** a third time and re-check every field and tick box.                                                          | Identical to step 9/10. A save-with-no-changes must not drop a single value.                                                                 | ☐     |       |
+| 13  | Now untick a permission — expand **Entities** and untick its row tick box (View).                                                 | **Create**, **Edit** and **Delete** inside the row grey out and become unclickable, because there is no View access to build on.             | ☐     |       |
+| 14  | Re-tick the Entities row tick box, then click **Cancel**.                                                                         | The dialog closes with nothing saved.                                                                                                        | ☐     |       |
+| 15  | Reopen **Edit User** once more.                                                                                                   | The record is as it was at step 12 — **Cancel** discarded the change.                                                                        | ☐     |       |
+
+**Also check:**
+
+- In the Users table, the **Module Access** column for this person now shows chips for the modules you granted. Green filled chips mean "can manage", plain outlined chips mean "view only" — the legend under the table says so.
+- The tick-box counters (e.g. **2/4**) match what is actually ticked inside each row.
+
+**Should NOT be possible:**
+
+- Saving with an empty Display Name — the dialog must refuse with "Display name is required".
+- Changing the email address.
+
+---
+
+## UAT-ADM-08 — Granting a permission makes the module appear
+
+**Goal:** Prove that ticking a View permission puts the module in that person's sidebar and dashboard, and lets them open it. **This is the core behaviour of the whole module.**
+**Who:** An admin with **Manage Users**, plus your test user signed in elsewhere.
+**Before you start:**
+
+- Your test user is **active** and signed in, in a second browser profile.
+- Strip them back first: Edit User → **Clear** (the button above the tick boxes) → **Save Changes**. Note that **Clear** removes every module permission, so start from a clean slate.
+- **Remember:** after each grant, the second user may take up to a couple of minutes to see the change. Refresh first; if still missing, sign out and back in. Only then is it a bug.
+
+| #   | Do this (admin window)                                                                                            | You should see (test user's window, after refresh / re-sign-in)                                                                                                                                                                                                                    | Pass? | Notes |
+| --- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | With everything cleared, look at the test user's screen.                                                          | The sidebar shows only the always-open items (Flow, Estimation, Thermal Calculators, Services, Material / Shape / Bought Out databases, HR & Leave, Documents). No Procurement, no Accounting, no Projects, no Entities, no Proposals, no Process Data, no ADMINISTRATION heading. | ☐     |       |
+| 2   | Edit User → tick the **Procurement** row tick box (View) → **Save Changes**.                                      | **Procurement** appears in the sidebar under PROCUREMENT & FINANCE, and a Procurement card appears on their dashboard under Available Modules.                                                                                                                                     | ☐     |       |
+| 3   | Have the test user click **Procurement**.                                                                         | The Procurement landing page opens with its lists.                                                                                                                                                                                                                                 | ☐     |       |
+| 4   | Edit User → tick the **Accounting** row tick box (View) → **Save Changes**.                                       | **Accounting** appears in the sidebar and on the dashboard, and opens.                                                                                                                                                                                                             | ☐     |       |
+| 5   | Edit User → tick the **Projects** row tick box (View) → **Save Changes**.                                         | **Project Management** appears under DAILY OPERATIONS and opens.                                                                                                                                                                                                                   | ☐     |       |
+| 6   | Edit User → tick the **Entities** row tick box (View) → **Save Changes**.                                         | **Entity Management** appears under SETUP and opens, listing vendors and customers.                                                                                                                                                                                                | ☐     |       |
+| 7   | Edit User → tick the **Proposals & Enquiries** row tick box (View) → **Save Changes**.                            | **Proposal Management** appears under SALES & ESTIMATION and opens.                                                                                                                                                                                                                | ☐     |       |
+| 8   | Edit User → tick the **Thermal Desalination** row tick box (View) → **Save Changes**.                             | **Process Data (SSOT)** appears under ENGINEERING DATA and opens. (Thermal desalination and process data share one permission — that is intended.)                                                                                                                                 | ☐     |       |
+| 9   | Edit User → under **Admin Permissions**, expand **User Management** and tick **Manage Users** → **Save Changes**. | The **ADMINISTRATION** heading appears in the test user's sidebar with **Administration** under it, and the sub-pages Users, Feedback, Activity, Audit Logs, HR Setup and Settings.                                                                                                | ☐     |       |
+| 10  | Have the test user open Administration.                                                                           | The Administration landing page loads with its three figures. ⚠ **Known issue** — this one permission opens _every_ admin page, including Audit Logs and Settings. There is no finer-grained control yet. Do not report this.                                                      | ☐     |       |
+| 11  | Have the test user compare their dashboard to their sidebar.                                                      | The two agree: every module in the sidebar has a card, and nothing extra.                                                                                                                                                                                                          | ☐     |       |
+
+**Also check:**
+
+- After each save, the change reaches the test user without them having to sign out — a refresh should be enough within a couple of minutes. If a sign-out is needed **every single time**, note it, but do not raise it as a bug for an individual step.
+- Granting **View** alone is enough to make a module appear. **Manage** is not needed for visibility — that is tested in UAT-ADM-10.
+
+**Should NOT be possible:**
+
+- A module appearing in the sidebar that the person has no permission for.
+- The test user reaching a module by typing its address before you have granted its View permission.
+
+---
+
+## UAT-ADM-09 — Revoking a permission hides the module and blocks the address
+
+**Goal:** Prove that taking a permission away really removes access — not just the menu entry.
+**Who:** An admin with **Manage Users**, plus your test user signed in elsewhere.
+**Before you start:** Requires the test user from UAT-ADM-08, holding View permissions for Procurement, Accounting, Projects, Entities and Proposals.
+
+| #   | Do this                                                                                                               | You should see                                                                                                                                                                                | Pass? | Notes |
+| --- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Have the test user open **Procurement** and leave the page open. Note the address in the address bar.                 | The Procurement landing page.                                                                                                                                                                 | ☐     |       |
+| 2   | In your admin window: Edit User → untick the **Procurement** row tick box (View) → **Save Changes**.                  | The green success banner.                                                                                                                                                                     | ☐     |       |
+| 3   | Have the test user refresh their browser. Wait up to two minutes; if nothing changes, have them sign out and back in. | **Procurement** has gone from the sidebar and from their dashboard.                                                                                                                           | ☐     |       |
+| 4   | Have the test user paste the Procurement address back into the address bar and press Enter.                           | They are blocked — an access-denied message or a redirect away. They must **not** see purchase orders, requests or vendor data.                                                               | ☐     |       |
+| 5   | Repeat steps 2–4 for **Accounting**.                                                                                  | Same result: gone from the sidebar and the address is blocked.                                                                                                                                | ☐     |       |
+| 6   | Repeat steps 2–4 for **Projects** and for **Entities**.                                                               | Same result each time.                                                                                                                                                                        | ☐     |       |
+| 7   | Untick **Manage Users** (Admin Permissions → User Management) → **Save Changes**.                                     | After the test user refreshes/re-signs-in, the **ADMINISTRATION** heading disappears from their sidebar entirely.                                                                             | ☐     |       |
+| 8   | Have the test user paste the Administration address into the address bar.                                             | A red **Access Denied** panel: "You need admin permissions to access the Administration section." with "Contact your administrator if you need access." and their email address shown.        | ☐     |       |
+| 9   | Clear every remaining permission (Edit User → **Clear** → **Save Changes**) and have the test user refresh.           | Their dashboard falls back to the always-open modules. If you have somehow removed even those, the dashboard shows "**No modules available** — Please contact your administrator for access". | ☐     |       |
+
+**Also check:**
+
+- At step 4 and step 8, the block is a proper message — not a blank page, not a spinner that never finishes, not a raw error.
+
+---
+
+## UAT-ADM-10 — View-only vs Manage — what a viewer cannot do
+
+**Goal:** Confirm the difference between seeing a module and being allowed to change things in it.
+**Who:** An admin with **Manage Users**, plus your test user.
+**Before you start:** Clear the test user's permissions, then grant **View** only (row tick box, no **Manage**) on **Procurement**, **Accounting** and **Projects**. Save, and have the test user refresh or re-sign-in.
+
+| #   | Do this (as the test user)                                                                                                    | You should see                                                                                                                                               | Pass? | Notes |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----- |
+| 1   | Open **Procurement** and browse the purchase-order and purchase-request lists.                                                | The lists load and records are readable.                                                                                                                     | ☐     |       |
+| 2   | Try to create a new purchase request.                                                                                         | Either the create button is not offered, or the attempt is refused with a clear permission message. It must not appear to save and then silently do nothing. | ☐     |       |
+| 3   | Open an existing purchase order and try to edit it.                                                                           | Blocked the same way.                                                                                                                                        | ☐     |       |
+| 4   | Open **Accounting** and browse transactions.                                                                                  | Lists and reports load.                                                                                                                                      | ☐     |       |
+| 5   | Try to create a transaction (invoice, bill or journal entry).                                                                 | Blocked with a clear message.                                                                                                                                | ☐     |       |
+| 6   | Open **Projects** and try to create a project.                                                                                | Blocked with a clear message.                                                                                                                                | ☐     |       |
+| 7   | Now, in the admin window, add **Manage** inside **Procurement** → **Save Changes**. Have the test user refresh or re-sign-in. | They can now create and edit purchase requests and purchase orders.                                                                                          | ☐     |       |
+| 8   | Check Accounting again as the test user.                                                                                      | Still view-only — granting Manage on Procurement must not have unlocked Accounting.                                                                          | ☐     |       |
+
+**Should NOT be possible:**
+
+- A view-only user creating, editing or deleting anything in a module they can only view.
+- A refusal that reads as a generic "failed" with no explanation — the message should say a permission is missing.
+
+---
+
+## UAT-ADM-11 — Action and approval permissions (goods, leave, entities)
+
+**Goal:** Confirm the permissions that unlock a specific _action_ rather than a whole module.
+**Who:** An admin with **Manage Users**, plus your test user.
+**Before you start:** Test user has **View** and **Manage** on **Procurement** (from UAT-ADM-10), and nothing else.
+
+| #   | Do this                                                                                                                                            | You should see                                                                       | Pass? | Notes |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----- | ----- |
+| 1   | As the test user, go to Procurement and try to record a goods receipt against an issued purchase order.                                            | Blocked — they do not have **Inspect Goods** yet.                                    | ☐     |       |
+| 2   | Admin: Edit User → **Procurement** → tick **Inspect Goods** → **Save Changes**. Test user refreshes.                                               | They can now create a goods receipt and record the inspection.                       | ☐     |       |
+| 3   | As the test user, try to approve that goods receipt and send it to accounting.                                                                     | Blocked — they do not have **Approve GR** yet.                                       | ☐     |       |
+| 4   | Admin: Edit User → **Procurement** → tick **Approve GR** → **Save Changes**. Test user refreshes.                                                  | They can now approve the goods receipt.                                              | ☐     |       |
+| 5   | As the test user, open **HR & Leave** (open to everyone) and look for a leave-approval queue.                                                      | Nothing to approve — they do not have **Approve Leaves**.                            | ☐     |       |
+| 6   | Admin: Edit User → **HR & Leave Management** → tick **Approve Leaves** → **Save Changes**. Test user refreshes.                                    | Leave requests awaiting a decision now show up for them with approve/reject actions. | ☐     |       |
+| 7   | Admin: Edit User → **Entities** → tick the row tick box (View) and **Create**, but **not** Edit or Delete → **Save Changes**. Test user refreshes. | The test user can open Entity Management, list entities and create a new one.        | ☐     |       |
+| 8   | As the test user, open an existing entity and try to edit it, then try to delete one.                                                              | Both blocked. **Edit** and **Delete** are separate permissions from **Create**.      | ☐     |       |
+
+**Should NOT be possible:**
+
+- Approving your own goods receipt where the workflow requires a second person — the app must block it with a clear message. (Confirm with the procurement test script for the full goods-receipt flow.)
+- **Create** on Entities implying **Edit** or **Delete**.
+
+---
+
+## UAT-ADM-12 — A limited user cannot reach Administration (from their side)
+
+**Goal:** Check the permission wall from the outside in — sign in as a restricted person and confirm the admin area is genuinely unreachable.
+**Who:** Your test user. You do this test **signed in as them**, not as an admin.
+**Before you start:** Test user is active and has **View Procurement** only — no **Manage Users**, no **Manage Admin Panel**.
+
+| #   | Do this (signed in as the test user)                                                               | You should see                                                                                                                            | Pass? | Notes |
+| --- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Look down the whole sidebar.                                                                       | No **ADMINISTRATION** heading anywhere.                                                                                                   | ☐     |       |
+| 2   | Look at the whole dashboard, including the Coming Soon strip.                                      | No Administration card.                                                                                                                   | ☐     |       |
+| 3   | Press ⌘K (or Ctrl+K) and search for "admin", "users", "audit".                                     | No result takes you into the Administration area.                                                                                         | ☐     |       |
+| 4   | Type the Administration address into the address bar.                                              | Red **Access Denied** panel: "You need admin permissions to access the Administration section."                                           | ☐     |       |
+| 5   | Type the Users page address into the address bar.                                                  | The same Access Denied panel. No user list, no email addresses, no permissions are shown.                                                 | ☐     |       |
+| 6   | Type the Audit Logs address into the address bar.                                                  | The same Access Denied panel. No log entries are shown.                                                                                   | ☐     |       |
+| 7   | Type the Feedback triage address (the admin one, not your own Feedback page) into the address bar. | The same Access Denied panel. Note that the ordinary **Feedback** page for submitting a report stays available to them — that is correct. | ☐     |       |
+| 8   | Type the Agent Runs and Agent Inbox addresses into the address bar.                                | Access Denied both times.                                                                                                                 | ☐     |       |
+| 9   | Type the super-admin address into the address bar.                                                 | A different panel: **Access Denied: Super Admin Privileges Required**.                                                                    | ☐     |       |
+
+**Also check:**
+
+- At no point does a page flash real admin data for a moment before the block appears. If you catch a glimpse of the user list or audit entries before it locks, report it — that is a real problem.
+
+---
+
+## UAT-ADM-13 — Deactivate and reactivate a user; the last-admin safeguard
+
+**Goal:** Confirm an admin can switch a person off, that the lock-out is immediate, and that the app refuses to leave itself with no admin.
+**Who:** An admin with **Manage Users**, plus your test user.
+**Before you start:** Test user is **active** and signed in elsewhere. **Do not run the last-admin part on your only admin account** — read step 6 first.
+
+| #   | Do this                                                                                                                                                                       | You should see                                                                                                                                                    | Pass? | Notes |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration → **Users** → **Edit User** on the test user → set **Status** to **Inactive** → **Save Changes**.                                                              | The green success banner. The status chip on their row changes to **inactive**.                                                                                   | ☐     |       |
+| 2   | Have the test user try to use the app — click any module, or refresh.                                                                                                         | They are locked out and returned to the sign-in card. This should happen quickly, without waiting for a session to expire.                                        | ☐     |       |
+| 3   | Have them try to sign back in.                                                                                                                                                | They cannot get into the app.                                                                                                                                     | ☐     |       |
+| 4   | Back in the Users table, set the **Status** filter to **Inactive**.                                                                                                           | The deactivated person is listed.                                                                                                                                 | ☐     |       |
+| 5   | **Edit User** → set **Status** back to **Active** → **Save Changes**. Have them sign in again.                                                                                | They are back in with the permissions they had before — deactivating did not wipe their permissions.                                                              | ☐     |       |
+| 6   | **Last-admin safeguard.** Make sure there are at least two active admins. Then, on the _second_ admin (not yourself), remove **Manage Users** and set Status to **Inactive**. | Allowed — there is still one admin left.                                                                                                                          | ☐     |       |
+| 7   | Now try to deactivate the **only remaining** admin account.                                                                                                                   | The app refuses. The account stays active. (If you have only ever had one admin, do not attempt this — you would lock everyone out; mark this row as not tested.) | ☐     |       |
+| 8   | Undo step 6 — restore the second admin's **Manage Users** and set them Active again.                                                                                          | They can reach Administration again after refreshing.                                                                                                             | ☐     |       |
+
+**Should NOT be possible:**
+
+- Deactivating or stripping the last active admin — the app must block it, leaving the account untouched.
+- A deactivated person continuing to work in an already-open tab.
+
+---
+
+## UAT-ADM-14 — Permission Matrix and CSV export
+
+**Goal:** Read who has what, across everyone, in one screen.
+**Who:** An admin with **Manage Users**.
+**Before you start:** At least two active users with different permissions (your admin account and the test user).
+
+| #   | Do this                                                                           | You should see                                                                                                                                               | Pass? | Notes |
+| --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----- |
+| 1   | Administration → **Users** → **Permission Matrix**.                               | The **Permission Matrix** page — "Comprehensive view of user permissions across all modules" — with a **Back to Users** button and an **Export CSV** button. | ☐     |       |
+| 2   | Use the view toggle to switch between the two views.                              | One view is organised by module, the other by user. Both show the same information.                                                                          | ☐     |       |
+| 3   | Use the **Module** filter to pick Procurement.                                    | Only Procurement permissions are shown.                                                                                                                      | ☐     |       |
+| 4   | Use the **User** filter to pick your test user.                                   | Only their permissions are shown.                                                                                                                            | ☐     |       |
+| 5   | Set the **Status** filter to **Active**, then **All**.                            | **All** brings inactive people back into view.                                                                                                               | ☐     |       |
+| 6   | Read the legend at the bottom.                                                    | Four chip types: **View**, **Manage**, **Approve**, **Action**.                                                                                              | ☐     |       |
+| 7   | Cross-check your test user's row against what you set in UAT-ADM-07 / UAT-ADM-11. | It matches exactly.                                                                                                                                          | ☐     |       |
+| 8   | Click **Export CSV**.                                                             | A spreadsheet file downloads. Open it — the same people and permissions are in it, with readable permission names.                                           | ☐     |       |
+| 9   | Click **Back to Users**.                                                          | You return to User Management.                                                                                                                               | ☐     |       |
+
+**Also check:**
+
+- The exported file must not contain raw numbers in place of permission names.
+
+---
+
+## UAT-ADM-15 — Activity Feed
+
+**Goal:** See recent activity across the whole company in plain language.
+**Who:** An admin with **Manage Users**.
+**Before you start:** Run at least UAT-ADM-07 first, so there is a recent permission change to find.
+
+| #   | Do this                                                                                                                 | You should see                                                                                                           | Pass? | Notes |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----- | ----- |
+| 1   | Administration → **Activity**.                                                                                          | The **Activity Feed** page — "Recent organization-wide activity and changes".                                            | ☐     |       |
+| 2   | Read the strip of figures across the top.                                                                               | Six boxes: **Entries (window)**, **Critical**, **Failed**, **Agent actions**, **Top module**, **Top actor**.             | ☐     |       |
+| 3   | Scroll the list.                                                                                                        | Entries grouped under date headings: **Today**, **Yesterday**, **Earlier This Week**, and older dates.                   | ☐     |       |
+| 4   | Find the entry for the user edit you made in UAT-ADM-07.                                                                | An entry naming you as the person who did it, the user you changed, and roughly when.                                    | ☐     |       |
+| 5   | Use the **Module** filter to narrow to the administration/user area.                                                    | Only entries from that area remain, and the count drops.                                                                 | ☐     |       |
+| 6   | Use the **User** filter to pick yourself.                                                                               | Only your own actions remain.                                                                                            | ☐     |       |
+| 7   | Type part of a user's name into the search box.                                                                         | The list narrows as you type.                                                                                            | ☐     |       |
+| 8   | Clear the filters. In a second window, sign in as the test user, then come back to this page **without refreshing it**. | A new sign-in entry appears at the top on its own — the feed is live.                                                    | ☐     |       |
+| 9   | Look for red **Critical** and amber **Failed** chips.                                                                   | Deletions and voids are marked **Critical**; anything that failed is marked **Failed**. If there are none, that is fine. | ☐     |       |
+
+**Also check:**
+
+- The feed covers the most recent 100 entries only — that is what "Entries (window)" means. For anything older, use Audit Logs (UAT-ADM-16).
+
+---
+
+## UAT-ADM-16 — Audit Logs — find the permission change you just made
+
+**Goal:** Prove that permission changes, sign-ins and deletions leave a permanent, searchable record.
+**Who:** An admin with **Manage Users**.
+**Before you start:** Requires the user edit from UAT-ADM-07 and the approval from UAT-ADM-06.
+
+| #   | Do this                                                                                       | You should see                                                                                                                                                               | Pass? | Notes |
+| --- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration → **Audit Logs**.                                                              | A filterable table of log entries.                                                                                                                                           | ☐     |       |
+| 2   | Type your test user's email into the search box ("Search by actor, entity, or description…"). | Entries about that person only.                                                                                                                                              | ☐     |       |
+| 3   | Find the entry for the permission change you made in UAT-ADM-07 and open its detail view.     | A panel showing the **Actor** (you — name and email), the **Target Entity** (the user you changed), the action, and a **Changes** list showing what moved from what to what. | ☐     |       |
+| 4   | Check the **Actor** on that entry.                                                            | It names **you**, not "system".                                                                                                                                              | ☐     |       |
+| 5   | Now find the entry for the user you approved in UAT-ADM-06 and open it.                       | It names **you** as the approver.                                                                                                                                            | ☐     |       |
+| 6   | Look for a companion entry recording that the person's access was updated after approval.     | ⚠ **Known issue** — this follow-up entry is attributed to **system** rather than to the admin who approved. Do not report it; it is already on the fix list.                 | ☐     |       |
+| 7   | Set the **Severity** filter to **CRITICAL**.                                                  | Only deletions and voids remain (or nothing, if none have happened).                                                                                                         | ☐     |       |
+| 8   | Set the **Actor** filter to **Human**, then **Agent**, then **System**.                       | **Human** shows staff actions; **Agent** shows AI-driven ones (likely empty — see UAT-ADM-20); **System** shows automatic ones.                                              | ☐     |       |
+| 9   | Set the **Action** filter to the sign-in action and check today's date range.                 | Your own sign-in from UAT-ADM-01 is listed, and so is the test user's.                                                                                                       | ☐     |       |
+| 10  | Set a **From** and **To** date covering only today.                                           | Older entries drop out.                                                                                                                                                      | ☐     |       |
+| 11  | Click the clear-filters button.                                                               | All filters reset and the full list returns.                                                                                                                                 | ☐     |       |
+| 12  | Click **Export CSV**.                                                                         | A spreadsheet downloads containing the entries currently on screen.                                                                                                          | ☐     |       |
+
+**Also check:**
+
+- A failed sign-in is recorded too. If you can safely produce one (for example, an outside address with no invitation), confirm it appears with the **Failed** marking.
+- Entries are never editable or deletable from this screen. There must be no edit or delete action on a log row.
+
+---
+
+## UAT-ADM-17 — Report a bug — every field, round-trip check
+
+**Goal:** File a complete bug report and confirm every field you filled in survives to the admin's triage screen.
+**Who:** Any signed-in user — no permission needed.
+**Before you start:** Signed in as anyone. Have a screenshot image file ready to attach.
+
+| #   | Do this                                                                                                     | You should see                                                                                                                                                                         | Pass? | Notes |
+| --- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Click the speech-bubble **Feedback** icon in the top bar.                                                   | The **Feedback & Support** page opens in a new tab.                                                                                                                                    | ☐     |       |
+| 2   | Choose the **bug** feedback type.                                                                           | A **Bug Classification** card appears with Page URL, Severity and Frequency.                                                                                                           | ☐     |       |
+| 3   | Under **Which Module?**, pick **Procurement**.                                                              | Selected.                                                                                                                                                                              | ☐     |       |
+| 4   | Fill in **Page URL where issue occurred** with a full app address.                                          | Accepted; the red required-field highlight clears.                                                                                                                                     | ☐     |       |
+| 5   | Set **Severity** to **Major** and **Frequency** to **Often (>50%)**.                                        | Both selected. Severity options carry descriptions (Critical / Major / Minor / Cosmetic).                                                                                              | ☐     |       |
+| 6   | Fill in **Title** and **Description**.                                                                      | Both accepted; both are required.                                                                                                                                                      | ☐     |       |
+| 7   | Fill in **Steps to Reproduce**, **Expected Behavior**, **Actual Behavior** and **Console Errors (if any)**. | All four accept multi-line text.                                                                                                                                                       | ☐     |       |
+| 8   | Attach your screenshot in the screenshot section.                                                           | The image uploads and a thumbnail appears. The Submit button is disabled while the upload is running.                                                                                  | ☐     |       |
+| 9   | Click **Submit Feedback**.                                                                                  | A success confirmation, and the form clears.                                                                                                                                           | ☐     |       |
+| 10  | Scroll to **Your Submissions** on the same page.                                                            | Your new report is listed with status **New**.                                                                                                                                         | ☐     |       |
+| 11  | **Round-trip.** In your admin window, Administration → **Feedback** → open the item you just filed.         | Every single field from steps 3–8 is present and unchanged: module, page address, severity, frequency, title, description, steps, expected, actual, console errors and the screenshot. | ☐     |       |
+| 12  | Check the reporter details on that item.                                                                    | Your name and email, and the address of the page you were on when you filed it.                                                                                                        | ☐     |       |
+
+**Also check:**
+
+- A bug is filed with priority **Medium** by default.
+- Submitting with an empty Title or Description must be refused.
+- Submitting a bug with no Page URL must be refused — the field is marked required and highlights red when empty.
+- The **Clear Form** button empties the form without submitting anything.
+
+---
+
+## UAT-ADM-18 — Request a feature and track it in Your Submissions
+
+**Goal:** File a feature request (a different set of fields from a bug) and follow it.
+**Who:** Any signed-in user.
+**Before you start:** None.
+
+| #   | Do this                                                                                                          | You should see                                                                                         | Pass? | Notes |
+| --- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----- | ----- |
+| 1   | Open **Feedback** from the top bar and choose the **feature** type.                                              | The Bug Classification card disappears; a **Feature Priority** card appears with an **Impact** picker. | ☐     |       |
+| 2   | Set **Impact** to **High**.                                                                                      | Options carry descriptions (Blocker / High / Medium / Low).                                            | ☐     |       |
+| 3   | Pick a **Module**, fill in **Title** and **Description**.                                                        | All accepted.                                                                                          | ☐     |       |
+| 4   | Fill in **Use Case** and **Expected Outcome**.                                                                   | Both accept multi-line text. Note these replace the bug-only fields — that is intended.                | ☐     |       |
+| 5   | Click **Submit Feedback**.                                                                                       | Success confirmation and the form clears.                                                              | ☐     |       |
+| 6   | Look at **Your Submissions**.                                                                                    | Both this request and the bug from UAT-ADM-17 are listed, each with a status chip.                     | ☐     |       |
+| 7   | Leave this page open. Have an admin change the status of one of your items (UAT-ADM-19), then refresh this page. | The status chip in **Your Submissions** reflects the admin's decision.                                 | ☐     |       |
+
+**Also check:**
+
+- A feature request is filed with priority **Low** by default (bugs default to Medium).
+- The Page URL, Severity and Frequency fields are not shown for a feature request.
+
+---
+
+## UAT-ADM-19 — Triage feedback as an admin
+
+**Goal:** Work the feedback queue — filter it, change status, add internal notes.
+**Who:** An admin with **Manage Users**.
+**Before you start:** Requires the bug from UAT-ADM-17 and the feature request from UAT-ADM-18, both filed by someone other than you if possible.
+
+| #   | Do this                                                               | You should see                                                                      | Pass? | Notes |
+| --- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration → **Feedback**.                                        | Summary figures at the top and a table of submissions below.                        | ☐     |       |
+| 2   | Filter by type: **Bug Report**, then **Feature Request**.             | The list narrows correctly each time.                                               | ☐     |       |
+| 3   | Filter by status: **New**.                                            | Your two new items are shown.                                                       | ☐     |       |
+| 4   | Filter by module, then by reporter.                                   | Both filters narrow the list; the "showing X of Y" count updates.                   | ☐     |       |
+| 5   | Clear the filters and open the bug from UAT-ADM-17.                   | The detail dialog with everything the reporter submitted, including the screenshot. | ☐     |       |
+| 6   | Change its status to **In Progress**.                                 | The chip updates in the dialog and on the row behind it, without refreshing.        | ☐     |       |
+| 7   | Type something into the admin notes and save.                         | The note is stored. Reopen the item — the note is still there.                      | ☐     |       |
+| 8   | Change the priority.                                                  | The new priority sticks after you reopen the item.                                  | ☐     |       |
+| 9   | Set the status to **Resolved** and add a resolution note.             | Both save.                                                                          | ☐     |       |
+| 10  | Go back to the Administration landing page.                           | **Open Feedback** has dropped by one — resolved items no longer count as open.      | ☐     |       |
+| 11  | Set the other item to **Won't Fix**.                                  | The chip reads **Won't Fix**.                                                       | ☐     |       |
+| 12  | Ask the original reporter to refresh their **Your Submissions** list. | They see the statuses you set.                                                      | ☐     |       |
+
+**Also check:**
+
+- The five statuses available are **New**, **In Progress**, **Resolved**, **Closed** and **Won't Fix**.
+- Admin notes are for admins. Confirm they are not shown to the reporter in **Your Submissions**.
+
+---
+
+## UAT-ADM-20 — AI agent runs (observability)
+
+> ⚠ **Known issue — expected to be empty.** The AI agent that would create these records is not switched on yet. The page exists so it is ready when the agent starts running, but it will show "No agent runs yet" and there is no way to start a run from the app. Do not file feedback about the empty list; it is already known.
+
+**Goal:** Confirm the Agent Runs page loads and behaves correctly while it is empty.
+**Who:** An admin with **Manage Users**.
+**Before you start:** None.
+
+| #   | Do this                                            | You should see                                                                                                                                                                                                                                          | Pass? | Notes |
+| --- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration landing page → **Agent Runs**.      | The **Agent Runs** page — "Every orchestrator invocation, with status / cost / tools / HITL counts."                                                                                                                                                    | ☐     |       |
+| 2   | Read the figures across the top.                   | **Runs today**, **Running now**, **Awaiting HITL**, **Cost today** — all showing zero.                                                                                                                                                                  | ☐     |       |
+| 3   | Look at the list area.                             | ⚠ known issue — "No agent runs yet. Once the orchestrator starts up, runs will appear here." Do not report this.                                                                                                                                        | ☐     |       |
+| 4   | Try the **Status** and **Trigger** filters.        | Both open and offer **All Statuses** / **All Triggers** plus specific values. Nothing crashes with an empty list.                                                                                                                                       | ☐     |       |
+| 5   | If — and only if — a run row does exist, click it. | A run detail page headed **Agent Run** with a status chip and four figures: **Trigger**, **Duration**, **Cost**, **Tools / HITL**; below that a **Human approvals** table and a **Transcript** listing every recorded event for that run in time order. | ☐     |       |
+
+---
+
+## UAT-ADM-21 — AI agent approval inbox
+
+> ⚠ **Known issue — expected to be empty.** As with UAT-ADM-20, nothing can put a request into this inbox yet because the AI agent is not switched on. Check the page loads; do not file feedback about it being empty.
+
+**Goal:** Confirm the approval inbox loads and its two tabs work.
+**Who:** An admin with **Manage Users**.
+**Before you start:** None.
+
+| #   | Do this                                                      | You should see                                                                                                                                                                              | Pass? | Notes |
+| --- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration landing page → **Agent Inbox**.               | The **Agent Inbox** page — "Review and decide on pending AI agent actions. Approving unblocks the agent run; rejecting cancels it."                                                         | ☐     |       |
+| 2   | Look at the **Pending** tab.                                 | ⚠ known issue — "Inbox empty — the agent has no pending approval requests." Do not report this.                                                                                             | ☐     |       |
+| 3   | Switch to the **History** tab.                               | "No decided agent tasks yet."                                                                                                                                                               | ☐     |       |
+| 4   | If — and only if — a pending request does appear, review it. | A row showing a risk chip (**LOW** / **MEDIUM** / **HIGH**), the tool being used, a description, the record it affects, how long it has been waiting, and **Approve** / **Reject** buttons. | ☐     |       |
+| 5   | Click **Reject** on such a row.                              | A **Reject agent action** dialog with a **Reason (optional but recommended)** box.                                                                                                          | ☐     |       |
+| 6   | Give a reason and confirm.                                   | The row moves to **History** with status **REJECTED**, showing your name and the time you decided.                                                                                          | ☐     |       |
+| 7   | Click **Approve** on another such row.                       | It moves to **History** with status **APPROVED**, showing your name and the time.                                                                                                           | ☐     |       |
+
+**Should NOT be possible:**
+
+- Two admins deciding the same request. If a second admin decides one that has already been decided, the second attempt must be refused — the first decision stands.
+- Editing or deleting an agent run or an agent task. These are records of what happened; they are read-only.
+
+---
+
+## UAT-ADM-22 — Procurement Trash — delete and restore
+
+**Goal:** Confirm that deleting a procurement document hides it rather than destroying it, and that it can be brought back.
+**Who:** Someone with **Manage Procurement**.
+**Before you start:** One procurement document (a draft purchase request or RFQ) you are willing to delete. Note its number.
+
+| #   | Do this                                                               | You should see                                                                                                        | Pass? | Notes |
+| --- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Open the document and delete it.                                      | It disappears from its list page.                                                                                     | ☐     |       |
+| 2   | Go back to that list page and search for its number.                  | Not found — deleted documents are hidden from the normal lists.                                                       | ☐     |       |
+| 3   | Procurement landing page → **Trash**.                                 | The **Trash** page — "Deleted procurement documents can be restored here" — with your document listed.                | ☐     |       |
+| 4   | Check the row.                                                        | Its type, number and the status it was in when deleted.                                                               | ☐     |       |
+| 5   | Use the **Type** filter and the search box.                           | Both narrow the list correctly.                                                                                       | ☐     |       |
+| 6   | Click the **Restore** action on the row.                              | A confirmation: "Restore "<number>" (<type>)? It will reappear on its original list page." with a **Restore** button. | ☐     |       |
+| 7   | Confirm.                                                              | The row leaves Trash.                                                                                                 | ☐     |       |
+| 8   | Go back to the document's normal list page and search for its number. | It is back, in the same status it had before deletion, with its contents intact.                                      | ☐     |       |
+
+**Also check:**
+
+- There is no permanent-delete action on the Procurement Trash page — restore only. That is intended.
+- ⚠ **Known issue** — only Procurement and Accounting have a Trash page. Other modules also hide deleted records rather than destroying them, but there is no screen to restore from. Do not file feedback about a missing Trash page elsewhere.
+
+---
+
+## UAT-ADM-23 — Accounting Trash — restore and delete permanently
+
+**Goal:** Confirm restore works for transactions, and that permanent deletion is guarded by a confirmation.
+**Who:** Someone with **Manage Accounting**.
+**Before you start:** Two draft transactions you are willing to delete. Note their numbers. **Step 9 destroys a record — use test data only.**
+
+| #   | Do this                                                                       | You should see                                                                                                                                                 | Pass? | Notes |
+| --- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Delete both transactions from their list pages.                               | Both disappear from the list.                                                                                                                                  | ☐     |       |
+| 2   | Accounting landing page → **Trash**.                                          | The **Trash** page — "Deleted transactions can be restored or permanently deleted here" — with both transactions listed.                                       | ☐     |       |
+| 3   | Check each row.                                                               | Transaction type, number and the status it was in. If a deletion reason was given, hovering the row shows it.                                                  | ☐     |       |
+| 4   | Use the **Type** filter and the search box.                                   | Both narrow the list correctly.                                                                                                                                | ☐     |       |
+| 5   | Click **Restore** on the first transaction.                                   | A confirmation: "Restore "<number>" (<type>)? It will reappear on its original list page."                                                                     | ☐     |       |
+| 6   | Confirm.                                                                      | It leaves Trash.                                                                                                                                               | ☐     |       |
+| 7   | Find it on its normal accounting list page.                                   | Back in the same status, amounts unchanged.                                                                                                                    | ☐     |       |
+| 8   | Return to Trash and click **Delete Permanently** on the second transaction.   | A confirmation dialog with a **Delete Permanently** button, warning that the data will be archived for audit purposes.                                         | ☐     |       |
+| 9   | **This cannot be undone.** Confirm.                                           | The row leaves Trash for good.                                                                                                                                 | ☐     |       |
+| 10  | Search for that transaction number everywhere in Accounting, including Trash. | Not found anywhere.                                                                                                                                            | ☐     |       |
+| 11  | Administration → **Audit Logs** → search for the transaction number.          | Entries recording the soft delete, and the permanent delete — marked **Critical**. The record of _what happened_ survives even though the transaction is gone. | ☐     |       |
+
+**Also check:**
+
+- The confirmation at step 8 must be a real dialog you have to click through — not a single-click destroy.
+
+---
+
+## UAT-ADM-24 — Super-admin area and the System Status gate
+
+**Goal:** Confirm the super-admin area is properly walled off and that an ordinary admin hits the wall.
+**Who:** An admin with **Manage Users**. If you are a super admin, you will need a second, non-super admin account for steps 1–3.
+**Before you start:** Know whether your own account is a super admin. Super admin is not a tick box — it means holding _every_ permission in the system.
+
+| #   | Do this                                                                                                                         | You should see                                                                                                                                 | Pass? | Notes |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Signed in as an admin who is **not** a super admin, go to the Administration landing page and click the **System Status** card. | An **Access Denied: Super Admin Privileges Required** panel, showing your email and technical instructions for granting super-admin access.    | ☐     |       |
+| 2   | Note that this card sits on the ordinary admin dashboard.                                                                       | ⚠ **Known behaviour** — the card is offered to every admin but only super admins can open it. Do not report it as a broken link.               | ☐     |       |
+| 3   | Type the super-admin address into the address bar.                                                                              | The same Access Denied panel.                                                                                                                  | ☐     |       |
+| 4   | Signed in as a **super admin**, open the super-admin area.                                                                      | A module-integration console. Accounting integrations are active; other modules are marked coming soon.                                        | ☐     |       |
+| 5   | As a super admin, open **System Status**.                                                                                       | Counts for **Critical Vulnerabilities**, **High Vulnerabilities**, **Outdated Packages** and **Total Dependencies**, plus a breakdown by area. | ☐     |       |
+| 6   | As a super admin, open the module-integrations page.                                                                            | It loads without error.                                                                                                                        | ☐     |       |
+
+**Should NOT be possible:**
+
+- Any account short of full permissions reaching the super-admin area.
+- Granting super admin from the user editor with a single tick — it is only reached by holding every permission (see UAT-ADM-25).
+
+---
+
+## UAT-ADM-25 — Full Access — one click grants everything
+
+**Goal:** Confirm the **Full Access** shortcut really grants everything, and that the person then sees the whole app.
+**Who:** An admin with **Manage Users**, plus your test user.
+**Before you start:** Test user is active. **This gives them complete control of the app** — only do it on an account you own, and undo it at step 7.
+
+| #   | Do this                                                                                                                | You should see                                                                                      | Pass? | Notes |
+| --- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 1   | Administration → **Users** → **Edit User** on the test user → click **Clear**, then click **Full Access**.             | Every tick box in both the Module Permissions and Admin Permissions sections turns on.              | ☐     |       |
+| 2   | Click **Save Changes**.                                                                                                | The green success banner.                                                                           | ☐     |       |
+| 3   | Look at their row in the Users table.                                                                                  | Their Module Access column shows a **Full Access** star chip instead of a long row of module chips. | ☐     |       |
+| 4   | Have the test user refresh, or sign out and back in.                                                                   | Their sidebar shows every category and every module, including the **ADMINISTRATION** heading.      | ☐     |       |
+| 5   | Have them open the super-admin area.                                                                                   | It opens — full permissions is what makes someone a super admin.                                    | ☐     |       |
+| 6   | Have them open **System Status**.                                                                                      | It opens for them now, where it was blocked in UAT-ADM-24.                                          | ☐     |       |
+| 7   | **Undo.** Edit User → **Clear** → re-tick only what that person genuinely needs → **Save Changes**. Have them refresh. | Their access shrinks back. The **Full Access** star chip is gone from their row.                    | ☐     |       |
+
+**Also check:**
+
+- **Select All** (next to Clear and Full Access) grants the ordinary module permissions but leaves the Admin Permissions section alone. **Full Access** grants both. Confirm the difference.
+
+---
+
+## Known issues in this module
+
+Scan this before you start. None of these should be filed as feedback — they are already recorded.
+
+1. **One permission opens the entire admin area.** Granting **Manage Users** gives a person every Administration page — Users, Feedback, Activity, Audit Logs, HR Setup, Settings, Data Backup, Email Management, Agent Inbox and Agent Runs. There is no way to give someone, say, audit-log access without also giving them the ability to change everyone's permissions. There is a **Manage Admin Panel** tick box in the editor, but it is not a substitute — a person holding only that will reach the Administration landing page while some sub-pages, such as HR Setup, still turn them away. Affects UAT-ADM-08 step 10 and UAT-ADM-12.
+2. **User-approval history is attributed to "system".** When you approve a pending user, the audit entry recording their new access shows **system** as the actor rather than the admin who approved. The separate "user approved" entry does name you correctly. Editing a user through **Edit User** attributes correctly. Affects UAT-ADM-16 step 6.
+3. **Trash pages exist only for Procurement and Accounting.** Every module hides deleted records rather than destroying them, but only these two have a screen to restore from, and only Accounting offers permanent deletion. Affects UAT-ADM-22.
+4. **The AI agent is not switched on.** Agent Runs and Agent Inbox will be empty and there is nothing in the app that can create an entry in either. The pages themselves should still load and filter correctly — that is what UAT-ADM-20 and UAT-ADM-21 actually test.
+5. **The System Status card is shown to every admin but only opens for super admins.** Ordinary admins clicking it will hit an Access Denied panel. Affects UAT-ADM-24 steps 1–2.
+6. **Permission changes are not instant for an already-signed-in user.** Expect up to a couple of minutes; a sign-out and sign-in always makes it immediate. This is stated at the top of this document and repeated in every test where it matters — it is not a defect.

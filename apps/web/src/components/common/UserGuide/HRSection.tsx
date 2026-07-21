@@ -16,6 +16,7 @@ import WorkIcon from '@mui/icons-material/Work';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { FeatureCard, StepGuide } from './helpers';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function HRSection() {
   return (
@@ -339,6 +340,7 @@ export function HRSection() {
           claim for records or manual submission.
         </Typography>
       </Alert>
+      <WorkflowGuide moduleId="hr" />
     </Box>
   );
 }

@@ -24,6 +24,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SaveIcon from '@mui/icons-material/Save';
 import { FeatureCard, StepGuide } from './helpers';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function ThermalCalculatorsSection() {
   return (
@@ -825,6 +826,7 @@ export function ThermalCalculatorsSection() {
           status chips.
         </Typography>
       </Alert>
+      <WorkflowGuide moduleId="thermal" />
     </Box>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { StepGuide } from './helpers';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function AccountingSection() {
   return (
@@ -171,6 +172,7 @@ export function AccountingSection() {
           },
         ]}
       />
+      <WorkflowGuide moduleId="accounting" />
     </Box>
   );
 }

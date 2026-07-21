@@ -6,6 +6,7 @@
 
 import { Box, Typography, Chip } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function ProcurementSection() {
   return (
@@ -57,6 +58,7 @@ export function ProcurementSection() {
         Create Purchase Orders to finalize procurement. POs can be created from approved RFQs or
         directly. Track delivery status and manage vendor communications.
       </Typography>
+      <WorkflowGuide moduleId="procurement" />
     </Box>
   );
 }

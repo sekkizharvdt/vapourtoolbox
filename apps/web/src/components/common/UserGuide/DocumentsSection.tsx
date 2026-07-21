@@ -6,6 +6,7 @@
 
 import { Box, Typography, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function DocumentsSection() {
   return (
@@ -65,6 +66,7 @@ export function DocumentsSection() {
         Drag and drop files or click to browse. You can upload multiple files at once. Supported
         formats include PDF, Word, Excel, images, and CAD files.
       </Typography>
+      <WorkflowGuide moduleId="documents" />
     </Box>
   );
 }

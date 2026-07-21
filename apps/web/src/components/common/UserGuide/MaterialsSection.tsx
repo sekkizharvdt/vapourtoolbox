@@ -6,6 +6,7 @@
 
 import { Box, Typography, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { WorkflowGuide } from './WorkflowGuide';
 
 export function MaterialsSection() {
   return (
@@ -48,6 +49,7 @@ export function MaterialsSection() {
           />
         </ListItem>
       </List>
+      <WorkflowGuide moduleId="materials" />
     </Box>
   );
 }

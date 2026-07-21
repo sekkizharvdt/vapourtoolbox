@@ -27,7 +27,8 @@ const COLORS = {
 const PATTERNS = [
   {
     name: 'as any',
-    pattern: /as\s+any/g,
+    // Word-bounded so prose in string literals ("has any", "as anyone") isn't flagged.
+    pattern: /\bas\s+any\b/g,
     severity: 'error',
     message: 'Using "as any" bypasses type safety. Use proper types instead.',
   },
@@ -35,13 +36,14 @@ const PATTERNS = [
     name: '@ts-ignore',
     pattern: /@ts-ignore/g,
     severity: 'error',
-    message: 'Using @ts-ignore suppresses errors without fixing them. Fix the underlying type issue.',
+    message:
+      'Using @ts-ignore suppresses errors without fixing them. Fix the underlying type issue.',
   },
   {
     name: '@ts-expect-error without reason',
     pattern: /@ts-expect-error(?!\s*\w)/g,
     severity: 'warning',
-    message: '@ts-expect-error should include a reason comment explaining why it\'s needed.',
+    message: "@ts-expect-error should include a reason comment explaining why it's needed.",
   },
 ];
 
