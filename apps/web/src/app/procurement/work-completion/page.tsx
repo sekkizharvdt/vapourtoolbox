@@ -1,4 +1,4 @@
-// rule28-exempt: terminal — Work Completion Certificate is issued from PO completion; the detail page is print/view only, no field edits post-creation
+// rule28-exempt: near-terminal — Work Completion Certificate is issued from PO completion; the detail page offers only a completion-flag update dialog (flags confirm-only, locked once fully complete) — no general edit page
 
 'use client';
 

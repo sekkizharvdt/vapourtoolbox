@@ -53,4 +53,5 @@ export interface WorkCompletionCertificate {
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  updatedBy?: string;
 }

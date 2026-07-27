@@ -56,6 +56,7 @@ export type AuditAction =
   | 'OFFER_CREATED'
   | 'OFFER_UPDATED'
   | 'OFFER_SELECTED'
+  | 'OFFER_REVISED_AFTER_SELECTION'
   | 'OFFER_REJECTED'
   | 'OFFER_WITHDRAWN'
   // Procurement - Purchase Orders
@@ -72,6 +73,9 @@ export type AuditAction =
   | 'GR_UPDATED'
   | 'GR_COMPLETED'
   | 'GR_REJECTED'
+  // Procurement - Work Completion Certificate
+  | 'WCC_UPDATED'
+  | 'WCC_COMPLETED'
   // Procurement - Packing List
   | 'PACKING_LIST_CREATED'
   | 'PACKING_LIST_FINALIZED'
@@ -267,6 +271,7 @@ export type AuditEntityType =
   | 'PURCHASE_ORDER_AMENDMENT'
   | 'GOODS_RECEIPT'
   | 'PACKING_LIST'
+  | 'WORK_COMPLETION_CERTIFICATE'
   | 'THREE_WAY_MATCH'
   // Accounting
   | 'TRANSACTION'

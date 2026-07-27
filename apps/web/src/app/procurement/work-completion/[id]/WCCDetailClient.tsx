@@ -26,11 +26,13 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Print as PrintIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import type { WorkCompletionCertificate } from '@vapour/types';
 import { getWCCById } from '@/lib/procurement/workCompletionService';
 import { getCompletionStatus } from '@/lib/procurement/workCompletionHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import { UpdateCompletionDialog } from './components/UpdateCompletionDialog';
 
 export default function WCCDetailClient() {
   const router = useRouter();
@@ -40,6 +42,7 @@ export default function WCCDetailClient() {
   const [error, setError] = useState('');
   const [wcc, setWcc] = useState<WorkCompletionCertificate | null>(null);
   const [wccId, setWccId] = useState<string | null>(null);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -126,6 +129,17 @@ export default function WCCDetailClient() {
             </Box>
 
             <Stack direction="row" spacing={1}>
+              {/* Completion flags stay editable until the certificate is fully
+                  complete (feedback JPniHKT59RWVgksV70iq) */}
+              {!(wcc.allItemsDelivered && wcc.allItemsAccepted && wcc.allPaymentsCompleted) && (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => setUpdateDialogOpen(true)}
+                >
+                  Update Status
+                </Button>
+              )}
               <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
                 Print
               </Button>
@@ -288,6 +302,13 @@ export default function WCCDetailClient() {
           </Grid>
         </Grid>
       </Stack>
+
+      <UpdateCompletionDialog
+        open={updateDialogOpen}
+        onClose={() => setUpdateDialogOpen(false)}
+        wcc={wcc}
+        onUpdated={loadWCC}
+      />
     </Box>
   );
 }
