@@ -729,12 +729,22 @@ describe('addVendorQuoteItem', () => {
 });
 
 describe('updateVendorQuoteItem', () => {
+  // getDoc #1 loads the item, getDoc #2 loads the parent quote (content lock)
+  function mockParentQuote(overrides: Partial<VendorQuote> = {}) {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'q-1',
+      data: () => makeQuote(overrides),
+    });
+  }
+
   it('checks MANAGE_PROCUREMENT and recalcs after update', async () => {
     mockGetDoc.mockResolvedValueOnce({
       exists: () => true,
       id: 'qi-1',
       data: () => makeItem(),
     });
+    mockParentQuote();
     mockUpdateDoc.mockResolvedValueOnce(undefined);
     mockGetDocs.mockResolvedValueOnce({ docs: [] }); // recalc fetch
     mockUpdateDoc.mockResolvedValueOnce(undefined); // recalc write
@@ -761,6 +771,7 @@ describe('updateVendorQuoteItem', () => {
       id: 'qi-1',
       data: () => makeItem({ quantity: 100, unitPrice: 1000, gstRate: 18 }),
     });
+    mockParentQuote();
     mockUpdateDoc.mockResolvedValueOnce(undefined);
     mockGetDocs.mockResolvedValueOnce({ docs: [] });
     mockUpdateDoc.mockResolvedValueOnce(undefined);
@@ -801,6 +812,12 @@ describe('removeVendorQuoteItem', () => {
       id: 'qi-1',
       data: () => makeItem(),
     });
+    // getDoc #2: parent quote (content lock)
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'q-1',
+      data: () => makeQuote(),
+    });
     mockDeleteDoc.mockResolvedValueOnce(undefined);
     mockGetDocs.mockResolvedValueOnce({ docs: [] }); // recalc fetch
     mockUpdateDoc.mockResolvedValueOnce(undefined); // recalc write
@@ -822,7 +839,18 @@ describe('removeVendorQuoteItem', () => {
 // ============================================================================
 
 describe('updateVendorQuote', () => {
+  // The service loads the parent quote first (content lock — feedback
+  // dzPS0C0bWA2yNoRpvbVc); default to an editable quote.
+  function mockEditableQuote(overrides: Partial<VendorQuote> = {}) {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      id: 'q-1',
+      data: () => makeQuote(overrides),
+    });
+  }
+
   it('checks MANAGE_PROCUREMENT', async () => {
+    mockEditableQuote();
     mockUpdateDoc.mockResolvedValueOnce(undefined);
     await updateVendorQuote(
       {} as never,
@@ -840,6 +868,7 @@ describe('updateVendorQuote', () => {
   });
 
   it('skips undefined fields (Firestore rejects undefined)', async () => {
+    mockEditableQuote();
     mockUpdateDoc.mockResolvedValueOnce(undefined);
     await updateVendorQuote(
       {} as never,
@@ -855,6 +884,7 @@ describe('updateVendorQuote', () => {
   });
 
   it('converts Date fields to Timestamp', async () => {
+    mockEditableQuote();
     mockUpdateDoc.mockResolvedValueOnce(undefined);
     const offerDate = new Date('2025-03-15');
     await updateVendorQuote(
@@ -875,6 +905,7 @@ describe('updateVendorQuote', () => {
   });
 
   it('always stamps updatedAt and updatedBy', async () => {
+    mockEditableQuote();
     mockUpdateDoc.mockResolvedValueOnce(undefined);
     await updateVendorQuote(
       {} as never,
@@ -886,6 +917,34 @@ describe('updateVendorQuote', () => {
     const written = mockUpdateDoc.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(written.updatedBy).toBe('user-1');
     expect(written.updatedAt).toBeDefined();
+  });
+
+  it('rejects edits once a PO exists (content lock)', async () => {
+    mockEditableQuote({ status: 'PO_CREATED' });
+    await expect(
+      updateVendorQuote(
+        {} as never,
+        'q-1',
+        { discount: 500 },
+        'user-1',
+        MANAGE_PROCUREMENT_PERMISSIONS
+      )
+    ).rejects.toThrow(/locked/i);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  it('allows financial edits on a SELECTED quote (audited revision)', async () => {
+    mockEditableQuote({ status: 'SELECTED' });
+    mockUpdateDoc.mockResolvedValueOnce(undefined);
+    await updateVendorQuote(
+      {} as never,
+      'q-1',
+      { discount: 500 },
+      'user-1',
+      MANAGE_PROCUREMENT_PERMISSIONS
+    );
+    const written = mockUpdateDoc.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(written.discount).toBe(500);
   });
 });
 

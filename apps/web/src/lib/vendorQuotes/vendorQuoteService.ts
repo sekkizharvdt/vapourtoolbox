@@ -38,6 +38,7 @@ import type {
   VendorQuoteItem,
 } from '@vapour/types';
 import { requirePermission } from '@/lib/auth';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { addMaterialPrice } from '@/lib/materials/pricing';
 import { addBoughtOutPrice } from '@/lib/boughtOut/pricing';
 import { addServiceRate } from '@/lib/services/rates';
@@ -601,6 +602,71 @@ export async function updateVendorQuoteStatus(
   logger.info('Vendor quote status updated', { quoteId, newStatus });
 }
 
+/**
+ * Quote contents lock once a PO exists or the quote is archived (feedback
+ * dzPS0C0bWA2yNoRpvbVc): a PO_CREATED quote must stay identical to the PO
+ * derived from it. SELECTED quotes stay editable so genuine pricing errors
+ * can be fixed before raising the PO — such revisions are audit-logged via
+ * logSelectedQuoteRevision.
+ */
+async function requireEditableQuote(
+  db: Firestore,
+  quoteId: string,
+  action: string
+): Promise<VendorQuote> {
+  const snap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId));
+  if (!snap.exists()) throw new Error(`Vendor quote ${quoteId} not found`);
+  const quote = { id: snap.id, ...(snap.data() as Omit<VendorQuote, 'id'>) };
+  if (quote.status === 'PO_CREATED' || quote.status === 'ARCHIVED') {
+    throw new Error(
+      `Cannot ${action}: quote ${quote.number} is ` +
+        (quote.status === 'PO_CREATED' ? 'already converted to a Purchase Order' : 'archived') +
+        ' and its contents are locked'
+    );
+  }
+  return quote;
+}
+
+/** Rule 18: revising the winning quote after selection must leave a trail. */
+function logSelectedQuoteRevision(
+  db: Firestore,
+  quote: VendorQuote,
+  userId: string,
+  changedFields: string[]
+): void {
+  logAuditEvent(
+    db,
+    createAuditContext(userId, '', ''),
+    'OFFER_REVISED_AFTER_SELECTION',
+    'OFFER',
+    quote.id,
+    `Winning quote ${quote.number} (${quote.vendorName}) revised after selection — fields: ${changedFields.join(', ')}`,
+    {
+      entityName: quote.number,
+      metadata: {
+        changedFields,
+        // rule21-exempt: audit snapshot of the stored total at revision time, not a financial computation
+        totalAmountAtRevision: quote.totalAmount ?? null,
+        rfqId: quote.rfqId ?? null,
+      },
+    }
+  ).catch((err) =>
+    logger.error('Failed to log selected-quote revision audit event', {
+      error: err,
+      quoteId: quote.id,
+    })
+  );
+}
+
+const QUOTE_HEADER_FINANCIAL_FIELDS = new Set([
+  'discount',
+  'transportation',
+  'packingForwarding',
+  'insurance',
+  'exWorks',
+  'currency',
+]);
+
 export async function updateVendorQuote(
   db: Firestore,
   quoteId: string,
@@ -639,12 +705,17 @@ export async function updateVendorQuote(
   userId: string,
   userPermissions: number
 ): Promise<void> {
+  // rule8-exempt: reads status only to enforce the content lock and annotate the
+  // audit trail — no status transition is written here; transitions go through
+  // updateVendorQuoteStatus / selectVendorQuote.
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,
     userId,
     'update vendor quote'
   );
+
+  const quote = await requireEditableQuote(db, quoteId, 'update quote');
 
   const data: Record<string, unknown> = {
     updatedAt: Timestamp.now(),
@@ -659,6 +730,13 @@ export async function updateVendorQuote(
     }
   }
   await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId), data);
+
+  if (quote.status === 'SELECTED') {
+    const financial = Object.entries(updates)
+      .filter(([k, v]) => v !== undefined && QUOTE_HEADER_FINANCIAL_FIELDS.has(k))
+      .map(([k]) => k);
+    if (financial.length) logSelectedQuoteRevision(db, quote, userId, financial);
+  }
 }
 
 // ============================================================================
@@ -675,9 +753,12 @@ export async function addVendorQuoteItem(
   requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'add quote item');
 
   // Inherit tenantId from parent quote for tenant-scoped Firestore rules.
-  const parentSnap = await getDoc(doc(db, COLLECTIONS.VENDOR_QUOTES, quoteId));
-  if (!parentSnap.exists()) throw new Error(`Vendor quote ${quoteId} not found`);
-  const parentTenantId = parentSnap.data()?.tenantId as string | undefined;
+  // Also enforces the content lock (PO_CREATED/ARCHIVED reject edits).
+  const parentQuote = await requireEditableQuote(db, quoteId, 'add quote item');
+  const parentTenantId = parentQuote.tenantId;
+  if (parentQuote.status === 'SELECTED') {
+    logSelectedQuoteRevision(db, parentQuote, userId, ['item added']);
+  }
 
   const existing = await getVendorQuoteItems(db, quoteId);
   const lineNumber = input.lineNumber ?? existing.length + 1;
@@ -777,6 +858,8 @@ export async function updateVendorQuoteItem(
   userPermissions: number
 ): Promise<void> {
   // rule19-exempt: reads vendor-quote parent for permission/context, writes/deletes a line item — different documents inside the quote
+  // rule8-exempt: reads the parent's status only for the content lock and audit
+  // annotation — no status transition is written in this function.
   requirePermission(
     userPermissions,
     PERMISSION_FLAGS.MANAGE_PROCUREMENT,
@@ -790,6 +873,8 @@ export async function updateVendorQuoteItem(
     id: snap.id,
     ...(snap.data() as Omit<VendorQuoteItem, 'id'>),
   };
+
+  const parentQuote = await requireEditableQuote(db, current.quoteId, 'update quote item');
 
   const data: Record<string, unknown> = { updatedAt: Timestamp.now() };
   for (const [k, v] of Object.entries(updates)) {
@@ -833,6 +918,22 @@ export async function updateVendorQuoteItem(
 
   await updateDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId), data);
   await recalculateQuoteTotals(db, current.quoteId, userId);
+
+  if (parentQuote.status === 'SELECTED') {
+    const ITEM_FINANCIAL_FIELDS = new Set([
+      'quantity',
+      'unitPrice',
+      'gstRate',
+      'discountType',
+      'discountValue',
+    ]);
+    const financial = Object.entries(updates)
+      .filter(([k, v]) => v !== undefined && ITEM_FINANCIAL_FIELDS.has(k))
+      .map(([k]) => k);
+    if (financial.length) {
+      logSelectedQuoteRevision(db, parentQuote, userId, financial);
+    }
+  }
 }
 
 export async function removeVendorQuoteItem(
@@ -856,8 +957,13 @@ export async function removeVendorQuoteItem(
     ...(snap.data() as Omit<VendorQuoteItem, 'id'>),
   };
 
+  const parentQuote = await requireEditableQuote(db, current.quoteId, 'remove quote item');
+
   await deleteDoc(doc(db, COLLECTIONS.VENDOR_QUOTE_ITEMS, itemId));
   await recalculateQuoteTotals(db, current.quoteId, userId);
+  if (parentQuote.status === 'SELECTED') {
+    logSelectedQuoteRevision(db, parentQuote, userId, ['item removed']);
+  }
   logger.info('Quote item removed', { itemId, quoteId: current.quoteId });
 }
 

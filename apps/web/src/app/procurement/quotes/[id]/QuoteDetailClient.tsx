@@ -23,6 +23,7 @@ import {
   Select,
   MenuItem,
   Tooltip,
+  Alert,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { PageHeader, LoadingState } from '@vapour/ui';
@@ -397,6 +398,10 @@ export default function QuoteDetailClient() {
   if (error) return <Typography color="error">{error}</Typography>;
   if (!offer) return <Typography color="error">Offer not found</Typography>;
 
+  // Contents lock once a PO exists (service enforces this too — feedback
+  // dzPS0C0bWA2yNoRpvbVc); SELECTED stays editable for audited corrections.
+  const contentLocked = offer.status === 'PO_CREATED' || offerStateMachine.isTerminal(offer.status);
+
   return (
     <>
       <Box sx={{ mb: 2 }}>
@@ -415,7 +420,7 @@ export default function QuoteDetailClient() {
             color={STATUS_COLORS[offer.status] ?? 'default'}
             size="small"
           />
-          {canManage && !offerStateMachine.isTerminal(offer.status) && (
+          {canManage && !contentLocked && (
             <Button
               size="small"
               variant="outlined"
@@ -427,6 +432,20 @@ export default function QuoteDetailClient() {
           )}
         </Box>
       </Box>
+
+      {offer.status === 'SELECTED' && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This is the winning quote for its RFQ. Genuine pricing errors can still be corrected here
+          before the PO is raised — every change is recorded in the audit trail, and the PO will be
+          created from the corrected figures.
+        </Alert>
+      )}
+      {offer.status === 'PO_CREATED' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          A Purchase Order has been created from this quote — its contents are locked. To change the
+          financials, amend the PO instead.
+        </Alert>
+      )}
 
       {/* Offer Metadata */}
       <Card sx={{ mb: 3 }}>
@@ -553,7 +572,7 @@ export default function QuoteDetailClient() {
             />
           )}
         </Typography>
-        {canManage && !offerStateMachine.isTerminal(offer.status) && (
+        {canManage && !contentLocked && (
           <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleStartAdd}>
             Add Item
           </Button>
@@ -808,7 +827,7 @@ export default function QuoteDetailClient() {
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                         {canManage && (
                           <>
-                            {!offerStateMachine.isTerminal(offer.status) && (
+                            {!contentLocked && (
                               <Tooltip title="Edit line item">
                                 <IconButton size="small" onClick={() => handleStartEdit(item)}>
                                   <EditIcon fontSize="small" />
@@ -845,15 +864,17 @@ export default function QuoteDetailClient() {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="Remove">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleRemoveItem(item.id)}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            {!contentLocked && (
+                              <Tooltip title="Remove">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </>
                         )}
                       </Box>
