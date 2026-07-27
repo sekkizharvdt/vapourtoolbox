@@ -198,6 +198,33 @@ const DEFAULT_FOULING_DISTILLATE = 0.00005;
 const AREA_DESIGN_MARGIN = 0.15;
 
 /**
+ * Validated evaporator overall design U-value, W/(m²·K).
+ *
+ * The shell-side falling-film correlation below (`0.18·Re^0.24·Pr^0.66` form) is a
+ * turbulent-type fit with a *positive* Re exponent, so it over-predicts the
+ * evaporation HTC in the laminar regime MED effects actually run at (film
+ * Re ≈ 360 at the design wetting rate) — it yields an overall evaporator
+ * U ≈ 3,600, above validated experience. The regime-correct smooth Chun-Seban
+ * form (used by the standalone falling-film calculator) swings the other way and
+ * under-predicts (~2,200) because it misses the inter-tube droplet-impingement
+ * enhancement of real horizontal-tube films.
+ *
+ * Vapour's design basis and the built MED-TVC plants in the Reference Projects
+ * (Campiche / CADAFE / MORON — whose condensers measure ~2,082 W/m²·K, with the
+ * evaporator legitimately higher) put the horizontal-tube falling-film evaporator
+ * at a safe overall U of 3,000–3,300 W/(m²·K). 3,100 is adopted as the safe
+ * design value. The correlation-derived U is capped at this ceiling; a *lower*
+ * correlation value (e.g. at unusually cold / low-wetting conditions) still wins,
+ * so the cap only removes the optimistic over-prediction and never inflates U.
+ *
+ * Source & provenance: MED designer HTC audit — see
+ * docs/audits/thermal-hardcoded-constants.md §A1 (reconciled 2026-07 with the
+ * user's stated as-designed value and the Reference Projects data). Do not raise
+ * without new validation data.
+ */
+const MED_EVAPORATOR_DESIGN_U_WM2K = 3100;
+
+/**
  * Minimum wetting rate for falling film (kg/(m·s)) — validated design minimum
  * (see ../wettingConstants.ts, the single source of truth for this limit).
  */
@@ -291,7 +318,12 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
     -1 / 3
   );
 
-  /** Compute Chun-Seban shell-side HTC for a given wetting rate */
+  /**
+   * Shell-side falling-film HTC for a given wetting rate.
+   * NOTE: this turbulent-form correlation over-predicts in the laminar regime;
+   * the resulting overall U is capped at MED_EVAPORATOR_DESIGN_U_WM2K (see that
+   * constant for the full basis).
+   */
   const computeShellSideHTC = (gamma: number): number => {
     const Re = (4 * gamma) / mu_ff;
     return 0.18 * Math.pow(Re, 0.24) * Math.pow(Pr_ff, 0.66) * filmFactor;
@@ -311,7 +343,9 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
       tubeSideFouling: DEFAULT_FOULING_DISTILLATE,
       shellSideFouling: DEFAULT_FOULING_SEAWATER,
     });
-    return result.overallHTC;
+    // Cap at the validated safe design U — the shell-side correlation
+    // over-predicts vs built-plant experience (see MED_EVAPORATOR_DESIGN_U_WM2K).
+    return Math.min(result.overallHTC, MED_EVAPORATOR_DESIGN_U_WM2K);
   };
 
   // ---- Pass 1: Size with assumed design wetting rate Γ ≈ 0.045 kg/(m·s) ----

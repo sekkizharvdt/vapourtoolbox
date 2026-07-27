@@ -258,6 +258,13 @@ const campiche: ReferenceProject = {
     },
     { parameter: 'Evaporator ΔT per Effect', value: '~3.2°C (52.6→40.0 over 4 effects)' },
     {
+      parameter: 'Evaporator Overall U (design basis)',
+      value:
+        '3,000–3,300 W/m²·K (safe design value 3,100 used in the MED designer). Falling-film ' +
+        'evaporator runs above the condenser (~2,082) as expected. This is the validated anchor ' +
+        'for the MED designer HTC cap — see docs/audits/thermal-hardcoded-constants.md §A1.',
+    },
+    {
       parameter: 'Evaporator Tube Loading',
       value: '~8.1 kg/h per tube (25,000 kg/h vapour ÷ 3,100 tubes)',
     },

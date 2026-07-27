@@ -255,3 +255,21 @@ describe('MED Designer — gross vs net distillate and plant power', () => {
     expect(pp.consumers.some((c) => c.category === 'pump')).toBe(true);
   });
 });
+
+describe('MED Designer — evaporator U capped at validated design value', () => {
+  const result = designMED({
+    steamFlow: 0.79,
+    steamTemperature: 57.0,
+    seawaterTemperature: 30,
+    targetGOR: 6,
+  });
+
+  it('sizes every effect at the 3100 W/m²·K safe design ceiling, not the over-predicting correlation', () => {
+    for (const e of result.effects) {
+      // The shell-side correlation over-predicts (~3600); the cap holds U at the
+      // validated safe design value from Campiche/CADAFE/MORON and the 3000-3300 basis.
+      expect(e.overallU).toBeLessThanOrEqual(3100 + 1e-6);
+      expect(e.overallU).toBeGreaterThan(3000); // not driven below the band under normal design
+    }
+  });
+});

@@ -10,13 +10,13 @@
 
 ## A. Real correctness concerns in the MED designer's actual path
 
-### A1. Chun-Seban shell-side HTC — two implementations disagree ~7× **[HIGHEST IMPACT]**
+### A1. Chun-Seban shell-side HTC — two implementations disagree ~7× → **RESOLVED 2026-07 (evaporator U capped at validated 3,100 W/m²·K)**
 
-- **Files:** `med/equipmentSizing.ts:295-298` vs `fallingFilmCalculator.ts:419-430`
-- The MED designer's evaporator sizing uses `h = 0.18·Re^0.24·Pr^0.66·filmGroup` — a **turbulent-form** correlation applied at **all** Reynolds numbers. The standalone falling-film calculator uses the **regime-branched** form: laminar `0.822·Re^-0.22` (Re<400), wavy `0.0038·Re^0.4·Pr^0.65`, turbulent `0.0065·…`.
-- At the design wetting rate Γ=0.045 → Re≈360 (firmly **laminar**), the two give: `0.219·Re^0.46·Pr^0.66 ≈ 6.8×` — the equipmentSizing HTC is ~7× higher.
-- **Effect:** higher HTC → smaller computed area, so the MED designer likely **under-sizes evaporators** vs the physically-correct laminar regime. The 0.18 coefficient is cited only to "WET Excel programs," not literature, and doesn't match Chun-Seban 1971.
-- **Needs domain judgment:** if the 0.18 form was tuned to match plant data (BARC/Campiche/CADAFE), the standalone is the outlier; otherwise the sizing path is wrong. **Do not change without confirming which is validated.**
+- **Files:** `med/equipmentSizing.ts` (`computeShellSideHTC` / `computeOverallHTCEvap`, and the new `MED_EVAPORATOR_DESIGN_U_WM2K`) vs `fallingFilmCalculator.ts:419-430`
+- The MED designer's evaporator sizing used `h = 0.18·Re^0.24·Pr^0.66·filmGroup` — a **turbulent-form** correlation (positive Re exponent) applied at **all** Reynolds numbers. The standalone falling-film calculator uses the **regime-branched** form: laminar `0.822·Re^-0.22` (Re<400, negative exponent), wavy `0.0038·Re^0.4·Pr^0.65`, turbulent `0.0065·…`. At the design wetting rate Γ=0.045 → Re≈360 (**laminar**) the two disagree ~6.8× on the shell-side HTC.
+- **Correction to the original finding:** the ~7× is on the _shell-side HTC only_. Because the shell side is only partly controlling (tube-side condensation + wall + fouling dominate at high shell-side h), the impact on **overall U** is ~1.5×, i.e. ~40-60% on evaporator area — not 7×, and **not** an under-size. The 0.18 form runs _high_: overall U ≈ 3,600 (uniform across effects for the solar case; ~3,200 for the BARC-TVC config — the over-prediction varies with operating conditions).
+- **Resolution:** validated against (a) the user's stated as-designed evaporator U of **3,000-3,300 W/m²·K**, (b) the Reference Projects condenser HTCs (~2,082 W/m²·K, with the evaporator legitimately higher), and (c) the BARC golden regression snapshot (which already sat at U ≈ 3,200, inside the band). The evaporator overall U is now **capped at the safe design value `MED_EVAPORATOR_DESIGN_U_WM2K = 3100`**; a lower correlation value at unusual conditions still wins, so the cap only removes the optimistic over-prediction. The standalone falling-film calc (~2,200) is the _under-predicting_ outlier and should be reconciled upward in a later pass (it misses inter-tube droplet-impingement enhancement).
+- **Follow-up (open):** reconcile `fallingFilmCalculator.ts` upward toward the validated evaporator U so the two tools agree.
 
 ### A2. `?? 15` conductivity fallback — fragile, one annotation from recurrence
 

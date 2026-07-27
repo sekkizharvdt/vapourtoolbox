@@ -552,13 +552,19 @@ describe('external anchor — golden regression snapshot (BARC MED-TVC per-effec
   };
 
   // effect | T (°C) | vapor out (kg/hr) | brine out (kg/hr) | required area (m²)
+  // Areas re-baselined 2026-07 when the evaporator overall U was capped at the
+  // validated safe design value (3,100 W/m²·K — see MED_EVAPORATOR_DESIGN_U_WM2K
+  // in equipmentSizing.ts). The shell-side correlation over-predicted U (~3,200
+  // for this BARC config, ~3,600 in other cases), so capping raised required
+  // area ~2-3.5% here. Process quantities (T, vapor, brine) are unchanged — the
+  // H&M balance does not depend on U.
   const GOLDEN_PROFILE = [
-    { effect: 1, temperature: 55.5, vaporFlow: 2102.99, brineFlow: 2143.36, area: 171.33 },
-    { effect: 2, temperature: 52.2, vaporFlow: 1915.32, brineFlow: 4345.09, area: 203.19 },
-    { effect: 3, temperature: 48.9, vaporFlow: 1744.45, brineFlow: 6730.27, area: 225.74 },
-    { effect: 4, temperature: 45.6, vaporFlow: 1560.85, brineFlow: 9286.44, area: 206.03 },
-    { effect: 5, temperature: 42.3, vaporFlow: 1384.7, brineFlow: 12025.2, area: 187.37 },
-    { effect: 6, temperature: 39.0, vaporFlow: 294.57, brineFlow: 14910.12, area: 169.21 },
+    { effect: 1, temperature: 55.5, vaporFlow: 2102.99, brineFlow: 2143.36, area: 177.4 },
+    { effect: 2, temperature: 52.2, vaporFlow: 1915.32, brineFlow: 4345.09, area: 209.89 },
+    { effect: 3, temperature: 48.9, vaporFlow: 1744.45, brineFlow: 6730.27, area: 233.4 },
+    { effect: 4, temperature: 45.6, vaporFlow: 1560.85, brineFlow: 9286.44, area: 212.04 },
+    { effect: 5, temperature: 42.3, vaporFlow: 1384.7, brineFlow: 12025.2, area: 192.02 },
+    { effect: 6, temperature: 39.0, vaporFlow: 294.57, brineFlow: 14910.12, area: 172.65 },
   ];
 
   const golden = calculateMED(GOLDEN_INPUT);
