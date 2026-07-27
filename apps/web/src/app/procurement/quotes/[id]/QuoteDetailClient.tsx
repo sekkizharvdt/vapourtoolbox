@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/common/Toast';
 import { getFirebase } from '@/lib/firebase';
 import { PdfViewer } from '@/components/common/PdfViewer';
 import type { VendorQuote, VendorQuoteItem, QuoteStatus, QuoteItemType } from '@vapour/types';
@@ -109,6 +110,7 @@ function attachmentLabel(url: string, index: number): string {
 export default function QuoteDetailClient() {
   const pathname = usePathname();
   const { user, claims } = useAuth();
+  const { toast } = useToast();
   const { db } = getFirebase();
 
   // Static export: useParams() returns the placeholder; parse the real id
@@ -291,7 +293,10 @@ export default function QuoteDetailClient() {
       setShowAddForm(false);
       await loadData();
     } catch (err) {
+      // Surface the real reason — e.g. the content lock explains the workflow
+      // ("already converted to a Purchase Order") instead of failing silently.
       console.error('Error saving item:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save item');
     } finally {
       setAddingItem(false);
     }
@@ -303,6 +308,7 @@ export default function QuoteDetailClient() {
       await loadData();
     } catch (err) {
       console.error('Error removing item:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to remove item');
     }
   };
 
@@ -349,6 +355,7 @@ export default function QuoteDetailClient() {
       await loadData();
     } catch (err) {
       console.error('Error linking item:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to link item');
     }
   };
 
@@ -367,6 +374,7 @@ export default function QuoteDetailClient() {
       await loadData();
     } catch (err) {
       console.error('Error accepting price:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to accept price');
     } finally {
       setAccepting(false);
     }
@@ -379,6 +387,7 @@ export default function QuoteDetailClient() {
       await loadData();
     } catch (err) {
       console.error('Error updating status:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
     }
   };
 
@@ -389,6 +398,9 @@ export default function QuoteDetailClient() {
       await updateVendorQuote(db, offerId, updates, user.uid, claims?.permissions ?? 0);
       setEditOpen(false);
       await loadData();
+    } catch (err) {
+      console.error('Error saving quote details:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save quote details');
     } finally {
       setEditSaving(false);
     }

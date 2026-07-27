@@ -618,10 +618,12 @@ async function requireEditableQuote(
   if (!snap.exists()) throw new Error(`Vendor quote ${quoteId} not found`);
   const quote = { id: snap.id, ...(snap.data() as Omit<VendorQuote, 'id'>) };
   if (quote.status === 'PO_CREATED' || quote.status === 'ARCHIVED') {
+    // Error text doubles as workflow guidance — it is shown to the user
+    // verbatim, so it must say what to do next, not just what was blocked.
     throw new Error(
-      `Cannot ${action}: quote ${quote.number} is ` +
-        (quote.status === 'PO_CREATED' ? 'already converted to a Purchase Order' : 'archived') +
-        ' and its contents are locked'
+      quote.status === 'PO_CREATED'
+        ? `Cannot ${action}: quote ${quote.number} has already been converted to a Purchase Order and is locked. To change the financials, raise an amendment on the PO instead.`
+        : `Cannot ${action}: quote ${quote.number} is archived and locked. Restore or re-create the quote if changes are needed.`
     );
   }
   return quote;
