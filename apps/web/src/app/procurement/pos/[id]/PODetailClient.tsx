@@ -410,9 +410,10 @@ export default function PODetailPage() {
 
         <POProgressIndicators po={po} />
         <PODetailsSection po={po} />
-        <FinancialSummarySection po={po} />
-        {/* HSN/SAC is edited on the PO edit page (feedback iZqGG) — read-only here. */}
+        {/* Line items before the financial summary (feedback Mqj9wmh96ui3mlBtWNOF).
+            HSN/SAC is edited on the PO edit page (feedback iZqGG) — read-only here. */}
         <POLineItemsTable po={po} items={items} editable={false} />
+        <FinancialSummarySection po={po} items={items} />
         <POTermsSection po={po} />
         <POApprovalInfo po={po} />
         <DocumentUploadWidget

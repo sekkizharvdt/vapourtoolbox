@@ -220,6 +220,14 @@ export interface PurchaseOrderItem {
   unitPrice: number;
   amount: number;
 
+  // Per-line discount, carried verbatim from the winning vendor quote item
+  // (feedback Mqj9wmh96ui3mlBtWNOF; same vocabulary as VendorQuoteItem).
+  // `amount` is already net of this discount. Absent on POs created before
+  // 2026-07; display derives qty×unitPrice−amount.
+  discountType?: 'PERCENT' | 'ABSOLUTE';
+  discountValue?: number;
+  discountAmount?: number;
+
   // Tax
   gstRate: number;
   gstAmount: number;

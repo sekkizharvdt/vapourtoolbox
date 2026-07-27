@@ -266,6 +266,32 @@ export const onPOStatusNotify = onDocumentUpdated(
 
     if (after.status === 'APPROVED') {
       logger.info(`PO ${after.number} approved — sending notification`);
+
+      // Include line items so the mail carries the complete PO picture
+      // (feedback Mqj9wmh96ui3mlBtWNOF — the old mail had only number/vendor,
+      // and read the wrong field names so Vendor/Project rendered "-").
+      const itemLines: { label: string; value: string }[] = [];
+      try {
+        const itemsSnap = await admin
+          .firestore()
+          .collection('purchaseOrderItems')
+          .where('purchaseOrderId', '==', event.params.poId)
+          .get();
+        const items = itemsSnap.docs
+          .map((d) => d.data())
+          .sort((a, b) => (a.lineNumber ?? 0) - (b.lineNumber ?? 0));
+        const cur = after.currency || 'INR';
+        for (const item of items) {
+          itemLines.push({
+            label: `Item ${item.lineNumber ?? '-'}`,
+            value: `${item.description ?? '-'} — ${item.quantity ?? '-'} ${item.unit ?? ''} @ ${cur} ${(item.unitPrice ?? 0).toLocaleString('en-IN')} = ${cur} ${(item.amount ?? 0).toLocaleString('en-IN')}`,
+          });
+        }
+      } catch (err) {
+        // Mail still goes out with header details if the items fetch fails
+        logger.warn('Failed to fetch PO items for approval email', { error: err });
+      }
+
       await sendNotificationEmail({
         eventId: 'po_approved',
         subject: `PO Approved: ${after.number}`,
@@ -274,8 +300,32 @@ export const onPOStatusNotify = onDocumentUpdated(
           message: `A purchase order has been approved.`,
           details: [
             { label: 'PO Number', value: after.number || event.params.poId },
-            { label: 'Vendor', value: after.entityName || '-' },
-            { label: 'Project', value: after.projectName || '-' },
+            { label: 'Title', value: after.title || '-' },
+            { label: 'Vendor', value: after.vendorName || after.entityName || '-' },
+            { label: 'Project', value: after.projectNames?.[0] || after.projectName || '-' },
+            { label: 'Approved By', value: after.approvedByName || '-' },
+            {
+              label: 'Subtotal',
+              value: `${after.currency || 'INR'} ${(after.subtotal ?? 0).toLocaleString('en-IN')}`,
+            },
+            ...(after.discount > 0
+              ? [
+                  {
+                    label: 'Discount',
+                    value: `${after.currency || 'INR'} ${after.discount.toLocaleString('en-IN')}`,
+                  },
+                ]
+              : []),
+            {
+              label: 'Total Tax',
+              value: `${after.currency || 'INR'} ${(after.totalTax ?? 0).toLocaleString('en-IN')}`,
+            },
+            {
+              label: 'Grand Total',
+              value: `${after.currency || 'INR'} ${(after.grandTotal ?? 0).toLocaleString('en-IN')}`,
+            },
+            { label: 'Payment Terms', value: after.paymentTerms || '-' },
+            ...itemLines,
           ],
           linkUrl: `${APP_URL}/procurement/pos/${event.params.poId}`,
         },

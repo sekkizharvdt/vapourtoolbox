@@ -404,6 +404,7 @@ export async function createPOFromOffer(
         string,
         {
           projectId: string;
+          specification?: string;
           equipmentId?: string;
           equipmentCode?: string;
           materialId?: string;
@@ -436,6 +437,7 @@ export async function createPOFromOffer(
               id: rfqItemId,
               data: {
                 projectId: rfqItemData.projectId || '',
+                specification: rfqItemData.specification,
                 equipmentId: rfqItemData.equipmentId,
                 equipmentCode: rfqItemData.equipmentCode,
                 materialId: rfqItemData.materialId,
@@ -550,6 +552,20 @@ export async function createPOFromOffer(
         if (rfqItemInfo.equipmentCode) poItemData.equipmentCode = rfqItemInfo.equipmentCode;
         if (item.makeModel) poItemData.makeModel = item.makeModel;
         if (item.deliveryDate) poItemData.deliveryDate = item.deliveryDate;
+
+        // Specification: prefer the vendor quote's text, fall back to the RFQ
+        // item's — previously never copied, so the PO view/PDF showed blanks
+        // until a buyer re-typed it on the edit page (feedback Mqj9wmh96ui3mlBtWNOF).
+        const spec = item.specification || rfqItemInfo.specification;
+        if (spec) poItemData.specification = spec;
+
+        // Per-line discount travels with the line (same feedback): `amount` is
+        // already net, these fields make the discount visible on view/PDF.
+        if (item.discountAmount) {
+          poItemData.discountAmount = item.discountAmount;
+          if (item.discountType) poItemData.discountType = item.discountType;
+          if (item.discountValue != null) poItemData.discountValue = item.discountValue;
+        }
 
         // Material database linkage (prefer offer item, fallback to RFQ item)
         const matId = item.materialId || rfqItemInfo.materialId;

@@ -210,6 +210,19 @@ export function POPDFDocument({
 }: POPDFDocumentProps): React.JSX.Element {
   const sortedItems = [...items].sort((a, b) => a.lineNumber - b.lineNumber);
 
+  // Per-line discounts are baked into item.amount (unit price stays actual).
+  // Sum them for the Financial Summary so subtotal ≠ Σ(qty×price) is explained
+  // (feedback Mqj9wmh96ui3mlBtWNOF). Older POs without the stored fields
+  // derive the amount from qty×unitPrice−amount.
+  const lineDiscountTotal =
+    Math.round(
+      sortedItems.reduce((sum, item) => {
+        if (item.discountAmount != null) return sum + item.discountAmount;
+        const derived = item.quantity * item.unitPrice - item.amount;
+        return sum + (derived > 0.005 ? derived : 0);
+      }, 0) * 100
+    ) / 100;
+
   const companyDisplayName =
     company?.legalName || company?.name || 'Vapour Desal Technologies Private Limited';
 
@@ -405,6 +418,22 @@ export function POPDFDocument({
 
         {/* Financial Summary */}
         <ReportSection title="Financial Summary">
+          {lineDiscountTotal > 0 && (
+            <>
+              <View style={local.summaryRow}>
+                <Text style={local.summaryLabel}>Gross Amount:</Text>
+                <Text style={local.summaryValue}>
+                  {formatCurrencyCode(po.subtotal + lineDiscountTotal, po.currency)}
+                </Text>
+              </View>
+              <View style={local.summaryRow}>
+                <Text style={local.summaryLabel}>Line Item Discounts:</Text>
+                <Text style={local.summaryValue}>
+                  {`- ${formatCurrencyCode(lineDiscountTotal, po.currency)}`}
+                </Text>
+              </View>
+            </>
+          )}
           <View style={local.summaryRow}>
             <Text style={local.summaryLabel}>Subtotal:</Text>
             <Text style={local.summaryValue}>{formatCurrencyCode(po.subtotal, po.currency)}</Text>

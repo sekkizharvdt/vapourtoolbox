@@ -34,6 +34,30 @@ interface POLineItemsTableProps {
   onUpdateHsnSac?: (itemId: string, hsnSacCode: string) => void | Promise<void>;
 }
 
+/**
+ * Per-line discount display (feedback Mqj9wmh96ui3mlBtWNOF). New POs carry
+ * discountType/discountValue/discountAmount copied from the vendor quote;
+ * older POs only baked the discount into `amount`, so derive it from
+ * quantity × unitPrice − amount.
+ */
+export function getLineDiscountAmount(item: PurchaseOrderItem): number {
+  if (item.discountAmount != null) return item.discountAmount;
+  const derived = item.quantity * item.unitPrice - item.amount;
+  return derived > 0.005 ? Math.round(derived * 100) / 100 : 0;
+}
+
+function formatLineDiscount(item: PurchaseOrderItem, currency: string): string {
+  const amount = getLineDiscountAmount(item);
+  if (amount <= 0) return '—';
+  const pct =
+    item.discountType === 'PERCENT' && item.discountValue != null
+      ? item.discountValue
+      : item.quantity * item.unitPrice > 0
+        ? Math.round((amount / (item.quantity * item.unitPrice)) * 10000) / 100
+        : null;
+  return `${formatCurrency(amount, currency)}${pct != null ? ` (${pct}%)` : ''}`;
+}
+
 function HsnSacCell({
   item,
   editable,
@@ -86,10 +110,12 @@ export function POLineItemsTable({
             <TableRow>
               <TableCell>Line</TableCell>
               <TableCell>Description</TableCell>
+              <TableCell>Specification</TableCell>
               <TableCell>HSN/SAC</TableCell>
               <TableCell align="right">Quantity</TableCell>
               <TableCell>Unit</TableCell>
               <TableCell align="right">Unit Price</TableCell>
+              <TableCell align="right">Discount</TableCell>
               <TableCell align="right">Amount</TableCell>
               <TableCell>Delivery Status</TableCell>
             </TableRow>
@@ -107,11 +133,17 @@ export function POLineItemsTable({
                   )}
                 </TableCell>
                 <TableCell>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {item.specification || '—'}
+                  </Typography>
+                </TableCell>
+                <TableCell>
                   <HsnSacCell item={item} editable={editable} onUpdateHsnSac={onUpdateHsnSac} />
                 </TableCell>
                 <TableCell align="right">{item.quantity}</TableCell>
                 <TableCell>{item.unit}</TableCell>
                 <TableCell align="right">{formatCurrency(item.unitPrice, po.currency)}</TableCell>
+                <TableCell align="right">{formatLineDiscount(item, po.currency)}</TableCell>
                 <TableCell align="right">{formatCurrency(item.amount, po.currency)}</TableCell>
                 <TableCell>
                   <Chip label={item.deliveryStatus} size="small" variant="outlined" />
