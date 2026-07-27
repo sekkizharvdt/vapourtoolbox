@@ -92,6 +92,29 @@ export function exportGSTR1ToJSON(data: GSTR1Data): string {
         csamt: data.b2c.summary.cess,
       },
     ],
+    // Exports (zero-rated). exp_typ WOPAY = without payment of tax (LUT) —
+    // the default treatment; shipping-bill details are not tracked, left blank.
+    exp: [
+      {
+        exp_typ: 'WOPAY',
+        inv: data.exports.invoices.map((inv) => ({
+          inum: inv.invoiceNumber,
+          idt: toDateString(inv.invoiceDate),
+          val: inv.invoiceValue,
+          sbpcode: '',
+          sbnum: '',
+          sbdt: '',
+          itms: [
+            {
+              txval: inv.taxableValue,
+              rt: 0,
+              iamt: inv.igst,
+              csamt: inv.cess,
+            },
+          ],
+        })),
+      },
+    ],
     hsn: {
       data: data.hsnSummary.map((hsn) => ({
         hsn_sc: hsn.hsnCode,

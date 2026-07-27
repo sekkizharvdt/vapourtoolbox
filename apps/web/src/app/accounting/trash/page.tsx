@@ -120,10 +120,12 @@ export default function TrashPage() {
       });
       if (!result.success) {
         toast.error(result.error || 'Failed to restore transaction');
+      } else {
+        toast.success(`${txn.transactionNumber} restored`);
       }
     } catch (error) {
       console.error('[TrashPage] Error restoring transaction:', error);
-      toast.error('Failed to restore transaction');
+      toast.error(error instanceof Error ? error.message : 'Failed to restore transaction');
     }
   };
 
@@ -145,10 +147,16 @@ export default function TrashPage() {
       });
       if (!result.success) {
         toast.error(result.error || 'Failed to permanently delete transaction');
+      } else {
+        toast.success(`${txn.transactionNumber} permanently deleted`);
       }
     } catch (error) {
+      // Surface the real reason (e.g. a permission error) — a generic message
+      // made a blocked delete look like the feature was broken (rule 27).
       console.error('[TrashPage] Error permanently deleting transaction:', error);
-      toast.error('Failed to permanently delete transaction');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to permanently delete transaction'
+      );
     }
   };
 
@@ -304,21 +312,28 @@ export default function TrashPage() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
+                    {/* Disabled (not hidden) without the permission — a hidden
+                        button read as "permanent delete is broken" (feedback
+                        XWcxCSdQMgvJAXdGLzAn); the tooltip explains the gate. */}
                     <TableActionCell
                       actions={[
                         {
                           icon: <RestoreIcon />,
-                          label: 'Restore',
+                          label: canManage
+                            ? 'Restore'
+                            : 'Restore (requires Manage Accounting permission)',
                           onClick: () => handleRestore(txn),
                           color: 'success',
-                          show: canManage,
+                          disabled: !canManage,
                         },
                         {
                           icon: <DeleteForeverIcon />,
-                          label: 'Delete Permanently',
+                          label: canManage
+                            ? 'Delete Permanently'
+                            : 'Delete Permanently (requires Manage Accounting permission)',
                           onClick: () => handlePermanentDelete(txn),
                           color: 'error',
-                          show: canManage,
+                          disabled: !canManage,
                         },
                       ]}
                     />

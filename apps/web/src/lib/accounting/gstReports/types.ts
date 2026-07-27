@@ -56,6 +56,29 @@ export interface B2CInvoice {
 }
 
 /**
+ * Export invoice detail for GSTR-1 (zero-rated foreign-currency supplies).
+ * INR figures are converted via the invoice's exchange rate; the original
+ * currency amounts are kept for reference.
+ */
+export interface ExportInvoice {
+  id: string;
+  invoiceNumber: string;
+  invoiceDate: Date;
+  customerName: string;
+  currency: string;
+  /** Invoice total in the invoice's own currency */
+  invoiceValueForeign: number;
+  exchangeRate: number;
+  /** Invoice total in INR (baseAmount) */
+  invoiceValue: number;
+  /** Taxable value in INR */
+  taxableValue: number;
+  /** GST on exports is typically zero-rated under LUT; actual amounts kept visible */
+  igst: number;
+  cess: number;
+}
+
+/**
  * HSN Summary for GSTR-1
  */
 export interface HSNSummary {
@@ -87,6 +110,11 @@ export interface GSTR1Data {
   };
   b2c: {
     invoices: B2CInvoice[];
+    summary: GSTSummary;
+  };
+  /** Zero-rated foreign-currency supplies (feedback 8nhNyK6GltVSA9m9nIbM) */
+  exports: {
+    invoices: ExportInvoice[];
     summary: GSTSummary;
   };
   hsnSummary: HSNSummary[];
@@ -189,8 +217,13 @@ export interface FirestoreInvoiceDocument {
   customerGSTIN?: string;
   transactionNumber?: string;
   entityName?: string;
+  /** Amounts below are in `currency`; INR value lives in baseAmount */
   totalAmount?: number;
   subtotal?: number;
+  currency?: string;
+  exchangeRate?: number;
+  /** Invoice total in INR */
+  baseAmount?: number;
   gstDetails?: {
     gstType: 'CGST_SGST' | 'IGST';
     cgstAmount?: number;

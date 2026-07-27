@@ -13,6 +13,7 @@ import type {
   GSTR3BData,
   B2BInvoice,
   B2CInvoice,
+  ExportInvoice,
   HSNSummary,
   PurchaseDetail,
   GSTSummary,
@@ -43,10 +44,14 @@ export async function generateGSTR1(
   const snapshot = await getDocs(q);
   const b2bInvoices: B2BInvoice[] = [];
   const b2cInvoices: B2CInvoice[] = [];
+  const exportInvoices: ExportInvoice[] = [];
   const hsnMap = new Map<string, HSNSummary>();
 
   const b2bSummary = createEmptyGSTSummary();
   const b2cSummary = createEmptyGSTSummary();
+  const exportSummary = createEmptyGSTSummary();
+
+  const r2 = (n: number) => Math.round(n * 100) / 100;
 
   snapshot.forEach((doc) => {
     const rawInvoice = doc.data();
@@ -59,9 +64,44 @@ export async function generateGSTR1(
       'toDate' in invoice.date && typeof invoice.date.toDate === 'function'
         ? invoice.date.toDate()
         : new Date();
+
+    // Foreign-currency invoices are exports (zero-rated under LUT is the
+    // default treatment — actual GST amounts stay visible). Classified BEFORE
+    // the GSTIN test: a foreign customer has no Indian GSTIN, so exports used
+    // to fall through into B2C (feedback 8nhNyK6GltVSA9m9nIbM). All INR
+    // figures convert via the invoice's exchange rate — subtotal/totalAmount
+    // are stored in the invoice currency (rule 21: aggregate baseAmount).
+    const currency = invoice.currency || 'INR';
+    const isExport = currency !== 'INR';
     const isB2B = invoice.customerGSTIN && invoice.customerGSTIN.length > 0;
 
-    if (isB2B) {
+    if (isExport) {
+      const fx = invoice.exchangeRate || 1;
+      // Derive INR values from the stored exchange rate (rule 21) — matches
+      // how baseAmount is computed at invoice creation.
+      const invoiceValueInr = r2((invoice.totalAmount ?? 0) * fx);
+      const taxableValueInr = r2((invoice.subtotal ?? 0) * fx);
+      const igstInr = r2(gst.igst * fx);
+
+      exportInvoices.push({
+        id: doc.id,
+        invoiceNumber: invoice.transactionNumber || doc.id,
+        invoiceDate,
+        customerName: invoice.entityName || '',
+        currency,
+        invoiceValueForeign: invoice.totalAmount ?? 0,
+        exchangeRate: fx,
+        invoiceValue: invoiceValueInr,
+        taxableValue: taxableValueInr,
+        igst: igstInr,
+        cess: 0,
+      });
+
+      exportSummary.taxableValue += taxableValueInr;
+      exportSummary.igst += igstInr;
+      exportSummary.total += igstInr;
+      exportSummary.transactionCount++;
+    } else if (isB2B) {
       // B2B Invoice
       b2bInvoices.push({
         id: doc.id,
@@ -110,11 +150,12 @@ export async function generateGSTR1(
       b2cSummary.transactionCount++;
     }
 
-    // Process HSN summary
+    // Process HSN summary (export line amounts converted to INR)
+    const hsnFx = isExport ? invoice.exchangeRate || 1 : 1;
     (invoice.lineItems || []).forEach((item) => {
       const hsnCode = item.hsnCode || 'UNCLASSIFIED';
       const existing = hsnMap.get(hsnCode);
-      const itemAmount = item.amount ?? 0;
+      const itemAmount = r2((item.amount ?? 0) * hsnFx);
       const itemQuantity = item.quantity ?? 0;
       const itemGST = (itemAmount * (item.gstRate ?? 0)) / 100;
 
@@ -146,13 +187,14 @@ export async function generateGSTR1(
   });
 
   const total: GSTSummary = {
-    taxableValue: b2bSummary.taxableValue + b2cSummary.taxableValue,
-    cgst: b2bSummary.cgst + b2cSummary.cgst,
-    sgst: b2bSummary.sgst + b2cSummary.sgst,
-    igst: b2bSummary.igst + b2cSummary.igst,
-    cess: b2bSummary.cess + b2cSummary.cess,
-    total: b2bSummary.total + b2cSummary.total,
-    transactionCount: b2bSummary.transactionCount + b2cSummary.transactionCount,
+    taxableValue: b2bSummary.taxableValue + b2cSummary.taxableValue + exportSummary.taxableValue,
+    cgst: b2bSummary.cgst + b2cSummary.cgst + exportSummary.cgst,
+    sgst: b2bSummary.sgst + b2cSummary.sgst + exportSummary.sgst,
+    igst: b2bSummary.igst + b2cSummary.igst + exportSummary.igst,
+    cess: b2bSummary.cess + b2cSummary.cess + exportSummary.cess,
+    total: b2bSummary.total + b2cSummary.total + exportSummary.total,
+    transactionCount:
+      b2bSummary.transactionCount + b2cSummary.transactionCount + exportSummary.transactionCount,
   };
 
   const startDate = start.toDate();
@@ -171,6 +213,10 @@ export async function generateGSTR1(
     b2c: {
       invoices: b2cInvoices,
       summary: b2cSummary,
+    },
+    exports: {
+      invoices: exportInvoices,
+      summary: exportSummary,
     },
     hsnSummary: Array.from(hsnMap.values()),
     total,

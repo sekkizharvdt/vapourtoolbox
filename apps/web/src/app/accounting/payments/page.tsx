@@ -17,8 +17,8 @@ import {
   Stack,
   IconButton,
   Tooltip,
-  ToggleButtonGroup,
-  ToggleButton,
+  Tabs,
+  Tab,
   TablePagination,
   FormControl,
   InputLabel,
@@ -97,8 +97,26 @@ const CreateExpenseClaimDialog = dynamic(
   { ssr: false }
 );
 
-type PaymentType = 'all' | 'customer' | 'vendor' | 'direct' | 'direct-receipt';
 type Payment = CustomerPayment | VendorPayment;
+
+// Receipts (money in) vs Payments (money out) split — feedback lk1VnORTsUwATbsPuDRX.
+// Bank transfers are neither, so they get their own tab.
+type PaymentsTab = 'all' | 'receipts' | 'payments' | 'transfers';
+const RECEIPT_TYPES = new Set(['CUSTOMER_PAYMENT', 'DIRECT_RECEIPT']);
+const PAYMENT_TYPES = new Set(['VENDOR_PAYMENT', 'DIRECT_PAYMENT', 'EXPENSE_CLAIM']);
+const TRANSFER_TYPES = new Set(['BANK_TRANSFER']);
+
+const TYPE_CHIP: Record<
+  string,
+  { label: string; color: 'success' | 'primary' | 'secondary' | 'warning' | 'info' }
+> = {
+  CUSTOMER_PAYMENT: { label: 'Receipt', color: 'success' },
+  DIRECT_RECEIPT: { label: 'Direct Rcpt', color: 'success' },
+  VENDOR_PAYMENT: { label: 'Payment', color: 'primary' },
+  DIRECT_PAYMENT: { label: 'Direct Pmt', color: 'secondary' },
+  EXPENSE_CLAIM: { label: 'Expense Claim', color: 'warning' },
+  BANK_TRANSFER: { label: 'Bank Transfer', color: 'info' },
+};
 
 /** Generate month options for the last 12 months */
 function getMonthOptions() {
@@ -119,7 +137,7 @@ export default function PaymentsPage() {
   const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const { toast } = useToast();
-  const [paymentType, setPaymentType] = useState<PaymentType>('all');
+  const [tab, setTab] = useState<PaymentsTab>('all');
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
   const [vendorPaymentDialogOpen, setVendorPaymentDialogOpen] = useState(false);
   const [directPaymentDialogOpen, setDirectPaymentDialogOpen] = useState(false);
@@ -147,8 +165,13 @@ export default function PaymentsPage() {
           'VENDOR_PAYMENT',
           'DIRECT_PAYMENT',
           'DIRECT_RECEIPT',
+          'BANK_TRANSFER',
+          'EXPENSE_CLAIM',
         ]),
-        orderBy('paymentDate', 'desc')
+        // Ordered by `date` (universal) — bank transfers and expense claims
+        // carry no paymentDate, and orderBy silently drops docs missing the
+        // field, which is why they never appeared on this page.
+        orderBy('date', 'desc')
       ),
     [db]
   );
@@ -197,6 +220,13 @@ export default function PaymentsPage() {
       setDirectPaymentDialogOpen(true);
     } else if (paymentType === 'DIRECT_RECEIPT') {
       setDirectReceiptDialogOpen(true);
+    } else {
+      // Bank transfers and expense claims are newly listed here but their
+      // dialogs don't support editing an existing entry yet — say so instead
+      // of a button that silently does nothing.
+      toast.info(
+        'Editing this entry type is not supported yet — void and re-create it if changes are needed.'
+      );
     }
   };
 
@@ -257,22 +287,23 @@ export default function PaymentsPage() {
 
   // Filter payments by type, month, and search term
   const filteredPayments = payments.filter((payment) => {
-    // Filter by type
-    let matchesType = true;
-    if (paymentType === 'customer') matchesType = payment.type === 'CUSTOMER_PAYMENT';
-    else if (paymentType === 'vendor') matchesType = payment.type === 'VENDOR_PAYMENT';
-    else if (paymentType === 'direct')
-      matchesType = (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT';
-    else if (paymentType === 'direct-receipt')
-      matchesType = (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT';
+    // Filter by tab (inflows / outflows / transfers)
+    const txnType = (payment as unknown as { type: string }).type;
+    const matchesType =
+      tab === 'all' ||
+      (tab === 'receipts' && RECEIPT_TYPES.has(txnType)) ||
+      (tab === 'payments' && PAYMENT_TYPES.has(txnType)) ||
+      (tab === 'transfers' && TRANSFER_TYPES.has(txnType));
 
-    // Resolve payment date for both FY and month filters
+    // Resolve payment date for both FY and month filters (bank transfers and
+    // expense claims have no paymentDate — fall back to the transaction date)
+    const rawDate: unknown = payment.paymentDate ?? (payment as unknown as { date?: unknown }).date;
     let paymentDate: Date | null = null;
-    if (payment.paymentDate) {
+    if (rawDate) {
       paymentDate =
-        typeof (payment.paymentDate as unknown as { toDate?: () => Date }).toDate === 'function'
-          ? (payment.paymentDate as unknown as { toDate: () => Date }).toDate()
-          : new Date(payment.paymentDate as unknown as string | number);
+        typeof (rawDate as { toDate?: () => Date }).toDate === 'function'
+          ? (rawDate as { toDate: () => Date }).toDate()
+          : new Date(rawDate as string | number);
     }
 
     const matchesFY = matchesFiscalYear(paymentDate, fy.range);
@@ -472,18 +503,27 @@ export default function PaymentsPage() {
 
       {/* Filters */}
       <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap">
-        <ToggleButtonGroup
-          value={paymentType}
-          exclusive
-          onChange={(_, newValue) => newValue && setPaymentType(newValue)}
-          size="small"
+        <Tabs
+          value={tab}
+          onChange={(_, v) => {
+            setTab(v);
+            setPage(0);
+          }}
         >
-          <ToggleButton value="all">All Payments</ToggleButton>
-          <ToggleButton value="customer">Customer Receipts</ToggleButton>
-          <ToggleButton value="vendor">Vendor Payments</ToggleButton>
-          <ToggleButton value="direct">Direct Payments</ToggleButton>
-          <ToggleButton value="direct-receipt">Direct Receipts</ToggleButton>
-        </ToggleButtonGroup>
+          <Tab label={`All (${payments.length})`} value="all" />
+          <Tab
+            label={`Receipts (${payments.filter((p) => RECEIPT_TYPES.has((p as unknown as { type: string }).type)).length})`}
+            value="receipts"
+          />
+          <Tab
+            label={`Payments (${payments.filter((p) => PAYMENT_TYPES.has((p as unknown as { type: string }).type)).length})`}
+            value="payments"
+          />
+          <Tab
+            label={`Bank Transfers (${payments.filter((p) => TRANSFER_TYPES.has((p as unknown as { type: string }).type)).length})`}
+            value="transfers"
+          />
+        </Tabs>
 
         <TextField
           size="small"
@@ -565,9 +605,9 @@ export default function PaymentsPage() {
               <TableRow>
                 <TableCell colSpan={9} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                    {filterMonth !== 'ALL' || paymentType !== 'all'
-                      ? 'No payments found matching your filters.'
-                      : 'No payments found. Click "Customer Receipt" or "Vendor Payment" to record a payment.'}
+                    {filterMonth !== 'ALL' || tab !== 'all'
+                      ? 'No entries found matching your filters.'
+                      : 'No entries found. Click "Customer Receipt" or "Vendor Payment" to record one.'}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -577,41 +617,33 @@ export default function PaymentsPage() {
                   <TableCell>
                     <Chip
                       icon={
-                        payment.type === 'CUSTOMER_PAYMENT' ? (
+                        RECEIPT_TYPES.has((payment as unknown as { type: string }).type) ? (
                           <ReceiptIcon />
                         ) : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT' ? (
                           <DirectPaymentIcon />
-                        ) : (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT' ? (
-                          <ReceiptIcon />
+                        ) : (payment as unknown as { type: string }).type === 'BANK_TRANSFER' ? (
+                          <BankTransferIcon />
                         ) : (
                           <PaymentIcon />
                         )
                       }
                       label={
-                        payment.type === 'CUSTOMER_PAYMENT'
-                          ? 'Receipt'
-                          : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT'
-                            ? 'Direct Pmt'
-                            : (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT'
-                              ? 'Direct Rcpt'
-                              : 'Payment'
+                        TYPE_CHIP[(payment as unknown as { type: string }).type]?.label ?? 'Payment'
                       }
                       size="small"
                       color={
-                        payment.type === 'CUSTOMER_PAYMENT'
-                          ? 'success'
-                          : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT'
-                            ? 'secondary'
-                            : (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT'
-                              ? 'success'
-                              : 'primary'
+                        TYPE_CHIP[(payment as unknown as { type: string }).type]?.color ?? 'primary'
                       }
                     />
                   </TableCell>
-                  <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                  <TableCell>
+                    {formatDate(
+                      payment.paymentDate ?? (payment as unknown as { date?: Date }).date
+                    )}
+                  </TableCell>
                   <TableCell>{payment.transactionNumber}</TableCell>
                   <TableCell>{payment.entityName || '-'}</TableCell>
-                  <TableCell>{payment.paymentMethod}</TableCell>
+                  <TableCell>{payment.paymentMethod || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(payment.totalAmount ?? 0)}</TableCell>
                   <TableCell>
                     {payment.paymentMethod === 'CHEQUE' && payment.chequeNumber

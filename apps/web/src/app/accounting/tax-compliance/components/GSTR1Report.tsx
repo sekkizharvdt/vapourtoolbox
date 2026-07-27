@@ -28,7 +28,7 @@ interface GSTR1ReportProps {
   data: GSTR1Data;
 }
 
-type TabValue = 'summary' | 'b2b' | 'b2c' | 'hsn';
+type TabValue = 'summary' | 'b2b' | 'b2c' | 'exports' | 'hsn';
 
 export function GSTR1Report({ data }: GSTR1ReportProps) {
   const [activeTab, setActiveTab] = useState<TabValue>('summary');
@@ -89,7 +89,8 @@ export function GSTR1Report({ data }: GSTR1ReportProps) {
               </Typography>
               <Typography variant="h4">{data.total.transactionCount}</Typography>
               <Typography variant="caption" color="textSecondary">
-                B2B: {data.b2b.summary.transactionCount} | B2C: {data.b2c.summary.transactionCount}
+                B2B: {data.b2b.summary.transactionCount} | B2C: {data.b2c.summary.transactionCount}{' '}
+                | Exports: {data.exports.summary.transactionCount}
               </Typography>
             </CardContent>
           </Card>
@@ -135,6 +136,7 @@ export function GSTR1Report({ data }: GSTR1ReportProps) {
         <Tab label="Summary" value="summary" />
         <Tab label={`B2B Invoices (${data.b2b.invoices.length})`} value="b2b" />
         <Tab label={`B2C Invoices (${data.b2c.invoices.length})`} value="b2c" />
+        <Tab label={`Exports (${data.exports.invoices.length})`} value="exports" />
         <Tab label={`HSN Summary (${data.hsnSummary.length})`} value="hsn" />
       </Tabs>
 
@@ -186,6 +188,25 @@ export function GSTR1Report({ data }: GSTR1ReportProps) {
                 <TableCell align="right">{formatCurrency(data.b2c.summary.igst)}</TableCell>
                 <TableCell align="right">
                   <strong>{formatCurrency(data.b2c.summary.total)}</strong>
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>
+                  <strong>Exports (Zero-rated)</strong>
+                  <br />
+                  <Typography variant="caption" color="textSecondary">
+                    Foreign-currency invoices, INR values at invoice exchange rate
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">{data.exports.summary.transactionCount}</TableCell>
+                <TableCell align="right">
+                  {formatCurrency(data.exports.summary.taxableValue)}
+                </TableCell>
+                <TableCell align="right">{formatCurrency(data.exports.summary.cgst)}</TableCell>
+                <TableCell align="right">{formatCurrency(data.exports.summary.sgst)}</TableCell>
+                <TableCell align="right">{formatCurrency(data.exports.summary.igst)}</TableCell>
+                <TableCell align="right">
+                  <strong>{formatCurrency(data.exports.summary.total)}</strong>
                 </TableCell>
               </TableRow>
               <TableRow sx={{ bgcolor: 'action.selected' }}>
@@ -310,6 +331,65 @@ export function GSTR1Report({ data }: GSTR1ReportProps) {
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+
+      {/* Exports Tab */}
+      {activeTab === 'exports' && (
+        <>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Foreign-currency invoices are treated as exports (zero-rated under LUT by default). INR
+            values are converted at each invoice&apos;s exchange rate; verify LUT applicability
+            before filing.
+          </Alert>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Invoice No.</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Customer</TableCell>
+                  <TableCell>Currency</TableCell>
+                  <TableCell align="right">Invoice Value (FC)</TableCell>
+                  <TableCell align="right">Exchange Rate</TableCell>
+                  <TableCell align="right">Taxable Value (INR)</TableCell>
+                  <TableCell align="right">IGST</TableCell>
+                  <TableCell align="right">Invoice Value (INR)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.exports.invoices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                        No export invoices found for this period
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.exports.invoices.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell>{inv.invoiceNumber}</TableCell>
+                      <TableCell>{formatDate(inv.invoiceDate)}</TableCell>
+                      <TableCell>{inv.customerName}</TableCell>
+                      <TableCell>{inv.currency}</TableCell>
+                      <TableCell align="right">
+                        {inv.invoiceValueForeign.toLocaleString('en-IN', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell align="right">{inv.exchangeRate}</TableCell>
+                      <TableCell align="right">{formatCurrency(inv.taxableValue)}</TableCell>
+                      <TableCell align="right">{formatCurrency(inv.igst)}</TableCell>
+                      <TableCell align="right">
+                        <strong>{formatCurrency(inv.invoiceValue)}</strong>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
       )}
 
       {/* HSN Summary Tab */}

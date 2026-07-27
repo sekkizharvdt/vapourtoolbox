@@ -242,10 +242,12 @@ async function extractTDSTransactions(
   const transactions: TDSTransaction[] = [];
 
   try {
-    // Query vendor bills (transactions with type='BILL') with TDS within date range
+    // Query vendor bills with TDS within date range. The type value is
+    // VENDOR_BILL — this queried 'BILL' (not a TransactionType) until
+    // 2026-07, which made every TDS report silently empty.
     const billsQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
-      where('type', '==', 'BILL'),
+      where('type', '==', 'VENDOR_BILL'),
       where('date', '>=', startDate),
       where('date', '<=', endDate),
       where('status', 'in', ['APPROVED', 'POSTED'])

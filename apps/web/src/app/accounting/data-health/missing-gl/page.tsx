@@ -137,6 +137,7 @@ export default function MissingGLEntriesPage() {
 
       customerSnap.forEach((doc) => {
         const data = doc.data() as CustomerPayment;
+        if (data.isDeleted) return; // Trash must not pollute Data Health (rule 3)
         const entries = data.entries || [];
         if (entries.length === 0) {
           const bankAccountId = data.bankAccountId || data.depositedToBankAccountId;
@@ -151,6 +152,7 @@ export default function MissingGLEntriesPage() {
 
       vendorSnap.forEach((doc) => {
         const data = doc.data() as VendorPayment;
+        if (data.isDeleted) return; // Trash must not pollute Data Health (rule 3)
         const entries = data.entries || [];
         if (entries.length === 0) {
           const bankAccountId = data.bankAccountId;

@@ -429,6 +429,7 @@ describe('GST Reports Module', () => {
             transactionCount: 0,
           },
         },
+        exports: { invoices: [], summary: createEmptyGSTSummary() },
         hsnSummary: [],
         total: {
           taxableValue: 10000,
@@ -495,6 +496,7 @@ describe('GST Reports Module', () => {
             transactionCount: 2,
           },
         },
+        exports: { invoices: [], summary: createEmptyGSTSummary() },
         hsnSummary: [],
         total: {
           taxableValue: 258474.58,

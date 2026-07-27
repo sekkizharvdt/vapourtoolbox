@@ -97,6 +97,7 @@ export default function UnmappedAccountsPage() {
 
       billsSnap.forEach((doc) => {
         const data = doc.data() as VendorBill;
+        if (data.isDeleted) return; // Trash must not pollute Data Health (rule 3)
         const lineItems: InvoiceLineItem[] = data.lineItems || [];
         const unmappedItems = lineItems.filter((item) => !item.accountId);
 
@@ -117,6 +118,7 @@ export default function UnmappedAccountsPage() {
 
       invoicesSnap.forEach((doc) => {
         const data = doc.data() as CustomerInvoice;
+        if (data.isDeleted) return; // Trash must not pollute Data Health (rule 3)
         const lineItems: InvoiceLineItem[] = data.lineItems || [];
         const unmappedItems = lineItems.filter((item) => !item.accountId);
 

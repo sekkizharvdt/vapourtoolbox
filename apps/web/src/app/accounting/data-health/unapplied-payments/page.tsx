@@ -115,6 +115,7 @@ export default function UnappliedPaymentsPage() {
 
       customerSnap.forEach((doc) => {
         const data = doc.data() as CustomerPayment;
+        if (data.isDeleted) return; // Trash must not pollute Data Health (rule 3)
         if (data.isAdvance === true) return; // Advances are shown separately
         const allocations = data.invoiceAllocations || [];
         const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount ?? 0), 0);
@@ -129,6 +130,7 @@ export default function UnappliedPaymentsPage() {
 
       vendorSnap.forEach((doc) => {
         const data = doc.data() as VendorPayment;
+        if (data.isDeleted) return; // Trash must not pollute Data Health (rule 3)
         if (data.isAdvance === true) return; // Advances are shown separately
         const allocations = data.billAllocations || [];
         const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount ?? 0), 0);
