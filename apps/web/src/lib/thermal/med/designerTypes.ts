@@ -192,6 +192,8 @@ export interface MEDDesignerEffect {
   brineOutFlow: number;
   /** Accumulated brine flowing out via siphon T/h (sum of this + all previous) */
   accumBrineFlow: number;
+  /** Salinity of the brine leaving this effect in ppm (from the solver's salt balance) */
+  brineOutSalinity: number;
   /** Flash vapour from distillate cascade T/h */
   flashVapourFlow: number;
   /** Latent heat of vaporisation kJ/kg */

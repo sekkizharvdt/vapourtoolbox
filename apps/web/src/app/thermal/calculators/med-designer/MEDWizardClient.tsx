@@ -25,6 +25,7 @@ import {
   Save as SaveIcon,
   FolderOpen as FolderOpenIcon,
   PlaylistAdd as ExportBOMIcon,
+  AccountTree as SSOTIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { designMED, type MEDDesignerResult } from '@/lib/thermal';
@@ -39,6 +40,7 @@ import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 import { ExportToBOMDialog } from './components/ExportToBOMDialog';
+import { GenerateSSOTDialog } from './components/GenerateSSOTDialog';
 import { getFirebase } from '@/lib/firebase';
 import { computeCostEstimate } from '@/lib/thermal/med/costEstimation';
 import type { MEDCostEstimate } from '@/lib/thermal/med/designerTypes';
@@ -122,6 +124,9 @@ export default function MEDWizardClient() {
 
   // ── Export to Estimation BOM (A3) ─────────────────────────────────────
   const [exportBomOpen, setExportBomOpen] = useState(false);
+
+  // ── Generate SSOT process registers from the design ───────────────────
+  const [generateSsotOpen, setGenerateSsotOpen] = useState(false);
 
   // ── Derived values ──────────────────────────────────────────────────────
   const nEff = parseInt(numberOfEffects, 10) || 6;
@@ -961,6 +966,14 @@ export default function MEDWizardClient() {
               >
                 Export to Estimation BOM
               </Button>
+              <Button
+                variant="outlined"
+                startIcon={<SSOTIcon />}
+                onClick={() => setGenerateSsotOpen(true)}
+                disabled={!designResult}
+              >
+                Generate SSOT
+              </Button>
             </Stack>
           </Paper>
 
@@ -1299,6 +1312,13 @@ export default function MEDWizardClient() {
             open={exportBomOpen}
             onClose={() => setExportBomOpen(false)}
             bom={bom}
+            designResult={designResult}
+          />
+
+          {/* Generate SSOT streams / equipment / lines */}
+          <GenerateSSOTDialog
+            open={generateSsotOpen}
+            onClose={() => setGenerateSsotOpen(false)}
             designResult={designResult}
           />
         </Stack>

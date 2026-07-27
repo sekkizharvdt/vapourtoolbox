@@ -43,6 +43,60 @@ export const LINE_TAG_FLUID_MAP: Record<string, FluidType> = {
 export type SteamRegion = 'saturation' | 'subcooled' | 'superheated';
 
 // ============================================
+// Provenance — generated vs hand-entered records
+// ============================================
+
+/**
+ * How an SSOT record came to exist.
+ *
+ * `MED_DESIGN` records are produced by the MED designer bridge and are
+ * refreshed whenever the design is regenerated. `MANUAL` records are typed
+ * by a user and are never touched by regeneration.
+ */
+export type SSOTRecordSource = 'MANUAL' | 'MED_DESIGN';
+
+/**
+ * Provenance metadata carried by every register that the MED designer can
+ * populate (streams, equipment, lines).
+ *
+ * Regeneration contract:
+ *   - `MANUAL` records are skipped entirely.
+ *   - `MED_DESIGN` records have their calculated fields refreshed, EXCEPT any
+ *     field listed in `manualOverrides` — those were edited by hand and win
+ *     over the design permanently (until the user clears the override).
+ *
+ * Without this, a design revision would silently discard hand-entered line
+ * numbers, remarks and tuned instrument ranges, and the generator would stop
+ * being used after the first revision.
+ */
+export interface SSOTProvenance {
+  /** Whether this record was generated or hand-entered */
+  source: SSOTRecordSource;
+  /**
+   * Stable identity of the generated record, used to match it on regeneration.
+   *
+   * Matching on the visible identifier is not safe — line numbers carry a
+   * sequence that shifts when the effect count changes, so a re-run would
+   * create duplicates instead of updating. The key is derived from what the
+   * record *is* (stream tag, equipment tag, or stream + route), not what it is
+   * currently called.
+   */
+  generatedKey?: string;
+  /** Saved-calculation id of the MED design this was generated from */
+  sourceCalculationId?: string;
+  /** Short human label for the source design, e.g. "8-effect MED, GOR 8.2" */
+  sourceLabel?: string;
+  /** When the record was last refreshed from the design */
+  lastGeneratedAt?: Timestamp;
+  /**
+   * Field names the user has edited by hand. Regeneration must not overwrite
+   * these. Keys match the field names on the record itself, e.g. `['lineNumber',
+   * 'description']`.
+   */
+  manualOverrides?: string[];
+}
+
+// ============================================
 // INPUT_DATA - Master Stream Data (195 rows)
 // ============================================
 export interface ProcessStream {
@@ -72,6 +126,9 @@ export interface ProcessStream {
   // Derived fields
   fluidType: FluidType; // Inferred from lineTag prefix: SW=SEA WATER, D=DISTILLATE, S=STEAM, etc.
 
+  /** Generated-vs-manual provenance (absent on legacy hand-entered records = MANUAL) */
+  provenance?: SSOTProvenance;
+
   // Metadata
   createdAt: Timestamp;
   createdBy: string;
@@ -99,6 +156,7 @@ export interface ProcessStreamInput {
   entropy?: number; // kJ/(kg·K) - for steam
   boilingPointElevation?: number; // °C - for seawater/brine
   steamRegion?: SteamRegion; // For steam: saturation, subcooled, or superheated
+  provenance?: SSOTProvenance;
 }
 
 // ============================================
@@ -118,12 +176,49 @@ export interface ProcessEquipment {
   fluidIn: string[]; // Col 5-9: Up to 5 inlet stream tags
   fluidOut: string[]; // Col 10-13: Up to 4 outlet stream tags
 
+  // ── Geometry & inventory ─────────────────────────────────────────────
+  // Populated by the MED designer bridge. Required by a future dynamic
+  // simulator: liquid holdup sets the level/concentration time constants and
+  // metal mass usually dominates how long startup takes.
+  /** Equipment class, used to group registers and drive simulator templates */
+  equipmentType?: ProcessEquipmentType;
+  /** Shell inside diameter in mm */
+  shellIDmm?: number;
+  /** Shell tangent-to-tangent length in mm */
+  shellLengthMM?: number;
+  /** Total internal (gross) volume in m³ */
+  grossVolumeM3?: number;
+  /** Normal operating liquid holdup in m³ */
+  liquidHoldupM3?: number;
+  /** Dry metal mass in kg (shell + tubesheets + bundle) */
+  metalMassKg?: number;
+  /** Heat transfer area in m² (evaporator/condenser/preheater) */
+  heatTransferAreaM2?: number;
+  /** Centreline (or bottom tangent line) elevation above FFL in m */
+  elevationM?: number;
+
+  /** Generated-vs-manual provenance (absent on legacy hand-entered records = MANUAL) */
+  provenance?: SSOTProvenance;
+
   // Metadata
   createdAt: Timestamp;
   createdBy: string;
   updatedAt: Timestamp;
   updatedBy: string;
 }
+
+/** Equipment classes the MED designer can emit */
+export type ProcessEquipmentType =
+  | 'EVAPORATOR_EFFECT'
+  | 'CONDENSER'
+  | 'PREHEATER'
+  | 'FLASH_VESSEL'
+  | 'PUMP'
+  | 'EJECTOR'
+  | 'VACUUM_PUMP'
+  | 'DOSING_SKID'
+  | 'THERMOCOMPRESSOR'
+  | 'OTHER';
 
 export interface ProcessEquipmentInput {
   equipmentName: string;
@@ -132,6 +227,16 @@ export interface ProcessEquipmentInput {
   operatingTemperature: number;
   fluidIn: string[];
   fluidOut: string[];
+  // Geometry & inventory (optional — populated by the MED designer bridge)
+  equipmentType?: ProcessEquipmentType;
+  shellIDmm?: number;
+  shellLengthMM?: number;
+  grossVolumeM3?: number;
+  liquidHoldupM3?: number;
+  metalMassKg?: number;
+  heatTransferAreaM2?: number;
+  elevationM?: number;
+  provenance?: SSOTProvenance;
 }
 
 // ============================================
@@ -161,6 +266,14 @@ export interface ProcessLine {
   pipeSize?: string; // e.g., "NB200", "NB100"
   schedule?: string; // e.g., "40", "80"
 
+  /** Equipment tag this line runs from (for plant connectivity) */
+  fromEquipmentTag?: string;
+  /** Equipment tag this line runs to (for plant connectivity) */
+  toEquipmentTag?: string;
+
+  /** Generated-vs-manual provenance (absent on legacy hand-entered records = MANUAL) */
+  provenance?: SSOTProvenance;
+
   // Metadata
   createdAt: Timestamp;
   createdBy: string;
@@ -181,6 +294,9 @@ export interface ProcessLineInput {
   actualVelocity?: number; // Calculated from flow/selectedID
   pipeSize?: string;
   schedule?: string;
+  fromEquipmentTag?: string;
+  toEquipmentTag?: string;
+  provenance?: SSOTProvenance;
 }
 
 // ============================================

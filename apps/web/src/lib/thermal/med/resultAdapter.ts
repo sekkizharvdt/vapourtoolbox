@@ -159,6 +159,11 @@ export function composeDesignerEffects(
       accumDistillateFlow: accumDistillate,
       brineOutFlow,
       accumBrineFlow: accumBrine,
+      // Salinity of the brine leaving this effect, as computed by the core
+      // solver's salt balance. Surfaced here so downstream consumers (SSOT
+      // stream register, datasheets) use the engine's value rather than
+      // re-deriving it from flows.
+      brineOutSalinity: eff.totalBrineOut.salinity,
       flashVapourFlow,
       hfg: getLatentHeat(vapourOutTemp),
       hasVapourLanes,

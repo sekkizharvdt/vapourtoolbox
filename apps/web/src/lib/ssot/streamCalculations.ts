@@ -147,9 +147,16 @@ export function calculateDensity(
       return getSeawaterDensity(0, temperature);
 
     case 'STEAM': {
-      // Use pressure-aware steam density calculation
+      // A stream typed STEAM is a VAPOUR stream. At saturation, getDensityAtPT
+      // resolves to the compressed-liquid branch and returns ~970 kg/m³ instead
+      // of ~0.2 — sizing a vapour duct on that is wrong by three orders of
+      // magnitude. Take the vapour branch explicitly whenever the stream is
+      // saturated; only genuinely superheated steam goes through P-T lookup.
       try {
-        return getDensityAtPT(pressureBar, temperature);
+        if (getSteamRegionType(pressureBar, temperature) === 'superheated') {
+          return getDensityAtPT(pressureBar, temperature);
+        }
+        return getDensityVapor(temperature);
       } catch {
         // Fall back to saturation vapor density if out of range
         return getDensityVapor(temperature);
@@ -198,9 +205,15 @@ export function calculateEnthalpy(
       return getSeawaterEnthalpy(0, temperature);
 
     case 'STEAM': {
-      // Use pressure-aware steam enthalpy calculation
+      // Same phase-selection issue as density above: at saturation the P-T
+      // lookup returns liquid enthalpy, which drops the latent heat and makes
+      // every vapour-side energy balance wrong. Take the vapour branch unless
+      // the steam is genuinely superheated.
       try {
-        return getEnthalpy(pressureBar, temperature);
+        if (getSteamRegionType(pressureBar, temperature) === 'superheated') {
+          return getEnthalpy(pressureBar, temperature);
+        }
+        return getEnthalpyVapor(temperature);
       } catch {
         // Fall back to saturation vapor enthalpy if out of range
         return getEnthalpyVapor(temperature);

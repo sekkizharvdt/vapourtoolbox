@@ -26,6 +26,7 @@ import type { ProcessStream, ProcessStreamInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { enrichStreamInput } from './streamCalculations';
 import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
+import { resolveProvenanceOnUpdate } from './provenanceTracking';
 
 const logger = createLogger({ context: 'streamService' });
 
@@ -256,8 +257,13 @@ export async function updateStream(
 
   const enriched = needsRecalc ? enrichStreamInput(merged) : merged;
 
+  // Record which fields a human changed, so a future MED regeneration leaves
+  // them alone (no-op when the sync itself is the caller).
+  const provenance = resolveProvenanceOnUpdate(current.provenance, input);
+
   await updateDoc(docRef, {
     ...enriched,
+    ...(provenance !== undefined && { provenance }),
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   });

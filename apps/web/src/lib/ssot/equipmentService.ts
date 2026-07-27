@@ -25,6 +25,7 @@ import { SSOT_COLLECTIONS } from '@vapour/firebase';
 import type { ProcessEquipment, ProcessEquipmentInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
+import { resolveProvenanceOnUpdate } from './provenanceTracking';
 
 const logger = createLogger({ context: 'equipmentService' });
 
@@ -164,8 +165,14 @@ export async function updateEquipment(
 
   const docRef = getEquipmentDoc(projectId, equipmentId);
 
+  // Record which fields a human changed, so a future MED regeneration leaves
+  // them alone (no-op when the sync itself is the caller).
+  const current = await getEquipment(projectId, equipmentId);
+  const provenance = resolveProvenanceOnUpdate(current?.provenance, input);
+
   await updateDoc(docRef, {
     ...input,
+    ...(provenance !== undefined && { provenance }),
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   });

@@ -1,0 +1,251 @@
+/**
+ * MED → SSOT sync merge tests.
+ *
+ * The merge decides what a regeneration overwrites. A mistake here silently
+ * destroys hand-entered engineering data, so the rules are pinned explicitly.
+ */
+
+import { diffGeneratedRecord, planRegister, summarisePlan } from './medDesignSync';
+import type { MEDSSOTSyncPlan } from './medDesignSync';
+import type { SSOTProvenance } from '@vapour/types';
+
+describe('diffGeneratedRecord', () => {
+  it('returns only fields that actually changed', () => {
+    const { changes } = diffGeneratedRecord(
+      { temperature: 70, pressureMbar: 312, description: 'Steam' },
+      { temperature: 65, pressureMbar: 312, description: 'Steam' },
+      []
+    );
+
+    expect(changes).toEqual({ temperature: 65 });
+  });
+
+  it('never overwrites a field the user edited by hand', () => {
+    const { changes, preservedFields } = diffGeneratedRecord(
+      { temperature: 70, description: 'Renamed by engineer' },
+      { temperature: 65, description: 'Heating steam to Effect 1' },
+      ['description']
+    );
+
+    expect(changes).toEqual({ temperature: 65 });
+    expect(changes).not.toHaveProperty('description');
+    expect(preservedFields).toEqual(['description']);
+  });
+
+  it('does not report an override as preserved when the design agrees with it', () => {
+    const { preservedFields } = diffGeneratedRecord(
+      { description: 'Same text' },
+      { description: 'Same text' },
+      ['description']
+    );
+
+    expect(preservedFields).toEqual([]);
+  });
+
+  it('never touches identity or audit fields', () => {
+    const { changes } = diffGeneratedRecord(
+      { id: 'old', projectId: 'p1', createdBy: 'user-a', sNo: 3, temperature: 70 },
+      { id: 'new', projectId: 'p2', createdBy: 'user-b', sNo: 99, temperature: 71 },
+      []
+    );
+
+    expect(changes).toEqual({ temperature: 71 });
+  });
+
+  it('ignores floating-point noise so identical values are not rewritten', () => {
+    const { changes } = diffGeneratedRecord(
+      { flowRateKgS: 1.3888888888888888 },
+      { flowRateKgS: 1.388888888888889 },
+      []
+    );
+
+    expect(changes).toEqual({});
+  });
+
+  it('compares arrays by value (equipment fluid references)', () => {
+    const unchanged = diffGeneratedRecord({ fluidIn: ['S0', 'F1'] }, { fluidIn: ['S0', 'F1'] }, []);
+    expect(unchanged.changes).toEqual({});
+
+    const changed = diffGeneratedRecord({ fluidIn: ['S0', 'F1'] }, { fluidIn: ['S0', 'F2'] }, []);
+    expect(changed.changes).toEqual({ fluidIn: ['S0', 'F2'] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+type Existing = {
+  id: string;
+  tag: string;
+  temperature: number;
+  provenance?: { source: string; generatedKey?: string; manualOverrides?: string[] };
+};
+type Generated = {
+  tag: string;
+  temperature: number;
+  provenance?: { source: string; generatedKey?: string };
+};
+
+const accessors = {
+  existingKey: (r: Existing) => r.provenance?.generatedKey,
+  existingIsManual: (r: Existing) => (r.provenance?.source ?? 'MANUAL') === 'MANUAL',
+  existingOverrides: (r: Existing) => r.provenance?.manualOverrides ?? [],
+  generatedKey: (i: Generated) => i.provenance?.generatedKey ?? '',
+  generatedProvenance: (i: Generated) =>
+    (i.provenance ?? { source: 'MED_DESIGN' }) as SSOTProvenance,
+  label: (i: Generated) => i.tag,
+  existingLabel: (r: Existing) => r.tag,
+};
+
+const gen = (tag: string, temperature: number): Generated => ({
+  tag,
+  temperature,
+  provenance: { source: 'MED_DESIGN', generatedKey: `stream:${tag}` },
+});
+
+describe('planRegister', () => {
+  it('creates records that do not exist yet', () => {
+    const plan = planRegister<Existing, Generated>([], [gen('S1', 64)], accessors);
+
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0]!.label).toBe('S1');
+    expect(plan.updates).toHaveLength(0);
+  });
+
+  it('updates a previously generated record in place', () => {
+    const existing: Existing = {
+      id: 'doc1',
+      tag: 'S1',
+      temperature: 64,
+      provenance: { source: 'MED_DESIGN', generatedKey: 'stream:S1' },
+    };
+
+    const plan = planRegister<Existing, Generated>([existing], [gen('S1', 61)], accessors);
+
+    expect(plan.creates).toHaveLength(0);
+    expect(plan.updates).toHaveLength(1);
+    expect(plan.updates[0]!.id).toBe('doc1');
+    expect(plan.updates[0]!.changes).toEqual({ temperature: 61 });
+  });
+
+  it('leaves a hand-entered record completely alone', () => {
+    const manual: Existing = {
+      id: 'doc9',
+      tag: 'S1',
+      temperature: 64,
+      provenance: { source: 'MANUAL', generatedKey: 'stream:S1' },
+    };
+
+    const plan = planRegister<Existing, Generated>([manual], [gen('S1', 61)], accessors);
+
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.creates).toHaveLength(0);
+    expect(plan.skips).toEqual([
+      { key: 'stream:S1', label: 'S1', id: 'doc9', reason: 'MANUAL_RECORD' },
+    ]);
+  });
+
+  it('treats a record with no provenance as hand-entered (legacy data is safe)', () => {
+    const legacy: Existing = { id: 'old1', tag: 'S1', temperature: 64 };
+
+    // No generatedKey means it is not matched at all — so it is never modified
+    const plan = planRegister<Existing, Generated>([legacy], [gen('S1', 61)], accessors);
+
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.creates).toHaveLength(1); // a fresh generated record is added alongside
+    expect(plan.orphans).toHaveLength(0); // and the legacy record is not flagged for removal
+  });
+
+  it('reports generated records the design no longer produces as orphans', () => {
+    const existing: Existing[] = [
+      {
+        id: 'd1',
+        tag: 'S1',
+        temperature: 64,
+        provenance: { source: 'MED_DESIGN', generatedKey: 'stream:S1' },
+      },
+      {
+        id: 'd2',
+        tag: 'S7',
+        temperature: 40,
+        provenance: { source: 'MED_DESIGN', generatedKey: 'stream:S7' },
+      },
+    ];
+
+    // Design shrank from 7 effects to 1 — S7 no longer exists
+    const plan = planRegister<Existing, Generated>(existing, [gen('S1', 64)], accessors);
+
+    expect(plan.orphans).toEqual([{ key: 'stream:S7', label: 'S7', id: 'd2' }]);
+  });
+
+  it('never reports a hand-entered record as an orphan', () => {
+    const manual: Existing = {
+      id: 'm1',
+      tag: 'CUSTOM-1',
+      temperature: 50,
+      provenance: { source: 'MANUAL', generatedKey: 'stream:CUSTOM-1' },
+    };
+
+    const plan = planRegister<Existing, Generated>([manual], [], accessors);
+
+    expect(plan.orphans).toHaveLength(0);
+  });
+
+  it('produces no update when the record is already current', () => {
+    const existing: Existing = {
+      id: 'doc1',
+      tag: 'S1',
+      temperature: 64,
+      provenance: { source: 'MED_DESIGN', generatedKey: 'stream:S1' },
+    };
+
+    const plan = planRegister<Existing, Generated>([existing], [gen('S1', 64)], accessors);
+
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.creates).toHaveLength(0);
+  });
+
+  it('matches on the generated key, not the visible tag — renumbering does not duplicate', () => {
+    // The user renamed the record; the design still generates the same thing.
+    const renamed: Existing = {
+      id: 'doc1',
+      tag: 'RENAMED-BY-USER',
+      temperature: 64,
+      provenance: {
+        source: 'MED_DESIGN',
+        generatedKey: 'stream:S1',
+        manualOverrides: ['tag'],
+      },
+    };
+
+    const plan = planRegister<Existing, Generated>([renamed], [gen('S1', 61)], accessors);
+
+    expect(plan.creates).toHaveLength(0); // no duplicate created
+    expect(plan.updates).toHaveLength(1);
+    expect(plan.updates[0]!.changes).toEqual({ temperature: 61 });
+    expect(plan.updates[0]!.preservedFields).toEqual(['tag']); // rename survives
+  });
+});
+
+describe('summarisePlan', () => {
+  it('totals across all three registers', () => {
+    const empty = { creates: [], updates: [], skips: [], orphans: [] };
+    const plan = {
+      projectId: 'p1',
+      streams: {
+        ...empty,
+        creates: [{ key: 'a', label: 'a', input: {} }],
+        updates: [{ key: 'b', label: 'b', id: '1', changes: {}, preservedFields: ['x', 'y'] }],
+      },
+      equipment: { ...empty, skips: [{ key: 'c', label: 'c', id: '2', reason: 'MANUAL_RECORD' }] },
+      lines: { ...empty, orphans: [{ key: 'd', label: 'd', id: '3' }] },
+    } as unknown as MEDSSOTSyncPlan;
+
+    expect(summarisePlan(plan)).toEqual({
+      creates: 1,
+      updates: 1,
+      skips: 1,
+      orphans: 1,
+      preservedFields: 2,
+    });
+  });
+});

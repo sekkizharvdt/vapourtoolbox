@@ -25,6 +25,7 @@ import type { ProcessLine, ProcessLineInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { enrichLineInput } from './lineCalculations';
 import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
+import { resolveProvenanceOnUpdate } from './provenanceTracking';
 
 const logger = createLogger({ context: 'lineService' });
 
@@ -193,6 +194,10 @@ export async function updateLine(
     actualVelocity: input.actualVelocity ?? current.actualVelocity,
     pipeSize: input.pipeSize ?? current.pipeSize,
     schedule: input.schedule ?? current.schedule,
+    // Connectivity — must survive an edit (rule 22); this merge is field-by-field,
+    // so anything omitted here is silently dropped.
+    fromEquipmentTag: input.fromEquipmentTag ?? current.fromEquipmentTag,
+    toEquipmentTag: input.toEquipmentTag ?? current.toEquipmentTag,
   };
 
   const needsRecalc =
@@ -208,8 +213,13 @@ export async function updateLine(
     Object.entries(enriched).filter(([, value]) => value !== undefined)
   );
 
+  // Record which fields a human changed, so a future MED regeneration leaves
+  // them alone (no-op when the sync itself is the caller).
+  const provenance = resolveProvenanceOnUpdate(current.provenance, input);
+
   await updateDoc(docRef, {
     ...filteredEnriched,
+    ...(provenance !== undefined && { provenance }),
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   });

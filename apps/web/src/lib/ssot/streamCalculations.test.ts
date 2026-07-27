@@ -366,6 +366,36 @@ describe('Stream Calculations', () => {
   });
 
   describe('calculateStreamProperties', () => {
+    // Regression: saturated STEAM streams were resolving to the compressed-liquid
+    // branch, giving ~970 kg/m³ instead of ~0.2 and dropping the latent heat from
+    // the enthalpy. A vapour duct sized on liquid density is wrong by three orders
+    // of magnitude.
+    // Asserts PHASE SELECTION only — @vapour/constants is mocked in this file,
+    // so absolute property values here are the mock's, not steam-table truth.
+    // The real numeric check lives in medDesignGenerator.test.ts, which does not
+    // mock the constants package.
+    it.each([
+      [312, 70],
+      [244, 64.4],
+      [85, 42.6],
+    ])(
+      'returns vapour-phase properties for saturated steam at %i mbar / %s °C',
+      (pressureMbar, temperature) => {
+        const result = calculateStreamProperties({
+          fluidType: 'STEAM',
+          temperature,
+          pressureMbar,
+          flowRateKgS: 1,
+        });
+
+        // Liquid water is ~1000 kg/m³; vapour at these pressures is well under 1.
+        expect(result.density).toBeLessThan(1);
+        // Liquid enthalpy at these temperatures is ~150-300 kJ/kg; vapour carries
+        // the latent heat and lands above 2400.
+        expect(result.enthalpy).toBeGreaterThan(2400);
+      }
+    );
+
     it('should calculate all properties for seawater', () => {
       const input: StreamCalculationInput = {
         fluidType: 'SEA WATER',
