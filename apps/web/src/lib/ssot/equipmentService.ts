@@ -26,6 +26,7 @@ import type { ProcessEquipment, ProcessEquipmentInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 import { resolveProvenanceOnUpdate } from './provenanceTracking';
+import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 
 const logger = createLogger({ context: 'equipmentService' });
 
@@ -135,14 +136,16 @@ export async function createEquipment(
   const equipmentRef = getEquipmentCollection(projectId);
   const now = Timestamp.now();
 
-  const equipmentData = {
+  // Rule 12: Firestore rejects undefined — optional geometry/inventory fields
+  // are absent on most equipment.
+  const equipmentData = removeUndefinedValues({
     projectId,
     ...input,
     createdAt: now,
     createdBy: userId,
     updatedAt: now,
     updatedBy: userId,
-  };
+  });
 
   const docRef = await addDoc(equipmentRef, equipmentData);
   logger.info('Equipment created', { projectId, equipmentId: docRef.id });
@@ -170,12 +173,15 @@ export async function updateEquipment(
   const current = await getEquipment(projectId, equipmentId);
   const provenance = resolveProvenanceOnUpdate(current?.provenance, input);
 
-  await updateDoc(docRef, {
-    ...input,
-    ...(provenance !== undefined && { provenance }),
-    updatedAt: Timestamp.now(),
-    updatedBy: userId,
-  });
+  await updateDoc(
+    docRef,
+    removeUndefinedValues({
+      ...input,
+      ...(provenance !== undefined && { provenance }),
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    })
+  );
 
   logger.info('Equipment updated', { projectId, equipmentId });
 }

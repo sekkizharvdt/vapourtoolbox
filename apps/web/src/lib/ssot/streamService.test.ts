@@ -287,6 +287,50 @@ describe('streamService', () => {
   // ============================================================================
 
   describe('createStream', () => {
+    // Regression: enrichStreamInput returns the full property set for every
+    // fluid, so properties that do not apply to the fluid come back undefined —
+    // thermalConductivity on steam, entropy on liquids. Firestore rejects
+    // undefined outright (rule 12), and addDoc failed with "Unsupported field
+    // value: undefined" for all 42 generated streams.
+    //
+    // enrichStreamInput is mocked in this file, so the mock is made to return
+    // the same undefined-bearing shape the real one does. What is under test is
+    // the service's job: strip them before the write.
+    it.each([
+      ['steam (no thermalConductivity / BPE)', ['thermalConductivity', 'boilingPointElevation']],
+      ['liquid (no entropy / steamRegion)', ['entropy', 'steamRegion']],
+    ])('never writes an undefined value — %s', async (_label, undefinedFields) => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true });
+      mockAddDoc.mockResolvedValue({ id: 'new-stream-id' });
+      mockEnrichStreamInput.mockImplementationOnce((input: ProcessStreamInput) => ({
+        ...input,
+        density: 0.197,
+        enthalpy: 2626,
+        ...Object.fromEntries(undefinedFields.map((field) => [field, undefined])),
+      }));
+
+      await createStream(
+        'proj-1',
+        {
+          lineTag: 'S0',
+          flowRateKgS: 1,
+          pressureMbar: 312,
+          temperature: 70,
+          fluidType: 'STEAM',
+        } as ProcessStreamInput,
+        'user-1'
+      );
+
+      const payload = mockAddDoc.mock.calls.at(-1)![1] as Record<string, unknown>;
+      const undefinedKeys = Object.entries(payload)
+        .filter(([, value]) => value === undefined)
+        .map(([key]) => key);
+
+      expect(undefinedKeys).toEqual([]);
+      // The defined properties still make it through
+      expect(payload.density).toBe(0.197);
+    });
+
     it('should create a new stream and return its ID', async () => {
       mockGetDoc.mockResolvedValueOnce({ exists: () => true }); // project exists
       mockAddDoc.mockResolvedValue({ id: 'new-stream-id' });

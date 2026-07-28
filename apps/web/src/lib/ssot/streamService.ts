@@ -27,6 +27,7 @@ import { createLogger } from '@vapour/logger';
 import { enrichStreamInput } from './streamCalculations';
 import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 import { resolveProvenanceOnUpdate } from './provenanceTracking';
+import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 
 const logger = createLogger({ context: 'streamService' });
 
@@ -191,14 +192,17 @@ export async function createStream(
   const streamsRef = getStreamsCollection(projectId);
   const now = Timestamp.now();
 
-  const streamData = {
+  // Rule 12: Firestore rejects undefined. enrichStreamInput returns the full
+  // property set for every fluid, so the ones that do not apply to this fluid
+  // (entropy on liquids, thermalConductivity on steam) come back undefined.
+  const streamData = removeUndefinedValues({
     projectId,
     ...enrichedInput,
     createdAt: now,
     createdBy: userId,
     updatedAt: now,
     updatedBy: userId,
-  };
+  });
 
   const docRef = await addDoc(streamsRef, streamData);
   logger.info('Stream created', { projectId, streamId: docRef.id });
@@ -261,12 +265,15 @@ export async function updateStream(
   // them alone (no-op when the sync itself is the caller).
   const provenance = resolveProvenanceOnUpdate(current.provenance, input);
 
-  await updateDoc(docRef, {
-    ...enriched,
-    ...(provenance !== undefined && { provenance }),
-    updatedAt: Timestamp.now(),
-    updatedBy: userId,
-  });
+  await updateDoc(
+    docRef,
+    removeUndefinedValues({
+      ...enriched,
+      ...(provenance !== undefined && { provenance }),
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    })
+  );
 
   logger.info('Stream updated', { projectId, streamId });
 }

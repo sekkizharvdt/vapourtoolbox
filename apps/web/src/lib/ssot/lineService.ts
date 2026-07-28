@@ -26,6 +26,7 @@ import { createLogger } from '@vapour/logger';
 import { enrichLineInput } from './lineCalculations';
 import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 import { resolveProvenanceOnUpdate } from './provenanceTracking';
+import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 
 const logger = createLogger({ context: 'lineService' });
 
@@ -217,12 +218,15 @@ export async function updateLine(
   // them alone (no-op when the sync itself is the caller).
   const provenance = resolveProvenanceOnUpdate(current.provenance, input);
 
-  await updateDoc(docRef, {
-    ...filteredEnriched,
-    ...(provenance !== undefined && { provenance }),
-    updatedAt: Timestamp.now(),
-    updatedBy: userId,
-  });
+  await updateDoc(
+    docRef,
+    removeUndefinedValues({
+      ...filteredEnriched,
+      ...(provenance !== undefined && { provenance }),
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    })
+  );
 
   logger.info('Line updated', { projectId, lineId });
 }
