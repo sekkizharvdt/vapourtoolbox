@@ -148,6 +148,12 @@ export async function regenerateVendorPaymentGL(
       amount: getInrAmount(payment),
       bankAccountId: bankAccountId,
       projectId: payment.projectId || payment.costCentreId,
+      // Vendor-payment TDS: bank is credited net, TDS Payable gets its leg
+      ...(payment.tdsDeducted &&
+        (payment.tdsAmount ?? 0) > 0 && {
+          tdsAmount: payment.tdsAmount,
+          tdsSection: payment.tdsSection,
+        }),
     };
 
     // Generate GL entries

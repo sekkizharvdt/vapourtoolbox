@@ -571,6 +571,63 @@ describe('generateVendorPaymentGLEntries', () => {
     expect(apEntry!.accountId).toBe('acc-custom-ap');
   });
 
+  it('should credit bank net of TDS and add a TDS Payable leg when TDS is withheld', async () => {
+    const input: PaymentGLInput = {
+      amount: 100000,
+      bankAccountId: 'acc-bank-1',
+      tdsAmount: 10000,
+      tdsSection: '194J',
+    };
+
+    const result = await generateVendorPaymentGLEntries(db, input);
+
+    expect(result.success).toBe(true);
+    expect(result.isBalanced).toBe(true);
+    expect(result.entries).toHaveLength(3);
+
+    // Dr. AP for the FULL amount (the whole liability is settled)
+    expect(result.entries[0]).toMatchObject({ accountId: 'acc-ap', debit: 100000, credit: 0 });
+    // Cr. Bank NET of TDS (the cash that actually left)
+    expect(result.entries[1]).toMatchObject({
+      accountId: 'acc-bank-1',
+      debit: 0,
+      credit: 90000,
+    });
+    // Cr. TDS Payable for the withheld amount
+    expect(result.entries[2]).toMatchObject({ accountId: 'acc-tds', debit: 0, credit: 10000 });
+    expect(result.entries[2]!.description).toContain('194J');
+  });
+
+  it('should fail when TDS is withheld but the TDS Payable account is missing', async () => {
+    mockGetSystemAccountIds.mockResolvedValue({
+      ...MOCK_ACCOUNTS,
+      tdsPayable: undefined,
+    });
+    const input: PaymentGLInput = {
+      amount: 100000,
+      bankAccountId: 'acc-bank-1',
+      tdsAmount: 10000,
+    };
+
+    const result = await generateVendorPaymentGLEntries(db, input);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/TDS Payable/);
+  });
+
+  it('should fail when TDS equals or exceeds the payment amount', async () => {
+    const input: PaymentGLInput = {
+      amount: 5000,
+      bankAccountId: 'acc-bank-1',
+      tdsAmount: 5000,
+    };
+
+    const result = await generateVendorPaymentGLEntries(db, input);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/TDS amount/);
+  });
+
   it('should return empty success when no bank account is provided', async () => {
     const input: PaymentGLInput = { amount: 30000 };
 

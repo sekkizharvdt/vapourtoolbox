@@ -63,6 +63,13 @@ export interface PaymentGLInput {
   description?: string;
   entityId?: string;
   projectId?: string;
+  /**
+   * TDS withheld from a vendor payment (feedback BfVHvxW4IyRozFm1NFHn):
+   * AP is debited for the full `amount`, the bank is credited net of TDS,
+   * and TDS Payable is credited `tdsAmount`. Ignored for customer payments.
+   */
+  tdsAmount?: number;
+  tdsSection?: string;
 }
 
 /**

@@ -428,6 +428,12 @@ export async function createPaymentWithAllocationsAtomic(
       description: paymentData.description || '',
       entityId: paymentData.entityId || '',
       projectId: paymentData.projectId,
+      // Vendor-payment TDS: bank is credited net, TDS Payable gets its leg
+      ...(paymentData.tdsDeducted &&
+        paymentData.tdsAmount > 0 && {
+          tdsAmount: paymentData.tdsAmount,
+          tdsSection: paymentData.tdsSection,
+        }),
     };
 
     let glResult;
@@ -544,6 +550,12 @@ export async function updatePaymentWithAllocationsAtomic(
     description: paymentData.description || '',
     entityId: paymentData.entityId || '',
     projectId: paymentData.projectId,
+    // Vendor-payment TDS: bank is credited net, TDS Payable gets its leg
+    ...(paymentData.tdsDeducted &&
+      paymentData.tdsAmount > 0 && {
+        tdsAmount: paymentData.tdsAmount,
+        tdsSection: paymentData.tdsSection,
+      }),
   };
 
   let glResult;

@@ -477,9 +477,17 @@ export async function generateCustomerPaymentGLEntries(
 /**
  * Generate GL entries for a vendor payment
  *
- * Double-entry pattern:
+ * Double-entry pattern (no TDS):
  * Dr. Accounts Payable       (Liability decreases)
  *     Cr. Bank Account           (Asset decreases)
+ *
+ * With TDS withheld at payment (input.tdsAmount > 0):
+ * Dr. Accounts Payable (full amount)
+ *     Cr. Bank Account   (amount − TDS — the cash that actually leaves)
+ *     Cr. TDS Payable    (TDS withheld, owed to the government)
+ *
+ * The TDS legs were missing until 2026-07 (feedback BfVHvxW4IyRozFm1NFHn):
+ * the bank was credited gross even though the vendor was paid net.
  *
  * @param db - Firestore instance
  * @param input - Payment data
@@ -533,7 +541,36 @@ export async function generateVendorPaymentGLEntries(
       };
     }
 
-    // Entry 1: Debit Accounts Payable (Liability decreases)
+    const tdsAmount = roundToPaisa(input.tdsAmount ?? 0);
+    if (tdsAmount !== 0 && (tdsAmount < 0 || tdsAmount >= input.amount)) {
+      errors.push(
+        `TDS amount (${tdsAmount}) must be positive and less than the payment amount (${input.amount})`
+      );
+      return {
+        success: false,
+        entries: [],
+        totalDebit: 0,
+        totalCredit: 0,
+        isBalanced: false,
+        errors,
+      };
+    }
+    if (tdsAmount > 0 && !accounts.tdsPayable) {
+      errors.push(
+        'TDS Payable account not found in Chart of Accounts. ' +
+          'Please ensure account with code "2300" exists and has isSystemAccount=true.'
+      );
+      return {
+        success: false,
+        entries: [],
+        totalDebit: 0,
+        totalCredit: 0,
+        isBalanced: false,
+        errors,
+      };
+    }
+
+    // Entry 1: Debit Accounts Payable (Liability decreases by the full amount)
     entries.push({
       accountId: payableAccountId!,
       accountCode: '2100',
@@ -544,15 +581,28 @@ export async function generateVendorPaymentGLEntries(
       costCentreId: input.projectId,
     });
 
-    // Entry 2: Credit Bank Account (Asset decreases)
+    // Entry 2: Credit Bank Account (net of TDS — the cash that actually leaves)
     entries.push({
       accountId: bankAccountId,
       accountName: 'Bank Account',
       debit: 0,
-      credit: input.amount,
+      credit: roundToPaisa(input.amount - tdsAmount),
       description: 'Payment made to vendor',
       costCentreId: input.projectId,
     });
+
+    // Entry 3: Credit TDS Payable (withheld from the vendor, owed to government)
+    if (tdsAmount > 0) {
+      entries.push({
+        accountId: accounts.tdsPayable!,
+        accountCode: '2300',
+        accountName: 'TDS Payable',
+        debit: 0,
+        credit: tdsAmount,
+        description: `TDS withheld on vendor payment${input.tdsSection ? ` (Sec ${input.tdsSection})` : ''}`,
+        costCentreId: input.projectId,
+      });
+    }
 
     return validateAndReturnEntries(entries, errors);
   } catch (error) {
