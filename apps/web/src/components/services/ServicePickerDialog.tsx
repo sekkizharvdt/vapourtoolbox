@@ -48,8 +48,10 @@ import {
   where,
   orderBy,
   getDocs,
+  limit,
   type QueryConstraint,
 } from 'firebase/firestore';
+import { RENDER_CAP } from '@/components/materials/MaterialPickerDialog';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { createService } from '@/lib/services/crud';
@@ -135,6 +137,9 @@ export default function ServicePickerDialog({
         }
 
         constraints.push(orderBy('name', 'asc'));
+        // Fetch bound (freeze fix, feedback eLMNBph0jKXMT261UuaR) — this
+        // query previously had no limit at all.
+        constraints.push(limit(500));
 
         const q = query(collection(db, COLLECTIONS.SERVICES), ...constraints);
         const snap = await getDocs(q);
@@ -391,7 +396,9 @@ export default function ServicePickerDialog({
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filtered.map((service) => (
+                    {/* Render cap — see RENDER_CAP in MaterialPickerDialog
+                        (freeze fix). Search filters the full fetched set. */}
+                    {filtered.slice(0, RENDER_CAP).map((service) => (
                       <TableRow
                         key={service.id}
                         hover
@@ -440,6 +447,12 @@ export default function ServicePickerDialog({
                   </TableBody>
                 </Table>
               </TableContainer>
+            )}
+            {filtered.length > RENDER_CAP && (
+              <Typography variant="caption" color="text.secondary">
+                Showing {RENDER_CAP} of {filtered.length} — type in the search box to narrow the
+                list.
+              </Typography>
             )}
           </>
         )}

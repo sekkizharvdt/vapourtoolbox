@@ -55,6 +55,15 @@ import MaterialVariantSelector from './MaterialVariantSelector';
 import PipingMaterialTable from './PipingMaterialTable';
 import { hasVariants } from '@/lib/materials/variantUtils';
 
+/**
+ * Maximum rows rendered at once in picker lists. Lists are not virtualized, so
+ * rendering all 500 fetched docs makes the dialog's open/close React commits
+ * slow enough to hold MUI's body scroll-lock for seconds — the "PR page
+ * freezes" bug (feedback eLMNBph0jKXMT261UuaR). Search filters the FULL
+ * fetched set; only the visible slice is capped.
+ */
+export const RENDER_CAP = 100;
+
 interface MaterialPickerDialogProps {
   open: boolean;
   onClose: () => void;
@@ -866,7 +875,12 @@ export default function MaterialPickerDialog({
                     </Box>
                   ) : (
                     <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-                      {filteredMaterials.map((material) => {
+                      {/* Render cap (freeze fix, feedback eLMNBph0jKXMT261UuaR):
+                          an un-virtualized 500-row list makes the dialog's
+                          open/close commits slow enough to hold MUI's body
+                          scroll-lock for seconds. Search still covers the full
+                          fetched set. */}
+                      {filteredMaterials.slice(0, RENDER_CAP).map((material) => {
                         const isSelected = isPipingMode
                           ? (material.familyCode || material.materialCode) === selectedFamily
                           : selectedMaterial?.id === material.id;
@@ -962,6 +976,12 @@ export default function MaterialPickerDialog({
                         );
                       })}
                     </List>
+                  )}
+                  {!loading && filteredMaterials.length > RENDER_CAP && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      Showing {RENDER_CAP} of {filteredMaterials.length} — type in the search box to
+                      narrow the list.
+                    </Typography>
                   )}
                   {!loading && (
                     <Button

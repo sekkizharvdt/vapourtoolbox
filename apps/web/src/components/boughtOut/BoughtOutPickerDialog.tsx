@@ -43,6 +43,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { listBoughtOutItems, createBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 import { getFriendlyQueryError } from '@/lib/utils/errorHandling';
 import { rankByNameSimilarity } from '@/lib/catalog/similarity';
+import { RENDER_CAP } from '@/components/materials/MaterialPickerDialog';
 
 interface BoughtOutPickerDialogProps {
   open: boolean;
@@ -424,7 +425,10 @@ export default function BoughtOutPickerDialog({
               </Alert>
             ) : (
               <List sx={{ maxHeight: 480, overflow: 'auto' }}>
-                {filteredItems.map((item) => (
+                {/* Render cap — see RENDER_CAP in MaterialPickerDialog (freeze
+                    fix, feedback eLMNBph0jKXMT261UuaR). Search filters the
+                    full fetched set. */}
+                {filteredItems.slice(0, RENDER_CAP).map((item) => (
                   <ListItem key={item.id} disablePadding>
                     <ListItemButton
                       onClick={() => {
@@ -469,6 +473,12 @@ export default function BoughtOutPickerDialog({
                   </ListItem>
                 ))}
               </List>
+            )}
+            {filteredItems.length > RENDER_CAP && (
+              <Typography variant="caption" color="text.secondary">
+                Showing {RENDER_CAP} of {filteredItems.length} — type in the search box to narrow
+                the list.
+              </Typography>
             )}
           </>
         )}

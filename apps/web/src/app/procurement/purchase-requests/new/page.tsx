@@ -72,6 +72,56 @@ interface FormData {
   approverName: string;
 }
 
+/** Values of the fixed Unit dropdown options below (SERVICE extras included). */
+const PR_UNIT_VALUES = [
+  'NOS',
+  'KG',
+  'METER',
+  'LITER',
+  'BOX',
+  'SET',
+  'UNIT',
+  'PER TEST',
+  'PER SAMPLE',
+  'PER DAY',
+  'LUMP SUM',
+  'PER HOUR',
+];
+
+/**
+ * Map common Excel/parsed unit spellings onto the dropdown's option values
+ * (feedback cwNypIpmnbcOIzeKWv7N — a value outside the option set renders as
+ * a BLANK select). Unknown units are kept verbatim; the dropdown renders them
+ * as an extra option so nothing imported is ever lost.
+ */
+function normalizeImportedUnit(raw: string): string {
+  const unit = (raw ?? '').trim().toUpperCase();
+  if (!unit) return 'NOS';
+  const SYNONYMS: Record<string, string> = {
+    EA: 'NOS',
+    EACH: 'NOS',
+    NO: 'NOS',
+    'NO.': 'NOS',
+    PCS: 'NOS',
+    PC: 'NOS',
+    PIECE: 'NOS',
+    PIECES: 'NOS',
+    KGS: 'KG',
+    'KG.': 'KG',
+    MTR: 'METER',
+    M: 'METER',
+    METERS: 'METER',
+    METRE: 'METER',
+    LTR: 'LITER',
+    L: 'LITER',
+    LITRE: 'LITER',
+    LITERS: 'LITER',
+    BOXES: 'BOX',
+    SETS: 'SET',
+  };
+  return SYNONYMS[unit] ?? unit;
+}
+
 export default function NewPurchaseRequestPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
@@ -127,6 +177,9 @@ export default function NewPurchaseRequestPage() {
     }
   };
 
+  const normalizeImportedItems = (items: CreatePurchaseRequestItemInput[]) =>
+    items.map((item) => ({ ...item, unit: normalizeImportedUnit(item.unit) }));
+
   const handleAddLineItem = () => {
     setLineItems((prev) => [
       ...prev,
@@ -139,12 +192,12 @@ export default function NewPurchaseRequestPage() {
   };
 
   const handleExcelImport = (importedItems: CreatePurchaseRequestItemInput[]) => {
-    setLineItems(importedItems);
+    setLineItems(normalizeImportedItems(importedItems));
     setExcelDialogOpen(false);
   };
 
   const handleDocumentImport = (importedItems: CreatePurchaseRequestItemInput[]) => {
-    setLineItems(importedItems);
+    setLineItems(normalizeImportedItems(importedItems));
     setDocumentDialogOpen(false);
   };
 
@@ -651,8 +704,12 @@ export default function NewPurchaseRequestPage() {
                   <TableRow>
                     <TableCell width={50}>#</TableCell>
                     <TableCell width={130}>Type *</TableCell>
-                    <TableCell>Description *</TableCell>
-                    <TableCell>Specification</TableCell>
+                    {/* Explicit widths: these two cells hold auto-resizing
+                        textareas; content-sized columns let the two resize
+                        observers feed each other and freeze the page
+                        (feedback eLMNBph0jKXMT261UuaR). */}
+                    <TableCell width="32%">Description *</TableCell>
+                    <TableCell width="26%">Specification</TableCell>
                     <TableCell width={100}>Qty *</TableCell>
                     <TableCell width={100}>Unit *</TableCell>
                     <TableCell width={140}>Equipment Code</TableCell>
@@ -792,6 +849,14 @@ export default function NewPurchaseRequestPage() {
                           size="small"
                           fullWidth
                         >
+                          {/* MUI Select renders BLANK when value isn't among
+                              the options — imported units (e.g. "EA", "MTR")
+                              vanished that way (feedback cwNypIpmnbcOIzeKWv7N).
+                              Render the current value as an extra option when
+                              it's not in the fixed list. */}
+                          {item.unit && !PR_UNIT_VALUES.includes(item.unit) && (
+                            <MenuItem value={item.unit}>{item.unit}</MenuItem>
+                          )}
                           <MenuItem value="NOS">NOS</MenuItem>
                           <MenuItem value="KG">KG</MenuItem>
                           <MenuItem value="METER">MTR</MenuItem>

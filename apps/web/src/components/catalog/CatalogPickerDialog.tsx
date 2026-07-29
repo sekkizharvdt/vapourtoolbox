@@ -107,12 +107,13 @@ export default function CatalogPickerDialog({
 
   const [kind, setKind] = useState<CatalogKind>(initialKind);
 
-  // Re-sync the active tab each time the dialog opens — it may be opened for
-  // a different row with a different default kind (rule 14b).
+  // Re-sync the active tab whenever the dialog opens OR closes — it may be
+  // opened for a different row with a different default kind (rule 14b).
+  // Syncing on close too means the stale previous kind never renders its
+  // dialog open for one frame on the next open (two overlapping MUI modals —
+  // freeze-bug hygiene, feedback eLMNBph0jKXMT261UuaR).
   useEffect(() => {
-    if (open) {
-      setKind(initialKind);
-    }
+    setKind(initialKind);
   }, [open, initialKind]);
 
   const tabs = (
