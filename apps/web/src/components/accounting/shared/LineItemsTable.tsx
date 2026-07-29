@@ -21,7 +21,9 @@ import AddIcon from '@mui/icons-material/Add';
 import type { LineItem, GSTDetails, AccountType } from '@vapour/types';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 
-const GST_RATE_SUGGESTIONS = [0, 5, 12, 18, 28];
+// 2% added on accountant request (feedback t5S15pTqW06fgCDClLoR). These are
+// suggestions, not a whitelist — the calculator accepts any numeric rate.
+const GST_RATE_SUGGESTIONS = [0, 2, 5, 12, 18, 28];
 
 /**
  * Returns common GST rate suggestions for India
