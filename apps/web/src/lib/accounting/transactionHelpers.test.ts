@@ -12,7 +12,6 @@
 
 import {
   generateInvoiceLedgerEntries,
-  generateBillLedgerEntries,
   validateTransaction,
   calculateLineItemsTotal,
   validateLedgerBalance,
@@ -22,7 +21,7 @@ import {
   addForexEntryToLedger,
   formatCurrency,
 } from './transactionHelpers';
-import type { CustomerInvoice, VendorBill, BaseTransaction, LedgerEntry } from '@vapour/types';
+import type { CustomerInvoice, BaseTransaction, LedgerEntry } from '@vapour/types';
 
 describe('Transaction Helpers', () => {
   describe('generateInvoiceLedgerEntries', () => {
@@ -122,86 +121,6 @@ describe('Transaction Helpers', () => {
       entries.forEach((entry) => {
         expect(entry.costCentreId).toBe('proj-001');
       });
-    });
-  });
-
-  describe('generateBillLedgerEntries', () => {
-    it('should generate entries for simple bill without GST', () => {
-      const bill: Partial<VendorBill> = {
-        subtotal: 10000,
-        totalAmount: 10000,
-        transactionNumber: 'BILL-001',
-      };
-
-      const entries = generateBillLedgerEntries(bill, 'vendor-acc', 'expense-acc');
-
-      expect(entries).toHaveLength(2);
-      expect(entries[0]!.accountId).toBe('expense-acc');
-      expect(entries[0]!.debit).toBe(10000);
-      expect(entries[1]!.accountId).toBe('vendor-acc');
-      expect(entries[1]!.credit).toBe(10000);
-    });
-
-    it('should generate entries with GST input credit', () => {
-      const bill: Partial<VendorBill> = {
-        subtotal: 10000,
-        totalAmount: 11800,
-        transactionNumber: 'BILL-002',
-        gstDetails: {
-          gstType: 'CGST_SGST',
-          cgstAmount: 900,
-          sgstAmount: 900,
-          totalGST: 1800,
-          taxableAmount: 10000,
-          cgstRate: 9,
-          sgstRate: 9,
-          placeOfSupply: 'KA',
-        },
-      };
-
-      const entries = generateBillLedgerEntries(bill, 'vendor-acc', 'expense-acc', {
-        cgst: 'cgst-input',
-        sgst: 'sgst-input',
-      });
-
-      expect(entries).toHaveLength(4);
-      expect(entries[0]!.debit).toBe(10000); // Expense
-      expect(entries[1]!.debit).toBe(900); // CGST input
-      expect(entries[2]!.debit).toBe(900); // SGST input
-      expect(entries[3]!.credit).toBe(11800); // Vendor payable
-    });
-
-    it('should generate entries with TDS deduction', () => {
-      const bill: Partial<VendorBill> = {
-        subtotal: 100000,
-        totalAmount: 100000,
-        transactionNumber: 'BILL-003',
-        tdsDeducted: true,
-        tdsAmount: 1000,
-      };
-
-      const entries = generateBillLedgerEntries(
-        bill,
-        'vendor-acc',
-        'expense-acc',
-        undefined,
-        'tds-payable'
-      );
-
-      expect(entries).toHaveLength(3);
-      expect(entries[0]!.debit).toBe(100000); // Expense
-      expect(entries[1]!.credit).toBe(99000); // Vendor payable (net)
-      expect(entries[2]!.credit).toBe(1000); // TDS payable
-    });
-
-    it('should return empty array when subtotal is missing', () => {
-      const bill: Partial<VendorBill> = {
-        transactionNumber: 'BILL-004',
-      };
-
-      const entries = generateBillLedgerEntries(bill, 'vendor-acc', 'expense-acc');
-
-      expect(entries).toHaveLength(0);
     });
   });
 

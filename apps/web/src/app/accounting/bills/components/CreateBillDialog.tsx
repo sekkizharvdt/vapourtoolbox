@@ -5,7 +5,6 @@ import { Grid, Box, Typography, Stack, Button as MuiButton, Divider } from '@mui
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
-import { TDSSection } from '@/components/accounting/shared/TDSSection';
 import { TransactionNumberDisplay } from '@/components/accounting/shared/TransactionNumberDisplay';
 import { getFirebase } from '@/lib/firebase';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
@@ -18,8 +17,6 @@ import { useTransactionForm } from '@/hooks/accounting/useTransactionForm';
 import { useLineItemManagement } from '@/hooks/accounting/useLineItemManagement';
 import { useEntityStateFetch } from '@/hooks/accounting/useEntityStateFetch';
 import { useGSTCalculation } from '@/hooks/accounting/useGSTCalculation';
-import { useTDSCalculation } from '@/hooks/accounting/useTDSCalculation';
-import type { TDSSection as TDSSectionType } from '@/lib/accounting/tdsCalculator';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
@@ -92,34 +89,15 @@ export function CreateBillDialog({
     entityName: fetchedEntityName,
   } = useEntityStateFetch(formState.entityId);
 
-  // Use GST calculation hook
-  const { gstDetails, grandTotal: amountBeforeTDS } = useGSTCalculation({
+  // Use GST calculation hook. TDS is handled at PAYMENT time only (feedback
+  // BfVHvxW4IyRozFm1NFHn): the bill records the gross invoice value; the
+  // vendor payment dialog deducts TDS and books the TDS Payable leg.
+  const { gstDetails, grandTotal: totalAmount } = useGSTCalculation({
     lineItems,
     subtotal,
     companyState: entityState, // Note: For bills, source is vendor
     entityState: companyState, // Note: For bills, destination is company
   });
-
-  // Use TDS calculation hook
-  const {
-    tdsDeducted,
-    setTdsDeducted,
-    tdsSection,
-    setTdsSection,
-    vendorPAN,
-    setVendorPAN,
-    tdsRateOverride,
-    setTdsRateOverride,
-    tdsDetails,
-    tdsAmount,
-  } = useTDSCalculation({
-    // TDS is deducted on the basic (pre-GST) value, never the tax-inclusive
-    // total (feedback iXJ0WItJPR7FD28je5nS / lxcYbRIPRsRMaLQPAO8B).
-    amount: subtotal,
-  });
-
-  // Calculate final total after TDS deduction
-  const totalAmount = amountBeforeTDS - tdsAmount;
 
   // Sync entity name from useEntityStateFetch to form state when entity is selected
   React.useEffect(() => {
@@ -142,28 +120,19 @@ export function CreateBillDialog({
     }
   }, [formState.entityId]);
 
-  // Load TDS data, vendor bill number, and PO linkage when editing
+  // Load vendor bill number and PO linkage when editing
   React.useEffect(() => {
     if (open && editingBill) {
       setVendorBillNumber(editingBill.vendorInvoiceNumber || '');
       // Restore PO linkage (rule 22: restore all saved fields on edit)
       setSelectedPoId(editingBill.sourceDocumentId || null);
       setSourcePoNumber(editingBill.sourcePoNumber || '');
-      if (editingBill.tdsDeducted) {
-        setTdsDeducted(true);
-        setTdsSection((editingBill.tdsDetails?.section as TDSSectionType) || '194C');
-        setVendorPAN(editingBill.tdsDetails?.panNumber || '');
-        // Restore rate override if the saved rate differs from auto
-        if (editingBill.tdsDetails?.tdsRate != null) {
-          setTdsRateOverride(editingBill.tdsDetails.tdsRate);
-        }
-      }
     } else if (open) {
       setVendorBillNumber('');
       setSelectedPoId(null);
       setSourcePoNumber('');
     }
-  }, [open, editingBill, setTdsDeducted, setTdsSection, setVendorPAN, setTdsRateOverride]);
+  }, [open, editingBill]);
 
   const handleSave = async () => {
     try {
@@ -210,7 +179,6 @@ export function CreateBillDialog({
         subtotal,
         lineItems,
         gstDetails,
-        tdsDetails: tdsDeducted ? tdsDetails : undefined,
         currency: 'INR',
         description: formState.description || `Bill from ${formState.entityName}`,
         entityId: formState.entityId,
@@ -253,9 +221,6 @@ export function CreateBillDialog({
         })),
         subtotal,
         ...(cleanGstDetails ? { gstDetails: cleanGstDetails } : {}),
-        tdsDeducted,
-        ...(tdsDetails ? { tdsDetails } : {}),
-        tdsAmount,
         totalAmount,
         amount: totalAmount,
         transactionNumber,
@@ -464,8 +429,6 @@ export function CreateBillDialog({
               onAddLineItem={addLineItem}
               subtotal={subtotal}
               gstDetails={gstDetails}
-              tdsAmount={tdsAmount}
-              tdsRate={tdsDetails?.tdsRate}
               totalAmount={totalAmount}
               showAccountSelector
               accountFilterType={['EXPENSE', 'ASSET']}
@@ -474,18 +437,9 @@ export function CreateBillDialog({
           </Box>
         </Grid>
 
-        {/* TDS Section */}
-        <TDSSection
-          tdsDeducted={tdsDeducted}
-          onTdsDeductedChange={setTdsDeducted}
-          tdsSection={tdsSection}
-          onTdsSectionChange={setTdsSection}
-          vendorPAN={vendorPAN}
-          onVendorPANChange={setVendorPAN}
-          tdsRateOverride={tdsRateOverride}
-          onTdsRateOverrideChange={setTdsRateOverride}
-          disabled={viewOnly}
-        />
+        {/* TDS entry removed (feedback BfVHvxW4IyRozFm1NFHn): TDS is deducted
+            on the vendor PAYMENT, never on the bill — the bill always carries
+            the gross invoice value. */}
       </Grid>
     </FormDialog>
   );

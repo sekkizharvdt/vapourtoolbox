@@ -334,32 +334,7 @@ describe('generateBillGLEntries', () => {
     expect(result.totalCredit).toBe(11800);
   });
 
-  it('should generate entries with TDS deduction', async () => {
-    const input: BillGLInput = {
-      subtotal: 10000,
-      tdsDetails: {
-        tdsAmount: 200,
-        tdsRate: 2,
-        section: '194C',
-      },
-    };
-
-    const result = await generateBillGLEntries(db, input);
-
-    expect(result.success).toBe(true);
-    expect(result.isBalanced).toBe(true);
-
-    // Dr: 10000 (exp) = 10000
-    // Cr: 9800 (AP) + 200 (TDS) = 10000
-    const apEntry = result.entries.find((e) => e.accountId === 'acc-ap');
-    expect(apEntry!.credit).toBe(9800); // payable after TDS
-
-    const tdsEntry = result.entries.find((e) => e.accountId === 'acc-tds');
-    expect(tdsEntry).toBeDefined();
-    expect(tdsEntry!.credit).toBe(200);
-  });
-
-  it('should generate entries with GST + TDS combined', async () => {
+  it('credits AP the full gross total — bills carry no TDS (payment-time only)', async () => {
     const input: BillGLInput = {
       subtotal: 10000,
       gstDetails: {
@@ -370,11 +345,6 @@ describe('generateBillGLEntries', () => {
         taxableAmount: 10000,
         totalGST: 1800,
       },
-      tdsDetails: {
-        tdsAmount: 200,
-        tdsRate: 2,
-        section: '194C',
-      },
     };
 
     const result = await generateBillGLEntries(db, input);
@@ -382,13 +352,10 @@ describe('generateBillGLEntries', () => {
     expect(result.success).toBe(true);
     expect(result.isBalanced).toBe(true);
 
-    // Dr: 10000 (exp) + 1800 (IGST input) = 11800
-    // Cr: 11600 (AP = 11800 - 200 TDS) + 200 (TDS) = 11800
-    expect(result.totalDebit).toBe(11800);
-    expect(result.totalCredit).toBe(11800);
-
+    // Dr: 10000 (exp) + 1800 (IGST input) = 11800; Cr: 11800 (AP gross)
     const apEntry = result.entries.find((e) => e.accountId === 'acc-ap');
-    expect(apEntry!.credit).toBe(11600);
+    expect(apEntry!.credit).toBe(11800);
+    expect(result.entries.find((e) => e.accountId === 'acc-tds')).toBeUndefined();
   });
 
   it('should use per-line-item expense accounts when specified', async () => {
@@ -434,23 +401,6 @@ describe('generateBillGLEntries', () => {
 
     expect(result.success).toBe(false);
     expect(result.errors).toContain('Expense account not found in Chart of Accounts');
-  });
-
-  it('should report missing TDS account when TDS is specified', async () => {
-    mockGetSystemAccountIds.mockResolvedValue({
-      ...MOCK_ACCOUNTS,
-      tdsPayable: undefined,
-    });
-
-    const input: BillGLInput = {
-      subtotal: 10000,
-      tdsDetails: { tdsAmount: 200, tdsRate: 2, section: '194C' },
-    };
-
-    const result = await generateBillGLEntries(db, input);
-
-    expect(result.success).toBe(false);
-    expect(result.errors).toContain('TDS Payable account not found');
   });
 });
 
@@ -690,11 +640,6 @@ describe('Double-entry invariant', () => {
         hsnCode: '7304',
         taxableAmount: 87654.32,
         totalGST: 15777.78,
-      },
-      tdsDetails: {
-        tdsAmount: 1753.09,
-        tdsRate: 2,
-        section: '194C',
       },
     };
 

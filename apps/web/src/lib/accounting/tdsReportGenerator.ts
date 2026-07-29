@@ -6,7 +6,16 @@
  * - Form 26Q: Quarterly TDS Return
  */
 
-import { Firestore, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import {
+  Firestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  getDoc,
+  doc,
+  Timestamp,
+} from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 
@@ -151,18 +160,19 @@ export interface Form26QData {
 }
 
 /**
- * Firestore Bill Document Interface for TDS
- * Represents the structure of bill documents in Firestore
+ * Firestore vendor-payment document fields used for TDS reporting. TDS is
+ * deducted at PAYMENT time (feedback BfVHvxW4IyRozFm1NFHn), so the statutory
+ * reports read VENDOR_PAYMENT docs, not bills.
  */
-interface FirestoreTDSBillDocument {
+interface FirestoreTDSPaymentDocument {
   date: Timestamp | { toDate: () => Date };
+  paymentDate?: Timestamp | { toDate: () => Date };
+  tdsDeducted?: boolean;
   tdsAmount?: number;
-  category?: string;
-  tdsRate?: number;
-  vendorId?: string;
-  vendorName?: string;
-  vendorPAN?: string;
-  total?: number;
+  tdsSection?: string;
+  entityId?: string;
+  entityName?: string;
+  amount?: number;
   createdAt?: Timestamp | { toDate: () => Date } | number;
 }
 
@@ -232,7 +242,10 @@ export function getQuarterDateRange(
 }
 
 /**
- * Extract TDS transactions from vendor bills
+ * Extract TDS transactions from vendor PAYMENTS. TDS is withheld at payment
+ * time (feedback BfVHvxW4IyRozFm1NFHn), so Form 26Q / 16A / challans are
+ * built from VENDOR_PAYMENT docs. The deductee PAN comes from the entity
+ * master (entities/{id}.pan) — payments don't store it.
  */
 async function extractTDSTransactions(
   db: Firestore,
@@ -242,71 +255,88 @@ async function extractTDSTransactions(
   const transactions: TDSTransaction[] = [];
 
   try {
-    // Query vendor bills with TDS within date range. The type value is
-    // VENDOR_BILL — this queried 'BILL' (not a TransactionType) until
-    // 2026-07, which made every TDS report silently empty.
-    const billsQuery = query(
+    const paymentsQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
-      where('type', '==', 'VENDOR_BILL'),
+      where('type', '==', 'VENDOR_PAYMENT'),
       where('date', '>=', startDate),
       where('date', '<=', endDate),
       where('status', 'in', ['APPROVED', 'POSTED'])
     );
 
-    const billsSnapshot = await getDocs(billsQuery);
+    const paymentsSnapshot = await getDocs(paymentsQuery);
 
-    for (const doc of billsSnapshot.docs) {
-      const rawBill = doc.data();
-      if (rawBill.isDeleted) continue; // Skip soft-deleted
-      const bill = rawBill as FirestoreTDSBillDocument;
-
-      // Check if bill has TDS
-      if (bill.tdsAmount && bill.tdsAmount > 0) {
-        const paymentDate =
-          'toDate' in bill.date && typeof bill.date.toDate === 'function'
-            ? bill.date.toDate()
-            : new Date();
-        const quarter = getQuarter(paymentDate);
-        const financialYear = getFinancialYear(paymentDate);
-        const assessmentYear = getAssessmentYear(financialYear);
-
-        // Determine TDS section based on bill category or nature
-        let tdsSection: TDSSection = '194J'; // Default to professional services
-        if (bill.category?.includes('rent')) {
-          tdsSection = '194I';
-        } else if (bill.category?.includes('contract')) {
-          tdsSection = '194C';
-        } else if (bill.category?.includes('commission')) {
-          tdsSection = '194H';
+    // Resolve deductee PANs from the entity master (batched, deduped)
+    const entityIds = [
+      ...new Set(
+        paymentsSnapshot.docs
+          .map((d) => d.data())
+          .filter((p) => !p.isDeleted && p.tdsDeducted && (p.tdsAmount ?? 0) > 0)
+          .map((p) => p.entityId as string | undefined)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+    const panByEntityId = new Map<string, string>();
+    await Promise.all(
+      entityIds.map(async (id) => {
+        try {
+          const snap = await getDoc(doc(db, COLLECTIONS.ENTITIES, id));
+          const pan = snap.exists() ? (snap.data().pan as string | undefined) : undefined;
+          if (pan) panByEntityId.set(id, pan);
+        } catch (err) {
+          // PAN stays blank for this deductee; the report still lists the row
+          logger.warn('Could not resolve entity PAN for TDS report', { entityId: id, err });
         }
+      })
+    );
 
-        const tdsRate = bill.tdsRate || TDS_RATES[tdsSection];
+    for (const paymentDoc of paymentsSnapshot.docs) {
+      const raw = paymentDoc.data();
+      if (raw.isDeleted) continue; // Skip soft-deleted
+      const payment = raw as FirestoreTDSPaymentDocument;
 
-        transactions.push({
-          id: doc.id,
-          deducteeId: bill.vendorId || '',
-          deducteeName: bill.vendorName || 'Unknown Vendor',
-          deducteePAN: bill.vendorPAN || '',
-          paymentDate,
-          paymentAmount: bill.total || 0,
-          tdsAmount: bill.tdsAmount,
-          tdsSection,
-          tdsRate,
-          natureOfPayment: TDS_SECTIONS[tdsSection],
-          quarter,
-          financialYear,
-          assessmentYear,
-          bookingDate:
-            bill.createdAt &&
-            typeof bill.createdAt === 'object' &&
-            'toDate' in bill.createdAt &&
-            typeof bill.createdAt.toDate === 'function'
-              ? bill.createdAt.toDate()
-              : typeof bill.createdAt === 'number'
-                ? new Date(bill.createdAt)
-                : new Date(),
-        });
-      }
+      if (!payment.tdsDeducted || !payment.tdsAmount || payment.tdsAmount <= 0) continue;
+
+      const dateRaw = payment.paymentDate ?? payment.date;
+      const paymentDate =
+        typeof dateRaw === 'object' && 'toDate' in dateRaw && typeof dateRaw.toDate === 'function'
+          ? dateRaw.toDate()
+          : new Date();
+      const quarter = getQuarter(paymentDate);
+      const financialYear = getFinancialYear(paymentDate);
+      const assessmentYear = getAssessmentYear(financialYear);
+
+      // The payment stores its section directly (entered in the dialog)
+      const tdsSection = (payment.tdsSection as TDSSection) || '194J';
+      const grossAmount = payment.amount || 0;
+      const tdsRate =
+        grossAmount > 0
+          ? Math.round((payment.tdsAmount / grossAmount) * 10000) / 100
+          : TDS_RATES[tdsSection] || 0;
+
+      transactions.push({
+        id: paymentDoc.id,
+        deducteeId: payment.entityId || '',
+        deducteeName: payment.entityName || 'Unknown Vendor',
+        deducteePAN: payment.entityId ? panByEntityId.get(payment.entityId) || '' : '',
+        paymentDate,
+        paymentAmount: grossAmount,
+        tdsAmount: payment.tdsAmount,
+        tdsSection,
+        tdsRate,
+        natureOfPayment: TDS_SECTIONS[tdsSection] || 'Professional/technical services',
+        quarter,
+        financialYear,
+        assessmentYear,
+        bookingDate:
+          payment.createdAt &&
+          typeof payment.createdAt === 'object' &&
+          'toDate' in payment.createdAt &&
+          typeof payment.createdAt.toDate === 'function'
+            ? payment.createdAt.toDate()
+            : typeof payment.createdAt === 'number'
+              ? new Date(payment.createdAt)
+              : new Date(),
+      });
     }
 
     // Sort by payment date

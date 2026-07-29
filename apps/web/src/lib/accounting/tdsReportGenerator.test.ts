@@ -8,6 +8,7 @@
 jest.mock('@vapour/firebase', () => ({
   COLLECTIONS: {
     TRANSACTIONS: 'transactions',
+    ENTITIES: 'entities',
   },
 }));
 
@@ -23,11 +24,14 @@ jest.mock('@vapour/logger', () => ({
 
 // Mock Firestore
 const mockGetDocs = jest.fn();
+const mockGetDoc = jest.fn();
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((_db, collectionName) => ({ path: collectionName })),
+  doc: jest.fn((_db, collectionName, id) => ({ path: `${collectionName}/${id}` })),
   query: jest.fn((...args) => args),
   where: jest.fn((field, op, value) => ({ field, op, value })),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
+  getDoc: (...args: unknown[]) => mockGetDoc(...args),
   Timestamp: {
     now: jest.fn(() => ({
       seconds: Date.now() / 1000,
@@ -61,6 +65,8 @@ import {
 describe('TDS Report Generator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Deductee PAN now resolves from the entity master (payment docs carry no PAN)
+    mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ pan: 'AAACT1234A' }) });
   });
 
   // ============================================================================
@@ -207,12 +213,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-05-15') },
               tdsAmount: 1000,
-              total: 10000,
-              vendorId: 'vendor-123',
-              vendorName: 'Test Vendor',
-              vendorPAN: 'AAACT1234A',
-              category: 'professional',
-              tdsRate: 10,
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 10000,
+              entityId: 'vendor-123',
+              entityName: 'Test Vendor',
             }),
           },
           {
@@ -220,12 +225,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-06-20') },
               tdsAmount: 500,
-              total: 5000,
-              vendorId: 'vendor-123',
-              vendorName: 'Test Vendor',
-              vendorPAN: 'AAACT1234A',
-              category: 'professional',
-              tdsRate: 10,
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 5000,
+              entityId: 'vendor-123',
+              entityName: 'Test Vendor',
             }),
           },
         ],
@@ -258,10 +262,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-05-15') },
               tdsAmount: 1000,
-              total: 10000,
-              vendorId: 'vendor-123',
-              vendorName: 'Vendor A',
-              vendorPAN: 'AAACT1234A',
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 10000,
+              entityId: 'vendor-123',
+              entityName: 'Vendor A',
             }),
           },
           {
@@ -269,10 +274,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-05-20') },
               tdsAmount: 2000,
-              total: 20000,
-              vendorId: 'vendor-456',
-              vendorName: 'Vendor B',
-              vendorPAN: 'BBACT5678B',
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 20000,
+              entityId: 'vendor-456',
+              entityName: 'Vendor B',
             }),
           },
         ],
@@ -320,10 +326,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-05-15') },
               tdsAmount: 1000,
-              total: 10000,
-              vendorId: 'vendor-1',
-              vendorName: 'Vendor A',
-              category: 'professional',
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 10000,
+              entityId: 'vendor-1',
+              entityName: 'Vendor A',
             }),
           },
           {
@@ -331,10 +338,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-05-20') },
               tdsAmount: 2000,
-              total: 20000,
-              vendorId: 'vendor-2',
-              vendorName: 'Vendor B',
-              category: 'rent',
+              tdsDeducted: true,
+              tdsSection: '194I',
+              amount: 20000,
+              entityId: 'vendor-2',
+              entityName: 'Vendor B',
             }),
           },
           {
@@ -342,10 +350,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-06-10') },
               tdsAmount: 500,
-              total: 5000,
-              vendorId: 'vendor-1',
-              vendorName: 'Vendor A',
-              category: 'professional',
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 5000,
+              entityId: 'vendor-1',
+              entityName: 'Vendor A',
             }),
           },
         ],
@@ -380,10 +389,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-05-15') },
               tdsAmount: 1000,
-              total: 10000,
-              vendorId: 'vendor-1',
-              vendorName: 'Vendor A',
-              vendorPAN: 'AAACT1234A',
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 10000,
+              entityId: 'vendor-1',
+              entityName: 'Vendor A',
             }),
           },
           {
@@ -391,10 +401,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-05-20') },
               tdsAmount: 5000,
-              total: 50000,
-              vendorId: 'vendor-2',
-              vendorName: 'Vendor B',
-              vendorPAN: 'BBACT5678B',
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 50000,
+              entityId: 'vendor-2',
+              entityName: 'Vendor B',
             }),
           },
           {
@@ -402,10 +413,11 @@ describe('TDS Report Generator', () => {
             data: () => ({
               date: { toDate: () => new Date('2024-06-10') },
               tdsAmount: 2000,
-              total: 20000,
-              vendorId: 'vendor-1',
-              vendorName: 'Vendor A',
-              vendorPAN: 'AAACT1234A',
+              tdsDeducted: true,
+              tdsSection: '194J',
+              amount: 20000,
+              entityId: 'vendor-1',
+              entityName: 'Vendor A',
             }),
           },
         ],

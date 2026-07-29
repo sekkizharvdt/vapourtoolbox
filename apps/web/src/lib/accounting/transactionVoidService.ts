@@ -373,9 +373,6 @@ export async function voidAndRecreateTransaction(
         newTransactionData = {
           ...baseNewData,
           vendorInvoiceNumber: transaction.vendorInvoiceNumber,
-          tdsDeducted: transaction.tdsDeducted,
-          tdsDetails: transaction.tdsDetails,
-          tdsAmount: transaction.tdsAmount,
         };
       }
 

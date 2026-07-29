@@ -227,13 +227,9 @@ export default function BillsPage() {
     const subtotal = filteredBills.reduce((sum, bill) => sum + (bill.subtotal || 0), 0);
     const gst = filteredBills.reduce((sum, bill) => sum + (bill.gstDetails?.totalGST || 0), 0);
     const total = filteredBills.reduce((sum, bill) => sum + getInrAmount(bill), 0);
-    const tds = filteredBills.reduce(
-      (sum, bill) => sum + (bill.tdsDeducted ? bill.tdsAmount || 0 : 0),
-      0
-    );
     const count = filteredBills.length;
 
-    return { subtotal, gst, total, tds, count };
+    return { subtotal, gst, total, count };
   }, [filteredBills]);
 
   const handleCreate = () => {
@@ -389,17 +385,6 @@ export default function BillsPage() {
       render: (bill) => formatCurrency(bill.gstDetails?.totalGST || 0, bill.currency || 'INR'),
     },
     {
-      key: 'tds',
-      label: 'TDS',
-      align: 'right',
-      render: (bill) =>
-        bill.tdsDeducted
-          ? `${formatCurrency(bill.tdsAmount || 0, bill.currency || 'INR')}${
-              bill.tdsDetails?.tdsRate != null ? ` (${bill.tdsDetails.tdsRate}%)` : ''
-            }`
-          : '-',
-    },
-    {
       key: 'total',
       label: 'Total',
       align: 'right',
@@ -444,13 +429,6 @@ export default function BillsPage() {
         format: 'currency' as const,
       },
       {
-        header: 'TDS',
-        key: 'tds',
-        width: 12,
-        align: 'right' as const,
-        format: 'currency' as const,
-      },
-      {
         header: 'Total (INR)',
         key: 'total',
         width: 15,
@@ -471,7 +449,6 @@ export default function BillsPage() {
           description: bill.description || '',
           subtotal: bill.subtotal || 0,
           gst: bill.gstDetails?.totalGST || 0,
-          tds: bill.tdsDeducted ? bill.tdsAmount || 0 : 0,
           total: getInrAmount(bill),
           status: bill.status,
         })),
@@ -483,7 +460,6 @@ export default function BillsPage() {
           description: '',
           subtotal: monthTotals.subtotal,
           gst: monthTotals.gst,
-          tds: monthTotals.tds,
           total: monthTotals.total,
           status: '',
         },
@@ -672,14 +648,6 @@ export default function BillsPage() {
                 </Box>
                 <Box component="span" sx={{ fontWeight: 'medium' }}>
                   {formatCurrency(monthTotals.gst, 'INR')}
-                </Box>
-              </Box>
-              <Box>
-                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                  TDS Total:{' '}
-                </Box>
-                <Box component="span" sx={{ fontWeight: 'medium' }}>
-                  {formatCurrency(monthTotals.tds, 'INR')}
                 </Box>
               </Box>
               <Box>

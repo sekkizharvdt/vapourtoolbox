@@ -3,7 +3,7 @@
  * Helper functions for creating and managing accounting transactions
  */
 
-import type { BaseTransaction, CustomerInvoice, VendorBill, LedgerEntry } from '@vapour/types';
+import type { BaseTransaction, CustomerInvoice, LedgerEntry } from '@vapour/types';
 
 /**
  * Auto-generate ledger entries for a customer invoice
@@ -83,106 +83,6 @@ export function generateInvoiceLedgerEntries(
         });
       }
     }
-  }
-
-  return entries;
-}
-
-/**
- * Auto-generate ledger entries for a vendor bill
- * DR: Expense Account
- * DR: GST Input (if applicable)
- * CR: Vendor Account (Accounts Payable)
- * CR: TDS Payable (if applicable)
- */
-export function generateBillLedgerEntries(
-  bill: Partial<VendorBill>,
-  vendorAccountId: string,
-  expenseAccountId: string,
-  gstInputAccountIds?: {
-    cgst?: string;
-    sgst?: string;
-    igst?: string;
-  },
-  tdsPayableAccountId?: string
-): LedgerEntry[] {
-  const entries: LedgerEntry[] = [];
-
-  if (!bill.subtotal) {
-    return entries;
-  }
-
-  // Debit: Expense Account
-  entries.push({
-    accountId: expenseAccountId,
-    debit: bill.subtotal,
-    credit: 0,
-    description: `Bill ${bill.transactionNumber || ''} - Expense`,
-    costCentreId: bill.projectId,
-  });
-
-  // Debit: GST Input
-  if (bill.gstDetails) {
-    const { gstType, cgstAmount, sgstAmount, igstAmount } = bill.gstDetails;
-
-    if (gstType === 'CGST_SGST' && cgstAmount && sgstAmount) {
-      // CGST Input
-      if (gstInputAccountIds?.cgst) {
-        entries.push({
-          accountId: gstInputAccountIds.cgst,
-          debit: cgstAmount,
-          credit: 0,
-          description: `Bill ${bill.transactionNumber || ''} - CGST input`,
-          costCentreId: bill.projectId,
-        });
-      }
-
-      // SGST Input
-      if (gstInputAccountIds?.sgst) {
-        entries.push({
-          accountId: gstInputAccountIds.sgst,
-          debit: sgstAmount,
-          credit: 0,
-          description: `Bill ${bill.transactionNumber || ''} - SGST input`,
-          costCentreId: bill.projectId,
-        });
-      }
-    } else if (gstType === 'IGST' && igstAmount) {
-      // IGST Input
-      if (gstInputAccountIds?.igst) {
-        entries.push({
-          accountId: gstInputAccountIds.igst,
-          debit: igstAmount,
-          credit: 0,
-          description: `Bill ${bill.transactionNumber || ''} - IGST input`,
-          costCentreId: bill.projectId,
-        });
-      }
-    }
-  }
-
-  // Credit: Vendor Account (Accounts Payable)
-  // If TDS deducted, vendor gets net amount (totalAmount - TDS)
-  const tdsAmount = bill.tdsDeducted && bill.tdsAmount ? bill.tdsAmount : 0;
-  const vendorPayable = (bill.totalAmount ?? 0) - tdsAmount;
-
-  entries.push({
-    accountId: vendorAccountId,
-    debit: 0,
-    credit: vendorPayable,
-    description: `Bill ${bill.transactionNumber || ''} - Vendor payable (net)`,
-    costCentreId: bill.projectId,
-  });
-
-  // Credit: TDS Payable
-  if (bill.tdsDeducted && bill.tdsAmount && tdsPayableAccountId) {
-    entries.push({
-      accountId: tdsPayableAccountId,
-      debit: 0,
-      credit: bill.tdsAmount,
-      description: `Bill ${bill.transactionNumber || ''} - TDS payable`,
-      costCentreId: bill.projectId,
-    });
   }
 
   return entries;

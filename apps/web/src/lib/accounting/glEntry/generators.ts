@@ -201,8 +201,10 @@ export async function generateInvoiceGLEntries(
  * Dr. CGST Input Tax Credit  (CGST amount)
  * Dr. SGST Input Tax Credit  (SGST amount)
  * Dr. IGST Input Tax Credit  (IGST amount)
- *     Cr. Accounts Payable   (Total - TDS)
- *     Cr. TDS Payable        (TDS amount)
+ *     Cr. Accounts Payable   (full gross total)
+ *
+ * TDS is NOT part of the bill (feedback BfVHvxW4IyRozFm1NFHn): it is withheld
+ * at payment time — see generateVendorPaymentGLEntries.
  *
  * @param db - Firestore instance
  * @param input - Bill data
@@ -239,11 +241,9 @@ export async function generateBillGLEntries(
       };
     }
 
-    // Calculate amounts
+    // Calculate amounts — AP is credited the full gross total
     const gstAmount = calculateGSTAmount(input.gstDetails);
-    const tdsAmount = input.tdsDetails?.tdsAmount || 0;
-    const totalAmount = input.subtotal + gstAmount;
-    const payableAmount = totalAmount - tdsAmount; // Net payable after TDS deduction
+    const payableAmount = input.subtotal + gstAmount;
 
     // Expense entries: Use per-line-item accounts if specified, otherwise use default
     const lineItemsWithAccounts = input.lineItems?.filter(
@@ -340,7 +340,7 @@ export async function generateBillGLEntries(
       }
     }
 
-    // Entry 5: Credit Accounts Payable (Liability increases)
+    // Entry 5: Credit Accounts Payable (Liability increases by the gross total)
     entries.push({
       accountId: accounts.accountsPayable!,
       accountCode: '2100',
@@ -350,23 +350,6 @@ export async function generateBillGLEntries(
       description: 'Amount payable to vendor',
       costCentreId: input.projectId,
     });
-
-    // Entry 6: Credit TDS Payable (if TDS applicable)
-    if (tdsAmount > 0) {
-      if (!accounts.tdsPayable) {
-        errors.push('TDS Payable account not found');
-      } else {
-        entries.push({
-          accountId: accounts.tdsPayable,
-          accountCode: '2300',
-          accountName: 'TDS Payable',
-          debit: 0,
-          credit: tdsAmount,
-          description: 'TDS deducted on bill',
-          costCentreId: input.projectId,
-        });
-      }
-    }
 
     return validateAndReturnEntries(entries, errors);
   } catch (error) {
