@@ -5,7 +5,6 @@ import { TextField, Grid, MenuItem, Box, Typography, Alert } from '@mui/material
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
-import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { getFirebase } from '@/lib/firebase';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
@@ -480,15 +479,8 @@ export function RecordDirectPaymentDialog({
             </Grid>
           )}
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <ProjectSelector
-              value={projectId}
-              onChange={setProjectId}
-              label="Project / Cost Centre"
-              onlyActive
-              {...getFieldProps(6, { isAutocomplete: true })}
-            />
-          </Grid>
+          {/* Cost Centre selector removed (feedback mEx1X1qlKRqkCM8DZEYx) —
+              existing payments keep their stored project on edit. */}
 
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField

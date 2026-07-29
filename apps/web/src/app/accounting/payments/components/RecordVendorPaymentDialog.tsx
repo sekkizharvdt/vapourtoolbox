@@ -12,7 +12,6 @@ import {
 } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
-import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
@@ -716,15 +715,8 @@ export function RecordVendorPaymentDialog({
             </Grid>
           )}
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <ProjectSelector
-              value={projectId}
-              onChange={setProjectId}
-              label="Project / Cost Centre"
-              onlyActive
-              {...getFieldProps(2, { isAutocomplete: true })}
-            />
-          </Grid>
+          {/* Cost Centre selector removed (feedback mEx1X1qlKRqkCM8DZEYx) —
+              existing payments keep their stored project on edit. */}
 
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
@@ -806,18 +798,10 @@ export function RecordVendorPaymentDialog({
             />
           </Grid>
 
-          <Grid size={{ xs: 12 }}>
-            <TextField
-              fullWidth
-              label="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              multiline
-              rows={2}
-              placeholder="Payment description or notes"
-              {...getFieldProps(8, { multiline: true })}
-            />
-          </Grid>
+          {/* Description input removed (feedback cV8qdAn3Ejo0lnoZb0Xm): the
+              narrative lives on the vendor bill; the payment stores an
+              auto-generated "Payment to <vendor>" (edits keep any existing
+              custom text via the state restore). */}
 
           {/* TDS Section */}
           <TDSSection

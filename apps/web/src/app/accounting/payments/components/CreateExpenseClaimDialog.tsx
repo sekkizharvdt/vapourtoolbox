@@ -21,7 +21,6 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
-import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import {
@@ -518,14 +517,8 @@ export function CreateExpenseClaimDialog({
             />
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <ProjectSelector
-              value={projectId}
-              onChange={setProjectId}
-              label="Project / Cost Centre (Optional)"
-              onlyActive
-            />
-          </Grid>
+          {/* Cost Centre selector removed (feedback mEx1X1qlKRqkCM8DZEYx) —
+              existing claims keep their stored project on edit. */}
 
           {/* Expense line items */}
           <Grid size={{ xs: 12 }}>
