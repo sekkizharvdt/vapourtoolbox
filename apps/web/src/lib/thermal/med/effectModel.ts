@@ -497,9 +497,17 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
 
   // NCG released from seawater (dissolved gases) — only from the seawater portion
   // Brine from recirculation is already deaerated
-  const seawaterDensity = getSeawaterDensity(seawaterSalinity, seawaterSprayTemp);
-  const seawaterVolumeLitres = seawaterSprayFlow / seawaterDensity; // litres/hr (density ≈ kg/L)
-  const ncgReleased = (seawaterVolumeLitres * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6; // kg/hr
+  //
+  // getSeawaterDensity returns kg/m3, NOT kg/L. The previous form divided a
+  // kg/hr flow by it and named the result "litres", so the value was actually
+  // m3/hr and the NCG release came out 1000x low (0.0012 kg/hr against 1.27
+  // for the BARC case). The conversion is now explicit and the names state
+  // their units — see docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md
+  // finding 2.
+  const seawaterDensityKgM3 = getSeawaterDensity(seawaterSalinity, seawaterSprayTemp);
+  const seawaterVolumeM3PerH = seawaterSprayFlow / seawaterDensityKgM3;
+  const seawaterVolumeLitresPerH = seawaterVolumeM3PerH * 1000;
+  const ncgReleased = (seawaterVolumeLitresPerH * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6; // kg/hr
 
   // Enthalpies for spray zone streams (reuse shell inlet values)
   const h_vaporOut = getEnthalpyVapor(Math.max(vaporOutTemp, 5));

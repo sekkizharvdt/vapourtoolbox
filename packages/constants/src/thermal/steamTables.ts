@@ -121,16 +121,15 @@ export function getEnthalpyLiquid(tempC: number): number {
     );
   }
 
-  // Polynomial fit for saturated liquid enthalpy (accurate within 0.1%)
-  // hf = a0 + a1*T + a2*T² + a3*T³ + a4*T⁴
-  const a0 = 0.0;
-  const a1 = 4.2174;
-  const a2 = -0.000467;
-  const a3 = 0.00000914;
-  const a4 = -0.0000000388;
-
-  const T = tempC;
-  return a0 + a1 * T + a2 * T * T + a3 * T * T * T + a4 * T * T * T * T;
+  // IAPWS-IF97 Region 1 evaluated at the saturation pressure.
+  //
+  // This previously used a hand-rolled quartic documented as "accurate within
+  // 0.1%". It was not: against published saturated-liquid enthalpy it ran
+  // +0.53 kJ/kg at 30 °C rising to +2.54 at 80 °C — roughly 0.6-0.8%, i.e. the
+  // stated accuracy was out by a factor of ~7. Region 1 reproduces the
+  // published table to better than 0.05 kJ/kg over 20-90 °C.
+  const tLookup = Math.max(tempC, TRIPLE_POINT_TEMPERATURE_C);
+  return getEnthalpySubcooled(getSaturationPressure(tLookup), tLookup);
 }
 
 /**
@@ -494,7 +493,7 @@ export interface SteamProperties {
 // ============================================================================
 
 import { getRegion } from './steamTablesCommon';
-import { getSubcooledProperties } from './steamTablesRegion1';
+import { getSubcooledProperties, getEnthalpySubcooled } from './steamTablesRegion1';
 import { getSuperheatedProperties } from './steamTablesRegion2';
 
 /**

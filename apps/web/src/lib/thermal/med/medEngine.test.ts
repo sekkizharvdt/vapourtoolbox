@@ -523,12 +523,68 @@ describe('MED Engine — Recirculation', () => {
 // External anchor — golden regression snapshot (BARC MED-TVC per-effect)
 // ===========================================================================
 
+describe('NCG source term', () => {
+  /**
+   * Regression for finding 2 (docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md).
+   *
+   * getSeawaterDensity returns kg/m3, not kg/L. Two call sites divided a kg/hr
+   * flow by it and applied a per-LITRE concentration without converting, so the
+   * NCG release came out 1000x low — 0.0012 kg/hr for the BARC case against the
+   * ~1.22 the feed actually carries. It went unnoticed because NCG is inert in
+   * this engine: it appears only in the mass balance and the per-effect balance
+   * table, and the vacuum system sizes off HEI tables independently.
+   */
+  const input: MEDEngineInput = {
+    steamFlow: 1040,
+    steamTemperature: 58.8,
+    numberOfEffects: 6,
+    seawaterInletTemp: 30,
+    seawaterSalinity: 35000,
+    maxBrineSalinity: 59400,
+    condenserApproach: 4,
+  };
+  const result = calculateMED(input);
+
+  it('releases the NCG the feed actually carries, within 5%', () => {
+    const totalReleased = result.effects.reduce((sum, e) => sum + e.shellSprayZone.ncgReleased, 0);
+    // feed volume (litres/hr) x 50 mg/L, converted to kg/hr
+    const feedKgH = result.performance.totalFeedWater;
+    const expected = ((feedKgH / 1021.9) * 1000 * 50) / 1e6;
+
+    expect(totalReleased).toBeGreaterThan(expected * 0.95);
+    expect(totalReleased).toBeLessThan(expected * 1.05);
+  });
+
+  it('is three orders of magnitude above the pre-fix value', () => {
+    // Guards specifically against the missing 1000x conversion reappearing.
+    const totalReleased = result.effects.reduce((sum, e) => sum + e.shellSprayZone.ncgReleased, 0);
+    expect(totalReleased).toBeGreaterThan(0.1);
+  });
+
+  it('accumulates monotonically down the train', () => {
+    // Each effect vents everything it received plus what its own fresh feed
+    // released, so the vent load must rise effect to effect.
+    const vents = result.effects.map((e) => e.tubeSide.ncgVent);
+    for (let i = 1; i < vents.length; i++) {
+      expect(vents[i]!).toBeGreaterThan(vents[i - 1]!);
+    }
+  });
+
+  it('every effect clears the 0.001 kg/hr threshold the balance table displays at', () => {
+    // MEDEffectBalanceTable.tsx gates the NCG row on ncgIn > 0.001. At the
+    // pre-fix magnitude the row was hidden for most of the table.
+    for (const e of result.effects) {
+      expect(e.tubeSide.ncgVent).toBeGreaterThan(0.001);
+    }
+  });
+});
+
 describe('external anchor — golden regression snapshot (BARC MED-TVC per-effect profile)', () => {
   /**
    * Full per-effect regression pins captured 2026-07-13 from the validated
    * engine, running the BARC MED-TVC configuration (BARC/IIT Madras plant:
    * 1040 kg/hr motive steam @ 10 bar, 6 effects, 4 preheaters, as-built
-   * GOR = 9.61; the engine computes GOR = 10.05, inside the validated ±15%
+   * GOR = 9.61; the engine computes GOR = 10.25, inside the validated ±15%
    * band).
    *
    * Unlike the GOR check above, these pins freeze the SHAPE of the cascade
@@ -558,27 +614,48 @@ describe('external anchor — golden regression snapshot (BARC MED-TVC per-effec
   // for this BARC config, ~3,600 in other cases), so capping raised required
   // area ~2-3.5% here. Process quantities (T, vapor, brine) are unchanged — the
   // H&M balance does not depend on U.
+  // RE-BASELINED 2026-07-29 for two seawater-property fixes. See
+  // docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md, findings 1 and 5.
+  //
+  //   Finding 1 — getSeawaterEnthalpy applied the Millero salinity correction to
+  //   S^2 where the specific-heat correlation it integrates uses S^1.5. Enthalpy
+  //   was NON-MONOTONIC in salinity above ~20,000 ppm and dh/dT was 43% wrong at
+  //   80,000 ppm. MED brine runs 35,000-59,400 ppm here.
+  //
+  //   Finding 5 — the pure-water baseline came from a Sharqawy polynomial that
+  //   tracks IF97 below ~50 C and diverges above (+1.2% on cp at 70 C). Both
+  //   pure-water paths now use IAPWS-IF97 Region 1.
+  //
+  // Effect temperatures are UNCHANGED — the cascade is set by the dT allocation
+  // and BPE, not by liquid enthalpy magnitude. Vapour and brine flows rose ~1-2%
+  // (effect 6 vapour by 12%, on a small absolute number) because the corrected
+  // brine enthalpies widen (h_in - h_brine). Areas rose ~0.1-3.2% following the
+  // duties.
+  //
+  // GOR 10.05 -> 10.25, still inside the +/-15% band around the BARC as-built
+  // 9.61 (8.17-11.05). The gap to as-built is a separate open question tracked
+  // as finding 4 (NCG has no effect on heat transfer or pressure).
   const GOLDEN_PROFILE = [
-    { effect: 1, temperature: 55.5, vaporFlow: 2102.99, brineFlow: 2143.36, area: 177.4 },
-    { effect: 2, temperature: 52.2, vaporFlow: 1915.32, brineFlow: 4345.09, area: 209.89 },
-    { effect: 3, temperature: 48.9, vaporFlow: 1744.45, brineFlow: 6730.27, area: 233.4 },
-    { effect: 4, temperature: 45.6, vaporFlow: 1560.85, brineFlow: 9286.44, area: 212.04 },
-    { effect: 5, temperature: 42.3, vaporFlow: 1384.7, brineFlow: 12025.2, area: 192.02 },
-    { effect: 6, temperature: 39.0, vaporFlow: 294.57, brineFlow: 14910.12, area: 172.65 },
+    { effect: 1, temperature: 55.5, vaporFlow: 2122.51, brineFlow: 2209.28, area: 177.51 },
+    { effect: 2, temperature: 52.2, vaporFlow: 1946.9, brineFlow: 4462.04, area: 212.42 },
+    { effect: 3, temperature: 48.9, vaporFlow: 1782.27, brineFlow: 6891.97, area: 238.17 },
+    { effect: 4, temperature: 45.6, vaporFlow: 1600.07, brineFlow: 9491.06, area: 217.68 },
+    { effect: 5, temperature: 42.3, vaporFlow: 1421.78, brineFlow: 12274.9, area: 198.09 },
+    { effect: 6, temperature: 39.0, vaporFlow: 330.26, brineFlow: 15209.89, area: 178.27 },
   ];
 
   const golden = calculateMED(GOLDEN_INPUT);
 
-  it('converges and reproduces the golden GOR (10.05 ±0.5%)', () => {
+  it('converges and reproduces the golden GOR (10.25 ±0.5%)', () => {
     expect(golden.converged).toBe(true);
-    expect(Math.abs(golden.performance.gor - 10.05) / 10.05).toBeLessThan(0.005);
-    expect(Math.abs(golden.performance.netDistillate - 10450) / 10450).toBeLessThan(0.005);
+    expect(Math.abs(golden.performance.gor - 10.25) / 10.25).toBeLessThan(0.005);
+    expect(Math.abs(golden.performance.netDistillate - 10661) / 10661).toBeLessThan(0.005);
   });
 
   it('reproduces the golden TVC operating point (±0.5%)', () => {
     expect(golden.tvc).not.toBeNull();
-    expect(Math.abs(golden.tvc!.entrainmentRatio - 1.0698) / 1.0698).toBeLessThan(0.005);
-    expect(Math.abs(golden.tvc!.dischargeFlow - 2152.64) / 2152.64).toBeLessThan(0.005);
+    expect(Math.abs(golden.tvc!.entrainmentRatio - 1.0697) / 1.0697).toBeLessThan(0.005);
+    expect(Math.abs(golden.tvc!.dischargeFlow - 2152.49) / 2152.49).toBeLessThan(0.005);
   });
 
   it.each(GOLDEN_PROFILE)(

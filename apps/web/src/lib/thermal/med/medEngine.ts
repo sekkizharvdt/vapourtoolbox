@@ -324,9 +324,15 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
   // Initially all effects get condenser outlet temperature
   const sprayTemps: number[] = Array.from({ length: N }, () => condenserOutlet);
 
-  // NCG in steam to Effect 1 (= dissolved gases from seawater in Effect 1)
-  const swDensity = getSeawaterDensity(swSalinity, condenserOutlet);
-  const ncgFromSeawater = ((feedPerEffect / swDensity) * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6;
+  // NCG in steam to Effect 1 (= dissolved gases from seawater in Effect 1).
+  //
+  // getSeawaterDensity returns kg/m3, so feedPerEffect / density is m3/hr and
+  // must be converted to litres before applying a per-litre concentration. The
+  // previous form omitted that factor and under-stated NCG 1000x — the same
+  // defect as in effectModel.ts (finding 2).
+  const swDensityKgM3 = getSeawaterDensity(swSalinity, condenserOutlet);
+  const feedVolumeLitresPerH = (feedPerEffect / swDensityKgM3) * 1000;
+  const ncgFromSeawater = (feedVolumeLitresPerH * TOTAL_DISSOLVED_GAS_MG_PER_LITRE) / 1e6;
 
   let converged = false;
   let iterations = 0;

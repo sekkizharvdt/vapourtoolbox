@@ -14,7 +14,22 @@
  *   Desalination and Water Treatment, Vol. 16, pp. 354-380, 2010.
  * - El-Dessouky, H.T. and Ettouney, H.M., "Fundamentals of Salt Water
  *   Desalination," Elsevier, 2002.
+ *
+ * ── Pure-water baseline ────────────────────────────────────────────────────
+ * The pure-water terms come from IAPWS-IF97 Region 1 evaluated at saturation,
+ * NOT from the Sharqawy pure-water polynomials. Those polynomials track IF97
+ * well below ~50 °C but diverge above it (+1.2% on cp at 70 °C, +3.0% at 80 °C,
+ * +6.2% at 90 °C), which put the enthalpy baseline 0.29 kJ/kg high at 70 °C and
+ * 1.19 high at 80 °C — with the error changing sign near 58 °C, so it did not
+ * cancel in the enthalpy differences that set flash and effect vapour rates.
+ *
+ * Using IF97 for the pure-water part keeps S = 0 exact and preserves the
+ * thermodynamic invariant dh/dT = cp, because IF97's own h and cp are mutually
+ * consistent and the salinity corrections below are an exact integral pair.
  */
+
+import { getSaturationPressure, TRIPLE_POINT_TEMPERATURE_C } from './steamTables';
+import { getEnthalpySubcooled, getSpecificHeatSubcooled } from './steamTablesRegion1';
 
 // ============================================================================
 // Constants
@@ -22,6 +37,22 @@
 
 /** Reference salinity for standard seawater in ppm */
 export const STANDARD_SEAWATER_SALINITY = 35000;
+
+/**
+ * Temperature clamped to the IF97 domain, for the pure-water lookups below.
+ *
+ * These functions declare a 0-180 C range, but IF97 Region 1 is only defined
+ * from the triple point (0.01 C) upward and re-validates the temperature
+ * internally, so both the pressure and the temperature passed to it must be
+ * clamped. The MED engine legitimately calls the property functions with
+ * tempC = 0 for effects that receive no fresh seawater spray, where the result
+ * is multiplied by a zero flow. Clamping keeps the declared range honest;
+ * h_f at the triple point is 0.0006 kJ/kg, so the substitution is physically
+ * negligible.
+ */
+function clampToIF97Domain(tempC: number): number {
+  return Math.max(tempC, TRIPLE_POINT_TEMPERATURE_C);
+}
 
 // ============================================================================
 // Boiling Point Elevation (BPE)
@@ -140,13 +171,9 @@ export function getSeawaterSpecificHeat(salinity: number, tempC: number): number
   // Convert salinity from ppm to g/kg (S)
   const S = salinity / 1000;
 
-  // Pure water specific heat (Sharqawy et al.)
-  const Cp_w =
-    4.2174 -
-    3.720283e-3 * tempC +
-    1.412855e-4 * tempC * tempC -
-    2.654387e-6 * tempC * tempC * tempC +
-    2.093236e-8 * tempC * tempC * tempC * tempC;
+  // Pure water specific heat — IAPWS-IF97 Region 1 at saturation (see header)
+  const tLookup = clampToIF97Domain(tempC);
+  const Cp_w = getSpecificHeatSubcooled(getSaturationPressure(tLookup), tLookup);
 
   // Seawater specific heat correction (Millero et al. form with S^1.5 term)
   // Form: Cp = Cp_w + A*S + B*S^1.5
@@ -185,13 +212,11 @@ export function getSeawaterEnthalpy(salinity: number, tempC: number): number {
   // Convert salinity from ppm to g/kg (S)
   const S = salinity / 1000;
 
-  // Pure water enthalpy (integration of Cp from 0°C)
-  const h_w =
-    4.2174 * tempC -
-    (3.720283e-3 / 2) * tempC * tempC +
-    (1.412855e-4 / 3) * tempC * tempC * tempC -
-    (2.654387e-6 / 4) * tempC * tempC * tempC * tempC +
-    (2.093236e-8 / 5) * tempC * tempC * tempC * tempC * tempC;
+  // Pure water enthalpy — IAPWS-IF97 Region 1 at saturation (see header).
+  // Replaces the integral of the Sharqawy Cp polynomial, which diverged above
+  // ~50 °C and crossed IF97 near 58 °C.
+  const tLookup = clampToIF97Domain(tempC);
+  const h_w = getEnthalpySubcooled(getSaturationPressure(tLookup), tLookup);
 
   // Seawater enthalpy correction
   const h_sw_correction =
@@ -200,9 +225,12 @@ export function getSeawaterEnthalpy(salinity: number, tempC: number): number {
       (1.0727e-4 / 2) * tempC * tempC -
       (1.3839e-6 / 3) * tempC * tempC * tempC);
 
+  // S^1.5 — must match the exponent in the Cp correlation above (Millero form
+  // Cp = Cp_w + A·S + B·S^1.5). Enthalpy is the integral of Cp over temperature,
+  // so the salinity exponent is carried through unchanged; only the temperature
+  // powers are integrated.
   const h_sw_correction2 =
-    S *
-    S *
+    Math.pow(S, 1.5) *
     (1.7413e-4 * tempC - (4.1326e-6 / 2) * tempC * tempC + (8.3486e-8 / 3) * tempC * tempC * tempC);
 
   return h_w + h_sw_correction + h_sw_correction2;
