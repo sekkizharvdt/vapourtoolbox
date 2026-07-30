@@ -69,6 +69,8 @@ export interface MEDDesignerInput {
   pressureDropLoss?: number;
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;
+  /** Override the evaporator overall-U design ceiling in W/(m²·K) (default 3100) */
+  evaporatorDesignU?: number;
   /** BPE safety factor (multiplier on computed BPE, default 1.0).
    *  1.1–1.2 recommended with brine recirculation per Dr Rognoni. */
   bpeSafetyFactor?: number;

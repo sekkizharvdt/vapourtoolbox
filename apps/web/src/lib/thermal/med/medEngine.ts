@@ -87,6 +87,15 @@ export interface MEDEngineInput {
 
   /** Fouling resistance in m²·K/W (default 0.00015) */
   foulingResistance?: number;
+  /**
+   * Override the evaporator overall-U design ceiling in W/(m²·K).
+   *
+   * The shell-side correlation over-predicts in the laminar regime, so U is
+   * capped at a validated as-designed value by default. Set this to judge a
+   * design against a different ceiling; the sizing result reports the
+   * correlated value, the cap and which was used.
+   */
+  evaporatorDesignU?: number;
 
   /** BPE safety factor (multiplier on computed BPE, default 1.0 = no margin).
    *  Dr Rognoni recommends 1.1–1.2 to account for local concentration effects
@@ -740,6 +749,9 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     distillateTemp: condenserOutlet - 2,
     condensateExtraction: 'FINAL_CONDENSER',
     foulingFactor: input.foulingResistance ?? 0.00015,
+    ...(input.evaporatorDesignU !== undefined && {
+      evaporatorDesignU: input.evaporatorDesignU,
+    }),
     evaporatorTubes: {
       od: input.evapTubeOD ?? 25.4,
       thickness: input.evapTubeWall ?? 1.0,

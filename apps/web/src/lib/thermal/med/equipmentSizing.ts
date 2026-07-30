@@ -74,8 +74,24 @@ export interface EvaporatorSizingResult {
   tubeSideHTC: number;
   /** Shell-side (falling film evaporation) HTC in W/(m²·K) */
   shellSideHTC: number;
-  /** Overall HTC in W/(m²·K) */
+  /** Overall HTC actually used for sizing, in W/(m²·K) */
   overallHTC: number;
+  /**
+   * Overall HTC as the geometry and correlations compute it, BEFORE any design
+   * cap or override — tube OD/wall/conductivity, Nusselt tube-side, Chun-Seban
+   * shell-side, and the fouling resistances.
+   *
+   * Reported so the geometry result is visible for engineering judgement rather
+   * than silently discarded. The shell-side correlation over-predicts in the
+   * laminar regime, so this typically exceeds the design value.
+   */
+  correlatedOverallHTC: number;
+  /** The design ceiling applied, in W/(m²·K) */
+  designUCap: number;
+  /** Which of the three values `overallHTC` came from */
+  overallHTCSource: 'correlated' | 'design-cap' | 'user-override';
+  /** How far the correlation exceeded the value used, as a percentage (0 when not capped) */
+  correlatedExcessPercent: number;
   /** Required heat transfer area in m² */
   requiredArea: number;
   /** Design area (with fouling margin) in m² */
@@ -333,8 +349,26 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   const tubeID = tubeSpec.od - 2 * tubeSpec.thickness; // mm
   const tubeWallConductivity = MED_TUBE_CONDUCTIVITY[tubeMaterial] ?? 15; // W/(m·K)
 
-  const computeOverallHTCEvap = (shellHTC: number): number => {
-    const result = calculateOverallHTC({
+  // Design ceiling: the caller's override if given, otherwise the validated
+  // as-designed value. Reported alongside the correlated value so the choice is
+  // visible in the result rather than applied silently.
+  const designUCap = inputs.evaporatorDesignU ?? MED_EVAPORATOR_DESIGN_U_WM2K;
+
+  /**
+   * Overall U from the geometry and correlations, with no cap applied.
+   *
+   * NOTE: the shell-side fouling deliberately still uses
+   * DEFAULT_FOULING_SEAWATER (0.00009) rather than the caller's `foulingFactor`
+   * (default 0.00015). Those are two different defaults for the same physical
+   * quantity, and switching to the caller's value drops the correlated U below
+   * the design cap, raising required areas ~15%. Reconciling them is a separate
+   * decision with a real magnitude — see
+   * docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md finding 7. This
+   * change only makes the correlated value visible; it does not alter what is
+   * used for sizing.
+   */
+  const computeCorrelatedOverallHTC = (shellHTC: number): number =>
+    calculateOverallHTC({
       tubeSideHTC,
       shellSideHTC: shellHTC,
       tubeOD: tubeSpec.od / 1000,
@@ -342,15 +376,16 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
       tubeWallConductivity,
       tubeSideFouling: DEFAULT_FOULING_DISTILLATE,
       shellSideFouling: DEFAULT_FOULING_SEAWATER,
-    });
-    // Cap at the validated safe design U — the shell-side correlation
-    // over-predicts vs built-plant experience (see MED_EVAPORATOR_DESIGN_U_WM2K).
-    return Math.min(result.overallHTC, MED_EVAPORATOR_DESIGN_U_WM2K);
-  };
+    }).overallHTC;
+
+  /** The U actually used for sizing — the correlated value, limited by the cap. */
+  const computeOverallHTCEvap = (shellHTC: number): number =>
+    Math.min(computeCorrelatedOverallHTC(shellHTC), designUCap);
 
   // ---- Pass 1: Size with assumed design wetting rate Γ ≈ 0.045 kg/(m·s) ----
   const designWettingRate = 0.045;
   let shellSideHTC = computeShellSideHTC(designWettingRate);
+  let correlatedOverallHTC = computeCorrelatedOverallHTC(shellSideHTC);
   let overallHTC = computeOverallHTCEvap(shellSideHTC);
   let requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, effectiveDeltaT);
   let designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
@@ -374,6 +409,7 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
     const revisedShellHTC = computeShellSideHTC(actualGamma);
     if (Math.abs(revisedShellHTC - shellSideHTC) / shellSideHTC > 0.05) {
       shellSideHTC = revisedShellHTC;
+      correlatedOverallHTC = computeCorrelatedOverallHTC(shellSideHTC);
       overallHTC = computeOverallHTCEvap(shellSideHTC);
       requiredArea = calculateHeatExchangerArea(heatDuty, overallHTC, effectiveDeltaT);
       designArea = requiredArea * (1 + AREA_DESIGN_MARGIN);
@@ -476,6 +512,18 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
     tubeSideHTC: Math.round(tubeSideHTC),
     shellSideHTC: Math.round(shellSideHTC),
     overallHTC: Math.round(overallHTC * 10) / 10,
+    correlatedOverallHTC: Math.round(correlatedOverallHTC * 10) / 10,
+    designUCap,
+    overallHTCSource:
+      correlatedOverallHTC <= designUCap
+        ? 'correlated'
+        : inputs.evaporatorDesignU !== undefined
+          ? 'user-override'
+          : 'design-cap',
+    correlatedExcessPercent:
+      correlatedOverallHTC > designUCap
+        ? Math.round((correlatedOverallHTC / designUCap - 1) * 100 * 10) / 10
+        : 0,
     requiredArea: Math.round(requiredArea * 100) / 100,
     designArea: Math.round(designArea * 100) / 100,
     tubeCount,
@@ -877,6 +925,10 @@ function emptyEvaporatorResult(
     effectiveDeltaT: 0,
     tubeSideHTC: 0,
     shellSideHTC: 0,
+    correlatedOverallHTC: 0,
+    designUCap: 0,
+    overallHTCSource: 'correlated',
+    correlatedExcessPercent: 0,
     overallHTC: 0,
     requiredArea: 0,
     designArea: 0,

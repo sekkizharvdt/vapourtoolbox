@@ -676,6 +676,16 @@ export interface MEDPlantInputs {
   condensateExtraction: CondensateExtraction;
   /** Fouling factor for evaporator in m²·°C/W */
   foulingFactor: number;
+  /**
+   * Design ceiling on the evaporator overall U in W/(m²·K).
+   *
+   * The shell-side falling-film correlation over-predicts in the laminar
+   * regime, so the computed U is capped at a validated as-designed value.
+   * Omit to use the default (see MED_EVAPORATOR_DESIGN_U_WM2K). Set it to
+   * override per design — the sizing result reports the correlated value, the
+   * cap, and which was used, so the choice is visible rather than implicit.
+   */
+  evaporatorDesignU?: number;
 
   // --- Tube specs ---
   /** Evaporator tube specification */

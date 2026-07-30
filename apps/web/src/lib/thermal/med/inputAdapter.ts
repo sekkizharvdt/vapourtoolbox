@@ -123,6 +123,9 @@ export function resolveDesignerDefaults(
     pressureDropLoss: pdLoss,
     bpeSafetyFactor: input.bpeSafetyFactor ?? 1.0,
     foulingResistance: input.foulingResistance ?? 0.00015,
+    ...(input.evaporatorDesignU !== undefined && {
+      evaporatorDesignU: input.evaporatorDesignU,
+    }),
     minimumWettingRate: minGamma,
     includeBrineRecirculation: includeRecirc,
     shellThickness: shellThkMM,

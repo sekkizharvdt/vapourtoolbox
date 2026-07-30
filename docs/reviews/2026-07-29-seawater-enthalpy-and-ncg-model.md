@@ -420,6 +420,33 @@ re-baselining again. Best done as its own change.
 
 ---
 
+## Lessons from the cross-session work
+
+Recorded because both were mistakes in this session's own output, not in the code under
+review.
+
+1. **Prose contradicted the data beside it.** The v3 fixture's `gateGuidance` said sw-04's
+   amplification factor was "near 30" while the `sensitivity` block in the same file
+   computed **49.84**. A hand-written number sat next to a generated one and disagreed with
+   it. The guidance text is now **computed from the cases** — minimum, maximum, and which
+   case is worst — so it cannot drift again.
+
+2. **A schema bump listed additions but not removals.** v3 added `sensitivity` and silently
+   dropped `usableAsNumericalGate` and `crossover`. A consumer read one of them while
+   building its parametrised case list at import time, so its test suite died at collection
+   rather than failing with a message that explained the transition. Bumping the version and
+   adding a `supersedes` note was not enough. The fixture now carries a `schemaChanges` block
+   listing added **and** removed keys per version, with v3's removals recorded
+   retrospectively.
+
+The generalisation the simulator session drew is worth keeping alongside these: **a model
+that takes any part of its state from the thing it is validated against has already agreed
+with it.** They had initialised a saturated state from the fixture's brine temperature, and
+because the saturation constraint is enforced through its derivative, the run sat 5 mK off
+its own saturation line for its entire length while passing every gate.
+
+---
+
 ## Open Decisions
 
 1. ~~**NCG design basis — 19 ppm or 50 mg/L?**~~ **DECIDED 2026-07-29 — compute the physics,

@@ -523,6 +523,78 @@ describe('MED Engine — Recirculation', () => {
 // External anchor — golden regression snapshot (BARC MED-TVC per-effect)
 // ===========================================================================
 
+describe('evaporator U — reporting and override', () => {
+  /**
+   * Finding 7 (docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md).
+   *
+   * The geometry-derived overall U was computed and then silently discarded by
+   * `Math.min(overallHTC, MED_EVAPORATOR_DESIGN_U_WM2K)`. The correlated value,
+   * the cap and which one was used are now all reported, and the cap is
+   * overridable per design.
+   */
+  const BASE: MEDEngineInput = {
+    steamFlow: 1040,
+    steamTemperature: 62.2,
+    numberOfEffects: 6,
+    seawaterInletTemp: 30,
+    seawaterSalinity: 35000,
+    maxBrineSalinity: 59400,
+    condenserOutletTemp: 38,
+    tvcMotivePressure: 10,
+    preheaterEffects: [2, 3, 4, 5],
+  };
+
+  const totalArea = (r: ReturnType<typeof calculateMED>) =>
+    r.equipmentSizing!.evaporators.reduce((sum, e) => sum + e.requiredArea, 0);
+
+  it('reports the correlated U alongside the value used', () => {
+    const r = calculateMED(BASE);
+    for (const e of r.equipmentSizing!.evaporators) {
+      // The shell-side correlation over-predicts, so the cap binds by a few percent.
+      expect(e.correlatedOverallHTC).toBeGreaterThan(e.overallHTC);
+      expect(e.designUCap).toBe(3100);
+      expect(e.overallHTC).toBe(3100);
+      expect(e.overallHTCSource).toBe('design-cap');
+      expect(e.correlatedExcessPercent).toBeGreaterThan(0);
+      expect(e.correlatedExcessPercent).toBeLessThan(10);
+    }
+  });
+
+  it('uses the correlated value when the override is above it', () => {
+    const r = calculateMED({ ...BASE, evaporatorDesignU: 4000 });
+    for (const e of r.equipmentSizing!.evaporators) {
+      expect(e.overallHTCSource).toBe('correlated');
+      expect(e.overallHTC).toBe(e.correlatedOverallHTC);
+      expect(e.correlatedExcessPercent).toBe(0);
+    }
+    // Higher U → less area needed than the capped default
+    expect(totalArea(r)).toBeLessThan(totalArea(calculateMED(BASE)));
+  });
+
+  it('uses the override when it is below the correlated value, and reports the gap', () => {
+    const r = calculateMED({ ...BASE, evaporatorDesignU: 2500 });
+    for (const e of r.equipmentSizing!.evaporators) {
+      expect(e.overallHTCSource).toBe('user-override');
+      expect(e.overallHTC).toBe(2500);
+      expect(e.correlatedExcessPercent).toBeGreaterThan(20);
+    }
+    expect(totalArea(r)).toBeGreaterThan(totalArea(calculateMED(BASE)));
+  });
+
+  it('U does not reach the heat and mass balance — GOR is identical for any U', () => {
+    // This is the structural fact that closed finding 4: effectModel.ts contains
+    // no U and no area. Sizing runs after the H&M converges, so U changes areas
+    // and nothing else. Any NCG-driven HTC degradation therefore cannot move GOR.
+    const gors = [undefined, 2500, 3100, 4000].map(
+      (u) =>
+        calculateMED(u === undefined ? BASE : { ...BASE, evaporatorDesignU: u }).performance.gor
+    );
+    for (const gor of gors) {
+      expect(gor).toBeCloseTo(gors[0]!, 6);
+    }
+  });
+});
+
 describe('NCG source term', () => {
   /**
    * Regression for finding 2 (docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md).
