@@ -25,6 +25,41 @@ const BARC_INPUT: MEDEngineInput = {
   condenserApproach: 4,
 };
 
+/**
+ * BARC MED-TVC as-built operating point, from the as-built datasheet.
+ *
+ * Finding 6 (docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md): every
+ * BARC anchor in this file previously passed `steamTemperature: 58.8` with
+ * `condenserApproach: 4`. Per the datasheet, 58.8 °C is the EFFECT 1 operating
+ * temperature; the steam inlet (stream 7) is 62.2 °C. The model therefore
+ * reproduced the as-built cascade shifted down by exactly one ΔT step — effect
+ * 1 at 55.5 against an as-built 58.8, effect 6 at 39.0 against 42.0 — while the
+ * ±15% GOR band was wide enough to hide it. The plant's commissioning engineer
+ * caught it by inspection.
+ *
+ * With the corrected inlet and cold end the profile matches to 0.07 K:
+ *
+ *   effect 1   58.83  vs  58.8 as-built
+ *   effect 6   42.00  vs  42.0 as-built
+ *   GOR         9.82  vs  9.61 as-built  (+2.2%, was +6.7%)
+ *
+ * One constant, used by every BARC anchor below, so the operating point cannot
+ * drift apart between tests again.
+ */
+const BARC_AS_BUILT: MEDEngineInput = {
+  steamFlow: 1040, // kg/hr motive steam
+  steamTemperature: 62.2, // stream 7, steam inlet to effect 1 — NOT the 58.8 °C effect-1 temperature
+  numberOfEffects: 6,
+  seawaterInletTemp: 30,
+  seawaterSalinity: 35000,
+  maxBrineSalinity: 59400,
+  condenserOutletTemp: 38, // reproduces the as-built 42.0 °C cold end
+};
+
+/** As-built performance, for tolerance bands. */
+const BARC_AS_BUILT_GOR = 9.61;
+const BARC_AS_BUILT_ENTRAINMENT_RATIO = 0.935;
+
 describe('MED Engine — Basic cascade', () => {
   const result = calculateMED(BARC_INPUT);
 
@@ -92,25 +127,8 @@ describe('MED Engine — More effects = higher GOR', () => {
   it('BARC validation: plain MED+4PH GOR ≈ 4.8', () => {
     // BARC as-built: 6 eff, 4 PH, TVC Ra≈0.99, GOR 9.61
     // Without TVC: 2074 kg/hr to E1, 10000 net distillate → GOR ≈ 4.82
-    const barcNoPH = calculateMED({
-      steamFlow: 1040,
-      steamTemperature: 58.8,
-      numberOfEffects: 6,
-      seawaterInletTemp: 30,
-      seawaterSalinity: 35000,
-      maxBrineSalinity: 59400,
-      condenserApproach: 4,
-    });
-    const barcPH = calculateMED({
-      steamFlow: 1040,
-      steamTemperature: 58.8,
-      numberOfEffects: 6,
-      seawaterInletTemp: 30,
-      seawaterSalinity: 35000,
-      maxBrineSalinity: 59400,
-      condenserApproach: 4,
-      preheaterEffects: [2, 3, 4, 5],
-    });
+    const barcNoPH = calculateMED({ ...BARC_AS_BUILT });
+    const barcPH = calculateMED({ ...BARC_AS_BUILT, preheaterEffects: [2, 3, 4, 5] });
     // eslint-disable-next-line no-console
     console.log(
       `BARC noPH: GOR=${barcNoPH.performance.gor}, +4PH: GOR=${barcPH.performance.gor} (target ~4.8)`
@@ -313,15 +331,7 @@ describe('MED Engine — Edge cases and robustness', () => {
 describe('MED Engine — TVC (Thermo Vapor Compressor)', () => {
   // BARC MED-TVC as-built: 1040 kg/hr motive steam at 10 bar, 6 effects
   // Top brine temp 58.8°C, GOR 9.61
-  const TVC_BASE: MEDEngineInput = {
-    steamFlow: 1040, // 1.04 T/hr motive steam
-    steamTemperature: 58.8, // top brine temp from BARC PFD
-    numberOfEffects: 6,
-    seawaterInletTemp: 30,
-    seawaterSalinity: 35000, // seawater
-    maxBrineSalinity: 59400,
-    condenserApproach: 4,
-  };
+  const TVC_BASE: MEDEngineInput = { ...BARC_AS_BUILT };
   const TVC_INPUT: MEDEngineInput = {
     ...TVC_BASE,
     tvcMotivePressure: 10, // 10 bar sat motive steam
@@ -358,13 +368,7 @@ describe('MED Engine — TVC (Thermo Vapor Compressor)', () => {
   it('BARC MED-TVC: GOR and Ra within 15% of as-built', () => {
     // BARC as-built: 1040 motive @ 10 bar, 6 eff, 4 PH, GOR=9.61, Ra=0.935
     const barc = calculateMED({
-      steamFlow: 1040,
-      steamTemperature: 58.8,
-      numberOfEffects: 6,
-      seawaterInletTemp: 30,
-      seawaterSalinity: 35000,
-      maxBrineSalinity: 59400,
-      condenserApproach: 4,
+      ...BARC_AS_BUILT,
       tvcMotivePressure: 10,
       preheaterEffects: [2, 3, 4, 5],
     });
@@ -523,6 +527,73 @@ describe('MED Engine — Recirculation', () => {
 // External anchor — golden regression snapshot (BARC MED-TVC per-effect)
 // ===========================================================================
 
+describe('fouling resistance is a live input', () => {
+  /**
+   * Finding 7, second half. `foulingResistance` was accepted by the UI, carried
+   * through the adapters, and printed in the verification report as the design
+   * basis — but the sizing code substituted a hardcoded constant, so the input
+   * had no effect at any value. Worse, the adapters injected 0.00015 while the
+   * sizing used 0.00009, so the report stated a basis the numbers did not use.
+   *
+   * Both are now the shared DEFAULT_SEAWATER_FOULING_M2KW (0.00009 — TEMA
+   * seawater below 52 °C, and what `fallingFilmCalculator` has always used).
+   */
+  const BASE: MEDEngineInput = {
+    ...BARC_AS_BUILT,
+    tvcMotivePressure: 10,
+    preheaterEffects: [2, 3, 4, 5],
+  };
+
+  const totalArea = (r: ReturnType<typeof calculateMED>) =>
+    r.equipmentSizing!.evaporators.reduce((sum, e) => sum + e.requiredArea, 0);
+
+  it('the default matches the shared constant, so behaviour is unchanged', () => {
+    const implicit = calculateMED(BASE);
+    const explicit = calculateMED({ ...BASE, foulingResistance: 0.00009 });
+
+    expect(totalArea(explicit)).toBeCloseTo(totalArea(implicit), 6);
+  });
+
+  it('raising fouling lowers the correlated U and raises required area', () => {
+    const clean = calculateMED(BASE);
+    const fouled = calculateMED({ ...BASE, foulingResistance: 0.00015 });
+
+    for (let i = 0; i < clean.equipmentSizing!.evaporators.length; i++) {
+      const c = clean.equipmentSizing!.evaporators[i]!;
+      const f = fouled.equipmentSizing!.evaporators[i]!;
+      expect(f.correlatedOverallHTC).toBeLessThan(c.correlatedOverallHTC);
+    }
+
+    // At 0.00015 the correlated U falls below the 3,100 cap, so the cap stops
+    // binding and the correlated value sizes the bundle.
+    expect(fouled.equipmentSizing!.evaporators[0]!.overallHTCSource).toBe('correlated');
+    expect(fouled.equipmentSizing!.evaporators[0]!.overallHTC).toBeLessThan(3100);
+    expect(totalArea(fouled)).toBeGreaterThan(totalArea(clean));
+  });
+
+  it('is monotonic in fouling — more fouling never needs less area', () => {
+    const areas = [0.00005, 0.00009, 0.00015, 0.0003].map((rf) =>
+      totalArea(calculateMED({ ...BASE, foulingResistance: rf }))
+    );
+    for (let i = 1; i < areas.length; i++) {
+      expect(areas[i]!).toBeGreaterThanOrEqual(areas[i - 1]!);
+    }
+  });
+
+  it('does not change the heat and mass balance', () => {
+    // Sizing runs after the H&M converges, so fouling cannot move GOR or the
+    // temperature profile. This is the structural invariant that closed
+    // findings 3 and 4.
+    const clean = calculateMED(BASE);
+    const fouled = calculateMED({ ...BASE, foulingResistance: 0.0003 });
+
+    expect(fouled.performance.gor).toBe(clean.performance.gor);
+    for (let i = 0; i < clean.effects.length; i++) {
+      expect(fouled.effects[i]!.temperature).toBe(clean.effects[i]!.temperature);
+    }
+  });
+});
+
 describe('evaporator U — reporting and override', () => {
   /**
    * Finding 7 (docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md).
@@ -533,13 +604,7 @@ describe('evaporator U — reporting and override', () => {
    * overridable per design.
    */
   const BASE: MEDEngineInput = {
-    steamFlow: 1040,
-    steamTemperature: 62.2,
-    numberOfEffects: 6,
-    seawaterInletTemp: 30,
-    seawaterSalinity: 35000,
-    maxBrineSalinity: 59400,
-    condenserOutletTemp: 38,
+    ...BARC_AS_BUILT,
     tvcMotivePressure: 10,
     preheaterEffects: [2, 3, 4, 5],
   };
@@ -668,13 +733,7 @@ describe('external anchor — golden regression snapshot (BARC MED-TVC per-effec
    * say why in the commit message.
    */
   const GOLDEN_INPUT: MEDEngineInput = {
-    steamFlow: 1040,
-    steamTemperature: 58.8,
-    numberOfEffects: 6,
-    seawaterInletTemp: 30,
-    seawaterSalinity: 35000,
-    maxBrineSalinity: 59400,
-    condenserApproach: 4,
+    ...BARC_AS_BUILT,
     tvcMotivePressure: 10,
     preheaterEffects: [2, 3, 4, 5],
   };
@@ -707,27 +766,57 @@ describe('external anchor — golden regression snapshot (BARC MED-TVC per-effec
   // GOR 10.05 -> 10.25, still inside the +/-15% band around the BARC as-built
   // 9.61 (8.17-11.05). The gap to as-built is a separate open question tracked
   // as finding 4 (NCG has no effect on heat transfer or pressure).
+  // RE-BASELINED 2026-07-31 for finding 6 — the golden input's operating point
+  // was wrong, not the model. `steamTemperature: 58.8` was the as-built EFFECT 1
+  // temperature; the steam inlet is 62.2 °C, and `condenserApproach: 4` put the
+  // cold end at 39.0 °C against an as-built 42.0 °C. See BARC_AS_BUILT above.
+  //
+  // This is the first re-baseline here that IMPROVES agreement with the plant
+  // rather than tracking a model change:
+  //
+  //   effect 1   55.5 -> 58.83   (as-built 58.8, was -3.3 K, now +0.03 K)
+  //   effect 6   39.0 -> 42.00   (as-built 42.0, was -3.0 K, now  0.00 K)
+  //   GOR       10.25 -> 9.82    (as-built 9.61, was +6.7%, now +2.2%)
+  //   Ra       1.0697 -> 0.9878  (as-built 0.935, was +14.4%, now +5.6%)
+  //
+  // Areas fall ~6-11% throughout: the cascade now runs hotter, so each effect
+  // has more ΔT to work with. The H&M is unaffected by U (findings 3 and 4).
   const GOLDEN_PROFILE = [
-    { effect: 1, temperature: 55.5, vaporFlow: 2122.51, brineFlow: 2209.28, area: 177.51 },
-    { effect: 2, temperature: 52.2, vaporFlow: 1946.9, brineFlow: 4462.04, area: 212.42 },
-    { effect: 3, temperature: 48.9, vaporFlow: 1782.27, brineFlow: 6891.97, area: 238.17 },
-    { effect: 4, temperature: 45.6, vaporFlow: 1600.07, brineFlow: 9491.06, area: 217.68 },
-    { effect: 5, temperature: 42.3, vaporFlow: 1421.78, brineFlow: 12274.9, area: 198.09 },
-    { effect: 6, temperature: 39.0, vaporFlow: 330.26, brineFlow: 15209.89, area: 178.27 },
+    { effect: 1, temperature: 58.83, vaporFlow: 2040.45, brineFlow: 2108.4, area: 166.91 },
+    { effect: 2, temperature: 55.47, vaporFlow: 1868.38, brineFlow: 4259.38, area: 192.77 },
+    { effect: 3, temperature: 52.1, vaporFlow: 1706.46, brineFlow: 6584.18, area: 215.04 },
+    { effect: 4, temperature: 48.73, vaporFlow: 1526.08, brineFlow: 9075.71, area: 196.1 },
+    { effect: 5, temperature: 45.37, vaporFlow: 1354.79, brineFlow: 11749.57, area: 176.82 },
+    { effect: 6, temperature: 42.0, vaporFlow: 345.84, brineFlow: 14568.01, area: 158.73 },
   ];
 
   const golden = calculateMED(GOLDEN_INPUT);
 
-  it('converges and reproduces the golden GOR (10.25 ±0.5%)', () => {
+  it('converges and reproduces the golden GOR (9.82 ±0.5%)', () => {
     expect(golden.converged).toBe(true);
-    expect(Math.abs(golden.performance.gor - 10.25) / 10.25).toBeLessThan(0.005);
-    expect(Math.abs(golden.performance.netDistillate - 10661) / 10661).toBeLessThan(0.005);
+    expect(Math.abs(golden.performance.gor - 9.82) / 9.82).toBeLessThan(0.005);
+    expect(Math.abs(golden.performance.netDistillate - 10209) / 10209).toBeLessThan(0.005);
+  });
+
+  it('reproduces the as-built cascade, not merely a plausible one', () => {
+    // The pins above would pass for any self-consistent model. This asserts
+    // against the PLANT: the datasheet's own effect 1 and effect 6 temperatures.
+    expect(Math.abs(golden.effects[0]!.temperature - 58.8)).toBeLessThan(0.1);
+    expect(Math.abs(golden.effects[5]!.temperature - 42.0)).toBeLessThan(0.1);
+    // GOR still runs high, now by 2.2% rather than 6.7%.
+    expect(golden.performance.gor).toBeGreaterThan(BARC_AS_BUILT_GOR);
+    expect((golden.performance.gor - BARC_AS_BUILT_GOR) / BARC_AS_BUILT_GOR).toBeLessThan(0.03);
   });
 
   it('reproduces the golden TVC operating point (±0.5%)', () => {
     expect(golden.tvc).not.toBeNull();
-    expect(Math.abs(golden.tvc!.entrainmentRatio - 1.0697) / 1.0697).toBeLessThan(0.005);
-    expect(Math.abs(golden.tvc!.dischargeFlow - 2152.49) / 2152.49).toBeLessThan(0.005);
+    expect(Math.abs(golden.tvc!.entrainmentRatio - 0.9878) / 0.9878).toBeLessThan(0.005);
+    expect(Math.abs(golden.tvc!.dischargeFlow - 2067.29) / 2067.29).toBeLessThan(0.005);
+    // Closer to the as-built 0.935 than the old pin's 1.0697 was.
+    expect(
+      Math.abs(golden.tvc!.entrainmentRatio - BARC_AS_BUILT_ENTRAINMENT_RATIO) /
+        BARC_AS_BUILT_ENTRAINMENT_RATIO
+    ).toBeLessThan(0.06);
   });
 
   it.each(GOLDEN_PROFILE)(

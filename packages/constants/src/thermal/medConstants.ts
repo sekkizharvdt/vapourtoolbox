@@ -285,6 +285,21 @@ export const MED_SOLVER_CONFIG = {
 /**
  * Default MED plant inputs — based on Case 6.xlsx (8-effect MED, 5 T/h)
  */
+/**
+ * Default seawater-side fouling resistance, m²·K/W.
+ *
+ * TEMA seawater below 125 °F (52 °C) is 0.0005 hr·ft²·°F/Btu = 8.8e-5 SI; MED
+ * effects run 35–70 °C, so this is the applicable TEMA figure for all but the
+ * hottest effect. It is also what `fallingFilmCalculator` and the evaporator
+ * sizing path have always used, so this constant makes the one default the
+ * whole thermal stack shares.
+ *
+ * The MED input adapters previously injected 0.00015 here — a value that
+ * matched neither TEMA figure and was in any case discarded by the sizing code,
+ * while the verification PDF printed it as the design basis.
+ */
+export const DEFAULT_SEAWATER_FOULING_M2KW = 0.00009;
+
 export const DEFAULT_MED_PLANT_INPUTS = {
   plantType: 'MED' as const,
   numberOfEffects: 8,
@@ -305,7 +320,7 @@ export const DEFAULT_MED_PLANT_INPUTS = {
   condenserApproachTemp: 2.6,
   distillateTemp: 37.6,
   condensateExtraction: 'FINAL_CONDENSER' as const,
-  foulingFactor: 0.00015,
+  foulingFactor: DEFAULT_SEAWATER_FOULING_M2KW,
 
   evaporatorTubes: {
     od: 25.4,

@@ -12,8 +12,9 @@ NCG model.
 **Scope**: `packages/constants/src/thermal/seawaterTables.ts`, `apps/web/src/lib/thermal/med/` (effectModel, medEngine), flash chamber calculator
 **Trigger**: [dynamic simulator specification r2](../thermal/dynamic-simulator-specification-r2.md) §7.1 property verification
 
-**Status:** **Findings 1, 2 and 5 FIXED.** Findings 3 and 4 **CLOSED — will not be
-done**, with structural reasons below. Two new findings (6, 7) emerged during the work.
+**Status:** **Findings 1, 2, 5, 6 and 7 FIXED.** Findings 3 and 4 **CLOSED — will not be
+done**, with structural reasons below. Findings 6 and 7 emerged during the work and are now
+also closed, which completes this review — all seven findings are resolved.
 
 **Why the existing tests did not catch any of this:** all 1,233 thermal tests assert either
 structural properties ("greater than zero", "monotonic in temperature") or the engine's own
@@ -21,15 +22,15 @@ prior output. None compares against an independent physical reference. This is t
 pattern CLAUDE.md rule 4 in the simulator repo was written against, and it caught something
 on first contact.
 
-| #   | Finding                                                          | Severity | Effect on GOR                       | Status                         |
-| --- | ---------------------------------------------------------------- | -------- | ----------------------------------- | ------------------------------ |
-| 1   | Seawater enthalpy uses S² where cp uses S^1.5                    | HIGH     | 10.05 → 10.25                       | **FIXED**                      |
-| 2   | NCG release 1000× too small (units) — **two instances**          | MEDIUM   | none — NCG is inert                 | **FIXED**                      |
-| 3   | Carrier steam decoupled from NCG load                            | LOW      | none, and arguably shouldn't change | **CLOSED — won't do**          |
-| 4   | NCG has no effect on heat transfer / pressure                    | LOW      | **structurally cannot affect GOR**  | **CLOSED — won't do**          |
-| 5   | Pure-water enthalpy baseline disagrees with IAPWS, sign-changing | HIGH     | +0.02 on GOR; broke the rung-1 gate | **FIXED**                      |
-| 6   | BARC golden input mislabels effect-1 temp as the steam temp      | HIGH     | +6.7% → +2.2% once corrected        | OPEN — awaiting decision       |
-| 7   | Evaporator U capped at a constant; `foulingResistance` is dead   | MEDIUM   | none — U never reaches the H&M      | OPEN — U reporting in progress |
+| #   | Finding                                                          | Severity | Effect on GOR                       | Status                |
+| --- | ---------------------------------------------------------------- | -------- | ----------------------------------- | --------------------- |
+| 1   | Seawater enthalpy uses S² where cp uses S^1.5                    | HIGH     | 10.05 → 10.25                       | **FIXED**             |
+| 2   | NCG release 1000× too small (units) — **two instances**          | MEDIUM   | none — NCG is inert                 | **FIXED**             |
+| 3   | Carrier steam decoupled from NCG load                            | LOW      | none, and arguably shouldn't change | **CLOSED — won't do** |
+| 4   | NCG has no effect on heat transfer / pressure                    | LOW      | **structurally cannot affect GOR**  | **CLOSED — won't do** |
+| 5   | Pure-water enthalpy baseline disagrees with IAPWS, sign-changing | HIGH     | +0.02 on GOR; broke the rung-1 gate | **FIXED**             |
+| 6   | BARC golden input mislabels effect-1 temp as the steam temp      | HIGH     | +6.7% → +2.2% once corrected        | **FIXED**             |
+| 7   | Evaporator U capped at a constant; `foulingResistance` is dead   | MEDIUM   | none — U never reaches the H&M      | **FIXED**             |
 
 Findings 1, 2 and 5 are fixed and independent of each other. Findings 3 and 4 are closed —
 see their sections for the structural reasons, which are the substance of this review.
@@ -318,7 +319,24 @@ the GOR check passed.
 correct inputs that is +2.2% alongside a 0.07 K profile match — which is why finding 4 is
 closed rather than merely deprioritised.
 
-**Decision needed**: correct the golden input to 62.2 / 38 and re-baseline once more.
+**FIXED 2026-07-31.** The golden input is corrected to 62.2 / 38 and the pins re-baselined.
+The same mislabel was present in **four** places, not one — every test in `medEngine.test.ts`
+claiming to validate against BARC passed `steamTemperature: 58.8` with `condenserApproach: 4`.
+All four now share a single `BARC_AS_BUILT` constant, so the operating point cannot drift
+apart between tests again.
+
+This is the first re-baseline in that file that improves agreement with the **plant** rather
+than tracking a model change:
+
+| Quantity | Was    | Now    | As-built | Error was | Error now   |
+| -------- | ------ | ------ | -------- | --------- | ----------- |
+| Effect 1 | 55.5   | 58.83  | 58.8     | −3.3 K    | **+0.03 K** |
+| Effect 6 | 39.0   | 42.00  | 42.0     | −3.0 K    | **0.00 K**  |
+| GOR      | 10.25  | 9.82   | 9.61     | +6.7%     | **+2.2%**   |
+| Ra       | 1.0697 | 0.9878 | 0.935    | +14.4%    | **+5.6%**   |
+
+A new test asserts against the datasheet's own effect 1 and effect 6 temperatures directly,
+so the anchor now checks the plant rather than merely being self-consistent.
 
 #### 7. Evaporator U Is Capped at a Constant, and `foulingResistance` Does Nothing
 
@@ -341,8 +359,31 @@ used, and allow a per-design override — the same pattern `MEDDesignerInput` al
 engineering judgement instead of hiding it, and revives fouling resistance as a meaningful
 input.
 
-**Caution**: areas move for any design that overrides the cap, so the golden pins need
-re-baselining again. Best done as its own change.
+**FIXED 2026-07-31**, in two parts.
+
+_Reporting_ — `correlatedOverallHTC`, `designUCap`, `overallHTCSource`
+(`correlated` | `design-cap` | `user-override`) and `correlatedExcessPercent` are now on
+every evaporator result, and the cap is overridable per design via `evaporatorDesignU`.
+
+_Fouling_ — `foulingFactor` is now read by the sizing code, for the evaporator shell side and
+the condenser/preheater tube side. The defect was worse than "the input does nothing": the
+adapters injected **0.00015** while the sizing code hardcoded **0.00009**, and the
+verification PDF printed the adapter's 0.00015 as "TEMA seawater standard" — a design basis
+the numbers never used. 0.00015 is not a TEMA figure at all; TEMA seawater is 0.0005
+hr·ft²·°F/Btu (**8.8e-5** SI) below 125 °F and 0.001 (1.76e-4) above, and MED effects run
+35–70 °C.
+
+Both now resolve to one shared `DEFAULT_SEAWATER_FOULING_M2KW = 0.00009` in
+`packages/constants` — the same value `fallingFilmCalculator` has always used, so the MED
+solver and the standalone calculator it wraps finally agree. **Default behaviour is
+unchanged**, so no re-baseline was needed; the caution above did not apply once the defaults
+were reconciled rather than switched.
+
+The input is now live, and its magnitude is worth knowing: at the BARC geometry the
+correlated U is **3,146 W/m²·K** at 0.00009 — 1.5% above the 3,100 cap, so the cap binds.
+At 0.00015 it falls to **~2,650**, below the cap, so the cap stops binding and required area
+rises ~17%. That is the real trade-off, and it is now the designer's to make explicitly
+rather than something the code decided silently.
 
 ---
 
@@ -482,13 +523,21 @@ its own saturation line for its entire length while passing every gate.
    decarbonator** in the design — all dissolved gas enters with the feed. Alkalinity
    therefore becomes a required plant input, not a constant.
 
-4. **Re-baseline the BARC pins once or twice?** Doing findings 1 and 4 before re-baselining
-   means one re-baseline instead of two, but leaves 7 tests red in the meantime.
+4. ~~**Re-baseline the BARC pins once or twice?**~~ **RESOLVED** — twice in the end, but the
+   second was worth it: the first tracked findings 1 and 5, the second (finding 6) corrected
+   the operating point itself and improved plant agreement.
 
-5. **If finding 4 does not close the +6.5% gap**, does the residual get documented as a known
-   model bias or investigated further? Candidates not yet examined: ambient heat loss (not
-   modelled anywhere), steam quality below 1 at the TVC inlet, in-service versus clean
-   fouling resistance, and whether the as-built 9.61 was measured at design conditions.
+5. **The residual +2.2% GOR gap.** Finding 6 reduced it from +6.7%, and finding 4 is closed,
+   so this is no longer attributable to NCG. Candidates not yet examined: ambient heat loss
+   (not modelled anywhere), steam quality below 1 at the TVC inlet, in-service versus clean
+   fouling resistance, and whether the as-built 9.61 was measured at design conditions. At
+   2.2% against a plant measurement this may simply be the noise floor — worth deciding
+   whether to document it as a known bias rather than chase it.
+
+6. **Fouling basis for a 70 °C TBT design.** TEMA gives 1.76e-4 above 125 °F (52 °C), double
+   the 8.8e-5 default now used. A design running TBT at 70 °C has its first effects above
+   that threshold. Whether to apply a per-effect fouling resistance rather than one plant-wide
+   value is a modelling decision, not a defect — the input now exists to express it either way.
 
 ---
 

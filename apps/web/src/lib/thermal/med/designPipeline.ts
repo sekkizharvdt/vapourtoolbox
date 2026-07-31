@@ -23,6 +23,7 @@ import {
   getLatentHeat,
   getSeawaterDensity,
   getSaturationTemperature,
+  DEFAULT_SEAWATER_FOULING_M2KW,
 } from '@vapour/constants';
 import type {
   MEDDesignerInput,
@@ -235,7 +236,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     // nea/demisterLoss/ductLoss are NOT passed: the engine computes its own
     // per-effect losses and never read those inputs (removed as dead knobs).
     // NEA/demLoss/pdLoss above remain in use for scenario/GOR estimation only.
-    foulingResistance: input.foulingResistance ?? 0.00015,
+    foulingResistance: input.foulingResistance ?? DEFAULT_SEAWATER_FOULING_M2KW,
     ...(input.bpeSafetyFactor &&
       input.bpeSafetyFactor !== 1.0 && { bpeSafetyFactor: input.bpeSafetyFactor }),
     evapTubeOD: tubeOD,

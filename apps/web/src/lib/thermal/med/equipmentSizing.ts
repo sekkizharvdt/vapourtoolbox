@@ -357,15 +357,13 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   /**
    * Overall U from the geometry and correlations, with no cap applied.
    *
-   * NOTE: the shell-side fouling deliberately still uses
-   * DEFAULT_FOULING_SEAWATER (0.00009) rather than the caller's `foulingFactor`
-   * (default 0.00015). Those are two different defaults for the same physical
-   * quantity, and switching to the caller's value drops the correlated U below
-   * the design cap, raising required areas ~15%. Reconciling them is a separate
-   * decision with a real magnitude — see
-   * docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md finding 7. This
-   * change only makes the correlated value visible; it does not alter what is
-   * used for sizing.
+   * The seawater-side fouling is the caller's `foulingFactor` — the input the
+   * designer sets and the verification report prints as the design basis. It
+   * used to be a hardcoded DEFAULT_FOULING_SEAWATER while the adapters injected
+   * a different value (0.00015), so the input had no effect and the report
+   * stated a basis the numbers did not reflect. Both defaults are now the same
+   * shared constant, so default behaviour is unchanged and a designer who
+   * raises fouling gets the larger area they asked for.
    */
   const computeCorrelatedOverallHTC = (shellHTC: number): number =>
     calculateOverallHTC({
@@ -375,7 +373,7 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
       tubeID: tubeID / 1000,
       tubeWallConductivity,
       tubeSideFouling: DEFAULT_FOULING_DISTILLATE,
-      shellSideFouling: DEFAULT_FOULING_SEAWATER,
+      shellSideFouling: inputs.foulingFactor ?? DEFAULT_FOULING_SEAWATER,
     }).overallHTC;
 
   /** The U actually used for sizing — the correlated value, limited by the cap. */
@@ -590,6 +588,11 @@ interface CondensingHXInput {
   estimatedTubeRows?: number;
   /** NCG degradation factor (fraction of HTC lost to NCG blanketing, default 0) */
   ncgDegradation?: number;
+  /**
+   * Seawater-side fouling resistance in m²·K/W. Seawater is tube-side in these
+   * condensing exchangers. Defaults to DEFAULT_FOULING_SEAWATER.
+   */
+  seawaterFouling?: number;
 }
 
 interface CondensingHXResult {
@@ -661,7 +664,7 @@ function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
       tubeOD: tubeSpec.od / 1000,
       tubeID,
       tubeWallConductivity,
-      tubeSideFouling: DEFAULT_FOULING_SEAWATER,
+      tubeSideFouling: input.seawaterFouling ?? DEFAULT_FOULING_SEAWATER,
       shellSideFouling: DEFAULT_FOULING_DISTILLATE,
     });
     return result.overallHTC;
@@ -757,6 +760,7 @@ function sizeFinalCondenser(
     swInletTemp: swInTemp,
     swOutletTemp: swOutTemp,
     swSalinity: inputs.seawaterSalinity,
+    seawaterFouling: inputs.foulingFactor,
     swMassFlow: condenser.seawaterIn.flow,
     tubeSpec,
     designVelocity: 1.8,
@@ -836,6 +840,7 @@ function sizePreheater(
     swInletTemp: preheater.seawaterInletTemp,
     swOutletTemp: preheater.seawaterOutletTemp,
     swSalinity: inputs.seawaterSalinity,
+    seawaterFouling: inputs.foulingFactor,
     swMassFlow: preheater.seawaterFlow,
     tubeSpec,
     designVelocity: 1.6,

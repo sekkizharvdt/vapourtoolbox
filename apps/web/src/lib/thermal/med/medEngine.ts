@@ -37,6 +37,7 @@ import {
   getDensityVapor,
   TOTAL_DISSOLVED_GAS_MG_PER_LITRE,
   DUCT_K_FACTOR,
+  DEFAULT_SEAWATER_FOULING_M2KW,
 } from '@vapour/constants';
 import type { MEDEffectResult, MEDFinalCondenserResult, PreheaterConfig } from '@vapour/types';
 import {
@@ -748,7 +749,7 @@ export function calculateMED(input: MEDEngineInput): MEDEngineResult {
     condenserApproachTemp: input.condenserApproach ?? 4,
     distillateTemp: condenserOutlet - 2,
     condensateExtraction: 'FINAL_CONDENSER',
-    foulingFactor: input.foulingResistance ?? 0.00015,
+    foulingFactor: input.foulingResistance ?? DEFAULT_SEAWATER_FOULING_M2KW,
     ...(input.evaporatorDesignU !== undefined && {
       evaporatorDesignU: input.evaporatorDesignU,
     }),

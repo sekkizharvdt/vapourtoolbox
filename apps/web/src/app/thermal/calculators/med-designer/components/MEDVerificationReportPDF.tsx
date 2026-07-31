@@ -30,6 +30,7 @@ import {
   getSeawaterThermalConductivity,
   getBoilingPointElevation,
   NEA_FLASH_FRACTION,
+  DEFAULT_SEAWATER_FOULING_M2KW,
 } from '@vapour/constants';
 
 /* ─── Local styles ──────────────────────────────────────────── */
@@ -1117,10 +1118,10 @@ export function MEDVerificationReportPDF({
             }}
           >
             The plant is designed with fouling resistance R_f ={' '}
-            {fmt(Number(rd.foulingFactor ?? 0.00015) * 1e6, 0)} × 10⁻⁶ m²·K/W (TEMA seawater
-            standard). Heat transfer degrades as scale builds up on tube surfaces. Acid cleaning is
-            required periodically to restore design capacity. Monitor the indicators below during
-            operation:
+            {fmt(Number(rd.foulingFactor ?? DEFAULT_SEAWATER_FOULING_M2KW) * 1e6, 0)} × 10⁻⁶ m²·K/W
+            (TEMA seawater, below 52 °C). Heat transfer degrades as scale builds up on tube
+            surfaces. Acid cleaning is required periodically to restore design capacity. Monitor the
+            indicators below during operation:
           </Text>
 
           <Text

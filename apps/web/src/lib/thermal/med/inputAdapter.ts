@@ -9,7 +9,11 @@
  * (TBT, concentration factor, tube specs) that the core solver needs.
  */
 
-import { getBoilingPointElevation, getSaturationPressure } from '@vapour/constants';
+import {
+  getBoilingPointElevation,
+  getSaturationPressure,
+  DEFAULT_SEAWATER_FOULING_M2KW,
+} from '@vapour/constants';
 import type { MEDPlantInputs, TubeMaterial } from '@vapour/types';
 import type { MEDDesignerInput, MEDScenarioRow } from './designerTypes';
 
@@ -252,7 +256,7 @@ export function toMEDPlantInputs(resolved: ResolvedDesignerInputs): MEDPlantInpu
     condenserApproachTemp: condenserApproach,
     distillateTemp: condenserSWOutlet - 2, // distillate cooled to near condenser outlet
     condensateExtraction: 'FINAL_CONDENSER',
-    foulingFactor: input.foulingResistance ?? 0.00015,
+    foulingFactor: input.foulingResistance ?? DEFAULT_SEAWATER_FOULING_M2KW,
 
     evaporatorTubes: {
       od: resolved.tubeOD,
