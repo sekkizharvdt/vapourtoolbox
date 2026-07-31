@@ -1,0 +1,381 @@
+/**
+ * Regenerates docs/thermal/fixtures/flash-chamber-cases.json.
+ *
+ * Run: pnpm fixtures:flash-chamber
+ *
+ * Executed through jest rather than as a bare node script: the calculator pulls
+ * in `pipeService`, which imports `@vapour/firebase`, whose client module never
+ * settles outside a browser-like environment. Jest already resolves and stubs
+ * that graph for the test suite, so running here costs nothing and avoids
+ * restructuring shared infrastructure for a fixture script. The `.gen.ts` suffix
+ * keeps it out of `testMatch`, so normal test runs never execute it.
+ *
+ * The fixture set is the numerical anchor the external dynamic-simulator work
+ * (vapour-dynamics, rungs 0/1) checks its steady-state flash against. Earlier
+ * revisions were produced ad hoc, which is how v3 came to drop two keys without
+ * recording it and break a consumer at import time. Generating from a checked-in
+ * script makes every revision reproducible and diffable.
+ *
+ * Each case carries, beside the expected output:
+ *   - inletConsistency — proof the stated feed is genuinely subcooled liquid
+ *   - sensitivity      — how much a small enthalpy error is amplified into the
+ *                        vapour rate, so a consumer can size its own tolerance
+ */
+
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { getSaturationPressure, getSeawaterEnthalpy } from '@vapour/constants';
+import type { FlashChamberInput } from '@vapour/types';
+
+import { calculateFlashChamber, resolveInletPressureMbar } from '../flashChamberCalculator';
+
+const SCHEMA_VERSION = 5;
+
+const OUTPUT_PATH = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'docs',
+  'thermal',
+  'fixtures',
+  'flash-chamber-cases.json'
+);
+
+/** Geometry and velocity inputs held constant so cases differ only in process conditions. */
+const COMMON: Omit<
+  FlashChamberInput,
+  'waterType' | 'salinity' | 'operatingPressure' | 'waterFlowRate' | 'inletTemperature'
+> = {
+  mode: 'WATER_FLOW',
+  flowRateUnit: 'TON_HR',
+  retentionTime: 2.5,
+  flashingZoneHeight: 500,
+  sprayAngle: 60,
+  inletWaterVelocity: 2.5,
+  outletWaterVelocity: 0.1,
+  vaporVelocity: 20,
+  pumpCenterlineAboveFFL: 0.6,
+  operatingLevelAbovePump: 4,
+  operatingLevelRatio: 0.5,
+  btlGapBelowLGL: 0.1,
+  autoCalculateDiameter: true,
+};
+
+interface CaseSpec {
+  id: string;
+  note: string;
+  waterType: FlashChamberInput['waterType'];
+  salinity: number;
+  operatingPressure: number;
+  waterFlowRate: number;
+  inletTemperature: number;
+  /** Omitted means the default 3 bar full-cone differential. */
+  sprayNozzleDeltaPBar?: number;
+}
+
+const CASE_SPECS: CaseSpec[] = [
+  {
+    id: 'dm-01',
+    note: 'DM water, moderate vacuum, large flash dT.',
+    waterType: 'DM_WATER',
+    salinity: 0,
+    operatingPressure: 60,
+    waterFlowRate: 100,
+    inletTemperature: 46,
+  },
+  {
+    id: 'dm-02',
+    note: 'DM water at 63 C. Was the v2 expected-to-fail diagnostic; finding 5 removed the enthalpy crossover and it now agrees to 0.017%.',
+    waterType: 'DM_WATER',
+    salinity: 0,
+    operatingPressure: 200,
+    waterFlowRate: 100,
+    inletTemperature: 63,
+  },
+  {
+    id: 'sw-01',
+    note: 'Standard seawater. Pairs with dm-01 to isolate the salinity terms.',
+    waterType: 'SEAWATER',
+    salinity: 35000,
+    operatingPressure: 60,
+    waterFlowRate: 100,
+    inletTemperature: 46,
+  },
+  {
+    id: 'sw-02',
+    note: 'Concentrated feed, deeper vacuum.',
+    waterType: 'SEAWATER',
+    salinity: 45000,
+    operatingPressure: 100,
+    waterFlowRate: 60,
+    inletTemperature: 52,
+  },
+  {
+    id: 'sw-03',
+    note: 'High salinity.',
+    waterType: 'SEAWATER',
+    salinity: 60000,
+    operatingPressure: 80,
+    waterFlowRate: 80,
+    inletTemperature: 49,
+  },
+  {
+    id: 'sw-04',
+    note: 'Small flash dT (~1.4 K) \u2014 highest amplification in the set.',
+    waterType: 'SEAWATER',
+    salinity: 45000,
+    operatingPressure: 312,
+    waterFlowRate: 120,
+    inletTemperature: 72,
+  },
+  {
+    id: 'sw-05',
+    note: "ADDED v4 at the simulator session's request: last-effect brine concentration. The two enthalpy implementations diverge faster than linearly with salinity (+0.13% at 35 g/kg, +0.25% at 45, +0.54% at 60), and a MED train reaches 70-120 g/kg by the last effect \u2014 beyond what the v3 grid covered. Needed before rung 7.",
+    waterType: 'SEAWATER',
+    salinity: 90000,
+    operatingPressure: 100,
+    waterFlowRate: 60,
+    inletTemperature: 52,
+  },
+  {
+    id: 'sw-06',
+    note: 'ADDED v4: near the top of the MIT correlation validity range. Feed is 115,000 ppm; the brine concentrates above that but stays inside 120,000, which is the hard ceiling \u2014 120,000 ppm feed throws, correctly, because the brine would exceed the correlation range.',
+    waterType: 'SEAWATER',
+    salinity: 115000,
+    operatingPressure: 200,
+    waterFlowRate: 60,
+    inletTemperature: 63,
+  },
+  {
+    id: 'sw-07',
+    note:
+      'ADDED v5. Hot feed flashed to deep vacuum — a ~30 K flash at the LOWEST amplification in ' +
+      'the set, the regime the grid previously lacked entirely. Only expressible now that the ' +
+      'spray-nozzle differential is an input: the old hardcoded inlet of operating + 50 mbar ' +
+      'stated this feed far below its own saturation pressure (702 mbar at 90 °C).',
+    waterType: 'SEAWATER',
+    salinity: 35000,
+    operatingPressure: 200,
+    waterFlowRate: 100,
+    inletTemperature: 90,
+  },
+  {
+    id: 'dm-03',
+    note:
+      'ADDED v5. The same large flash on DM water, pairing with sw-07 the way dm-01 pairs with ' +
+      'sw-01, so seawater-property error can be separated from flash error at large dT.',
+    waterType: 'DM_WATER',
+    salinity: 0,
+    operatingPressure: 200,
+    waterFlowRate: 100,
+    inletTemperature: 90,
+  },
+];
+
+function buildInput(spec: CaseSpec): FlashChamberInput {
+  return {
+    ...COMMON,
+    waterType: spec.waterType,
+    salinity: spec.salinity,
+    operatingPressure: spec.operatingPressure,
+    waterFlowRate: spec.waterFlowRate,
+    inletTemperature: spec.inletTemperature,
+    ...(spec.sprayNozzleDeltaPBar !== undefined && {
+      sprayNozzleDeltaPBar: spec.sprayNozzleDeltaPBar,
+    }),
+  };
+}
+
+const round = (n: number, d: number): number => Number(n.toFixed(d));
+
+function buildCase(spec: CaseSpec) {
+  const input = buildInput(spec);
+  const result = calculateFlashChamber(input);
+  const { inlet, brine } = result.heatMassBalance;
+
+  const inletPressureMbar = resolveInletPressureMbar(
+    spec.operatingPressure,
+    spec.sprayNozzleDeltaPBar
+  );
+  const saturationAtInletMbar = getSaturationPressure(spec.inletTemperature) * 1000;
+
+  // Amplification: the vapour rate is (h_in - h_brine) / h_fg, so a relative
+  // error in either enthalpy is magnified by the ratio of the enthalpy LEVEL to
+  // the enthalpy DIFFERENCE. A consumer gating on vapour rate needs to divide
+  // its tolerance by this factor to get the enthalpy accuracy it implies.
+  const enthalpyDifference = inlet.enthalpy - brine.enthalpy;
+  const amplificationFactor = Math.abs(inlet.enthalpy / enthalpyDifference);
+  const flashDeltaTK = inlet.temperature - brine.temperature;
+
+  const brineSalinityPpm =
+    spec.waterType === 'SEAWATER' ? (spec.salinity * inlet.flowRate) / brine.flowRate : 0;
+
+  return {
+    id: spec.id,
+    note: spec.note,
+    input,
+    inletConsistency: {
+      inletPressureMbar: round(inletPressureMbar, 1),
+      saturationPressureAtInletTempMbar: round(saturationAtInletMbar, 1),
+      subcoolMarginMbar: round(inletPressureMbar - saturationAtInletMbar, 1),
+      subcooled: inletPressureMbar > saturationAtInletMbar,
+      sprayNozzleDeltaPBar: round((inletPressureMbar - spec.operatingPressure) / 1000, 3),
+    },
+    sensitivity: {
+      flashDeltaTK: round(flashDeltaTK, 3),
+      enthalpyDifferenceKjKg: round(enthalpyDifference, 3),
+      amplificationFactor: round(amplificationFactor, 2),
+      enthalpyAccuracyNeededForHalfPercentFlowGate: `${(0.5 / amplificationFactor).toFixed(3)}%`,
+      brineSalinityPpm: round(brineSalinityPpm, 0),
+      concentrationFactor:
+        spec.waterType === 'SEAWATER' ? round(brineSalinityPpm / spec.salinity, 4) : null,
+    },
+    expected: {
+      heatMassBalance: result.heatMassBalance,
+      chamberSizing: result.chamberSizing,
+      nozzles: result.nozzles,
+      npsha: result.npsha,
+      elevations: result.elevations,
+    },
+    // Stays at case level, where v4 consumers read it. Moving it under
+    // `expected` would be exactly the v3 mistake: a silent relocation that
+    // breaks a reader at import time.
+    warnings: result.warnings,
+  };
+}
+
+it('regenerates the flash chamber fixture set', () => {
+  const cases = CASE_SPECS.map(buildCase);
+
+  // Guardrails: the whole point of v2 was that every stated feed is a real
+  // subcooled liquid. Fail loudly rather than emit an ill-posed fixture.
+  for (const c of cases) {
+    if (!c.inletConsistency.subcooled) {
+      throw new Error(
+        `${c.id}: inlet pressure ${c.inletConsistency.inletPressureMbar} mbar is below the ` +
+          `saturation pressure ${c.inletConsistency.saturationPressureAtInletTempMbar} mbar at ` +
+          `${c.input.inletTemperature} °C — the feed would already be flashing in its supply pipe.`
+      );
+    }
+    if (c.expected.heatMassBalance.vapor.flowRate <= 0) {
+      throw new Error(`${c.id}: non-positive vapour rate — the case does not flash.`);
+    }
+  }
+
+  const amplifications = cases.map((c) => c.sensitivity.amplificationFactor);
+  const worst = cases.reduce((a, b) =>
+    a.sensitivity.amplificationFactor > b.sensitivity.amplificationFactor ? a : b
+  );
+  const best = cases.reduce((a, b) =>
+    a.sensitivity.amplificationFactor < b.sensitivity.amplificationFactor ? a : b
+  );
+
+  // Sanity-check the enthalpy path used for the amplification figure is the same
+  // one the calculator uses, so the guidance cannot drift from the data.
+  const spotCheck = getSeawaterEnthalpy(35000, 60);
+  if (!Number.isFinite(spotCheck)) {
+    throw new Error('Seawater enthalpy path is unavailable — refusing to emit fixtures.');
+  }
+
+  const payload = {
+    schemaVersion: SCHEMA_VERSION,
+    generatedBy: 'scripts/thermal/generate-flash-chamber-fixtures.ts',
+    generatedFor: 'vapour-dynamics rung 0/1 — spec section 7.1 / 7.2',
+    schemaChanges: {
+      v5: {
+        added: [
+          'cases sw-07 and dm-03 — ~30 K flash at low amplification, previously inexpressible',
+          'inletConsistency.sprayNozzleDeltaPBar',
+          'input.sprayNozzleDeltaPBar (omitted where the 3 bar default applies)',
+        ],
+        removed: [],
+        changed: [
+          'inletConsistency.inletPressureMbar and expected.heatMassBalance.inlet.pressure — the ' +
+            'feed pressure is now chamber + spray-nozzle differential (default 3 bar) instead of ' +
+            'a hardcoded operating + 50 mbar. Every case moves. No other expected value changes: ' +
+            'liquid enthalpy is nearly pressure-independent, so the flash is unaffected.',
+        ],
+        note:
+          'The v4 knownLimitations.inletPressure entry is resolved and removed. Fixtures are now ' +
+          'generated by a checked-in script rather than ad hoc.',
+      },
+      v4: {
+        added: ['cases sw-05 (90,000 ppm) and sw-06 (115,000 ppm)', 'sensitivity.brineSalinityPpm'],
+        removed: [],
+        note: 'No keys removed. v3 removed usableAsNumericalGate and crossover without listing them, which broke a consumer that read them at import time — removals are now listed explicitly.',
+      },
+      v3: {
+        added: ['sensitivity block'],
+        removed: ['usableAsNumericalGate', 'crossover'],
+        note: 'Removals were not documented at the time. Recorded here retrospectively.',
+      },
+      v2: {
+        added: ['inletConsistency', 'crossover', 'usableAsNumericalGate'],
+        removed: [],
+        note: 'Corrected v1, where every inlet was stated below its own saturation pressure.',
+      },
+    },
+    correctionsApplied: [
+      'Finding 1 — seawater enthalpy salinity exponent S^2 -> S^1.5.',
+      'Finding 5 — pure-water h and cp re-based on IAPWS-IF97 Region 1; agreement with published h_f now better than 0.06% at every point with no sign change.',
+      'Inlet pressure is a real input — the spray-nozzle differential — not a hardcoded allowance.',
+      'All inlets genuinely subcooled, asserted by the generator rather than by inspection.',
+    ],
+    knownLimitations: {
+      salinityCeiling:
+        'Feed salinity cannot reach 120,000 ppm because the BRINE concentrates past the MIT correlation limit and the property function throws (correctly). sw-06 at 115,000 ppm feed is close to the practical maximum.',
+      correlationDivergence:
+        "The two enthalpy implementations differ systematically with salinity and the gap grows faster than linearly. Both sit inside MIT's stated +/-1.36%, so neither is wrong, and it largely cancels in the enthalpy DIFFERENCE. sw-05 and sw-06 exist to keep that trend visible at MED last-effect concentrations.",
+      nozzleFlowCoupling:
+        'The spray-nozzle differential sets the feed pressure but the feed FLOW is still stated directly, as this is a steady-state fixture. A dynamic model must close the loop: flow through the nozzle follows Q = Q_rated x (dP / P_rated)^n, so it responds to chamber pressure.',
+    },
+    gateGuidance: {
+      recommended: 'Gate on vapour rate, vapour and brine temperatures, and mass/energy closure.',
+      amplificationWarning:
+        `Amplification is computed per case in the sensitivity block and spans ${best.sensitivity.amplificationFactor} ` +
+        `to ${worst.sensitivity.amplificationFactor} across this set. The worst is ${worst.id} at ` +
+        `${worst.sensitivity.amplificationFactor}, where a 0.5% vapour-rate gate implies ` +
+        `${worst.sensitivity.enthalpyAccuracyNeededForHalfPercentFlowGate} enthalpy agreement — tighter than ` +
+        'either implementation claims. Read the per-case value; do not assume a single figure.',
+      largeFlashCases:
+        `${cases
+          .filter((c) => c.sensitivity.flashDeltaTK > 25)
+          .map((c) => c.id)
+          .join(
+            ' and '
+          )} are the low-amplification, large-dT cases: a 0.5% vapour-rate gate there implies ` +
+        `only ${cases.find((c) => c.id === 'sw-07')!.sensitivity.enthalpyAccuracyNeededForHalfPercentFlowGate} ` +
+        'enthalpy agreement, so they are the practical cases to gate hard on.',
+      preferred:
+        'Gate on the enthalpy difference with the case amplification divided out, as well as on vapour rate. The normalised quantity is comparable between cases; raw flow error is not.',
+    },
+    units: {
+      flowRate: 't/h',
+      temperature: 'degC',
+      pressure: 'mbar(a)',
+      enthalpy: 'kJ/kg',
+      heatDuty: 'kW',
+      salinity: 'ppm',
+      length: 'mm',
+      volume: 'm3',
+      area: 'm2',
+      elevation: 'm',
+      nozzleDifferential: 'bar',
+    },
+    cases,
+  };
+
+  writeFileSync(OUTPUT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `Wrote ${cases.length} cases (schemaVersion ${SCHEMA_VERSION}) to ${OUTPUT_PATH}\n` +
+      `Amplification ${Math.min(...amplifications)}–${Math.max(...amplifications)} ` +
+      `(best ${best.id}, worst ${worst.id})`
+  );
+});

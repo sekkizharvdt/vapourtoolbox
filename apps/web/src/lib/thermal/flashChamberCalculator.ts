@@ -45,7 +45,11 @@ import type {
   FlashChamberElevations,
   FlowRateUnit,
 } from '@vapour/types';
-import { FLOW_RATE_CONVERSIONS } from '@vapour/types';
+import {
+  FLOW_RATE_CONVERSIONS,
+  FLASH_CHAMBER_LIMITS,
+  DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR,
+} from '@vapour/types';
 
 // ============================================================================
 // Constants
@@ -240,6 +244,24 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
     warnings.push(
       `Vapor velocity ${input.vaporVelocity} m/s is outside typical range (${limits.vaporVelocity.min}-${limits.vaporVelocity.max} m/s)`
     );
+  }
+
+  // Spray-nozzle differential: only warn when supplied, since the default is
+  // inside the band by construction.
+  if (input.sprayNozzleDeltaPBar !== undefined) {
+    if (input.sprayNozzleDeltaPBar <= 0) {
+      errors.push('Spray nozzle differential pressure must be greater than zero');
+    } else if (
+      input.sprayNozzleDeltaPBar < FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.min ||
+      input.sprayNozzleDeltaPBar > FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.max
+    ) {
+      warnings.push(
+        `Spray nozzle differential ${input.sprayNozzleDeltaPBar} bar is outside the catalogue ` +
+          `data band (${FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.min}-${FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.max} bar) — ` +
+          'nozzle flows extrapolate via Q ∝ ΔP^n and spray angles clamp at the band edge; ' +
+          'verify the selection in the spray nozzle calculator against manufacturer data'
+      );
+    }
   }
 
   return {
@@ -439,6 +461,7 @@ export function calculateFlashChamber(
     vaporFlow,
     brineFlow,
     input.inletTemperature,
+    input.sprayNozzleDeltaPBar,
     satTemp,
     satTempPure,
     opPressureMbar,
@@ -526,11 +549,28 @@ export function calculateFlashChamber(
  * @param opPressureMbar - Operating pressure in mbar absolute
  * @param waterType - Type of water (seawater or DM water)
  */
+/**
+ * Feed pressure at the chamber inlet nozzle, in mbar absolute.
+ *
+ * The feed arrives through a spray nozzle, so the inlet pressure is the chamber
+ * pressure plus the differential across the nozzle — that differential is what
+ * sets the flow through the nozzle's `Q ∝ ΔP^n` characteristic, and is the
+ * number the engineer specifies when selecting the nozzle.
+ */
+export function resolveInletPressureMbar(
+  operatingPressureMbar: number,
+  sprayNozzleDeltaPBar: number | undefined
+): number {
+  const deltaPBar = sprayNozzleDeltaPBar ?? DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR;
+  return operatingPressureMbar + deltaPBar * 1000;
+}
+
 function calculateHeatMassBalance(
   waterFlow: number,
   vaporFlow: number,
   brineFlow: number,
   inletTemp: number,
+  sprayNozzleDeltaPBar: number | undefined,
   satTemp: number,
   satTempPure: number,
   opPressureMbar: number,
@@ -558,7 +598,7 @@ function calculateHeatMassBalance(
     stream: inletStreamName,
     flowRate: waterFlow,
     temperature: inletTemp,
-    pressure: opPressureMbar + 50, // Assume ~50 mbar pressure drop at inlet
+    pressure: resolveInletPressureMbar(opPressureMbar, sprayNozzleDeltaPBar),
     enthalpy: inletEnthalpy,
     heatDuty: inletHeatDuty,
   };

@@ -106,6 +106,28 @@ export interface FlashChamberInput {
   /** Gap between LG-L (Low Level) and BTL (Bottom Tangent Line) in meters (typical: ~0.1m) */
   btlGapBelowLGL: number;
 
+  /**
+   * Pressure differential across the spray nozzle in bar.
+   *
+   * The feed enters through a spray nozzle, so the flow is set by the nozzle's
+   * `Q = Q_rated x (dP / P_rated)^n` characteristic — the differential across
+   * the nozzle is the parameter the engineer actually specifies, and the feed
+   * pressure at the inlet follows as `operatingPressure + dP`. Use the spray
+   * nozzle selector to pick a nozzle for the required flow at this dP.
+   *
+   * Defaults to the full-cone rated pressure of 3 bar (the same default the
+   * spray nozzle selector uses). The catalogue band is 0.5-6 bar; outside it,
+   * flows extrapolate and spray angles clamp, so the calculator warns.
+   *
+   * Before this was an input, the inlet pressure was hardcoded as
+   * `operatingPressure + 50 mbar` — a line-loss allowance, not a nozzle
+   * differential. That understated it by ~60x and stated the feed BELOW its own
+   * saturation pressure whenever the inlet ran more than a few degrees above
+   * the chamber saturation temperature, making the reported inlet stream
+   * physically impossible for the calculator's primary duty.
+   */
+  sprayNozzleDeltaPBar?: number;
+
   /** User-specified diameter in mm (optional - if provided, overrides auto-calculation) */
   userDiameter?: number;
 
@@ -464,10 +486,22 @@ export const FLASH_CHAMBER_LIMITS = {
   operatingLevelAbovePump: { min: 2.0, max: 15.0, unit: 'm' },
   operatingLevelRatio: { min: 0.2, max: 0.8, unit: '' },
   btlGapBelowLGL: { min: 0.05, max: 0.5, unit: 'm' },
+  // Spray-nozzle catalogue data band. Outside it, nozzle flows extrapolate via
+  // Q ∝ ΔP^n and spray angles clamp at the band edge.
+  sprayNozzleDeltaPBar: { min: 0.5, max: 6, unit: 'bar' },
   userDiameter: { min: 500, max: 5000, unit: 'mm' },
   // 10°C ≈ 12 mbar, 80°C ≈ 474 mbar — covers the full 50–500 mbar operating range
   flashingTemperature: { min: 10, max: 80, unit: '°C' },
 } as const;
+
+/**
+ * Default pressure differential across the feed spray nozzle, in bar.
+ *
+ * 3 bar is the FullJet full-cone rated pressure and the default the spray
+ * nozzle selector itself uses, so a flash chamber sized without an explicit
+ * differential lands on the same reference point the nozzle selection does.
+ */
+export const DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR = 3;
 
 /**
  * Flow rate conversion factors to ton/hr (base unit for calculations)

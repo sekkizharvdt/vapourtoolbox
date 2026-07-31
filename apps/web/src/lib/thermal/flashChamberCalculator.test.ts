@@ -517,5 +517,70 @@ describe('flashChamberCalculator', () => {
         );
       });
     });
+
+    // ==========================================================================
+    // Spray nozzle differential → reported inlet pressure
+    // ==========================================================================
+
+    describe('inlet pressure from the spray nozzle differential', () => {
+      /**
+       * The feed enters through a spray nozzle whose ΔP sets the flow, so the
+       * reported inlet pressure is chamber + ΔP. This replaced a hardcoded
+       * `operating + 50 mbar`, which is a line-loss allowance rather than a
+       * nozzle differential and stated the feed BELOW its own saturation
+       * pressure for any meaningful degree of flash.
+       */
+      it('reports inlet pressure as chamber pressure plus the nozzle differential', () => {
+        const result = calculateFlashChamber(
+          createValidInput({ operatingPressure: 200, sprayNozzleDeltaPBar: 3 })
+        );
+
+        expect(result.heatMassBalance.inlet.pressure).toBeCloseTo(3200, 6);
+      });
+
+      it('defaults to the 3 bar full-cone rated differential when not supplied', () => {
+        const result = calculateFlashChamber(createValidInput({ operatingPressure: 200 }));
+
+        expect(result.heatMassBalance.inlet.pressure).toBeCloseTo(3200, 6);
+      });
+
+      // The "feed stays above its own saturation pressure" check needs the REAL
+      // steam tables and lives in flashChamberCalculator.anchor.test.ts — this
+      // file mocks @vapour/constants, so asserting it here would test the mock.
+
+      it('does not let the differential change the heat and mass balance', () => {
+        // ΔP sets the feed pressure, but the flash is fixed by the chamber
+        // pressure and the feed temperature — liquid enthalpy is nearly
+        // pressure-independent, so vapour production must not move.
+        const low = calculateFlashChamber(createValidInput({ sprayNozzleDeltaPBar: 0.5 }));
+        const high = calculateFlashChamber(createValidInput({ sprayNozzleDeltaPBar: 6 }));
+
+        expect(low.heatMassBalance.vapor.flowRate).toBeCloseTo(
+          high.heatMassBalance.vapor.flowRate,
+          10
+        );
+        expect(low.chamberSizing.diameter).toBeCloseTo(high.chamberSizing.diameter, 10);
+      });
+
+      it('warns outside the catalogue band but stays valid', () => {
+        const result = validateFlashChamberInput(createValidInput({ sprayNozzleDeltaPBar: 8 }));
+
+        expect(result.isValid).toBe(true);
+        expect(result.warnings.some((w) => w.includes('catalogue data band'))).toBe(true);
+      });
+
+      it('rejects a non-positive differential', () => {
+        const result = validateFlashChamberInput(createValidInput({ sprayNozzleDeltaPBar: 0 }));
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors.some((e) => e.includes('greater than zero'))).toBe(true);
+      });
+
+      it('does not warn when the differential is omitted', () => {
+        const result = validateFlashChamberInput(createValidInput());
+
+        expect(result.warnings.some((w) => w.includes('catalogue data band'))).toBe(false);
+      });
+    });
   });
 });

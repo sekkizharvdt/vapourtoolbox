@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import type { FlashChamberInput, DemisterType } from '@vapour/types';
-import { FLASH_CHAMBER_LIMITS } from '@vapour/types';
+import { FLASH_CHAMBER_LIMITS, DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR } from '@vapour/types';
 import { calculateSprayZoneHeight } from './helpers';
 
 interface ChamberDesignInputsProps {
@@ -415,6 +415,42 @@ export function ChamberDesignInputs({
           onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Nozzle spray cone angle (${FLASH_CHAMBER_LIMITS.sprayAngle.min}° - ${FLASH_CHAMBER_LIMITS.sprayAngle.max}°). Wider angle = shorter spray zone.`}
+        fullWidth
+      />
+
+      {/* Spray Nozzle Differential Pressure */}
+      <TextField
+        label="Spray Nozzle ΔP"
+        type="number"
+        value={inputs.sprayNozzleDeltaPBar ?? DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR}
+        onChange={(e) =>
+          onChange(
+            'sprayNozzleDeltaPBar',
+            parseFloat(e.target.value) || DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR
+          )
+        }
+        InputProps={{
+          endAdornment: (
+            <>
+              <InputAdornment position="end">bar</InputAdornment>
+              <Tooltip title="Pressure differential across the feed spray nozzle. Sets the flow through the nozzle's Q ∝ ΔP^n characteristic, and fixes the feed pressure at the inlet as chamber pressure + ΔP. Use the Spray Nozzle calculator to select a nozzle for the required flow at this ΔP.">
+                <IconButton
+                  size="small"
+                  aria-label="Pressure differential across the feed spray nozzle."
+                >
+                  <InfoIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          ),
+        }}
+        inputProps={{
+          min: FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.min,
+          max: FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.max,
+          step: 0.5,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
+        }}
+        helperText={`Catalogue band ${FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.min}–${FLASH_CHAMBER_LIMITS.sprayNozzleDeltaPBar.max} bar (default ${DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR} bar). Inlet pressure = chamber pressure + ΔP.`}
         fullWidth
       />
 
