@@ -151,9 +151,17 @@ export function getSeawaterDensity(salinity: number, tempC: number): number {
 // ============================================================================
 
 /**
- * Calculate seawater specific heat capacity at constant pressure
+ * Calculate seawater specific heat capacity at constant pressure.
  *
- * Uses correlation from Sharqawy et al. (2010)
+ * Salinity dependence from **Sharqawy et al. (2010) Eq. (9)**, which reproduces
+ * Jamieson et al. (1969) — the accepted seawater cp correlation, and the one the
+ * MIT seawater library itself uses. Validity 0-180 C, 0-180 g/kg, +/-1.5%.
+ *
+ * The pure-water baseline stays IAPWS-IF97 Region 1 (see header). Eq. (9) is a
+ * single fit in S and T whose S = 0 limit is Jamieson's pure water, not IAPWS —
+ * 4.1894 against 4.1841 at 20 C, 0.13% out. Taking only its salinity DIFFERENCE
+ * keeps the authoritative pure-water standard exact at S = 0 while using the
+ * accepted correlation for the salt term.
  *
  * @param salinity - Salinity in ppm
  * @param tempC - Temperature in °C
@@ -168,22 +176,29 @@ export function getSeawaterSpecificHeat(salinity: number, tempC: number): number
     throw new Error(`Temperature ${tempC}°C is outside valid range (0-180°C)`);
   }
 
-  // Convert salinity from ppm to g/kg (S)
-  const S = salinity / 1000;
-
   // Pure water specific heat — IAPWS-IF97 Region 1 at saturation (see header)
   const tLookup = clampToIF97Domain(tempC);
   const Cp_w = getSpecificHeatSubcooled(getSaturationPressure(tLookup), tLookup);
 
-  // Seawater specific heat correction (Millero et al. form with S^1.5 term)
-  // Form: Cp = Cp_w + A*S + B*S^1.5
-  const A = -7.6444e-3 + 1.0727e-4 * tempC - 1.3839e-6 * tempC * tempC;
-  const B = 1.7413e-4 - 4.1326e-6 * tempC + 8.3486e-8 * tempC * tempC;
+  return Cp_w + jamiesonSalinityCp(salinity / 1000, tempC);
+}
 
-  // Seawater specific heat
-  const Cp_sw = Cp_w + A * S + B * Math.pow(S, 1.5);
-
-  return Cp_sw;
+/**
+ * Salinity contribution to cp, in kJ/(kg·K), from Sharqawy Eq. (9).
+ *
+ * Evaluated as `cp(S) - cp(0)` so the caller's pure-water baseline is preserved.
+ * Temperature enters in K, per the published form.
+ */
+function jamiesonSalinityCp(S_gkg: number, tempC: number): number {
+  const evaluate = (S: number): number => {
+    const T = tempC + 273.15;
+    const A = 5.328 - 9.76e-2 * S + 4.04e-4 * S * S;
+    const B = -6.913e-3 + 7.351e-4 * S - 3.15e-6 * S * S;
+    const C = 9.6e-6 - 1.927e-6 * S + 8.23e-9 * S * S;
+    const D = 2.5e-9 + 1.666e-9 * S - 7.125e-12 * S * S;
+    return A + B * T + C * T * T + D * T * T * T;
+  };
+  return evaluate(S_gkg) - evaluate(0);
 }
 
 // ============================================================================
@@ -191,10 +206,26 @@ export function getSeawaterSpecificHeat(salinity: number, tempC: number): number
 // ============================================================================
 
 /**
- * Calculate seawater specific enthalpy
+ * Calculate seawater specific enthalpy.
  *
- * Uses correlation from Sharqawy et al. (2010)
- * Reference state: h = 0 at T = 0°C and S = 0
+ * Salinity dependence from **Sharqawy et al. (2010) Eq. (43)** — the published
+ * seawater enthalpy correlation, fitted to Bromley et al. (1970) data. Validity
+ * 10-120 C, 0-120 g/kg, +/-1.5%.
+ *
+ * Reference state: h = 0 at T = 0 C and S = 0. Pure-water baseline is
+ * IAPWS-IF97 Region 1 (see header); Eq. (43) is written as `h_w + correction`,
+ * so substituting the authoritative h_w is the correlation's own structure, and
+ * the salinity term is exactly zero at S = 0 by construction.
+ *
+ * **This is not an exact integral pair with `getSeawaterSpecificHeat`.** Eq. (43)
+ * and Eq. (9) are independent fits to different datasets (Bromley and Jamieson),
+ * and they disagree by up to ~2.2% on `dh/dT` versus `cp` at 90 C and 120 g/kg.
+ * That is a documented property of the published correlations, not a defect
+ * here, and using both is what the MIT library and the wider literature do.
+ * It is acceptable because this codebase uses cp only for sensible duties and h
+ * only for stream enthalpies, never differentiating one to obtain the other. A
+ * DYNAMIC energy balance would need the derivative of Eq. (43) instead, and
+ * would then have a cp that is not Jamieson's — the opposite trade.
  *
  * @param salinity - Salinity in ppm
  * @param tempC - Temperature in °C
@@ -205,35 +236,47 @@ export function getSeawaterEnthalpy(salinity: number, tempC: number): number {
   if (salinity < 0 || salinity > 120000) {
     throw new Error(`Salinity ${salinity} ppm is outside valid range (0-120000 ppm)`);
   }
-  if (tempC < 0 || tempC > 180) {
-    throw new Error(`Temperature ${tempC}°C is outside valid range (0-180°C)`);
+  // Eq. (43)'s own envelope is 10-120 C — narrower than the 0-180 C of the cp
+  // correlation. Extrapolating silently is what the superseded home-grown
+  // integral did; refuse instead (rule 3).
+  if (tempC < 10 || tempC > 120) {
+    throw new Error(
+      `Temperature ${tempC}°C is outside the Sharqawy Eq. (43) validity range (10-120°C)`
+    );
   }
 
-  // Convert salinity from ppm to g/kg (S)
-  const S = salinity / 1000;
+  // Pure water enthalpy — IAPWS-IF97 Region 1 at saturation (see header)
+  const h_w = getEnthalpySubcooled(getSaturationPressure(tempC), tempC);
 
-  // Pure water enthalpy — IAPWS-IF97 Region 1 at saturation (see header).
-  // Replaces the integral of the Sharqawy Cp polynomial, which diverged above
-  // ~50 °C and crossed IF97 near 58 °C.
-  const tLookup = clampToIF97Domain(tempC);
-  const h_w = getEnthalpySubcooled(getSaturationPressure(tLookup), tLookup);
+  return h_w + sharqawySalinityEnthalpy(salinity / 1000, tempC);
+}
 
-  // Seawater enthalpy correction
-  const h_sw_correction =
-    S *
-    (-7.6444e-3 * tempC +
-      (1.0727e-4 / 2) * tempC * tempC -
-      (1.3839e-6 / 3) * tempC * tempC * tempC);
+/**
+ * Salinity contribution to enthalpy, in kJ/kg, from Sharqawy Eq. (43).
+ *
+ * Published form gives J/kg with S as a mass FRACTION (kg/kg), hence the /1000
+ * on the way in and the /1000 on the way out.
+ */
+function sharqawySalinityEnthalpy(S_gkg: number, tempC: number): number {
+  const S = S_gkg / 1000; // g/kg → mass fraction
+  const t = tempC;
+  const b = [
+    -2.348e4, 3.152e5, 2.803e6, -1.446e7, 7.826e3, -4.417e1, 2.139e-1, -1.991e4, 2.778e4, 9.728e1,
+  ] as const;
 
-  // S^1.5 — must match the exponent in the Cp correlation above (Millero form
-  // Cp = Cp_w + A·S + B·S^1.5). Enthalpy is the integral of Cp over temperature,
-  // so the salinity exponent is carried through unchanged; only the temperature
-  // powers are integrated.
-  const h_sw_correction2 =
-    Math.pow(S, 1.5) *
-    (1.7413e-4 * tempC - (4.1326e-6 / 2) * tempC * tempC + (8.3486e-8 / 3) * tempC * tempC * tempC);
+  const seriesJPerKg =
+    b[0] +
+    b[1] * S +
+    b[2] * S * S +
+    b[3] * S * S * S +
+    b[4] * t +
+    b[5] * t * t +
+    b[6] * t * t * t +
+    b[7] * S * t +
+    b[8] * S * S * t +
+    b[9] * S * t * t;
 
-  return h_w + h_sw_correction + h_sw_correction2;
+  return (-S * seriesJPerKg) / 1000; // J/kg → kJ/kg
 }
 
 // ============================================================================

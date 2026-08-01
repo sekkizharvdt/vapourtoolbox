@@ -1,0 +1,9 @@
+# Generated artifacts — a single writer owns the formatting.
+#
+# flash-chamber-cases.json is emitted by
+# apps/web/src/lib/thermal/__generators__/flashChamberFixtures.gen.ts and is
+# consumed by the external dynamic-simulator work as a numerical gate. Letting
+# prettier reformat it desyncs the committed file from its generator, so
+# re-running the generator produces a spurious diff and the artifact stops
+# being reproducible — which matters because another team gates against it.
+docs/thermal/fixtures/flash-chamber-cases.json

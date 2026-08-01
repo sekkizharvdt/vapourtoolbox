@@ -226,6 +226,20 @@ export interface EffectInput {
  * Calculate the heat and mass balance for a single evaporator effect
  * with explicit tube-side / shell-side separation.
  */
+/**
+ * Enthalpy of a seawater or brine stream, or 0 when the stream does not exist.
+ *
+ * A zero-flow stream carries no temperature — the callers default it to 0 °C,
+ * which is outside the Sharqawy Eq. (43) envelope (10–120 °C). The enthalpy is
+ * multiplied by the zero flow in every case, so evaluating it at all was the
+ * error, not the range check that exposed it. Salinity is clamped to the
+ * correlation ceiling for the same reason the call sites already clamped it.
+ */
+function streamEnthalpyOrZero(flow: number, salinity: number, tempC: number): number {
+  if (flow <= 0) return 0;
+  return getSeawaterEnthalpy(Math.min(salinity, 120000), tempC);
+}
+
 export function calculateEffect(input: EffectInput): MEDEffectResult {
   const {
     index,
@@ -435,14 +449,20 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
 
   // Shell inlet enthalpy sum (all streams entering the shell)
   const h_swIn_shell = getSeawaterEnthalpy(seawaterSalinity, seawaterSprayTemp);
-  const h_recircIn_shell = getSeawaterEnthalpy(
-    Math.min(recircBrineSalinity, 120000),
+  // Guarded the same way as the cascaded-brine term below: with no recirculation
+  // the stream does not exist and its temperature defaults to 0 °C, which is
+  // outside the Sharqawy Eq. (43) envelope. The enthalpy is multiplied by a zero
+  // flow either way, so asking for it at all was the error — not the range check.
+  const h_recircIn_shell = streamEnthalpyOrZero(
+    recircBrineFlow,
+    recircBrineSalinity,
     recircBrineTemp
   );
-  const h_cascBrineIn =
-    cascadedBrineFlow > 0
-      ? getSeawaterEnthalpy(Math.min(cascadedBrineSalinity, 120000), cascadedBrineTemp)
-      : 0;
+  const h_cascBrineIn = streamEnthalpyOrZero(
+    cascadedBrineFlow,
+    cascadedBrineSalinity,
+    cascadedBrineTemp
+  );
 
   const shellInletEnthalpy =
     (seawaterSprayFlow * h_swIn_shell) / 3600 +
@@ -688,13 +708,11 @@ export function calculateEffect(input: EffectInput): MEDEffectResult {
     (preheaterCondensateInFlow * h_phCondIn) / 3600 + // tube side: preheater condensate
     (seawaterSprayFlow * getSeawaterEnthalpy(seawaterSalinity, seawaterSprayTemp)) / 3600 + // shell: seawater
     (recircBrineFlow *
-      getSeawaterEnthalpy(Math.min(recircBrineSalinity, 120000), recircBrineTemp)) /
+      streamEnthalpyOrZero(recircBrineFlow, recircBrineSalinity, recircBrineTemp)) /
       3600 + // shell: recirc brine
-    (cascadedBrineFlow > 0
-      ? (cascadedBrineFlow *
-          getSeawaterEnthalpy(Math.min(cascadedBrineSalinity, 120000), cascadedBrineTemp)) /
-        3600
-      : 0); // shell: cascaded brine
+    (cascadedBrineFlow *
+      streamEnthalpyOrZero(cascadedBrineFlow, cascadedBrineSalinity, cascadedBrineTemp)) /
+      3600; // shell: cascaded brine
 
   const boundaryEnergyOut =
     (condensateOutFlow * h_condensateOutFinal) / 3600 + // tube side: distillate out

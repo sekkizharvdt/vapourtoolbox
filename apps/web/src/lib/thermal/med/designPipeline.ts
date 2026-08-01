@@ -542,14 +542,21 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   const netDistillateM3h = totalDistillate; // T/h ≈ m³/h for distillate (density ≈ 1)
   const plantPower: MEDPlantPower | undefined = (() => {
     if (netDistillateM3h <= 0) return undefined;
+
+    // One reported denominator for every row and the total, so the whole table
+    // reconciles against the m³/h printed in its own caption.
+    const reportedNetDistillateM3h = Math.round(netDistillateM3h * 100) / 100;
+
     const consumers: MEDPowerConsumer[] = [];
     const add = (service: string, category: MEDPowerConsumer['category'], kW: number) => {
       if (!(kW > 0)) return;
+      // Round before dividing — see the note on the total below.
+      const reportedKW = Math.round(kW * 100) / 100;
       consumers.push({
         service,
         category,
-        runningPowerKW: Math.round(kW * 100) / 100,
-        kWhPerM3: Math.round((kW / netDistillateM3h) * 1000) / 1000,
+        runningPowerKW: reportedKW,
+        kWhPerM3: Math.round((reportedKW / reportedNetDistillateM3h) * 1000) / 1000,
       });
     };
 
@@ -565,11 +572,20 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     }
 
     const totalPowerKW = consumers.reduce((s, c) => s + c.runningPowerKW, 0);
+
+    // Round the operands FIRST, then derive the ratio from them. Deriving it
+    // from the unrounded values instead produced a reported kWh/m³ that could
+    // not be reproduced from the reported kW and m³/h — an engineer checking the
+    // datasheet by hand got a different number, on every row and on the total.
+    // The gap was rounding-sized and sat just inside the test tolerance until a
+    // property change nudged it out.
+    const reportedPowerKW = Math.round(totalPowerKW * 100) / 100;
+
     return {
       consumers,
-      totalPowerKW: Math.round(totalPowerKW * 100) / 100,
-      totalKWhPerM3: Math.round((totalPowerKW / netDistillateM3h) * 1000) / 1000,
-      netDistillateM3h: Math.round(netDistillateM3h * 100) / 100,
+      totalPowerKW: reportedPowerKW,
+      totalKWhPerM3: Math.round((reportedPowerKW / reportedNetDistillateM3h) * 1000) / 1000,
+      netDistillateM3h: reportedNetDistillateM3h,
     };
   })();
 

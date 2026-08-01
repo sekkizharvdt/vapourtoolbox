@@ -104,28 +104,80 @@ describe('salinity behaviour', () => {
   });
 });
 
-describe('thermodynamic consistency: dh/dT along the saturation line ≈ cp', () => {
+describe('h and cp are independent published fits, and disagree by a known amount', () => {
   /**
-   * h and cp must be an integral/derivative pair. They are not exactly equal
-   * here because the enthalpy is evaluated along the SATURATION line while cp
-   * is (∂h/∂T) at constant pressure. The difference is
-   * (∂h/∂P)_T × dPsat/dT, which for liquid water is ~0.09% at 100 °C and
-   * smaller below. A 0.15% bound catches a broken integral pair (the S² bug
-   * gave 43%) while allowing the real saturation-line term.
+   * These are NOT an exact integral pair, and the test must not pretend they are.
+   *
+   * Enthalpy is Sharqawy Eq. (43), fitted to Bromley et al. (1970). Specific heat
+   * is Eq. (9), reproducing Jamieson et al. (1969). Different datasets, different
+   * fits, and they disagree on `dh/dT` versus `cp` by up to ~2.2% at the corner
+   * of the declared box. Using both is what the MIT library and the wider
+   * literature do; making them consistent would mean overriding one with the
+   * other and departing from the published correlations.
+   *
+   * The superseded home-grown pair WAS an exact integral pair — and was wrong,
+   * because it integrated a Millero cp form whose own pure-water baseline
+   * diverged above 50 °C. Self-consistency was never the property worth having.
+   *
+   * So this test does four things instead of asserting a tight bound:
+   *   1. catches gross errors anywhere in the box (the S^2 defect gave 43%)
+   *   2. holds a tighter bound in the envelope the plant actually runs in
+   *   3. PINS the known disagreement, so it can neither grow silently nor be
+   *      "fixed" by someone quietly re-deriving one correlation from the other
+   *   4. confirms the gap comes from salinity, not the pure-water baseline
    */
-  const TOLERANCE_PERCENT = 0.15;
+  const deviationPercent = (salinity: number, tempC: number): number => {
+    const eps = 0.01;
+    const numericalDerivative =
+      (getSeawaterEnthalpy(salinity, tempC + eps) - getSeawaterEnthalpy(salinity, tempC - eps)) /
+      (2 * eps);
+    const cp = getSeawaterSpecificHeat(salinity, tempC);
+    return ((numericalDerivative - cp) / cp) * 100;
+  };
 
-  it.each(SALINITIES)('holds at %i ppm across 20–100 °C', (salinity) => {
-    for (const tempC of [20, 40, 60, 70, 80, 100]) {
-      const eps = 0.01;
-      const numericalDerivative =
-        (getSeawaterEnthalpy(salinity, tempC + eps) - getSeawaterEnthalpy(salinity, tempC - eps)) /
-        (2 * eps);
-      const cp = getSeawaterSpecificHeat(salinity, tempC);
-      const deviationPercent = Math.abs(((numericalDerivative - cp) / cp) * 100);
+  const maxOver = (salinities: number[], temps: number[]): number =>
+    Math.max(...salinities.flatMap((s) => temps.map((t) => Math.abs(deviationPercent(s, t)))));
 
-      expect(deviationPercent).toBeLessThan(TOLERANCE_PERCENT);
-    }
+  const range = (from: number, to: number, step: number): number[] => {
+    const out: number[] = [];
+    for (let x = from; x <= to; x += step) out.push(x);
+    return out;
+  };
+
+  /** Where MED effects and the flash chamber actually operate. */
+  const DESIGN_TEMPS = range(30, 70, 2);
+  const DESIGN_SALINITIES = range(0, 60000, 5000);
+
+  /** The full box the fixture set exercises, out to last-effect brine. */
+  const FIXTURE_TEMPS = range(30, 90, 2);
+  const FIXTURE_SALINITIES = range(0, 120000, 5000);
+
+  it('agrees to better than 0.6% where the plant operates', () => {
+    // Measured 0.430% at 60 g/kg, 56 C. Both correlations claim +/-1.5%, so
+    // agreement well inside that is the most that can be asked of them.
+    expect(maxOver(DESIGN_SALINITIES, DESIGN_TEMPS)).toBeLessThan(0.6);
+  });
+
+  it('never diverges grossly anywhere in the declared box', () => {
+    // The finding-1 S^2 defect produced 43% here. A 3% ceiling catches that
+    // class of error while allowing the real inter-correlation gap.
+    expect(maxOver(FIXTURE_SALINITIES, FIXTURE_TEMPS)).toBeLessThan(3);
+  });
+
+  it('pins the known worst-case disagreement so it stays visible', () => {
+    // 2.234% at 120 g/kg, 90 C — the hot, concentrated corner. Bracketed rather
+    // than bounded: if this DROPS below 1.5% someone has re-derived one
+    // correlation from the other, which is a change of source, not an
+    // improvement. Both directions should fail loudly.
+    const worst = maxOver(FIXTURE_SALINITIES, FIXTURE_TEMPS);
+    expect(worst).toBeGreaterThan(1.5);
+    expect(worst).toBeLessThan(2.6);
+  });
+
+  it('the gap is driven by salinity, not by the pure-water baseline', () => {
+    // At S = 0 both reduce to the IF97 baseline, so any residual there is the
+    // saturation-line term only (~0.09% at 100 C), not a correlation mismatch.
+    expect(maxOver([0], FIXTURE_TEMPS)).toBeLessThan(0.15);
   });
 });
 
@@ -136,9 +188,19 @@ describe('validity range is enforced, not silently extrapolated', () => {
     expect(() => getSeawaterSpecificHeat(120001, 50)).toThrow();
   });
 
-  it('rejects temperature outside 0–180 °C', () => {
+  it("rejects temperature outside each correlation's OWN envelope", () => {
+    // The two correlations have different declared ranges, and the code must not
+    // paper over that. Eq. (43) for enthalpy is 10-120 C; Eq. (9) for cp is
+    // 0-180 C. Silently extrapolating either is what the superseded home-grown
+    // integral did.
+    expect(() => getSeawaterEnthalpy(35000, 9.9)).toThrow(/10-120/);
+    expect(() => getSeawaterEnthalpy(35000, 120.1)).toThrow(/10-120/);
     expect(() => getSeawaterEnthalpy(35000, -1)).toThrow();
     expect(() => getSeawaterEnthalpy(35000, 181)).toThrow();
+
+    expect(getSeawaterSpecificHeat(35000, 9.9)).toBeGreaterThan(0);
+    expect(getSeawaterSpecificHeat(35000, 150)).toBeGreaterThan(0);
     expect(() => getSeawaterSpecificHeat(35000, 181)).toThrow();
+    expect(() => getSeawaterSpecificHeat(35000, -1)).toThrow();
   });
 });

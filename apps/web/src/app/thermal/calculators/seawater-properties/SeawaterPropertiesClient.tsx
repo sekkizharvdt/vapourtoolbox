@@ -54,11 +54,24 @@ type SalinityUnit = 'ppm' | 'gkg' | 'percent';
 interface SeawaterResult {
   density: number;
   specificHeat: number;
-  enthalpy: number;
+  /**
+   * null outside 10-120 °C. Enthalpy comes from Sharqawy Eq. (43), whose
+   * envelope is narrower than the 0-180 °C of the other correlations on this
+   * page — so it drops out on its own rather than blanking the other five.
+   */
+  enthalpy: number | null;
   bpe: number;
   thermalConductivity: number;
   viscosity: number;
 }
+
+/**
+ * Sharqawy et al. (2010) Eq. (43) validity range for seawater enthalpy. The
+ * density, cp, conductivity and viscosity correlations on this page run to
+ * 0-180 °C; enthalpy does not, and saying so beats extrapolating silently.
+ */
+const ENTHALPY_VALID_MIN_C = 10;
+const ENTHALPY_VALID_MAX_C = 120;
 
 interface SalinityPreset {
   label: string;
@@ -127,7 +140,10 @@ export default function SeawaterPropertiesClient() {
         result: {
           density: getSeawaterDensity(salinityPPM, temperature),
           specificHeat: getSeawaterSpecificHeat(salinityPPM, temperature),
-          enthalpy: getSeawaterEnthalpy(salinityPPM, temperature),
+          enthalpy:
+            temperature >= ENTHALPY_VALID_MIN_C && temperature <= ENTHALPY_VALID_MAX_C
+              ? getSeawaterEnthalpy(salinityPPM, temperature)
+              : null,
           bpe: getBoilingPointElevation(salinityPPM, temperature),
           thermalConductivity: getSeawaterThermalConductivity(salinityPPM, temperature),
           viscosity: getSeawaterViscosity(salinityPPM, temperature),
@@ -305,9 +321,13 @@ export default function SeawaterPropertiesClient() {
                       <Typography variant="caption" color="text.secondary">
                         Specific Enthalpy (h)
                       </Typography>
-                      <Typography variant="h5">{result.enthalpy.toFixed(1)}</Typography>
+                      <Typography variant="h5">
+                        {result.enthalpy === null ? '—' : result.enthalpy.toFixed(1)}
+                      </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        kJ/kg
+                        {result.enthalpy === null
+                          ? `Outside ${ENTHALPY_VALID_MIN_C}-${ENTHALPY_VALID_MAX_C}°C (Sharqawy Eq. 43)`
+                          : 'kJ/kg'}
                       </Typography>
                     </CardContent>
                   </Card>

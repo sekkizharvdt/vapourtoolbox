@@ -12,13 +12,22 @@ NCG model.
 **Scope**: `packages/constants/src/thermal/seawaterTables.ts`, `apps/web/src/lib/thermal/med/` (effectModel, medEngine), flash chamber calculator
 **Trigger**: [dynamic simulator specification r2](../thermal/dynamic-simulator-specification-r2.md) §7.1 property verification
 
-**Status:** **Findings 1, 2, 5, 6 and 7 FIXED.** Findings 3 and 4 **CLOSED — will not be
-done**, with structural reasons below. Findings 6 and 7 emerged during the work and are now
-also closed, which completes this review — all seven findings are resolved.
+**Status:** **Findings 1, 2, 5, 6, 7 and 8 FIXED.** Findings 3 and 4 **CLOSED — will not be
+done**, with structural reasons below. Findings 6, 7 and 8 emerged during the work.
+
+**Finding 8 supersedes finding 1.** The salinity exponent finding 1 corrected belonged to a
+home-grown correlation that should not have been there at all; the published Sharqawy Eq. (43)
+and Eq. (9) now replace it. Finding 1 was a real fix to the wrong equation — worth recording,
+because "we corrected it once already" is exactly what stops a second look.
 
 **Why the existing tests did not catch any of this:** all 1,233 thermal tests assert either
 structural properties ("greater than zero", "monotonic in temperature") or the engine's own
-prior output. None compares against an independent physical reference. This is the exact
+prior output. None compares against an independent physical reference. Finding 8 sharpens the
+lesson: after findings 1 and 5 the suite DID assert against published IAPWS values and a
+thermodynamic identity — and still could not see it, because the IAPWS pins probe only the
+S = 0 limit where the salinity term vanishes, and a self-consistent home-grown pair satisfies
+the integral identity by construction. **An invariant a wrong implementation satisfies
+automatically is not evidence.** This is the exact
 pattern CLAUDE.md rule 4 in the simulator repo was written against, and it caught something
 on first contact.
 
@@ -31,6 +40,7 @@ on first contact.
 | 5   | Pure-water enthalpy baseline disagrees with IAPWS, sign-changing | HIGH     | +0.02 on GOR; broke the rung-1 gate | **FIXED**             |
 | 6   | BARC golden input mislabels effect-1 temp as the steam temp      | HIGH     | +6.7% → +2.2% once corrected        | **FIXED**             |
 | 7   | Evaporator U capped at a constant; `foulingResistance` is dead   | MEDIUM   | none — U never reaches the H&M      | **FIXED**             |
+| 8   | Seawater salinity terms were home-grown, not the published fits  | HIGH     | 9.82 → 9.83; up to 0.7% on a flash  | **FIXED**             |
 
 Findings 1, 2 and 5 are fixed and independent of each other. Findings 3 and 4 are closed —
 see their sections for the structural reasons, which are the substance of this review.
@@ -384,6 +394,79 @@ correlated U is **3,146 W/m²·K** at 0.00009 — 1.5% above the 3,100 cap, so t
 At 0.00015 it falls to **~2,650**, below the cap, so the cap stops binding and required area
 rises ~17%. That is the real trade-off, and it is now the designer's to make explicitly
 rather than something the code decided silently.
+
+#### 8. The Seawater Salinity Terms Were Home-Grown, Not the Published Correlations
+
+**Risk**: the property layer under every thermal calculator was internally self-consistent and
+externally unanchored — the one failure mode findings 1 and 5 were supposed to have closed.
+
+**Found by**: the dynamic-simulator session, cross-checking its own independent transcription
+of Sharqawy et al. (2010) against this codebase — using the 90 °C cases that fixture v5 had
+added days earlier. The disagreement did not exist inside the design envelope.
+
+**Detail**: `getSeawaterEnthalpy` and `getSeawaterSpecificHeat` used a Millero-form pair
+(`A·S + B·S^1.5`) with coefficients that appear in no cited source. They were a good-faith
+reconstruction, and finding 1 had already corrected an exponent _within_ that reconstruction —
+fixing the internal consistency of the wrong correlation. The published forms are **Eq. (43)**
+for enthalpy (fitted to Bromley et al. 1970) and **Eq. (9)** for cp (Jamieson et al. 1969).
+
+**Why it survived findings 1 and 5**: every test asserted either the IAPWS pure-water limit
+(where the salinity term vanishes) or the `dh/dT ≈ cp` integral identity (which a
+self-consistent home-grown pair satisfies _by construction_). The one property the tests
+enforced hardest was the one property that could not detect the defect.
+
+**The mechanism, and why the envelope mattered.** Fixture v6 makes it visible in one table —
+same 35 g/kg feed, different flash widths:
+
+| Case  | Flash | h_inlet     | h_outlet    | Vapour rate |
+| ----- | ----- | ----------- | ----------- | ----------- |
+| sw-01 | 9.5 K | −0.170%     | −0.181%     | **−0.137%** |
+| sw-07 | 30 K  | **+0.149%** | **−0.132%** | **+0.707%** |
+
+The salinity error **changes sign with temperature**. Over a short flash the inlet and outlet
+errors are nearly equal and cancel in `h_in − h_out`; over 30 K they have opposite signs and
+**add**. The vapour rate error is then larger than either enthalpy error. A grid covering only
+the design envelope could not have found this, which is the argument for keeping sw-07 and
+dm-03 permanently rather than until they pass.
+
+The DM-water cases move by **0.000%** — the control that proves the change is confined to the
+salinity term and the IF97 baseline from finding 5 is untouched.
+
+**FIXED 2026-07-31.** Both salinity terms replaced with the published correlations, keeping the
+IF97 pure-water baseline (Eq. 43 is written as `h_w + correction`, so this is its own
+structure; for cp the salinity _difference_ is taken, since Jamieson's S = 0 limit is 4.1894
+against IAPWS 4.1841). `getSeawaterEnthalpy` also narrows to Eq. (43)'s own **10–120 °C**
+envelope while cp keeps Eq. (9)'s **0–180 °C** — the two no longer share one invented range.
+That narrowing immediately surfaced four call sites asking for the enthalpy of a **zero-flow
+stream** whose temperature defaults to 0 °C; they now go through one
+`streamEnthalpyOrZero` helper, because evaluating a non-existent stream's enthalpy was the
+error, not the range check that exposed it.
+
+**A test invariant had to be given up, deliberately.** `dh/dT ≈ cp` was pinned at 0.15%. Eq.
+(43) and Eq. (9) are independent fits to different datasets and disagree by up to **2.2%** at
+120 g/kg / 90 °C — 0.43% inside the MED design envelope. The test now asserts a tight bound
+where the plant runs, a 3% ceiling that still catches the 43% signature of finding 1, and
+**brackets** the known gap from both sides, so it fails if the disagreement grows _or_ if
+someone quietly re-derives one correlation from the other to make it vanish.
+
+**Consequence for the simulator.** This codebase may use both because it uses cp only for
+sensible duties and h only for stream enthalpies, never differentiating one to obtain the
+other. **A dynamic energy balance cannot make that assumption** and should use the derivative
+of Eq. (43), accepting a cp that is not Jamieson's — the opposite trade, and the reason the
+two implementations should be expected to differ here rather than converge.
+
+**Impact**: BARC GOR 9.82 → 9.83; effect temperatures unchanged to 0.01 K. Small here only
+because BARC runs a narrow envelope.
+
+**A second defect surfaced while landing this**, in `designPipeline.ts`. The plant electrical
+summary computed `kWhPerM3` from **unrounded** power and net-distillate, then reported both
+operands **rounded** — so the figure on the datasheet could not be reproduced from the other
+two figures on the same datasheet, on every consumer row and on the total. The gap was
+rounding-sized and had been sitting just inside the test tolerance; the GOR shift above pushed
+it out. Operands are now rounded first and one reported denominator is shared by every row.
+It is unrelated to the property work and was found only because a self-consistency assertion
+existed — `totalKWhPerM3 ≈ totalPowerKW / netDistillateM3h` — which is the kind of test that
+looks redundant until it isn't.
 
 ---
 

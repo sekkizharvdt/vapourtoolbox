@@ -30,7 +30,7 @@ import type { FlashChamberInput } from '@vapour/types';
 
 import { calculateFlashChamber, resolveInletPressureMbar } from '../flashChamberCalculator';
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 const OUTPUT_PATH = join(
   __dirname,
@@ -249,7 +249,12 @@ function buildCase(spec: CaseSpec) {
   };
 }
 
-it('regenerates the flash chamber fixture set', () => {
+/**
+ * Build the full fixture payload. Pure — no filesystem access — so the
+ * reproducibility guard in flashChamberFixtures.reproducible.test.ts can compare
+ * it against the committed file without rewriting anything.
+ */
+export function buildFixturePayload() {
   const cases = CASE_SPECS.map(buildCase);
 
   // Guardrails: the whole point of v2 was that every stated feed is a real
@@ -287,6 +292,32 @@ it('regenerates the flash chamber fixture set', () => {
     generatedBy: 'scripts/thermal/generate-flash-chamber-fixtures.ts',
     generatedFor: 'vapour-dynamics rung 0/1 — spec section 7.1 / 7.2',
     schemaChanges: {
+      v6: {
+        added: [],
+        removed: [],
+        changed: [
+          'EVERY expected enthalpy, vapour rate, brine rate and heat duty moves. The seawater ' +
+            'salinity terms in h and cp were a home-grown Millero-form pair, not the published ' +
+            'correlations. They are now Sharqawy et al. (2010) Eq. (43) for enthalpy (fitted to ' +
+            'Bromley et al. 1970) and Eq. (9) for cp (Jamieson et al. 1969) — the accepted ' +
+            'sources, and the ones the independent simulator implementation transcribes.',
+          'sw-06 moves most (-1.446% on vapour rate): its absolute enthalpies differed ~2.1% at ' +
+            '115 g/kg, the largest on the grid, but its 1.3 K flash made the amplification-' +
+            'normalised metric blind to it. Pinned magnitudes SHOULD fail here — intended signal.',
+          'sw-07 moves +0.707% while dm-03 moves 0.000% at identical temperature and flash. That ' +
+            'asymmetry is the whole finding: the disagreement was in the SALINITY term and ' +
+            'changed sign across a 30 K flash, so inlet (+0.149%) and outlet (-0.132%) errors ' +
+            'ADDED instead of cancelling. Compare sw-01, same salinity but a 9.5 K flash, where ' +
+            'both errors are the same sign and it cancels to -0.137%.',
+          'All four DM-water cases move 0.000% — the control proving the change is confined to ' +
+            'the salinity term and the IAPWS-IF97 pure-water baseline is untouched.',
+        ],
+        note:
+          'Found by the simulator session cross-checking layer 1 against its own transcription, ' +
+          'after v5 added the 90 °C cases that made the disagreement visible at all. ' +
+          "getSeawaterEnthalpy also narrows to Eq. (43)'s own 10-120 °C envelope while cp keeps " +
+          "Eq. (9)'s 0-180 °C, so the two correlations no longer share one invented range.",
+      },
       v5: {
         added: [
           'cases sw-07 and dm-03 — ~30 K flash at low amplification, previously inexpressible',
@@ -321,7 +352,11 @@ it('regenerates the flash chamber fixture set', () => {
       },
     },
     correctionsApplied: [
-      'Finding 1 — seawater enthalpy salinity exponent S^2 -> S^1.5.',
+      'Finding 8 — seawater h and cp salinity terms replaced with the PUBLISHED correlations, ' +
+        'Sharqawy et al. (2010) Eq. (43) and Eq. (9). The previous pair was a home-grown ' +
+        'Millero-form fit: internally self-consistent, externally unanchored.',
+      'Finding 1 — seawater enthalpy salinity exponent S^2 -> S^1.5. SUPERSEDED by finding 8, ' +
+        'which replaced the correlation that exponent belonged to.',
       'Finding 5 — pure-water h and cp re-based on IAPWS-IF97 Region 1; agreement with published h_f now better than 0.06% at every point with no sign change.',
       'Inlet pressure is a real input — the spray-nozzle differential — not a hardcoded allowance.',
       'All inlets genuinely subcooled, asserted by the generator rather than by inspection.',
@@ -329,8 +364,22 @@ it('regenerates the flash chamber fixture set', () => {
     knownLimitations: {
       salinityCeiling:
         'Feed salinity cannot reach 120,000 ppm because the BRINE concentrates past the MIT correlation limit and the property function throws (correctly). sw-06 at 115,000 ppm feed is close to the practical maximum.',
-      correlationDivergence:
-        "The two enthalpy implementations differ systematically with salinity and the gap grows faster than linearly. Both sit inside MIT's stated +/-1.36%, so neither is wrong, and it largely cancels in the enthalpy DIFFERENCE. sw-05 and sw-06 exist to keep that trend visible at MED last-effect concentrations.",
+      hCpNotAnIntegralPair:
+        'h (Eq. 43, from Bromley) and cp (Eq. 9, from Jamieson) are independent fits to different ' +
+        'datasets and disagree by up to ~2.2% on dh/dT versus cp at 120 g/kg and 90 °C (0.43% ' +
+        'inside the MED design envelope). That is a property of the published correlations, not ' +
+        'a defect, and using both is what the MIT library does. It is acceptable here because ' +
+        'this codebase uses cp only for sensible duties and h only for stream enthalpies, never ' +
+        'differentiating one to obtain the other. A DYNAMIC energy balance cannot make that ' +
+        'assumption and should use the derivative of Eq. (43), accepting a cp that is not ' +
+        "Jamieson's — the opposite trade.",
+      normalisedMetricBlindSpot:
+        'The amplification-normalised enthalpy difference is the right metric for a vapour-rate ' +
+        'gate, but it cancels systematic salinity error by construction. sw-06 differed ~2.1% on ' +
+        'ABSOLUTE enthalpy while reading 0.038% normalised, because its flash is only 1.3 K wide. ' +
+        'Gate on the normalised quantity; DIAGNOSE on the absolute one. Large-flash cases ' +
+        '(sw-07, dm-03) are where the correlations must genuinely agree — small-flash cases ' +
+        'cannot tell you.',
       nozzleFlowCoupling:
         'The spray-nozzle differential sets the feed pressure but the feed FLOW is still stated directly, as this is a steady-state fixture. A dynamic model must close the loop: flow through the nozzle follows Q = Q_rated x (dP / P_rated)^n, so it responds to chamber pressure.',
     },
@@ -370,11 +419,25 @@ it('regenerates the flash chamber fixture set', () => {
     cases,
   };
 
-  writeFileSync(OUTPUT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
+  return { payload, amplifications, best, worst };
+}
+
+/** Serialised exactly as the committed artifact. The file is in .prettierignore
+ *  so this formatting is the only formatting it ever has. */
+export function serialiseFixturePayload(payload: unknown): string {
+  return `${JSON.stringify(payload, null, 2)}\n`;
+}
+
+export const FIXTURE_OUTPUT_PATH = OUTPUT_PATH;
+
+it('regenerates the flash chamber fixture set', () => {
+  const { payload, amplifications, best, worst } = buildFixturePayload();
+
+  writeFileSync(OUTPUT_PATH, serialiseFixturePayload(payload));
 
   // eslint-disable-next-line no-console
   console.log(
-    `Wrote ${cases.length} cases (schemaVersion ${SCHEMA_VERSION}) to ${OUTPUT_PATH}\n` +
+    `Wrote ${payload.cases.length} cases (schemaVersion ${SCHEMA_VERSION}) to ${OUTPUT_PATH}\n` +
       `Amplification ${Math.min(...amplifications)}–${Math.max(...amplifications)} ` +
       `(best ${best.id}, worst ${worst.id})`
   );

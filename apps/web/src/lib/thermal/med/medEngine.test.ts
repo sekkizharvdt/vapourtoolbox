@@ -781,21 +781,37 @@ describe('external anchor — golden regression snapshot (BARC MED-TVC per-effec
   //
   // Areas fall ~6-11% throughout: the cascade now runs hotter, so each effect
   // has more ΔT to work with. The H&M is unaffected by U (findings 3 and 4).
+  // RE-BASELINED 2026-07-31 (second time today) for the seawater property source.
+  // The salinity terms in h and cp were a home-grown Millero-form pair, not the
+  // published correlations. They are now Sharqawy et al. (2010) Eq. (43) for
+  // enthalpy and Eq. (9) (Jamieson) for cp — the accepted sources, and the ones
+  // the independent simulator implementation transcribes.
+  //
+  // Effect temperatures are UNCHANGED to 0.01 K: the cascade is set by the dT
+  // allocation and BPE, not by liquid enthalpy magnitude. Vapour and brine flows
+  // rise 0.04-1.1% (effect 6 vapour by 1.09%, the only pin that broke the +/-0.5%
+  // band). GOR 9.82 -> 9.83.
+  //
+  // The change is small HERE because BARC runs a narrow envelope. It is not small
+  // everywhere: the simulator session measured 0.571% on vapour rate for a 90 C
+  // feed with a 30 K flash, where the old and new salinity terms disagree with
+  // opposite sign at inlet and outlet so the errors add instead of cancelling.
+  // See docs/reviews/2026-07-29-seawater-enthalpy-and-ncg-model.md finding 8.
   const GOLDEN_PROFILE = [
-    { effect: 1, temperature: 58.83, vaporFlow: 2040.45, brineFlow: 2108.4, area: 166.91 },
-    { effect: 2, temperature: 55.47, vaporFlow: 1868.38, brineFlow: 4259.38, area: 192.77 },
-    { effect: 3, temperature: 52.1, vaporFlow: 1706.46, brineFlow: 6584.18, area: 215.04 },
-    { effect: 4, temperature: 48.73, vaporFlow: 1526.08, brineFlow: 9075.71, area: 196.1 },
-    { effect: 5, temperature: 45.37, vaporFlow: 1354.79, brineFlow: 11749.57, area: 176.82 },
-    { effect: 6, temperature: 42.0, vaporFlow: 345.84, brineFlow: 14568.01, area: 158.73 },
+    { effect: 1, temperature: 58.83, vaporFlow: 2041.23, brineFlow: 2113.27, area: 166.91 },
+    { effect: 2, temperature: 55.47, vaporFlow: 1869.94, brineFlow: 4268.37, area: 192.85 },
+    { effect: 3, temperature: 52.1, vaporFlow: 1708.71, brineFlow: 6596.66, area: 215.26 },
+    { effect: 4, temperature: 48.73, vaporFlow: 1529.0, brineFlow: 9091.09, area: 196.42 },
+    { effect: 5, temperature: 45.37, vaporFlow: 1358.29, brineFlow: 11767.32, area: 177.24 },
+    { effect: 6, temperature: 42.0, vaporFlow: 349.61, brineFlow: 14587.66, area: 159.25 },
   ];
 
   const golden = calculateMED(GOLDEN_INPUT);
 
-  it('converges and reproduces the golden GOR (9.82 ±0.5%)', () => {
+  it('converges and reproduces the golden GOR (9.83 ±0.5%)', () => {
     expect(golden.converged).toBe(true);
-    expect(Math.abs(golden.performance.gor - 9.82) / 9.82).toBeLessThan(0.005);
-    expect(Math.abs(golden.performance.netDistillate - 10209) / 10209).toBeLessThan(0.005);
+    expect(Math.abs(golden.performance.gor - 9.83) / 9.83).toBeLessThan(0.005);
+    expect(Math.abs(golden.performance.netDistillate - 10223) / 10223).toBeLessThan(0.005);
   });
 
   it('reproduces the as-built cascade, not merely a plausible one', () => {
@@ -811,7 +827,7 @@ describe('external anchor — golden regression snapshot (BARC MED-TVC per-effec
   it('reproduces the golden TVC operating point (±0.5%)', () => {
     expect(golden.tvc).not.toBeNull();
     expect(Math.abs(golden.tvc!.entrainmentRatio - 0.9878) / 0.9878).toBeLessThan(0.005);
-    expect(Math.abs(golden.tvc!.dischargeFlow - 2067.29) / 2067.29).toBeLessThan(0.005);
+    expect(Math.abs(golden.tvc!.dischargeFlow - 2067.27) / 2067.27).toBeLessThan(0.005);
     // Closer to the as-built 0.935 than the old pin's 1.0697 was.
     expect(
       Math.abs(golden.tvc!.entrainmentRatio - BARC_AS_BUILT_ENTRAINMENT_RATIO) /
