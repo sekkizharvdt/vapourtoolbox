@@ -1,8 +1,28 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 8,
   "generatedBy": "scripts/thermal/generate-flash-chamber-fixtures.ts",
   "generatedFor": "vapour-dynamics rung 0/1 — spec section 7.1 / 7.2",
   "schemaChanges": {
+    "v8": {
+      "added": [],
+      "removed": [],
+      "changed": [
+        "Brine temperature rises in all eight seawater cases, and vapour rate falls 0.06-0.30%. BPE was evaluated at the FEED salinity; the brine leaving is at the OUTLET salinity, which is higher, so the brine boiling point was understated in proportion to the concentration factor. DM cases move 0.0000 K — the control.",
+        "Shift by case: sw-08 +0.0713 K (CF 1.048), sw-07 +0.0236 K (CF 1.053), sw-05 +0.0108 K, sw-03 +0.0084 K, sw-01 +0.0059 K, sw-02 +0.0052 K, sw-06 +0.0043 K, sw-04 +0.0016 K."
+      ],
+      "note": "Found by the simulator session, from the coefficients this file published in v7 — the BPE correlation was never the problem, the salinity argument was. sw-08 was added in v7 as insurance against a hypothetical FUTURE salinity-term divergence and instead paid for itself immediately on something unrelated: it is the only cell where a high concentration factor and a high BPE magnitude coincide, so it alone reached 71% of the 0.1 K gate while every other case stayed under 0.010 K. A case's value is not limited to the reason it was added."
+    },
+    "v7": {
+      "added": [
+        "case sw-08 (90 g/kg at 90 °C) — a second temperature at high concentration, and a large flash at high concentration. Added to detect a FUTURE salinity-term divergence; the correlations agree today.",
+        "knownLimitations.pureWaterBaseline and knownLimitations.boilingPointElevation"
+      ],
+      "removed": [],
+      "changed": [
+        "gateGuidance.largeFlashCases now states the DETECTION rationale (a temperature-dependent error only shows up across a wide flash) instead of the derived-tolerance one. The previous wording implied large-flash cases were easy to pass; they are the cases that are hard to fool."
+      ],
+      "note": "No expected values move for the nine pre-existing cases. Confirmed by the simulator session: sw-07 normalised residual 0.212% -> 0.0201%, now level with its pure-water twin dm-03 at 0.0197%, so nothing salinity-dependent remains in it; sw-06 flow error -1.741% -> -0.300%. The residual that is left does not trend with salinity (0.002-0.003% across 0-115 g/kg at matched temperature) but does with temperature (0.056%), which identifies it as the pure-water baseline difference. See knownLimitations.pureWaterBaseline — neither side should change."
+    },
     "v6": {
       "added": [],
       "removed": [],
@@ -62,6 +82,8 @@
     "All inlets genuinely subcooled, asserted by the generator rather than by inspection."
   ],
   "knownLimitations": {
+    "pureWaterBaseline": "A permanent ~0.02-0.06% difference against the simulator implementation, and not a defect on either side. This codebase uses IAPWS-IF97 Region 1 for pure water and adds Eq. (43)'s salinity correction; the simulator uses Eq. (43) whole, including Sharqawy's own h_w polynomial, which is not IF97. Adopting theirs here would import a 0.13% pure-water error to obtain the salt term; adopting ours there would break their layer-1 agreement against the MIT published tables, which are generated from the library that uses Sharqawy's h_w. The residual is identifiable: it varies with temperature and NOT with salinity, and is an order of magnitude inside every gate.",
+    "boilingPointElevation": "RESOLVED in v8, and the resolution is worth keeping. The BPE correlation was never wrong: Sharqawy Eq. (36), BPE = A*S^2 + B*S with S as MASS FRACTION, A = 17.95 + 0.2823*t - 4.584e-4*t^2, B = 6.56 + 0.05267*t + 1.536e-4*t^2, reproduces the reference to 0.003%. The defect was the ARGUMENT: BPE was evaluated at the feed salinity when the brine leaving is at the outlet salinity. It is now solved as a fixed point together with the brine enthalpy, which the code already iterated. Publishing the coefficients here in v7 is what closed it — an output diff says WHETHER two implementations differ, a transcription diff says WHERE. Publish coefficients, not just outputs, in both directions.",
     "salinityCeiling": "Feed salinity cannot reach 120,000 ppm because the BRINE concentrates past the MIT correlation limit and the property function throws (correctly). sw-06 at 115,000 ppm feed is close to the practical maximum.",
     "hCpNotAnIntegralPair": "h (Eq. 43, from Bromley) and cp (Eq. 9, from Jamieson) are independent fits to different datasets and disagree by up to ~2.2% on dh/dT versus cp at 120 g/kg and 90 °C (0.43% inside the MED design envelope). That is a property of the published correlations, not a defect, and using both is what the MIT library does. It is acceptable here because this codebase uses cp only for sensible duties and h only for stream enthalpies, never differentiating one to obtain the other. A DYNAMIC energy balance cannot make that assumption and should use the derivative of Eq. (43), accepting a cp that is not Jamieson's — the opposite trade.",
     "normalisedMetricBlindSpot": "The amplification-normalised enthalpy difference is the right metric for a vapour-rate gate, but it cancels systematic salinity error by construction. sw-06 differed ~2.1% on ABSOLUTE enthalpy while reading 0.038% normalised, because its flash is only 1.3 K wide. Gate on the normalised quantity; DIAGNOSE on the absolute one. Large-flash cases (sw-07, dm-03) are where the correlations must genuinely agree — small-flash cases cannot tell you.",
@@ -69,8 +91,8 @@
   },
   "gateGuidance": {
     "recommended": "Gate on vapour rate, vapour and brine temperatures, and mass/energy closure.",
-    "amplificationWarning": "Amplification is computed per case in the sensitivity block and spans 3 to 49.5 across this set. The worst is sw-04 at 49.5, where a 0.5% vapour-rate gate implies 0.010% enthalpy agreement — tighter than either implementation claims. Read the per-case value; do not assume a single figure.",
-    "largeFlashCases": "sw-07 and dm-03 are the low-amplification, large-dT cases: a 0.5% vapour-rate gate there implies only 0.166% enthalpy agreement, so they are the practical cases to gate hard on.",
+    "amplificationWarning": "Amplification is computed per case in the sensitivity block and spans 3 to 49.55 across this set. The worst is sw-04 at 49.55, where a 0.5% vapour-rate gate implies 0.010% enthalpy agreement — tighter than either implementation claims. Read the per-case value; do not assume a single figure.",
+    "largeFlashCases": "sw-08, sw-07, dm-03 are the large-dT cases, and they matter for a reason that has nothing to do with their looser derived tolerance. A property error that varies with temperature appears in (h_in - h_out) only when the two ends are far enough apart for the error to differ between them. Over a short flash the inlet and outlet errors are nearly equal and CANCEL; over ~30 K they can carry opposite signs and ADD. That is exactly how the v6 salinity-term defect was found, and why a grid confined to the design envelope missed it. Large flash dT is where the correlations must genuinely agree; small flash dT cannot tell you whether they do. Keep these cases permanently — they are the detector, not a temporary probe.",
     "preferred": "Gate on the enthalpy difference with the case amplification divided out, as well as on vapour rate. The normalised quantity is comparable between cases; raw flow error is not."
   },
   "units": {
@@ -481,8 +503,8 @@
         "sprayNozzleDeltaPBar": 3
       },
       "sensitivity": {
-        "flashDeltaTK": 9.503,
-        "enthalpyDifferenceKjKg": 38.201,
+        "flashDeltaTK": 9.497,
+        "enthalpyDifferenceKjKg": 38.177,
         "amplificationFactor": 4.81,
         "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.104%",
         "brineSalinityPpm": 35561,
@@ -500,22 +522,22 @@
           },
           "vapor": {
             "stream": "Vapor Out",
-            "flowRate": 1.5774842303232088,
+            "flowRate": 1.576528361956146,
             "temperature": 36.16025915111595,
             "pressure": 60,
             "enthalpy": 2567.109364246249,
-            "heatDuty": 1124.8818165593043
+            "heatDuty": 1124.2002002715062
           },
           "brine": {
             "stream": "Brine Out",
-            "flowRate": 98.42251576967679,
-            "temperature": 36.49730759748846,
+            "flowRate": 98.42347163804385,
+            "temperature": 36.50325578749053,
             "pressure": 60,
-            "enthalpy": 145.51082162783194,
-            "heatDuty": 3978.205871201088
+            "enthalpy": 145.53468664957748,
+            "heatDuty": 3978.896973279524
           },
           "heatInput": 5103.0971735941985,
-          "heatOutput": 5103.087687760392
+          "heatOutput": 5103.09717355103
         },
         "chamberSizing": {
           "diameter": 1100,
@@ -524,13 +546,13 @@
           "flashingZoneHeight": 500,
           "sprayZoneHeight": 953,
           "totalHeight": 5683,
-          "totalVolume": 5.4008809476383774,
-          "liquidHoldupVolume": 4.020402451109517,
-          "vaporVelocity": 10.96925425200535,
+          "totalVolume": 5.40092991650422,
+          "liquidHoldupVolume": 4.020451419975359,
+          "vaporVelocity": 10.962607489427183,
           "vaporVelocityStatus": "OK",
-          "vaporLoading": 1.6599300026806783,
+          "vaporLoading": 1.6589241767265412,
           "vaporLoadingDiameter": 1100,
-          "crossSectionLoading": 1.6599300026806783,
+          "crossSectionLoading": 1.6589241767265412,
           "sbMaxVelocity": 13.816114119063181,
           "vaporVelocityDiameter": 1000
         },
@@ -553,12 +575,12 @@
           {
             "type": "outlet",
             "name": "Brine Outlet",
-            "requiredArea": 268026.8300739678,
-            "calculatedDiameter": 584.1766505948244,
+            "requiredArea": 268030.0946650239,
+            "calculatedDiameter": 584.1802082462377,
             "selectedPipeSize": "24\" Sch 40 (MAX)",
             "nps": "24",
             "actualID": 574.64,
-            "actualVelocity": 0.10334672210610633,
+            "actualVelocity": 0.10334798087853808,
             "velocityStatus": "HIGH",
             "velocityLimits": {
               "min": 0.01,
@@ -568,12 +590,12 @@
           {
             "type": "vapor",
             "name": "Vapor Outlet",
-            "requiredArea": 521221.5446735614,
-            "calculatedDiameter": 814.6409529641409,
+            "requiredArea": 520905.71318871493,
+            "calculatedDiameter": 814.3941018391185,
             "selectedPipeSize": "24\" Sch 40 (MAX)",
             "nps": "24",
             "actualID": 574.64,
-            "actualVelocity": 40.194885055521056,
+            "actualVelocity": 40.17052917391936,
             "velocityStatus": "HIGH",
             "velocityLimits": {
               "min": 5,
@@ -628,7 +650,7 @@
       },
       "warnings": [
         "Brine Outlet velocity (0.10 m/s) exceeds recommended maximum",
-        "Vapor Outlet velocity (40.19 m/s) exceeds recommended maximum"
+        "Vapor Outlet velocity (40.17 m/s) exceeds recommended maximum"
       ]
     },
     {
@@ -662,9 +684,9 @@
         "sprayNozzleDeltaPBar": 3
       },
       "sensitivity": {
-        "flashDeltaTK": 5.714,
-        "enthalpyDifferenceKjKg": 22.801,
-        "amplificationFactor": 8.99,
+        "flashDeltaTK": 5.708,
+        "enthalpyDifferenceKjKg": 22.781,
+        "amplificationFactor": 9,
         "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.056%",
         "brineSalinityPpm": 45431,
         "concentrationFactor": 1.0096
@@ -681,22 +703,22 @@
           },
           "vapor": {
             "stream": "Vapor Out",
-            "flowRate": 0.5695101783359434,
+            "flowRate": 0.5690128041328434,
             "temperature": 45.8075482070235,
             "pressure": 100,
             "enthalpy": 2584.414742769726,
-            "heatDuty": 408.8473614024523
+            "heatDuty": 408.4902999515731
           },
           "brine": {
             "stream": "Brine Out",
-            "flowRate": 59.430489821664054,
-            "temperature": 46.28640981586222,
+            "flowRate": 59.430987195867154,
+            "temperature": 46.29158023857862,
             "pressure": 100,
-            "enthalpy": 182.2586556740208,
-            "heatDuty": 3008.811439151407
+            "enthalpy": 182.27926276027125,
+            "heatDuty": 3009.1768142160518
           },
           "heatInput": 3417.6671142652335,
-          "heatOutput": 3417.6588005538592
+          "heatOutput": 3417.6671141676247
         },
         "chamberSizing": {
           "diameter": 700,
@@ -705,13 +727,13 @@
           "flashingZoneHeight": 500,
           "sprayZoneHeight": 606,
           "totalHeight": 7394,
-          "totalVolume": 2.84569961171204,
-          "liquidHoldupVolume": 2.419977118455039,
-          "vaporVelocity": 6.050095225114708,
+          "totalVolume": 2.8457259860447826,
+          "liquidHoldupVolume": 2.4200034927877816,
+          "vaporVelocity": 6.044811454243285,
           "vaporVelocityStatus": "OK",
-          "vaporLoading": 1.4798426126255062,
+          "vaporLoading": 1.4785502115971019,
           "vaporLoadingDiameter": 700,
-          "crossSectionLoading": 1.4798426126255062,
+          "crossSectionLoading": 1.4785502115971019,
           "sbMaxVelocity": 10.842373642819213,
           "vaporVelocityDiameter": 600
         },
@@ -734,12 +756,12 @@
           {
             "type": "outlet",
             "name": "Brine Outlet",
-            "requiredArea": 161331.80789700264,
-            "calculatedDiameter": 453.22625435656346,
+            "requiredArea": 161333.56618585205,
+            "calculatedDiameter": 453.2287241128639,
             "selectedPipeSize": "20\" Sch 40",
             "nps": "20",
             "actualID": 477.82,
-            "actualVelocity": 0.08997077106256259,
+            "actualVelocity": 0.08997175161689716,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 0.01,
@@ -749,12 +771,12 @@
           {
             "type": "vapor",
             "name": "Vapor Outlet",
-            "requiredArea": 116417.47511552667,
-            "calculatedDiameter": 385.0030298780911,
+            "requiredArea": 116315.80344904005,
+            "calculatedDiameter": 384.8348744967904,
             "selectedPipeSize": "18\" Sch 40",
             "nps": "18",
             "actualID": 428.66,
-            "actualVelocity": 16.13364456368461,
+            "actualVelocity": 16.119554457988155,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 5,
@@ -840,12 +862,12 @@
         "sprayNozzleDeltaPBar": 3
       },
       "sensitivity": {
-        "flashDeltaTK": 6.845,
-        "enthalpyDifferenceKjKg": 26.889,
-        "amplificationFactor": 7.04,
+        "flashDeltaTK": 6.837,
+        "enthalpyDifferenceKjKg": 26.856,
+        "amplificationFactor": 7.05,
         "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.071%",
-        "brineSalinityPpm": 60676,
-        "concentrationFactor": 1.0113
+        "brineSalinityPpm": 60675,
+        "concentrationFactor": 1.0112
       },
       "expected": {
         "heatMassBalance": {
@@ -859,22 +881,22 @@
           },
           "vapor": {
             "stream": "Vapor Out",
-            "flowRate": 0.890933303839324,
+            "flowRate": 0.8898798282891157,
             "temperature": 41.51005269838356,
             "pressure": 80,
             "enthalpy": 2576.7332861393393,
-            "heatDuty": 637.6937499257999
+            "heatDuty": 636.9397150601455
           },
           "brine": {
             "stream": "Brine Out",
-            "flowRate": 79.10906669616068,
-            "temperature": 42.154675046875056,
+            "flowRate": 79.11012017171089,
+            "temperature": 42.16310874740892,
             "pressure": 80,
-            "enthalpy": 162.34495318196866,
-            "heatDuty": 3567.488258071511
+            "enthalpy": 162.37801549935534,
+            "heatDuty": 3568.262310943871
           },
           "heatInput": 4205.20202600557,
-          "heatOutput": 4205.182007997311
+          "heatOutput": 4205.202026004016
         },
         "chamberSizing": {
           "diameter": 800,
@@ -883,13 +905,13 @@
           "flashingZoneHeight": 500,
           "sprayZoneHeight": 693,
           "totalHeight": 7521,
-          "totalVolume": 3.7803892352015587,
-          "liquidHoldupVolume": 3.180812344981405,
-          "vaporVelocity": 8.936261369284578,
+          "totalVolume": 3.7804444528178425,
+          "liquidHoldupVolume": 3.1808675625976885,
+          "vaporVelocity": 8.925694772635598,
           "vaporVelocityStatus": "OK",
-          "vaporLoading": 1.7724554908902739,
+          "vaporLoading": 1.7703596678747475,
           "vaporLoadingDiameter": 800,
-          "crossSectionLoading": 1.7724554908902739,
+          "crossSectionLoading": 1.7703596678747475,
           "sbMaxVelocity": 12.053423299998503,
           "vaporVelocityDiameter": 700
         },
@@ -912,12 +934,12 @@
           {
             "type": "outlet",
             "name": "Brine Outlet",
-            "requiredArea": 212054.1563320937,
-            "calculatedDiameter": 519.6111406306393,
+            "requiredArea": 212057.83750651256,
+            "calculatedDiameter": 519.6156507307253,
             "selectedPipeSize": "24\" Sch 40",
             "nps": "24",
             "actualID": 574.64,
-            "actualVelocity": 0.08176458289586072,
+            "actualVelocity": 0.08176600229596176,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 0.01,
@@ -927,12 +949,12 @@
           {
             "type": "vapor",
             "name": "Vapor Outlet",
-            "requiredArea": 224592.7445464216,
-            "calculatedDiameter": 534.7526192709172,
+            "requiredArea": 224327.17700717456,
+            "calculatedDiameter": 534.436369200618,
             "selectedPipeSize": "24\" Sch 40",
             "nps": "24",
             "actualID": 574.64,
-            "actualVelocity": 17.319851114368813,
+            "actualVelocity": 17.299371422338435,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 5,
@@ -1018,11 +1040,11 @@
         "sprayNozzleDeltaPBar": 3
       },
       "sensitivity": {
-        "flashDeltaTK": 1.434,
-        "enthalpyDifferenceKjKg": 5.751,
-        "amplificationFactor": 49.5,
+        "flashDeltaTK": 1.432,
+        "enthalpyDifferenceKjKg": 5.745,
+        "amplificationFactor": 49.55,
         "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.010%",
-        "brineSalinityPpm": 45111,
+        "brineSalinityPpm": 45110,
         "concentrationFactor": 1.0025
       },
       "expected": {
@@ -1037,37 +1059,37 @@
           },
           "vapor": {
             "stream": "Vapor Out",
-            "flowRate": 0.29396621567615694,
+            "flowRate": 0.29365922687838447,
             "temperature": 69.99952890955205,
             "pressure": 312,
             "enthalpy": 2626.5861299414414,
-            "heatDuty": 214.4798846573245
+            "heatDuty": 214.25590340224764
           },
           "brine": {
             "stream": "Brine Out",
-            "flowRate": 119.70603378432385,
-            "temperature": 70.56632273005238,
+            "flowRate": 119.70634077312161,
+            "temperature": 70.56788977648951,
             "pressure": 312,
-            "enthalpy": 278.92327685006467,
-            "heatDuty": 9274.666444957822
+            "enthalpy": 278.9295604936808,
+            "heatDuty": 9274.899172264888
           },
           "heatInput": 9489.155075905705,
-          "heatOutput": 9489.146329615147
+          "heatOutput": 9489.155075667135
         },
         "chamberSizing": {
           "diameter": 400,
           "crossSectionArea": 0.12566370614359174,
-          "retentionZoneHeight": 39250,
+          "retentionZoneHeight": 39251,
           "flashingZoneHeight": 500,
           "sprayZoneHeight": 346,
           "totalHeight": 40097,
-          "totalVolume": 5.0387207748871665,
-          "liquidHoldupVolume": 4.93235773707375,
-          "vaporVelocity": 3.296691916725782,
+          "totalVolume": 5.038737564723811,
+          "liquidHoldupVolume": 4.932374526910394,
+          "vaporVelocity": 3.2932491827169974,
           "vaporVelocityStatus": "OK",
-          "vaporLoading": 2.3393088163439293,
+          "vaporLoading": 2.336865877111963,
           "vaporLoadingDiameter": 500,
-          "crossSectionLoading": 2.3393088163439293,
+          "crossSectionLoading": 2.336865877111963,
           "sbMaxVelocity": 6.313600432530093,
           "vaporVelocityDiameter": 300
         },
@@ -1090,12 +1112,12 @@
           {
             "type": "outlet",
             "name": "Brine Outlet",
-            "requiredArea": 328823.84913825005,
-            "calculatedDiameter": 647.0483196600153,
+            "requiredArea": 328824.9684606929,
+            "calculatedDiameter": 647.0494209412808,
             "selectedPipeSize": "24\" Sch 40 (MAX)",
             "nps": "24",
             "actualID": 574.64,
-            "actualVelocity": 0.12678904925067633,
+            "actualVelocity": 0.12678948084293679,
             "velocityStatus": "HIGH",
             "velocityLimits": {
               "min": 0.01,
@@ -1105,12 +1127,12 @@
           {
             "type": "vapor",
             "name": "Vapor Outlet",
-            "requiredArea": 20713.726213469145,
-            "calculatedDiameter": 162.3993082922654,
+            "requiredArea": 20692.094877728625,
+            "calculatedDiameter": 162.31448937706082,
             "selectedPipeSize": "8\" Sch 40",
             "nps": "8",
             "actualID": 202.72,
-            "actualVelocity": 12.833664007750327,
+            "actualVelocity": 12.820261817720791,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 5,
@@ -1121,9 +1143,9 @@
         "npsha": {
           "atLGL": {
             "levelName": "LG-L (Low Level)",
-            "elevation": -15.025,
-            "staticHead": -15.625,
-            "npshAvailable": -16.125
+            "elevation": -15.0255,
+            "staticHead": -15.625499999999999,
+            "npshAvailable": -16.1255
           },
           "atOperating": {
             "levelName": "Operating Level",
@@ -1133,9 +1155,9 @@
           },
           "atLGH": {
             "levelName": "LG-H (High Level)",
-            "elevation": 24.225,
-            "staticHead": 23.625,
-            "npshAvailable": 23.125
+            "elevation": 24.225499999999997,
+            "staticHead": 23.625499999999995,
+            "npshAvailable": 23.125499999999995
           },
           "chamberPressureHead": 3.27809461348462,
           "vaporPressureHead": 3.278094613484618,
@@ -1146,19 +1168,19 @@
         "elevations": {
           "ffl": 0,
           "pumpCenterline": 0.6,
-          "btl": -15.125,
-          "lgLow": -15.025,
+          "btl": -15.125499999999999,
+          "lgLow": -15.0255,
           "operatingLevel": 4.6,
-          "lgHigh": 24.225,
-          "flashingZoneBottom": 24.225,
-          "flashingZoneTop": 24.725,
-          "ttl": 25.071,
+          "lgHigh": 24.225499999999997,
+          "flashingZoneBottom": 24.225499999999997,
+          "flashingZoneTop": 24.725499999999997,
+          "ttl": 25.071499999999997,
           "nozzleElevations": {
-            "inlet": 24.898,
-            "vaporOutlet": 25.071,
-            "brineOutlet": -15.125
+            "inlet": 24.898499999999995,
+            "vaporOutlet": 25.071499999999997,
+            "brineOutlet": -15.125499999999999
           },
-          "retentionZoneHeightM": 39.25,
+          "retentionZoneHeightM": 39.251,
           "flashingZoneHeightM": 0.5,
           "sprayZoneHeightM": 0.346
         }
@@ -1199,11 +1221,11 @@
         "sprayNozzleDeltaPBar": 3
       },
       "sensitivity": {
-        "flashDeltaTK": 5.114,
-        "enthalpyDifferenceKjKg": 19.571,
-        "amplificationFactor": 9.85,
+        "flashDeltaTK": 5.103,
+        "enthalpyDifferenceKjKg": 19.529,
+        "amplificationFactor": 9.87,
         "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.051%",
-        "brineSalinityPpm": 90736,
+        "brineSalinityPpm": 90735,
         "concentrationFactor": 1.0082
       },
       "expected": {
@@ -1218,22 +1240,22 @@
           },
           "vapor": {
             "stream": "Vapor Out",
-            "flowRate": 0.4869485084192501,
+            "flowRate": 0.48597308781557613,
             "temperature": 45.8075482070235,
             "pressure": 100,
             "enthalpy": 2584.414742769726,
-            "heatDuty": 349.576917813455
+            "heatDuty": 348.8766702055283
           },
           "brine": {
             "stream": "Brine Out",
-            "flowRate": 59.51305149158075,
-            "temperature": 46.886445787333486,
+            "flowRate": 59.51402691218443,
+            "temperature": 46.897250834346515,
             "pressure": 100,
-            "enthalpy": 173.21110082690922,
-            "heatDuty": 2863.42254511812
+            "enthalpy": 173.2523796275061,
+            "heatDuty": 2864.151884375386
           },
           "heatInput": 3213.028554590234,
-          "heatOutput": 3212.999462931575
+          "heatOutput": 3213.0285545809143
         },
         "chamberSizing": {
           "diameter": 600,
@@ -1242,13 +1264,13 @@
           "flashingZoneHeight": 500,
           "sprayZoneHeight": 520,
           "totalHeight": 9323,
-          "totalVolume": 2.6360585513890626,
-          "liquidHoldupVolume": 2.34776913347455,
-          "vaporVelocity": 7.04104855408569,
+          "totalVolume": 2.636110409223168,
+          "liquidHoldupVolume": 2.3478209913086556,
+          "vaporVelocity": 7.0269444266217445,
           "vaporVelocityStatus": "OK",
-          "vaporLoading": 1.7222280476922014,
+          "vaporLoading": 1.7187782030106817,
           "vaporLoadingDiameter": 600,
-          "crossSectionLoading": 1.7222280476922014,
+          "crossSectionLoading": 1.7187782030106817,
           "sbMaxVelocity": 10.842373642819213,
           "vaporVelocityDiameter": 500
         },
@@ -1271,12 +1293,12 @@
           {
             "type": "outlet",
             "name": "Brine Outlet",
-            "requiredArea": 156517.94223163664,
-            "calculatedDiameter": 446.4132989841292,
+            "requiredArea": 156521.39942057704,
+            "calculatedDiameter": 446.41822917480204,
             "selectedPipeSize": "20\" Sch 40",
             "nps": "20",
             "actualID": 477.82,
-            "actualVelocity": 0.08728619688373063,
+            "actualVelocity": 0.08728812487275357,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 0.01,
@@ -1286,12 +1308,12 @@
           {
             "type": "vapor",
             "name": "Vapor Outlet",
-            "requiredArea": 99540.47884988089,
-            "calculatedDiameter": 356.00403645681104,
+            "requiredArea": 99341.08644536376,
+            "calculatedDiameter": 355.64729674101477,
             "selectedPipeSize": "16\" Sch 40",
             "nps": "16",
             "actualID": 381,
-            "actualVelocity": 17.461832702953952,
+            "actualVelocity": 17.426854402164697,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 5,
@@ -1379,11 +1401,11 @@
         "sprayNozzleDeltaPBar": 3
       },
       "sensitivity": {
-        "flashDeltaTK": 1.32,
-        "enthalpyDifferenceKjKg": 4.946,
-        "amplificationFactor": 45.82,
+        "flashDeltaTK": 1.315,
+        "enthalpyDifferenceKjKg": 4.93,
+        "amplificationFactor": 45.97,
         "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.011%",
-        "brineSalinityPpm": 115239,
+        "brineSalinityPpm": 115238,
         "concentrationFactor": 1.0021
       },
       "expected": {
@@ -1398,22 +1420,22 @@
           },
           "vapor": {
             "stream": "Vapor Out",
-            "flowRate": 0.12425097677942662,
+            "flowRate": 0.12387739543488499,
             "temperature": 60.05864266005824,
             "pressure": 200,
             "enthalpy": 2609.5050779453254,
-            "heatDuty": 90.06487634599459
+            "heatDuty": 89.79408123054817
           },
           "brine": {
             "stream": "Brine Out",
-            "flowRate": 59.87574902322057,
-            "temperature": 61.680281257277734,
+            "flowRate": 59.87612260456512,
+            "temperature": 61.68454792645301,
             "pressure": 200,
-            "enthalpy": 221.69067176989793,
-            "heatDuty": 3687.193062134327
+            "enthalpy": 221.70664454355386,
+            "heatDuty": 3687.4817308157135
           },
           "heatInput": 3777.275812068471,
-          "heatOutput": 3777.2579384803216
+          "heatOutput": 3777.2758120462618
         },
         "chamberSizing": {
           "diameter": 300,
@@ -1422,13 +1444,13 @@
           "flashingZoneHeight": 500,
           "sprayZoneHeight": 260,
           "totalHeight": 33843,
-          "totalVolume": 2.3922141830198353,
-          "liquidHoldupVolume": 2.3385065471040787,
-          "vaporVelocity": 3.7531370639714616,
+          "totalVolume": 2.3922346628380406,
+          "liquidHoldupVolume": 2.3385270269222835,
+          "vaporVelocity": 3.741852629619718,
           "vaporVelocityStatus": "OK",
-          "vaporLoading": 1.7577917456392935,
+          "vaporLoading": 1.7525066507387854,
           "vaporLoadingDiameter": 300,
-          "crossSectionLoading": 1.7577917456392935,
+          "crossSectionLoading": 1.7525066507387854,
           "sbMaxVelocity": 7.8012449405232225,
           "vaporVelocityDiameter": 300
         },
@@ -1451,12 +1473,12 @@
           {
             "type": "outlet",
             "name": "Brine Outlet",
-            "requiredArea": 155900.43647360525,
-            "calculatedDiameter": 445.5318178981904,
+            "requiredArea": 155901.8017948189,
+            "calculatedDiameter": 445.5337687994332,
             "selectedPipeSize": "20\" Sch 40",
             "nps": "20",
             "actualID": 477.82,
-            "actualVelocity": 0.08694182914924689,
+            "actualVelocity": 0.08694259055522095,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 0.01,
@@ -1466,12 +1488,12 @@
           {
             "type": "vapor",
             "name": "Vapor Outlet",
-            "requiredArea": 13264.681306599348,
-            "calculatedDiameter": 129.95813475066336,
+            "requiredArea": 13224.798823532576,
+            "calculatedDiameter": 129.76261724120985,
             "selectedPipeSize": "6\" Sch 40",
             "nps": "6",
             "actualID": 154.06,
-            "actualVelocity": 14.23363608294589,
+            "actualVelocity": 14.190840275271695,
             "velocityStatus": "OK",
             "velocityLimits": {
               "min": 5,
@@ -1530,6 +1552,186 @@
       ]
     },
     {
+      "id": "sw-08",
+      "note": "ADDED v7 at the simulator session's request. 90 g/kg at 90 °C — the only empty cell on the grid. Above 45 g/kg every other case sits at a SINGLE temperature (60 g/kg at 49 °C, 90 at 52, 115 at 63), so a salinity-term difference that varies with temperature has nowhere to show itself up there. Pairs with sw-05 (same 90 g/kg, 52 °C) to give a temperature axis at high concentration, and with sw-07 to give a large flash at high concentration. It exists to detect a FUTURE divergence, not a current one — the correlations agree today.",
+      "input": {
+        "mode": "WATER_FLOW",
+        "flowRateUnit": "TON_HR",
+        "retentionTime": 2.5,
+        "flashingZoneHeight": 500,
+        "sprayAngle": 60,
+        "inletWaterVelocity": 2.5,
+        "outletWaterVelocity": 0.1,
+        "vaporVelocity": 20,
+        "pumpCenterlineAboveFFL": 0.6,
+        "operatingLevelAbovePump": 4,
+        "operatingLevelRatio": 0.5,
+        "btlGapBelowLGL": 0.1,
+        "autoCalculateDiameter": true,
+        "waterType": "SEAWATER",
+        "salinity": 90000,
+        "operatingPressure": 200,
+        "waterFlowRate": 60,
+        "inletTemperature": 90
+      },
+      "inletConsistency": {
+        "inletPressureMbar": 3200,
+        "saturationPressureAtInletTempMbar": 701.8,
+        "subcoolMarginMbar": 2498.2,
+        "subcooled": true,
+        "sprayNozzleDeltaPBar": 3
+      },
+      "sensitivity": {
+        "flashDeltaTK": 28.676,
+        "enthalpyDifferenceKjKg": 109.702,
+        "amplificationFactor": 3.07,
+        "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.163%",
+        "brineSalinityPpm": 94344,
+        "concentrationFactor": 1.0483
+      },
+      "expected": {
+        "heatMassBalance": {
+          "inlet": {
+            "stream": "Seawater Inlet",
+            "flowRate": 60,
+            "temperature": 90,
+            "pressure": 3200,
+            "enthalpy": 336.5184123134511,
+            "heatDuty": 5608.640205224186
+          },
+          "vapor": {
+            "stream": "Vapor Out",
+            "flowRate": 2.7624687006083097,
+            "temperature": 60.05864266005824,
+            "pressure": 200,
+            "enthalpy": 2609.5050779453254,
+            "heatDuty": 2002.4100283062244
+          },
+          "brine": {
+            "stream": "Brine Out",
+            "flowRate": 57.23753129939169,
+            "temperature": 61.324202946973905,
+            "pressure": 200,
+            "enthalpy": 226.8167117183801,
+            "heatDuty": 3606.230176723856
+          },
+          "heatInput": 5608.640205224186,
+          "heatOutput": 5608.64020503008
+        },
+        "chamberSizing": {
+          "diameter": 1200,
+          "crossSectionArea": 1.1309733552923256,
+          "retentionZoneHeight": 2005,
+          "flashingZoneHeight": 500,
+          "sprayZoneHeight": 1039,
+          "totalHeight": 3544,
+          "totalVolume": 4.008265190734455,
+          "liquidHoldupVolume": 2.267436525064518,
+          "vaporVelocity": 5.215212355392345,
+          "vaporVelocityStatus": "OK",
+          "vaporLoading": 2.442558604658098,
+          "vaporLoadingDiameter": 1400,
+          "crossSectionLoading": 2.442558604658098,
+          "sbMaxVelocity": 7.8012449405232225,
+          "vaporVelocityDiameter": 1000
+        },
+        "nozzles": [
+          {
+            "type": "inlet",
+            "name": "Seawater Inlet",
+            "requiredArea": 6433.236565562219,
+            "calculatedDiameter": 90.5044263884924,
+            "selectedPipeSize": "4\" Sch 40",
+            "nps": "4",
+            "actualID": 102.26,
+            "actualVelocity": 1.9582480718258306,
+            "velocityStatus": "OK",
+            "velocityLimits": {
+              "min": 1.5,
+              "max": 4
+            }
+          },
+          {
+            "type": "outlet",
+            "name": "Brine Outlet",
+            "requiredArea": 151162.43500430122,
+            "calculatedDiameter": 438.7094595810935,
+            "selectedPipeSize": "20\" Sch 40",
+            "nps": "20",
+            "actualID": 477.82,
+            "actualVelocity": 0.0842995625618608,
+            "velocityStatus": "OK",
+            "velocityLimits": {
+              "min": 0.01,
+              "max": 0.1
+            }
+          },
+          {
+            "type": "vapor",
+            "name": "Vapor Outlet",
+            "requiredArea": 294913.3108070037,
+            "calculatedDiameter": 612.7767045084604,
+            "selectedPipeSize": "24\" Sch 40 (MAX)",
+            "nps": "24",
+            "actualID": 574.64,
+            "actualVelocity": 22.742741067341665,
+            "velocityStatus": "OK",
+            "velocityLimits": {
+              "min": 5,
+              "max": 40
+            }
+          }
+        ],
+        "npsha": {
+          "atLGL": {
+            "levelName": "LG-L (Low Level)",
+            "elevation": 3.5974999999999997,
+            "staticHead": 2.9974999999999996,
+            "npshAvailable": 2.497499999999998
+          },
+          "atOperating": {
+            "levelName": "Operating Level",
+            "elevation": 4.6,
+            "staticHead": 3.9999999999999996,
+            "npshAvailable": 3.4999999999999973
+          },
+          "atLGH": {
+            "levelName": "LG-H (High Level)",
+            "elevation": 5.602499999999999,
+            "staticHead": 5.0024999999999995,
+            "npshAvailable": 4.502499999999998
+          },
+          "chamberPressureHead": 2.085402483562441,
+          "vaporPressureHead": 2.0854024835624427,
+          "frictionLoss": 0.5,
+          "recommendedNpshMargin": 1.5,
+          "recommendation": "NPSHa at LG-L (2.50m) is adequate. Select pump with NPSHr < 1.0m. Operating level provides 3.50m."
+        },
+        "elevations": {
+          "ffl": 0,
+          "pumpCenterline": 0.6,
+          "btl": 3.4974999999999996,
+          "lgLow": 3.5974999999999997,
+          "operatingLevel": 4.6,
+          "lgHigh": 5.602499999999999,
+          "flashingZoneBottom": 5.602499999999999,
+          "flashingZoneTop": 6.102499999999999,
+          "ttl": 7.141499999999999,
+          "nozzleElevations": {
+            "inlet": 6.621999999999999,
+            "vaporOutlet": 7.141499999999999,
+            "brineOutlet": 3.4974999999999996
+          },
+          "retentionZoneHeightM": 2.005,
+          "flashingZoneHeightM": 0.5,
+          "sprayZoneHeightM": 1.039
+        }
+      },
+      "warnings": [
+        "Brine salinity (94.3 g/kg) is very high. Consider scaling prevention."
+      ]
+    },
+    {
       "id": "sw-07",
       "note": "ADDED v5. Hot feed flashed to deep vacuum — a ~30 K flash at the LOWEST amplification in the set, the regime the grid previously lacked entirely. Only expressible now that the spray-nozzle differential is an input: the old hardcoded inlet of operating + 50 mbar stated this feed far below its own saturation pressure (702 mbar at 90 °C).",
       "input": {
@@ -1560,12 +1762,12 @@
         "sprayNozzleDeltaPBar": 3
       },
       "sensitivity": {
-        "flashDeltaTK": 29.541,
-        "enthalpyDifferenceKjKg": 119.606,
+        "flashDeltaTK": 29.517,
+        "enthalpyDifferenceKjKg": 119.511,
         "amplificationFactor": 3.02,
         "enthalpyAccuracyNeededForHalfPercentFlowGate": "0.166%",
-        "brineSalinityPpm": 36862,
-        "concentrationFactor": 1.0532
+        "brineSalinityPpm": 36860,
+        "concentrationFactor": 1.0531
       },
       "expected": {
         "heatMassBalance": {
@@ -1579,22 +1781,22 @@
           },
           "vapor": {
             "stream": "Vapor Out",
-            "flowRate": 5.050245127019611,
+            "flowRate": 5.04654600663672,
             "temperature": 60.05864266005824,
             "pressure": 200,
             "enthalpy": 2609.5050779453254,
-            "heatDuty": 3660.733417729531
+            "heatDuty": 3658.0520640008954
           },
           "brine": {
             "stream": "Brine Out",
-            "flowRate": 94.94975487298039,
-            "temperature": 60.4590817970137,
+            "flowRate": 94.95345399336328,
+            "temperature": 60.48264406080863,
             "pressure": 200,
-            "enthalpy": 241.23478637643507,
-            "heatDuty": 6362.551064799528
+            "enthalpy": 241.3298494257899,
+            "heatDuty": 6365.306320743618
           },
           "heatInput": 10023.35838474864,
-          "heatOutput": 10023.28448252906
+          "heatOutput": 10023.358384744513
         },
         "chamberSizing": {
           "diameter": 1600,
@@ -1602,14 +1804,14 @@
           "retentionZoneHeight": 1948,
           "flashingZoneHeight": 500,
           "sprayZoneHeight": 1386,
-          "totalHeight": 3833,
-          "totalVolume": 7.707532834842372,
-          "liquidHoldupVolume": 3.9162273622298787,
-          "vaporVelocity": 5.363022461701012,
+          "totalHeight": 3834,
+          "totalVolume": 7.70773487902208,
+          "liquidHoldupVolume": 3.9164294064095877,
+          "vaporVelocity": 5.359094243326848,
           "vaporVelocityStatus": "OK",
-          "vaporLoading": 2.5117858618466498,
+          "vaporLoading": 2.5099460703028087,
           "vaporLoadingDiameter": 1800,
-          "crossSectionLoading": 2.5117858618466498,
+          "crossSectionLoading": 2.5099460703028087,
           "sbMaxVelocity": 7.8012449405232225,
           "vaporVelocityDiameter": 1400
         },
@@ -1632,12 +1834,12 @@
           {
             "type": "outlet",
             "name": "Brine Outlet",
-            "requiredArea": 261081.82414865855,
-            "calculatedDiameter": 576.5584991288081,
+            "requiredArea": 261095.29376063918,
+            "calculatedDiameter": 576.5733717058826,
             "selectedPipeSize": "24\" Sch 40 (MAX)",
             "nps": "24",
             "actualID": 574.64,
-            "actualVelocity": 0.10066884244312589,
+            "actualVelocity": 0.10067403610320035,
             "velocityStatus": "HIGH",
             "velocityLimits": {
               "min": 0.01,
@@ -1647,12 +1849,12 @@
           {
             "type": "vapor",
             "name": "Vapor Outlet",
-            "requiredArea": 539149.8229349423,
-            "calculatedDiameter": 828.5329656071203,
+            "requiredArea": 538754.9153513914,
+            "calculatedDiameter": 828.229474931819,
             "selectedPipeSize": "24\" Sch 40 (MAX)",
             "nps": "24",
             "actualID": 574.64,
-            "actualVelocity": 41.57745469663388,
+            "actualVelocity": 41.54700072731777,
             "velocityStatus": "HIGH",
             "velocityLimits": {
               "min": 5,
@@ -1707,7 +1909,7 @@
       },
       "warnings": [
         "Brine Outlet velocity (0.10 m/s) exceeds recommended maximum",
-        "Vapor Outlet velocity (41.58 m/s) exceeds recommended maximum"
+        "Vapor Outlet velocity (41.55 m/s) exceeds recommended maximum"
       ]
     },
     {

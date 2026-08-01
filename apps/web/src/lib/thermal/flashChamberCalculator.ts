@@ -389,59 +389,72 @@ export function calculateFlashChamber(
   const opPressureBar = mbarAbsToBar(input.operatingPressure);
   const opPressureMbar = input.operatingPressure; // Already in mbar abs
   const satTempPure = getSaturationTemperature(opPressureBar);
-  const bpe = getBoilingPointElevation(effectiveSalinity, satTempPure);
-  const satTemp = satTempPure + bpe; // Effective saturation temperature with BPE
 
-  // Step 2: Calculate mass flows based on mode (convert to ton/hr for calculations)
-  let waterFlow: number; // ton/hr
-  let vaporFlow: number; // ton/hr
-  let brineFlow: number; // ton/hr
+  // Step 2: Solve the flash. BPE, brine enthalpy and vapour rate are mutually
+  // dependent, so iterate to a fixed point on brine salinity.
+  //
+  // BPE is a property of the BRINE LEAVING, which is more concentrated than the
+  // feed — it is the outlet salinity that sets the boiling point, not the inlet.
+  // Evaluating it at feed salinity understated the brine temperature by an
+  // amount proportional to the concentration factor: 0.006 K at CF 1.016, but
+  // 0.071 K at CF 1.048 — 71% of the 0.1 K gate. The enthalpy half of this
+  // circularity was already refined here; BPE was left out of the same pass.
+  //
+  // The flash chamber only concentrates a few percent, so the error stays small
+  // HERE. It is not small in an evaporator: at CF 1.5 the BPE shortfall is
+  // 0.19 K and at CF 2.0 it is 0.42 K, and because BPE sets the temperature
+  // cascade, that would compound effect to effect. `effectModel.ts` already
+  // evaluates BPE at `seawaterSalinity * brineConcentrationFactor`, so the MED
+  // train was never affected — this was a flash-chamber-only defect.
+  // Initialised at declaration because the compiler cannot prove the fixed-point
+  // loop below executes; MAX_FLASH_ITERATIONS is always >= 1 so it does.
+  let waterFlow = 0; // ton/hr
+  let vaporFlow = 0; // ton/hr
+  let brineFlow = 0; // ton/hr
 
-  if (input.mode === 'WATER_FLOW') {
-    // Convert user input to ton/hr
-    waterFlow = convertToTonHr(input.waterFlowRate!, input.flowRateUnit);
+  const MAX_FLASH_ITERATIONS = 20;
+  /** Relative convergence on brine salinity — well below any reported precision. */
+  const BRINE_SALINITY_TOLERANCE = 1e-9;
 
-    // Calculate vapor from heat balance
-    // Q_in = m_water * h_inlet
-    // Q_out = m_vapor * h_vapor + m_brine * h_brine
-    // m_water = m_vapor + m_brine
+  const inletEnthalpy = getSeawaterEnthalpy(effectiveSalinity, input.inletTemperature);
+  const vaporEnthalpy = getEnthalpyVapor(satTempPure);
 
-    const inletEnthalpy = getSeawaterEnthalpy(effectiveSalinity, input.inletTemperature);
-    const vaporEnthalpy = getEnthalpyVapor(satTempPure);
+  // Seed at feed salinity; for DM water this is 0 and the loop exits after one pass.
+  let brineSalinityIter = effectiveSalinity;
+  let bpe = 0;
+  let satTemp = satTempPure;
 
-    // First pass: use inlet salinity as approximation for brine enthalpy
-    const brineEnthalpyApprox = getSeawaterEnthalpy(effectiveSalinity, satTemp);
-    vaporFlow =
-      (waterFlow * (inletEnthalpy - brineEnthalpyApprox)) / (vaporEnthalpy - brineEnthalpyApprox);
+  for (let iteration = 0; iteration < MAX_FLASH_ITERATIONS; iteration++) {
+    // Clamped for the same reason every other correlation call here is: the
+    // brine can concentrate past the correlation ceiling in an extreme case.
+    bpe = getBoilingPointElevation(Math.min(brineSalinityIter, 120000), satTempPure);
+    satTemp = satTempPure + bpe;
+
+    const brineEnthalpy = getSeawaterEnthalpy(Math.min(brineSalinityIter, 120000), satTemp);
+
+    if (input.mode === 'WATER_FLOW') {
+      // Q_in = m_water · h_inlet; Q_out = m_vapor · h_vapor + m_brine · h_brine
+      // with m_water = m_vapor + m_brine
+      waterFlow = convertToTonHr(input.waterFlowRate!, input.flowRateUnit);
+      vaporFlow = (waterFlow * (inletEnthalpy - brineEnthalpy)) / (vaporEnthalpy - brineEnthalpy);
+    } else {
+      // VAPOR_QUANTITY mode — back-calculate the water flow
+      vaporFlow = convertToTonHr(input.vaporQuantity!, input.flowRateUnit);
+      waterFlow = (vaporFlow * (vaporEnthalpy - brineEnthalpy)) / (inletEnthalpy - brineEnthalpy);
+    }
     brineFlow = waterFlow - vaporFlow;
 
-    // One refinement: recalculate brine enthalpy with concentrated brine salinity
-    // This closes the circularity: brine salinity depends on vapor flow which depends on brine enthalpy
-    const brineSalinityEst = getBrineSalinity(effectiveSalinity, waterFlow, vaporFlow);
-    const brineEnthalpyFinal = getSeawaterEnthalpy(brineSalinityEst, satTemp);
-    vaporFlow =
-      (waterFlow * (inletEnthalpy - brineEnthalpyFinal)) / (vaporEnthalpy - brineEnthalpyFinal);
-    brineFlow = waterFlow - vaporFlow;
-  } else {
-    // VAPOR_QUANTITY mode - back-calculate water flow
-    // Convert user input to ton/hr
-    vaporFlow = convertToTonHr(input.vaporQuantity!, input.flowRateUnit);
+    const nextBrineSalinity =
+      input.waterType === 'DM_WATER'
+        ? 0
+        : getBrineSalinity(effectiveSalinity, waterFlow, vaporFlow);
 
-    const inletEnthalpy = getSeawaterEnthalpy(effectiveSalinity, input.inletTemperature);
-    const vaporEnthalpy = getEnthalpyVapor(satTempPure);
+    const converged =
+      Math.abs(nextBrineSalinity - brineSalinityIter) <=
+      BRINE_SALINITY_TOLERANCE * Math.max(1, brineSalinityIter);
 
-    // First pass: use inlet salinity as approximation for brine enthalpy
-    const brineEnthalpyApprox = getSeawaterEnthalpy(effectiveSalinity, satTemp);
-    waterFlow =
-      (vaporFlow * (vaporEnthalpy - brineEnthalpyApprox)) / (inletEnthalpy - brineEnthalpyApprox);
-    brineFlow = waterFlow - vaporFlow;
-
-    // One refinement: recalculate brine enthalpy with concentrated brine salinity
-    const brineSalinityEst = getBrineSalinity(effectiveSalinity, waterFlow, vaporFlow);
-    const brineEnthalpyFinal = getSeawaterEnthalpy(brineSalinityEst, satTemp);
-    waterFlow =
-      (vaporFlow * (vaporEnthalpy - brineEnthalpyFinal)) / (inletEnthalpy - brineEnthalpyFinal);
-    brineFlow = waterFlow - vaporFlow;
+    brineSalinityIter = nextBrineSalinity;
+    if (converged) break;
   }
 
   // Calculate brine salinity (only relevant for seawater)

@@ -30,7 +30,7 @@ import type { FlashChamberInput } from '@vapour/types';
 
 import { calculateFlashChamber, resolveInletPressureMbar } from '../flashChamberCalculator';
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 8;
 
 const OUTPUT_PATH = join(
   __dirname,
@@ -150,6 +150,22 @@ const CASE_SPECS: CaseSpec[] = [
     operatingPressure: 200,
     waterFlowRate: 60,
     inletTemperature: 63,
+  },
+  {
+    id: 'sw-08',
+    note:
+      "ADDED v7 at the simulator session's request. 90 g/kg at 90 °C — the only empty cell on " +
+      'the grid. Above 45 g/kg every other case sits at a SINGLE temperature (60 g/kg at 49 °C, ' +
+      '90 at 52, 115 at 63), so a salinity-term difference that varies with temperature has ' +
+      'nowhere to show itself up there. Pairs with sw-05 (same 90 g/kg, 52 °C) to give a ' +
+      'temperature axis at high concentration, and with sw-07 to give a large flash at high ' +
+      'concentration. It exists to detect a FUTURE divergence, not a current one — the ' +
+      'correlations agree today.',
+    waterType: 'SEAWATER',
+    salinity: 90000,
+    operatingPressure: 200,
+    waterFlowRate: 60,
+    inletTemperature: 90,
   },
   {
     id: 'sw-07',
@@ -292,6 +308,50 @@ export function buildFixturePayload() {
     generatedBy: 'scripts/thermal/generate-flash-chamber-fixtures.ts',
     generatedFor: 'vapour-dynamics rung 0/1 — spec section 7.1 / 7.2',
     schemaChanges: {
+      v8: {
+        added: [],
+        removed: [],
+        changed: [
+          'Brine temperature rises in all eight seawater cases, and vapour rate falls 0.06-0.30%. ' +
+            'BPE was evaluated at the FEED salinity; the brine leaving is at the OUTLET salinity, ' +
+            'which is higher, so the brine boiling point was understated in proportion to the ' +
+            'concentration factor. DM cases move 0.0000 K — the control.',
+          'Shift by case: sw-08 +0.0713 K (CF 1.048), sw-07 +0.0236 K (CF 1.053), ' +
+            'sw-05 +0.0108 K, sw-03 +0.0084 K, sw-01 +0.0059 K, sw-02 +0.0052 K, ' +
+            'sw-06 +0.0043 K, sw-04 +0.0016 K.',
+        ],
+        note:
+          'Found by the simulator session, from the coefficients this file published in v7 — the ' +
+          'BPE correlation was never the problem, the salinity argument was. sw-08 was added in ' +
+          'v7 as insurance against a hypothetical FUTURE salinity-term divergence and instead ' +
+          'paid for itself immediately on something unrelated: it is the only cell where a high ' +
+          'concentration factor and a high BPE magnitude coincide, so it alone reached 71% of ' +
+          "the 0.1 K gate while every other case stayed under 0.010 K. A case's value is not " +
+          'limited to the reason it was added.',
+      },
+      v7: {
+        added: [
+          'case sw-08 (90 g/kg at 90 °C) — a second temperature at high concentration, and a ' +
+            'large flash at high concentration. Added to detect a FUTURE salinity-term ' +
+            'divergence; the correlations agree today.',
+          'knownLimitations.pureWaterBaseline and knownLimitations.boilingPointElevation',
+        ],
+        removed: [],
+        changed: [
+          'gateGuidance.largeFlashCases now states the DETECTION rationale (a temperature-' +
+            'dependent error only shows up across a wide flash) instead of the derived-tolerance ' +
+            'one. The previous wording implied large-flash cases were easy to pass; they are the ' +
+            'cases that are hard to fool.',
+        ],
+        note:
+          'No expected values move for the nine pre-existing cases. Confirmed by the simulator ' +
+          'session: sw-07 normalised residual 0.212% -> 0.0201%, now level with its pure-water ' +
+          'twin dm-03 at 0.0197%, so nothing salinity-dependent remains in it; sw-06 flow error ' +
+          '-1.741% -> -0.300%. The residual that is left does not trend with salinity ' +
+          '(0.002-0.003% across 0-115 g/kg at matched temperature) but does with temperature ' +
+          '(0.056%), which identifies it as the pure-water baseline difference. See ' +
+          'knownLimitations.pureWaterBaseline — neither side should change.',
+      },
       v6: {
         added: [],
         removed: [],
@@ -362,6 +422,25 @@ export function buildFixturePayload() {
       'All inlets genuinely subcooled, asserted by the generator rather than by inspection.',
     ],
     knownLimitations: {
+      pureWaterBaseline:
+        'A permanent ~0.02-0.06% difference against the simulator implementation, and not a ' +
+        'defect on either side. This codebase uses IAPWS-IF97 Region 1 for pure water and adds ' +
+        "Eq. (43)'s salinity correction; the simulator uses Eq. (43) whole, including Sharqawy's " +
+        'own h_w polynomial, which is not IF97. Adopting theirs here would import a 0.13% ' +
+        'pure-water error to obtain the salt term; adopting ours there would break their layer-1 ' +
+        'agreement against the MIT published tables, which are generated from the library that ' +
+        "uses Sharqawy's h_w. The residual is identifiable: it varies with temperature and NOT " +
+        'with salinity, and is an order of magnitude inside every gate.',
+      boilingPointElevation:
+        'RESOLVED in v8, and the resolution is worth keeping. The BPE correlation was never ' +
+        'wrong: Sharqawy Eq. (36), BPE = A*S^2 + B*S with S as MASS FRACTION, ' +
+        'A = 17.95 + 0.2823*t - 4.584e-4*t^2, B = 6.56 + 0.05267*t + 1.536e-4*t^2, reproduces ' +
+        'the reference to 0.003%. The defect was the ARGUMENT: BPE was evaluated at the feed ' +
+        'salinity when the brine leaving is at the outlet salinity. It is now solved as a fixed ' +
+        'point together with the brine enthalpy, which the code already iterated. Publishing the ' +
+        'coefficients here in v7 is what closed it — an output diff says WHETHER two ' +
+        'implementations differ, a transcription diff says WHERE. Publish coefficients, not just ' +
+        'outputs, in both directions.',
       salinityCeiling:
         'Feed salinity cannot reach 120,000 ppm because the BRINE concentrates past the MIT correlation limit and the property function throws (correctly). sw-06 at 115,000 ppm feed is close to the practical maximum.',
       hCpNotAnIntegralPair:
@@ -395,11 +474,15 @@ export function buildFixturePayload() {
         `${cases
           .filter((c) => c.sensitivity.flashDeltaTK > 25)
           .map((c) => c.id)
-          .join(
-            ' and '
-          )} are the low-amplification, large-dT cases: a 0.5% vapour-rate gate there implies ` +
-        `only ${cases.find((c) => c.id === 'sw-07')!.sensitivity.enthalpyAccuracyNeededForHalfPercentFlowGate} ` +
-        'enthalpy agreement, so they are the practical cases to gate hard on.',
+          .join(', ')} are the large-dT cases, and they matter for a reason that has nothing to ` +
+        'do with their looser derived tolerance. A property error that varies with temperature ' +
+        'appears in (h_in - h_out) only when the two ends are far enough apart for the error to ' +
+        'differ between them. Over a short flash the inlet and outlet errors are nearly equal and ' +
+        'CANCEL; over ~30 K they can carry opposite signs and ADD. That is exactly how the v6 ' +
+        'salinity-term defect was found, and why a grid confined to the design envelope missed ' +
+        'it. Large flash dT is where the correlations must genuinely agree; small flash dT ' +
+        'cannot tell you whether they do. Keep these cases permanently — they are the detector, ' +
+        'not a temporary probe.',
       preferred:
         'Gate on the enthalpy difference with the case amplification divided out, as well as on vapour rate. The normalised quantity is comparable between cases; raw flow error is not.',
     },

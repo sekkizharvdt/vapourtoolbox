@@ -41,6 +41,7 @@ on first contact.
 | 6   | BARC golden input mislabels effect-1 temp as the steam temp      | HIGH     | +6.7% → +2.2% once corrected        | **FIXED**             |
 | 7   | Evaporator U capped at a constant; `foulingResistance` is dead   | MEDIUM   | none — U never reaches the H&M      | **FIXED**             |
 | 8   | Seawater salinity terms were home-grown, not the published fits  | HIGH     | 9.82 → 9.83; up to 0.7% on a flash  | **FIXED**             |
+| 9   | Flash chamber evaluated BPE at the feed, not the brine leaving   | MEDIUM   | none — MED already correct          | **FIXED**             |
 
 Findings 1, 2 and 5 are fixed and independent of each other. Findings 3 and 4 are closed —
 see their sections for the structural reasons, which are the substance of this review.
@@ -458,6 +459,28 @@ two implementations should be expected to differ here rather than converge.
 **Impact**: BARC GOR 9.82 → 9.83; effect temperatures unchanged to 0.01 K. Small here only
 because BARC runs a narrow envelope.
 
+**CONFIRMED by the simulator session, 2026-07-31.** Cross-checking their independent
+transcription against v6:
+
+| Metric                        | v5      | v6          |
+| ----------------------------- | ------- | ----------- |
+| sw-07 normalised residual     | 0.212%  | **0.0201%** |
+| dm-03 (its pure-water twin)   | 0.0197% | 0.0197%     |
+| sw-06 flow error              | −1.741% | **−0.300%** |
+| worst absolute enthalpy error | +2.10%  | **−0.042%** |
+
+sw-07 now sits on top of its pure-water twin, so nothing salinity-dependent remains in it.
+
+**The residual that is left has a name and should stay.** It no longer trends with salinity —
+0.002–0.003% across 0–115 g/kg at matched temperature — but does vary with temperature,
+0.056%. A residual that depends on temperature and not salinity is a **pure-water baseline
+difference**, which is exactly what it is: this codebase keeps IAPWS-IF97 and adds Eq. (43)'s
+salinity correction, while the simulator uses Eq. (43) whole including Sharqawy's own `h_w`
+polynomial, which is not IF97. **Neither side should change.** Adopting theirs here imports a
+0.13% pure-water error to obtain the salt term; adopting ours there breaks their layer-1
+agreement against the MIT published tables, which are generated from the library that uses
+Sharqawy's `h_w`. It is permanent, understood, and an order of magnitude inside every gate.
+
 **A second defect surfaced while landing this**, in `designPipeline.ts`. The plant electrical
 summary computed `kWhPerM3` from **unrounded** power and net-distillate, then reported both
 operands **rounded** — so the figure on the datasheet could not be reproduced from the other
@@ -467,6 +490,64 @@ it out. Operands are now rounded first and one reported denominator is shared by
 It is unrelated to the property work and was found only because a self-consistency assertion
 existed — `totalKWhPerM3 ≈ totalPowerKW / netDistillateM3h` — which is the kind of test that
 looks redundant until it isn't.
+
+#### 9. Flash Chamber Evaluated BPE at the Feed Salinity, Not the Brine Leaving
+
+**Risk**: the brine boiling point — and so the whole flash temperature — was understated in
+proportion to how much the stream concentrated.
+
+**Found by**: the dynamic-simulator session, **from the correlation coefficients this repo
+published in fixture v7**. Three revisions of comparing outputs had left "BPE runs ~1% low"
+open as an unexplained residual. Publishing `A` and `B` turned it into one script: their
+coefficients reproduce ours to 0.003%, so the correlation was never the problem — and our
+fixture BPE matched evaluation at the **feed** salinity to that same 0.003%, which is an
+identification rather than a hypothesis.
+
+**Detail**: `flashChamberCalculator.ts` computed `bpe = getBoilingPointElevation(feedSalinity,
+satTempPure)` once, before solving. The brine leaving is more concentrated, and it is the
+brine's salinity that sets its boiling point. The circularity was already recognised in that
+function — it does a refinement pass for brine **enthalpy** at the outlet salinity — but BPE
+was left out of the same pass.
+
+**Magnitude**, reproduced here to 3-4 significant figures against their independent numbers:
+
+| Case  | CF     | BPE shortfall | Brine T low by |
+| ----- | ------ | ------------- | -------------- |
+| sw-04 | 1.0025 | 0.28%         | 0.0016 K       |
+| sw-06 | 1.0021 | 0.26%         | 0.0043 K       |
+| sw-01 | 1.0160 | 1.73%         | 0.0059 K       |
+| sw-07 | 1.0531 | 5.56%         | 0.0236 K       |
+| sw-08 | 1.0483 | 5.63%         | **0.0713 K**   |
+
+DM-water cases move 0.0000 K — the control.
+
+**A rung-7 problem found at rung 1.** A flash chamber concentrates a few percent, so the error
+stays small here. An MED effect runs CF 1.5-2.0, where the shortfall is **0.19 K** and
+**0.42 K** — four times the simulator's gate before any compounding — and because BPE sets the
+temperature cascade, it would propagate effect to effect rather than staying local. **The MED
+engine was never affected**: `effectModel.ts` already evaluates BPE at
+`seawaterSalinity × brineConcentrationFactor`. That is now pinned by a test with the two
+candidate salinities far enough apart that it cannot pass by accident.
+
+**FIXED 2026-07-31.** BPE joins brine enthalpy in a fixed-point iteration on brine salinity,
+converged to 1e-9 relative. Four new anchor tests; all four fail against the old behaviour.
+
+**Why 56 existing tests passed through it.** None asserted the brine temperature against an
+independently computed BPE — they asserted structure, or the code's own prior output. Same
+shape as finding 8.
+
+**Two lessons, both general.**
+
+1. **Publish coefficients, not just outputs.** An output diff tells you _whether_ two
+   implementations differ; a transcription diff tells you _where_. This stayed open across
+   three revisions under output comparison and closed in one script once the coefficients were
+   visible. Worth doing in both directions — the same move would have caught finding 8 much
+   sooner.
+2. **A case added to widen coverage is worth more than the reason given for adding it.**
+   `sw-08` was added as insurance against a _hypothetical future_ salinity-term divergence and
+   paid for itself immediately on something unrelated. It is the only cell where a high
+   concentration factor and a high BPE magnitude coincide, so it alone reached 71% of the gate
+   while every other case stayed under 0.010 K.
 
 ---
 
@@ -617,7 +698,24 @@ its own saturation line for its entire length while passing every gate.
    2.2% against a plant measurement this may simply be the noise floor — worth deciding
    whether to document it as a known bias rather than chase it.
 
-6. **Fouling basis for a 70 °C TBT design.** TEMA gives 1.76e-4 above 125 °F (52 °C), double
+6. ~~**BPE runs ~1% below the MIT library, cause unidentified.**~~ **RESOLVED — finding 9.**
+   The correlation was right; the salinity argument was wrong. Publishing the coefficients is
+   what closed it. Original note retained below for the method.
+
+   ~~**BPE runs ~1% below the MIT library, cause unidentified.**~~ Inside the simulator's 0.1 K
+   gate and untouched by finding 8, so not blocking. This implementation is Sharqawy Eq. (36),
+   `BPE = A·S² + B·S` with S as **mass fraction**, `A = 17.95 + 0.2823·t − 4.584e-4·t²`,
+   `B = 6.56 + 0.05267·t + 1.536e-4·t²`. Those coefficients are now published in the fixture's
+   `knownLimitations.boilingPointElevation` so the comparison can be a **transcription diff
+   rather than an output diff** — which is what would have caught finding 8 far sooner. Resolving
+   it needs the paper or their source side by side; comparing outputs cannot say who is right.
+
+7. **The high-salinity grid is still thin in temperature.** Fixture v7 adds sw-08 (90 g/kg at
+   90 °C), giving 90 g/kg a 52–90 °C axis. 60 g/kg and 115 g/kg remain single-temperature, so a
+   temperature-dependent salinity error at those concentrations still has nowhere to appear.
+   Cheap to close if the grid is being regenerated anyway.
+
+8. **Fouling basis for a 70 °C TBT design.** TEMA gives 1.76e-4 above 125 °F (52 °C), double
    the 8.8e-5 default now used. A design running TBT at 70 °C has its first effects above
    that threshold. Whether to apply a per-effect fouling resistance rather than one plant-wide
    value is a modelling decision, not a defect — the input now exists to express it either way.

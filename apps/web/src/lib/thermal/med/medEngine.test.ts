@@ -9,6 +9,8 @@
  * - Condensate routing to downstream effects
  */
 
+import { getBoilingPointElevation } from '@vapour/constants';
+
 import { calculateMED, type MEDEngineInput } from './medEngine';
 
 // BARC-like configuration: 0.79 T/h steam @ 59°C, 6 effects
@@ -526,6 +528,55 @@ describe('MED Engine — Recirculation', () => {
 // ===========================================================================
 // External anchor — golden regression snapshot (BARC MED-TVC per-effect)
 // ===========================================================================
+
+describe('BPE is evaluated at the concentrated brine salinity', () => {
+  /**
+   * A regression pin, not a fix. The flash chamber had this defect — it
+   * evaluated BPE at the FEED salinity when the brine leaving is more
+   * concentrated — and the MED engine never did: `effectModel.ts` uses
+   * `seawaterSalinity * brineConcentrationFactor`.
+   *
+   * It matters far more here than it did there. A flash chamber concentrates a
+   * few percent, so the error stayed under 0.08 K. An MED train runs CF 1.5-2.0,
+   * where the shortfall would be 0.19-0.42 K, and because BPE sets the
+   * temperature cascade every effect is built on, the error would COMPOUND down
+   * the train rather than staying local.
+   *
+   * So this asserts the engine keeps doing the right thing, with enough
+   * separation between the two candidate salinities that the test cannot pass by
+   * accident.
+   */
+  const BASE: MEDEngineInput = {
+    ...BARC_AS_BUILT,
+    tvcMotivePressure: 10,
+    preheaterEffects: [2, 3, 4, 5],
+  };
+
+  it('uses the concentrated salinity, not the feed — and the two differ materially', () => {
+    // CF 1.7 at 35,000 ppm feed → 59,500 ppm brine. BPE roughly doubles.
+    const r = calculateMED({ ...BASE, seawaterSalinity: 35000, maxBrineSalinity: 59500 });
+
+    for (const effect of r.effects) {
+      const atFeed = getBoilingPointElevation(35000, effect.temperature);
+      const atBrine = getBoilingPointElevation(59500, effect.temperature);
+
+      // Guard the comparison: if these were close, the assertion below would be
+      // satisfied by either implementation and would prove nothing.
+      expect(atBrine).toBeGreaterThan(atFeed * 1.5);
+
+      expect(Math.abs(effect.bpe - atBrine)).toBeLessThan(1e-6);
+    }
+  });
+
+  it('BPE rises with the concentration factor across the whole train', () => {
+    const low = calculateMED({ ...BASE, seawaterSalinity: 35000, maxBrineSalinity: 45000 });
+    const high = calculateMED({ ...BASE, seawaterSalinity: 35000, maxBrineSalinity: 65000 });
+
+    for (let i = 0; i < low.effects.length; i++) {
+      expect(high.effects[i]!.bpe).toBeGreaterThan(low.effects[i]!.bpe);
+    }
+  });
+});
 
 describe('fouling resistance is a live input', () => {
   /**

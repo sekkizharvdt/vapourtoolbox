@@ -20,7 +20,12 @@
  * liquid already boiling in its own supply pipe.
  */
 
-import { getSaturationPressure } from '@vapour/constants';
+import {
+  getSaturationPressure,
+  getBoilingPointElevation,
+  getSaturationTemperature,
+  mbarAbsToBar,
+} from '@vapour/constants';
 import type { FlashChamberInput } from '@vapour/types';
 
 import { calculateFlashChamber } from './flashChamberCalculator';
@@ -103,6 +108,90 @@ describe('external anchor — feed state is physically consistent, unmocked', ()
     // Fed at 3 bar nozzle ΔP above a 200 mbar chamber.
     expect(inlet.pressure).toBeCloseTo(3200, 6);
     expect(vapor.flowRate).toBeGreaterThan(0);
+  });
+
+  describe('BPE is evaluated at the OUTLET salinity, not the feed', () => {
+    /**
+     * The brine leaving a flash chamber is more concentrated than the feed, and
+     * it is the brine's salinity that sets its boiling point. BPE was evaluated
+     * at the feed salinity, understating the brine temperature in proportion to
+     * the concentration factor — 0.0016 K at CF 1.0025, but 0.0713 K at CF
+     * 1.048, which is 71% of the simulator's 0.1 K gate.
+     *
+     * Found by the external simulator session from the correlation coefficients
+     * this repo published, after three revisions of comparing outputs alone.
+     *
+     * The flash chamber only concentrates a few percent so the error stays small
+     * here. It would NOT stay small in an evaporator: at CF 1.5 the shortfall is
+     * 0.19 K, at CF 2.0 it is 0.42 K, and BPE sets the temperature cascade, so it
+     * would compound effect to effect. `effectModel.ts` already evaluates BPE at
+     * `seawaterSalinity * brineConcentrationFactor`, so the MED train was never
+     * affected — the test below pins that, so it cannot regress into the same bug.
+     */
+    const bpeOf = (result: ReturnType<typeof calculateFlashChamber>): number =>
+      result.heatMassBalance.brine.temperature - result.heatMassBalance.vapor.temperature;
+
+    it.each([
+      [35000, 200, 90],
+      [90000, 200, 90],
+      [60000, 100, 52],
+    ])(
+      'reports the brine BPE at its own salinity (%i ppm feed, %i mbar, %i °C)',
+      (salinity, operatingPressure, inletTemperature) => {
+        const result = calculateFlashChamber(
+          createInput({ salinity, operatingPressure, inletTemperature })
+        );
+
+        const satTempPure = getSaturationTemperature(mbarAbsToBar(operatingPressure));
+        const brineSalinity =
+          (salinity * result.heatMassBalance.inlet.flowRate) /
+          result.heatMassBalance.brine.flowRate;
+
+        const expected = getBoilingPointElevation(brineSalinity, satTempPure);
+        const feedBased = getBoilingPointElevation(salinity, satTempPure);
+
+        // Agreement with the outlet-salinity BPE, to the fixed point's precision.
+        expect(Math.abs(bpeOf(result) - expected)).toBeLessThan(1e-6);
+
+        // And the two must be genuinely distinguishable, or the test proves
+        // nothing — the brine really is more concentrated than the feed.
+        expect(expected).toBeGreaterThan(feedBased);
+      }
+    );
+
+    it('the correction grows with the concentration factor', () => {
+      // A deeper flash concentrates more, so the gap the old code left is larger.
+      const shallow = calculateFlashChamber(
+        createInput({ salinity: 90000, operatingPressure: 200, inletTemperature: 63 })
+      );
+      const deep = calculateFlashChamber(
+        createInput({ salinity: 90000, operatingPressure: 200, inletTemperature: 90 })
+      );
+
+      const cf = (r: ReturnType<typeof calculateFlashChamber>): number =>
+        r.heatMassBalance.inlet.flowRate / r.heatMassBalance.brine.flowRate;
+
+      expect(cf(deep)).toBeGreaterThan(cf(shallow));
+      const feedBased = getBoilingPointElevation(
+        90000,
+        getSaturationTemperature(mbarAbsToBar(200))
+      );
+      expect(bpeOf(deep) - feedBased).toBeGreaterThan(bpeOf(shallow) - feedBased);
+    });
+
+    it('DM water has no BPE at any flash depth — the control', () => {
+      for (const inletTemperature of [63, 90]) {
+        const result = calculateFlashChamber(
+          createInput({
+            waterType: 'DM_WATER',
+            salinity: 0,
+            operatingPressure: 200,
+            inletTemperature,
+          })
+        );
+        expect(bpeOf(result)).toBe(0);
+      }
+    });
   });
 
   /**
