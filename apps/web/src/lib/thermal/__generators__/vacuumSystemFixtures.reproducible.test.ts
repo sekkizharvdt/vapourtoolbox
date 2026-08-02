@@ -56,6 +56,46 @@ describe('committed vacuum-system fixtures are reproducible', () => {
     }
   });
 
+  describe('the vent-gas rule is published AND exercised', () => {
+    /**
+     * The simulator session inverted this rule from `dryNcgInKgH` /
+     * `vapourInKgH` and recovered the linear branch to 0.01 mbar. Two things
+     * that episode showed, both asserted here:
+     *
+     *   1. Two data points IDENTIFY a rule but do not DISTINGUISH it from any
+     *      other rule passing through the same two points. Three or more are
+     *      needed before the constant means anything.
+     *   2. A branch no case exercises is invisible to inversion. Every v1 case
+     *      sat on the linear branch, so the saturation ceiling could not have
+     *      been recovered at all — it had to be published.
+     */
+    it('reproduces every reported vent temperature from the published relation', () => {
+      const { ventGasTemperature } = buildVacuumFixturePayload();
+      const approach = ventGasTemperature.constants.VENT_APPROACH_C;
+
+      for (const c of ventGasTemperature.perCase) {
+        const fromRelation = Math.min(c.saturationTempC, c.coolantInletTempC + approach);
+        expect(Math.abs(c.ventGasTempC - fromRelation)).toBeLessThan(1e-6);
+      }
+    });
+
+    it('exercises both branches, so neither can be recovered wrongly', () => {
+      const { ventGasTemperature } = buildVacuumFixturePayload();
+      const branches = new Set(ventGasTemperature.perCase.map((c) => c.branch));
+
+      expect(branches).toContain('linear');
+      expect(branches).toContain('saturation-ceiling');
+    });
+
+    it('carries at least three distinct coolant temperatures', () => {
+      // Below three, the approach constant is identified but not distinguished.
+      const { ventGasTemperature } = buildVacuumFixturePayload();
+      const temps = new Set(ventGasTemperature.perCase.map((c) => c.coolantInletTempC));
+
+      expect(temps.size).toBeGreaterThanOrEqual(3);
+    });
+  });
+
   it('pull-down capacity is scaled by the reported rated capacity', () => {
     // If totalRatedCapacityM3h and the curve disagree, the pull-down is silently
     // rescaled while keeping the right shape — the hardest mismatch to spot.

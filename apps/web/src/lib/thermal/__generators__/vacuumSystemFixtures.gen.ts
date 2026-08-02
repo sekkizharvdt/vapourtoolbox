@@ -25,7 +25,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { getSaturationPressure } from '@vapour/constants';
+import { getSaturationPressure, getSaturationTemperature } from '@vapour/constants';
 
 import {
   calculateVacuumSystem,
@@ -33,10 +33,12 @@ import {
   LRVP_RATING_SUCTION_MBAR,
   LRVP_RATING_SEAL_TEMP_C,
   LRVP_OPEN_SUCTION_CAP,
+  VENT_APPROACH_C,
+  ventGasTemperatureC,
   type VacuumSystemInput,
 } from '../vacuumSystemCalculator';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const OUTPUT_PATH = join(
   __dirname,
@@ -102,6 +104,44 @@ function buildCapacityCurve() {
       'blank-off is what makes this curve usable for a pull-down integration.',
     blankOff,
     samples,
+  };
+}
+
+/**
+ * The vent-gas temperature rule, published rather than left to be inverted.
+ *
+ * The simulator session recovered the linear branch from `dryNcgInKgH` /
+ * `vapourInKgH` to 0.01 mbar — possible only because the split is reported as
+ * two numbers rather than one total. It could not have recovered the saturation
+ * ceiling, because no case on the v1 grid exercised it. Publishing the relation
+ * closes that, and case lrvp-06 exercises the branch so the statement is checked
+ * rather than asserted.
+ */
+function buildVentGasRule(cases: ReturnType<typeof buildEvacuationCase>[]) {
+  return {
+    relation: 'T_vent = min(tSat(P_suction), T_coolant_inlet + VENT_APPROACH_C)',
+    constants: { VENT_APPROACH_C },
+    rationale:
+      'The NCG offtake sits at the condenser cold end, so extracted gas cools to roughly the ' +
+      'tube-side coolant inlet plus a small approach — but never above the vapour-space ' +
+      'saturation temperature at suction pressure. T_vent then sets the water vapour riding with ' +
+      'the NCG by Dalton, and therefore the volumetric load the pump sees.',
+    perCase: cases.map((c) => {
+      const tSat = getSaturationTemperature(c.input.suctionPressureMbar / 1000);
+      const linear = c.input.coolantInletTempC + VENT_APPROACH_C;
+      return {
+        id: c.id,
+        suctionPressureMbar: c.input.suctionPressureMbar,
+        coolantInletTempC: c.input.coolantInletTempC,
+        saturationTempC: round(tSat, 3),
+        linearBranchTempC: round(linear, 3),
+        ventGasTempC: round(
+          ventGasTemperatureC(c.input.suctionPressureMbar, c.input.coolantInletTempC),
+          3
+        ),
+        branch: tSat < linear ? 'saturation-ceiling' : 'linear',
+      };
+    }),
   };
 }
 
@@ -181,6 +221,47 @@ const EVACUATION_SPECS: EvacuationCaseSpec[] = [
       evacuationVolumeM3: 120,
     },
   },
+  {
+    id: 'lrvp-05',
+    note:
+      'ADDED v2. A THIRD cooling-water temperature (22 °C). With only two distinct values on the ' +
+      'grid, the 2 K vent approach was identified but not distinguished from any other rule ' +
+      'passing through both points. This is the case that separates them.',
+    input: {
+      suctionPressureMbar: 80,
+      coolantInletTempC: 22,
+      dischargePressureMbar: 1013,
+      ncgMode: 'manual',
+      dryNcgFlowKgH: 20,
+      motivePressureBar: 10,
+      coolingWaterTempC: 22,
+      sealWaterTempC: 15,
+      trainConfig: 'lrvp_only',
+      evacuationVolumeM3: 100,
+    },
+  },
+  {
+    id: 'lrvp-06',
+    note:
+      'ADDED v2, and the more important of the two. Here the SATURATION CEILING binds: at ' +
+      '35 mbar the vapour-space saturation temperature is 26.67 °C, below the 34 °C that a bare ' +
+      '2 K approach to 32 °C cooling water would give, so the vent gas is capped at saturation. ' +
+      'The rule is min(tSat(P), T_cw + 2), not T_cw + 2 — and the ceiling branch is invisible to ' +
+      'inversion unless a case exercises it. Every other case on this grid sits on the linear ' +
+      'branch.',
+    input: {
+      suctionPressureMbar: 35,
+      coolantInletTempC: 32,
+      dischargePressureMbar: 1013,
+      ncgMode: 'manual',
+      dryNcgFlowKgH: 15,
+      motivePressureBar: 10,
+      coolingWaterTempC: 32,
+      sealWaterTempC: 15,
+      trainConfig: 'lrvp_only',
+      evacuationVolumeM3: 80,
+    },
+  },
 ];
 
 function buildEvacuationCase(spec: EvacuationCaseSpec) {
@@ -252,6 +333,26 @@ export function buildVacuumFixturePayload() {
     generatedBy: 'apps/web/src/lib/thermal/__generators__/vacuumSystemFixtures.gen.ts',
     generatedFor: 'vapour-dynamics rung 3 — spec §4.2 (S(P) input) and §7.2.1 (pull-down gate)',
     schemaChanges: {
+      v2: {
+        added: [
+          'ventGasTemperature — the vent-gas rule published outright, with constants and a ' +
+            'per-case branch label, instead of left to be inverted from the NCG/vapour split.',
+          'case lrvp-05 (22 °C cooling water) — a THIRD distinct T_coolant. With two values the ' +
+            '2 K approach was identified but not distinguished from any other rule through both ' +
+            'points.',
+          'case lrvp-06 (35 mbar, 32 °C cooling water) — exercises the SATURATION CEILING ' +
+            'branch, which no v1 case did and which inversion therefore could not reveal.',
+        ],
+        removed: [],
+        changed: [],
+        note:
+          'No existing case moves. Prompted by the simulator session recovering the linear ' +
+          'branch of the vent rule from `dryNcgInKgH` / `vapourInKgH` to 0.01 mbar — possible ' +
+          'only because the split is reported as two numbers rather than one total, and a good ' +
+          'demonstration that publishing components beats publishing totals. They correctly ' +
+          'flagged that two data points identify but do not distinguish the rule; the ceiling ' +
+          'branch is the part inversion could not have found at all.',
+      },
       v1: {
         added: ['capacityCurve', 'evacuationCases'],
         removed: [],
@@ -332,6 +433,7 @@ export function buildVacuumFixturePayload() {
         'saturation pressure. A pull-down model that can reach any vacuum given time has lost ' +
         'that limit, and will pass a naive gate while being qualitatively wrong.',
     },
+    ventGasTemperature: buildVentGasRule(evacuationCases),
     capacityCurve,
     evacuationCases,
   };

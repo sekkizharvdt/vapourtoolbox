@@ -43,7 +43,15 @@ const R_UNIV = 8.314;
  * the tube-side coolant inlet temperature. Vent gas ≈ coolant inlet + this Δ,
  * capped at the vapour-space saturation temperature.
  */
-const VENT_APPROACH_C = 2;
+/**
+ * Approach between the tube-side coolant inlet and the vent-gas temperature, K.
+ *
+ * Exported because the dynamic-simulator fixture publishes the vent-gas rule
+ * rather than leaving it to be inverted from outputs. It was recoverable from
+ * `dryNcgInKgH` / `vapourInKgH`, but only the linear branch — the saturation
+ * ceiling in `ventGasTemperatureC` is invisible unless a case exercises it.
+ */
+export const VENT_APPROACH_C = 2;
 
 /**
  * LRVP frame-table rating basis. The `capacityM3h` values in LRVP_FRAME_SIZES are
@@ -375,7 +383,10 @@ function heiAirLeakage(volumeM3: number): number {
  * temperature at suction pressure. This sets how much water vapour rides with
  * the NCG (Dalton's law) and therefore the volumetric load the pump/ejector sees.
  */
-function ventGasTemperatureC(suctionPressureMbar: number, coolantInletTempC: number): number {
+export function ventGasTemperatureC(
+  suctionPressureMbar: number,
+  coolantInletTempC: number
+): number {
   const tSat = getSaturationTemperature(suctionPressureMbar / 1000);
   return Math.min(tSat, coolantInletTempC + VENT_APPROACH_C);
 }

@@ -1,8 +1,18 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": "apps/web/src/lib/thermal/__generators__/vacuumSystemFixtures.gen.ts",
   "generatedFor": "vapour-dynamics rung 3 — spec §4.2 (S(P) input) and §7.2.1 (pull-down gate)",
   "schemaChanges": {
+    "v2": {
+      "added": [
+        "ventGasTemperature — the vent-gas rule published outright, with constants and a per-case branch label, instead of left to be inverted from the NCG/vapour split.",
+        "case lrvp-05 (22 °C cooling water) — a THIRD distinct T_coolant. With two values the 2 K approach was identified but not distinguished from any other rule through both points.",
+        "case lrvp-06 (35 mbar, 32 °C cooling water) — exercises the SATURATION CEILING branch, which no v1 case did and which inversion therefore could not reveal."
+      ],
+      "removed": [],
+      "changed": [],
+      "note": "No existing case moves. Prompted by the simulator session recovering the linear branch of the vent rule from `dryNcgInKgH` / `vapourInKgH` to 0.01 mbar — possible only because the split is reported as two numbers rather than one total, and a good demonstration that publishing components beats publishing totals. They correctly flagged that two data points identify but do not distinguish the rule; the ceiling branch is the part inversion could not have found at all."
+    },
     "v1": {
       "added": [
         "capacityCurve",
@@ -34,6 +44,69 @@
     "leakage": "These cases have NO in-leakage term during pull-down: the curve runs to the target pressure rather than asymptoting. Spec §7.2.1 part (b) — pressure asymptoting to P* where in-leakage mass rate equals capacity mass rate — is NOT covered here and needs the HEI leakage table applied on the simulator side.",
     "sizingIsNotCapacity": "Each case reports `totalRatedCapacityM3h`, the pump the SIZING loop selected for the continuous duty. Use it as given; do not re-derive it. Cases 01 and 02 show why: warmer seal water lowers the capacity fraction at the duty point, so the loop picks a larger frame, and the pull-down comes out FASTER on worse seal water. That is the sizing response, not the capacity curve, and conflating the two will look like a sign error in S(P).",
     "blankOff": "The physically important feature is that S(P) reaches exactly zero at the seal-water saturation pressure. A pull-down model that can reach any vacuum given time has lost that limit, and will pass a naive gate while being qualitatively wrong."
+  },
+  "ventGasTemperature": {
+    "relation": "T_vent = min(tSat(P_suction), T_coolant_inlet + VENT_APPROACH_C)",
+    "constants": {
+      "VENT_APPROACH_C": 2
+    },
+    "rationale": "The NCG offtake sits at the condenser cold end, so extracted gas cools to roughly the tube-side coolant inlet plus a small approach — but never above the vapour-space saturation temperature at suction pressure. T_vent then sets the water vapour riding with the NCG by Dalton, and therefore the volumetric load the pump sees.",
+    "perCase": [
+      {
+        "id": "lrvp-01",
+        "suctionPressureMbar": 60,
+        "coolantInletTempC": 30,
+        "saturationTempC": 36.16,
+        "linearBranchTempC": 32,
+        "ventGasTempC": 32,
+        "branch": "linear"
+      },
+      {
+        "id": "lrvp-02",
+        "suctionPressureMbar": 60,
+        "coolantInletTempC": 30,
+        "saturationTempC": 36.16,
+        "linearBranchTempC": 32,
+        "ventGasTempC": 32,
+        "branch": "linear"
+      },
+      {
+        "id": "lrvp-03",
+        "suctionPressureMbar": 100,
+        "coolantInletTempC": 30,
+        "saturationTempC": 45.808,
+        "linearBranchTempC": 32,
+        "ventGasTempC": 32,
+        "branch": "linear"
+      },
+      {
+        "id": "lrvp-04",
+        "suctionPressureMbar": 80,
+        "coolantInletTempC": 28,
+        "saturationTempC": 41.51,
+        "linearBranchTempC": 30,
+        "ventGasTempC": 30,
+        "branch": "linear"
+      },
+      {
+        "id": "lrvp-05",
+        "suctionPressureMbar": 80,
+        "coolantInletTempC": 22,
+        "saturationTempC": 41.51,
+        "linearBranchTempC": 24,
+        "ventGasTempC": 24,
+        "branch": "linear"
+      },
+      {
+        "id": "lrvp-06",
+        "suctionPressureMbar": 35,
+        "coolantInletTempC": 32,
+        "saturationTempC": 26.673,
+        "linearBranchTempC": 34,
+        "ventGasTempC": 26.673,
+        "branch": "saturation-ceiling"
+      }
+    ]
   },
   "capacityCurve": {
     "machine": "Liquid ring vacuum pump (LRVP), single stage",
@@ -1038,6 +1111,300 @@
         ]
       },
       "warnings": []
+    },
+    {
+      "id": "lrvp-05",
+      "note": "ADDED v2. A THIRD cooling-water temperature (22 °C). With only two distinct values on the grid, the 2 K vent approach was identified but not distinguished from any other rule passing through both points. This is the case that separates them.",
+      "input": {
+        "suctionPressureMbar": 80,
+        "coolantInletTempC": 22,
+        "dischargePressureMbar": 1013,
+        "ncgMode": "manual",
+        "dryNcgFlowKgH": 20,
+        "motivePressureBar": 10,
+        "coolingWaterTempC": 22,
+        "sealWaterTempC": 15,
+        "trainConfig": "lrvp_only",
+        "evacuationVolumeM3": 100
+      },
+      "expected": {
+        "totalRatedCapacityM3h": 500,
+        "evacuationTimeMinutes": 22.2,
+        "evacuationSteps": [
+          {
+            "pressureMbar": 892.2,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 1
+          },
+          {
+            "pressureMbar": 785.9,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 2
+          },
+          {
+            "pressureMbar": 692.2,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 3
+          },
+          {
+            "pressureMbar": 609.7,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 4.1
+          },
+          {
+            "pressureMbar": 537,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 5.1
+          },
+          {
+            "pressureMbar": 473,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 6.1
+          },
+          {
+            "pressureMbar": 416.6,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 7.1
+          },
+          {
+            "pressureMbar": 366.9,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 8.1
+          },
+          {
+            "pressureMbar": 323.2,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 9.1
+          },
+          {
+            "pressureMbar": 284.7,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 10.2
+          },
+          {
+            "pressureMbar": 250.7,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 11.2
+          },
+          {
+            "pressureMbar": 220.9,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 12.2
+          },
+          {
+            "pressureMbar": 194.5,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 13.2
+          },
+          {
+            "pressureMbar": 171.3,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 14.2
+          },
+          {
+            "pressureMbar": 150.9,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 15.2
+          },
+          {
+            "pressureMbar": 132.9,
+            "capacityM3h": 750,
+            "cumulativeMinutes": 16.2
+          },
+          {
+            "pressureMbar": 117.1,
+            "capacityM3h": 650.7,
+            "cumulativeMinutes": 17.4
+          },
+          {
+            "pressureMbar": 103.1,
+            "capacityM3h": 560.9,
+            "cumulativeMinutes": 18.8
+          },
+          {
+            "pressureMbar": 90.8,
+            "capacityM3h": 481.8,
+            "cumulativeMinutes": 20.4
+          },
+          {
+            "pressureMbar": 80,
+            "capacityM3h": 412.1,
+            "cumulativeMinutes": 22.2
+          }
+        ],
+        "totalPowerKW": 30,
+        "stages": [
+          {
+            "stageNumber": 1,
+            "type": "lrvp",
+            "suctionPressureMbar": 80,
+            "dischargePressureMbar": 1013,
+            "compressionRatio": 12.66,
+            "dryNcgInKgH": 20,
+            "vapourInKgH": 7.41,
+            "totalSuctionKgH": 27.41,
+            "suctionVolumeM3h": 374.2,
+            "lrvpModel": "LRVP-250",
+            "lrvpRatedCapacityM3h": 250,
+            "lrvpCorrectionFactor": 0.759,
+            "lrvpRequiredCapacityM3h": 493.1,
+            "lrvpPowerKW": 15,
+            "lrvpCount": 2,
+            "lrvpTotalPowerKW": 30
+          }
+        ]
+      },
+      "warnings": [
+        "Required capacity exceeds single pump. Sized as 2× LRVP-250 in parallel (30 kW total)."
+      ]
+    },
+    {
+      "id": "lrvp-06",
+      "note": "ADDED v2, and the more important of the two. Here the SATURATION CEILING binds: at 35 mbar the vapour-space saturation temperature is 26.67 °C, below the 34 °C that a bare 2 K approach to 32 °C cooling water would give, so the vent gas is capped at saturation. The rule is min(tSat(P), T_cw + 2), not T_cw + 2 — and the ceiling branch is invisible to inversion unless a case exercises it. Every other case on this grid sits on the linear branch.",
+      "input": {
+        "suctionPressureMbar": 35,
+        "coolantInletTempC": 32,
+        "dischargePressureMbar": 1013,
+        "ncgMode": "manual",
+        "dryNcgFlowKgH": 15,
+        "motivePressureBar": 10,
+        "coolingWaterTempC": 32,
+        "sealWaterTempC": 15,
+        "trainConfig": "lrvp_only",
+        "evacuationVolumeM3": 80
+      },
+      "expected": {
+        "totalRatedCapacityM3h": 304500,
+        "evacuationTimeMinutes": 0.1,
+        "evacuationSteps": [
+          {
+            "pressureMbar": 856.1,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 723.5,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 611.5,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 516.8,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 436.7,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 369.1,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 311.9,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 263.6,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 222.8,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 188.3,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 159.1,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 134.5,
+            "capacityM3h": 456750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 113.7,
+            "capacityM3h": 392881.4,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 96.1,
+            "capacityM3h": 322337.1,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 81.2,
+            "capacityM3h": 262718.1,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 68.6,
+            "capacityM3h": 212332.4,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 58,
+            "capacityM3h": 169750,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 49,
+            "capacityM3h": 133762.3,
+            "cumulativeMinutes": 0
+          },
+          {
+            "pressureMbar": 41.4,
+            "capacityM3h": 103348.1,
+            "cumulativeMinutes": 0.1
+          },
+          {
+            "pressureMbar": 35,
+            "capacityM3h": 77644.2,
+            "cumulativeMinutes": 0.1
+          }
+        ],
+        "totalPowerKW": 11165,
+        "stages": [
+          {
+            "stageNumber": 1,
+            "type": "lrvp",
+            "suctionPressureMbar": 35,
+            "dischargePressureMbar": 1013,
+            "compressionRatio": 28.94,
+            "dryNcgInKgH": 15,
+            "vapourInKgH": 1500,
+            "totalSuctionKgH": 1515,
+            "suctionVolumeM3h": 65637.1,
+            "lrvpModel": "LRVP-1500",
+            "lrvpRatedCapacityM3h": 1500,
+            "lrvpCorrectionFactor": 0.216,
+            "lrvpRequiredCapacityM3h": 303418.9,
+            "lrvpPowerKW": 55,
+            "lrvpCount": 203,
+            "lrvpTotalPowerKW": 11165
+          }
+        ]
+      },
+      "warnings": [
+        "Very high overall compression ratio (29:1). Verify system pressures.",
+        "Water vapour load is very high relative to NCG. Vent gas (26.673192672679306°C, from coolant inlet 32°C) is within 0°C of saturation (26.7°C). A colder tube-side coolant inlet would subcool the vent gas further and reduce vapour carry-over.",
+        "Required capacity exceeds single pump. Sized as 203× LRVP-1500 in parallel (11165 kW total)."
+      ]
     }
   ]
 }
