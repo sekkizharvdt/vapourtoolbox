@@ -497,11 +497,19 @@ export function CreateJournalEntryDialog({
             );
           }
         } catch (settlementErr) {
-          // Settlement failure is non-fatal — reconciliation will fix it
+          // The JE itself is saved; tell the user the linked doc was NOT
+          // settled instead of failing silently (feedback 9FCd4WBcjzZgZHjtQ83R)
           console.error(
             '[JE Settlement] Failed to update linked transaction status:',
             settlementErr
           );
+          setError(
+            `Journal entry saved, but updating the linked bill/invoice failed: ${
+              settlementErr instanceof Error ? settlementErr.message : String(settlementErr)
+            }. Run "Fix Payment Statuses" on the Data Health page to reconcile.`
+          );
+          setLoading(false);
+          return;
         }
       } else {
         // Create new entry - include all fields
@@ -563,11 +571,19 @@ export function CreateJournalEntryDialog({
               );
             }
           } catch (settlementErr) {
-            // Settlement failure is non-fatal — reconciliation will fix it
+            // The JE itself is saved; tell the user the linked doc was NOT
+            // settled instead of failing silently (feedback 9FCd4WBcjzZgZHjtQ83R)
             console.error(
               '[JE Settlement] Failed to update linked transaction status:',
               settlementErr
             );
+            setError(
+              `Journal entry saved, but updating the linked bill/invoice failed: ${
+                settlementErr instanceof Error ? settlementErr.message : String(settlementErr)
+              }. Run "Fix Payment Statuses" on the Data Health page to reconcile.`
+            );
+            setLoading(false);
+            return;
           }
         }
       }

@@ -719,6 +719,44 @@ export async function reconcilePaymentStatuses(
     }
   });
 
+  // 1b. Journal-entry settlements are part of "paid" too (feedback
+  // 9FCd4WBcjzZgZHjtQ83R): a JE linked to a bill/invoice settles it, and
+  // Pass 1 used to reset such docs to UNPAID because only payment
+  // allocations were counted. Collect active linked JEs; the per-document
+  // amount is computed inside the doc loop (it needs the doc's entityId),
+  // mirroring settleLinkedTransactionViaJournal.
+  const jeSnap = await getDocs(query(transactionsRef, where('type', '==', 'JOURNAL_ENTRY')));
+  const linkedJEsByDocId = new Map<
+    string,
+    Array<{ entries: Array<{ entityId?: string; debit?: number; credit?: number }>; base: number }>
+  >(); // rule21-exempt: base carries the JE's own stored total as the documented fallback, matching settleLinkedTransactionViaJournal
+  jeSnap.forEach((jeDoc) => {
+    const je = jeDoc.data();
+    if (je.isDeleted) return;
+    if (je.status !== 'POSTED' && je.status !== 'APPROVED') return;
+    for (const linkedId of [je.linkedVendorBillId, je.linkedCustomerInvoiceId]) {
+      if (!linkedId) continue;
+      const list = linkedJEsByDocId.get(linkedId) ?? [];
+      list.push({ entries: je.entries || [], base: getInrAmount(je) });
+      linkedJEsByDocId.set(linkedId, list);
+    }
+  });
+
+  const jeSettlementFor = (docId: string, entityId: string | undefined, type: string): number => {
+    const jes = linkedJEsByDocId.get(docId);
+    if (!jes) return 0;
+    let total = 0;
+    for (const je of jes) {
+      let amount = 0;
+      for (const entry of je.entries) {
+        if (entry.entityId !== entityId) continue;
+        amount += type === 'VENDOR_BILL' ? entry.debit || 0 : entry.credit || 0;
+      }
+      total += amount > 0 ? amount : je.base;
+    }
+    return total;
+  };
+
   // 2. Get all bills and invoices
   const [billSnap, invoiceSnap] = await Promise.all([
     getDocs(query(transactionsRef, where('type', '==', 'VENDOR_BILL'))),
@@ -739,7 +777,8 @@ export async function reconcilePaymentStatuses(
     checked++;
 
     const totalAmountINR = getInrAmount(data);
-    const correctPaid = allocationMap.get(docSnap.id) ?? 0;
+    const correctPaid =
+      (allocationMap.get(docSnap.id) ?? 0) + jeSettlementFor(docSnap.id, data.entityId, data.type);
     const correctOutstanding = parseFloat(Math.max(0, totalAmountINR - correctPaid).toFixed(2));
 
     let correctStatus: PaymentStatus;
@@ -1073,6 +1112,9 @@ export async function reverseJournalSettlement(
       paymentStatus: newPaymentStatus,
       amountPaid: newTotalPaid,
       outstandingAmount: roundedOutstanding,
+      // The settlement is undone — a stale true here confused Data Health
+      // (feedback 9FCd4WBcjzZgZHjtQ83R)
+      settledViaJournal: false,
       updatedAt: Timestamp.now(),
     });
 
