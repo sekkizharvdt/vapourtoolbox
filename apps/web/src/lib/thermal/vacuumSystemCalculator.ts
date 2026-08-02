@@ -52,8 +52,15 @@ const VENT_APPROACH_C = 2;
  * in sizeLRVP(). (Documented assumption — re-anchor if real single-stage
  * catalogue curves are obtained; the *form* of the correction is the physics.)
  */
-const LRVP_RATING_SUCTION_MBAR = 100;
-const LRVP_RATING_SEAL_TEMP_C = 15;
+export const LRVP_RATING_SUCTION_MBAR = 100;
+export const LRVP_RATING_SEAL_TEMP_C = 15;
+
+/**
+ * Ceiling on the capacity fraction toward atmospheric, as a multiple of the
+ * frame rating. A liquid ring pump on open suction is displacement-limited, so
+ * capacity does not keep rising with the linear blank-off relation.
+ */
+export const LRVP_OPEN_SUCTION_CAP = 1.5;
 
 /**
  * Closed-loop seal water: a plain seawater-cooled exchanger can bring the seal
@@ -532,6 +539,10 @@ function sizeEjectorStage(
  * LRVP capacity fraction at a given suction pressure and seal-water temperature,
  * relative to the frame-table rating point.
  *
+ * Exported so the dynamic-simulator fixture generator emits the canonical S(P)
+ * rather than a transcribed copy — the flash-chamber work established that a
+ * second transcription of the same relation is a defect waiting to happen.
+ *
  * A liquid ring pump's capacity is limited by how close the suction pressure is
  * to the seal water's own vapour pressure: as P_suction → P_sat(T_seal) the seal
  * water flashes into the swept volume and the pump blanks off (zero capacity).
@@ -543,7 +554,7 @@ function sizeEjectorStage(
  * At P_suction = P_sat(T_seal) the fraction is 0 — the physical blank-off /
  * ultimate-vacuum limit for a single-stage LRVP.
  */
-function lrvpCapacityFraction(suctionPressureMbar: number, sealWaterTempC: number): number {
+export function lrvpCapacityFraction(suctionPressureMbar: number, sealWaterTempC: number): number {
   const pBlankMbar = getSaturationPressure(sealWaterTempC) * 1000;
   const pRefNum = LRVP_RATING_SUCTION_MBAR - getSaturationPressure(LRVP_RATING_SEAL_TEMP_C) * 1000;
   return Math.max(0, (suctionPressureMbar - pBlankMbar) / pRefNum);
@@ -1249,7 +1260,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
     // rating for realistic open-suction displacement) and falls to zero at
     // blank-off. Capacity fraction is evaluated per-pressure during integration.
     const evacCapacityFn = (totalRatedCapacityM3h: number) => (pMbar: number) =>
-      totalRatedCapacityM3h * Math.min(1.5, lrvpCapacityFraction(pMbar, sealWaterTempC));
+      totalRatedCapacityM3h *
+      Math.min(LRVP_OPEN_SUCTION_CAP, lrvpCapacityFraction(pMbar, sealWaterTempC));
 
     const lrvpStage = stages.find((s) => s.type === 'lrvp');
     if (lrvpStage && lrvpStage.lrvpRatedCapacityM3h) {

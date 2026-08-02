@@ -21,6 +21,7 @@
     "check-ui-standards:report": "node scripts/audit/check-ui-standards.js --advisory",
     "changelog:sync": "tsx scripts/sync-changelog.ts",
     "fixtures:flash-chamber": "cd apps/web && jest --testMatch \"**/flashChamberFixtures.gen.ts\"",
+    "fixtures:vacuum-system": "cd apps/web && jest --testMatch \"**/vacuumSystemFixtures.gen.ts\"",
     "release:cut": "tsx scripts/release-cut.ts",
     "clean": "turbo clean && rm -rf node_modules",
     "prepare": "husky",

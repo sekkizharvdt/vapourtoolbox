@@ -1,0 +1,70 @@
+/**
+ * The committed vacuum-system artifact must be exactly what its generator
+ * produces — same contract as the flash-chamber fixtures, and for the same
+ * reason: it is a numerical gate for external work, so a committed file that
+ * drifts from its generator means that team is gating against something nobody
+ * can reproduce, and a change here stops propagating to them silently.
+ *
+ * See flashChamberFixtures.reproducible.test.ts for the failure this prevents:
+ * lint-staged formats docs JSON, which desynced that artifact from its
+ * generator until it was added to .prettierignore.
+ */
+
+import { readFileSync } from 'node:fs';
+
+import {
+  buildVacuumFixturePayload,
+  serialiseVacuumFixturePayload,
+  VACUUM_FIXTURE_OUTPUT_PATH,
+} from './vacuumSystemFixtures.gen';
+
+describe('committed vacuum-system fixtures are reproducible', () => {
+  it('match the generator byte for byte', () => {
+    const committed = readFileSync(VACUUM_FIXTURE_OUTPUT_PATH, 'utf8');
+    const regenerated = serialiseVacuumFixturePayload(buildVacuumFixturePayload());
+
+    expect(JSON.parse(regenerated)).toEqual(JSON.parse(committed));
+    expect(regenerated).toBe(committed);
+  });
+
+  it('declare every schemaVersion in schemaChanges', () => {
+    const payload = buildVacuumFixturePayload();
+    for (let v = 1; v <= payload.schemaVersion; v++) {
+      expect(Object.keys(payload.schemaChanges)).toContain(`v${v}`);
+    }
+  });
+
+  it('every capacity curve reaches exactly zero at blank-off', () => {
+    // The feature that makes this curve usable for a pull-down integration, and
+    // the one the ejector model lacks. Asserted here rather than trusted,
+    // because a curve that never reaches zero lets a model reach any vacuum
+    // given time and still pass a naive gate.
+    const { capacityCurve } = buildVacuumFixturePayload();
+
+    for (const curve of capacityCurve.samples) {
+      const blankOff = capacityCurve.blankOff.find(
+        (b) => b.sealWaterTempC === curve.sealWaterTempC
+      )!;
+      const belowBlankOff = curve.fractionOfRating.filter(
+        (f) => f.pressureMbar <= blankOff.blankOffPressureMbar
+      );
+
+      expect(belowBlankOff.length).toBeGreaterThan(0);
+      for (const point of belowBlankOff) {
+        expect(point.fraction).toBe(0);
+      }
+    }
+  });
+
+  it('pull-down capacity is scaled by the reported rated capacity', () => {
+    // If totalRatedCapacityM3h and the curve disagree, the pull-down is silently
+    // rescaled while keeping the right shape — the hardest mismatch to spot.
+    const { capacityCurve, evacuationCases } = buildVacuumFixturePayload();
+
+    for (const c of evacuationCases) {
+      const first = c.expected.evacuationSteps![0]!;
+      const expectedMax = c.expected.totalRatedCapacityM3h! * capacityCurve.constants.CAP;
+      expect(Math.abs(first.capacityM3h - expectedMax)).toBeLessThan(1);
+    }
+  });
+});

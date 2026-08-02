@@ -7,3 +7,8 @@
 # re-running the generator produces a spurious diff and the artifact stops
 # being reproducible — which matters because another team gates against it.
 docs/thermal/fixtures/flash-chamber-cases.json
+
+# Same reasoning: emitted by
+# apps/web/src/lib/thermal/__generators__/vacuumSystemFixtures.gen.ts and consumed
+# as a rung-3 numerical gate.
+docs/thermal/fixtures/vacuum-system-cases.json
