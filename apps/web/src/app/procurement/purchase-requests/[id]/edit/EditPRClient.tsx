@@ -61,6 +61,8 @@ import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { doc, collection, Timestamp, writeBatch } from 'firebase/firestore';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
+import { purchaseRequestStateMachine } from '@/lib/workflow/stateMachines';
 
 /**
  * Restore the unified catalogRef from a saved line (rule 22). Lines saved
@@ -506,6 +508,16 @@ export default function EditPRPage() {
       // Clear project reference when type doesn't use projects
       const hasProject =
         (formData.type === 'PROJECT' || formData.type === 'BUDGETARY') && formData.projectId;
+
+      // Saving a REJECTED PR revives it as a DRAFT (feedback
+      // EIJ6u3qCGvNjJR0PDDFT) — the edit page admits rejected PRs precisely
+      // so they can be revised and resubmitted; without the transition the PR
+      // stayed under Rejected and Save & Submit was refused.
+      const revivingRejected = pr.status === 'REJECTED';
+      if (revivingRejected) {
+        requireValidTransition(purchaseRequestStateMachine, pr.status, 'DRAFT', 'PurchaseRequest');
+      }
+
       batch.update(prRef, {
         type: formData.type,
         category: formData.category,
@@ -519,6 +531,13 @@ export default function EditPRPage() {
         }),
         ...(formData.approverId && { approverId: formData.approverId }),
         ...(formData.approverName && { approverName: formData.approverName }),
+        ...(revivingRejected && {
+          status: 'DRAFT',
+          rejectionReason: null,
+          reviewedAt: null,
+          reviewedBy: null,
+          reviewedByName: null,
+        }),
         itemCount: activeItems.length,
         updatedAt: now,
         updatedBy: user.uid,
@@ -597,6 +616,9 @@ export default function EditPRPage() {
             turnaroundDays: item.turnaroundDays || null,
             testMethodStandard: item.testMethodStandard || null,
             sampleRequirements: item.sampleRequirements || null,
+            // Rejection marks every line item REJECTED — reviving the PR
+            // must reset them or the items stay rejected inside a draft
+            ...(revivingRejected && { status: 'PENDING' }),
             updatedAt: now,
           });
         }

@@ -699,7 +699,12 @@ export default function NewPurchaseRequestPage() {
             </Box>
           ) : (
             <TableContainer>
-              <Table size="small">
+              {/* minWidth makes the container scroll horizontally instead of
+                  crushing fixed columns — after an import the Description
+                  column's min-content grows and the Qty number input (which
+                  has no intrinsic width) collapsed to ~0px, hiding the value
+                  (feedback wYDJBZDfirOyen4825aq / z5byKojWw5ViuOK9lqsk). */}
+              <Table size="small" sx={{ minWidth: 1180 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell width={50}>#</TableCell>
@@ -838,6 +843,8 @@ export default function NewPurchaseRequestPage() {
                           }
                           size="small"
                           fullWidth
+                          // number inputs have no content-derived width — keep a floor
+                          sx={{ minWidth: 72 }}
                           inputProps={{ min: 0, step: 0.01 }}
                         />
                       </TableCell>
@@ -892,6 +899,7 @@ export default function NewPurchaseRequestPage() {
                           placeholder="Optional"
                           size="small"
                           fullWidth
+                          sx={{ minWidth: 100 }}
                         />
                       </TableCell>
                       <TableCell>

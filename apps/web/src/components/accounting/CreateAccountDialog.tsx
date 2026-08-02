@@ -198,7 +198,10 @@ export function CreateAccountDialog({
             accountCategory,
             isGroup,
             openingBalance: Number(openingBalance),
-            currentBalance: Number(openingBalance),
+            // NEVER write currentBalance on edit — it is maintained solely by
+            // the onTransactionWrite Cloud Function; writing openingBalance
+            // here used to wipe the accumulated GL balance on any account
+            // edit (found via feedback pX6oymucWCCLBYJuWihY).
             currency,
             isGSTAccount,
             gstType: isGSTAccount ? gstType : null,
@@ -226,11 +229,13 @@ export function CreateAccountDialog({
             name: editingAccount.name,
             accountType: editingAccount.accountType,
             accountCategory: editingAccount.accountCategory,
+            openingBalance: editingAccount.openingBalance,
           },
           {
             name: name.trim(),
             accountType,
             accountCategory,
+            openingBalance: Number(openingBalance),
           }
         );
 
