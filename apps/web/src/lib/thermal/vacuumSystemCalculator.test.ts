@@ -2,8 +2,11 @@
  * Vacuum System Calculator — Unit Tests
  */
 
+import { getSaturationTemperature } from '@vapour/constants';
+
 import {
   calculateVacuumSystem,
+  ventGasTemperatureC,
   sealWaterSensitivity,
   type VacuumSystemInput,
   type TrainConfig,
@@ -297,8 +300,17 @@ describe('calculateVacuumSystem — parameter effects', () => {
   });
 
   it('deeper vacuum → more steam consumption', () => {
-    const shallow = calculateVacuumSystem(createInput({ suctionPressureMbar: 100 }));
-    const deep = calculateVacuumSystem(createInput({ suctionPressureMbar: 20 }));
+    // Coolant lowered to 20 °C so both points are physically reachable. The
+    // original pair used the 28 °C default with a 20 mbar suction, where the
+    // vapour condenses at 17.5 °C — colder than the cooling water, which cannot
+    // happen. It passed only because vapourWithNCG clamped at saturation instead
+    // of refusing; the clamp is now an error, so the case had to be a real one.
+    const shallow = calculateVacuumSystem(
+      createInput({ suctionPressureMbar: 100, coolantInletTempC: 20 })
+    );
+    const deep = calculateVacuumSystem(
+      createInput({ suctionPressureMbar: 40, coolantInletTempC: 20 })
+    );
     expect(deep.totalMotiveSteamKgH).toBeGreaterThan(shallow.totalMotiveSteamKgH);
   });
 });
@@ -424,12 +436,25 @@ describe('calculateVacuumSystem — vent temperature', () => {
     expect(result.suctionTemperatureC).toBeLessThan(29);
   });
 
-  it('caps vent temp at saturation temperature when coolant inlet is warm', () => {
-    // 70 mbar → Tsat ≈ 39°C; coolant inlet 50°C → vent capped at Tsat, not 52°C
-    const result = calculateVacuumSystem(
-      createInput({ suctionPressureMbar: 70, coolantInletTempC: 50 })
-    );
-    expect(result.suctionTemperatureC).toBeLessThanOrEqual(40);
+  it('caps vent temp at the saturation temperature', () => {
+    // The cap itself, tested on the function rather than through a full system
+    // run. 70 mbar → Tsat ≈ 39 °C, so a 50 °C coolant inlet cannot lift the vent
+    // to 52 °C.
+    expect(ventGasTemperatureC(70, 50)).toBeCloseTo(getSaturationTemperature(0.07), 6);
+    // And below the cap the linear branch applies.
+    expect(ventGasTemperatureC(70, 20)).toBeCloseTo(22, 6);
+  });
+
+  it('refuses a system whose vent gas would sit AT saturation', () => {
+    // A vent at exactly saturation has no non-condensable partial pressure, so
+    // the Dalton carry-over diverges — there is no finite vapour load. This used
+    // to return a 100:1 clamp, which propagated into the suction volume and the
+    // pump selection: one such case sized 203 pumps at 11.2 MW. The root cause is
+    // upstream of the vacuum system — a 50 °C coolant inlet cannot condense
+    // vapour at 39 °C in the first place.
+    expect(() =>
+      calculateVacuumSystem(createInput({ suctionPressureMbar: 70, coolantInletTempC: 50 }))
+    ).toThrow(/infeasible design point/i);
   });
 
   it('Gas-Load suction volume matches the lrvp_only stage suction volume', () => {
@@ -455,10 +480,19 @@ describe('calculateVacuumSystem — LRVP blank-off', () => {
   });
 
   it('throws when suction pressure is at/below the seal-water blank-off', () => {
-    // 30°C seal → blank-off ≈ 42 mbar; 35 mbar suction is unreachable single-stage
+    // 30 °C seal → blank-off ≈ 42.5 mbar; 35 mbar suction is unreachable
+    // single-stage. Coolant dropped to 20 °C so the VENT side is feasible and
+    // this test isolates the blank-off limit — with the 28 °C default the vent
+    // would sit at saturation (Tsat(35 mbar) = 26.7 °C) and throw for that reason
+    // instead, masking what is being tested.
     expect(() =>
       calculateVacuumSystem(
-        createInput({ trainConfig: 'lrvp_only', suctionPressureMbar: 35, sealWaterTempC: 30 })
+        createInput({
+          trainConfig: 'lrvp_only',
+          suctionPressureMbar: 35,
+          sealWaterTempC: 30,
+          coolantInletTempC: 20,
+        })
       )
     ).toThrow(/blank-off/i);
   });

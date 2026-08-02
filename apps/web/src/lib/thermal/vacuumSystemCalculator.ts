@@ -54,6 +54,12 @@ const R_UNIV = 8.314;
 export const VENT_APPROACH_C = 2;
 
 /**
+ * Smallest non-condensable mole fraction for which a vapour carry-over is
+ * meaningful. Below it the Dalton mass ratio diverges — see vapourWithNCG().
+ */
+const MIN_NCG_MOLE_FRACTION = 1e-9;
+
+/**
  * LRVP frame-table rating basis. The `capacityM3h` values in LRVP_FRAME_SIZES are
  * the actual suction capacity at this reference suction pressure and seal-water
  * temperature. Capacity at other conditions is scaled by the blank-off formula
@@ -392,24 +398,39 @@ export function ventGasTemperatureC(
 }
 
 /**
- * Calculate water vapour mass flow accompanying dry NCG at given T and P.
- * Uses Dalton's law: y_H2O = P_sat(T) / P_total.
+ * Water vapour mass flow accompanying dry NCG at a given T and P, by Dalton's
+ * law: y_H2O = P_sat(T) / P_total.
+ *
+ * THROWS at saturation rather than clamping. When P_sat(T) reaches P_total the
+ * vapour partial pressure IS the total pressure, the non-condensable partial
+ * pressure is zero, and the mass ratio y_H2O·M_H2O / (y_NCG·M_air) diverges —
+ * there is no finite vapour load to compute. That is not a load condition, it is
+ * an infeasible design point.
+ *
+ * This used to `return dryNcgKgH * 100`, an arbitrary 100:1 cap. It did not stay
+ * local: the clamped vapour flow propagated into the suction volume and the pump
+ * selection, and one such case sized 203 LRVP-1500 units in parallel at 11.2 MW
+ * for a 35 mbar vent carrying 15 kg/h of NCG — emitted with a soft warning
+ * rather than a refusal. A clamped number and a computed number look identical
+ * downstream, which is exactly what makes silent clamping worse than failing.
  */
 function vapourWithNCG(dryNcgKgH: number, temperatureC: number, totalPressureBar: number): number {
   const pSat = getSaturationPressure(temperatureC);
-  if (pSat >= totalPressureBar) {
-    // Pressure is at or below saturation — essentially all vapour
-    // Return a large ratio but capped
-    return dryNcgKgH * 100;
-  }
-  // Mole fraction of water vapour
   const yH2O = pSat / totalPressureBar;
   const yNCG = 1 - yH2O;
-  if (yNCG < 1e-9) return dryNcgKgH * 100;
+
+  if (pSat >= totalPressureBar || yNCG < MIN_NCG_MOLE_FRACTION) {
+    throw new Error(
+      `Vent gas at ${temperatureC.toFixed(2)}°C is saturated at ` +
+        `${(totalPressureBar * 1000).toFixed(1)} mbar (P_sat = ${(pSat * 1000).toFixed(1)} mbar), ` +
+        'so the non-condensable partial pressure vanishes and the vapour carry-over is ' +
+        'unbounded. This is an infeasible design point, not an operating load. Subcool the vent ' +
+        'gas with a colder tube-side coolant inlet, or raise the suction pressure.'
+    );
+  }
 
   // Mass ratio: (m_H2O / m_NCG) = (y_H2O × M_H2O) / (y_NCG × M_AIR)
-  const massRatio = (yH2O * M_H2O) / (yNCG * M_AIR);
-  return dryNcgKgH * massRatio;
+  return dryNcgKgH * ((yH2O * M_H2O) / (yNCG * M_AIR));
 }
 
 /**
@@ -807,12 +828,16 @@ function calculateEvacuationTime(
     steps.push({
       pressureMbar: Math.round(pLow * 10) / 10,
       capacityM3h: Math.round(effectiveCapacity * 10) / 10,
-      cumulativeMinutes: Math.round(cumulativeMinutes * 10) / 10,
+      cumulativeMinutes: Math.round(cumulativeMinutes * 1000) / 1000,
     });
   }
 
   return {
-    totalMinutes: Math.round(cumulativeMinutes * 10) / 10,
+    // Three decimals, not one. A fast pull-down rounds to 0.1 min at one
+    // decimal, which carries no information beyond "somewhere in [0.05, 0.15]"
+    // and forced a consumer to widen its gate to 15% to accommodate the
+    // quantisation rather than the physics.
+    totalMinutes: Math.round(cumulativeMinutes * 1000) / 1000,
     steps,
   };
 }

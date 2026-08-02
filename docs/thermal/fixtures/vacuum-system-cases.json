@@ -1,8 +1,21 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "generatedBy": "apps/web/src/lib/thermal/__generators__/vacuumSystemFixtures.gen.ts",
   "generatedFor": "vapour-dynamics rung 3 — spec §4.2 (S(P) input) and §7.2.1 (pull-down gate)",
   "schemaChanges": {
+    "v3": {
+      "added": [
+        "suctionVolume — the sizing relation published, so the 1.10x design margin is not mistaken for an actual vent flow.",
+        "ventGasTemperature.ceilingIsInfeasibleNotALoad"
+      ],
+      "removed": [
+        "case lrvp-06 — REMOVED, and it should not be restored. See the note below."
+      ],
+      "changed": [
+        "evacuationTimeMinutes and evacuationSteps[].cumulativeMinutes now carry three decimals rather than one. At one decimal a fast pull-down printed 0.1 min, which carries no information beyond [0.05, 0.15] and forced a consumer to widen its gate to accommodate quantisation rather than physics."
+      ],
+      "note": "lrvp-06 was added in v2 to exercise the saturation-ceiling branch of the vent-gas rule. That was a mistake: the ceiling is not a branch with a different answer, it is the boundary where the answer ceases to exist. Its reported vapour flow was exactly 100.000x the dry NCG — a clamp, not a computation — and the clamp propagated into the suction volume (65,637 m3/h against 347-1553 for every real case) and the pump selection (203 units, 11.2 MW). Caught by the simulator session inverting the Dalton split and finding it singular. The calculator now throws on that branch, the generator refuses to emit such a case, and the relation is documented as infeasible."
+    },
     "v2": {
       "added": [
         "ventGasTemperature — the vent-gas rule published outright, with constants and a per-case branch label, instead of left to be inverted from the NCG/vapour split.",
@@ -45,11 +58,19 @@
     "sizingIsNotCapacity": "Each case reports `totalRatedCapacityM3h`, the pump the SIZING loop selected for the continuous duty. Use it as given; do not re-derive it. Cases 01 and 02 show why: warmer seal water lowers the capacity fraction at the duty point, so the loop picks a larger frame, and the pull-down comes out FASTER on worse seal water. That is the sizing response, not the capacity curve, and conflating the two will look like a sign error in S(P).",
     "blankOff": "The physically important feature is that S(P) reaches exactly zero at the seal-water saturation pressure. A pull-down model that can reach any vacuum given time has lost that limit, and will pass a naive gate while being qualitatively wrong."
   },
+  "suctionVolume": {
+    "relation": "suctionVolumeM3h = V_ideal(m_ncg + m_vapour, P_suction, T_vent) x (1 + designMargin)",
+    "constants": {
+      "designMarginDefault": 0.1
+    },
+    "note": "This is a SIZING figure, not the volumetric flow at the vent. It is the ideal-gas mixture volume at the suction pressure and vent-gas temperature with a design margin applied, and it is what the frame selection is made against. A coupled model that reads it as an actual vent flow is 10% high by construction. Published rather than left to be inverted — the margin is invisible in a single number."
+  },
   "ventGasTemperature": {
     "relation": "T_vent = min(tSat(P_suction), T_coolant_inlet + VENT_APPROACH_C)",
     "constants": {
       "VENT_APPROACH_C": 2
     },
+    "ceilingIsInfeasibleNotALoad": "The min() has two branches, and only the LINEAR one is a load condition. When the saturation ceiling binds, T_vent = tSat(P_suction) exactly, so the vapour partial pressure equals the total pressure, the non-condensable partial pressure is zero, and the Dalton mass ratio diverges. There is no finite vapour load at that point — it is an infeasible design point, not an operating regime, and a coupled model should treat it as a constraint violation rather than something to evaluate. v2 of this fixture carried a case (lrvp-06) sitting on that boundary; it is REMOVED in v3. Its reported vapour flow was a 100:1 clamp rather than a computation, and the clamp propagated into the suction volume and the pump selection, sizing 203 units at 11.2 MW for a 35 mbar vent with 15 kg/h of NCG. The calculator now throws on that branch instead of clamping.",
     "rationale": "The NCG offtake sits at the condenser cold end, so extracted gas cools to roughly the tube-side coolant inlet plus a small approach — but never above the vapour-space saturation temperature at suction pressure. T_vent then sets the water vapour riding with the NCG by Dalton, and therefore the volumetric load the pump sees.",
     "perCase": [
       {
@@ -96,15 +117,6 @@
         "linearBranchTempC": 24,
         "ventGasTempC": 24,
         "branch": "linear"
-      },
-      {
-        "id": "lrvp-06",
-        "suctionPressureMbar": 35,
-        "coolantInletTempC": 32,
-        "saturationTempC": 26.673,
-        "linearBranchTempC": 34,
-        "ventGasTempC": 26.673,
-        "branch": "saturation-ceiling"
       }
     ]
   },
@@ -547,107 +559,107 @@
       },
       "expected": {
         "totalRatedCapacityM3h": 4000,
-        "evacuationTimeMinutes": 1.8,
+        "evacuationTimeMinutes": 1.813,
         "evacuationSteps": [
           {
             "pressureMbar": 879.5,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.1
+            "cumulativeMinutes": 0.071
           },
           {
             "pressureMbar": 763.6,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.1
+            "cumulativeMinutes": 0.141
           },
           {
             "pressureMbar": 663,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.2
+            "cumulativeMinutes": 0.212
           },
           {
             "pressureMbar": 575.6,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.3
+            "cumulativeMinutes": 0.283
           },
           {
             "pressureMbar": 499.7,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.4
+            "cumulativeMinutes": 0.353
           },
           {
             "pressureMbar": 433.9,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.4
+            "cumulativeMinutes": 0.424
           },
           {
             "pressureMbar": 376.7,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.5
+            "cumulativeMinutes": 0.495
           },
           {
             "pressureMbar": 327.1,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.6
+            "cumulativeMinutes": 0.565
           },
           {
             "pressureMbar": 284,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.6
+            "cumulativeMinutes": 0.636
           },
           {
             "pressureMbar": 246.5,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.7
+            "cumulativeMinutes": 0.707
           },
           {
             "pressureMbar": 214,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.8
+            "cumulativeMinutes": 0.777
           },
           {
             "pressureMbar": 185.8,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.8
+            "cumulativeMinutes": 0.848
           },
           {
             "pressureMbar": 161.3,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 0.9
+            "cumulativeMinutes": 0.919
           },
           {
             "pressureMbar": 140.1,
             "capacityM3h": 6000,
-            "cumulativeMinutes": 1
+            "cumulativeMinutes": 0.989
           },
           {
             "pressureMbar": 121.6,
             "capacityM3h": 5182.4,
-            "cumulativeMinutes": 1.1
+            "cumulativeMinutes": 1.071
           },
           {
             "pressureMbar": 105.6,
             "capacityM3h": 4350.8,
-            "cumulativeMinutes": 1.2
+            "cumulativeMinutes": 1.168
           },
           {
             "pressureMbar": 91.7,
             "capacityM3h": 3628.8,
-            "cumulativeMinutes": 1.3
+            "cumulativeMinutes": 1.285
           },
           {
             "pressureMbar": 79.6,
             "capacityM3h": 3001.9,
-            "cumulativeMinutes": 1.4
+            "cumulativeMinutes": 1.427
           },
           {
             "pressureMbar": 69.1,
             "capacityM3h": 2457.6,
-            "cumulativeMinutes": 1.6
+            "cumulativeMinutes": 1.599
           },
           {
             "pressureMbar": 60,
             "capacityM3h": 1985.1,
-            "cumulativeMinutes": 1.8
+            "cumulativeMinutes": 1.813
           }
         ],
         "totalPowerKW": 150,
@@ -693,107 +705,107 @@
       },
       "expected": {
         "totalRatedCapacityM3h": 6000,
-        "evacuationTimeMinutes": 1.3,
+        "evacuationTimeMinutes": 1.304,
         "evacuationSteps": [
           {
             "pressureMbar": 879.5,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0
+            "cumulativeMinutes": 0.047
           },
           {
             "pressureMbar": 763.6,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.1
+            "cumulativeMinutes": 0.094
           },
           {
             "pressureMbar": 663,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.1
+            "cumulativeMinutes": 0.141
           },
           {
             "pressureMbar": 575.6,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.2
+            "cumulativeMinutes": 0.188
           },
           {
             "pressureMbar": 499.7,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.2
+            "cumulativeMinutes": 0.236
           },
           {
             "pressureMbar": 433.9,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.3
+            "cumulativeMinutes": 0.283
           },
           {
             "pressureMbar": 376.7,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.3
+            "cumulativeMinutes": 0.33
           },
           {
             "pressureMbar": 327.1,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.4
+            "cumulativeMinutes": 0.377
           },
           {
             "pressureMbar": 284,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.4
+            "cumulativeMinutes": 0.424
           },
           {
             "pressureMbar": 246.5,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.5
+            "cumulativeMinutes": 0.471
           },
           {
             "pressureMbar": 214,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.5
+            "cumulativeMinutes": 0.518
           },
           {
             "pressureMbar": 185.8,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.6
+            "cumulativeMinutes": 0.565
           },
           {
             "pressureMbar": 161.3,
             "capacityM3h": 9000,
-            "cumulativeMinutes": 0.6
+            "cumulativeMinutes": 0.612
           },
           {
             "pressureMbar": 140.1,
             "capacityM3h": 8609.7,
-            "cumulativeMinutes": 0.7
+            "cumulativeMinutes": 0.662
           },
           {
             "pressureMbar": 121.6,
             "capacityM3h": 7172.9,
-            "cumulativeMinutes": 0.7
+            "cumulativeMinutes": 0.721
           },
           {
             "pressureMbar": 105.6,
             "capacityM3h": 5925.4,
-            "cumulativeMinutes": 0.8
+            "cumulativeMinutes": 0.792
           },
           {
             "pressureMbar": 91.7,
             "capacityM3h": 4842.4,
-            "cumulativeMinutes": 0.9
+            "cumulativeMinutes": 0.88
           },
           {
             "pressureMbar": 79.6,
             "capacityM3h": 3902,
-            "cumulativeMinutes": 1
+            "cumulativeMinutes": 0.988
           },
           {
             "pressureMbar": 69.1,
             "capacityM3h": 3085.6,
-            "cumulativeMinutes": 1.1
+            "cumulativeMinutes": 1.126
           },
           {
             "pressureMbar": 60,
             "capacityM3h": 2376.8,
-            "cumulativeMinutes": 1.3
+            "cumulativeMinutes": 1.304
           }
         ],
         "totalPowerKW": 220,
@@ -839,107 +851,107 @@
       },
       "expected": {
         "totalRatedCapacityM3h": 800,
-        "evacuationTimeMinutes": 24.2,
+        "evacuationTimeMinutes": 24.231,
         "evacuationSteps": [
           {
             "pressureMbar": 902.3,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 1.2
+            "cumulativeMinutes": 1.158
           },
           {
             "pressureMbar": 803.6,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 2.3
+            "cumulativeMinutes": 2.316
           },
           {
             "pressureMbar": 715.8,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 3.5
+            "cumulativeMinutes": 3.473
           },
           {
             "pressureMbar": 637.5,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 4.6
+            "cumulativeMinutes": 4.631
           },
           {
             "pressureMbar": 567.8,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 5.8
+            "cumulativeMinutes": 5.789
           },
           {
             "pressureMbar": 505.7,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 6.9
+            "cumulativeMinutes": 6.947
           },
           {
             "pressureMbar": 450.4,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 8.1
+            "cumulativeMinutes": 8.104
           },
           {
             "pressureMbar": 401.2,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 9.3
+            "cumulativeMinutes": 9.262
           },
           {
             "pressureMbar": 357.3,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 10.4
+            "cumulativeMinutes": 10.42
           },
           {
             "pressureMbar": 318.3,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 11.6
+            "cumulativeMinutes": 11.578
           },
           {
             "pressureMbar": 283.5,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 12.7
+            "cumulativeMinutes": 12.735
           },
           {
             "pressureMbar": 252.5,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 13.9
+            "cumulativeMinutes": 13.893
           },
           {
             "pressureMbar": 224.9,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 15.1
+            "cumulativeMinutes": 15.051
           },
           {
             "pressureMbar": 200.3,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 16.2
+            "cumulativeMinutes": 16.209
           },
           {
             "pressureMbar": 178.4,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 17.4
+            "cumulativeMinutes": 17.366
           },
           {
             "pressureMbar": 158.9,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 18.5
+            "cumulativeMinutes": 18.524
           },
           {
             "pressureMbar": 141.5,
             "capacityM3h": 1200,
-            "cumulativeMinutes": 19.7
+            "cumulativeMinutes": 19.682
           },
           {
             "pressureMbar": 126.1,
             "capacityM3h": 1064.8,
-            "cumulativeMinutes": 21
+            "cumulativeMinutes": 20.986
           },
           {
             "pressureMbar": 112.3,
             "capacityM3h": 923.7,
-            "cumulativeMinutes": 22.5
+            "cumulativeMinutes": 22.49
           },
           {
             "pressureMbar": 100,
             "capacityM3h": 798.1,
-            "cumulativeMinutes": 24.2
+            "cumulativeMinutes": 24.231
           }
         ],
         "totalPowerKW": 44,
@@ -985,107 +997,107 @@
       },
       "expected": {
         "totalRatedCapacityM3h": 600,
-        "evacuationTimeMinutes": 22.8,
+        "evacuationTimeMinutes": 22.752,
         "evacuationSteps": [
           {
             "pressureMbar": 892.2,
             "capacityM3h": 900,
-            "cumulativeMinutes": 1
+            "cumulativeMinutes": 1.015
           },
           {
             "pressureMbar": 785.9,
             "capacityM3h": 900,
-            "cumulativeMinutes": 2
+            "cumulativeMinutes": 2.031
           },
           {
             "pressureMbar": 692.2,
             "capacityM3h": 900,
-            "cumulativeMinutes": 3
+            "cumulativeMinutes": 3.046
           },
           {
             "pressureMbar": 609.7,
             "capacityM3h": 900,
-            "cumulativeMinutes": 4.1
+            "cumulativeMinutes": 4.062
           },
           {
             "pressureMbar": 537,
             "capacityM3h": 900,
-            "cumulativeMinutes": 5.1
+            "cumulativeMinutes": 5.077
           },
           {
             "pressureMbar": 473,
             "capacityM3h": 900,
-            "cumulativeMinutes": 6.1
+            "cumulativeMinutes": 6.093
           },
           {
             "pressureMbar": 416.6,
             "capacityM3h": 900,
-            "cumulativeMinutes": 7.1
+            "cumulativeMinutes": 7.108
           },
           {
             "pressureMbar": 366.9,
             "capacityM3h": 900,
-            "cumulativeMinutes": 8.1
+            "cumulativeMinutes": 8.124
           },
           {
             "pressureMbar": 323.2,
             "capacityM3h": 900,
-            "cumulativeMinutes": 9.1
+            "cumulativeMinutes": 9.139
           },
           {
             "pressureMbar": 284.7,
             "capacityM3h": 900,
-            "cumulativeMinutes": 10.2
+            "cumulativeMinutes": 10.155
           },
           {
             "pressureMbar": 250.7,
             "capacityM3h": 900,
-            "cumulativeMinutes": 11.2
+            "cumulativeMinutes": 11.17
           },
           {
             "pressureMbar": 220.9,
             "capacityM3h": 900,
-            "cumulativeMinutes": 12.2
+            "cumulativeMinutes": 12.185
           },
           {
             "pressureMbar": 194.5,
             "capacityM3h": 900,
-            "cumulativeMinutes": 13.2
+            "cumulativeMinutes": 13.201
           },
           {
             "pressureMbar": 171.3,
             "capacityM3h": 900,
-            "cumulativeMinutes": 14.2
+            "cumulativeMinutes": 14.216
           },
           {
             "pressureMbar": 150.9,
             "capacityM3h": 900,
-            "cumulativeMinutes": 15.2
+            "cumulativeMinutes": 15.232
           },
           {
             "pressureMbar": 132.9,
             "capacityM3h": 857.4,
-            "cumulativeMinutes": 16.3
+            "cumulativeMinutes": 16.298
           },
           {
             "pressureMbar": 117.1,
             "capacityM3h": 735,
-            "cumulativeMinutes": 17.5
+            "cumulativeMinutes": 17.541
           },
           {
             "pressureMbar": 103.1,
             "capacityM3h": 627.2,
-            "cumulativeMinutes": 19
+            "cumulativeMinutes": 18.998
           },
           {
             "pressureMbar": 90.8,
             "capacityM3h": 532.3,
-            "cumulativeMinutes": 20.7
+            "cumulativeMinutes": 20.715
           },
           {
             "pressureMbar": 80,
             "capacityM3h": 448.7,
-            "cumulativeMinutes": 22.8
+            "cumulativeMinutes": 22.752
           }
         ],
         "totalPowerKW": 30,
@@ -1129,107 +1141,107 @@
       },
       "expected": {
         "totalRatedCapacityM3h": 500,
-        "evacuationTimeMinutes": 22.2,
+        "evacuationTimeMinutes": 22.205,
         "evacuationSteps": [
           {
             "pressureMbar": 892.2,
             "capacityM3h": 750,
-            "cumulativeMinutes": 1
+            "cumulativeMinutes": 1.015
           },
           {
             "pressureMbar": 785.9,
             "capacityM3h": 750,
-            "cumulativeMinutes": 2
+            "cumulativeMinutes": 2.031
           },
           {
             "pressureMbar": 692.2,
             "capacityM3h": 750,
-            "cumulativeMinutes": 3
+            "cumulativeMinutes": 3.046
           },
           {
             "pressureMbar": 609.7,
             "capacityM3h": 750,
-            "cumulativeMinutes": 4.1
+            "cumulativeMinutes": 4.062
           },
           {
             "pressureMbar": 537,
             "capacityM3h": 750,
-            "cumulativeMinutes": 5.1
+            "cumulativeMinutes": 5.077
           },
           {
             "pressureMbar": 473,
             "capacityM3h": 750,
-            "cumulativeMinutes": 6.1
+            "cumulativeMinutes": 6.093
           },
           {
             "pressureMbar": 416.6,
             "capacityM3h": 750,
-            "cumulativeMinutes": 7.1
+            "cumulativeMinutes": 7.108
           },
           {
             "pressureMbar": 366.9,
             "capacityM3h": 750,
-            "cumulativeMinutes": 8.1
+            "cumulativeMinutes": 8.124
           },
           {
             "pressureMbar": 323.2,
             "capacityM3h": 750,
-            "cumulativeMinutes": 9.1
+            "cumulativeMinutes": 9.139
           },
           {
             "pressureMbar": 284.7,
             "capacityM3h": 750,
-            "cumulativeMinutes": 10.2
+            "cumulativeMinutes": 10.155
           },
           {
             "pressureMbar": 250.7,
             "capacityM3h": 750,
-            "cumulativeMinutes": 11.2
+            "cumulativeMinutes": 11.17
           },
           {
             "pressureMbar": 220.9,
             "capacityM3h": 750,
-            "cumulativeMinutes": 12.2
+            "cumulativeMinutes": 12.185
           },
           {
             "pressureMbar": 194.5,
             "capacityM3h": 750,
-            "cumulativeMinutes": 13.2
+            "cumulativeMinutes": 13.201
           },
           {
             "pressureMbar": 171.3,
             "capacityM3h": 750,
-            "cumulativeMinutes": 14.2
+            "cumulativeMinutes": 14.216
           },
           {
             "pressureMbar": 150.9,
             "capacityM3h": 750,
-            "cumulativeMinutes": 15.2
+            "cumulativeMinutes": 15.232
           },
           {
             "pressureMbar": 132.9,
             "capacityM3h": 750,
-            "cumulativeMinutes": 16.2
+            "cumulativeMinutes": 16.247
           },
           {
             "pressureMbar": 117.1,
             "capacityM3h": 650.7,
-            "cumulativeMinutes": 17.4
+            "cumulativeMinutes": 17.418
           },
           {
             "pressureMbar": 103.1,
             "capacityM3h": 560.9,
-            "cumulativeMinutes": 18.8
+            "cumulativeMinutes": 18.776
           },
           {
             "pressureMbar": 90.8,
             "capacityM3h": 481.8,
-            "cumulativeMinutes": 20.4
+            "cumulativeMinutes": 20.356
           },
           {
             "pressureMbar": 80,
             "capacityM3h": 412.1,
-            "cumulativeMinutes": 22.2
+            "cumulativeMinutes": 22.205
           }
         ],
         "totalPowerKW": 30,
@@ -1256,154 +1268,6 @@
       },
       "warnings": [
         "Required capacity exceeds single pump. Sized as 2× LRVP-250 in parallel (30 kW total)."
-      ]
-    },
-    {
-      "id": "lrvp-06",
-      "note": "ADDED v2, and the more important of the two. Here the SATURATION CEILING binds: at 35 mbar the vapour-space saturation temperature is 26.67 °C, below the 34 °C that a bare 2 K approach to 32 °C cooling water would give, so the vent gas is capped at saturation. The rule is min(tSat(P), T_cw + 2), not T_cw + 2 — and the ceiling branch is invisible to inversion unless a case exercises it. Every other case on this grid sits on the linear branch.",
-      "input": {
-        "suctionPressureMbar": 35,
-        "coolantInletTempC": 32,
-        "dischargePressureMbar": 1013,
-        "ncgMode": "manual",
-        "dryNcgFlowKgH": 15,
-        "motivePressureBar": 10,
-        "coolingWaterTempC": 32,
-        "sealWaterTempC": 15,
-        "trainConfig": "lrvp_only",
-        "evacuationVolumeM3": 80
-      },
-      "expected": {
-        "totalRatedCapacityM3h": 304500,
-        "evacuationTimeMinutes": 0.1,
-        "evacuationSteps": [
-          {
-            "pressureMbar": 856.1,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 723.5,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 611.5,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 516.8,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 436.7,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 369.1,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 311.9,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 263.6,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 222.8,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 188.3,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 159.1,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 134.5,
-            "capacityM3h": 456750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 113.7,
-            "capacityM3h": 392881.4,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 96.1,
-            "capacityM3h": 322337.1,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 81.2,
-            "capacityM3h": 262718.1,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 68.6,
-            "capacityM3h": 212332.4,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 58,
-            "capacityM3h": 169750,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 49,
-            "capacityM3h": 133762.3,
-            "cumulativeMinutes": 0
-          },
-          {
-            "pressureMbar": 41.4,
-            "capacityM3h": 103348.1,
-            "cumulativeMinutes": 0.1
-          },
-          {
-            "pressureMbar": 35,
-            "capacityM3h": 77644.2,
-            "cumulativeMinutes": 0.1
-          }
-        ],
-        "totalPowerKW": 11165,
-        "stages": [
-          {
-            "stageNumber": 1,
-            "type": "lrvp",
-            "suctionPressureMbar": 35,
-            "dischargePressureMbar": 1013,
-            "compressionRatio": 28.94,
-            "dryNcgInKgH": 15,
-            "vapourInKgH": 1500,
-            "totalSuctionKgH": 1515,
-            "suctionVolumeM3h": 65637.1,
-            "lrvpModel": "LRVP-1500",
-            "lrvpRatedCapacityM3h": 1500,
-            "lrvpCorrectionFactor": 0.216,
-            "lrvpRequiredCapacityM3h": 303418.9,
-            "lrvpPowerKW": 55,
-            "lrvpCount": 203,
-            "lrvpTotalPowerKW": 11165
-          }
-        ]
-      },
-      "warnings": [
-        "Very high overall compression ratio (29:1). Verify system pressures.",
-        "Water vapour load is very high relative to NCG. Vent gas (26.673192672679306°C, from coolant inlet 32°C) is within 0°C of saturation (26.7°C). A colder tube-side coolant inlet would subcool the vent gas further and reduce vapour carry-over.",
-        "Required capacity exceeds single pump. Sized as 203× LRVP-1500 in parallel (11165 kW total)."
       ]
     }
   ]

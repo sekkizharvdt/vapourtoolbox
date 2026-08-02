@@ -38,7 +38,7 @@ import {
   type VacuumSystemInput,
 } from '../vacuumSystemCalculator';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const OUTPUT_PATH = join(
   __dirname,
@@ -121,6 +121,17 @@ function buildVentGasRule(cases: ReturnType<typeof buildEvacuationCase>[]) {
   return {
     relation: 'T_vent = min(tSat(P_suction), T_coolant_inlet + VENT_APPROACH_C)',
     constants: { VENT_APPROACH_C },
+    ceilingIsInfeasibleNotALoad:
+      'The min() has two branches, and only the LINEAR one is a load condition. When the ' +
+      'saturation ceiling binds, T_vent = tSat(P_suction) exactly, so the vapour partial ' +
+      'pressure equals the total pressure, the non-condensable partial pressure is zero, and ' +
+      'the Dalton mass ratio diverges. There is no finite vapour load at that point — it is an ' +
+      'infeasible design point, not an operating regime, and a coupled model should treat it as ' +
+      'a constraint violation rather than something to evaluate. v2 of this fixture carried a ' +
+      'case (lrvp-06) sitting on that boundary; it is REMOVED in v3. Its reported vapour flow ' +
+      'was a 100:1 clamp rather than a computation, and the clamp propagated into the suction ' +
+      'volume and the pump selection, sizing 203 units at 11.2 MW for a 35 mbar vent with ' +
+      '15 kg/h of NCG. The calculator now throws on that branch instead of clamping.',
     rationale:
       'The NCG offtake sits at the condenser cold end, so extracted gas cools to roughly the ' +
       'tube-side coolant inlet plus a small approach — but never above the vapour-space ' +
@@ -240,28 +251,6 @@ const EVACUATION_SPECS: EvacuationCaseSpec[] = [
       evacuationVolumeM3: 100,
     },
   },
-  {
-    id: 'lrvp-06',
-    note:
-      'ADDED v2, and the more important of the two. Here the SATURATION CEILING binds: at ' +
-      '35 mbar the vapour-space saturation temperature is 26.67 °C, below the 34 °C that a bare ' +
-      '2 K approach to 32 °C cooling water would give, so the vent gas is capped at saturation. ' +
-      'The rule is min(tSat(P), T_cw + 2), not T_cw + 2 — and the ceiling branch is invisible to ' +
-      'inversion unless a case exercises it. Every other case on this grid sits on the linear ' +
-      'branch.',
-    input: {
-      suctionPressureMbar: 35,
-      coolantInletTempC: 32,
-      dischargePressureMbar: 1013,
-      ncgMode: 'manual',
-      dryNcgFlowKgH: 15,
-      motivePressureBar: 10,
-      coolingWaterTempC: 32,
-      sealWaterTempC: 15,
-      trainConfig: 'lrvp_only',
-      evacuationVolumeM3: 80,
-    },
-  },
 ];
 
 function buildEvacuationCase(spec: EvacuationCaseSpec) {
@@ -316,6 +305,23 @@ export function buildVacuumFixturePayload() {
     }
   }
 
+  // No case may sit on the saturation ceiling. Such a point has no finite vapour
+  // load, so any figure reported for it is a guard rather than a computation —
+  // which is how lrvp-06 shipped in v2 with a 100:1 clamp driving a 203-pump
+  // selection. The calculator now throws on that branch; this stops one being
+  // added back by widening a case until it crosses.
+  for (const c of evacuationCases) {
+    const tSat = getSaturationTemperature(c.input.suctionPressureMbar / 1000);
+    const linear = c.input.coolantInletTempC + VENT_APPROACH_C;
+    if (tSat <= linear) {
+      throw new Error(
+        `${c.id}: vent gas is capped at saturation (tSat ${tSat.toFixed(2)} °C <= coolant + ` +
+          `approach ${linear.toFixed(2)} °C). That is an infeasible design point with no finite ` +
+          'vapour load, not a reference case.'
+      );
+    }
+  }
+
   for (const s of capacityCurve.samples) {
     const atBlankOff = s.fractionOfRating.find(
       (f) => f.pressureMbar <= getSaturationPressure(s.sealWaterTempC) * 1000
@@ -333,6 +339,29 @@ export function buildVacuumFixturePayload() {
     generatedBy: 'apps/web/src/lib/thermal/__generators__/vacuumSystemFixtures.gen.ts',
     generatedFor: 'vapour-dynamics rung 3 — spec §4.2 (S(P) input) and §7.2.1 (pull-down gate)',
     schemaChanges: {
+      v3: {
+        added: [
+          'suctionVolume — the sizing relation published, so the 1.10x design margin is not ' +
+            'mistaken for an actual vent flow.',
+          'ventGasTemperature.ceilingIsInfeasibleNotALoad',
+        ],
+        removed: ['case lrvp-06 — REMOVED, and it should not be restored. See the note below.'],
+        changed: [
+          'evacuationTimeMinutes and evacuationSteps[].cumulativeMinutes now carry three ' +
+            'decimals rather than one. At one decimal a fast pull-down printed 0.1 min, which ' +
+            'carries no information beyond [0.05, 0.15] and forced a consumer to widen its gate ' +
+            'to accommodate quantisation rather than physics.',
+        ],
+        note:
+          'lrvp-06 was added in v2 to exercise the saturation-ceiling branch of the vent-gas ' +
+          'rule. That was a mistake: the ceiling is not a branch with a different answer, it is ' +
+          'the boundary where the answer ceases to exist. Its reported vapour flow was exactly ' +
+          '100.000x the dry NCG — a clamp, not a computation — and the clamp propagated into ' +
+          'the suction volume (65,637 m3/h against 347-1553 for every real case) and the pump ' +
+          'selection (203 units, 11.2 MW). Caught by the simulator session inverting the Dalton ' +
+          'split and finding it singular. The calculator now throws on that branch, the ' +
+          'generator refuses to emit such a case, and the relation is documented as infeasible.',
+      },
       v2: {
         added: [
           'ventGasTemperature — the vent-gas rule published outright, with constants and a ' +
@@ -432,6 +461,17 @@ export function buildVacuumFixturePayload() {
         'The physically important feature is that S(P) reaches exactly zero at the seal-water ' +
         'saturation pressure. A pull-down model that can reach any vacuum given time has lost ' +
         'that limit, and will pass a naive gate while being qualitatively wrong.',
+    },
+    suctionVolume: {
+      relation:
+        'suctionVolumeM3h = V_ideal(m_ncg + m_vapour, P_suction, T_vent) x (1 + designMargin)',
+      constants: { designMarginDefault: 0.1 },
+      note:
+        'This is a SIZING figure, not the volumetric flow at the vent. It is the ideal-gas ' +
+        'mixture volume at the suction pressure and vent-gas temperature with a design margin ' +
+        'applied, and it is what the frame selection is made against. A coupled model that reads ' +
+        'it as an actual vent flow is 10% high by construction. Published rather than left to be ' +
+        'inverted — the margin is invisible in a single number.',
     },
     ventGasTemperature: buildVentGasRule(evacuationCases),
     capacityCurve,

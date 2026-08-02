@@ -79,12 +79,28 @@ describe('committed vacuum-system fixtures are reproducible', () => {
       }
     });
 
-    it('exercises both branches, so neither can be recovered wrongly', () => {
+    it('has NO case on the saturation ceiling, because that point has no answer', () => {
+      // v2 asserted the opposite — that both branches stay exercised — which
+      // entrenched a clamp as a reference value. The ceiling is not a branch
+      // with a different answer; it is where the answer ceases to exist: the
+      // non-condensable partial pressure vanishes and the Dalton mass ratio
+      // diverges. The v2 case reported exactly 100.000x the dry NCG, which was
+      // the guard value, and it drove a 203-pump selection at 11.2 MW.
       const { ventGasTemperature } = buildVacuumFixturePayload();
-      const branches = new Set(ventGasTemperature.perCase.map((c) => c.branch));
 
-      expect(branches).toContain('linear');
-      expect(branches).toContain('saturation-ceiling');
+      for (const c of ventGasTemperature.perCase) {
+        expect(c.branch).toBe('linear');
+      }
+    });
+
+    it('keeps every vent gas measurably subcooled, not merely below saturation', () => {
+      // A case sitting a hair under the ceiling is as useless as one on it: the
+      // mass ratio is finite but arbitrary. Require real headroom.
+      const { ventGasTemperature } = buildVacuumFixturePayload();
+
+      for (const c of ventGasTemperature.perCase) {
+        expect(c.saturationTempC - c.ventGasTempC).toBeGreaterThan(1);
+      }
     });
 
     it('carries at least three distinct coolant temperatures', () => {
