@@ -22,6 +22,7 @@
     "changelog:sync": "tsx scripts/sync-changelog.ts",
     "fixtures:flash-chamber": "cd apps/web && jest --testMatch \"**/flashChamberFixtures.gen.ts\"",
     "fixtures:vacuum-system": "cd apps/web && jest --testMatch \"**/vacuumSystemFixtures.gen.ts\"",
+    "fixtures:condenser": "cd apps/web && jest --testMatch \"**/condenserFixtures.gen.ts\"",
     "release:cut": "tsx scripts/release-cut.ts",
     "clean": "turbo clean && rm -rf node_modules",
     "prepare": "husky",

@@ -12,3 +12,8 @@ docs/thermal/fixtures/flash-chamber-cases.json
 # apps/web/src/lib/thermal/__generators__/vacuumSystemFixtures.gen.ts and consumed
 # as a rung-3 numerical gate.
 docs/thermal/fixtures/vacuum-system-cases.json
+
+# Same reasoning: emitted by
+# apps/web/src/lib/thermal/__generators__/condenserFixtures.gen.ts and consumed
+# as a rung-5 numerical gate.
+docs/thermal/fixtures/condenser-cases.json

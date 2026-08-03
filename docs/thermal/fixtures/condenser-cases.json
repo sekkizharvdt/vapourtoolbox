@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "apps/web/src/lib/thermal/__generators__/condenserFixtures.gen.ts",
+  "generatedFor": "vapour-dynamics rung 5 — spec §7.2 condenser steady-state gate",
+  "schemaChanges": {
+    "v1": {
+      "added": [
+        "condenser cases",
+        "overallU",
+        "lmtdConvention",
+        "filmCoefficients",
+        "offDesign"
+      ],
+      "removed": [],
+      "note": "First revision. Answers the six questions asked before the fixture was built rather than across revisions after it."
+    }
+  },
+  "units": {
+    "flow": "t/h",
+    "volumetricFlow": "m3/h",
+    "temperature": "degC",
+    "duty": "kW",
+    "lmtd": "K",
+    "htc": "W/(m2·K)",
+    "area": "m2",
+    "length": "mm",
+    "velocity": "m/s"
+  },
+  "overallU": {
+    "relation": "1/U = 1/h_shell + R_f,shell + wall + R_f,tube·(OD/ID) + (1/h_tube)·(OD/ID)",
+    "tubeSideCorrelation": "Dittus-Boelter, seawater forced convection",
+    "shellSideCorrelation": "Nusselt film condensation, with Kern row correction and an NCG degradation factor",
+    "capApplied": false,
+    "capNote": "There is NO cap on the condenser U. This differs from the evaporator, which is capped at MED_EVAPORATOR_DESIGN_U_WM2K (3,100 W/m²·K) and reports `overallHTCSource` as correlated / design-cap / user-override. `sizeCondensingHX` has no such limit, so the reported U is always the correlated value and \"which was used\" has one answer here."
+  },
+  "lmtdConvention": {
+    "arrangement": "COUNTER",
+    "correctionFactor": 1,
+    "correctionFactorApplied": false,
+    "note": "Counterflow, with the hot side ISOTHERMAL (hotInlet = hotOutlet = vapour temperature), so dT1 = T_vap - T_sw,out and dT2 = T_vap - T_sw,in. The F-factor branch in calculateLMTD only fires for CROSSFLOW and SHELL_AND_TUBE; COUNTER leaves it at 1.0.",
+    "whyFactorOneIsCorrect": "With an isothermal hot side the two temperature differences are the same PAIR under counterflow and parallel flow — only their order swaps — and LMTD is symmetric in that pair. So the arrangement does not change the answer and F = 1 is correct rather than an omission. Stated because an unexplained F = 1 is exactly the kind of thing that becomes a 2% mystery for three revisions."
+  },
+  "filmCoefficients": {
+    "reportedSeparately": true,
+    "note": "tubeSideHTC and shellSideHTC are given per case, never only as a combined U. A single U can be compared; two coefficients can be diagnosed. This is the same reason the vacuum fixture reports dry NCG and vapour separately rather than one total."
+  },
+  "offDesign": {
+    "isDesignPoint": true,
+    "note": "U IS A POINT, NOT A CURVE. `sizeCondensingHX` takes a design tube velocity (1.8 m/s for the condenser) and iterates the tube count until the actual velocity matches, then computes U at that velocity. There is no U(load) or U(velocity) relation anywhere in this calculator, and interpolating these five cases into one would be inventing a shape the model does not have — the same error as building an ejector capacity curve out of a single sizing point.",
+    "whatCanBeDoneInstead": "The tube-side coefficient IS a velocity relation: Dittus-Boelter gives Nu ∝ Re^0.8, so h_tube ∝ v^0.8 at fixed properties. A dynamic model can scale h_tube off-design from the reported design-point value and re-form U with the shell side held, which is defensible. The shell side has no equivalent scaling here: Nusselt condensation depends on the film and the row count, not on a load parameter this calculator varies.",
+    "tubeSideExponent": 0.8
+  },
+  "knownLimitations": {
+    "hotwellHoldup": "ABSENT. The hotwell exists as a concept — gross condensate is extracted from it — but no volume, level or inventory is modelled anywhere. Same reason MED effects have no liquid holdup: there is no liquid inventory model, only a shipping-weight fill allowance used for operating weight.",
+    "ventCondenser": "NOT MODELLED, and this is a match rather than a gap. `finalCondenserModel` removes a flat VENT_FRACTION = 0.03 of the vapour to vacuum and models nothing between the vessel and the vacuum system — no vent condenser, no separate coolant. A coupled model drawing its vent at vessel conditions with nothing in between is doing the same thing, so `ventGasTemperature` from the vacuum fixture applies as-is.",
+    "metalMass": "DELIBERATELY NOT IN THIS FIXTURE. The condenser mass is `designArea x 50 kg/m²`, a budgetary allowance assuming titanium, with no geometry behind it — despite full tube geometry being available on this very object. A fixture is precisely where a cost allowance would be read as a thermal mass, so it is excluded rather than caveated. Condenser thermal mass is a §4.3 calibration parameter with no prior.",
+    "designMarginInArea": "designAreaM2 carries the design margin; requiredAreaM2 does not. Gate against requiredArea when checking the heat transfer, and against designArea only when checking the sizing decision."
+  },
+  "gateGuidance": {
+    "order": "Gate on duty and LMTD first, then the two film coefficients, then U, then required area. A U mismatch with both coefficients matching is a resistance-network difference; a coefficient mismatch is a correlation difference. Checking U alone cannot separate them.",
+    "whatNotToGate": "Do not gate on designArea without accounting for the design margin, on tube count (a selection, not a physical result), or on anything off-design."
+  },
+  "cases": [
+    {
+      "id": "cond-01",
+      "note": "BARC-anchored base case. 30 °C seawater inlet.",
+      "input": {
+        "steamFlow": 1.04,
+        "steamTemperature": 62.2,
+        "seawaterTemperature": 30,
+        "targetGOR": 9.8,
+        "numberOfEffects": 6,
+        "seawaterSalinity": 35000,
+        "maxBrineSalinity": 59400,
+        "condenserApproach": 4
+      },
+      "expected": {
+        "vapourFlowTPerH": 0.8661,
+        "vapourTempC": 38.1031,
+        "dutyKW": 604.486,
+        "lmtdC": 5.21,
+        "tubeSideHTC": 4303,
+        "shellSideHTC": 7231,
+        "overallU": 1831.2,
+        "requiredAreaM2": 63.37,
+        "designAreaM2": 72.88,
+        "tubes": 656,
+        "passes": 8,
+        "tubeVelocityMS": 1.75,
+        "tubeODmm": 17,
+        "tubeLengthMM": 2100,
+        "shellODmm": 1046,
+        "seawaterFlowTPerH": 108.812,
+        "seawaterFlowM3h": 106.477,
+        "seawaterInletTempC": 30
+      }
+    },
+    {
+      "id": "cond-02",
+      "note": "Colder seawater. Raises LMTD at fixed duty, so area falls — the cleanest single-variable check on the LMTD convention.",
+      "input": {
+        "steamFlow": 1.04,
+        "steamTemperature": 62.2,
+        "seawaterTemperature": 20,
+        "targetGOR": 9.8,
+        "numberOfEffects": 6,
+        "seawaterSalinity": 35000,
+        "maxBrineSalinity": 59400,
+        "condenserApproach": 4
+      },
+      "expected": {
+        "vapourFlowTPerH": 0.8436,
+        "vapourTempC": 27.2103,
+        "dutyKW": 593.25,
+        "lmtdC": 4.23,
+        "tubeSideHTC": 2744,
+        "shellSideHTC": 7033,
+        "overallU": 1452.2,
+        "requiredAreaM2": 96.6,
+        "designAreaM2": 111.09,
+        "tubes": 992,
+        "passes": 8,
+        "tubeVelocityMS": 1.13,
+        "tubeODmm": 17,
+        "tubeLengthMM": 2100,
+        "shellODmm": 1206,
+        "seawaterFlowTPerH": 106.907,
+        "seawaterFlowM3h": 104.32,
+        "seawaterInletTempC": 20
+      }
+    },
+    {
+      "id": "cond-03",
+      "note": "Warmer seawater. The opposite direction, and the one that squeezes LMTD toward the approach.",
+      "input": {
+        "steamFlow": 1.04,
+        "steamTemperature": 62.2,
+        "seawaterTemperature": 35,
+        "targetGOR": 9.8,
+        "numberOfEffects": 6,
+        "seawaterSalinity": 35000,
+        "maxBrineSalinity": 59400,
+        "condenserApproach": 4
+      },
+      "expected": {
+        "vapourFlowTPerH": 0.8787,
+        "vapourTempC": 43.3133,
+        "dutyKW": 610.837,
+        "lmtdC": 5.44,
+        "tubeSideHTC": 4903,
+        "shellSideHTC": 7385,
+        "overallU": 1947.9,
+        "requiredAreaM2": 57.69,
+        "designAreaM2": 66.35,
+        "tubes": 594,
+        "passes": 6,
+        "tubeVelocityMS": 1.47,
+        "tubeODmm": 17,
+        "tubeLengthMM": 2100,
+        "shellODmm": 1006,
+        "seawaterFlowTPerH": 109.887,
+        "seawaterFlowM3h": 107.714,
+        "seawaterInletTempC": 35
+      }
+    },
+    {
+      "id": "cond-04",
+      "note": "Wider condenser approach at the base seawater temperature — moves the seawater outlet independently of the inlet.",
+      "input": {
+        "steamFlow": 1.04,
+        "steamTemperature": 62.2,
+        "seawaterTemperature": 30,
+        "targetGOR": 9.8,
+        "numberOfEffects": 6,
+        "seawaterSalinity": 35000,
+        "maxBrineSalinity": 59400,
+        "condenserApproach": 6
+      },
+      "expected": {
+        "vapourFlowTPerH": 0.8331,
+        "vapourTempC": 40.2089,
+        "dutyKW": 595.679,
+        "lmtdC": 7.43,
+        "tubeSideHTC": 6390,
+        "shellSideHTC": 6760,
+        "overallU": 2100.4,
+        "requiredAreaM2": 38.17,
+        "designAreaM2": 43.89,
+        "tubes": 392,
+        "passes": 4,
+        "tubeVelocityMS": 1.44,
+        "tubeODmm": 17,
+        "tubeLengthMM": 2100,
+        "shellODmm": 876,
+        "seawaterFlowTPerH": 107.227,
+        "seawaterFlowM3h": 104.926,
+        "seawaterInletTempC": 30
+      }
+    },
+    {
+      "id": "cond-05",
+      "note": "Fewer effects, so more vapour reaches the condenser: a materially larger duty on the same geometry basis.",
+      "input": {
+        "steamFlow": 1.04,
+        "steamTemperature": 62.2,
+        "seawaterTemperature": 30,
+        "targetGOR": 9.8,
+        "numberOfEffects": 4,
+        "seawaterSalinity": 35000,
+        "maxBrineSalinity": 59400,
+        "condenserApproach": 4
+      },
+      "expected": {
+        "vapourFlowTPerH": 0.931,
+        "vapourTempC": 37.7565,
+        "dutyKW": 636.006,
+        "lmtdC": 4.83,
+        "tubeSideHTC": 3948,
+        "shellSideHTC": 7332,
+        "overallU": 1766.3,
+        "requiredAreaM2": 74.5,
+        "designAreaM2": 85.68,
+        "tubes": 768,
+        "passes": 8,
+        "tubeVelocityMS": 1.57,
+        "tubeODmm": 17,
+        "tubeLengthMM": 2100,
+        "shellODmm": 1096,
+        "seawaterFlowTPerH": 114.486,
+        "seawaterFlowM3h": 112.03,
+        "seawaterInletTempC": 30
+      }
+    }
+  ]
+}
