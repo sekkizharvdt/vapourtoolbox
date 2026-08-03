@@ -75,7 +75,7 @@ function computeScenarios(
   designMargin: number,
   VENT_LOSS_FRACTION: number
 ): MEDScenarioRow[] {
-  const Q1 = (input.steamFlow * 1000 * getLatentHeat(input.steamTemperature)) / 3600;
+  const Q1 = (input.steamFlowTPerH * 1000 * getLatentHeat(input.steamTemperature)) / 3600;
   const areaPerTubePerM = Math.PI * (tubeOD / 1000);
   const scenarios: MEDScenarioRow[] = [];
 
@@ -105,7 +105,7 @@ function computeScenarios(
       countLateralTubes(requiredShellID, tubeOD, pitch, false) * areaPerTubePerM * maxTubeLength;
     const gorRaw = n * (1 - VENT_LOSS_FRACTION * n);
     const achievableGOR = Math.max(0, gorRaw);
-    const distillate = input.steamFlow * achievableGOR;
+    const distillate = input.steamFlowTPerH * achievableGOR;
 
     scenarios.push({
       effects: n,
@@ -189,7 +189,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
 
   // ── 3. GOR configuration matrix ────────────────────────────────────
   const gorConfigurations = computeGORConfigurations(
-    input.steamFlow,
+    input.steamFlowTPerH,
     input.steamTemperature,
     lastEffectVapourT,
     maxBrineSalinity,
@@ -224,7 +224,9 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   }
 
   const engineInput: MEDEngineInput = {
-    steamFlow: input.steamFlow * 1000, // T/h → kg/hr
+    // MEDEngineInput.steamFlow is kg/h; MEDDesignerInput.steamFlowTPerH is T/h.
+    // This is the one place the two meet, and the only place the factor belongs.
+    steamFlow: input.steamFlowTPerH * 1000, // T/h → kg/hr
     steamTemperature: input.steamTemperature,
     numberOfEffects: nEff,
     seawaterInletTemp: input.seawaterTemperature,
@@ -476,7 +478,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     makeUpFeed,
     brineBlowdown,
     totalRecirc,
-    steamFlow: input.steamFlow,
+    steamFlow: input.steamFlowTPerH,
     swTemp: input.seawaterTemperature,
     condenserSWFlowM3h: condenser.seawaterFlowM3h,
     bundleWidths: actualBundleWidths,
@@ -603,8 +605,8 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     // Gross = net product + motive-steam condensate; both arrive at the condenser
     // hotwell, so the extraction pump carries gross and the steam condensate is
     // branched back to the heat source downstream.
-    grossDistillate: Math.round((totalDistillate + input.steamFlow) * 1000) / 1000,
-    steamCondensateReturn: input.steamFlow,
+    grossDistillate: Math.round((totalDistillate + input.steamFlowTPerH) * 1000) / 1000,
+    steamCondensateReturn: input.steamFlowTPerH,
     achievedGOR,
     totalEvaporatorArea: totalArea,
     totalBrineRecirculation: totalRecirc,
@@ -658,7 +660,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
   // Geometry comparisons
   try {
     const areaPerTubePerM = Math.PI * (resolved.tubeOD / 1000);
-    const Q1 = (input.steamFlow * 1000 * getLatentHeat(input.steamTemperature)) / 3600;
+    const Q1 = (input.steamFlowTPerH * 1000 * getLatentHeat(input.steamTemperature)) / 3600;
     result.geometryComparisons = computeGeometryComparisons(
       effects,
       nEff,
@@ -684,7 +686,7 @@ export function designMEDPlant(input: MEDDesignerInput): MEDDesignerResult {
     result.preheaterContributions = computePreheaterContributions(
       preheaters,
       effects,
-      input.steamFlow,
+      input.steamFlowTPerH,
       condenserSWOutlet
     );
   }

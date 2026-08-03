@@ -208,7 +208,7 @@ export function toMEDPlantInputs(resolved: ResolvedDesignerInputs): MEDPlantInpu
 
   // Capacity estimate: steamFlow × targetGOR
   // The core solver will iterate steam flow to converge on this capacity
-  const capacity = input.steamFlow * input.targetGOR;
+  const capacity = input.steamFlowTPerH * input.targetGOR;
 
   // Steam pressure from saturation temperature
   const steamPressure = getSaturationPressure(input.steamTemperature);

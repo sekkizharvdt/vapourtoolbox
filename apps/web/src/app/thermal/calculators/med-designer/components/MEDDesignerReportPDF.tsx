@@ -154,7 +154,7 @@ export function MEDDesignerReportPDF({
                 rows={[
                   {
                     label: 'Heating Vapour',
-                    value: `${fmt(r.inputs.steamFlow, 2)} T/h @ ${fmt(r.inputs.steamTemperature)}°C`,
+                    value: `${fmt(r.inputs.steamFlowTPerH, 2)} T/h @ ${fmt(r.inputs.steamTemperature)}°C`,
                   },
                   { label: 'Seawater Temp', value: `${fmt(r.inputs.seawaterTemperature)}°C` },
                   {
@@ -346,9 +346,9 @@ export function MEDDesignerReportPDF({
                 rows={[
                   {
                     label: 'Heating Steam In',
-                    value: `${fmt(r.inputs.steamFlow, 2)} T/h @ ${fmt(r.inputs.steamTemperature)}°C`,
+                    value: `${fmt(r.inputs.steamFlowTPerH, 2)} T/h @ ${fmt(r.inputs.steamTemperature)}°C`,
                   },
-                  { label: 'Condensate Out', value: `${fmt(r.inputs.steamFlow, 2)} T/h` },
+                  { label: 'Condensate Out', value: `${fmt(r.inputs.steamFlowTPerH, 2)} T/h` },
                   {
                     label: 'Make-up Feed',
                     value: `${fmt(r.makeUpFeed)} T/h @ ${fmt(r.inputs.seawaterTemperature)}°C`,

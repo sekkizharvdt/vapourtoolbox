@@ -132,7 +132,7 @@ export function MEDBriefReportPDF({
                 rows={[
                   {
                     label: 'Heating Source',
-                    value: `${fmt(r.inputs.steamFlow, 2)} T/h saturated vapour @ ${fmt(r.inputs.steamTemperature)}°C`,
+                    value: `${fmt(r.inputs.steamFlowTPerH, 2)} T/h saturated vapour @ ${fmt(r.inputs.steamTemperature)}°C`,
                   },
                   {
                     label: 'Seawater Temperature',
@@ -225,13 +225,13 @@ export function MEDBriefReportPDF({
             rows={[
               {
                 stream: 'Heating Vapour (in)',
-                flow: fmt(r.inputs.steamFlow, 2),
+                flow: fmt(r.inputs.steamFlowTPerH, 2),
                 temp: fmt(r.inputs.steamTemperature),
                 tds: '—',
               },
               {
                 stream: 'Condensate Return (out)',
-                flow: fmt(r.inputs.steamFlow, 2),
+                flow: fmt(r.inputs.steamFlowTPerH, 2),
                 temp: fmt(r.inputs.steamTemperature),
                 tds: '—',
               },

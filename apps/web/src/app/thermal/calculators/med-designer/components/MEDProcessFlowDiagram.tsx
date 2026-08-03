@@ -119,8 +119,8 @@ export function MEDProcessFlowDiagram({ result }: MEDProcessFlowDiagramProps) {
             MED Plant — {nEff} Effects, GOR {fmt(result.achievedGOR)}
           </text>
           <text x={svgW / 2} y={36} textAnchor="middle" fontSize={10} fill={shellCol}>
-            {fmt(result.totalDistillateM3Day, 0)} m³/day | Steam {fmt(result.inputs.steamFlow, 2)}{' '}
-            T/h @ {fmt(result.inputs.steamTemperature)}°C
+            {fmt(result.totalDistillateM3Day, 0)} m³/day | Steam{' '}
+            {fmt(result.inputs.steamFlowTPerH, 2)} T/h @ {fmt(result.inputs.steamTemperature)}°C
           </text>
 
           {/* ── Steam inlet ────────────────────────────────────────── */}
@@ -128,7 +128,7 @@ export function MEDProcessFlowDiagram({ result }: MEDProcessFlowDiagramProps) {
             STEAM
           </text>
           <text x={20} y={effY + effH / 2} fontSize={7} fill={steamCol}>
-            {fmt(result.inputs.steamFlow, 2)} T/h
+            {fmt(result.inputs.steamFlowTPerH, 2)} T/h
           </text>
           <text x={20} y={effY + effH / 2 + 10} fontSize={7} fill={steamCol}>
             {fmt(result.inputs.steamTemperature)}°C

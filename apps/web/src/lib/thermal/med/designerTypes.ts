@@ -26,7 +26,7 @@ import type { SealLoopResult } from '../vacuumSystemCalculator';
 export interface MEDDesignerInput {
   // ── Required (no defaults) ───────────────────────────────────────────
   /** Heating steam/vapour flow rate in T/h */
-  steamFlow: number;
+  steamFlowTPerH: number;
   /** Heating steam/vapour temperature in °C (saturated) */
   steamTemperature: number;
   /** Seawater inlet temperature in °C */

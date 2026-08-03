@@ -13,7 +13,7 @@ import { generateSSOTFromMEDDesign, LINE_MATERIAL_OPTIONS } from './medDesignGen
 import { MaterialCategory } from '@vapour/types';
 
 const BASE_INPUT: MEDDesignerInput = {
-  steamFlow: 5,
+  steamFlowTPerH: 5,
   steamTemperature: 70,
   seawaterTemperature: 30,
   targetGOR: 8,
@@ -91,7 +91,7 @@ describe('generateSSOTFromMEDDesign', () => {
 
     const steam = byTag.get('S0');
     expect(steam).toBeDefined();
-    expect(steam!.flowRateKgS).toBeCloseTo((design.inputs.steamFlow * 1000) / 3600, 3);
+    expect(steam!.flowRateKgS).toBeCloseTo((design.inputs.steamFlowTPerH * 1000) / 3600, 3);
 
     const product = byTag.get('DP');
     expect(product).toBeDefined();

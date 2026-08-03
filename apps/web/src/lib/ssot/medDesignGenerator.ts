@@ -205,7 +205,7 @@ function buildStreams(
     'S0',
     'Heating steam to Effect 1',
     'STEAM',
-    inputs.steamFlow,
+    inputs.steamFlowTPerH,
     satPressureMbar(inputs.steamTemperature),
     inputs.steamTemperature,
     0

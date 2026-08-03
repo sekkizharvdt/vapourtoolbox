@@ -30,13 +30,13 @@ export function computeTurndownAnalysis(
   const analysisWarnings: string[] = [];
 
   for (const loadPct of loadPoints) {
-    const scaledSteamFlow = input.steamFlow * (loadPct / 100);
+    const scaledSteamFlow = input.steamFlowTPerH * (loadPct / 100);
 
     try {
       // Re-run design at reduced load — prevent recursion
       const turndownInput: MEDDesignerInput = {
         ...input,
-        steamFlow: scaledSteamFlow,
+        steamFlowTPerH: scaledSteamFlow,
         includeTurndown: false, // CRITICAL: prevent infinite recursion
         numberOfEffects: baseResult.effects.length, // keep same number of effects
         // Use same tube lengths and counts as base design

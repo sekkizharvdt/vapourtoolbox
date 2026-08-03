@@ -5,7 +5,7 @@ import { designMED, generateDesignOptions } from '@/lib/thermal';
 
 describe('MED Designer — Solar Flash 0.79 T/h @ 57°C', () => {
   const result = designMED({
-    steamFlow: 0.79,
+    steamFlowTPerH: 0.79,
     steamTemperature: 57.0,
     seawaterTemperature: 30,
     targetGOR: 6,
@@ -111,7 +111,7 @@ describe('MED Designer — Solar Flash 0.79 T/h @ 57°C', () => {
 
 describe('MED Designer — Design Options Comparison', () => {
   const options = generateDesignOptions({
-    steamFlow: 0.79,
+    steamFlowTPerH: 0.79,
     steamTemperature: 57.0,
     seawaterTemperature: 30,
     targetGOR: 6,
@@ -196,7 +196,7 @@ describe('MED Designer — vacuum system warnings reach the top-level result', (
   // calculateVacuumSystem()'s warnings (including the LRVP <50 mbar warning)
   // before they ever reached MEDDesignerResult.warnings.
   const result = designMED({
-    steamFlow: 5,
+    steamFlowTPerH: 5,
     steamTemperature: 65,
     seawaterTemperature: 25,
     targetGOR: 6,
@@ -214,7 +214,7 @@ describe('MED Designer — vacuum system warnings reach the top-level result', (
 
 describe('MED Designer — gross vs net distillate and plant power', () => {
   const result = designMED({
-    steamFlow: 0.65,
+    steamFlowTPerH: 0.65,
     steamTemperature: 58,
     seawaterTemperature: 28,
     targetGOR: 6,
@@ -258,7 +258,7 @@ describe('MED Designer — gross vs net distillate and plant power', () => {
 
 describe('MED Designer — evaporator U capped at validated design value', () => {
   const result = designMED({
-    steamFlow: 0.79,
+    steamFlowTPerH: 0.79,
     steamTemperature: 57.0,
     seawaterTemperature: 30,
     targetGOR: 6,

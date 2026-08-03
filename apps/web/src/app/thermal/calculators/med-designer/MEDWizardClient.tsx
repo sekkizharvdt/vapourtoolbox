@@ -163,7 +163,7 @@ export default function MEDWizardClient() {
         // First run without overrides to get max required area, then derive both.
         try {
           const baseRun = designMED({
-            steamFlow: sf,
+            steamFlowTPerH: sf,
             steamTemperature: st,
             seawaterTemperature: sw,
             targetGOR: 10,
@@ -217,7 +217,7 @@ export default function MEDWizardClient() {
 
     try {
       return designMED({
-        steamFlow: sf,
+        steamFlowTPerH: sf,
         steamTemperature: st,
         seawaterTemperature: sw,
         targetGOR: 10, // not used by engine (steam-in paradigm), but required by type
@@ -762,7 +762,7 @@ export default function MEDWizardClient() {
                 <TableRow>
                   <TableCell>Heating Steam (in)</TableCell>
                   <TableCell align="right">
-                    {fmt(designResult.inputs.steamFlow, 2)} T/h @{' '}
+                    {fmt(designResult.inputs.steamFlowTPerH, 2)} T/h @{' '}
                     {fmt(designResult.inputs.steamTemperature)}&deg;C
                   </TableCell>
                 </TableRow>

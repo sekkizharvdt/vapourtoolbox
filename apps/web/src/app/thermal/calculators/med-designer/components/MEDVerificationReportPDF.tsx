@@ -229,7 +229,7 @@ export function MEDVerificationReportPDF({
   // Overall energy balance: steam input kW (for display and STE calculation)
   // Per-effect energy balance is validated by the engine (warns if any > 0.5%).
   // The overall plant balance check uses the engine's convergence status.
-  const totalSteamHeat = (r.inputs.steamFlow * getLatentHeat(steamTemp)) / 3.6; // kW
+  const totalSteamHeat = (r.inputs.steamFlowTPerH * getLatentHeat(steamTemp)) / 3.6; // kW
   const hasEnergyWarnings = r.warnings.some((w) => w.includes('Energy balance error'));
   const specificThermalEnergy =
     r.totalDistillateM3Day > 0 ? (totalSteamHeat * 24) / r.totalDistillateM3Day : 0; // kWh/m³
@@ -281,7 +281,7 @@ export function MEDVerificationReportPDF({
             { label: 'Effects', value: nEff.toString() },
             { label: 'GOR', value: fmt(r.achievedGOR) },
             { label: 'Distillate', value: `${fmt(r.totalDistillateM3Day, 0)} m³/day` },
-            { label: 'Steam', value: `${fmt(r.inputs.steamFlow, 2)} T/h` },
+            { label: 'Steam', value: `${fmt(r.inputs.steamFlowTPerH, 2)} T/h` },
           ]}
         />
 
@@ -291,7 +291,7 @@ export function MEDVerificationReportPDF({
             left={
               <KeyValueTable
                 rows={[
-                  { label: 'Heating Vapour Flow', value: `${fmt(r.inputs.steamFlow, 2)} T/h` },
+                  { label: 'Heating Vapour Flow', value: `${fmt(r.inputs.steamFlowTPerH, 2)} T/h` },
                   { label: 'Heating Vapour Temperature', value: `${fmt(steamTemp)}°C (saturated)` },
                   {
                     label: 'Heating Vapour Pressure',
@@ -1067,7 +1067,7 @@ export function MEDVerificationReportPDF({
                 labelWidth="55%"
                 valueWidth="45%"
                 rows={[
-                  { label: 'Total Steam In', value: `${fmt(r.inputs.steamFlow, 2)} T/h` },
+                  { label: 'Total Steam In', value: `${fmt(r.inputs.steamFlowTPerH, 2)} T/h` },
                   { label: 'Steam Thermal Input', value: `${fmt(totalSteamHeat, 0)} kW` },
                   { label: 'Total Seawater In', value: `${fmt(r.makeUpFeed, 2)} T/h` },
                   {
