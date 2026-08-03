@@ -10,21 +10,31 @@
  *   vapour-compression desalting system," Applied Thermal Engineering
  */
 
+import { METAL_PROPERTIES } from './metalProperties';
+
 // ============================================================================
 // Tube Material Thermal Conductivities
 // ============================================================================
 
 /**
- * Thermal conductivity of tube materials in W/(m·K)
+ * Thermal conductivity of tube materials in W/(m·K).
+ *
+ * Keyed by `TubeMaterial`, which the MED designer uses, and DERIVED from
+ * METAL_PROPERTIES so the numbers exist once. The two key sets differ only in
+ * that tubes say `titanium` where the metals table says `titanium_gr2`.
+ *
+ * Kept as its own export because callers look up by tube-material key; what is
+ * not kept is a second copy of the values. A second transcription of the same
+ * physical constant is the defect this codebase has spent a week removing.
  */
 export const MED_TUBE_CONDUCTIVITY: Record<string, number> = {
-  titanium: 21,
-  al_brass: 100,
-  cu_ni_90_10: 45,
-  cu_ni_70_30: 29,
-  al_alloy: 160,
-  ss_316l: 16,
-  duplex_2205: 19,
+  titanium: METAL_PROPERTIES.titanium_gr2.thermalConductivityWmK,
+  al_brass: METAL_PROPERTIES.al_brass.thermalConductivityWmK,
+  cu_ni_90_10: METAL_PROPERTIES.cu_ni_90_10.thermalConductivityWmK,
+  cu_ni_70_30: METAL_PROPERTIES.cu_ni_70_30.thermalConductivityWmK,
+  al_alloy: METAL_PROPERTIES.al_alloy.thermalConductivityWmK,
+  ss_316l: METAL_PROPERTIES.ss_316l.thermalConductivityWmK,
+  duplex_2205: METAL_PROPERTIES.duplex_2205.thermalConductivityWmK,
 };
 
 /**

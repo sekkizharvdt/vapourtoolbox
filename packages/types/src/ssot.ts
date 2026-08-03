@@ -177,9 +177,22 @@ export interface ProcessEquipment {
   fluidOut: string[]; // Col 10-13: Up to 4 outlet stream tags
 
   // ── Geometry & inventory ─────────────────────────────────────────────
-  // Populated by the MED designer bridge. Required by a future dynamic
-  // simulator: liquid holdup sets the level/concentration time constants and
-  // metal mass usually dominates how long startup takes.
+  // Populated by the MED designer bridge, and consumed by the external dynamic
+  // simulator: liquid holdup sets the level and concentration time constants,
+  // and metal mass sets how much of a startup transient the wall absorbs.
+  //
+  // This comment used to assert that "metal mass usually dominates how long
+  // startup takes". That is false for the vessels this repo sizes, and it was
+  // measured rather than argued: water's specific heat is about eight times
+  // steel's, so a wall dominates a liquid-filled vessel only once its mass
+  // exceeds roughly eight times the holdup. A 2 m x 4 m drum in 6 mm 316L is
+  // 1.5 t against a threshold of ~35 t — the wall carries about 4% of the
+  // liquid's heat capacity, and no realistic plate thickness changes that.
+  //
+  // The claim is true of MED EFFECTS, where a tube bundle sits under a thin
+  // falling film and the ratio inverts. Stated generally it is the kind of
+  // inherited generality that gets quoted about the wrong vessel and then
+  // justifies calibrating the wrong parameter.
   /** Equipment class, used to group registers and drive simulator templates */
   equipmentType?: ProcessEquipmentType;
   /** Shell inside diameter in mm */
@@ -190,8 +203,39 @@ export interface ProcessEquipment {
   grossVolumeM3?: number;
   /** Normal operating liquid holdup in m³ */
   liquidHoldupM3?: number;
-  /** Dry metal mass in kg (shell + tubesheets + bundle) */
+  /**
+   * Dry metal mass in kg, as the weight estimate forms it:
+   * shell + dished heads + tubesheets + tubes + water boxes + internals.
+   *
+   * READ `metalMassDerivation` BEFORE USING THIS. The total is a shipping and
+   * costing figure and is the wrong quantity for a thermal model in three ways:
+   * water boxes sit on the COOLANT side, outside the wall the process fluid
+   * touches, so they are on the wrong side of both the wall-to-liquid and the
+   * wall-to-ambient heat paths; and water boxes and internals are percentage
+   * allowances on shell weight (15% and 10%), not computed parts.
+   *
+   * This comment previously read "(shell + tubesheets + bundle)" — three
+   * components where the value carries five. A consumer had no way to know, and
+   * a wrong thermal mass is close to undetectable downstream: it moves a time
+   * constant, not an equilibrium, so a steady-state gate passes it with correct
+   * units and a plausible magnitude. A field name and its doc comment are claims
+   * about what a number IS; both were wrong here.
+   */
   metalMassKg?: number;
+  /**
+   * How `metalMassKg` was arrived at.
+   *
+   * Present so a consumer can CHECK the figure rather than only compare it: a
+   * total that disagrees is a multi-revision question, a derivation that
+   * disagrees names its own culprit. Also records what the mass does and does
+   * not include, since a support skirt is thermally remote from the contents
+   * and inflating the wall capacity with one would be invisible in a total.
+   */
+  metalMassDerivation?: EquipmentMetalMassDerivation;
+  /** Wetted wall area at normal operating level in m² */
+  wettedAreaM2?: number;
+  /** Total internal wall area, wetted plus dry, in m² */
+  totalAreaM2?: number;
   /** Heat transfer area in m² (evaporator/condenser/preheater) */
   heatTransferAreaM2?: number;
   /** Centreline (or bottom tangent line) elevation above FFL in m */
@@ -205,6 +249,77 @@ export interface ProcessEquipment {
   createdBy: string;
   updatedAt: Timestamp;
   updatedBy: string;
+}
+
+/**
+ * How `metalMassKg` was arrived at, component by component.
+ *
+ * Present so a consumer can CHECK the figure rather than only compare it: a
+ * total that disagrees is a multi-revision question, a derivation that disagrees
+ * names its own culprit.
+ *
+ * The breakdown matters more than the total for a thermal model, because the
+ * components are not equivalent. Shell, heads and tubesheets are computed from
+ * geometry and sit in the process stream. Water boxes are on the COOLANT side —
+ * a different thermal path. Water boxes and internals are percentage allowances
+ * on the shell weight, not computed parts. A consumer wanting thermally-active
+ * metal in contact with the contents should sum the components it wants rather
+ * than take `metalMassKg` whole or discount it by a factor of its own invention.
+ */
+export interface EquipmentMetalMassDerivation {
+  /** Metal grade key from METAL_PROPERTIES */
+  material: string;
+  /** Human-readable grade */
+  materialLabel: string;
+  /** Density used for the shell, heads and tubesheets, kg/m³ */
+  densityKgM3: number;
+  /** Wall thickness used, mm */
+  wallThicknessMm: number;
+  /**
+   * Where the thickness came from.
+   *
+   * `assumed` means no calculation and no procurement record produced it. This
+   * repo performs no external-pressure buckling check (ASME VIII Div 1 UG-28),
+   * which is what actually sets plate on a vacuum vessel, alongside corrosion
+   * allowance and minimum practical plate. A consumer must not treat an assumed
+   * thickness as a design value, nor draw a conclusion resting on its magnitude.
+   */
+  wallThicknessSource: 'assumed' | 'user-input' | 'procurement-record' | 'calculated';
+  /**
+   * How the mass was formed.
+   *
+   * `component-breakdown` sums parts computed from geometry. `areal-allowance`
+   * is a kg/m² rule of thumb against heat transfer area — a budgetary figure
+   * with no geometry behind it, and not a basis for a thermal mass.
+   */
+  basis: 'component-breakdown' | 'areal-allowance';
+  /** areal-allowance only: kg per m² of heat transfer area */
+  kgPerM2?: number;
+  /** areal-allowance only: the area the factor was applied to, m² */
+  appliedToAreaM2?: number;
+  /** component-breakdown only. Per-component masses in kg, summing to `metalMassKg`. */
+  componentsKg?: {
+    /** Cylindrical shell — computed from geometry */
+    shell: number;
+    /** Two 2:1 SE dished heads — computed from geometry */
+    dishedHeads: number;
+    /** Two tubesheets, approximated as solid plates — computed from geometry */
+    tubeSheets: number;
+    /** Tube bundle — computed from geometry and tube material density */
+    tubes: number;
+    /** Coolant-side water boxes — a percentage ALLOWANCE on shell weight */
+    waterBoxes: number;
+    /** Demisters, spray pipes, baffles — a percentage ALLOWANCE on shell weight */
+    internals: number;
+  };
+  /** Which components are computed from geometry rather than allowances */
+  computedFromGeometry?: string[];
+  /** Which are percentage allowances, and the percentage used */
+  percentageAllowances?: { component: string; percentOfShell: number }[];
+  /** Anything deliberately outside the figure entirely */
+  excludes: string[];
+  /** Caveats a consumer must read before using the number */
+  caveats?: string[];
 }
 
 /** Equipment classes the MED designer can emit */
