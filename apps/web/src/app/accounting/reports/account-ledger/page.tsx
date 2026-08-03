@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import {
   Paper,
   Typography,
@@ -16,6 +16,8 @@ import {
   Collapse,
   IconButton,
   Button,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -102,6 +104,49 @@ function getTransactionTypeLabel(type: string): string {
   return TRANSACTION_TYPE_SHORT_LABELS[type as TransactionType] ?? (type || 'Entry');
 }
 
+/** One month's slice of the ledger (feedback 89jvtypJTS5J07MiA25A). */
+interface MonthGroup {
+  key: string; // YYYY-MM
+  label: string; // e.g. "April 2026"
+  opening: number;
+  closing: number;
+  totalDebit: number;
+  totalCredit: number;
+  lines: LedgerLine[];
+}
+
+/**
+ * Derive per-month groups from the chronological ledger lines. Each month's
+ * opening is the previous month's closing (the first month opens at the FY
+ * opening balance); closing is the running balance of its last line.
+ */
+function buildMonthGroups(lines: LedgerLine[], fyOpening: number): MonthGroup[] {
+  const groups: MonthGroup[] = [];
+  let prevClosing = fyOpening;
+  for (const line of lines) {
+    const key = `${line.date.getFullYear()}-${String(line.date.getMonth() + 1).padStart(2, '0')}`;
+    let group = groups[groups.length - 1];
+    if (!group || group.key !== key) {
+      group = {
+        key,
+        label: line.date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+        opening: prevClosing,
+        closing: prevClosing,
+        totalDebit: 0,
+        totalCredit: 0,
+        lines: [],
+      };
+      groups.push(group);
+    }
+    group.lines.push(line);
+    group.totalDebit += line.debit;
+    group.totalCredit += line.credit;
+    group.closing = line.balance;
+    prevClosing = line.balance;
+  }
+  return groups;
+}
+
 export default function AccountLedgerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -113,7 +158,14 @@ export default function AccountLedgerPage() {
   const [openingBalanceType, setOpeningBalanceType] = useState<'Dr' | 'Cr'>('Dr');
   const [closingBalance, setClosingBalance] = useState(0);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  // Per-month view toggle (feedback 89jvtypJTS5J07MiA25A)
+  const [viewMode, setViewMode] = useState<'DETAIL' | 'MONTHLY'>('DETAIL');
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const fy = useFiscalYearFilter();
+  const monthGroups = useMemo(
+    () => buildMonthGroups(ledgerLines, openingBalance),
+    [ledgerLines, openingBalance]
+  );
 
   // Sync preselected account from URL
   useEffect(() => {
@@ -268,6 +320,31 @@ export default function AccountLedgerPage() {
         format: 'currency' as const,
       },
     ];
+    if (viewMode === 'MONTHLY') {
+      // One section per month, each closing on that month's balance
+      return monthGroups.map((month) => ({
+        title: `Account Ledger — ${month.label}`,
+        columns: cols,
+        rows: month.lines.map((line) => ({
+          date: line.date,
+          description: line.description,
+          type: line.typeLabel,
+          reference: line.reference,
+          debit: line.debit > 0 ? line.debit : 0,
+          credit: line.credit > 0 ? line.credit : 0,
+          balance: line.balance,
+        })),
+        summary: {
+          date: null,
+          description: `Closing Balance (${month.label})`,
+          type: null,
+          reference: null,
+          debit: month.totalDebit,
+          credit: month.totalCredit,
+          balance: month.closing,
+        },
+      }));
+    }
     return [
       {
         title: 'Account Ledger',
@@ -367,6 +444,15 @@ export default function AccountLedgerPage() {
           selectedId={fy.selectedId}
           onChange={fy.setSelectedId}
         />
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(_, v) => v && setViewMode(v)}
+          size="small"
+        >
+          <ToggleButton value="DETAIL">Detail</ToggleButton>
+          <ToggleButton value="MONTHLY">Per Month</ToggleButton>
+        </ToggleButtonGroup>
       </Box>
 
       {selectedAccountId && (
@@ -377,221 +463,327 @@ export default function AccountLedgerPage() {
             </Box>
           ) : (
             <Paper sx={{ mt: 3 }}>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ width: 40, p: 0.5 }} />
-                      <TableCell>Date</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell>Reference</TableCell>
-                      <TableCell align="right">Debit</TableCell>
-                      <TableCell align="right">Credit</TableCell>
-                      <TableCell align="right">Balance</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {openingBalance !== 0 && (
-                      <TableRow sx={{ bgcolor: 'grey.50' }}>
+              {viewMode === 'MONTHLY' ? (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: 40, p: 0.5 }} />
+                        <TableCell>Month</TableCell>
+                        <TableCell align="right">Opening</TableCell>
+                        <TableCell align="right">Debits</TableCell>
+                        <TableCell align="right">Credits</TableCell>
+                        <TableCell align="right">Closing</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {monthGroups.map((month) => (
+                        <Fragment key={month.key}>
+                          <TableRow
+                            hover
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() =>
+                              setExpandedMonth((prev) => (prev === month.key ? null : month.key))
+                            }
+                          >
+                            <TableCell sx={{ p: 0.5 }}>
+                              <IconButton size="small" aria-label="Expand month">
+                                {expandedMonth === month.key ? (
+                                  <CollapseIcon fontSize="small" />
+                                ) : (
+                                  <ExpandIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </TableCell>
+                            <TableCell>
+                              <strong>{month.label}</strong>{' '}
+                              <Typography variant="caption" color="text.secondary">
+                                ({month.lines.length} entries)
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">{month.opening.toFixed(2)}</TableCell>
+                            <TableCell align="right">{month.totalDebit.toFixed(2)}</TableCell>
+                            <TableCell align="right">{month.totalCredit.toFixed(2)}</TableCell>
+                            <TableCell align="right">
+                              <strong>{month.closing.toFixed(2)}</strong>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell colSpan={6} sx={{ py: 0, border: 0 }}>
+                              <Collapse
+                                in={expandedMonth === month.key}
+                                timeout="auto"
+                                unmountOnExit
+                              >
+                                <Box sx={{ py: 1, px: 2, bgcolor: 'grey.50' }}>
+                                  <Table size="small">
+                                    <TableBody>
+                                      {month.lines.map((line, i) => (
+                                        <TableRow key={i}>
+                                          <TableCell>
+                                            {line.date.toLocaleDateString('en-IN')}
+                                          </TableCell>
+                                          <TableCell>{line.description}</TableCell>
+                                          <TableCell>{line.reference}</TableCell>
+                                          <TableCell align="right">
+                                            {line.debit > 0 ? line.debit.toFixed(2) : '-'}
+                                          </TableCell>
+                                          <TableCell align="right">
+                                            {line.credit > 0 ? line.credit.toFixed(2) : '-'}
+                                          </TableCell>
+                                          <TableCell align="right">
+                                            {line.balance.toFixed(2)}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </Box>
+                              </Collapse>
+                            </TableCell>
+                          </TableRow>
+                        </Fragment>
+                      ))}
+                      <TableRow sx={{ bgcolor: 'grey.100' }}>
                         <TableCell sx={{ p: 0.5 }} />
-                        <TableCell colSpan={3}>
-                          <strong>Opening Balance ({openingBalanceType})</strong>
+                        <TableCell>
+                          <strong>Closing Balance</strong>
+                        </TableCell>
+                        <TableCell />
+                        <TableCell align="right">
+                          <strong>
+                            {ledgerLines.reduce((sum, line) => sum + line.debit, 0).toFixed(2)}
+                          </strong>
                         </TableCell>
                         <TableCell align="right">
-                          {openingBalanceType === 'Dr' ? (
-                            <strong>{Math.abs(openingBalance).toFixed(2)}</strong>
-                          ) : (
-                            '-'
-                          )}
+                          <strong>
+                            {ledgerLines.reduce((sum, line) => sum + line.credit, 0).toFixed(2)}
+                          </strong>
                         </TableCell>
                         <TableCell align="right">
-                          {openingBalanceType === 'Cr' ? (
-                            <strong>{Math.abs(openingBalance).toFixed(2)}</strong>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell align="right">
-                          <strong>{openingBalance.toFixed(2)}</strong>
+                          <strong>{closingBalance.toFixed(2)}</strong>
                         </TableCell>
                       </TableRow>
-                    )}
-                    {ledgerLines.map((line, index) => (
-                      <Fragment key={index}>
-                        <TableRow
-                          hover
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => toggleExpand(index)}
-                        >
-                          <TableCell sx={{ p: 0.5 }}>
-                            <IconButton size="small" aria-label="Action">
-                              {expandedRow === index ? (
-                                <CollapseIcon fontSize="small" />
-                              ) : (
-                                <ExpandIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </TableCell>
-                          <TableCell>{line.date.toLocaleDateString('en-IN')}</TableCell>
-                          <TableCell>{line.description}</TableCell>
-                          <TableCell>
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                                flexWrap: 'wrap',
-                              }}
-                            >
-                              <Chip label={line.typeLabel} size="small" variant="outlined" />
-                              <Typography variant="body2">{line.reference}</Typography>
-                              {line.vendorRef && (
-                                <Typography variant="caption" color="text.secondary">
-                                  / {line.vendorRef}
-                                </Typography>
-                              )}
-                            </Box>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: 40, p: 0.5 }} />
+                        <TableCell>Date</TableCell>
+                        <TableCell>Description</TableCell>
+                        <TableCell>Reference</TableCell>
+                        <TableCell align="right">Debit</TableCell>
+                        <TableCell align="right">Credit</TableCell>
+                        <TableCell align="right">Balance</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {openingBalance !== 0 && (
+                        <TableRow sx={{ bgcolor: 'grey.50' }}>
+                          <TableCell sx={{ p: 0.5 }} />
+                          <TableCell colSpan={3}>
+                            <strong>Opening Balance ({openingBalanceType})</strong>
                           </TableCell>
                           <TableCell align="right">
-                            {line.debit > 0 ? line.debit.toFixed(2) : '-'}
+                            {openingBalanceType === 'Dr' ? (
+                              <strong>{Math.abs(openingBalance).toFixed(2)}</strong>
+                            ) : (
+                              '-'
+                            )}
                           </TableCell>
                           <TableCell align="right">
-                            {line.credit > 0 ? line.credit.toFixed(2) : '-'}
+                            {openingBalanceType === 'Cr' ? (
+                              <strong>{Math.abs(openingBalance).toFixed(2)}</strong>
+                            ) : (
+                              '-'
+                            )}
                           </TableCell>
-                          <TableCell align="right">{line.balance.toFixed(2)}</TableCell>
+                          <TableCell align="right">
+                            <strong>{openingBalance.toFixed(2)}</strong>
+                          </TableCell>
                         </TableRow>
-
-                        {/* Expandable detail row */}
-                        <TableRow>
-                          <TableCell colSpan={7} sx={{ py: 0, border: 0 }}>
-                            <Collapse in={expandedRow === index} timeout="auto" unmountOnExit>
-                              <Box sx={{ py: 1.5, px: 2, bgcolor: 'grey.50' }}>
-                                <Box
-                                  sx={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    mb: 1,
-                                  }}
-                                >
-                                  <Typography
-                                    variant="caption"
-                                    fontWeight="bold"
-                                    color="text.secondary"
-                                  >
-                                    GL Entries for {line.reference}
-                                    {line.entityName && ` — ${line.entityName}`}
-                                    {line.status && (
-                                      <Chip
-                                        label={line.status}
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{ ml: 1 }}
-                                      />
-                                    )}
+                      )}
+                      {ledgerLines.map((line, index) => (
+                        <Fragment key={index}>
+                          <TableRow
+                            hover
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => toggleExpand(index)}
+                          >
+                            <TableCell sx={{ p: 0.5 }}>
+                              <IconButton size="small" aria-label="Action">
+                                {expandedRow === index ? (
+                                  <CollapseIcon fontSize="small" />
+                                ) : (
+                                  <ExpandIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </TableCell>
+                            <TableCell>{line.date.toLocaleDateString('en-IN')}</TableCell>
+                            <TableCell>{line.description}</TableCell>
+                            <TableCell>
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <Chip label={line.typeLabel} size="small" variant="outlined" />
+                                <Typography variant="body2">{line.reference}</Typography>
+                                {line.vendorRef && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    / {line.vendorRef}
                                   </Typography>
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    endIcon={<OpenInNewIcon fontSize="small" />}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      router.push(getTransactionRoute(line.type));
+                                )}
+                              </Box>
+                            </TableCell>
+                            <TableCell align="right">
+                              {line.debit > 0 ? line.debit.toFixed(2) : '-'}
+                            </TableCell>
+                            <TableCell align="right">
+                              {line.credit > 0 ? line.credit.toFixed(2) : '-'}
+                            </TableCell>
+                            <TableCell align="right">{line.balance.toFixed(2)}</TableCell>
+                          </TableRow>
+
+                          {/* Expandable detail row */}
+                          <TableRow>
+                            <TableCell colSpan={7} sx={{ py: 0, border: 0 }}>
+                              <Collapse in={expandedRow === index} timeout="auto" unmountOnExit>
+                                <Box sx={{ py: 1.5, px: 2, bgcolor: 'grey.50' }}>
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      mb: 1,
                                     }}
                                   >
-                                    View Transaction
-                                  </Button>
-                                </Box>
-                                <Table size="small">
-                                  <TableHead>
-                                    <TableRow>
-                                      <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
-                                        Account
-                                      </TableCell>
-                                      <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
-                                        Description
-                                      </TableCell>
-                                      <TableCell
-                                        align="right"
-                                        sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}
-                                      >
-                                        Debit
-                                      </TableCell>
-                                      <TableCell
-                                        align="right"
-                                        sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}
-                                      >
-                                        Credit
-                                      </TableCell>
-                                    </TableRow>
-                                  </TableHead>
-                                  <TableBody>
-                                    {line.allEntries.map((entry, i) => (
-                                      <TableRow
-                                        key={i}
-                                        sx={
-                                          entry.accountId === selectedAccountId
-                                            ? { bgcolor: 'action.selected' }
-                                            : undefined
-                                        }
-                                      >
-                                        <TableCell sx={{ fontSize: '0.75rem' }}>
-                                          {entry.accountCode && (
-                                            <Typography
-                                              variant="caption"
-                                              color="text.secondary"
-                                              component="span"
-                                            >
-                                              {entry.accountCode}{' '}
-                                            </Typography>
-                                          )}
-                                          {entry.accountName || entry.accountId}
+                                    <Typography
+                                      variant="caption"
+                                      fontWeight="bold"
+                                      color="text.secondary"
+                                    >
+                                      GL Entries for {line.reference}
+                                      {line.entityName && ` — ${line.entityName}`}
+                                      {line.status && (
+                                        <Chip
+                                          label={line.status}
+                                          size="small"
+                                          variant="outlined"
+                                          sx={{ ml: 1 }}
+                                        />
+                                      )}
+                                    </Typography>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      endIcon={<OpenInNewIcon fontSize="small" />}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        router.push(getTransactionRoute(line.type));
+                                      }}
+                                    >
+                                      View Transaction
+                                    </Button>
+                                  </Box>
+                                  <Table size="small">
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
+                                          Account
                                         </TableCell>
-                                        <TableCell sx={{ fontSize: '0.75rem' }}>
-                                          {entry.description || '-'}
+                                        <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
+                                          Description
                                         </TableCell>
-                                        <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
-                                          {(entry.debit || 0) > 0
-                                            ? (entry.debit || 0).toFixed(2)
-                                            : '-'}
+                                        <TableCell
+                                          align="right"
+                                          sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}
+                                        >
+                                          Debit
                                         </TableCell>
-                                        <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
-                                          {(entry.credit || 0) > 0
-                                            ? (entry.credit || 0).toFixed(2)
-                                            : '-'}
+                                        <TableCell
+                                          align="right"
+                                          sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}
+                                        >
+                                          Credit
                                         </TableCell>
                                       </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </Box>
-                            </Collapse>
-                          </TableCell>
-                        </TableRow>
-                      </Fragment>
-                    ))}
-                    <TableRow sx={{ fontWeight: 'bold', bgcolor: 'grey.100' }}>
-                      <TableCell sx={{ p: 0.5 }} />
-                      <TableCell colSpan={3}>
-                        <strong>Closing Balance</strong>
-                      </TableCell>
-                      <TableCell align="right">
-                        <strong>
-                          {ledgerLines.reduce((sum, line) => sum + line.debit, 0).toFixed(2)}
-                        </strong>
-                      </TableCell>
-                      <TableCell align="right">
-                        <strong>
-                          {ledgerLines.reduce((sum, line) => sum + line.credit, 0).toFixed(2)}
-                        </strong>
-                      </TableCell>
-                      <TableCell align="right">
-                        <strong>{closingBalance.toFixed(2)}</strong>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                                    </TableHead>
+                                    <TableBody>
+                                      {line.allEntries.map((entry, i) => (
+                                        <TableRow
+                                          key={i}
+                                          sx={
+                                            entry.accountId === selectedAccountId
+                                              ? { bgcolor: 'action.selected' }
+                                              : undefined
+                                          }
+                                        >
+                                          <TableCell sx={{ fontSize: '0.75rem' }}>
+                                            {entry.accountCode && (
+                                              <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                                component="span"
+                                              >
+                                                {entry.accountCode}{' '}
+                                              </Typography>
+                                            )}
+                                            {entry.accountName || entry.accountId}
+                                          </TableCell>
+                                          <TableCell sx={{ fontSize: '0.75rem' }}>
+                                            {entry.description || '-'}
+                                          </TableCell>
+                                          <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                                            {(entry.debit || 0) > 0
+                                              ? (entry.debit || 0).toFixed(2)
+                                              : '-'}
+                                          </TableCell>
+                                          <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                                            {(entry.credit || 0) > 0
+                                              ? (entry.credit || 0).toFixed(2)
+                                              : '-'}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </Box>
+                              </Collapse>
+                            </TableCell>
+                          </TableRow>
+                        </Fragment>
+                      ))}
+                      <TableRow sx={{ fontWeight: 'bold', bgcolor: 'grey.100' }}>
+                        <TableCell sx={{ p: 0.5 }} />
+                        <TableCell colSpan={3}>
+                          <strong>Closing Balance</strong>
+                        </TableCell>
+                        <TableCell align="right">
+                          <strong>
+                            {ledgerLines.reduce((sum, line) => sum + line.debit, 0).toFixed(2)}
+                          </strong>
+                        </TableCell>
+                        <TableCell align="right">
+                          <strong>
+                            {ledgerLines.reduce((sum, line) => sum + line.credit, 0).toFixed(2)}
+                          </strong>
+                        </TableCell>
+                        <TableCell align="right">
+                          <strong>{closingBalance.toFixed(2)}</strong>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
 
               {ledgerLines.length === 0 && (
                 <Box p={3} textAlign="center">
