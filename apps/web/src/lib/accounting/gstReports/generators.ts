@@ -295,6 +295,67 @@ export async function generateGSTR2(
     }
   });
 
+  // Journal entries carrying gstDetails claim input credit outside a vendor
+  // bill (e.g. GST charged by the bank on charges — feedback
+  // LDTQ6eIjMbyXiYstz7cC). Without this, JE-posted GST reached the GST Input
+  // account balance but never GSTR-2/3B, so the filed return understated ITC.
+  const jeQuery = query(
+    transactionsRef,
+    where('type', '==', 'JOURNAL_ENTRY'),
+    where('status', 'in', ['POSTED', 'APPROVED']),
+    where('date', '>=', start),
+    where('date', '<=', end)
+  );
+  const jeSnapshot = await getDocs(jeQuery);
+  jeSnapshot.forEach((doc) => {
+    const je = doc.data();
+    if (je.isDeleted) return;
+    if (je.journalType === 'CLOSING') return;
+    if (je.isReversed) return; // reversed JEs must not inflate the credit
+    const gst = je.gstDetails as
+      | {
+          taxableAmount?: number;
+          cgstAmount?: number;
+          sgstAmount?: number;
+          igstAmount?: number;
+          totalGST?: number;
+        }
+      | undefined;
+    if (!gst || !(gst.totalGST && gst.totalGST > 0)) return;
+
+    const jeDate =
+      je.date && typeof je.date === 'object' && 'toDate' in je.date
+        ? (je.date as { toDate: () => Date }).toDate()
+        : new Date();
+    const taxable = gst.taxableAmount ?? 0;
+    const cgst = gst.cgstAmount ?? 0;
+    const sgst = gst.sgstAmount ?? 0;
+    const igst = gst.igstAmount ?? 0;
+
+    purchases.push({
+      id: doc.id,
+      billNumber: je.transactionNumber || doc.id,
+      billDate: jeDate,
+      vendorName: je.description || 'Journal entry',
+      vendorGSTIN: '',
+      placeOfSupply: '',
+      reverseCharge: false,
+      billValue: taxable + cgst + sgst + igst,
+      taxableValue: taxable,
+      cgst,
+      sgst,
+      igst,
+      cess: 0,
+      source: 'JOURNAL',
+    });
+    purchasesSummary.taxableValue += taxable;
+    purchasesSummary.cgst += cgst;
+    purchasesSummary.sgst += sgst;
+    purchasesSummary.igst += igst;
+    purchasesSummary.total += cgst + sgst + igst;
+    purchasesSummary.transactionCount++;
+  });
+
   const total: GSTSummary = {
     taxableValue: purchasesSummary.taxableValue + reverseChargeSummary.taxableValue,
     cgst: purchasesSummary.cgst + reverseChargeSummary.cgst,

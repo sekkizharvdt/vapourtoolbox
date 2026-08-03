@@ -138,6 +138,8 @@ export interface PurchaseDetail {
   sgst: number;
   igst: number;
   cess: number;
+  /** Where the input credit came from — journal entries carry no vendor bill */
+  source?: 'BILL' | 'JOURNAL';
 }
 
 /**

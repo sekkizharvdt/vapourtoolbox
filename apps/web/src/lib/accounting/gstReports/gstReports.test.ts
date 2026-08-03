@@ -40,6 +40,9 @@ import type { GSTR1Data, GSTR3BData } from './types';
 describe('GST Reports Module', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default for any query the test doesn't explicitly mock (e.g. the
+    // GSTR-2 journal-entry input-credit query) — an empty snapshot.
+    mockGetDocs.mockResolvedValue({ forEach: jest.fn() });
   });
 
   // ============================================================================

@@ -19,6 +19,8 @@ import {
   Stack,
   Button,
   Autocomplete,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
@@ -32,6 +34,7 @@ import {
   collection,
   addDoc,
   updateDoc,
+  deleteField,
   doc,
   Timestamp,
   getDocs,
@@ -128,6 +131,16 @@ export function CreateJournalEntryDialog({
   const [linkedCustomerInvoiceId, setLinkedCustomerInvoiceId] = useState<string>('');
   const [linkedVendorBillId, setLinkedVendorBillId] = useState<string>('');
 
+  // Optional GST input-credit details (feedback LDTQ6eIjMbyXiYstz7cC) — e.g.
+  // GST charged by the bank on charges. Stored as gstDetails on the JE so
+  // GSTR-2/3B can include the input credit; without it, JE-posted GST reaches
+  // the GST Input account balance but never the filed return.
+  const [gstEnabled, setGstEnabled] = useState(false);
+  const [gstTaxable, setGstTaxable] = useState('');
+  const [gstCgst, setGstCgst] = useState('');
+  const [gstSgst, setGstSgst] = useState('');
+  const [gstIgst, setGstIgst] = useState('');
+
   // Options for linked document selectors
   const [invoiceOptions, setInvoiceOptions] = useState<TransactionOption[]>([]);
   const [billOptions, setBillOptions] = useState<TransactionOption[]>([]);
@@ -166,6 +179,12 @@ export function CreateJournalEntryDialog({
         setEntries(editingEntry.entries || []);
         setLinkedCustomerInvoiceId(editingEntry.linkedCustomerInvoiceId || '');
         setLinkedVendorBillId(editingEntry.linkedVendorBillId || '');
+        const gst = editingEntry.gstDetails;
+        setGstEnabled(Boolean(gst));
+        setGstTaxable(gst ? String(gst.taxableAmount ?? '') : '');
+        setGstCgst(gst?.cgstAmount ? String(gst.cgstAmount) : '');
+        setGstSgst(gst?.sgstAmount ? String(gst.sgstAmount) : '');
+        setGstIgst(gst?.igstAmount ? String(gst.igstAmount) : '');
       } else if (prefill) {
         // New entry seeded by a caller (e.g. Data Health "close via journal")
         setDate(prefill.date || new Date().toISOString().split('T')[0] || '');
@@ -175,6 +194,11 @@ export function CreateJournalEntryDialog({
         setStatus('DRAFT');
         setLinkedCustomerInvoiceId(prefill.linkedCustomerInvoiceId || '');
         setLinkedVendorBillId(prefill.linkedVendorBillId || '');
+        setGstEnabled(false);
+        setGstTaxable('');
+        setGstCgst('');
+        setGstSgst('');
+        setGstIgst('');
         setEntries(
           prefill.entries && prefill.entries.length >= 2
             ? prefill.entries
@@ -207,6 +231,11 @@ export function CreateJournalEntryDialog({
         setStatus('DRAFT');
         setLinkedCustomerInvoiceId('');
         setLinkedVendorBillId('');
+        setGstEnabled(false);
+        setGstTaxable('');
+        setGstCgst('');
+        setGstSgst('');
+        setGstIgst('');
         setEntries([
           {
             accountId: '',
@@ -407,6 +436,31 @@ export function CreateJournalEntryDialog({
 
       const balance = calculateBalance(resolvedEntries);
 
+      // Optional GST input-credit details (feedback LDTQ6eIjMbyXiYstz7cC)
+      let gstDetails: Record<string, unknown> | undefined;
+      if (gstEnabled) {
+        const taxable = parseFloat(gstTaxable) || 0;
+        const cgst = parseFloat(gstCgst) || 0;
+        const sgst = parseFloat(gstSgst) || 0;
+        const igst = parseFloat(gstIgst) || 0;
+        const totalGST = Math.round((cgst + sgst + igst) * 100) / 100;
+        if (taxable <= 0 || totalGST <= 0) {
+          setError(
+            'GST details: enter the taxable value and at least one of CGST/SGST/IGST, or untick "Claim GST input credit".'
+          );
+          setLoading(false);
+          return;
+        }
+        gstDetails = removeUndefinedValues({
+          gstType: igst > 0 ? ('IGST' as const) : ('CGST_SGST' as const),
+          taxableAmount: taxable,
+          cgstAmount: cgst > 0 ? cgst : undefined,
+          sgstAmount: sgst > 0 ? sgst : undefined,
+          igstAmount: igst > 0 ? igst : undefined,
+          totalGST,
+        });
+      }
+
       // Convert string date to Date object then to Timestamp for Firestore
       const journalDate = Timestamp.fromDate(new Date(date));
 
@@ -425,6 +479,7 @@ export function CreateJournalEntryDialog({
           updatedAt: Timestamp.now(),
           linkedCustomerInvoiceId: linkedCustomerInvoiceId || undefined,
           linkedVendorBillId: linkedVendorBillId || undefined,
+          gstDetails: gstDetails ?? deleteField(),
           // Only update date if it was actually changed by the user
           ...(date !== getDateString(editingEntry.date) && {
             date: journalDate,
@@ -538,6 +593,7 @@ export function CreateJournalEntryDialog({
           isReversed: false,
           linkedCustomerInvoiceId: linkedCustomerInvoiceId || undefined,
           linkedVendorBillId: linkedVendorBillId || undefined,
+          gstDetails,
         });
 
         const docRef = await retryOnStaleToken(() =>
@@ -727,6 +783,70 @@ export function CreateJournalEntryDialog({
               </Alert>
             </Grid>
           )}
+
+        {/* GST input credit (feedback LDTQ6eIjMbyXiYstz7cC) — e.g. GST charged
+            by the bank on charges. These figures flow into GSTR-2/3B as input
+            credit; the ledger lines to the GST Input accounts must be posted
+            in the entries below as usual. */}
+        <Grid size={{ xs: 12 }}>
+          <FormControlLabel
+            control={
+              <Checkbox checked={gstEnabled} onChange={(e) => setGstEnabled(e.target.checked)} />
+            }
+            label="Claim GST input credit on this entry (e.g. bank charges GST)"
+          />
+        </Grid>
+        {gstEnabled && (
+          <>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                fullWidth
+                label="Taxable Value"
+                type="number"
+                value={gstTaxable}
+                onChange={(e) => setGstTaxable(e.target.value)}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                fullWidth
+                label="CGST"
+                type="number"
+                value={gstCgst}
+                onChange={(e) => setGstCgst(e.target.value)}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                fullWidth
+                label="SGST"
+                type="number"
+                value={gstSgst}
+                onChange={(e) => setGstSgst(e.target.value)}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                fullWidth
+                label="IGST"
+                type="number"
+                value={gstIgst}
+                onChange={(e) => setGstIgst(e.target.value)}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Alert severity="info">
+                Post the matching ledger lines below (e.g. Dr Bank Charges, Dr CGST Input 1301, Dr
+                SGST Input 1302, Cr Bank). If a vendor bill exists for the same charge, do NOT also
+                claim it here — that would double-count the input credit.
+              </Alert>
+            </Grid>
+          </>
+        )}
 
         <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>

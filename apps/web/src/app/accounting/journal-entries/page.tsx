@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, getDocs, limit } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { JournalEntry } from '@vapour/types';
@@ -45,7 +45,10 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
-import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
+import {
+  CreateJournalEntryDialog,
+  type JournalEntryPrefill,
+} from './components/CreateJournalEntryDialog';
 import { formatDate } from '@/lib/utils/formatters';
 import {
   FiscalYearFilter,
@@ -80,6 +83,7 @@ export default function JournalEntriesPage() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
+  const [prefill, setPrefill] = useState<JournalEntryPrefill | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState<string>('ALL');
   const [page, setPage] = useState(0);
@@ -113,6 +117,47 @@ export default function JournalEntriesPage() {
 
   const handleCreate = () => {
     setEditingEntry(null);
+    setPrefill(null);
+    setCreateDialogOpen(true);
+  };
+
+  // Bank-charges quick entry (feedback LDTQ6eIjMbyXiYstz7cC): pre-builds the
+  // three standard lines; the user fills the amounts and the GST section.
+  const handleBankCharges = async () => {
+    setEditingEntry(null);
+    const { db } = getFirebase();
+    const findByCode = async (code: string) => {
+      const snap = await getDocs(
+        query(collection(db, COLLECTIONS.ACCOUNTS), where('code', '==', code), limit(1))
+      );
+      const d = snap.docs[0];
+      return d ? { id: d.id, name: (d.data().name as string) || '' } : null;
+    };
+    const [bankCharges, cgstInput, sgstInput] = await Promise.all([
+      findByCode('5302'),
+      findByCode('1301'),
+      findByCode('1302'),
+    ]);
+    const line = (acc: { id: string; name: string } | null, code: string, desc: string) => ({
+      accountId: acc?.id ?? '',
+      accountCode: acc ? code : undefined,
+      accountName: acc?.name || undefined,
+      debit: 0,
+      credit: 0,
+      description: desc,
+      costCentreId: undefined,
+      entityId: undefined,
+      entityName: undefined,
+    });
+    setPrefill({
+      description: 'Bank charges with GST',
+      entries: [
+        line(bankCharges, '5302', 'Bank charges'),
+        line(cgstInput, '1301', 'CGST on bank charges'),
+        line(sgstInput, '1302', 'SGST on bank charges'),
+        line(null, '', 'Bank account (credit total)'),
+      ],
+    });
     setCreateDialogOpen(true);
   };
 
@@ -291,9 +336,14 @@ export default function JournalEntriesPage() {
             </>
           )}
           {canManage && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-              Create Journal Entry
-            </Button>
+            <>
+              <Button variant="outlined" onClick={() => void handleBankCharges()} sx={{ mr: 1 }}>
+                Bank Charges
+              </Button>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                Create Journal Entry
+              </Button>
+            </>
           )}
         </Stack>
       </Stack>
@@ -436,6 +486,7 @@ export default function JournalEntriesPage() {
         open={createDialogOpen}
         onClose={handleDialogClose}
         editingEntry={editingEntry}
+        prefill={prefill}
         tenantId={claims?.tenantId || 'default-entity'}
       />
     </Box>
