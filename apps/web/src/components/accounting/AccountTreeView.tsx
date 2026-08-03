@@ -21,6 +21,7 @@ import {
   UnfoldMore as ExpandAllIcon,
   UnfoldLess as CollapseAllIcon,
   Edit as EditIcon,
+  Tune as TuneIcon,
   MenuBook as LedgerIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -30,6 +31,8 @@ import { formatCurrency } from '@/lib/utils/formatters';
 interface AccountTreeViewProps {
   accounts: Account[];
   onEdit?: (account: Account) => void;
+  /** Opens the opening-balance adjustment flow (leaf accounts only). */
+  onAdjustOpeningBalance?: (account: Account) => void;
 }
 
 /**
@@ -41,7 +44,11 @@ function getNormalBalanceType(code: string): 'Dr' | 'Cr' {
   return ['1', '5', '6', '7'].includes(firstChar) ? 'Dr' : 'Cr';
 }
 
-export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
+export function AccountTreeView({
+  accounts,
+  onEdit,
+  onAdjustOpeningBalance,
+}: AccountTreeViewProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -291,6 +298,20 @@ export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
               >
                 <EditIcon fontSize="small" />
               </IconButton>
+            )}
+
+            {/* Opening-balance adjustment via journal entry (feedback
+                pX6oymucWCCLBYJuWihY) — leaf accounts only */}
+            {onAdjustOpeningBalance && !account.isGroup && (
+              <Tooltip title="Adjust Opening Balance (via journal entry)">
+                <IconButton
+                  size="small"
+                  onClick={() => onAdjustOpeningBalance(account)}
+                  aria-label="Adjust Opening Balance"
+                >
+                  <TuneIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
           </Stack>
 

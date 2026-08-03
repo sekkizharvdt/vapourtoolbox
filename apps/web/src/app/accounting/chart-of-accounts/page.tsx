@@ -33,6 +33,16 @@ import type { Account, AccountType } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { AccountTreeView } from '@/components/accounting/AccountTreeView';
+import dynamic from 'next/dynamic';
+import type { JournalEntryPrefill } from '@/app/accounting/journal-entries/components/CreateJournalEntryDialog';
+
+const CreateJournalEntryDialog = dynamic(
+  () =>
+    import('@/app/accounting/journal-entries/components/CreateJournalEntryDialog').then(
+      (mod) => mod.CreateJournalEntryDialog
+    ),
+  { ssr: false }
+);
 import { CreateAccountDialog } from '@/components/accounting/CreateAccountDialog';
 import { initializeChartOfAccounts } from '@/lib/initializeChartOfAccounts';
 import { createLogger } from '@vapour/logger';
@@ -84,6 +94,54 @@ export default function ChartOfAccountsPage() {
 
   // Tenant ID for multi-tenancy (fallback matches Cloud Function default)
   const tenantId = claims?.tenantId || 'default-entity';
+
+  // Opening-balance adjustment (feedback pX6oymucWCCLBYJuWihY): editing the
+  // stored openingBalance field would desync the trial balance from the
+  // balance sheet, so adjustments go through a journal entry instead — the
+  // dialog opens pre-filled with the account line and an equity contra line.
+  const [obDialogOpen, setObDialogOpen] = useState(false);
+  const [obPrefill, setObPrefill] = useState<JournalEntryPrefill | null>(null);
+
+  const handleAdjustOpeningBalance = (account: Account) => {
+    // Default the JE date to the current fiscal year's start (1 April)
+    const today = new Date();
+    const fyStartYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    const fyStart = `${fyStartYear}-04-01`;
+    const fyLabel = `${fyStartYear}-${String((fyStartYear + 1) % 100).padStart(2, '0')}`;
+
+    const reserves = accounts.find((a) => a.code === '3300' && !a.isGroup);
+
+    setObPrefill({
+      date: fyStart,
+      description: `Opening balance adjustment for ${account.code} ${account.name} (FY ${fyLabel}). Enter the adjustment amount on both lines: debit the account to increase its balance, credit to decrease.`,
+      reference: `OB-ADJ ${account.code}`,
+      entries: [
+        {
+          accountId: account.id,
+          accountCode: account.code,
+          accountName: account.name,
+          debit: 0,
+          credit: 0,
+          description: 'Opening balance adjustment',
+          costCentreId: undefined,
+          entityId: undefined,
+          entityName: undefined,
+        },
+        {
+          accountId: reserves?.id ?? '',
+          accountCode: reserves?.code,
+          accountName: reserves?.name,
+          debit: 0,
+          credit: 0,
+          description: 'Opening balance adjustment (contra)',
+          costCentreId: undefined,
+          entityId: undefined,
+          entityName: undefined,
+        },
+      ],
+    });
+    setObDialogOpen(true);
+  };
 
   // Auto-initialize Chart of Accounts if empty (runs once per mount)
   const hasAttemptedInit = useRef(false);
@@ -408,6 +466,7 @@ export default function ChartOfAccountsPage() {
             <AccountTreeView
               accounts={filteredAccounts}
               onEdit={canManage ? handleEditAccount : undefined}
+              onAdjustOpeningBalance={canManage ? handleAdjustOpeningBalance : undefined}
             />
           </Paper>
         )}
@@ -423,6 +482,16 @@ export default function ChartOfAccountsPage() {
           onClose={handleCloseDialog}
           accounts={accounts}
           editingAccount={editingAccount}
+        />
+        <CreateJournalEntryDialog
+          open={obDialogOpen}
+          onClose={() => {
+            setObDialogOpen(false);
+            setObPrefill(null);
+            handleRefresh();
+          }}
+          prefill={obPrefill}
+          tenantId={tenantId}
         />
       </Box>
     </>
