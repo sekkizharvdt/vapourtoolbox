@@ -325,11 +325,15 @@ export async function hardDeleteTransaction(
       };
     }
 
-    // Archive to DELETED_TRANSACTIONS — preserve tenantId from the source txn.
+    // Archive to DELETED_TRANSACTIONS — preserve tenantId when the source txn
+    // has one. Most transactions carry no tenantId (single-tenant, rule 1),
+    // and writing `tenantId: undefined` made Firestore reject the archive —
+    // permanent delete failed for nearly every transaction (feedback
+    // XWcxCSdQMgvJAXdGLzAn; rule 12).
     const archiveRef = doc(db, COLLECTIONS.DELETED_TRANSACTIONS, transactionId);
     await setDoc(archiveRef, {
       ...data,
-      tenantId: data.tenantId,
+      ...(data.tenantId !== undefined && { tenantId: data.tenantId }),
       hardDeletedAt: Timestamp.now(),
       hardDeletedBy: userId,
       hardDeletedByName: userName,

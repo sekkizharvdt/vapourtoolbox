@@ -295,6 +295,52 @@ describe('transactionDeleteService', () => {
       expect(mockDeleteDoc).toHaveBeenCalledTimes(1);
     });
 
+    it('omits tenantId from the archive when the source has none (Firestore rejects undefined)', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          status: 'APPROVED',
+          isDeleted: true,
+          type: 'JOURNAL_ENTRY',
+          transactionNumber: 'JE-002',
+          // no tenantId — the common single-tenant case
+        }),
+      });
+
+      const result = await hardDeleteTransaction(mockDb, {
+        transactionId: 'txn-2',
+        userId: 'user-1',
+        userName: 'Test User',
+      });
+
+      expect(result.success).toBe(true);
+      const archiveData = mockSetDoc.mock.calls[0][1];
+      expect('tenantId' in archiveData).toBe(false);
+    });
+
+    it('preserves tenantId on the archive when the source has one', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          status: 'APPROVED',
+          isDeleted: true,
+          type: 'JOURNAL_ENTRY',
+          transactionNumber: 'JE-003',
+          tenantId: 'default-entity',
+        }),
+      });
+
+      const result = await hardDeleteTransaction(mockDb, {
+        transactionId: 'txn-3',
+        userId: 'user-1',
+        userName: 'Test User',
+      });
+
+      expect(result.success).toBe(true);
+      const archiveData = mockSetDoc.mock.calls[0][1];
+      expect(archiveData.tenantId).toBe('default-entity');
+    });
+
     it('returns error for non-deleted transaction', async () => {
       mockGetDoc.mockResolvedValueOnce({
         exists: () => true,
