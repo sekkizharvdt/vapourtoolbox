@@ -547,7 +547,17 @@ export async function executeYearEndClosing(
 
     // Execute in a transaction
     const result = await runTransaction(db, async (transaction) => {
-      const closingDate = new Date();
+      // Date the closing entry at the fiscal year END, not "now" — a
+      // now-dated closing lands inside the current reporting period and made
+      // every closed expense account show negative in the P&L (feedback
+      // HgI7ohm3BbEK3uTAlURT).
+      const rawEnd = fiscalYear.endDate as unknown;
+      const closingDate =
+        typeof rawEnd === 'object' && rawEnd !== null && 'toDate' in rawEnd
+          ? (rawEnd as { toDate: () => Date }).toDate()
+          : rawEnd instanceof Date
+            ? rawEnd
+            : new Date();
 
       // Create the closing journal entry
       const journalEntryRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));

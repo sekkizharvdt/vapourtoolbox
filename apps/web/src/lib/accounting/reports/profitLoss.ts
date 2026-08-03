@@ -77,6 +77,8 @@ export interface AccountBalance {
   code: string;
   name: string;
   accountType: string;
+  accountCategory?: string;
+  isGroup?: boolean;
   balance: number;
   debit: number;
   credit: number;
@@ -116,6 +118,8 @@ export async function generateProfitLossReport(
         code: data.code || '',
         name: data.name || '',
         accountType: data.accountType || '',
+        accountCategory: data.accountCategory || undefined,
+        isGroup: data.isGroup === true,
         balance: 0, // Will calculate from transactions
         debit: 0,
         credit: 0,
@@ -137,9 +141,25 @@ export async function generateProfitLossReport(
     const accountActivity = new Map<string, { debit: number; credit: number }>();
     const accountTransactions = new Map<string, PnLTransactionDetail[]>();
 
+    const EXCLUDED_STATUSES = new Set([
+      'DRAFT',
+      'PENDING_APPROVAL',
+      'PENDING_FINAL_APPROVAL',
+      'REJECTED',
+      'VOID',
+      'CANCELLED',
+    ]);
+
     transactionsSnapshot.forEach((doc) => {
       const transaction = doc.data();
       if (transaction.isDeleted) return; // Skip soft-deleted transactions
+      // Year-end closing entries zero out P&L accounts — including them made
+      // every closed expense account show a NEGATIVE amount (feedback
+      // HgI7ohm3BbEK3uTAlURT). The close is a balance-sheet event, not a
+      // period expense/income.
+      if (transaction.journalType === 'CLOSING') return;
+      // Drafts and voided/rejected transactions are not part of the P&L
+      if (transaction.status && EXCLUDED_STATUSES.has(transaction.status)) return;
 
       const glEntries = transaction.entries || [];
       const txDate =
@@ -255,23 +275,28 @@ export async function generateProfitLossReport(
           transactions: expenseTxns,
         };
 
-        // Cost of Goods Sold (typically 5000-5999)
+        // Classify by the account's own category first — the code-prefix
+        // heuristic misfiled e.g. 5201 Salaries & Wages (OPERATING_EXPENSES)
+        // into COGS just because it starts with 5.
         if (
-          accountCode.startsWith('5') ||
-          accountName.includes('cost of goods') ||
-          accountName.includes('cogs')
+          account.accountCategory === 'COST_OF_GOODS_SOLD' ||
+          (!account.accountCategory &&
+            (accountCode.startsWith('5') ||
+              accountName.includes('cost of goods') ||
+              accountName.includes('cogs')))
         ) {
           costOfGoodsSold += netExpense;
           cogsAccounts.push(lineItem);
-        }
-        // Operating Expenses (typically 6000-7999)
-        else if (
-          accountCode.startsWith('6') ||
-          accountCode.startsWith('7') ||
-          accountName.includes('salary') ||
-          accountName.includes('rent') ||
-          accountName.includes('utilities') ||
-          accountName.includes('depreciation')
+        } else if (
+          account.accountCategory === 'OPERATING_EXPENSES' ||
+          account.accountCategory === 'FINANCIAL_EXPENSES' ||
+          (!account.accountCategory &&
+            (accountCode.startsWith('6') ||
+              accountCode.startsWith('7') ||
+              accountName.includes('salary') ||
+              accountName.includes('rent') ||
+              accountName.includes('utilities') ||
+              accountName.includes('depreciation')))
         ) {
           operatingExpenses += netExpense;
           operatingAccounts.push(lineItem);
