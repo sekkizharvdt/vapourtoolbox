@@ -253,7 +253,13 @@ const MIN_WETTING_RATE = MIN_WETTING_RATE_DESIGN;
 // h = 0.18 × Re^0.24 × Pr^0.66 × (μ²/(k³ρ²g))^(-1/3)
 
 /** Standard condenser tube passes */
-const CONDENSER_TUBE_PASSES = 4;
+/**
+ * Tube passes the CONDENSER SIZER uses. Exported because the designer result
+ * also carries a `passOptions` list — a user decision aid over even-pass
+ * layouts — and the two are different configurations. The heat transfer numbers
+ * belong to this one.
+ */
+export const CONDENSER_TUBE_PASSES = 4;
 
 /** Bundle layout constant for triangular pitch (TEMA) */
 const K1_TRIANGULAR = 0.319; // 1 pass
@@ -745,7 +751,10 @@ function sizeCondensingHX(input: CondensingHXInput): CondensingHXResult {
     tubeCount,
     bundleDiameter: Math.round(bundleDiameter),
     shellID: Math.round(shellID),
-    tubeVelocity: Math.round(tubeVelocity * 100) / 100,
+    // Unrounded: tube-side HTC goes as v^0.8, so a 2-decimal velocity carries
+    // ~0.6% into any downstream reproduction of h. Display sites format it
+    // (MEDPlantClient uses .toFixed(2)); the compute layer must not.
+    tubeVelocity,
     warnings,
   };
 }

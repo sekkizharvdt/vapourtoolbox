@@ -97,7 +97,54 @@ describe('committed condenser fixtures are reproducible', () => {
     // passing kg/h into a T/h field. Cheap to assert, and it would have caught it.
     for (const c of buildCondenserFixturePayload().cases) {
       expect(c.expected.dutyKW).toBeLessThan(50_000);
-      expect(c.expected.tubes).toBeLessThan(10_000);
+      expect(c.expected.sizedTubeCount).toBeLessThan(10_000);
+      expect(c.expected.selectedTubeCount).toBeLessThan(10_000);
     }
+  });
+
+  it('the published sizing velocity is the one tubeSideHTC was computed at', () => {
+    // The defect v5 fixes. tubeSideHTC/overallU/requiredArea are computed at a
+    // fixed 4-pass sizing, but v4 published tubes/passes/velocity from the
+    // pass-option decision aid, which picks an even-pass layout nearest a
+    // target velocity and landed on 8 passes in five of seven cases. Both
+    // columns were individually correct and described different exchangers, so
+    // a consumer reproducing h from the published v was ~2x out.
+    //
+    // Dittus-Boelter is h = 0.023 (k/D) Re^0.8 Pr^0.4, so h/v^0.8 is a pure
+    // property group: cases at the same mean seawater temperature MUST share
+    // it. Under v4 the group scattered 2488-4773; here it must agree to within
+    // the integer rounding of the published h (~0.025%).
+    const groups = new Map<number, number[]>();
+
+    for (const c of buildCondenserFixturePayload().cases) {
+      const e = c.expected;
+      const meanSwTemp = (e.seawaterInletTempC + e.seawaterOutletTempC) / 2;
+      const group = e.tubeSideHTC / Math.pow(e.sizedTubeVelocityMS, 0.8);
+      groups.set(meanSwTemp, [...(groups.get(meanSwTemp) ?? []), group]);
+    }
+
+    // The grid has to actually contain a repeated temperature for this to test
+    // anything — v4 would have passed a vacuously empty check.
+    const repeated = [...groups.values()].filter((g) => g.length > 1);
+    expect(repeated.length).toBeGreaterThan(0);
+
+    for (const g of repeated) {
+      expect((Math.max(...g) - Math.min(...g)) / Math.min(...g)).toBeLessThan(0.0005);
+    }
+  });
+
+  it('the two tube configurations are published as distinct fields', () => {
+    // Publishing only one set of tube numbers is what let v4 conflate them. The
+    // selection differing from the sizing is expected and fine; silently
+    // reporting one under the other's name is not.
+    const cases = buildCondenserFixturePayload().cases;
+
+    for (const c of cases) {
+      expect(c.expected.sizedPasses).toBe(4);
+      expect(c.expected.selectedTubeCount).toBeGreaterThanOrEqual(c.expected.sizedTubeCount);
+    }
+
+    // If these never diverge the split is untested by this grid.
+    expect(cases.some((c) => c.expected.selectedPasses !== c.expected.sizedPasses)).toBe(true);
   });
 });

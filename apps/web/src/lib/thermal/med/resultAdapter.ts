@@ -26,6 +26,7 @@ import {
 const TI_TUBE_WALL_MM = 0.4;
 const TI_TUBE_MATERIAL = 'titanium';
 import type { MEDPlantResult } from '@vapour/types';
+import { CONDENSER_TUBE_PASSES } from './equipmentSizing';
 import type { EquipmentSizingResult } from './equipmentSizing';
 import type {
   MEDDesignerEffect,
@@ -307,6 +308,11 @@ export function composeDesignerCondenser(
         resolved.input.seawaterTemperature
       ),
     tubes: bestPass.totalTubes,
+    sizing: {
+      tubeCount: cs.tubeCount,
+      passes: CONDENSER_TUBE_PASSES,
+      velocityMS: cs.tubeVelocity,
+    },
     passes: bestPass.passes,
     velocity: bestPass.velocity,
     shellODmm: bestPass.shellODmm,
@@ -421,6 +427,11 @@ export function composeDesignerPreheaters(
       requiredArea: ps.requiredArea,
       designArea: ps.designArea,
       flowTh: ph.seawaterFlow / 1000,
+      // NOTE: the preheater has the SAME split as the condenser — overallU and
+      // tubeSideHTC come from `ps` (sized at CONDENSER_TUBE_PASSES) while tubes,
+      // passes and velocity come from `bestPass`, a different configuration. It
+      // is not fixed here because no fixture publishes preheater heat transfer
+      // yet; fix it in the same change that does, not before.
       tubes: bestPass.totalTubes,
       passes: bestPass.passes,
       velocity: bestPass.velocity,

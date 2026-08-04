@@ -304,6 +304,25 @@ export interface MEDDesignerCondenser {
   tubes: number;
   /** Number of passes */
   passes: number;
+  /**
+   * The configuration the HEAT TRANSFER numbers were computed at.
+   *
+   * `tubes`, `passes` and `velocity` above come from `passOptions` — a user
+   * decision aid listing even-pass layouts near the target velocity. But
+   * `tubeSideHTC`, `overallU` and `requiredArea` are computed by the sizer at a
+   * FIXED 4 passes. The two are different configurations, and publishing them
+   * side by side let a consumer read a velocity that the coefficient beside it
+   * was never evaluated at.
+   */
+  sizing: {
+    /** Tube count the sizer converged on */
+    tubeCount: number;
+    /** Tube passes the sizer used — fixed at CONDENSER_TUBE_PASSES */
+    passes: number;
+    /** Tube velocity the sizer computed tubeSideHTC at, m/s */
+    velocityMS: number;
+  };
+
   /** Tube-side velocity m/s */
   velocity: number;
   /** Shell OD mm */

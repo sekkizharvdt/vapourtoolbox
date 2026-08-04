@@ -29,7 +29,7 @@ import { designMEDPlant } from '../med/designPipeline';
 import { DEFAULT_FOULING_SEAWATER, DEFAULT_FOULING_DISTILLATE } from '../med/equipmentSizing';
 import type { MEDDesignerInput } from '../med/designerTypes';
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const OUTPUT_PATH = join(
   __dirname,
@@ -160,9 +160,17 @@ function buildCase(spec: CaseSpec) {
       // Geometry
       requiredAreaM2: round(c.requiredArea, 3),
       designAreaM2: round(c.designArea, 3),
-      tubes: c.tubes,
-      passes: c.passes,
-      tubeVelocityMS: round(c.velocity, 4),
+      // THE CONFIGURATION THE HEAT TRANSFER BELONGS TO. tubeSideHTC, overallU
+      // and requiredArea were all computed here. Gate against these.
+      sizedTubeCount: c.sizing.tubeCount,
+      sizedPasses: c.sizing.passes,
+      sizedTubeVelocityMS: round(c.sizing.velocityMS, 4),
+
+      // A DIFFERENT configuration — the pass-option the designer would pick.
+      // Geometry only; no heat transfer number here was evaluated at it.
+      selectedTubeCount: c.tubes,
+      selectedPasses: c.passes,
+      selectedTubeVelocityMS: round(c.velocity, 4),
       tubeODmm: c.tubeOD,
       // Resistance-network constants, from the RESULT rather than assumed. v3
       // published the evaporator defaults here and put U 2.3% low.
@@ -222,6 +230,27 @@ export function buildCondenserFixturePayload() {
     generatedBy: 'apps/web/src/lib/thermal/__generators__/condenserFixtures.gen.ts',
     generatedFor: 'vapour-dynamics rung 5 — spec §7.2 condenser steady-state gate',
     schemaChanges: {
+      v5: {
+        added: [
+          'expected.sizedTubeCount, .sizedPasses, .sizedTubeVelocityMS — the configuration the ' +
+            'heat transfer numbers were actually computed at',
+          'offDesign.whyTheGridCannotExerciseIt',
+        ],
+        removed: ['expected.tubes, .passes, .tubeVelocityMS — ambiguous, see below'],
+        changed: [
+          'What v1-v4 called tubes/passes/tubeVelocityMS are now selectedTubeCount/ ' +
+            'selectedPasses/selectedTubeVelocityMS and are GEOMETRY ONLY.',
+        ],
+        note:
+          'CORRECTION. tubeSideHTC and overallU are computed by the sizer at a fixed 4 passes; ' +
+          'tubes, passes and velocity were reported from `passOptions`, a user decision aid that ' +
+          'picks an even-pass layout near 1.6 m/s and lands on 8 passes in five of seven cases. ' +
+          'The published velocity was therefore not the velocity the published coefficient was ' +
+          'evaluated at — visible as h/v^0.8 scattering 2488 to 4773 across cases that should ' +
+          'have clustered. Both configurations are now published under distinct names. The risk ' +
+          'was noted when the Q = U·A·dT defect was traced and then not acted on, which is worse ' +
+          'than not noticing.',
+      },
       v4: {
         added: [
           'expected.tubeWallThicknessMm, .tubeMaterial, .tubeConductivityWmK, .tubeIDmm — the ' +
@@ -433,6 +462,14 @@ export function buildCondenserFixturePayload() {
         'this calculator, and interpolating these five cases into one would be inventing a shape ' +
         'the model does not have — the same error as building an ejector capacity curve out of a ' +
         'single sizing point.',
+      whyTheGridCannotExerciseIt:
+        'The sizer iterates tube count until the actual velocity matches the design target, then ' +
+        'computes U there — so every case is AT its design point and the v^0.8 scaling is never ' +
+        'traversed. A steady-state gate cannot exercise it. v4 made this worse by publishing a ' +
+        'velocity from a DIFFERENT configuration than the coefficient beside it (see ' +
+        'sizedTubeVelocityMS vs selectedTubeVelocityMS), so the grid appeared to span velocities ' +
+        'it had not evaluated U at. Fit nothing from these seven points: the exponent is a ' +
+        'defensible route, not a checked one.',
       whatCanBeDoneInstead:
         'The tube-side coefficient IS a velocity relation: Dittus-Boelter gives Nu ∝ Re^0.8, so ' +
         'h_tube ∝ v^0.8 at fixed properties. A dynamic model can scale h_tube off-design from ' +
