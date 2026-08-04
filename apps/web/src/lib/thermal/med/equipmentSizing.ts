@@ -207,8 +207,11 @@ export interface EquipmentSizingResult {
 // ============================================================================
 
 /** Default fouling resistance in m²·K/W */
-const DEFAULT_FOULING_SEAWATER = 0.00009;
-const DEFAULT_FOULING_DISTILLATE = 0.00005;
+// Exported so the rung-5 fixture publishes the canonical values rather than a
+// transcription. Without these the resistance network cannot be closed from the
+// two film coefficients, and a U disagreement can be seen but not attributed.
+export const DEFAULT_FOULING_SEAWATER = 0.00009;
+export const DEFAULT_FOULING_DISTILLATE = 0.00005;
 
 /** Design margin for heat transfer area (fraction) */
 const AREA_DESIGN_MARGIN = 0.15;

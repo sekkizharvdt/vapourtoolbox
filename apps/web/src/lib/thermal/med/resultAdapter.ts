@@ -9,7 +9,22 @@
  * without changing any of its rendering code.
  */
 
-import { getLatentHeat, getDensityVapor, getSeawaterDensity } from '@vapour/constants';
+import {
+  getLatentHeat,
+  getDensityVapor,
+  getSeawaterDensity,
+  MED_TUBE_CONDUCTIVITY,
+} from '@vapour/constants';
+
+/**
+ * Condenser and preheater tube spec, fixed in `inputAdapter` as 17 x 0.4 mm
+ * titanium. Named here because the fixture publishes them and a consumer that
+ * assumes the EVAPORATOR defaults (1.0 mm wall, k = 138 for Al 5052) computes an
+ * overall U about 2.3% low — which is exactly what the simulator session
+ * measured against fixture v3 before the constants were corrected.
+ */
+const TI_TUBE_WALL_MM = 0.4;
+const TI_TUBE_MATERIAL = 'titanium';
 import type { MEDPlantResult } from '@vapour/types';
 import type { EquipmentSizingResult } from './equipmentSizing';
 import type {
@@ -283,6 +298,7 @@ export function composeDesignerCondenser(
     shellSideHTC: cs.shellSideHTC,
     requiredArea: cs.requiredArea,
     designArea: cs.designArea,
+    dutyBreakdown: fc.heatBreakdown,
     seawaterFlow: fc.seawaterIn.flow / 1000, // T/h
     seawaterFlowM3h:
       fc.seawaterIn.flow /
@@ -295,6 +311,9 @@ export function composeDesignerCondenser(
     velocity: bestPass.velocity,
     shellODmm: bestPass.shellODmm,
     tubeOD: tiTubeOD,
+    tubeWallMM: TI_TUBE_WALL_MM,
+    tubeMaterial: TI_TUBE_MATERIAL,
+    tubeConductivityWmK: MED_TUBE_CONDUCTIVITY[TI_TUBE_MATERIAL] ?? 15,
     tubeLengthMM: tiTubeLengthMM,
     passOptions,
   };
@@ -343,6 +362,9 @@ export function composeDesignerPreheaters(
         velocity: 0,
         shellODmm: 0,
         tubeOD: tiTubeOD,
+        tubeWallMM: TI_TUBE_WALL_MM,
+        tubeMaterial: TI_TUBE_MATERIAL,
+        tubeConductivityWmK: MED_TUBE_CONDUCTIVITY[TI_TUBE_MATERIAL] ?? 15,
         tubeLengthMM: tiTubeLengthMM,
         passOptions: [],
       };
@@ -404,6 +426,9 @@ export function composeDesignerPreheaters(
       velocity: bestPass.velocity,
       shellODmm: bestPass.shellODmm,
       tubeOD: tiTubeOD,
+      tubeWallMM: TI_TUBE_WALL_MM,
+      tubeMaterial: TI_TUBE_MATERIAL,
+      tubeConductivityWmK: MED_TUBE_CONDUCTIVITY[TI_TUBE_MATERIAL] ?? 15,
       tubeLengthMM: tiTubeLengthMM,
       passOptions,
     };

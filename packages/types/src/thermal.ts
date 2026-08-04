@@ -947,6 +947,27 @@ export interface MEDFinalCondenserResult {
   ventOut: MEDStream;
   /** Heat transferred in kW */
   heatTransferred: number;
+  /**
+   * What `heatTransferred` is made of, in kW.
+   *
+   * Published because the total is NOT the vapour latent load, and inverting it
+   * as one gives a condensing flow 2-7% too large. Two of the three terms are
+   * sensible cooling of streams that arrive as LIQUID — treating the excess as
+   * extra condensing flow would put mass where there is none.
+   */
+  heatBreakdown: {
+    /**
+     * Condensing the last-effect vapour, net of the vent fraction, and subcooled
+     * to the distillate outlet temperature — so it is
+     * `m_vap·(1 − VENT_FRACTION)·(h_vap(T_vap) − h_liq(T_distOut))`, wider than
+     * `m_vap·h_fg(T_vap)`.
+     */
+    condensingKW: number;
+    /** Sensible cooling of the distillate cascade from the effects */
+    distillateCoolingKW: number;
+    /** Sensible cooling of first-effect steam condensate, when extracted here */
+    condensateCoolingKW: number;
+  };
   /** Mass balance error in kg/hr */
   massBalance: number;
 }

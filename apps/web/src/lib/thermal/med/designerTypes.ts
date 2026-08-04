@@ -286,6 +286,18 @@ export interface MEDDesignerCondenser {
   designArea: number; // m²
   /** Required area before design margin m² */
   requiredArea: number;
+  /**
+   * What `duty` is made of, in kW.
+   *
+   * `duty` is NOT `vapourFlow x h_fg(vapourTemp)` — that relation implies a
+   * condensing flow 2-7% too large. Two of the three terms are sensible cooling
+   * of streams that arrive as liquid, so the excess is heat, not vapour.
+   */
+  dutyBreakdown: {
+    condensingKW: number;
+    distillateCoolingKW: number;
+    condensateCoolingKW: number;
+  };
   seawaterFlow: number; // T/h
   seawaterFlowM3h: number; // m³/h
   /** Number of tubes */
@@ -298,6 +310,19 @@ export interface MEDDesignerCondenser {
   shellODmm: number;
   /** Tube OD mm */
   tubeOD: number;
+  /**
+   * Tube wall thickness mm.
+   *
+   * Published because the resistance network cannot be closed without it, and
+   * because it is NOT the evaporator's default: condenser tubes are 17 x 0.4 mm
+   * titanium while the evaporator default is 1.0 mm. Assuming the evaporator
+   * value understates U by ~2.3%.
+   */
+  tubeWallMM: number;
+  /** Tube material key — condenser is titanium (k = 21), not the evaporator's 138 */
+  tubeMaterial: string;
+  /** Tube wall conductivity W/(m·K), exactly as used in the resistance network */
+  tubeConductivityWmK: number;
   /** Tube length mm */
   tubeLengthMM: number;
   /** All even-pass options for user decision */

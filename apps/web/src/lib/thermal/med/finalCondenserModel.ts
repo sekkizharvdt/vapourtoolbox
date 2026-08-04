@@ -57,9 +57,7 @@ export interface FinalCondenserInput {
  *   Q_total = m_sw × Cp × (T_sw_out - T_sw_in)
  *   m_sw = Q_total / (Cp × ΔT_sw)
  */
-export function calculateFinalCondenser(
-  input: FinalCondenserInput
-): MEDFinalCondenserResult {
+export function calculateFinalCondenser(input: FinalCondenserInput): MEDFinalCondenserResult {
   const {
     vaporInFlow,
     vaporInTemp,
@@ -80,27 +78,19 @@ export function calculateFinalCondenser(
   // Heat released by condensing the last-effect vapor
   const h_vaporIn = getEnthalpyVapor(vaporInTemp);
   const h_condensateFromVapor = getEnthalpyLiquid(distillateOutTemp);
-  const Q_condensing =
-    (condensingVaporFlow * (h_vaporIn - h_condensateFromVapor)) / 3600; // kW
+  const Q_condensing = (condensingVaporFlow * (h_vaporIn - h_condensateFromVapor)) / 3600; // kW
 
   // Heat released by cooling the distillate cascade to output temperature
-  const h_distillateIn =
-    distillateInFlow > 0 ? getEnthalpyLiquid(distillateInTemp) : 0;
+  const h_distillateIn = distillateInFlow > 0 ? getEnthalpyLiquid(distillateInTemp) : 0;
   const h_distillateOut = getEnthalpyLiquid(distillateOutTemp);
   const Q_distillateCooling =
-    distillateInFlow > 0
-      ? (distillateInFlow * (h_distillateIn - h_distillateOut)) / 3600
-      : 0;
+    distillateInFlow > 0 ? (distillateInFlow * (h_distillateIn - h_distillateOut)) / 3600 : 0;
 
   // Heat released by cooling condensate (if extracted from 1st effect)
-  const h_condensateIn =
-    condensateInFlow > 0 ? getEnthalpyLiquid(condensateInTemp) : 0;
-  const h_condensateOut =
-    condensateInFlow > 0 ? getEnthalpyLiquid(distillateOutTemp) : 0;
+  const h_condensateIn = condensateInFlow > 0 ? getEnthalpyLiquid(condensateInTemp) : 0;
+  const h_condensateOut = condensateInFlow > 0 ? getEnthalpyLiquid(distillateOutTemp) : 0;
   const Q_condensateCooling =
-    condensateInFlow > 0
-      ? (condensateInFlow * (h_condensateIn - h_condensateOut)) / 3600
-      : 0;
+    condensateInFlow > 0 ? (condensateInFlow * (h_condensateIn - h_condensateOut)) / 3600 : 0;
 
   // Total heat to be absorbed by seawater
   const Q_total = Q_condensing + Q_distillateCooling + Q_condensateCooling;
@@ -111,8 +101,7 @@ export function calculateFinalCondenser(
     (seawaterInletTemp + seawaterOutletTemp) / 2
   );
   const deltaT_sw = seawaterOutletTemp - seawaterInletTemp;
-  const seawaterFlow =
-    deltaT_sw > 0 ? (Q_total * 3600) / (cp_sw * deltaT_sw) : 0; // kg/hr
+  const seawaterFlow = deltaT_sw > 0 ? (Q_total * 3600) / (cp_sw * deltaT_sw) : 0; // kg/hr
 
   // Total distillate out = distillate cascade + condensed vapor + condensate
   const totalDistillateOut = distillateInFlow + condensingVaporFlow + condensateInFlow;
@@ -181,15 +170,17 @@ export function calculateFinalCondenser(
       0
     ),
     condensateOut: null, // condensate merges into distillate
-    ventOut: makeStream(
-      'Vent to Vacuum',
-      'VENT',
-      ventFlow,
-      distillateOutTemp,
-      h_vent,
-      0
-    ),
+    ventOut: makeStream('Vent to Vacuum', 'VENT', ventFlow, distillateOutTemp, h_vent, 0),
     heatTransferred: Q_total,
+    // Components, not just the total. `heatTransferred` is not the vapour latent
+    // load: the condensing term is net of the vent fraction and subcooled to the
+    // distillate outlet, and two sensible terms cool streams that arrive as
+    // liquid. Inverting the total as a condensing flow overstates it by 2-7%.
+    heatBreakdown: {
+      condensingKW: Q_condensing,
+      distillateCoolingKW: Q_distillateCooling,
+      condensateCoolingKW: Q_condensateCooling,
+    },
     massBalance,
   };
 }
