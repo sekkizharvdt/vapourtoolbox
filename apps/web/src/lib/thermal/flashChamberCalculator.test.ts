@@ -64,6 +64,7 @@ jest.mock('./pipeService', () => ({
   selectPipeByVelocity: jest.fn(() => ({
     displayName: '4" Sch 40',
     nps: '4"',
+    dn: '100',
     id_mm: 102.26,
     actualVelocity: 2.5,
     velocityStatus: 'OK',

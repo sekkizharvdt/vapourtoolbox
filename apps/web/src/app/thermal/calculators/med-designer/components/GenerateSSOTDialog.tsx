@@ -12,7 +12,7 @@
  * updated, left alone and orphaned → confirm to write.
  *
  * Nothing is written until the user confirms the plan. Records the user has
- * edited by hand are never overwritten (see medDesignSync's merge contract), and
+ * edited by hand are never overwritten (see ssotSync's merge contract), and
  * the preview says so up front — that promise is the reason the feature will
  * still be used after the first design revision.
  *
@@ -58,12 +58,12 @@ import {
   type MEDSSOTGeneration,
 } from '@/lib/ssot/medDesignGenerator';
 import {
-  planMEDSSOTSync,
-  applyMEDSSOTSync,
+  planSSOTSync,
+  applySSOTSync,
   summarisePlan,
-  type MEDSSOTSyncPlan,
-  type MEDSSOTSyncResult,
-} from '@/lib/ssot/medDesignSync';
+  type SSOTSyncPlan,
+  type SSOTSyncResult,
+} from '@/lib/ssot/ssotSync';
 import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { MaterialCategory, PIPE_MATERIAL_CODES, FLUID_TYPES } from '@vapour/types';
 import type { FluidType, Project } from '@vapour/types';
@@ -99,9 +99,9 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [plan, setPlan] = useState<MEDSSOTSyncPlan | null>(null);
+  const [plan, setPlan] = useState<SSOTSyncPlan | null>(null);
   const [generation, setGeneration] = useState<MEDSSOTGeneration | null>(null);
-  const [result, setResult] = useState<MEDSSOTSyncResult | null>(null);
+  const [result, setResult] = useState<SSOTSyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Rule 14b: every field re-syncs when the dialog opens — the design may have
@@ -165,7 +165,7 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
         materialByFluid,
         sourceLabel: `${designResult.effects.length}-effect MED, GOR ${designResult.achievedGOR.toFixed(1)}`,
       });
-      const nextPlan = await planMEDSSOTSync(projectId, generated);
+      const nextPlan = await planSSOTSync(projectId, generated, 'MED_DESIGN');
 
       setGeneration(generated);
       setPlan(nextPlan);
@@ -188,7 +188,7 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
     setApplying(true);
     setError(null);
     try {
-      const applied = await applyMEDSSOTSync(plan, user.uid, accessCheck);
+      const applied = await applySSOTSync(plan, user.uid, accessCheck);
       setResult(applied);
 
       const total =

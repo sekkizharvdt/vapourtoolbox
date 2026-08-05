@@ -270,8 +270,20 @@ export interface NozzleSizing {
   /** Selected standard pipe size (e.g., "6 inch Sch 40") */
   selectedPipeSize: string;
 
-  /** Nominal Pipe Size designation */
+  /** Nominal Pipe Size designation, in INCHES (e.g. "4", "1 1/2") */
   nps: string;
+
+  /**
+   * Nominal diameter in MM from the pipe table (e.g. "100" for NPS 4).
+   *
+   * Carried alongside `nps` because they are different units of the same
+   * selection, and the line-number convention in the SSOT registers is DN.
+   * Publishing only `nps` meant a consumer building a line number produced
+   * `5-00-SS316L-B-01` where the MED bridge produces `125-...` for the same
+   * bore — the same leading field meaning inches in one register and mm in the
+   * other.
+   */
+  dn: string;
 
   /** Actual inside diameter from pipe schedule in mm */
   actualID: number;

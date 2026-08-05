@@ -50,10 +50,17 @@ export type SteamRegion = 'saturation' | 'subcooled' | 'superheated';
  * How an SSOT record came to exist.
  *
  * `MED_DESIGN` records are produced by the MED designer bridge and are
- * refreshed whenever the design is regenerated. `MANUAL` records are typed
+ * refreshed whenever the design is regenerated. `FLASH_CHAMBER` records come
+ * from the standalone flash chamber calculator, which sizes vessels the MED
+ * designer does not (flash vessels, and the brine and distillate holdup drums
+ * that are flash chambers without heat transfer). `MANUAL` records are typed
  * by a user and are never touched by regeneration.
+ *
+ * The two generated sources are kept distinct so regeneration only refreshes
+ * what its own calculator owns: re-running the MED design must not overwrite a
+ * flash chamber's geometry, and vice versa.
  */
-export type SSOTRecordSource = 'MANUAL' | 'MED_DESIGN';
+export type SSOTRecordSource = 'MANUAL' | 'MED_DESIGN' | 'FLASH_CHAMBER';
 
 /**
  * Provenance metadata carried by every register that the MED designer can

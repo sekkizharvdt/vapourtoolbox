@@ -30,7 +30,7 @@ import type { FlashChamberInput } from '@vapour/types';
 
 import { calculateFlashChamber, resolveInletPressureMbar } from '../flashChamberCalculator';
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 const OUTPUT_PATH = join(
   __dirname,
@@ -308,6 +308,22 @@ export function buildFixturePayload() {
     generatedBy: 'scripts/thermal/generate-flash-chamber-fixtures.ts',
     generatedFor: 'vapour-dynamics rung 0/1 — spec section 7.1 / 7.2',
     schemaChanges: {
+      v9: {
+        added: [
+          'nozzles[].dn — nominal diameter in MM from the pipe table (e.g. "125" where nps is ' +
+            '"5"). No physics changed; every other value is byte-identical to v8.',
+        ],
+        removed: [],
+        changed: [],
+        note:
+          'nps is in INCHES and was the only size designation published. The SSOT line-number ' +
+          'convention is DN in mm, so a consumer building a line number from this fixture got ' +
+          '"5-..." where the MED bridge produces "125-..." for the same bore — one leading field ' +
+          'meaning inches in one register and mm in the other. The pipe table already carried dn ' +
+          'and the nozzle sizing was dropping it, so this publishes it rather than asking ' +
+          'consumers to convert. Nothing here changes a simulator result: if you gate on ' +
+          'temperatures, flows or geometry, v9 is identical to v8 and needs no re-run.',
+      },
       v8: {
         added: [],
         removed: [],

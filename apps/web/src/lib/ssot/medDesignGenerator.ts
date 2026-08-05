@@ -6,7 +6,7 @@
  *
  * This is a PURE mapping function — no Firestore, no permissions, no I/O.
  * Persisting the output (and merging it with records already in the project)
- * is `medDesignSync.ts`'s job.
+ * is `ssotSync.ts`'s job.
  *
  * ── Why this exists ──────────────────────────────────────────────────────
  * SSOT holds ~30 equipment items, ~200 lines and ~230 instruments per project.
@@ -46,8 +46,17 @@ import type {
   EquipmentMetalMassDerivation,
 } from '@vapour/types';
 import { MaterialCategory, PIPE_MATERIAL_CODES } from '@vapour/types';
-import { getSaturationPressure, METAL_PROPERTIES } from '@vapour/constants';
+import { METAL_PROPERTIES } from '@vapour/constants';
 import { enrichStreamInput } from './streamCalculations';
+import {
+  thToKgS,
+  round,
+  satPressureMbar,
+  cylinderVolumeM3,
+  buildProvenance,
+  dnNumber,
+  FLUID_CODE,
+} from './generatorHelpers';
 import type { MEDDesignerResult, MEDDesignerEffect } from '../thermal/med/designerTypes';
 
 // ============================================================================
@@ -119,37 +128,8 @@ export interface MEDSSOTGeneration {
 // Helpers
 // ============================================================================
 
-/** T/h → kg/s */
-function thToKgS(th: number): number {
-  return (th * 1000) / 3600;
-}
-
-/** Round to a sensible number of decimals for stored engineering values */
-function round(value: number, decimals = 3): number {
-  const f = Math.pow(10, decimals);
-  return Math.round(value * f) / f;
-}
-
-/** Saturation pressure in mbar(a) at a given temperature */
-function satPressureMbar(tempC: number): number {
-  return round(getSaturationPressure(tempC) * 1000, 2);
-}
-
-/** Internal volume of a horizontal cylinder, m³ */
-function cylinderVolumeM3(idMM: number, lengthMM: number): number {
-  const rM = idMM / 2000;
-  return round(Math.PI * rM * rM * (lengthMM / 1000), 3);
-}
-
 function provenanceFor(options: MEDSSOTGeneratorOptions, generatedKey: string): SSOTProvenance {
-  return {
-    source: 'MED_DESIGN',
-    generatedKey,
-    ...(options.sourceCalculationId !== undefined && {
-      sourceCalculationId: options.sourceCalculationId,
-    }),
-    ...(options.sourceLabel !== undefined && { sourceLabel: options.sourceLabel }),
-  };
+  return buildProvenance('MED_DESIGN', options, generatedKey);
 }
 
 /**
@@ -605,15 +585,6 @@ const HEADER_SERVICE_ROUTE_MAP: Record<string, { from?: string; to?: string }> =
   'Spray Header (total)': {},
 };
 
-const FLUID_CODE: Record<FluidType, string> = {
-  'SEA WATER': 'SW',
-  'BRINE WATER': 'B',
-  'DISTILLATE WATER': 'D',
-  STEAM: 'S',
-  NCG: 'NCG',
-  'FEED WATER': 'F',
-};
-
 /** Fluid type implied by a generated stream tag */
 function fluidForStreamTag(tag: string): FluidType {
   if (tag.startsWith('SW')) return 'SEA WATER';
@@ -625,11 +596,6 @@ function fluidForStreamTag(tag: string): FluidType {
 }
 
 /** Numeric DN from a "DN200"/"NB200"/"200" style label */
-function dnNumber(dn: string): string {
-  const match = /(\d+)/.exec(dn);
-  return match?.[1] ?? '000';
-}
-
 function buildLines(
   result: MEDDesignerResult,
   options: MEDSSOTGeneratorOptions,
