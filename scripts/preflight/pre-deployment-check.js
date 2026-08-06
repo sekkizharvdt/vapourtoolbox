@@ -15,7 +15,7 @@
  * Run this BEFORE every deployment to catch issues early.
  */
 
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const { getAllCollections } = require('../config/schema-registry');
 const admin = require('firebase-admin');
 
@@ -290,11 +290,22 @@ async function checkQueryChanges() {
 
     console.log(`Found ${files.length} changed TypeScript files\n`);
 
-    // Check if any contain query changes
+    // Check if any contain query changes.
+    //
+    // execFileSync, NOT execSync: the path is an argv entry rather than shell
+    // text, so route-group directories like `app/thermal/(protected)/...` and
+    // any other path holding shell metacharacters are read literally. With
+    // execSync the parentheses were parsed as a subshell, git never ran, and
+    // the check reported "No query modifications detected" for every commit
+    // touching a (protected) route.
     let queryChangesDetected = false;
+    const unreadable = [];
     for (const file of files) {
       try {
-        const fileDiff = execSync(`git diff HEAD ${file}`, { encoding: 'utf8' });
+        // `--` terminates options so a path can never be read as a flag.
+        const fileDiff = execFileSync('git', ['diff', 'HEAD', '--', file], {
+          encoding: 'utf8',
+        });
 
         // Look for query-related changes
         if (
@@ -305,8 +316,14 @@ async function checkQueryChanges() {
           console.log(`⚠️  Query changes detected in: ${file}`);
           queryChangesDetected = true;
         }
-      } catch {
-        // File might be new
+      } catch (error) {
+        // A file this check could not read is NOT a file without query changes.
+        // Collect it and say so below rather than passing silently (rule 27) —
+        // a guard that cannot run must never be reported as a guard that passed.
+        unreadable.push({
+          file,
+          reason: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -317,8 +334,24 @@ async function checkQueryChanges() {
       console.log('   2. Verify Firestore indexes exist');
       console.log('   3. Test with production-like data');
       console.log();
-    } else {
-      printCheck('Query changes', true, 'No query modifications detected');
+    }
+
+    if (unreadable.length > 0) {
+      printCheck(
+        'Query changes',
+        false,
+        `${unreadable.length} of ${files.length} changed file(s) could not be diffed — NOT checked`
+      );
+      for (const { file, reason } of unreadable) {
+        console.log(`   ${file}: ${reason.split('\n')[0]}`);
+      }
+      console.log();
+    } else if (!queryChangesDetected) {
+      printCheck(
+        'Query changes',
+        true,
+        `No query modifications detected in ${files.length} file(s)`
+      );
     }
   } catch (error) {
     console.log('ℹ️  Git diff check skipped (not a git repository or no changes)');
