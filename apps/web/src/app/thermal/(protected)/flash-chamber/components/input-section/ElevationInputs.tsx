@@ -3,7 +3,7 @@
 import { TextField, InputAdornment, Tooltip, IconButton, Divider, Typography } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import type { FlashChamberInput } from '@vapour/types';
-import { FLASH_CHAMBER_LIMITS } from '@vapour/types';
+import { FLASH_CHAMBER_LIMITS, DEFAULT_SUCTION_FRICTION_LOSS } from '@vapour/types';
 
 interface ElevationInputsProps {
   inputs: FlashChamberInput;
@@ -140,6 +140,37 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
           onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Typical: ~100mm (${FLASH_CHAMBER_LIMITS.btlGapBelowLGL.min} - ${FLASH_CHAMBER_LIMITS.btlGapBelowLGL.max} m)`}
+        fullWidth
+      />
+
+      {/* Suction Friction Loss — optional; the shown value is the one used */}
+      <TextField
+        label="Suction Friction Loss"
+        type="number"
+        value={inputs.suctionFrictionLoss ?? DEFAULT_SUCTION_FRICTION_LOSS}
+        onChange={(e) => onChange('suctionFrictionLoss', parseFloat(e.target.value) || 0)}
+        InputProps={{
+          endAdornment: (
+            <>
+              <InputAdornment position="end">m</InputAdornment>
+              <Tooltip title="Friction and fitting losses in the suction line to the extraction pump. This calculator has no pipe run to compute it from, so 0.5 m is a flat estimate — set it from a real hydraulic calculation (the suction system designer produces this number) where you have one. NPSHa moves metre for metre with it.">
+                <IconButton
+                  size="small"
+                  aria-label="Friction and fitting losses in the suction line to the extraction pump. Defaults to a flat 0.5 m estimate."
+                >
+                  <InfoIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          ),
+        }}
+        inputProps={{
+          min: FLASH_CHAMBER_LIMITS.suctionFrictionLoss.min,
+          max: FLASH_CHAMBER_LIMITS.suctionFrictionLoss.max,
+          step: 0.1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
+        }}
+        helperText={`Flat estimate — not computed from a pipe run (default ${DEFAULT_SUCTION_FRICTION_LOSS} m)`}
         fullWidth
       />
     </>

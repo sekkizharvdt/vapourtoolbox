@@ -53,6 +53,9 @@ export {
 // Head/Pressure conversion utilities (from thermalUtils)
 export { barToHead, headToBar } from './thermalUtils';
 
+// NPSHa balance — the one implementation; do not re-derive it in a calculator
+export { computeNPSHa, npshMargin, type NPSHaTerms, type NPSHaResult } from './npsha';
+
 // Heat Duty Calculator
 export {
   calculateSensibleHeat,

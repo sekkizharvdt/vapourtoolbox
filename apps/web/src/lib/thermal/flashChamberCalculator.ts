@@ -32,6 +32,7 @@ import {
   type PipeVariant,
 } from './pipeService';
 import { tonHrToKgS, tonHrToM3S, barToHead } from './thermalUtils';
+import { computeNPSHa } from './npsha';
 
 import type {
   FlashChamberInput,
@@ -49,6 +50,7 @@ import {
   FLOW_RATE_CONVERSIONS,
   FLASH_CHAMBER_LIMITS,
   DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR,
+  DEFAULT_SUCTION_FRICTION_LOSS,
 } from '@vapour/types';
 
 // ============================================================================
@@ -68,9 +70,6 @@ const SB_K_FACTOR: Record<string, number> = {
   WIRE_MESH: 0.09, // Wire-mesh pad — common default
   VANE: 0.15, // Vane-type — high-capacity
 };
-
-/** Standard friction loss estimate for suction piping */
-const ESTIMATED_FRICTION_LOSS = 0.5; // m
 
 /** Minimum NPSHa margin recommended */
 const MIN_NPSH_MARGIN = 1.5; // m
@@ -141,7 +140,27 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
     operatingLevelAbovePump: { min: 2.0, max: 15.0 },
     operatingLevelRatio: { min: 0.2, max: 0.8 },
     btlGapBelowLGL: { min: 0.05, max: 0.5 },
+    suctionFrictionLoss: { min: 0, max: 5.0 },
   };
+
+  // Suction friction is optional — unset means DEFAULT_SUCTION_FRICTION_LOSS is
+  // used, which is a documented default rather than a validation failure.
+  if (input.suctionFrictionLoss !== undefined) {
+    if (
+      input.suctionFrictionLoss < limits.suctionFrictionLoss.min ||
+      input.suctionFrictionLoss > limits.suctionFrictionLoss.max
+    ) {
+      errors.push(
+        `Suction friction loss must be between ${limits.suctionFrictionLoss.min} and ${limits.suctionFrictionLoss.max} m`
+      );
+    } else if (input.suctionFrictionLoss === 0) {
+      // NPSHa is linear in this term, so neglecting it overstates the margin by
+      // exactly the loss that was left out.
+      warnings.push(
+        'Suction friction loss is 0 m — NPSHa will be overstated by the whole suction-line loss'
+      );
+    }
+  }
 
   // Check operating pressure (mbar abs)
   if (
@@ -533,8 +552,16 @@ export function calculateFlashChamber(
   // Step 6: Calculate elevations for engineering diagram (needs to be before NPSHa)
   const elevations = calculateElevations(chamberSizing, input);
 
-  // Step 7: Calculate NPSHa at three levels
-  const npsha = calculateNPSHa(elevations, opPressureBar, satTempPure);
+  // Step 7: Calculate NPSHa at three levels.
+  // The friction term is the caller's if they supplied one, otherwise the flat
+  // estimate — resolved here so the fallback is visible at the call site rather
+  // than buried inside the NPSHa routine.
+  const npsha = calculateNPSHa(
+    elevations,
+    opPressureBar,
+    satTempPure,
+    input.suctionFrictionLoss ?? DEFAULT_SUCTION_FRICTION_LOSS
+  );
 
   return {
     inputs: input,
@@ -892,21 +919,23 @@ function calculateNozzleSizes(
 /**
  * Calculate Net Positive Suction Head Available at three levels for vacuum flash chamber.
  *
- * Inlines the NPSHa formula: NPSHa = Hs + Hp - Hvp - Hf
- * This was previously delegated to the standalone npshaCalculator, which has been
- * replaced by the MED Suction System Designer for full suction system design.
+ * The balance itself lives in `computeNPSHa` (npsha.ts), shared with
+ * `suctionSystemCalculator`. What is specific to this calculator is the sweep —
+ * three liquid levels against one fixed pump centreline — and the fact that its
+ * friction term is an estimate rather than a hydraulic calculation.
  *
  * @param elevations - Calculated elevation data
  * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
  * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
+ * @param frictionLoss - Suction-line friction loss in m; the caller's explicit
+ *   value, defaulted to DEFAULT_SUCTION_FRICTION_LOSS by `calculateFlashChamber`
  */
 function calculateNPSHa(
   elevations: FlashChamberElevations,
   chamberPressureBar: number,
-  satTempPure: number
+  satTempPure: number,
+  frictionLoss: number
 ): NPSHaCalculation {
-  const frictionLoss = ESTIMATED_FRICTION_LOSS;
-
   // Pure water density at saturation temperature
   const density = getDensityLiquid(satTempPure);
 
@@ -920,14 +949,18 @@ function calculateNPSHa(
 
   // Helper: compute NPSHa at a given level
   const calculateAtLevel = (levelName: string, levelElevation: number): NPSHaAtLevel => {
-    const staticHead = levelElevation - elevations.pumpCenterline;
-    const npshAvailable = staticHead + pressureHead - vaporPressureHead - frictionLoss;
+    const { staticHead, npsha } = computeNPSHa({
+      staticHead: levelElevation - elevations.pumpCenterline,
+      pressureHead,
+      vaporPressureHead,
+      frictionLoss,
+    });
 
     return {
       levelName,
       elevation: levelElevation,
       staticHead,
-      npshAvailable,
+      npshAvailable: npsha,
     };
   };
 

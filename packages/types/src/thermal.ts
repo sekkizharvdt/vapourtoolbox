@@ -107,6 +107,19 @@ export interface FlashChamberInput {
   btlGapBelowLGL: number;
 
   /**
+   * Friction and fitting losses in the suction line to the extraction pump, in
+   * metres of liquid, used by the NPSHa balance.
+   *
+   * Optional because this calculator has no pipe run to compute it from.
+   * Omitted, it falls back to a flat 0.5 m estimate — which is what every
+   * result published so far carries. Set it from a real hydraulic calculation
+   * when you have one: `suctionSystemCalculator` produces exactly this number
+   * from Darcy-Weisbach plus K-factors over the actual geometry, and NPSHa is
+   * linear in it, so an underestimate flatters the margin metre for metre.
+   */
+  suctionFrictionLoss?: number;
+
+  /**
    * Pressure differential across the spray nozzle in bar.
    *
    * The feed enters through a spray nozzle, so the flow is set by the nozzle's
@@ -498,6 +511,9 @@ export const FLASH_CHAMBER_LIMITS = {
   operatingLevelAbovePump: { min: 2.0, max: 15.0, unit: 'm' },
   operatingLevelRatio: { min: 0.2, max: 0.8, unit: '' },
   btlGapBelowLGL: { min: 0.05, max: 0.5, unit: 'm' },
+  // Suction-line losses to the extraction pump. 0 is allowed — it means
+  // "neglect friction", which the calculator warns about rather than forbids.
+  suctionFrictionLoss: { min: 0, max: 5.0, unit: 'm' },
   // Spray-nozzle catalogue data band. Outside it, nozzle flows extrapolate via
   // Q ∝ ΔP^n and spray angles clamp at the band edge.
   sprayNozzleDeltaPBar: { min: 0.5, max: 6, unit: 'bar' },
@@ -514,6 +530,20 @@ export const FLASH_CHAMBER_LIMITS = {
  * differential lands on the same reference point the nozzle selection does.
  */
 export const DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR = 3;
+
+/**
+ * Default suction-line friction loss for the NPSHa balance, in metres.
+ *
+ * ⚠ A flat ESTIMATE, not a computed loss — the flash chamber calculator has no
+ * pipe run to derive one from. It is what every flash chamber result published
+ * so far carries, and it is published in `NPSHaCalculation.frictionLoss` so a
+ * consumer sees the estimate rather than inheriting it silently.
+ *
+ * `suctionSystemCalculator` computes the real equivalent from Darcy-Weisbach
+ * plus K-factors over the actual geometry; prefer its number where the pipe run
+ * is known. NPSHa is linear in this term.
+ */
+export const DEFAULT_SUCTION_FRICTION_LOSS = 0.5;
 
 /**
  * Flow rate conversion factors to ton/hr (base unit for calculations)

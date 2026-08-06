@@ -37,6 +37,7 @@ import {
   type FittingType,
 } from './pressureDropCalculator';
 import { barToHead, tonHrToM3S, GRAVITY } from './thermalUtils';
+import { computeNPSHa, npshMargin } from './npsha';
 
 // ============================================================================
 // Types
@@ -815,6 +816,14 @@ export function calculateSuctionSystem(input: SuctionSystemInput): SuctionSystem
 // Internal Helpers
 // ============================================================================
 
+/**
+ * One strainer condition: the shared NPSHa balance, plus this calculator's own
+ * adequacy verdict against the pump's datasheet NPSHr.
+ *
+ * The balance is `computeNPSHa` (npsha.ts) — the same primitive the flash
+ * chamber uses. What stays here is the comparison against NPSHr, which the
+ * flash chamber cannot make because it takes no pump as an input.
+ */
 function computeNPSHaCondition(
   label: string,
   staticHead: number,
@@ -824,16 +833,15 @@ function computeNPSHaCondition(
   pumpNPSHr: number,
   safetyMargin: number
 ): NPSHaCondition {
-  const npsha = staticHead + pressureHead - vaporPressureHead - frictionLoss;
-  const margin = npsha - pumpNPSHr;
+  const balance = computeNPSHa({ staticHead, pressureHead, vaporPressureHead, frictionLoss });
+  const margin = npshMargin(balance.npsha, pumpNPSHr);
+
   return {
     label,
-    staticHead,
-    pressureHead,
-    vaporPressureHead,
-    frictionLoss,
-    npsha,
+    ...balance,
     margin,
+    // A positive margin is not the test — it must also cover the safety
+    // allowance the user asked for.
     isAdequate: margin >= safetyMargin,
   };
 }
