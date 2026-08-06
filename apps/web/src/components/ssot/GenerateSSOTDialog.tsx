@@ -1,23 +1,39 @@
 'use client';
 
 /**
- * Generate a project's SSOT process registers from the current MED design.
+ * Generate a project's SSOT process registers from a calculator result.
  *
  * SSOT holds ~30 equipment items and ~200 lines per project, and entering that
  * by hand is what kept every project's registers empty. This dialog turns a
- * completed design into streams, equipment and lines in one step.
+ * completed calculation into streams, equipment and lines in one step.
  *
- * Flow: pick the target project → choose line-numbering options → the dialog
- * reads the project's existing registers and shows exactly what will be created,
- * updated, left alone and orphaned → confirm to write.
+ * Flow: pick the target project → choose numbering and material options → the
+ * dialog reads the project's existing registers and shows exactly what will be
+ * created, updated, left alone and orphaned → confirm to write.
  *
  * Nothing is written until the user confirms the plan. Records the user has
  * edited by hand are never overwritten (see ssotSync's merge contract), and
  * the preview says so up front — that promise is the reason the feature will
  * still be used after the first design revision.
  *
+ * ── One dialog, several calculators ──────────────────────────────────────
+ * This started MED-specific and was made source-agnostic when the flash chamber
+ * gained a generator, rather than being copied (rule 32). Everything below the
+ * `generate` callback — project selection, area code, material choice, the plan
+ * preview, the merge promise, the result panel — is identical for every source;
+ * only the mapping function and the provenance `source` differ.
+ *
+ * The caller supplies `generate` (pure, no I/O) and the `source` the records are
+ * stamped with. `source` scopes the sync: a MED regeneration must never touch a
+ * flash chamber's records, and vice versa.
+ *
+ * ⚠ `generate` MUST be memoised (`useCallback`) by the caller. The dialog resets
+ * its state whenever it changes — that is how rule 14b is satisfied here, since
+ * a new `generate` identity means the underlying calculation moved — so an
+ * inline arrow function would reset the dialog on every render.
+ *
  * The dialog is stateless per-open (rule 14b): the plan is discarded and
- * re-derived every time it opens, because the design may have changed.
+ * re-derived every time it opens, because the calculation may have changed.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -52,30 +68,71 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/common/Toast';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { getProjectsForUser } from '@/lib/projects/projectService';
-import {
-  generateSSOTFromMEDDesign,
-  LINE_MATERIAL_OPTIONS,
-  type MEDSSOTGeneration,
-} from '@/lib/ssot/medDesignGenerator';
+import { LINE_MATERIAL_OPTIONS } from '@/lib/ssot/generatorHelpers';
 import {
   planSSOTSync,
   applySSOTSync,
   summarisePlan,
+  type SSOTGeneration,
   type SSOTSyncPlan,
   type SSOTSyncResult,
 } from '@/lib/ssot/ssotSync';
 import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { MaterialCategory, PIPE_MATERIAL_CODES, FLUID_TYPES } from '@vapour/types';
-import type { FluidType, Project } from '@vapour/types';
-import type { MEDDesignerResult } from '@/lib/thermal';
+import type { FluidType, Project, SSOTRecordSource } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'GenerateSSOTDialog' });
 
-interface GenerateSSOTDialogProps {
+/** The choices the dialog collects and hands to a generator */
+export interface SSOTGenerationOptions {
+  /** The "40" in `300-40-SS316L-SW-01` */
+  areaCode: string;
+  /** Pipe material per fluid service; a generator falls back to its own default */
+  materialByFluid: Partial<Record<FluidType, MaterialCategory>>;
+  /** Equipment tag — empty string when the source declares no `identity` */
+  equipmentTag: string;
+  /** Equipment display name — empty string when the source declares no `identity` */
+  equipmentName: string;
+}
+
+/**
+ * Equipment identity the user may set.
+ *
+ * Only for sources that generate ONE tagged item whose tag would otherwise be a
+ * constant. That matters: sync matches records on `provenance.generatedKey`,
+ * which is built from the tag, so two flash chambers generated into one project
+ * under the same default tag would silently update each other rather than
+ * co-exist. Omit for sources like MED that tag every item from the design.
+ */
+export interface SSOTIdentityConfig {
+  tagLabel: string;
+  defaultTag: string;
+  nameLabel: string;
+  defaultName: string;
+}
+
+export interface GenerateSSOTDialogProps {
   open: boolean;
   onClose: () => void;
-  designResult: MEDDesignerResult | null;
+  /** Provenance source stamped on the records; scopes the sync's merge */
+  source: SSOTRecordSource;
+  /** Dialog title, e.g. "Generate SSOT from this design" */
+  title: string;
+  /** Shown in place of the form when the calculator has no result yet */
+  notReadyMessage: string;
+  /**
+   * Fluid services whose pipe material the user may choose. Defaults to every
+   * service — correct for MED, too broad for a single vessel.
+   */
+  materialServices?: FluidType[];
+  /** Equipment tag/name controls; omit when the generator tags its own items */
+  identity?: SSOTIdentityConfig;
+  /**
+   * Pure mapping from the current calculation to SSOT records; `null` while the
+   * calculator has no result. MUST be memoised — see the file header.
+   */
+  generate: ((options: SSOTGenerationOptions) => SSOTGeneration) | null;
 }
 
 /** Human label for a pipe material category, e.g. "SS316L" */
@@ -83,15 +140,31 @@ function materialLabel(category: MaterialCategory): string {
   return PIPE_MATERIAL_CODES[category]?.[1] ?? String(category);
 }
 
-export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOTDialogProps) {
+export function GenerateSSOTDialog({
+  open,
+  onClose,
+  source,
+  title,
+  notReadyMessage,
+  materialServices = FLUID_TYPES,
+  identity,
+  generate,
+}: GenerateSSOTDialogProps) {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { toast } = useToast();
   const tenantId = claims?.tenantId || 'default-entity';
 
+  // Destructured to primitives so the reset effect below depends on values, not
+  // on an object identity the caller would have to memoise as well.
+  const defaultTag = identity?.defaultTag ?? '';
+  const defaultName = identity?.defaultName ?? '';
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [areaCode, setAreaCode] = useState('00');
+  const [equipmentTag, setEquipmentTag] = useState(defaultTag);
+  const [equipmentName, setEquipmentName] = useState(defaultName);
   const [materialByFluid, setMaterialByFluid] = useState<
     Partial<Record<FluidType, MaterialCategory>>
   >({});
@@ -100,12 +173,14 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
   const [planning, setPlanning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [plan, setPlan] = useState<SSOTSyncPlan | null>(null);
-  const [generation, setGeneration] = useState<MEDSSOTGeneration | null>(null);
+  const [generation, setGeneration] = useState<SSOTGeneration | null>(null);
   const [result, setResult] = useState<SSOTSyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Rule 14b: every field re-syncs when the dialog opens — the design may have
-  // changed since last time, so a stale plan must never survive a reopen.
+  // Rule 14b: every field re-syncs when the dialog opens — the calculation may
+  // have changed since last time, so a stale plan must never survive a reopen.
+  // `generate` is in the deps for the same reason: a new identity means the
+  // result it closes over moved.
   useEffect(() => {
     if (!open) return;
     setPlan(null);
@@ -113,8 +188,10 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
     setResult(null);
     setError(null);
     setAreaCode('00');
+    setEquipmentTag(defaultTag);
+    setEquipmentName(defaultName);
     setMaterialByFluid({});
-  }, [open, designResult]);
+  }, [open, generate, defaultTag, defaultName]);
 
   // Load the projects this user may write SSOT data for
   useEffect(() => {
@@ -153,34 +230,40 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
   );
 
   const handlePreview = useCallback(async () => {
-    if (!designResult || !projectId) return;
+    if (!generate || !projectId) return;
 
     setPlanning(true);
     setError(null);
     setResult(null);
     try {
       const project = projects.find((p) => p.id === projectId);
-      const generated = generateSSOTFromMEDDesign(designResult, {
-        areaCode,
-        materialByFluid,
-        sourceLabel: `${designResult.effects.length}-effect MED, GOR ${designResult.achievedGOR.toFixed(1)}`,
-      });
-      const nextPlan = await planSSOTSync(projectId, generated, 'MED_DESIGN');
+      const generated = generate({ areaCode, materialByFluid, equipmentTag, equipmentName });
+      const nextPlan = await planSSOTSync(projectId, generated, source);
 
       setGeneration(generated);
       setPlan(nextPlan);
       logger.info('SSOT generation previewed', {
         projectId,
         projectName: project?.name,
+        source,
         ...summarisePlan(nextPlan),
       });
     } catch (err) {
-      logger.error('SSOT generation preview failed', { projectId, error: err });
+      logger.error('SSOT generation preview failed', { projectId, source, error: err });
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setPlanning(false);
     }
-  }, [designResult, projectId, projects, areaCode, materialByFluid]);
+  }, [
+    generate,
+    projectId,
+    projects,
+    areaCode,
+    materialByFluid,
+    equipmentTag,
+    equipmentName,
+    source,
+  ]);
 
   const handleApply = useCallback(async () => {
     if (!plan || !user?.uid) return;
@@ -204,29 +287,27 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
       } else {
         toast.success(`SSOT updated — ${total} record(s) written`);
       }
-      logger.info('SSOT generation applied', { projectId: plan.projectId, ...applied });
+      logger.info('SSOT generation applied', { projectId: plan.projectId, source, ...applied });
     } catch (err) {
-      logger.error('SSOT generation failed', { projectId: plan.projectId, error: err });
+      logger.error('SSOT generation failed', { projectId: plan.projectId, source, error: err });
       setError(err instanceof Error ? err.message : String(err));
       toast.error('Failed to write SSOT records');
     } finally {
       setApplying(false);
     }
-  }, [plan, user?.uid, accessCheck, toast]);
+  }, [plan, user?.uid, accessCheck, toast, source]);
 
   const totals = plan ? summarisePlan(plan) : null;
-  const canPreview = Boolean(designResult && projectId) && !planning && !applying;
+  const canPreview = Boolean(generate && projectId) && !planning && !applying;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Generate SSOT from this design</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
 
       <DialogContent dividers>
-        {!designResult && (
-          <Alert severity="info">Complete a MED design before generating SSOT registers.</Alert>
-        )}
+        {!generate && <Alert severity="info">{notReadyMessage}</Alert>}
 
-        {designResult && (
+        {generate && (
           <Stack spacing={3}>
             {error && (
               <Alert severity="error" onClose={() => setError(null)}>
@@ -273,6 +354,38 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
               </Stack>
             )}
 
+            {/* ── Equipment identity ───────────────────────────────────── */}
+            {identity && (
+              <Box>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    size="small"
+                    label={identity.tagLabel}
+                    value={equipmentTag}
+                    onChange={(e) => {
+                      setEquipmentTag(e.target.value);
+                      setPlan(null);
+                    }}
+                    sx={{ minWidth: 180 }}
+                  />
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label={identity.nameLabel}
+                    value={equipmentName}
+                    onChange={(e) => {
+                      setEquipmentName(e.target.value);
+                      setPlan(null);
+                    }}
+                  />
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  Give each vessel its own tag. Regenerating under a tag that is already in the
+                  project updates that vessel; a new tag creates a second one.
+                </Typography>
+              </Box>
+            )}
+
             {/* ── Pipe material per service ────────────────────────────── */}
             <Box>
               <Typography variant="subtitle2" gutterBottom>
@@ -283,7 +396,7 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
                 material compatibility review calls for it.
               </Typography>
               <Stack direction="row" flexWrap="wrap" gap={2} sx={{ mt: 1.5 }}>
-                {FLUID_TYPES.map((fluid) => {
+                {materialServices.map((fluid) => {
                   const options = LINE_MATERIAL_OPTIONS[fluid];
                   return (
                     <FormControl key={fluid} size="small" sx={{ minWidth: 190 }}>
@@ -369,15 +482,15 @@ export function GenerateSSOTDialog({ open, onClose, designResult }: GenerateSSOT
                   <Alert severity="success">
                     <AlertTitle>Your edits are safe</AlertTitle>
                     {totals.preservedFields} hand-edited field(s) will be kept as they are, even
-                    though the design computes a different value.
+                    though the calculation computes a different value.
                   </Alert>
                 )}
 
                 {totals.orphans > 0 && (
                   <Alert severity="warning">
-                    <AlertTitle>Records no longer produced by this design</AlertTitle>
-                    {totals.orphans} previously generated record(s) are not in the current design —
-                    most likely because the effect count changed. They are left in place; remove
+                    <AlertTitle>Records no longer produced by this calculation</AlertTitle>
+                    {totals.orphans} previously generated record(s) are not in the current result —
+                    most likely because the configuration changed. They are left in place; remove
                     them from the SSOT tabs if they are genuinely obsolete.
                   </Alert>
                 )}

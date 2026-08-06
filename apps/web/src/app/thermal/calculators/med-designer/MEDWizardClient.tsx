@@ -40,7 +40,11 @@ import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 import { ExportToBOMDialog } from './components/ExportToBOMDialog';
-import { GenerateSSOTDialog } from './components/GenerateSSOTDialog';
+import {
+  GenerateSSOTDialog,
+  type SSOTGenerationOptions,
+} from '@/components/ssot/GenerateSSOTDialog';
+import { generateSSOTFromMEDDesign } from '@/lib/ssot/medDesignGenerator';
 import { getFirebase } from '@/lib/firebase';
 import { computeCostEstimate } from '@/lib/thermal/med/costEstimation';
 import type { MEDCostEstimate } from '@/lib/thermal/med/designerTypes';
@@ -303,6 +307,23 @@ export default function MEDWizardClient() {
       return null;
     }
   }, [designResult]);
+
+  // ── SSOT generation ─────────────────────────────────────────────────────
+  // Memoised on designResult: the shared dialog resets itself whenever this
+  // callback's identity changes, which is exactly the behaviour wanted — a new
+  // design must not be previewed against a plan built from the old one.
+  const generateSSOT = useMemo(
+    () =>
+      designResult
+        ? ({ areaCode, materialByFluid }: SSOTGenerationOptions) =>
+            generateSSOTFromMEDDesign(designResult, {
+              areaCode,
+              materialByFluid,
+              sourceLabel: `${designResult.effects.length}-effect MED, GOR ${designResult.achievedGOR.toFixed(1)}`,
+            })
+        : null,
+    [designResult]
+  );
 
   // ── Cost estimation (async — looks up material prices from database) ────
   const [costEstimate, setCostEstimate] = useState<MEDCostEstimate | null>(null);
@@ -1319,7 +1340,10 @@ export default function MEDWizardClient() {
           <GenerateSSOTDialog
             open={generateSsotOpen}
             onClose={() => setGenerateSsotOpen(false)}
-            designResult={designResult}
+            source="MED_DESIGN"
+            title="Generate SSOT from this design"
+            notReadyMessage="Complete a MED design before generating SSOT registers."
+            generate={generateSSOT}
           />
         </Stack>
       )}

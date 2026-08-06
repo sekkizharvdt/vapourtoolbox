@@ -1,7 +1,7 @@
 # Dynamic Simulator Bridge — Work in Progress Handoff
 
-**Date:** 2026-08-05
-**Status:** IN PROGRESS — items 1 and 2 landed (`3ac69909`, `16802df0`); items 3–6 pending, two decisions open
+**Date:** 2026-08-05 (updated 2026-08-06)
+**Status:** IN PROGRESS — items 1 and 2 complete (`3ac69909`, `16802df0`, + the SSOT dialog below); items 3–6 pending, **all four open decisions now made** (2026-08-06 — see [Decisions](#decisions-made))
 **Origin:** Written to survive a change of work environment. This session ran a long collaboration between Vapour Toolbox and the external dynamic simulator project, and most of the context lives in the conversation rather than in the repo. This doc is the cold-start replacement.
 **Scope:** `apps/web/src/lib/thermal/` (flash chamber, MED, condenser sizing), `apps/web/src/lib/ssot/`, `packages/constants/src/thermal/`, `docs/thermal/fixtures/`
 
@@ -70,21 +70,34 @@ The capability register — what the toolbox can and cannot supply, marked COMPU
 
 ## Pending work
 
-### Item 2 (completion) — Flash chamber SSOT UI
+### ~~Item 2 (completion) — Flash chamber SSOT UI~~ ✅ DONE 2026-08-06
 
-**State:** generator and sync are done and tested; **there is no way for a user to reach them.**
+The generator and sync were done and tested but unreachable; there is now a **Generate SSOT** button on the flash chamber page.
 
-- [`apps/web/src/lib/ssot/flashChamberGenerator.ts`](../../apps/web/src/lib/ssot/flashChamberGenerator.ts) — 292 LOC, 16 tests
-- [`apps/web/src/lib/ssot/ssotSync.ts`](../../apps/web/src/lib/ssot/ssotSync.ts) — `planSSOTSync(projectId, generation, source)`, source-scoped
-- [`apps/web/src/lib/ssot/generatorHelpers.ts`](../../apps/web/src/lib/ssot/generatorHelpers.ts) — shared by both generators
+The MED-specific dialog was **made source-agnostic and moved**, not copied (rule 32):
 
-**To do:** the flash chamber page has [`GenerateDatasheetDialog.tsx`](<../../apps/web/src/app/thermal/(protected)/flash-chamber/components/GenerateDatasheetDialog.tsx>) (PDF) but no SSOT equivalent. [`GenerateSSOTDialog.tsx`](../../apps/web/src/app/thermal/calculators/med-designer/components/GenerateSSOTDialog.tsx) is currently MED-specific — make it source-agnostic (it already calls `planSSOTSync(projectId, generated, 'MED_DESIGN')`, so the parameter exists) and mount it on the flash chamber page.
+| Path                                                                     | Change                                                                                                             |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `apps/web/src/components/ssot/GenerateSSOTDialog.tsx`                    | **new home** — shared by both calculators                                                                          |
+| `app/thermal/calculators/med-designer/components/GenerateSSOTDialog.tsx` | deleted                                                                                                            |
+| `apps/web/src/lib/ssot/generatorHelpers.ts`                              | `LINE_MATERIAL_OPTIONS` moved here (both generators and the dialog need it); re-exported from `medDesignGenerator` |
 
-**Do not** build a second dialog (rule 32). This is the same shape as the proposal→project gap: working service layer, no reachable entry point.
+**The contract.** The dialog no longer knows about MED. The caller supplies:
+
+- `source` (`'MED_DESIGN'` \| `'FLASH_CHAMBER'`) — stamped on the records, and what scopes the sync's merge
+- `generate(options) => SSOTGeneration` — a **pure** mapping, `null` while the calculator has no result
+- `materialServices` — which fluid services to offer a pipe material for (MED: all; flash chamber: its liquid + steam)
+- `identity` — optional tag/name fields
+
+⚠ **`generate` must be memoised by the caller.** The dialog resets its state when that identity changes — that is how rule 14b is satisfied without a result prop to watch — so an inline arrow would reset the dialog on every render. Both call sites use `useMemo` on their result.
+
+**Why `identity` exists** (not decoration): sync matches on `provenance.generatedKey`, which is built from the equipment tag. Two flash chambers generated into one project under the default `FC-01` would silently _update each other_ instead of co-existing. This is exactly the item 3 case — a brine holdup drum and a distillate holdup drum in one project — so the tag had to become settable before those vessels could be generated at all.
+
+Verified: `tsc --noEmit` clean, 245 SSOT tests pass, scoped lint clean, `check-ui-standards` passes with no ratchet movement.
 
 ---
 
-### Item 3 — MED brine + distillate holdup vessels ⚠ DECISION OPEN
+### Item 3 — MED brine + distillate holdup vessels ✅ APPROACH APPROVED, NOT STARTED
 
 The user's framing: _"The holdup volume for brine and distillate is essentially a flash chamber without heat transfer. The last effect brine will fall into the flash chamber and the elevations are maintained based on NPSH of pump plus margins. Similar for the distillate from the condenser."_
 
@@ -100,7 +113,7 @@ And on NPSH: _"NPSHr is the pump requirement and NPSHa is the process availabili
 
 `suctionSystemCalculator` already does exactly what the user described. Building holdup vessels on the flash chamber's version would create a **third** path and inherit the 0.5 m guess.
 
-**Proposal awaiting approval:** extract one `computeNPSHa()` primitive both callers use; each keeps its own sweep dimension and supplies its own friction; the flash chamber's 0.5 m becomes an explicit optional input instead of a hidden default.
+**Approved 2026-08-06:** extract one `computeNPSHa()` primitive both callers use; each keeps its own sweep dimension and supplies its own friction; the flash chamber's 0.5 m becomes an explicit optional input instead of a hidden default. This is the first step of item 3 — do it before the vessels, not alongside them.
 
 **Also note:** "holdup" currently names three different quantities — vessel retention volume (m³, flash chamber), standpipe holdup for VFD control (**litres**, suction system), pipe fill volume (litres, siphon). Any consolidation must not merge these.
 
@@ -163,12 +176,16 @@ Add a sixth from item 1: **a value rounded for display is not the value the mode
 
 ---
 
-## Open decisions needing the user
+## Decisions made
 
-1. **Item 3** — approve the single `computeNPSHa()` primitive, or say why the two implementations should stay separate.
-2. **Item 6** — where the methodology rules should live (CLAUDE.md section vs standalone doc).
-3. **Order** — the user's stated preference was "attacked one by one". The tidier order is to finish item 2's UI before starting item 3, so nothing is left half-shipped.
-4. **Flash chamber v9** — send to the simulator now, or batch with the next physics change.
+All four were put to the user on **2026-08-06** and answered. Do not re-open them.
+
+1. **Item 3 — NPSHa: consolidate. ✅ APPROVED.** Extract one `computeNPSHa()` primitive that both `flashChamberCalculator` and `suctionSystemCalculator` call. Each keeps its own sweep dimension (3 levels vs 2 strainer conditions) and supplies its own friction term; the flash chamber's hardcoded `ESTIMATED_FRICTION_LOSS = 0.5` m becomes an **explicit optional input**, not a hidden default. No third implementation for the holdup vessels.
+2. **Item 6 — methodology rules go in a new CLAUDE.md section**, not a standalone `docs/development/` doc.
+3. **Order — item 2's UI first, then item 3.** Done; item 3 is next.
+4. **Flash chamber v9 — batch it**, do not send on its own. It is additive (`nozzles[].dn`) and needs no re-run; it goes with the next physics change.
+
+**Still open:** nothing. The next unanswered question is whichever one item 3 raises.
 
 ---
 
@@ -198,5 +215,5 @@ Prior findings from the same collaboration, all resolved, are recorded in [2026-
 ---
 
 **Author:** Claude (AI-assisted session record)
-**Date:** 2026-08-05
-**Next:** resume at item 2's UI, or item 3 once the NPSHa decision is made
+**Date:** 2026-08-05, updated 2026-08-06
+**Next:** item 3 — extract `computeNPSHa()` (approved), then build the brine and distillate holdup vessels on it

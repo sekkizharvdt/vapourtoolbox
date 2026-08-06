@@ -7,7 +7,7 @@
  * thermal desalination processes.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Container,
@@ -25,6 +25,7 @@ import {
   Description as DatasheetIcon,
   Save as SaveIcon,
   FolderOpen as LoadIcon,
+  AccountTree as SSOTIcon,
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 
@@ -43,11 +44,23 @@ const GenerateDatasheetDialog = dynamic(
     })),
   { ssr: false }
 );
+
+// Loaded on demand: the SSOT dialog pulls in the project and register services,
+// which the calculator itself has no need of.
+const GenerateSSOTDialog = dynamic(
+  () =>
+    import('@/components/ssot/GenerateSSOTDialog').then((m) => ({
+      default: m.GenerateSSOTDialog,
+    })),
+  { ssr: false }
+);
 import { SaveCalculationDialog } from '@/app/thermal/calculators/components/SaveCalculationDialog';
 import { LoadCalculationDialog } from '@/app/thermal/calculators/components/LoadCalculationDialog';
+import type { SSOTGenerationOptions } from '@/components/ssot/GenerateSSOTDialog';
+import { generateFlashChamberSSOT } from '@/lib/ssot/flashChamberGenerator';
 
 import { calculateFlashChamber, validateFlashChamberInput } from '@/lib/thermal';
-import type { FlashChamberInput, FlashChamberResult } from '@vapour/types';
+import type { FlashChamberInput, FlashChamberResult, FluidType } from '@vapour/types';
 import { DEFAULT_FLASH_CHAMBER_INPUT } from '@vapour/types';
 
 export default function FlashChamberClient() {
@@ -59,6 +72,7 @@ export default function FlashChamberClient() {
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [datasheetDialogOpen, setDatasheetDialogOpen] = useState(false);
+  const [ssotDialogOpen, setSsotDialogOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
 
@@ -123,6 +137,39 @@ export default function FlashChamberClient() {
     }
   }, [inputs]);
 
+  // ── SSOT generation ─────────────────────────────────────────────────────
+  // The chamber holds one liquid service and vents steam, so only those two
+  // materials are offered — the full fluid list belongs to a whole-plant design.
+  const liquidFluid: FluidType =
+    result?.inputs.waterType === 'DM_WATER' ? 'DISTILLATE WATER' : 'BRINE WATER';
+  const materialServices = useMemo<FluidType[]>(() => [liquidFluid, 'STEAM'], [liquidFluid]);
+
+  // Memoised on the result: the dialog resets whenever this identity changes,
+  // so a plan built from an earlier calculation can never be applied.
+  const generateSSOT = useMemo(
+    () =>
+      result
+        ? ({ areaCode, materialByFluid, equipmentTag, equipmentName }: SSOTGenerationOptions) =>
+            generateFlashChamberSSOT(result, {
+              areaCode,
+              // Blank falls through to the generator's own default rather than
+              // writing an untagged vessel.
+              ...(equipmentTag.trim() !== '' && { equipmentTag: equipmentTag.trim() }),
+              ...(equipmentName.trim() !== '' && { equipmentName: equipmentName.trim() }),
+              ...(materialByFluid[liquidFluid] !== undefined && {
+                liquidMaterial: materialByFluid[liquidFluid],
+              }),
+              ...(materialByFluid.STEAM !== undefined && {
+                vapourMaterial: materialByFluid.STEAM,
+              }),
+              sourceLabel:
+                `Flash chamber, ${result.heatMassBalance.inlet.temperature.toFixed(1)} °C inlet ` +
+                `at ${result.heatMassBalance.brine.pressure.toFixed(0)} mbar(a)`,
+            })
+        : null,
+    [result, liquidFluid]
+  );
+
   // Reset to defaults
   const handleReset = () => {
     setInputs(DEFAULT_FLASH_CHAMBER_INPUT);
@@ -167,6 +214,14 @@ export default function FlashChamberClient() {
             variant="outlined"
           >
             Load
+          </Button>
+          <Button
+            startIcon={<SSOTIcon />}
+            onClick={() => setSsotDialogOpen(true)}
+            variant="outlined"
+            disabled={!result}
+          >
+            Generate SSOT
           </Button>
           <Button
             startIcon={<DatasheetIcon />}
@@ -284,6 +339,23 @@ export default function FlashChamberClient() {
           result={result}
         />
       )}
+
+      {/* SSOT Dialog — streams / equipment / lines into a project's registers */}
+      <GenerateSSOTDialog
+        open={ssotDialogOpen}
+        onClose={() => setSsotDialogOpen(false)}
+        source="FLASH_CHAMBER"
+        title="Generate SSOT from this chamber"
+        notReadyMessage="Complete a flash chamber calculation before generating SSOT registers."
+        materialServices={materialServices}
+        identity={{
+          tagLabel: 'Equipment tag',
+          defaultTag: 'FC-01',
+          nameLabel: 'Equipment name',
+          defaultName: 'Flash Chamber',
+        }}
+        generate={generateSSOT}
+      />
 
       {/* Save Calculation Dialog */}
       <SaveCalculationDialog

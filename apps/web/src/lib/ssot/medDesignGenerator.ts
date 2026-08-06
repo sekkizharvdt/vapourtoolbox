@@ -56,6 +56,7 @@ import {
   buildProvenance,
   dnNumber,
   FLUID_CODE,
+  LINE_MATERIAL_OPTIONS,
 } from './generatorHelpers';
 import type { MEDDesignerResult, MEDDesignerEffect } from '../thermal/med/designerTypes';
 
@@ -64,31 +65,10 @@ import type { MEDDesignerResult, MEDDesignerEffect } from '../thermal/med/design
 // ============================================================================
 
 /**
- * Pipe materials permitted for each fluid service, default first.
- *
- * **SS316L is the default on every service.** A uniform specification has worked
- * on previous projects and keeps procurement, welding procedures and spares to a
- * single grade. Material compatibility is properly a per-project review — driven
- * by chloride level, temperature and velocity — so the alternatives below are
- * offered per service and selected deliberately, never chosen by this generator.
- *
- * Grades and their line-number codes come from PIPE_MATERIAL_CODES in
- * @vapour/types — the canonical list — so codes never drift from the material
- * master.
+ * Re-exported so existing importers keep working; the list is shared with the
+ * flash chamber bridge and lives in `generatorHelpers` (rule 16).
  */
-export const LINE_MATERIAL_OPTIONS: Record<FluidType, MaterialCategory[]> = {
-  'DISTILLATE WATER': [
-    MaterialCategory.PIPES_STAINLESS_316L,
-    MaterialCategory.PIPES_STAINLESS_304L,
-  ],
-  'SEA WATER': [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_DUPLEX_2205],
-  'BRINE WATER': [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_DUPLEX_2205],
-  // Feed is deaerated seawater — same corrosivity family as the seawater side.
-  'FEED WATER': [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_DUPLEX_2205],
-  // Vapour ducts and the heating steam supply.
-  STEAM: [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_STAINLESS_304L],
-  NCG: [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_STAINLESS_304L],
-};
+export { LINE_MATERIAL_OPTIONS } from './generatorHelpers';
 
 export interface MEDSSOTGeneratorOptions {
   /** Saved-calculation id the design came from (stored as provenance) */

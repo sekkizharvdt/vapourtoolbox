@@ -8,7 +8,38 @@
  */
 
 import type { SSOTProvenance, SSOTRecordSource, FluidType } from '@vapour/types';
+import { MaterialCategory } from '@vapour/types';
 import { getSaturationPressure } from '@vapour/constants';
+
+/**
+ * Pipe materials permitted for each fluid service, default first.
+ *
+ * **SS316L is the default on every service.** A uniform specification has worked
+ * on previous projects and keeps procurement, welding procedures and spares to a
+ * single grade. Material compatibility is properly a per-project review — driven
+ * by chloride level, temperature and velocity — so the alternatives below are
+ * offered per service and selected deliberately, never chosen by a generator.
+ *
+ * Grades and their line-number codes come from PIPE_MATERIAL_CODES in
+ * @vapour/types — the canonical list — so codes never drift from the material
+ * master.
+ *
+ * Lives here rather than in `medDesignGenerator` because the shared
+ * GenerateSSOTDialog offers these choices for every calculator, not just MED.
+ */
+export const LINE_MATERIAL_OPTIONS: Record<FluidType, MaterialCategory[]> = {
+  'DISTILLATE WATER': [
+    MaterialCategory.PIPES_STAINLESS_316L,
+    MaterialCategory.PIPES_STAINLESS_304L,
+  ],
+  'SEA WATER': [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_DUPLEX_2205],
+  'BRINE WATER': [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_DUPLEX_2205],
+  // Feed is deaerated seawater — same corrosivity family as the seawater side.
+  'FEED WATER': [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_DUPLEX_2205],
+  // Vapour ducts and the heating steam supply.
+  STEAM: [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_STAINLESS_304L],
+  NCG: [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_STAINLESS_304L],
+};
 
 /** Line-number fluid code per service */
 export const FLUID_CODE: Record<FluidType, string> = {
