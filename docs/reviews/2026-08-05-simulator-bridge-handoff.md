@@ -43,11 +43,12 @@ The simulator advances through a "rung ladder", each rung gated on the previous:
 
 **Published artifact state as of this doc:**
 
-| Fixture                                          | Version | Cases              |
-| ------------------------------------------------ | ------- | ------------------ |
-| `docs/thermal/fixtures/flash-chamber-cases.json` | **v9**  | 11                 |
-| `docs/thermal/fixtures/condenser-cases.json`     | **v5**  | 7                  |
-| `docs/thermal/fixtures/vacuum-system-cases.json` | v3      | 5 evacuation cases |
+| Fixture                                          | Version | Cases                   |
+| ------------------------------------------------ | ------- | ----------------------- |
+| `docs/thermal/fixtures/flash-chamber-cases.json` | **v9**  | 11                      |
+| `docs/thermal/fixtures/condenser-cases.json`     | **v5**  | 7                       |
+| `docs/thermal/fixtures/vacuum-system-cases.json` | v3      | 5 evacuation cases      |
+| `docs/thermal/fixtures/metal-properties.json`    | **v1**  | 10 grades — NEW, unsent |
 
 Flash chamber **v9 has not been sent to the simulator yet**. It is additive only (`nozzles[].dn`); every other value is byte-identical to v8, so it needs no re-run if they gate on temperatures, flows or geometry. Batch it with the next send.
 
@@ -123,18 +124,25 @@ Reusable private functions in `flashChamberCalculator.ts` if the vessels are bui
 
 ---
 
-### Item 4 — Metal properties fixture
+### ~~Item 4 — Metal properties fixture~~ ✅ DONE 2026-08-07
 
-`packages/constants/src/thermal/metalProperties.ts` exists and is committed (`da29c424`): 10 grades with `densityKgM3`, `specificHeatJPerKgK`, `specificHeatQuotedRangeC`, `specificHeatBasis`, `thermalConductivityWmK`, plus `ASSUMED_VESSEL_WALL_THICKNESS_MM = 6`, `ASSUMED_VESSEL_MATERIAL = 'ss_316l'` and `metalHeatCapacityJPerK()`.
+`docs/thermal/fixtures/metal-properties.json` **v1**, 10 grades, from
+[`metalPropertiesFixtures.gen.ts`](../../apps/web/src/lib/thermal/__generators__/metalPropertiesFixtures.gen.ts) — same generator + reproducibility-test pattern as the other three.
 
-**It is not yet a versioned fixture artifact, and the simulator expects one.** Turn it into `docs/thermal/fixtures/metal-properties.json` following the established generator pattern (see below), carrying:
+**It is explicitly NOT a gate,** and says so in `gateGuidance.thisIsNotAGate`. The other fixtures publish calculator output, where a disagreement is a defect on one side; this one publishes reference data, where a different handbook value means the two sides are quoting different sources. What it publishes is the value **and how firm it is**. The check it can genuinely catch is unit handling — a J vs kJ factor of 1000 — so it carries `volumetricHeatCapacityJPerM3K` and a worked heat capacity for 1 t of the assumed material to check against.
 
-- `specificHeatBasis: 'mill-datasheet-conventional'` — so a consumer knows these are datasheet conventions, not a c(T) fit
-- the **+2.56% duplex divergence as an expected value, not a tolerance** (publish the relation, not a fudge)
+Carried as required:
 
-Deliberately **no c(T) fit** — do not add one without a source.
+- `specificHeatBasis: 'mill-datasheet-conventional'` on every grade, `'sourced'` on none — with a test that fails if one is ever promoted without a citation
+- **the shell-mass divergence per grade**, as an expected value: `rho(named) / 7800 − 1`, where 7,800 kg/m³ is `DENSITY.duplex_ss` hardcoded in `weightEstimation.ts` for shell, heads and tubesheets regardless of specified material. 316L reproduces the **+2.56%** already relayed. A test pins that figure so a density edit cannot silently move a number the simulator session has been told.
+- **no c(T) fit**, with a test asserting none appears
 
-⚠ `ASSUMED_VESSEL_WALL_THICKNESS_MM = 6` is an **unsourced working assumption** agreed for the simulator only. The MED designer default is **8 mm** and the two are **not reconciled** — this is called out in `medDesignGenerator.ts` and must stay called out.
+⚠ Two corrections to what this section previously said:
+
+1. The **8 mm is not a competing value.** It is a default function argument in `estimatePlantWeight(result, shellThkMM = 8, ...)`, never a design output — the capability register already had this right. There is nothing to reconcile with the 6 mm assumption; the fixture states both and says so. 6 mm remains an unsourced working assumption and is labelled `status: 'ASSUMED'`, with a test that fails if the label is dropped.
+2. The divergence is against the **weight estimator's** duplex figure (7,800, UNS S32304), **not** `METAL_PROPERTIES.duplex_2205` (7,805, UNS S32205). Two different duplex grades; substituting one changes the published ratio.
+
+**Not done:** the root `package.json` needs `"fixtures:metal-properties"` alongside its three siblings. That file was being edited in another session, so the generator's header carries the raw command and the line to add.
 
 ---
 

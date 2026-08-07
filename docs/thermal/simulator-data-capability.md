@@ -170,6 +170,14 @@ reconciles toward the other, and the two must never be averaged. The figure is s
 | Specific heat        | ASSUMED     | Datasheet convention, quoted over **0–100 °C**. `specificHeatBasis` marks it `mill-datasheet-conventional`, never `sourced`, until a citation lands                                                                                                                               |
 | `c(T)`               | **ABSENT**  | Deliberately not fitted. A curve through band-averaged datasheet values manufactures precision the data does not carry. **The reason it blocks nothing expires at rung 5** — see below                                                                                            |
 | Thermal conductivity | COMPUTED    | `METAL_PROPERTIES`; `MED_TUBE_CONDUCTIVITY` derives from it                                                                                                                                                                                                                       |
+| Fixture export       | COMPUTED    | `docs/thermal/fixtures/metal-properties.json` v1 — all ten grades, the vessel assumption, and the shell-mass divergence per grade                                                                                                                                                 |
+
+**`metal-properties.json` is reference data, not a gate.** The other three fixtures publish
+calculator output, where a disagreement is a defect on one side. If the simulator's handbook
+gives a different specific heat for 316L, neither side is wrong — they are quoting different
+sources. What the fixture publishes is the value **and how firm it is**, so a consumer can
+decide whether to adopt it. The one hard expectation in it is `shellMassDivergence`, which is
+the +2.56% relation above, published per grade.
 
 Wall thickness on a vacuum vessel is set by **external-pressure buckling (ASME VIII Div 1
 UG-28)**, plus corrosion allowance and minimum practical plate. This repo performs none of
