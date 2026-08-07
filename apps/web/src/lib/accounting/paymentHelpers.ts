@@ -484,6 +484,26 @@ export async function createPaymentWithAllocationsAtomic(
       const totalAmountINR = getInrAmount(invoiceData);
       const previouslyPaid = invoiceData.amountPaid ?? 0;
       const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
+
+      // Rule 23: an allocation may never take a document past its own total.
+      // This increment stacks on whatever amountPaid already says, so any bad
+      // figure upstream silently compounds instead of failing loudly. Bills have
+      // reached a paid amount above their own total in production (via duplicate
+      // settlement journal entries), and nothing here objected.
+      // Tolerance matches the paisa rounding used throughout (rule 21).
+      if (newTotalPaid - totalAmountINR > 0.01) {
+        const label = allocation.invoiceNumber || allocation.invoiceId;
+        const availableOutstanding = parseFloat(
+          Math.max(0, totalAmountINR - previouslyPaid).toFixed(2)
+        );
+        throw new Error(
+          `Allocation of ${allocation.allocatedAmount.toFixed(2)} to ${label} exceeds its ` +
+            `outstanding balance of ${availableOutstanding.toFixed(2)} ` +
+            `(total ${totalAmountINR.toFixed(2)}, already paid ${previouslyPaid.toFixed(2)}). ` +
+            `Reduce the allocated amount, or run Data Health if the paid figure looks wrong.`
+        );
+      }
+
       const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
       let newPaymentStatus: PaymentStatus;
@@ -945,6 +965,18 @@ export async function reconcilePaymentStatuses(
       (data.type === 'CUSTOMER_INVOICE' && entityBalance <= 0.01);
 
     if (!isSettled) continue;
+
+    // Never fabricate payment on a document that already carries real payment
+    // evidence. Pass 1 has just written the authoritative figure from
+    // allocations + linked JEs; overwriting it from an entity-level net balance
+    // discards that evidence and can erase a genuine outstanding amount —
+    // which then hides the bill from Vendor Payment's outstanding-bills list.
+    // Entity-level netting cannot tell WHICH of a vendor's bills a payment
+    // settled, so it is only safe for documents with no payment evidence at
+    // all — the unlinked-journal-entry case this pass exists to catch.
+    const evidencedPaid =
+      (allocationMap.get(docSnap.id) ?? 0) + jeSettlementFor(docSnap.id, data.entityId, data.type);
+    if (evidencedPaid > 0.01) continue;
 
     const totalAmountINR = getInrAmount(data);
     if (totalAmountINR <= 0) continue;

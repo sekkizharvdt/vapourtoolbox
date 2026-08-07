@@ -53,6 +53,62 @@ import { calculateGST } from '@/lib/accounting/gstCalculator';
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
 // ============================================================================
+// ADVANCE AMOUNT
+// ============================================================================
+
+/**
+ * Resolve the advance milestone from a payment schedule.
+ *
+ * `paymentType` is free text (the editor only offers "e.g., Advance" as a
+ * placeholder), so substring matching is the only signal available. This is
+ * the same predicate the PO create/edit pages use to derive
+ * `advancePercentage`, kept identical so the percentage and the amount can
+ * never be read off different milestones.
+ */
+function findAdvanceMilestone(commercialTerms?: POCommercialTerms) {
+  return commercialTerms?.paymentSchedule?.find((m) =>
+    (m.paymentType ?? '').toLowerCase().includes('advance')
+  );
+}
+
+/**
+ * Compute the advance payment amount.
+ *
+ * The percentage applies to the tax-INCLUSIVE grand total only when the
+ * advance milestone actually carries the GST portion. Buyers normally settle
+ * the full tax with the dispatch/main payment, so an advance with
+ * `carriesTax: false` must be computed on the pre-tax taxable value —
+ * otherwise the buyer is asked to advance GST they haven't agreed to pay yet.
+ *
+ * This figure is not display-only: `createAdvancePaymentRequest` posts it as a
+ * real accounting transaction, so an inflated advance reaches the ledger.
+ * (Feedback jRO7w8mg: a 30% advance with tax unselected was billed on the
+ * ₹44,91,953.20 grand total instead of the ₹38,06,740 taxable value —
+ * ₹2,05,563.96 too high.)
+ *
+ * Defaults to tax-inclusive when no advance milestone is found, preserving the
+ * prior behaviour for POs created without a structured payment schedule.
+ */
+export function calculateAdvanceAmount(params: {
+  grandTotal: number;
+  taxableValue: number;
+  advancePaymentRequired?: boolean;
+  advancePercentage?: number;
+  commercialTerms?: POCommercialTerms;
+}): number {
+  const { grandTotal, taxableValue, advancePaymentRequired, advancePercentage, commercialTerms } =
+    params;
+
+  if (!advancePaymentRequired || !advancePercentage) return 0;
+
+  const advanceMilestone = findAdvanceMilestone(commercialTerms);
+  const base =
+    advanceMilestone && advanceMilestone.carriesTax === false ? taxableValue : grandTotal;
+
+  return roundToPaisa((base * advancePercentage) / 100);
+}
+
+// ============================================================================
 // PO NUMBER GENERATION (ATOMIC)
 // ============================================================================
 
@@ -245,11 +301,15 @@ export async function createPOFromOffer(
 
       const grandTotal = roundToPaisa(taxableValue + totalTax);
 
-      // Calculate advance amount if required
-      let advanceAmount = 0;
-      if (terms.advancePaymentRequired && terms.advancePercentage) {
-        advanceAmount = (grandTotal * terms.advancePercentage) / 100;
-      }
+      // Calculate advance amount if required (tax-exclusive unless the advance
+      // milestone carries GST — see calculateAdvanceAmount)
+      const advanceAmount = calculateAdvanceAmount({
+        grandTotal,
+        taxableValue,
+        advancePaymentRequired: terms.advancePaymentRequired,
+        advancePercentage: terms.advancePercentage,
+        commercialTerms: terms.commercialTerms,
+      });
 
       // Create PO - build with only defined fields to prevent Firestore errors
       // Firestore throws "Unsupported field value: undefined" if any field is undefined
@@ -869,12 +929,19 @@ export async function updateDraftPO(
 
   const now = Timestamp.now();
 
-  // Calculate advance amount if required
-  let advanceAmount = 0;
+  // Calculate advance amount if required (tax-exclusive unless the advance
+  // milestone carries GST — see calculateAdvanceAmount)
   const grandTotal = po.grandTotal as number;
-  if (terms.advancePaymentRequired && terms.advancePercentage) {
-    advanceAmount = (grandTotal * terms.advancePercentage) / 100;
-  }
+  // The PO stores grandTotal and totalTax; the taxable value GST was computed
+  // on is their difference (subtotal - discount + packingForwardingAmount).
+  const taxableValue = roundToPaisa(grandTotal - ((po.totalTax as number) ?? 0));
+  const advanceAmount = calculateAdvanceAmount({
+    grandTotal,
+    taxableValue,
+    advancePaymentRequired: terms.advancePaymentRequired,
+    advancePercentage: terms.advancePercentage,
+    commercialTerms: terms.commercialTerms,
+  });
 
   const updateData: Record<string, unknown> = {
     paymentTerms: terms.paymentTerms,
@@ -893,7 +960,10 @@ export async function updateDraftPO(
   if (terms.advancePercentage !== undefined) {
     updateData.advancePercentage = terms.advancePercentage;
   }
-  if (advanceAmount) updateData.advanceAmount = advanceAmount;
+  // Written unconditionally, matching advancePaymentRequired above: skipping the
+  // write when the advance is removed left the previous advanceAmount on the
+  // document, and it still posts to accounting via createAdvancePaymentRequest.
+  updateData.advanceAmount = advanceAmount;
   if (terms.advancePaymentRequired) updateData.advancePaymentStatus = 'PENDING';
   if (terms.commercialTermsTemplateId) {
     updateData.commercialTermsTemplateId = terms.commercialTermsTemplateId;

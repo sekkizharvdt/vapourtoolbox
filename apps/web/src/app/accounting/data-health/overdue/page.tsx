@@ -420,12 +420,44 @@ export default function OverdueItemsPage() {
     const docNumber = isBill
       ? (txn as VendorBill).vendorInvoiceNumber || item.transactionNumber
       : item.transactionNumber;
+
+    // Rule 9: re-read the document before settling. `item` comes from the list
+    // snapshot, which is not refetched after a settlement JE is approved — so
+    // settling twice from a stale row silently double-counts the payment.
+    // (Past failure: 4 vendor bills carried duplicate settlement JEs worth
+    // ₹17,532.93, one pair created 4 minutes apart against the same bill.)
+    setError(null);
+    let freshOutstanding: number;
+    try {
+      const { db } = getFirebase();
+      const freshSnap = await getDoc(doc(db, COLLECTIONS.TRANSACTIONS, item.id));
+      if (!freshSnap.exists()) {
+        setError(`${docNumber} no longer exists. Refresh the list and try again.`);
+        return;
+      }
+      freshOutstanding = deriveOutstanding(freshSnap.data());
+      if (freshOutstanding < 0.01) {
+        setError(
+          `${docNumber} is already fully settled (nothing outstanding). ` +
+            `Refresh the list — settling it again would double-count the payment.`
+        );
+        return;
+      }
+    } catch (err) {
+      // Cannot confirm the current state, so refuse rather than risk a
+      // duplicate settlement on a document that may already be paid.
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[OverdueItemsPage] Could not re-read document before settling:', err);
+      setError(`Could not verify the current balance of ${docNumber}: ${message}`);
+      return;
+    }
     const docDate = resolveTransactionDate(
       isBill
         ? ((txn as VendorBill).billDate ?? txn.date)
         : ((txn as CustomerInvoice).invoiceDate ?? txn.date)
     );
-    const outstanding = roundToPaisa(item.outstandingAmount);
+    // Use the freshly-read balance, not the list snapshot's cached figure
+    const outstanding = roundToPaisa(freshOutstanding);
 
     // The entity line needs a role so the dialog can resolve its control
     // account (selector callbacks don't fire on pre-filled values). Pass ONLY
