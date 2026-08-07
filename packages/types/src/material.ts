@@ -75,6 +75,7 @@ export interface Material {
   dn?: string; // DN metric designation: "15", "50", "100"
   pressureClass?: string; // Flanges: "150#", "300#", "600#"
   schedule?: string; // Pipes: "10", "40", "80", "STD", "XS"
+  scheduleType?: string; // Pipes: the STD/XS/XXS alias for `schedule`, when one exists
   fittingType?: string; // Fittings: "90° Elbow Long Radius", "Tee"
 
   // Engineering Data (piping)
@@ -86,8 +87,16 @@ export interface Material {
   boltSize_inch?: string; // Flanges: bolt size e.g. "5/8"
   raisedFace_mm?: number; // Flanges: raised face height
   centerToEnd_mm?: number; // Fittings: center-to-end dimension
+  endToEnd_mm?: number; // Fittings: end-to-end dimension (reducers, caps)
+  applicableSchedules?: string; // Fittings: schedules the dimension applies to, e.g. "All"
   weightPerPiece_kg?: number; // Flanges, fittings: weight per piece
   weightPerMeter_kg?: number; // Pipes: weight per meter
+
+  /** Standard/spec recorded by the catalogue seeder, when `specification` is absent. */
+  seedMetadata?: {
+    standard?: string;
+    specification?: string;
+  };
 
   // Family Grouping (groups all sizes/ratings of same base material)
   familyCode?: string; // e.g. "FL-WN-CS-A105" for all WN flanges CS A105

@@ -34,48 +34,24 @@ import {
 import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 
 import { getFirebase } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { queryMaterials } from '@/lib/materials/queries';
+import { MATERIAL_CATEGORY_GROUPS, type Material, type MaterialCategory } from '@vapour/types';
 import { parseNPS, compareNPS } from '@/lib/materials/variantUtils';
 
-// Fitting variant interface
-interface FittingVariant {
-  id: string;
-  type: string;
-  nps: string;
-  dn: string;
-  centerToEnd_inch?: number;
-  centerToEnd_mm?: number;
-  largeEnd_inch?: number;
-  largeEnd_mm?: number;
-  smallEnd_inch?: number;
-  smallEnd_mm?: number;
-  endToEnd_inch?: number;
-  endToEnd_mm?: number;
-  outsideDiameter_inch?: number;
-  outsideDiameter_mm?: number;
-  applicableSchedules: string;
-  weight_kg?: number;
-}
-
-// Material with variants
-interface MaterialWithVariants {
-  id: string;
-  materialCode: string;
-  name: string;
-  category: string;
-  metadata?: {
-    standard?: string;
-    specification?: string;
-    description?: string;
-  };
-  variants: FittingVariant[];
-}
+/**
+ * Fittings are flat material documents — one doc per type + NPS, with the
+ * dimensions on the doc itself. The old parent-doc + `variants` subcollection
+ * shape is superseded (those parents carry `isMigrated`, and `queryMaterials`
+ * drops them), so this page reads `materials` directly.
+ */
+const FITTING_CATEGORIES: MaterialCategory[] =
+  MATERIAL_CATEGORY_GROUPS.find((g) => g.key === 'fittings')?.categories ?? [];
 
 export default function FittingsPage() {
   const { db } = getFirebase();
 
   // State
-  const [materials, setMaterials] = useState<MaterialWithVariants[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,36 +72,16 @@ export default function FittingsPage() {
       setLoading(true);
       setError(null);
 
-      // Query fittings materials
-      const materialsRef = collection(db, 'materials');
-      const q = query(materialsRef, where('category', '==', 'FITTINGS_BUTT_WELD'));
-      const materialsSnapshot = await getDocs(q);
+      // One indexed query for every fitting category (index: category ASC,
+      // materialCode ASC) — the whole catalogue is a few hundred docs.
+      const { materials: fittingMaterials } = await queryMaterials(db, {
+        categories: FITTING_CATEGORIES,
+        sortField: 'materialCode',
+        sortDirection: 'asc',
+        limitResults: 1000,
+      });
 
-      const materialsData: MaterialWithVariants[] = [];
-
-      for (const materialDoc of materialsSnapshot.docs) {
-        const materialData = materialDoc.data();
-
-        // Get variants subcollection
-        const variantsRef = collection(db, 'materials', materialDoc.id, 'variants');
-        const variantsSnapshot = await getDocs(variantsRef);
-
-        const variants = variantsSnapshot.docs.map((variantDoc) => ({
-          id: variantDoc.id,
-          ...variantDoc.data(),
-        })) as FittingVariant[];
-
-        materialsData.push({
-          id: materialDoc.id,
-          materialCode: materialData.materialCode,
-          name: materialData.name,
-          category: materialData.category,
-          metadata: materialData.metadata,
-          variants,
-        });
-      }
-
-      setMaterials(materialsData);
+      setMaterials(fittingMaterials.filter((m) => m.isActive !== false));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load fittings');
     } finally {
@@ -144,17 +100,27 @@ export default function FittingsPage() {
     setPage(0);
   };
 
-  // Get all variants from all materials
+  // One row per fitting document, flattened to the dimensions this table renders.
   const allVariants = useMemo(() => {
-    return materials.flatMap((material) =>
-      material.variants.map((variant) => ({
-        ...variant,
-        materialCode: material.materialCode,
-        materialName: material.name,
-        standard: material.metadata?.standard,
-      }))
-    );
+    return materials.map((material) => ({
+      id: material.id,
+      materialCode: material.materialCode,
+      materialName: material.name,
+      type: material.fittingType,
+      nps: material.nps,
+      dn: material.dn,
+      centerToEnd_mm: material.centerToEnd_mm,
+      endToEnd_mm: material.endToEnd_mm,
+      applicableSchedules: material.applicableSchedules,
+      weight_kg: material.weightPerPiece_kg,
+    }));
   }, [materials]);
+
+  // Catalogue standard — seeded docs carry it under `specification` or `seedMetadata`.
+  const standard = useMemo(
+    () => materials[0]?.specification?.standard ?? materials[0]?.seedMetadata?.standard,
+    [materials]
+  );
 
   // parseNPS is now imported from @/lib/materials/variantUtils
 
@@ -279,7 +245,7 @@ export default function FittingsPage() {
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Total Variants
+                Total Sizes
               </Typography>
               <Typography variant="h5" fontWeight="bold">
                 {stats.total}
@@ -300,14 +266,14 @@ export default function FittingsPage() {
               </Box>
             </CardContent>
           </Card>
-          {materials[0]?.metadata?.standard && (
+          {standard && (
             <Card variant="outlined" sx={{ flex: '1 1 300px' }}>
               <CardContent>
                 <Typography color="text.secondary" variant="body2">
                   Standard
                 </Typography>
                 <Typography variant="body1" fontWeight="medium">
-                  {materials[0].metadata.standard}
+                  {standard}
                 </Typography>
               </CardContent>
             </Card>
@@ -406,7 +372,7 @@ export default function FittingsPage() {
                   message={
                     searchText || selectedFittingType !== 'ALL' || selectedNPS !== 'ALL'
                       ? 'No fittings match your filters. Try adjusting your filter selections.'
-                      : 'No fittings data available. Fitting variants will appear here once loaded.'
+                      : 'No fittings data available.'
                   }
                   variant="table"
                   colSpan={7}
@@ -415,7 +381,12 @@ export default function FittingsPage() {
                 paginatedVariants.map((variant, index) => (
                   <TableRow key={variant.id || index} hover>
                     <TableCell>
-                      <Chip label={variant.type} size="small" color="primary" variant="outlined" />
+                      <Chip
+                        label={variant.type ?? '—'}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{variant.nps}</Typography>
@@ -437,7 +408,11 @@ export default function FittingsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip label={variant.applicableSchedules} size="small" variant="outlined" />
+                      <Chip
+                        label={variant.applicableSchedules ?? '—'}
+                        size="small"
+                        variant="outlined"
+                      />
                     </TableCell>
                   </TableRow>
                 ))

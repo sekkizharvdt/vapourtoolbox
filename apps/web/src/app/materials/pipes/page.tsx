@@ -36,43 +36,29 @@ import {
 import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 
 import { getFirebase } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { queryMaterials } from '@/lib/materials/queries';
+import {
+  MATERIAL_CATEGORY_GROUPS,
+  MATERIAL_CATEGORY_LABELS,
+  type Material,
+  type MaterialCategory,
+} from '@vapour/types';
 import { parseNPS, parseSchedule, compareNPS } from '@/lib/materials/variantUtils';
 
-// Pipe variant interface
-interface PipeVariant {
-  id: string;
-  nps: string;
-  dn: string;
-  schedule: string;
-  scheduleType?: string;
-  od_inch: number;
-  od_mm: number;
-  wt_inch: number;
-  wt_mm: number;
-  weight_lbft: number;
-  weight_kgm: number;
-}
-
-// Material with variants
-interface MaterialWithVariants {
-  id: string;
-  materialCode: string;
-  name: string;
-  category: string;
-  metadata?: {
-    standard?: string;
-    specification?: string;
-    description?: string;
-  };
-  variants: PipeVariant[];
-}
+/**
+ * Pipes are flat material documents — one doc per NPS + schedule, with the
+ * dimensions on the doc itself. The old parent-doc + `variants` subcollection
+ * shape is superseded (those parents carry `isMigrated`, and `queryMaterials`
+ * drops them), so this page reads the `materials` collection directly.
+ */
+const PIPE_CATEGORIES: MaterialCategory[] =
+  MATERIAL_CATEGORY_GROUPS.find((g) => g.key === 'pipes')?.categories ?? [];
 
 export default function PipesPage() {
   const { db } = getFirebase();
 
   // State
-  const [materials, setMaterials] = useState<MaterialWithVariants[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,40 +81,16 @@ export default function PipesPage() {
       setLoading(true);
       setError(null);
 
-      // Query all pipe categories
-      const pipeCategories = ['PIPES_CARBON_STEEL', 'PIPES_STAINLESS_304L', 'PIPES_STAINLESS_316L'];
+      // One indexed query for every pipe category (index: category ASC,
+      // materialCode ASC) — the whole catalogue is a few hundred docs.
+      const { materials: pipeMaterials } = await queryMaterials(db, {
+        categories: PIPE_CATEGORIES,
+        sortField: 'materialCode',
+        sortDirection: 'asc',
+        limitResults: 1000,
+      });
 
-      const materialsData: MaterialWithVariants[] = [];
-
-      for (const category of pipeCategories) {
-        const materialsRef = collection(db, 'materials');
-        const q = query(materialsRef, where('category', '==', category));
-        const materialsSnapshot = await getDocs(q);
-
-        for (const materialDoc of materialsSnapshot.docs) {
-          const materialData = materialDoc.data();
-
-          // Get variants subcollection
-          const variantsRef = collection(db, 'materials', materialDoc.id, 'variants');
-          const variantsSnapshot = await getDocs(variantsRef);
-
-          const variants = variantsSnapshot.docs.map((variantDoc) => ({
-            id: variantDoc.id,
-            ...variantDoc.data(),
-          })) as PipeVariant[];
-
-          materialsData.push({
-            id: materialDoc.id,
-            materialCode: materialData.materialCode,
-            name: materialData.name,
-            category: materialData.category,
-            metadata: materialData.metadata,
-            variants,
-          });
-        }
-      }
-
-      setMaterials(materialsData);
+      setMaterials(pipeMaterials.filter((m) => m.isActive !== false));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load pipes');
     } finally {
@@ -149,18 +111,28 @@ export default function PipesPage() {
     setPage(0);
   };
 
-  // Get all variants from all materials
+  // One row per pipe document, flattened to the dimensions this table renders.
   const allVariants = useMemo(() => {
-    return materials.flatMap((material) =>
-      material.variants.map((variant) => ({
-        ...variant,
-        materialCode: material.materialCode,
-        materialName: material.name,
-        category: material.category,
-        standard: material.metadata?.standard,
-      }))
-    );
+    return materials.map((material) => ({
+      id: material.id,
+      materialCode: material.materialCode,
+      materialName: material.name,
+      category: material.category as string,
+      nps: material.nps,
+      dn: material.dn,
+      schedule: material.schedule,
+      scheduleType: material.scheduleType,
+      od_mm: material.outsideDiameter_mm,
+      wt_mm: material.wallThickness_mm,
+      weight_kgm: material.weightPerMeter_kg,
+    }));
   }, [materials]);
+
+  // Catalogue standard — seeded docs carry it under `specification` or `seedMetadata`.
+  const standard = useMemo(
+    () => materials[0]?.specification?.standard ?? materials[0]?.seedMetadata?.standard,
+    [materials]
+  );
 
   // parseNPS and parseSchedule are now imported from @/lib/materials/variantUtils
 
@@ -282,14 +254,10 @@ export default function PipesPage() {
     };
   }, [allVariants, materials]);
 
-  // Helper to get material display name
+  // Grade only — the "Pipes - " prefix is redundant inside a pipes table.
   const getMaterialDisplayName = (category: string) => {
-    const names: Record<string, string> = {
-      PIPES_CARBON_STEEL: 'Carbon Steel',
-      PIPES_STAINLESS_304L: 'SS 304L',
-      PIPES_STAINLESS_316L: 'SS 316L',
-    };
-    return names[category] || category;
+    const label = MATERIAL_CATEGORY_LABELS[category as MaterialCategory];
+    return label ? label.replace(/^Pipes - /, '') : category;
   };
 
   return (
@@ -304,7 +272,7 @@ export default function PipesPage() {
 
       <PageHeader
         title="Pipes"
-        subtitle="Carbon Steel and Stainless Steel Pipes per ASME B36.10-2022"
+        subtitle="Carbon steel, stainless and duplex pipes per ASME B36.10 / B36.19"
         action={
           <Button
             variant="outlined"
@@ -323,7 +291,7 @@ export default function PipesPage() {
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Total Variants
+                Total Sizes
               </Typography>
               <Typography variant="h5" fontWeight="bold">
                 {stats.total}
@@ -337,7 +305,7 @@ export default function PipesPage() {
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                 {Object.entries(stats.materialBreakdown)
-                  .slice(0, 3)
+                  .slice(0, 6)
                   .map(([type, count]) => (
                     <Chip
                       key={type}
@@ -349,14 +317,14 @@ export default function PipesPage() {
               </Box>
             </CardContent>
           </Card>
-          {materials[0]?.metadata?.standard && (
+          {standard && (
             <Card variant="outlined" sx={{ flex: '1 1 300px' }}>
               <CardContent>
                 <Typography color="text.secondary" variant="body2">
                   Standard
                 </Typography>
                 <Typography variant="body1" fontWeight="medium">
-                  {materials[0].metadata.standard}
+                  {standard}
                 </Typography>
               </CardContent>
             </Card>
@@ -497,15 +465,18 @@ export default function PipesPage() {
                     selectedNPS !== 'ALL' ||
                     selectedOD !== 'ALL'
                       ? 'No pipes match your filters. Try adjusting your filter selections.'
-                      : 'No pipes data available. Pipe variants will appear here once loaded.'
+                      : 'No pipes data available.'
                   }
                   variant="table"
                   colSpan={8}
                 />
               ) : (
                 paginatedVariants.map((variant, index) => {
-                  // Calculate ID = OD - 2*WT
-                  const id_mm = variant.od_mm - 2 * variant.wt_mm;
+                  // ID = OD - 2*WT, blank unless both dimensions are on the doc
+                  const id_mm =
+                    variant.od_mm !== undefined && variant.wt_mm !== undefined
+                      ? variant.od_mm - 2 * variant.wt_mm
+                      : undefined;
 
                   return (
                     <TableRow key={variant.id || index} hover>
@@ -518,21 +489,21 @@ export default function PipesPage() {
                         <Typography variant="body2">{variant.dn}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip label={variant.schedule} size="small" color="secondary" />
+                        <Chip label={variant.schedule ?? '—'} size="small" color="secondary" />
                         {variant.scheduleType && variant.scheduleType !== variant.schedule && (
                           <Typography variant="caption" display="block" color="text.secondary">
                             ({variant.scheduleType})
                           </Typography>
                         )}
                       </TableCell>
-                      <TableCell align="right">{variant.od_mm?.toFixed(2)}</TableCell>
+                      <TableCell align="right">{variant.od_mm?.toFixed(2) ?? '—'}</TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight="medium" color="primary.main">
-                          {id_mm.toFixed(2)}
+                          {id_mm?.toFixed(2) ?? '—'}
                         </Typography>
                       </TableCell>
-                      <TableCell align="right">{variant.wt_mm?.toFixed(2)}</TableCell>
-                      <TableCell align="right">{variant.weight_kgm?.toFixed(2)}</TableCell>
+                      <TableCell align="right">{variant.wt_mm?.toFixed(2) ?? '—'}</TableCell>
+                      <TableCell align="right">{variant.weight_kgm?.toFixed(2) ?? '—'}</TableCell>
                       <TableCell>
                         <Chip
                           label={getMaterialDisplayName(variant.category)}
