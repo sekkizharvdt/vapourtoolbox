@@ -231,10 +231,10 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
           endAdornment: (
             <>
               <InputAdornment position="end">m</InputAdornment>
-              <Tooltip title="Head required above NPSHr before the vessel counts as adequate. This repo carries three unreconciled values: this calculator recommends 1.5 m, the suction system designer defaults to 0.5 m, and the stated working rule is about 1 m. Set it deliberately.">
+              <Tooltip title="Head required above NPSHr before the vessel counts as adequate. The margin is case dependent — it depends on the service, the pump, how well the suction friction is known and how far the level swings — so there is no single right value. The results panel shows the verdict at each margin in use across the toolbox (0.5 / 1.0 / 1.5 m) and what raising the vessel would buy, so the choice can be made with the consequences visible.">
                 <IconButton
                   size="small"
-                  aria-label="Head required above NPSHr before the vessel counts as adequate."
+                  aria-label="Head required above NPSHr before the vessel counts as adequate. Case dependent — see the margin comparison in the results."
                 >
                   <InfoIcon fontSize="small" />
                 </IconButton>
@@ -251,7 +251,7 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
         helperText={
           inputs.pumpNPSHr === undefined
             ? 'Not applied — enter a pump NPSHr above to check against it'
-            : `Required above NPSHr. ${DEFAULT_NPSH_SAFETY_MARGIN} m here, 0.5 m in the suction system designer, ~1 m as the working rule — set it deliberately`
+            : 'Case dependent — the results panel compares 0.5 / 1.0 / 1.5 m against this vessel'
         }
         fullWidth
       />

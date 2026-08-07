@@ -120,12 +120,19 @@ export interface FlashChamberInput {
   /**
    * Head required above NPSHr before the vessel counts as adequate, in metres.
    *
-   * ⚠ Three different margins exist in this repo and they are NOT reconciled:
-   * this calculator recommends 1.5 m (`recommendedNpshMargin`, the default
-   * here), `suctionSystemCalculator` defaults to 0.5 m, and the stated working
-   * rule is "about 1 m". They are used against different things, so the spread
-   * is not necessarily wrong — but nothing has confirmed that. Set it
-   * explicitly rather than inheriting whichever default you happen to hit.
+   * **The margin is case dependent — ruled 2026-08-07.** There is no house
+   * standard to converge the repo's three values onto, and there should not be
+   * one: what margin a vessel needs depends on the service, the pump, how well
+   * the suction friction is known and how much the level actually swings.
+   *
+   * That makes this an engineering judgement the calculator must not make on
+   * the user's behalf. Its job is to **present the data the decision needs** —
+   * see NPSH_MARGIN_REFERENCE_POINTS and the margin sensitivity the flash
+   * chamber page renders, which shows the verdict at each reference margin and
+   * the elevation change that would carry a failing one.
+   *
+   * The default exists so a result is defined when nothing is set, not as a
+   * recommendation. Set it deliberately per case.
    */
   npshSafetyMargin?: number;
 
@@ -615,24 +622,59 @@ export const DEFAULT_SUCTION_FRICTION_LOSS = 0.5;
 /**
  * Default head required above pump NPSHr before a vessel counts as adequate, m.
  *
- * ⚠ **This repo carries three different NPSH margins and they are NOT
- * reconciled:**
+ * **This is a fallback so a result is defined, NOT a recommendation.** The
+ * margin is case dependent — see NPSH_MARGIN_REFERENCE_POINTS. 1.5 m is the
+ * value here only because it is what the flash chamber already published.
  *
- * | Value | Where                                                           |
- * | ----- | --------------------------------------------------------------- |
- * | 1.5 m | this constant — the flash chamber's long-standing recommendation |
- * | 0.5 m | `SuctionSystemInput.safetyMargin` default                        |
- * | ~1 m  | the stated working rule, "calculate NPSHa, add say 1 m"          |
- *
- * They may be applied to different things, which would make the spread
- * legitimate — but nothing has confirmed that, so none of them is treated as
- * the house standard. 1.5 m is the default here only because it is what this
- * calculator already published; it is not a ruling on which is correct.
- *
- * Set `FlashChamberInput.npshSafetyMargin` explicitly rather than inheriting
- * whichever default a given code path happens to reach.
+ * Set `FlashChamberInput.npshSafetyMargin` deliberately per case rather than
+ * inheriting whichever default a given code path happens to reach.
  */
 export const DEFAULT_NPSH_SAFETY_MARGIN = 1.5;
+
+/**
+ * The NPSH margins in use across this repo, and what each one is.
+ *
+ * **Ruled 2026-08-07: the margin is CASE DEPENDENT.** These are not three
+ * candidates for a single house standard, and unifying them would be wrong —
+ * the required margin depends on the service, the pump, how well the suction
+ * friction is known, and how far the level actually swings in operation.
+ *
+ * They are collected here so the decision can be *presented* rather than made.
+ * The flash chamber page renders the verdict at each of these against the
+ * vessel in hand, plus the elevation change that would carry a failing one, so
+ * the engineer chooses with the consequences visible instead of inheriting a
+ * constant.
+ *
+ * Do not add a "recommended" flag to this list. That would be the ruling this
+ * says not to make.
+ */
+export const NPSH_MARGIN_REFERENCE_POINTS: readonly {
+  readonly marginM: number;
+  readonly label: string;
+  readonly source: string;
+}[] = [
+  {
+    marginM: 0.5,
+    label: 'Suction system designer',
+    source:
+      'SuctionSystemInput.safetyMargin default — applied where the friction loss is a real ' +
+      'Darcy-Weisbach calculation over a known pipe run, so less allowance is needed for the ' +
+      'unknown.',
+  },
+  {
+    marginM: 1.0,
+    label: 'Working rule',
+    source: 'The stated rule of thumb: "calculate NPSHa, add say 1 m".',
+  },
+  {
+    marginM: 1.5,
+    label: 'Flash chamber recommendation',
+    source:
+      "The flash chamber calculator's long-standing recommendedNpshMargin, and the fallback " +
+      'default. Its friction term is a flat estimate rather than a pipe-run calculation, which ' +
+      'is an argument for carrying more allowance here than the suction system designer needs.',
+  },
+] as const;
 
 /**
  * Flow rate conversion factors to ton/hr (base unit for calculations)

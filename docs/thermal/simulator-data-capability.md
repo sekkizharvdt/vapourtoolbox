@@ -66,19 +66,26 @@ A vessel that only satisfies its pump at normal level cavitates every time the
 level controller draws it down, so an operating-level verdict would pass
 vessels that fail in service.
 
-⚠ **The safety margin is not one number in this repo.** Three coexist and they
-have never been reconciled:
+**The safety margin is case dependent — ruled 2026-08-07.** The three values in
+this repo are not three candidates for a house standard, and they are not being
+unified:
 
-| Value | Where                                                        |
-| ----- | ------------------------------------------------------------ |
-| 1.5 m | `flashChamberCalculator`, `recommendedNpshMargin` — default  |
-| 0.5 m | `suctionSystemCalculator`, `SuctionSystemInput.safetyMargin` |
-| ~1 m  | The stated working rule ("calculate NPSHa, add say 1 m")     |
+| Value | Where                                                        | Why it differs                                                                      |
+| ----- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| 0.5 m | `suctionSystemCalculator`, `SuctionSystemInput.safetyMargin` | Friction there is a real Darcy-Weisbach calculation, so less allowance for unknowns |
+| ~1 m  | The stated working rule ("calculate NPSHa, add say 1 m")     | Rule of thumb                                                                       |
+| 1.5 m | `flashChamberCalculator`, `recommendedNpshMargin` — fallback | Friction here is a flat estimate, an argument for more allowance                    |
 
-They may be applied to different things, which would make the spread
-legitimate — but nothing has confirmed that. `npshSafetyMargin` is therefore an
-explicit input rather than an inherited constant, and the value a verdict was
-taken against is echoed in the result so it can be attributed.
+What margin a vessel needs depends on the service, the pump, how well the
+suction friction is known, and how far the level swings in operation. **The
+calculator therefore does not choose — it presents.** `npshSafetyMargin` is an
+explicit input, the value a verdict was taken against is echoed in the result so
+it can be attributed, and the flash chamber page renders the verdict at each
+reference margin against the vessel in hand together with the elevation change
+that would carry a failing one.
+
+For a consumer: never infer a margin. Read `npshSafetyMargin` from the result,
+or treat `isAdequate` as meaningless.
 
 ### Suction friction — an estimate, not a hydraulic calculation
 
