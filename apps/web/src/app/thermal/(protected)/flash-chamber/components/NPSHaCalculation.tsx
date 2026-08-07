@@ -29,8 +29,14 @@ interface NPSHaCalculationProps {
 }
 
 export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
+  // A named pump turns this from advice into a pass/fail, so the verdict drives
+  // the severity rather than the NPSHa bands — which are only a proxy for it.
+  const hasPump = npsha.pumpNPSHr !== undefined;
+
   // Determine severity based on worst case (LG-L)
   const getSeverity = (): 'success' | 'warning' | 'error' | 'info' => {
+    if (hasPump) return npsha.isAdequate ? 'success' : 'error';
+
     const worstCase = npsha.atLGL.npshAvailable;
     if (worstCase < 0) return 'error';
     if (worstCase < 0.5) return 'error';
@@ -67,6 +73,17 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
           {formatNumber(level.npshAvailable, 2)} m
         </Typography>
       </TableCell>
+      {hasPump && (
+        <TableCell align="right">
+          <Typography
+            variant="body2"
+            fontWeight={isWorstCase ? 'bold' : 'normal'}
+            color={level.isAdequate ? 'success.main' : 'error.main'}
+          >
+            {formatNumber(level.margin ?? 0, 2)} m
+          </Typography>
+        </TableCell>
+      )}
     </TableRow>
   );
 
@@ -101,6 +118,20 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
                 - {formatNumber(npsha.frictionLoss, 2)} m
               </Typography>
             </Box>
+            {hasPump && (
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Pump NPSHr (datasheet)</Typography>
+                  <Typography variant="body2">{formatNumber(npsha.pumpNPSHr!, 2)} m</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Margin required above NPSHr</Typography>
+                  <Typography variant="body2">
+                    {formatNumber(npsha.npshSafetyMargin ?? 0, 2)} m
+                  </Typography>
+                </Box>
+              </>
+            )}
           </Stack>
         </Box>
 
@@ -119,6 +150,7 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
                   <TableCell align="right">Elevation</TableCell>
                   <TableCell align="right">Static Head</TableCell>
                   <TableCell align="right">NPSHa</TableCell>
+                  {hasPump && <TableCell align="right">Margin over NPSHr</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -135,8 +167,9 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
         </Typography>
 
         <Typography variant="caption" color="text.secondary">
-          Recommended minimum NPSHa margin: {formatNumber(npsha.recommendedNpshMargin, 2)} m above
-          pump NPSHr
+          {hasPump
+            ? `Judged at LG-L, the worst level — a vessel that only satisfies its pump at normal level cavitates whenever the level controller draws it down.`
+            : `Recommended minimum NPSHa margin: ${formatNumber(npsha.recommendedNpshMargin, 2)} m above pump NPSHr. Enter the pump's NPSHr to get a pass/fail instead of a recommendation.`}
         </Typography>
 
         {/* Recommendation */}

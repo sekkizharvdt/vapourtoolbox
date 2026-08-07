@@ -32,7 +32,7 @@ import {
   type PipeVariant,
 } from './pipeService';
 import { tonHrToKgS, tonHrToM3S, barToHead } from './thermalUtils';
-import { computeNPSHa } from './npsha';
+import { computeNPSHa, npshMargin } from './npsha';
 
 import type {
   FlashChamberInput,
@@ -51,6 +51,7 @@ import {
   FLASH_CHAMBER_LIMITS,
   DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR,
   DEFAULT_SUCTION_FRICTION_LOSS,
+  DEFAULT_NPSH_SAFETY_MARGIN,
 } from '@vapour/types';
 
 // ============================================================================
@@ -71,8 +72,14 @@ const SB_K_FACTOR: Record<string, number> = {
   VANE: 0.15, // Vane-type — high-capacity
 };
 
-/** Minimum NPSHa margin recommended */
-const MIN_NPSH_MARGIN = 1.5; // m
+/**
+ * Minimum NPSHa margin recommended.
+ *
+ * Aliases the shared default so the recommendation text and the adequacy
+ * verdict cannot drift apart — see DEFAULT_NPSH_SAFETY_MARGIN for why this
+ * repo's three margin values are deliberately left unreconciled.
+ */
+const MIN_NPSH_MARGIN = DEFAULT_NPSH_SAFETY_MARGIN; // m
 
 /** Calculator version for tracking */
 const CALCULATOR_VERSION = '2.0.0';
@@ -141,7 +148,34 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
     operatingLevelRatio: { min: 0.2, max: 0.8 },
     btlGapBelowLGL: { min: 0.05, max: 0.5 },
     suctionFrictionLoss: { min: 0, max: 5.0 },
+    pumpNPSHr: { min: 0, max: 20.0 },
+    npshSafetyMargin: { min: 0, max: 5.0 },
   };
+
+  if (
+    input.pumpNPSHr !== undefined &&
+    (input.pumpNPSHr < limits.pumpNPSHr.min || input.pumpNPSHr > limits.pumpNPSHr.max)
+  ) {
+    errors.push(`Pump NPSHr must be between ${limits.pumpNPSHr.min} and ${limits.pumpNPSHr.max} m`);
+  }
+
+  if (input.npshSafetyMargin !== undefined) {
+    if (
+      input.npshSafetyMargin < limits.npshSafetyMargin.min ||
+      input.npshSafetyMargin > limits.npshSafetyMargin.max
+    ) {
+      errors.push(
+        `NPSH safety margin must be between ${limits.npshSafetyMargin.min} and ${limits.npshSafetyMargin.max} m`
+      );
+    }
+    // A margin with no pump to apply it to is silently inert, which reads as
+    // "verified" to anyone who set it expecting a check.
+    if (input.pumpNPSHr === undefined) {
+      warnings.push(
+        'NPSH safety margin was set but no pump NPSHr was given — no adequacy check is performed'
+      );
+    }
+  }
 
   // Suction friction is optional — unset means DEFAULT_SUCTION_FRICTION_LOSS is
   // used, which is a documented default rather than a validation failure.
@@ -560,7 +594,9 @@ export function calculateFlashChamber(
     elevations,
     opPressureBar,
     satTempPure,
-    input.suctionFrictionLoss ?? DEFAULT_SUCTION_FRICTION_LOSS
+    input.suctionFrictionLoss ?? DEFAULT_SUCTION_FRICTION_LOSS,
+    input.pumpNPSHr,
+    input.npshSafetyMargin ?? MIN_NPSH_MARGIN
   );
 
   return {
@@ -927,14 +963,27 @@ function calculateNozzleSizes(
  * @param elevations - Calculated elevation data
  * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
  * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
+ * Supplied a `pumpNPSHr`, it also reports a margin and an adequacy verdict per
+ * level — the check the brine and distillate holdup drums are sized by. Without
+ * one it behaves exactly as before, producing a recommendation only, so an
+ * existing result is unchanged.
+ *
+ * @param elevations - Calculated elevation data
+ * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
+ * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
  * @param frictionLoss - Suction-line friction loss in m; the caller's explicit
  *   value, defaulted to DEFAULT_SUCTION_FRICTION_LOSS by `calculateFlashChamber`
+ * @param pumpNPSHr - Extraction pump NPSHr in m, from its datasheet. Undefined
+ *   means no pump has been named and no verdict is possible
+ * @param npshSafetyMargin - Head required above NPSHr in m
  */
 function calculateNPSHa(
   elevations: FlashChamberElevations,
   chamberPressureBar: number,
   satTempPure: number,
-  frictionLoss: number
+  frictionLoss: number,
+  pumpNPSHr: number | undefined,
+  npshSafetyMargin: number
 ): NPSHaCalculation {
   // Pure water density at saturation temperature
   const density = getDensityLiquid(satTempPure);
@@ -956,11 +1005,23 @@ function calculateNPSHa(
       frictionLoss,
     });
 
+    // Conditional spread, not `margin: undefined` — an absent margin must mean
+    // "no pump was named", and it must not serialise into a published fixture
+    // as a key with a null value.
+    const verdict =
+      pumpNPSHr === undefined
+        ? {}
+        : (() => {
+            const margin = npshMargin(npsha, pumpNPSHr);
+            return { margin, isAdequate: margin >= npshSafetyMargin };
+          })();
+
     return {
       levelName,
       elevation: levelElevation,
       staticHead,
       npshAvailable: npsha,
+      ...verdict,
     };
   };
 
@@ -969,8 +1030,34 @@ function calculateNPSHa(
   const atOperating = calculateAtLevel('Operating Level', elevations.operatingLevel);
   const atLGH = calculateAtLevel('LG-H (High Level)', elevations.lgHigh);
 
-  // Generate recommendation based on worst case (LG-L)
+  // Generate recommendation based on worst case (LG-L).
+  //
+  // LG-L, not the operating level: a vessel that only satisfies its pump at
+  // normal level cavitates every time the level controller lets it draw down.
   const worstCaseNPSHa = atLGL.npshAvailable;
+
+  // With a named pump the verdict replaces the recommendation — a stated pass
+  // or fail against a real NPSHr is worth more than advice about pump classes.
+  if (pumpNPSHr !== undefined) {
+    const margin = npshMargin(worstCaseNPSHa, pumpNPSHr);
+    const isAdequate = margin >= npshSafetyMargin;
+
+    return {
+      atLGL,
+      atOperating,
+      atLGH,
+      chamberPressureHead: pressureHead,
+      vaporPressureHead,
+      frictionLoss,
+      recommendedNpshMargin: MIN_NPSH_MARGIN,
+      pumpNPSHr,
+      npshSafetyMargin,
+      isAdequate,
+      recommendation: isAdequate
+        ? `NPSHa at LG-L (${worstCaseNPSHa.toFixed(2)}m) clears NPSHr ${pumpNPSHr.toFixed(2)}m by ${margin.toFixed(2)}m, against the ${npshSafetyMargin.toFixed(2)}m margin required. Operating level provides ${atOperating.npshAvailable.toFixed(2)}m.`
+        : `NPSHa at LG-L (${worstCaseNPSHa.toFixed(2)}m) does NOT clear NPSHr ${pumpNPSHr.toFixed(2)}m by the required ${npshSafetyMargin.toFixed(2)}m — margin is ${margin.toFixed(2)}m. Raise the vessel by ${(npshSafetyMargin - margin).toFixed(2)}m, cut suction friction, or select a lower-NPSHr pump.`,
+    };
+  }
 
   let recommendation: string;
   if (worstCaseNPSHa < 0) {

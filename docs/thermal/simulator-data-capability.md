@@ -48,10 +48,46 @@ planning error, so availability is stated on its own.
 | Elevations (BTL, LG-L, operating, LG-H, TTL) | yes       | COMPUTED   | Full set                                                                 |
 | Retention / liquid volume                    | yes       | COMPUTED   | From retention time and diameter                                         |
 | Nozzle sizes, NPSHa                          | yes       | COMPUTED   | Velocity-based                                                           |
+| NPSHa margin over pump NPSHr                 | yes       | COMPUTED   | **Only when `pumpNPSHr` is supplied.** See _NPSHa adequacy_ below        |
 | Inlet pressure                               | yes       | COMPUTED   | Chamber + spray-nozzle ΔP; default 3 bar                                 |
+| Suction friction loss                        | yes       | ASSUMED    | Flat 0.5 m default, settable. NOT from a pipe run — see below            |
 | **Wall thickness**                           | yes       | **ABSENT** | No shell in the model at all. See _Vessel metalwork_ below               |
 | **Metal mass**                               | yes       | **ABSENT** | No weight estimate exists for this vessel                                |
-| **SSOT export**                              | yes       | **ABSENT** | No generator. Needed for rung 5. MED has one; the flash chamber does not |
+| SSOT export                                  | yes       | COMPUTED   | Generator + UI shipped. Streams, equipment and lines, incl. holdup drums |
+
+### NPSHa adequacy — read before consuming a margin or a verdict
+
+`NPSHaCalculation` reports `margin` and `isAdequate` **only when a `pumpNPSHr`
+was supplied**. Absent means "no pump was named", not "no margin" — do not read
+a missing value as zero, and do not read a missing `isAdequate` as a pass.
+
+The verdict is taken at **LG-L**, the lowest level, not at the operating level.
+A vessel that only satisfies its pump at normal level cavitates every time the
+level controller draws it down, so an operating-level verdict would pass
+vessels that fail in service.
+
+⚠ **The safety margin is not one number in this repo.** Three coexist and they
+have never been reconciled:
+
+| Value | Where                                                        |
+| ----- | ------------------------------------------------------------ |
+| 1.5 m | `flashChamberCalculator`, `recommendedNpshMargin` — default  |
+| 0.5 m | `suctionSystemCalculator`, `SuctionSystemInput.safetyMargin` |
+| ~1 m  | The stated working rule ("calculate NPSHa, add say 1 m")     |
+
+They may be applied to different things, which would make the spread
+legitimate — but nothing has confirmed that. `npshSafetyMargin` is therefore an
+explicit input rather than an inherited constant, and the value a verdict was
+taken against is echoed in the result so it can be attributed.
+
+### Suction friction — an estimate, not a hydraulic calculation
+
+The flash chamber's NPSHa carries a flat **0.5 m** friction term by default
+(`DEFAULT_SUCTION_FRICTION_LOSS`). It is not derived from a pipe run — the
+calculator has no pipe run. NPSHa is **linear** in it, so it moves the margin
+metre for metre. `suctionSystemCalculator` computes the real equivalent from
+Darcy-Weisbach plus K-factors over the actual geometry; where the pipe run is
+known, that number should be passed in as `suctionFrictionLoss` instead.
 
 ---
 
@@ -70,7 +106,17 @@ planning error, so availability is stated on its own.
 | **Preheater metal mass**                               | **PLACEHOLDER** | `area x 60 kg/m²`. Same — geometry is available                                                                                                           |
 | **Liquid holdup**                                      | **ABSENT**      | No liquid inventory model. The `shellVolume x 0.3` in the weight estimator is a **shipping-weight fill allowance**, not an operating level. Do not use it |
 | **Elevation**                                          | **ABSENT**      | Not modelled for MED equipment                                                                                                                            |
-| **Wetted / dry wall area**                             | **ABSENT**      | Blocked on the liquid level above — an input that cannot exist, not merely unbuilt                                                                        |
+
+**Holdup and elevation for the brine and distillate drums are the exception.**
+They are not MED-designer outputs at all — those two vessels are sized in the
+flash chamber calculator, which does compute an operating holdup and a full
+elevation set, and exported through its own SSOT generator under
+`source: 'FLASH_CHAMBER'`. Generate each drum with its own equipment tag: sync
+matches on a key built from the tag, so two drums sharing the default tag would
+overwrite each other rather than co-exist. The ABSENT rows above still stand for
+effects, condenser and preheaters.
+
+| **Wetted / dry wall area** | **ABSENT** | Blocked on the liquid level above — an input that cannot exist, not merely unbuilt |
 
 ---
 

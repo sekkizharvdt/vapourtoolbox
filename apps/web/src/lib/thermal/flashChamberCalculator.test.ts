@@ -447,6 +447,78 @@ describe('flashChamberCalculator', () => {
         expect(result.npsha.recommendation).toBeDefined();
         expect(typeof result.npsha.recommendation).toBe('string');
       });
+
+      describe('adequacy verdict against a pump NPSHr', () => {
+        it('omits margin and verdict entirely when no pump is named', () => {
+          const result = calculateFlashChamber(createValidInput());
+
+          // Absent, not zero or false — a consumer must be able to tell
+          // "no pump was named" from "no margin".
+          expect(result.npsha.atLGL).not.toHaveProperty('margin');
+          expect(result.npsha.atLGL).not.toHaveProperty('isAdequate');
+          expect(result.npsha).not.toHaveProperty('pumpNPSHr');
+          expect(result.npsha).not.toHaveProperty('isAdequate');
+        });
+
+        it('reports the margin at every level when a pump is named', () => {
+          const pumpNPSHr = 1.0;
+          const result = calculateFlashChamber({ ...createValidInput(), pumpNPSHr });
+
+          for (const level of [result.npsha.atLGL, result.npsha.atOperating, result.npsha.atLGH]) {
+            expect(level.margin).toBeCloseTo(level.npshAvailable - pumpNPSHr, 10);
+          }
+          expect(result.npsha.pumpNPSHr).toBe(pumpNPSHr);
+        });
+
+        it('judges adequacy at LG-L, not at the operating level', () => {
+          // A pump whose NPSHr sits between the LG-L and operating NPSHa: the
+          // vessel must fail, because the level controller draws down to LG-L.
+          const base = createValidInput();
+          const probe = calculateFlashChamber(base);
+          const { npshAvailable: atLGL } = probe.npsha.atLGL;
+          const { npshAvailable: atOperating } = probe.npsha.atOperating;
+          expect(atOperating).toBeGreaterThan(atLGL);
+
+          const between = (atLGL + atOperating) / 2;
+          const result = calculateFlashChamber({
+            ...base,
+            pumpNPSHr: between,
+            npshSafetyMargin: 0,
+          });
+
+          expect(result.npsha.atOperating.isAdequate).toBe(true);
+          expect(result.npsha.atLGL.isAdequate).toBe(false);
+          // The headline verdict follows the worst level.
+          expect(result.npsha.isAdequate).toBe(false);
+        });
+
+        it('requires the margin to cover the safety allowance, not merely be positive', () => {
+          const base = createValidInput();
+          const atLGL = calculateFlashChamber(base).npsha.atLGL.npshAvailable;
+
+          // NPSHr 0.5 m below NPSHa: a positive margin, but short of a 1 m rule.
+          const input = { ...base, pumpNPSHr: atLGL - 0.5, npshSafetyMargin: 1.0 };
+          const result = calculateFlashChamber(input);
+
+          expect(result.npsha.atLGL.margin).toBeCloseTo(0.5, 10);
+          expect(result.npsha.atLGL.margin!).toBeGreaterThan(0);
+          expect(result.npsha.isAdequate).toBe(false);
+          expect(result.npsha.recommendation).toContain('does NOT clear');
+        });
+
+        it('states how far short the vessel is when it fails', () => {
+          const base = createValidInput();
+          const atLGL = calculateFlashChamber(base).npsha.atLGL.npshAvailable;
+          const result = calculateFlashChamber({
+            ...base,
+            pumpNPSHr: atLGL - 0.5,
+            npshSafetyMargin: 1.0,
+          });
+
+          // Short by 0.5 m — the recommendation must name the number to raise by.
+          expect(result.npsha.recommendation).toContain('0.50m');
+        });
+      });
     });
 
     describe('elevations', () => {

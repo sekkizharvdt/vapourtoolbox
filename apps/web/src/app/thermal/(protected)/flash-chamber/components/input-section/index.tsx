@@ -51,7 +51,20 @@ export function InputSection({
 }: InputSectionProps) {
   const [activeTab, setActiveTab] = useState(0);
 
-  const handleChange = (field: keyof FlashChamberInput, value: number | string | boolean) => {
+  const handleChange = (
+    field: keyof FlashChamberInput,
+    value: number | string | boolean | undefined
+  ) => {
+    // `undefined` clears an optional field rather than storing a blank. The
+    // NPSHr adequacy check reads `undefined` as "no pump named", so a '' or 0
+    // here would turn a cleared field into a named pump with a useless value.
+    if (value === undefined) {
+      const next = { ...inputs };
+      delete next[field];
+      onChange(next);
+      return;
+    }
+
     onChange({
       ...inputs,
       [field]: value,

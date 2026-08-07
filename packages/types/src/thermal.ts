@@ -107,6 +107,29 @@ export interface FlashChamberInput {
   btlGapBelowLGL: number;
 
   /**
+   * NPSHr of the extraction pump, in metres, from its datasheet.
+   *
+   * Optional. Supplied, the calculator reports a margin and an adequacy verdict
+   * at each level instead of only a recommendation string — the vessel is
+   * adequate when `NPSHa >= NPSHr + npshSafetyMargin` at the WORST level (LG-L),
+   * not at the operating level. This is the check that decides how high the
+   * brine and distillate holdup drums have to sit.
+   */
+  pumpNPSHr?: number;
+
+  /**
+   * Head required above NPSHr before the vessel counts as adequate, in metres.
+   *
+   * ⚠ Three different margins exist in this repo and they are NOT reconciled:
+   * this calculator recommends 1.5 m (`recommendedNpshMargin`, the default
+   * here), `suctionSystemCalculator` defaults to 0.5 m, and the stated working
+   * rule is "about 1 m". They are used against different things, so the spread
+   * is not necessarily wrong — but nothing has confirmed that. Set it
+   * explicitly rather than inheriting whichever default you happen to hit.
+   */
+  npshSafetyMargin?: number;
+
+  /**
    * Friction and fitting losses in the suction line to the extraction pump, in
    * metres of liquid, used by the NPSHa balance.
    *
@@ -329,6 +352,23 @@ export interface NPSHaAtLevel {
 
   /** Calculated NPSHa in m */
   npshAvailable: number;
+
+  /**
+   * NPSHa − NPSHr in m. Present ONLY when `pumpNPSHr` was supplied.
+   *
+   * Absent means "no pump was named", not "no margin" — do not read a missing
+   * value as zero.
+   */
+  margin?: number;
+
+  /**
+   * Whether `margin >= npshSafetyMargin` at this level. Present ONLY when
+   * `pumpNPSHr` was supplied.
+   *
+   * A positive margin is not the test on its own: it must also cover the
+   * safety allowance.
+   */
+  isAdequate?: boolean;
 }
 
 /**
@@ -355,6 +395,30 @@ export interface NPSHaCalculation {
 
   /** Recommended minimum NPSH margin in m (typically 1-2m above NPSHr) */
   recommendedNpshMargin: number;
+
+  /**
+   * Pump NPSHr the verdict was taken against, in m. Echoed from the input so a
+   * consumer can attribute the verdict instead of having to trust it. Absent
+   * when no pump was named.
+   */
+  pumpNPSHr?: number;
+
+  /**
+   * Margin required above NPSHr for `isAdequate`, in m. Absent when no pump was
+   * named. See `FlashChamberInput.npshSafetyMargin` — this repo carries three
+   * unreconciled values for it.
+   */
+  npshSafetyMargin?: number;
+
+  /**
+   * Whether the WORST level (LG-L) clears NPSHr plus the safety margin.
+   * Present only when `pumpNPSHr` was supplied.
+   *
+   * Judged at LG-L rather than the operating level on purpose: a drum that only
+   * satisfies its pump at normal level cavitates every time the level controller
+   * lets it draw down.
+   */
+  isAdequate?: boolean;
 
   /** Recommendation text for pump selection */
   recommendation: string;
@@ -514,6 +578,9 @@ export const FLASH_CHAMBER_LIMITS = {
   // Suction-line losses to the extraction pump. 0 is allowed — it means
   // "neglect friction", which the calculator warns about rather than forbids.
   suctionFrictionLoss: { min: 0, max: 5.0, unit: 'm' },
+  // Extraction pump NPSHr from its datasheet, and the head required above it.
+  pumpNPSHr: { min: 0, max: 20.0, unit: 'm' },
+  npshSafetyMargin: { min: 0, max: 5.0, unit: 'm' },
   // Spray-nozzle catalogue data band. Outside it, nozzle flows extrapolate via
   // Q ∝ ΔP^n and spray angles clamp at the band edge.
   sprayNozzleDeltaPBar: { min: 0.5, max: 6, unit: 'bar' },
@@ -544,6 +611,28 @@ export const DEFAULT_SPRAY_NOZZLE_DELTA_P_BAR = 3;
  * is known. NPSHa is linear in this term.
  */
 export const DEFAULT_SUCTION_FRICTION_LOSS = 0.5;
+
+/**
+ * Default head required above pump NPSHr before a vessel counts as adequate, m.
+ *
+ * ⚠ **This repo carries three different NPSH margins and they are NOT
+ * reconciled:**
+ *
+ * | Value | Where                                                           |
+ * | ----- | --------------------------------------------------------------- |
+ * | 1.5 m | this constant — the flash chamber's long-standing recommendation |
+ * | 0.5 m | `SuctionSystemInput.safetyMargin` default                        |
+ * | ~1 m  | the stated working rule, "calculate NPSHa, add say 1 m"          |
+ *
+ * They may be applied to different things, which would make the spread
+ * legitimate — but nothing has confirmed that, so none of them is treated as
+ * the house standard. 1.5 m is the default here only because it is what this
+ * calculator already published; it is not a ruling on which is correct.
+ *
+ * Set `FlashChamberInput.npshSafetyMargin` explicitly rather than inheriting
+ * whichever default a given code path happens to reach.
+ */
+export const DEFAULT_NPSH_SAFETY_MARGIN = 1.5;
 
 /**
  * Flow rate conversion factors to ton/hr (base unit for calculations)

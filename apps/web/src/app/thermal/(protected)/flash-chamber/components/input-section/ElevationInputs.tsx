@@ -3,11 +3,20 @@
 import { TextField, InputAdornment, Tooltip, IconButton, Divider, Typography } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import type { FlashChamberInput } from '@vapour/types';
-import { FLASH_CHAMBER_LIMITS, DEFAULT_SUCTION_FRICTION_LOSS } from '@vapour/types';
+import {
+  FLASH_CHAMBER_LIMITS,
+  DEFAULT_SUCTION_FRICTION_LOSS,
+  DEFAULT_NPSH_SAFETY_MARGIN,
+} from '@vapour/types';
 
 interface ElevationInputsProps {
   inputs: FlashChamberInput;
-  onChange: (field: keyof FlashChamberInput, value: number | string | boolean) => void;
+  /**
+   * `undefined` clears an optional field. It must not be coerced to 0 or '' —
+   * the NPSHr check keys off `undefined` meaning "no pump named", and an empty
+   * string would read as a named pump with an unusable value.
+   */
+  onChange: (field: keyof FlashChamberInput, value: number | string | boolean | undefined) => void;
 }
 
 export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
@@ -171,6 +180,79 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
           onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Flat estimate — not computed from a pipe run (default ${DEFAULT_SUCTION_FRICTION_LOSS} m)`}
+        fullWidth
+      />
+
+      {/* Pump NPSHr — optional; supplying it turns advice into a pass/fail */}
+      <TextField
+        label="Pump NPSHr (optional)"
+        type="number"
+        value={inputs.pumpNPSHr ?? ''}
+        onChange={(e) =>
+          onChange('pumpNPSHr', e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)
+        }
+        InputProps={{
+          endAdornment: (
+            <>
+              <InputAdornment position="end">m</InputAdornment>
+              <Tooltip title="NPSHr of the extraction pump, from its datasheet. Supplied, the calculator checks NPSHa against it at every level and reports a pass or fail instead of a pump-class recommendation. Left blank, no check is performed.">
+                <IconButton
+                  size="small"
+                  aria-label="NPSHr of the extraction pump from its datasheet. Optional; enables the adequacy check."
+                >
+                  <InfoIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          ),
+        }}
+        inputProps={{
+          min: FLASH_CHAMBER_LIMITS.pumpNPSHr.min,
+          max: FLASH_CHAMBER_LIMITS.pumpNPSHr.max,
+          step: 0.1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
+        }}
+        helperText="Blank = no adequacy check, recommendation only"
+        fullWidth
+      />
+
+      {/* NPSH Safety Margin — shows the value in use, not a blank */}
+      <TextField
+        label="NPSH Safety Margin"
+        type="number"
+        value={inputs.npshSafetyMargin ?? DEFAULT_NPSH_SAFETY_MARGIN}
+        onChange={(e) =>
+          onChange(
+            'npshSafetyMargin',
+            e.target.value === '' ? undefined : parseFloat(e.target.value) || 0
+          )
+        }
+        InputProps={{
+          endAdornment: (
+            <>
+              <InputAdornment position="end">m</InputAdornment>
+              <Tooltip title="Head required above NPSHr before the vessel counts as adequate. This repo carries three unreconciled values: this calculator recommends 1.5 m, the suction system designer defaults to 0.5 m, and the stated working rule is about 1 m. Set it deliberately.">
+                <IconButton
+                  size="small"
+                  aria-label="Head required above NPSHr before the vessel counts as adequate."
+                >
+                  <InfoIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          ),
+        }}
+        inputProps={{
+          min: FLASH_CHAMBER_LIMITS.npshSafetyMargin.min,
+          max: FLASH_CHAMBER_LIMITS.npshSafetyMargin.max,
+          step: 0.1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
+        }}
+        helperText={
+          inputs.pumpNPSHr === undefined
+            ? 'Not applied — enter a pump NPSHr above to check against it'
+            : `Required above NPSHr. ${DEFAULT_NPSH_SAFETY_MARGIN} m here, 0.5 m in the suction system designer, ~1 m as the working rule — set it deliberately`
+        }
         fullWidth
       />
     </>
