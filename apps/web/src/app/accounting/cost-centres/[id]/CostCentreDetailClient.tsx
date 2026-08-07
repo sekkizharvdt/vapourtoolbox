@@ -161,7 +161,10 @@ export default function CostCentreDetailClient() {
     const unsubInvoices = onSnapshot(
       invoicesQuery,
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => docToTypedWithDates<CustomerInvoice>(d.id, d.data()));
+        // Rule 3: exclude trashed documents from the cost centre's financials
+        const docs = snapshot.docs
+          .filter((d) => !d.data().isDeleted)
+          .map((d) => docToTypedWithDates<CustomerInvoice>(d.id, d.data()));
         setInvoices(docs);
       },
       (err) => console.error('[CostCentreDetail] Error loading invoices:', err)
@@ -178,7 +181,10 @@ export default function CostCentreDetailClient() {
     const unsubPayments = onSnapshot(
       paymentsQuery,
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => docToTypedWithDates<BaseTransaction>(d.id, d.data()));
+        // Rule 3: exclude trashed documents from the cost centre's financials
+        const docs = snapshot.docs
+          .filter((d) => !d.data().isDeleted)
+          .map((d) => docToTypedWithDates<BaseTransaction>(d.id, d.data()));
         setPayments(docs);
       },
       (err) => console.error('[CostCentreDetail] Error loading payments:', err)
@@ -195,7 +201,10 @@ export default function CostCentreDetailClient() {
     const unsubBills = onSnapshot(
       billsQuery,
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => docToTypedWithDates<BaseTransaction>(d.id, d.data()));
+        // Rule 3: exclude trashed documents from the cost centre's financials
+        const docs = snapshot.docs
+          .filter((d) => !d.data().isDeleted)
+          .map((d) => docToTypedWithDates<BaseTransaction>(d.id, d.data()));
         setBills(docs);
       },
       (err) => console.error('[CostCentreDetail] Error loading bills:', err)

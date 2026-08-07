@@ -65,6 +65,9 @@ interface Transaction {
   vendorInvoiceNumber?: string;
   entityName?: string;
   status?: string;
+  /** Soft-delete marker (see SoftDeleteFields) — trashed entries are excluded
+   *  from the ledger per rule 3. */
+  isDeleted?: boolean;
 }
 
 // Helper to safely convert Firestore Timestamp or Date to Date
@@ -213,6 +216,12 @@ export default function AccountLedgerPage() {
       const relevantTransactions: Transaction[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as Transaction;
+        // Rule 3: trashed transactions must not reach the ledger. Filtered
+        // client-side, not via where('isDeleted','!=',true), which would drop
+        // every document that predates the field. Without this the running
+        // balance counted entries sitting in Trash, so users had to empty the
+        // Trash — destroying the audit trail — to get a correct ledger.
+        if (data.isDeleted) return;
         const hasEntry = data.entries?.some((entry) => entry.accountId === accountId);
         if (hasEntry) {
           relevantTransactions.push({ ...data, id: doc.id });

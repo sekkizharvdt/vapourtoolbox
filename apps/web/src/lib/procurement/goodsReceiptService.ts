@@ -38,7 +38,11 @@ import {
   createPaymentFromApprovedReceipt,
 } from './accountingIntegration';
 import { PERMISSION_FLAGS, PERMISSION_FLAGS_2 } from '@vapour/constants';
-import { requirePermission, preventSelfApproval } from '@/lib/auth/authorizationService';
+import {
+  requirePermission,
+  requirePermission2,
+  preventSelfApproval,
+} from '@/lib/auth/authorizationService';
 import { getUsersWithPermission } from '@/lib/auth/userLookup';
 import { getPLById } from './packingListService';
 
@@ -80,7 +84,7 @@ export async function createGoodsReceipt(
   // rule8-exempt: sets the initial status on a brand-new document — state-machine validation only applies to transitions, not first-write
   // PR-16: Check INSPECT_GOODS permission for GR creation
   if (userPermissions2 !== undefined) {
-    requirePermission(
+    requirePermission2(
       userPermissions2,
       PERMISSION_FLAGS_2.INSPECT_GOODS,
       userId,
@@ -475,7 +479,7 @@ export async function completeGR(
   // rule8-exempt: workflow function called by an upstream gate that already validated the transition
   // PR-16: Use granular APPROVE_GR flag when available, fall back to MANAGE_PROCUREMENT
   if (userPermissions2 !== undefined) {
-    requirePermission(
+    requirePermission2(
       userPermissions2,
       PERMISSION_FLAGS_2.APPROVE_GR,
       userId,

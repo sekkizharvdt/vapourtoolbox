@@ -119,6 +119,9 @@ export default function ProjectFinancialReportPage() {
 
       transactionsSnapshot.forEach((doc) => {
         const data = doc.data();
+        // Rule 3: skip trashed transactions so revenue/expense totals and the
+        // listing match the live books (filtered client-side, not in the query).
+        if (data.isDeleted) return;
         const transaction = docToTypedWithDates<BaseTransaction>(doc.id, data);
 
         transactions.push(transaction);

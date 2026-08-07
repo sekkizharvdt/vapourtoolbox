@@ -46,6 +46,7 @@ import { listPOs, getPOItems } from '@/lib/procurement/purchaseOrderService';
 import { createGoodsReceipt } from '@/lib/procurement/goodsReceiptService';
 import { getPackingListsByPO } from '@/lib/procurement/packingListService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 
 interface InspectionItem {
   poItemId: string;
@@ -134,7 +135,12 @@ export default function NewGoodsReceiptPage() {
     try {
       // Load POs that are issued or in progress (eligible for goods receipts)
       // and exclude POs that have already received their full ordered quantity.
-      const pos = await listPOs({});
+      // Rule 35: wrapped because a newly granted permission lives in the user's
+      // custom claims, and their cached ID token lags behind it for minutes.
+      // Whichever call runs first fails first, so every one is wrapped — not
+      // just the write. (INSPECT_GOODS was granted to unblock GR creation;
+      // without this the first thing users hit is a permission-denied list.)
+      const pos = await retryOnStaleToken(() => listPOs({}));
       const eligiblePOs = pos.filter(
         (po) =>
           ['ISSUED', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(po.status) &&
@@ -160,7 +166,10 @@ export default function NewGoodsReceiptPage() {
 
     setLoadingPLs(true);
     try {
-      const [items, pls] = await Promise.all([getPOItems(po.id), getPackingListsByPO(po.id)]);
+      const [items, pls] = await Promise.all([
+        retryOnStaleToken(() => getPOItems(po.id)),
+        retryOnStaleToken(() => getPackingListsByPO(po.id)),
+      ]);
 
       // A GR requires a finalized (non-draft) Packing List for the PO.
       setAvailablePLs(pls.filter((pl) => pl.status !== 'DRAFT'));
@@ -266,33 +275,35 @@ export default function NewGoodsReceiptPage() {
     setError('');
 
     try {
-      const grId = await createGoodsReceipt(
-        {
-          purchaseOrderId: selectedPO.id,
-          packingListId: selectedPL.id,
-          projectId: selectedPO.projectIds?.[0] || '',
-          projectName: selectedPO.projectNames?.[0] || '',
-          inspectionType,
-          inspectionLocation,
-          inspectionDate: new Date(inspectionDate),
-          overallNotes: overallNotes || undefined,
-          items: inspectionItems.map((item) => ({
-            poItemId: item.poItemId,
-            receivedQuantity: item.receivedQuantity,
-            acceptedQuantity: item.acceptedQuantity,
-            rejectedQuantity: item.rejectedQuantity,
-            condition: item.condition,
-            conditionNotes: item.conditionNotes || undefined,
-            testingRequired: item.testingRequired,
-            testingCompleted: item.testingCompleted,
-            testResult: item.testResult || undefined,
-            hasIssues: item.hasIssues,
-            issues: item.issues ? item.issues.split('\n').filter(Boolean) : undefined,
-          })),
-        },
-        user.uid,
-        user.displayName || 'Unknown',
-        claims?.permissions2
+      const grId = await retryOnStaleToken(() =>
+        createGoodsReceipt(
+          {
+            purchaseOrderId: selectedPO.id,
+            packingListId: selectedPL.id,
+            projectId: selectedPO.projectIds?.[0] || '',
+            projectName: selectedPO.projectNames?.[0] || '',
+            inspectionType,
+            inspectionLocation,
+            inspectionDate: new Date(inspectionDate),
+            overallNotes: overallNotes || undefined,
+            items: inspectionItems.map((item) => ({
+              poItemId: item.poItemId,
+              receivedQuantity: item.receivedQuantity,
+              acceptedQuantity: item.acceptedQuantity,
+              rejectedQuantity: item.rejectedQuantity,
+              condition: item.condition,
+              conditionNotes: item.conditionNotes || undefined,
+              testingRequired: item.testingRequired,
+              testingCompleted: item.testingCompleted,
+              testResult: item.testResult || undefined,
+              hasIssues: item.hasIssues,
+              issues: item.issues ? item.issues.split('\n').filter(Boolean) : undefined,
+            })),
+          },
+          user.uid,
+          user.displayName || 'Unknown',
+          claims?.permissions2
+        )
       );
 
       router.push(`/procurement/goods-receipts/${grId}`);

@@ -14,7 +14,12 @@
 
 import { doc, getDoc, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import { PERMISSION_FLAGS, hasPermission, PERMISSION_FLAGS_2 } from '@vapour/constants';
+import {
+  PERMISSION_FLAGS,
+  hasPermission,
+  PERMISSION_FLAGS_2,
+  hasPermission2,
+} from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 
 /**
@@ -99,6 +104,10 @@ export function createAuthContext(
 /**
  * Require a specific permission
  *
+ * Only for flags from PERMISSION_FLAGS (the first bitfield). For
+ * PERMISSION_FLAGS_2 flags use requirePermission2 — passing them here checks
+ * the wrong bitfield AND names the wrong flag in the error.
+ *
  * @param permissions - User's permissions
  * @param flag - Required permission flag
  * @param userId - User ID for logging
@@ -113,6 +122,53 @@ export function requirePermission(
 ): void {
   if (!hasPermission(permissions, flag)) {
     const flagName = getPermissionName(flag);
+    const message = operation
+      ? `Permission denied: ${operation} requires ${flagName}`
+      : `Permission denied: requires ${flagName}`;
+
+    logger.warn('Permission denied', { userId, requiredPermission: flagName, operation });
+    throw new AuthorizationError(message, flag, userId, operation);
+  }
+}
+
+/**
+ * Look up a permission flag name from the SECOND bitfield.
+ *
+ * Kept separate from getPermissionName because the two bitfields reuse the same
+ * numeric values — INSPECT_GOODS and VIEW_PROCUREMENT are both `1 << 17`, and
+ * APPROVE_GR and MANAGE_ESTIMATION are both `1 << 18`. A value alone cannot
+ * identify a flag, so the caller has to say which bitfield it meant.
+ */
+function getPermissionName2(flag: number): string {
+  for (const [key, value] of Object.entries(PERMISSION_FLAGS_2)) {
+    if (value === flag) return key;
+  }
+  return `PERMISSION2(${flag})`;
+}
+
+/**
+ * Require a specific permission from the SECOND bitfield (PERMISSION_FLAGS_2).
+ *
+ * Use this instead of requirePermission for every PERMISSION_FLAGS_2 flag, and
+ * pass the user's `permissions2` value. Routing those flags through
+ * requirePermission resolved the name against the first bitfield, so a missing
+ * INSPECT_GOODS surfaced to the user as "requires VIEW_PROCUREMENT" — a
+ * permission they already held, which made the real cause unfindable.
+ *
+ * @param permissions2 - User's second-bitfield permissions
+ * @param flag - Required PERMISSION_FLAGS_2 flag
+ * @param userId - User ID for logging
+ * @param operation - Operation name for error messages
+ * @throws AuthorizationError if permission not granted
+ */
+export function requirePermission2(
+  permissions2: number,
+  flag: number,
+  userId: string,
+  operation?: string
+): void {
+  if (!hasPermission2(permissions2, flag)) {
+    const flagName = getPermissionName2(flag);
     const message = operation
       ? `Permission denied: ${operation} requires ${flagName}`
       : `Permission denied: requires ${flagName}`;

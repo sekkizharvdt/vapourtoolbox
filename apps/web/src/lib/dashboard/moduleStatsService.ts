@@ -5,7 +5,14 @@
  * Used by the dashboard to show badges and quick stats
  */
 
-import { collection, query, where, getCountFromServer, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getCountFromServer,
+  getDocs,
+  Timestamp,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/utils';
@@ -162,24 +169,28 @@ async function getAccountingStats(_tenantId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
-    // Count pending customer invoices
-    const pendingInvoicesQuery = query(
-      collection(db, COLLECTIONS.TRANSACTIONS),
-      where('type', '==', 'CUSTOMER_INVOICE'),
-      where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
-    );
-    const pendingInvoicesSnapshot = await getCountFromServer(pendingInvoicesQuery);
+    // Rule 3 forces getDocs + a client-side filter here rather than
+    // getCountFromServer: an aggregate count cannot exclude soft-deleted docs,
+    // and where('isDeleted','!=',true) would drop every document written before
+    // the field existed. The scan is bounded to DRAFT/PENDING_APPROVAL items,
+    // so it stays small.
+    const countLive = async (type: 'CUSTOMER_INVOICE' | 'VENDOR_BILL') => {
+      const snap = await getDocs(
+        query(
+          collection(db, COLLECTIONS.TRANSACTIONS),
+          where('type', '==', type),
+          where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
+        )
+      );
+      return snap.docs.filter((d) => !d.data().isDeleted).length;
+    };
 
-    // Count pending vendor bills
-    const pendingBillsQuery = query(
-      collection(db, COLLECTIONS.TRANSACTIONS),
-      where('type', '==', 'VENDOR_BILL'),
-      where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
-    );
-    const pendingBillsSnapshot = await getCountFromServer(pendingBillsQuery);
+    const [pendingInvoices, pendingBills] = await Promise.all([
+      countLive('CUSTOMER_INVOICE'),
+      countLive('VENDOR_BILL'),
+    ]);
 
-    const totalPending =
-      (pendingInvoicesSnapshot.data().count || 0) + (pendingBillsSnapshot.data().count || 0);
+    const totalPending = pendingInvoices + pendingBills;
 
     return {
       moduleId: 'accounting',

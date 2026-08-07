@@ -1133,16 +1133,20 @@ export async function getOutstandingBillsForProject(
   // Note: Firestore doesn't support optional where clauses, so we filter in memory
   const snapshot = await getDocs(q);
 
-  let bills: VendorBill[] = snapshot.docs.map((docSnap) => {
-    const data = docSnap.data() as Omit<VendorBill, 'id'>;
-    const rawBillDate = data.billDate ?? data.date;
-    return {
-      id: docSnap.id,
-      ...data,
-      billDate: rawBillDate instanceof Timestamp ? rawBillDate.toDate() : rawBillDate,
-      dueDate: data.dueDate instanceof Timestamp ? data.dueDate.toDate() : data.dueDate,
-    };
-  });
+  let bills: VendorBill[] = snapshot.docs
+    // Rule 3: a trashed bill must never be offered for payment. Filtered
+    // client-side, not in the query, so bills predating the field still appear.
+    .filter((docSnap) => !docSnap.data().isDeleted)
+    .map((docSnap) => {
+      const data = docSnap.data() as Omit<VendorBill, 'id'>;
+      const rawBillDate = data.billDate ?? data.date;
+      return {
+        id: docSnap.id,
+        ...data,
+        billDate: rawBillDate instanceof Timestamp ? rawBillDate.toDate() : rawBillDate,
+        dueDate: data.dueDate instanceof Timestamp ? data.dueDate.toDate() : data.dueDate,
+      };
+    });
 
   // Filter by project if needed
   if (projectId && !includeAllProjects) {

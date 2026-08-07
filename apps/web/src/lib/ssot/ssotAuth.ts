@@ -5,7 +5,7 @@
  * PE-18: Project ownership validation for SSOT data
  */
 
-import { requirePermission } from '@/lib/auth/authorizationService';
+import { requirePermission2 } from '@/lib/auth/authorizationService';
 import { PERMISSION_FLAGS_2 } from '@vapour/constants';
 
 /**
@@ -36,7 +36,7 @@ export function validateSSOTWriteAccess(
 
   // PE-14: Check MANAGE_SSOT permission
   if (accessCheck.userPermissions2 !== undefined) {
-    requirePermission(
+    requirePermission2(
       accessCheck.userPermissions2,
       PERMISSION_FLAGS_2.MANAGE_SSOT,
       userId,

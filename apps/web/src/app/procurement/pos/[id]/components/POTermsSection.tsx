@@ -513,17 +513,25 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   ))}
                 </Stack>
               </Box>
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Inspection
-                </Typography>
-                <Typography variant="body2">
-                  {INSPECTOR_LABELS[terms.inspectorType] || terms.inspectorType}
-                  {terms.inspectionType && (
-                    <> — {terms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection</>
-                  )}
-                </Typography>
-              </Box>
+              {/* Omitted when inspection is unselected, matching the PDF
+                  (POPDFDocument "Quality & Inspection"). Without this the view
+                  kept showing a stale inspectorType — reported as "Third Party"
+                  still appearing after inspection was turned off (jRO7w8mg).
+                  Compared against `false` explicitly so POs predating the flag,
+                  where it is undefined, keep showing their inspection terms. */}
+              {terms.inspectionRequired !== false && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Inspection
+                  </Typography>
+                  <Typography variant="body2">
+                    {INSPECTOR_LABELS[terms.inspectorType] || terms.inspectorType}
+                    {terms.inspectionType && (
+                      <> — {terms.inspectionType === 'STAGE' ? 'Stage' : 'Final'} inspection</>
+                    )}
+                  </Typography>
+                </Box>
+              )}
               {terms.inspectionDocuments && terms.inspectionDocuments.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2" color="text.secondary">

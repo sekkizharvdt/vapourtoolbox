@@ -47,7 +47,7 @@ import { PdfViewer } from '@/components/common/PdfViewer';
 import type { VendorQuote, VendorQuoteItem, QuoteStatus, QuoteItemType } from '@vapour/types';
 import { catalogKindToItemType, itemTypeToCatalogKind } from '@vapour/types';
 import { canManageEstimation, QUOTE_LINE_LABELS } from '@vapour/constants';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrencyCode } from '@/lib/utils/formatters';
 import {
   getVendorQuoteById,
   getVendorQuoteItems,
@@ -496,12 +496,55 @@ export default function QuoteDetailClient() {
                 {offer.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </Typography>
             </Grid>
+            {/* Commercial terms and cost components. These were captured by the
+                edit dialog and stored, but never rendered here — so users saw
+                them only in Remarks and assumed their edits hadn't saved
+                (feedback WWVYRPiV). Each is optional; absent fields stay hidden
+                rather than showing an empty label. */}
+            {offer.discount != null && offer.discount > 0 && (
+              <Grid size={{ xs: 6, md: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Discount
+                </Typography>
+                <Typography variant="body2">
+                  {formatCurrencyCode(offer.discount, offer.currency)}
+                </Typography>
+              </Grid>
+            )}
+            {(
+              [
+                ['Payment Terms', offer.paymentTerms],
+                ['Delivery Terms', offer.deliveryTerms],
+                ['Warranty Terms', offer.warrantyTerms],
+                // `exWorks` / `erectionAfterPurchase` are the stored field
+                // names; these are the labels the domain uses for them.
+                ['Price Basis', offer.exWorks],
+                ['Packing & Forwarding', offer.packingForwarding],
+                ['Freight / Transportation', offer.transportation],
+                ['Insurance', offer.insurance],
+                ['Erection & Commissioning', offer.erectionAfterPurchase],
+                ['Inspection', offer.inspection],
+              ] as const
+            )
+              .filter(([, value]) => (value ?? '').trim() !== '')
+              .map(([label, value]) => (
+                <Grid key={label} size={{ xs: 12, md: 4 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {label}
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {value}
+                  </Typography>
+                </Grid>
+              ))}
             {offer.remarks && (
               <Grid size={{ xs: 12 }}>
                 <Typography variant="caption" color="text.secondary">
                   Remarks
                 </Typography>
-                <Typography variant="body2">{offer.remarks}</Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {offer.remarks}
+                </Typography>
               </Grid>
             )}
           </Grid>
