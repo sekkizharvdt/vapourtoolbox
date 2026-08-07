@@ -1,19 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  TextField,
-  Grid,
-  MenuItem,
-  Box,
-  Typography,
-  Checkbox,
-  FormControlLabel,
-} from '@mui/material';
+import { TextField, Grid, Box, Typography, Checkbox, FormControlLabel } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
+import { getDefaultBankAccount } from '@/lib/accounting/defaultBankAccount';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { Timestamp, query, collection, doc, getDoc, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,7 +23,6 @@ import {
   BillAllocationTable,
   TDSSection,
   OutstandingBillsSummary,
-  PAYMENT_METHODS,
   TDS_SECTIONS,
 } from './vendor-payment';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
@@ -358,6 +350,23 @@ export function RecordVendorPaymentDialog({
     }
   }, [open, editingPayment]);
 
+  // Pre-select the operating bank account on new payments (feedback 2CzHpyR8).
+  // Rule 15: the selector's callbacks fire only on user interaction, so the id
+  // is set directly here.
+  useEffect(() => {
+    if (!open || editingPayment) return;
+    let cancelled = false;
+    (async () => {
+      const { db } = getFirebase();
+      const account = await getDefaultBankAccount(db);
+      if (cancelled || !account) return;
+      setBankAccountId((current) => current || account.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, editingPayment]);
+
   const handleAllocationChange = (billId: string, allocatedAmount: number) => {
     setAllocations((prev) =>
       prev.map((allocation) => {
@@ -449,15 +458,9 @@ export function RecordVendorPaymentDialog({
       return;
     }
 
-    if (paymentMethod === 'CHEQUE' && !chequeNumber) {
-      setError('Please enter cheque number');
-      return;
-    }
-
-    if (paymentMethod === 'UPI' && !upiTransactionId) {
-      setError('Please enter UPI transaction ID');
-      return;
-    }
+    // Cheque / UPI validation removed with the Payment Method selector
+    // (feedback 2CzHpyR8) — paymentMethod can no longer be anything but
+    // BANK_TRANSFER, so both branches were unreachable.
 
     if (tdsDeducted && !tdsSection) {
       setError('Please select TDS section');
@@ -519,10 +522,12 @@ export function RecordVendorPaymentDialog({
       };
 
       // Conditionally add optional fields (avoid undefined values in Firestore)
-      if (paymentMethod === 'CHEQUE' && chequeNumber) {
+      // No longer gated on paymentMethod (always BANK_TRANSFER) so a document
+      // already carrying a cheque or UPI value keeps it when edited (rule 22).
+      if (chequeNumber) {
         paymentData.chequeNumber = chequeNumber;
       }
-      if (paymentMethod === 'UPI' && upiTransactionId) {
+      if (upiTransactionId) {
         paymentData.upiTransactionId = upiTransactionId;
       }
       if (bankAccountId) {
@@ -731,49 +736,12 @@ export function RecordVendorPaymentDialog({
             />
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <TextField
-              fullWidth
-              select
-              label="Payment Method"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              required
-              {...getFieldProps(4)}
-            >
-              {PAYMENT_METHODS.map((method) => (
-                <MenuItem key={method} value={method}>
-                  {method.replace('_', ' ')}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-
-          {paymentMethod === 'CHEQUE' && (
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Cheque Number"
-                value={chequeNumber}
-                onChange={(e) => setChequeNumber(e.target.value)}
-                required
-                {...getFieldProps(5)}
-              />
-            </Grid>
-          )}
-
-          {paymentMethod === 'UPI' && (
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="UPI Transaction ID"
-                value={upiTransactionId}
-                onChange={(e) => setUpiTransactionId(e.target.value)}
-                required
-                {...getFieldProps(5)}
-              />
-            </Grid>
-          )}
+          {/* Payment Method selector removed (feedback 2CzHpyR8), along with the
+              Cheque Number / UPI Transaction ID fields it revealed. Every one of
+              the 520 payment transactions on record used BANK_TRANSFER, so the
+              choice was noise; paymentMethod is still written as BANK_TRANSFER
+              and the cheque/UPI values are still persisted if a document
+              somehow carries them. */}
 
           <Grid size={{ xs: 12, md: 6 }}>
             <AccountSelector

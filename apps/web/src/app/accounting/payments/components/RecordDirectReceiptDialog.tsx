@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { TextField, Grid, MenuItem, Box, Typography, Alert } from '@mui/material';
+import { TextField, Grid, Box, Typography, Alert } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
-import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { getFirebase } from '@/lib/firebase';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
@@ -13,16 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PaymentMethod, LedgerEntry } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
+import { getDefaultBankAccount } from '@/lib/accounting/defaultBankAccount';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
-
-const PAYMENT_METHODS: PaymentMethod[] = [
-  'CASH',
-  'CHEQUE',
-  'BANK_TRANSFER',
-  'UPI',
-  'CREDIT_CARD',
-  'DEBIT_CARD',
-];
 
 interface DirectReceipt {
   id?: string;
@@ -131,6 +122,29 @@ export function RecordDirectReceiptDialog({
     }
   }, [open, editingReceipt]);
 
+  // Pre-select the operating bank account on new receipts (feedback 2CzHpyR8).
+  // Rule 15: AccountSelector's onAccountSelect fires only on user interaction,
+  // so setting the id alone would leave bankAccountCode/bankAccountName empty —
+  // and both feed the GL entry below. All three are set here.
+  useEffect(() => {
+    if (!open || editingReceipt) return;
+    let cancelled = false;
+    (async () => {
+      const { db } = getFirebase();
+      const account = await getDefaultBankAccount(db);
+      if (cancelled || !account) return;
+      setBankAccountId((current) => {
+        if (current) return current; // user already picked one
+        setBankAccountCode(account.code);
+        setBankAccountName(account.name);
+        return account.id;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, editingReceipt]);
+
   const handleSubmit = async () => {
     // Validation
     if (!revenueAccountId) {
@@ -153,15 +167,9 @@ export function RecordDirectReceiptDialog({
       return;
     }
 
-    if (paymentMethod === 'CHEQUE' && !chequeNumber) {
-      setError('Please enter cheque number');
-      return;
-    }
-
-    if (paymentMethod === 'UPI' && !upiTransactionId) {
-      setError('Please enter UPI transaction ID');
-      return;
-    }
+    // Cheque / UPI validation removed with the Receipt Method selector
+    // (feedback 2CzHpyR8) — paymentMethod can no longer be anything but
+    // BANK_TRANSFER, so both branches were unreachable.
 
     setLoading(true);
     setError('');
@@ -229,10 +237,12 @@ export function RecordDirectReceiptDialog({
       };
 
       // Conditionally add optional fields
-      if (paymentMethod === 'CHEQUE' && chequeNumber) {
+      // No longer gated on paymentMethod (always BANK_TRANSFER) so a document
+      // already carrying a cheque or UPI value keeps it when edited (rule 22).
+      if (chequeNumber) {
         receiptData.chequeNumber = chequeNumber;
       }
-      if (paymentMethod === 'UPI' && upiTransactionId) {
+      if (upiTransactionId) {
         receiptData.upiTransactionId = upiTransactionId;
       }
       if (projectId) {
@@ -382,18 +392,10 @@ export function RecordDirectReceiptDialog({
             />
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <EntitySelector
-              value={entityId}
-              onChange={setEntityId}
-              onEntitySelect={(entity) => {
-                setEntityName(entity?.name || '');
-              }}
-              label="Customer / Payer (Optional)"
-              placeholder="Link to a customer..."
-              filterByRole="CUSTOMER"
-            />
-          </Grid>
+          {/* Customer / Payer selector removed (feedback rJWZINOx) — a direct
+              receipt is by definition not tied to a customer record. State and
+              persistence are kept so receipts created before the removal keep
+              their stored entity when edited (rule 22). */}
 
           {/* Account Selection */}
           <Grid size={{ xs: 12 }}>
@@ -431,70 +433,19 @@ export function RecordDirectReceiptDialog({
             />
           </Grid>
 
-          {/* Payment Method */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-              Receipt Method
-            </Typography>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 6 }}>
-            <TextField
-              fullWidth
-              select
-              label="Receipt Method"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              required
-              {...getFieldProps(4)}
-            >
-              {PAYMENT_METHODS.map((method) => (
-                <MenuItem key={method} value={method}>
-                  {method.replace('_', ' ')}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-
-          {paymentMethod === 'CHEQUE' && (
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Cheque Number"
-                value={chequeNumber}
-                onChange={(e) => setChequeNumber(e.target.value)}
-                required
-                {...getFieldProps(5)}
-              />
-            </Grid>
-          )}
-
-          {paymentMethod === 'UPI' && (
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="UPI Transaction ID"
-                value={upiTransactionId}
-                onChange={(e) => setUpiTransactionId(e.target.value)}
-                required
-                {...getFieldProps(5)}
-              />
-            </Grid>
-          )}
+          {/* Receipt Method selector removed (feedback 2CzHpyR8), along with the
+              Cheque Number / UPI Transaction ID fields it revealed. Every one of
+              the 520 payment transactions on record used BANK_TRANSFER, so the
+              choice was noise; paymentMethod is still written as BANK_TRANSFER
+              and the cheque/UPI values are still persisted if a document
+              somehow carries them. */}
 
           {/* Cost Centre selector removed (feedback mEx1X1qlKRqkCM8DZEYx) —
               existing payments keep their stored project on edit. */}
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <TextField
-              fullWidth
-              label="Reference"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="External reference number"
-              {...getFieldProps(7)}
-            />
-          </Grid>
+          {/* Reference field removed (feedback rJWZINOx) — the transaction
+              number already identifies the receipt. State and persistence are
+              kept so existing receipts keep their stored reference on edit. */}
 
           <Grid size={{ xs: 12 }}>
             <TextField
