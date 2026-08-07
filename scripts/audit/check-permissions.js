@@ -212,7 +212,12 @@ function findMatchingBrace(s, startIdx) {
 const WRITE_RE =
   /\b(?:setDoc|updateDoc|addDoc|deleteDoc|writeBatch\(|\.commit\(\)|tx\.set\(|tx\.update\(|tx\.delete\(|tx\.create\(|batch\.set\(|batch\.update\(|batch\.delete\(|batch\.create\(|runTransaction)\b/;
 
-const PERMISSION_RE = /\b(?:requirePermission|requireAnyPermission|requireOwnerOrPermission)\b/;
+// `requirePermission2` gates the SECOND permission bitfield (PERMISSION_FLAGS_2)
+// and must be listed before `requirePermission`: the trailing \b in the shorter
+// alternative fails against the trailing digit, so without its own entry a
+// function gated only by requirePermission2 reads as ungated.
+const PERMISSION_RE =
+  /\b(?:requirePermission2|requirePermission|requireAnyPermission|requireOwnerOrPermission)\b/;
 
 const PREVENT_SELF_RE = /\bpreventSelfApproval\s*\(/;
 

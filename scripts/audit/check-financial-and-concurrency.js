@@ -193,6 +193,7 @@ function analyseFile(filePath) {
 
   // Rule #3 — line-level.
   lines.forEach((line, idx) => {
+    if (/^\s*(\/\/|\*)/.test(line)) return; // skip comments (same guard as rule #21 below)
     if (ISDELETED_NEQ_RE.test(line)) {
       violations.rule3.push({
         file: rel,
