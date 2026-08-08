@@ -1,6 +1,6 @@
 # Feedback intake — make bug reports diagnosable
 
-**Status:** proposed, not started
+**Status:** Phase A done (a7f4e0c0), Phase D done (c78d5e6e). B1, C, B2 outstanding.
 **Date:** 2026-08-07
 **Origin:** trend analysis over all 289 feedback records, run while working the
 2026-08-04→06 feedback batch (see "Evidence" below).
@@ -91,6 +91,8 @@ requiring the user to type structured diagnostic detail fails.** Design to that.
 
 ## Phase A — Close the reply loop
 
+> **DONE — commit a7f4e0c0.**
+>
 > **Corrected 2026-08-07 after reading the code.** An earlier draft of this plan
 > claimed nothing notifies anyone in either direction, and proposed reusing
 > `createNotification`. Both were wrong. The gap is real but narrower, and
@@ -151,23 +153,46 @@ No new collection, so no new Firestore rules or indexes are required.
 
 ## Phase D — Rebuild the request form to actually collect
 
+> **DONE — commit c78d5e6e.** Two corrections found while implementing, both
+> recorded below.
+
 Placed before B/C because 122 feature requests currently arrive unrankable, and
 every new one adds to that.
 
 **D1 — make one substantive question required, not two optional ones.** Two
 optional boxes yield 17%; one required box yields 100%. Recommend requiring
 **Use Case** and folding Expected Outcome into the description. Requiring both
-risks abandonment and junk input.
+risks abandonment and junk input. — _Done: Use Case required, Expected Outcome
+removed._
 
-**D2 — capture `pageUrl` for features.** Already free from the referrer; stop
-treating it as bug-only.
+**D2 — capture `pageUrl` for features.** ~~Already free from the referrer~~ —
+**this was wrong.** `/feedback` is a page reached by client-side navigation, and
+Next.js does not set `document.referrer` on a client-side route change, so it is
+empty for most submissions. Bugs reach 100% only because the field is rendered
+and required and users paste it by hand; features sat at 16% precisely because
+nothing asked.
+
+_Done via `RouteTracker` (`components/common/RouteTracker.tsx`) recording the
+route into sessionStorage on every navigation, read back by
+`lib/feedback/lastAppRoute.ts`. sessionStorage rather than context because the
+command palette opens `/feedback` in a new tab, which is a full page load._
+
+_This also fixed module auto-detection, which fell back to
+`detectModuleFromUrl(window.location.href)` — the URL of `/feedback` itself —
+whenever the referrer was empty._
 
 **D3 — reuse the B1 record identifier** for features. "This on _this_ PO screen"
 beats "PO Dashboard".
 
-**D4 — add a prioritisation signal.** There is currently nothing to rank 122
-requests by, since `priority` is derived (C2). Something cheap and honest —
-how often the user hits this, or who else is blocked.
+**D4 — ~~add~~ enforce a prioritisation signal.** The claim that there is
+nothing to rank requests by was **wrong**: `FeedbackImpact` / `IMPACT_OPTIONS`
+already existed, were already rendered as a "Feature Priority" select, and were
+already written to Firestore — just optional, and set on only 50 of 122
+requests. So this was enforcement, not new machinery.
+
+_Done: Impact is now required. `frequency` is the equivalent for bugs (49% set)
+and is left optional for now — bugs already have `pageUrl`, screenshots and
+(after B2) console errors carrying the diagnostic weight._
 
 - **Effort:** small–medium
 - **Risk:** required fields causing abandonment. Mitigation: require exactly one.
