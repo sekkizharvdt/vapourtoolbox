@@ -113,6 +113,12 @@ jest.mock('@mui/icons-material/Send', () => {
 });
 
 describe('Feedback Integration Tests', () => {
+  // Phase C3 made severity required on bug reports.
+  async function selectBugSeverity() {
+    fireEvent.mouseDown(await screen.findByLabelText(/Severity/i));
+    fireEvent.click(await screen.findByText(/System crash, data loss, security issue/i));
+  }
+
   // Phase D made a use case and an impact required on feature requests.
   async function fillFeatureRequiredFields() {
     fireEvent.change(await screen.findByTestId('use-case-input'), {
@@ -153,6 +159,8 @@ describe('Feedback Integration Tests', () => {
         },
       });
 
+      await selectBugSeverity();
+
       // Step 5: Submit
       const submitButton = screen.getByRole('button', { name: /Submit Feedback/i });
       fireEvent.click(submitButton);
@@ -171,7 +179,6 @@ describe('Feedback Integration Tests', () => {
           userEmail: 'integration@test.com',
           userName: 'Integration Test User',
           status: 'new',
-          priority: 'medium',
         });
       });
 
@@ -193,6 +200,8 @@ describe('Feedback Integration Tests', () => {
 
       const descriptionField = screen.getByLabelText(/Description/i);
       fireEvent.change(descriptionField, { target: { value: 'Description with evidence' } });
+
+      await selectBugSeverity();
 
       // Submit
       fireEvent.click(screen.getByRole('button', { name: /Submit Feedback/i }));
@@ -241,7 +250,6 @@ describe('Feedback Integration Tests', () => {
           title: 'Export transactions to Excel',
           description: expect.stringContaining('Excel format'),
           status: 'new',
-          priority: 'low', // Features get low priority by default
         });
 
         // Feature requests should NOT have bug-specific fields
@@ -286,7 +294,6 @@ describe('Feedback Integration Tests', () => {
           title: 'Great work on the new UI',
           description: expect.stringContaining('intuitive'),
           status: 'new',
-          priority: 'low',
         });
 
         // General feedback should NOT have type-specific fields
@@ -327,6 +334,9 @@ describe('Feedback Integration Tests', () => {
       // Fill URL
       const urlField = screen.getByLabelText(/Page URL where issue occurred/i);
       fireEvent.change(urlField, { target: { value: 'https://example.com/page' } });
+
+      // Severity is required too from Phase C3
+      await selectBugSeverity();
 
       // Now submit should work
       fireEvent.click(screen.getByRole('button', { name: /Submit Feedback/i }));

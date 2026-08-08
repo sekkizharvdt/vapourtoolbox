@@ -170,13 +170,11 @@ describe('getTypeConfig', () => {
 
 describe('BugDetailsSection', () => {
   const defaultProps = {
-    stepsToReproduce: '',
     expectedBehavior: '',
     actualBehavior: '',
     consoleErrors: '',
     screenshotUrls: [],
     isUploading: false,
-    onStepsChange: jest.fn(),
     onExpectedChange: jest.fn(),
     onActualChange: jest.fn(),
     onConsoleErrorsChange: jest.fn(),
@@ -191,10 +189,16 @@ describe('BugDetailsSection', () => {
   it('should render all bug detail fields', () => {
     render(<BugDetailsSection {...defaultProps} />);
 
-    expect(screen.getByLabelText(/Steps to Reproduce/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Expected Behavior/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Actual Behavior/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Console Errors/i)).toBeInTheDocument();
+  });
+
+  it('should no longer ask for steps to reproduce', () => {
+    // Phase C1 — answered on 5 of 168 bug reports.
+    render(<BugDetailsSection {...defaultProps} />);
+
+    expect(screen.queryByLabelText(/Steps to Reproduce/i)).not.toBeInTheDocument();
   });
 
   it('should render screenshot upload component', () => {
@@ -213,7 +217,6 @@ describe('BugDetailsSection', () => {
     render(
       <BugDetailsSection
         {...defaultProps}
-        stepsToReproduce="1. Click button"
         expectedBehavior="Should work"
         actualBehavior="Does not work"
         consoleErrors="Error: Something went wrong"
@@ -221,20 +224,10 @@ describe('BugDetailsSection', () => {
       />
     );
 
-    expect(screen.getByDisplayValue('1. Click button')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Should work')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Does not work')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Error: Something went wrong')).toBeInTheDocument();
     expect(screen.getByText('Screenshots: 2')).toBeInTheDocument();
-  });
-
-  it('should call onStepsChange when steps field changes', () => {
-    render(<BugDetailsSection {...defaultProps} />);
-
-    const stepsField = screen.getByLabelText(/Steps to Reproduce/i);
-    fireEvent.change(stepsField, { target: { value: 'New steps' } });
-
-    expect(defaultProps.onStepsChange).toHaveBeenCalledWith('New steps');
   });
 
   it('should call onExpectedChange when expected behavior field changes', () => {

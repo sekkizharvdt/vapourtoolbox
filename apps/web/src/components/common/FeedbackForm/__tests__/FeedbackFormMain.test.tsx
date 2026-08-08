@@ -77,22 +77,18 @@ jest.mock('../FeedbackTypeSelector', () => ({
   ),
 }));
 
+// Steps to Reproduce was removed from the bug form in Phase C1, so the mock no
+// longer offers it — leaving it here would let a future test exercise an input
+// the real component does not have.
 jest.mock('../BugDetailsSection', () => ({
   BugDetailsSection: ({
-    onStepsChange,
     onExpectedChange,
     onActualChange,
   }: {
-    onStepsChange: (value: string) => void;
     onExpectedChange: (value: string) => void;
     onActualChange: (value: string) => void;
   }) => (
     <div data-testid="bug-details-section">
-      <input
-        data-testid="steps-input"
-        onChange={(e) => onStepsChange(e.target.value)}
-        placeholder="Steps to reproduce"
-      />
       <input
         data-testid="expected-input"
         onChange={(e) => onExpectedChange(e.target.value)}
@@ -374,7 +370,9 @@ describe('FeedbackForm', () => {
     it('should NOT include undefined optional fields in submission', async () => {
       render(<FeedbackForm />);
 
-      // Fill only required fields (no severity/frequency selected)
+      // Severity is required from Phase C3, so it is always present on a bug.
+      // frequency and impact stay optional and must be absent when unset —
+      // Firestore rejects undefined (rule 12).
       const titleField = screen.getByLabelText(/Title/i);
       await userEvent.type(titleField, 'Test Bug');
 
@@ -384,15 +382,20 @@ describe('FeedbackForm', () => {
       const urlField = screen.getByLabelText(/Page URL where issue occurred/i);
       await userEvent.type(urlField, 'https://example.com/page');
 
-      // Submit without selecting severity/frequency
+      fireEvent.mouseDown(await screen.findByLabelText(/Severity/i));
+      fireEvent.click(await screen.findByText(/System crash, data loss, security issue/i));
+
+      // Submit without selecting frequency or impact
       fireEvent.click(screen.getByRole('button', { name: /Submit Feedback/i }));
 
       await waitFor(() => {
         expect(mockAddDoc).toHaveBeenCalled();
         const callArgs = mockAddDoc.mock.calls[0][1];
-        expect(callArgs).not.toHaveProperty('severity');
+        expect(callArgs).toHaveProperty('severity', 'critical');
         expect(callArgs).not.toHaveProperty('frequency');
         expect(callArgs).not.toHaveProperty('impact');
+        // priority is no longer written at all (Phase C2)
+        expect(callArgs).not.toHaveProperty('priority');
       });
     });
   });

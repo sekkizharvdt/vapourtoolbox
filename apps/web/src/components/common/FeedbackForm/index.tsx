@@ -203,6 +203,15 @@ export function FeedbackForm() {
       return;
     }
 
+    // Severity is now required (Phase C3). It was optional and set on 49% of
+    // bugs, of which 94% chose "critical" — a field that discriminates nothing.
+    // The four levels already carry written definitions, so forcing a choice is
+    // what makes them mean something, the same way impact works for features.
+    if (formData.type === 'bug' && !formData.severity) {
+      toast.error('Please choose how severe this issue is');
+      return;
+    }
+
     // Feature requests: require the two things that make a request rankable.
     // Both fields already existed and were optional, and were answered ~17% and
     // ~41% of the time — leaving 83% of requests with no use case and no way to
@@ -243,7 +252,10 @@ export function FeedbackForm() {
         userName: user?.displayName || null,
         createdAt: Timestamp.now(),
         status: 'new',
-        priority: formData.type === 'bug' ? 'medium' : 'low',
+        // `priority` is no longer written (Phase C2). It was
+        // `type === 'bug' ? 'medium' : 'low'` — a restatement of `type` that
+        // nothing queried or displayed, so it added a field without adding
+        // information. Existing records keep theirs; no migration (rule 31).
       };
 
       // Which record this is about, derived from the URL rather than typed
@@ -352,7 +364,7 @@ export function FeedbackForm() {
                 error={formData.type === 'bug' && !formData.pageUrl.trim()}
               />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <FormControl fullWidth>
+                <FormControl fullWidth required error={!formData.severity}>
                   <InputLabel id="severity-label">Severity</InputLabel>
                   <Select
                     labelId="severity-label"
@@ -474,13 +486,11 @@ export function FeedbackForm() {
       {/* Bug-specific Fields */}
       {formData.type === 'bug' && (
         <BugDetailsSection
-          stepsToReproduce={formData.stepsToReproduce}
           expectedBehavior={formData.expectedBehavior}
           actualBehavior={formData.actualBehavior}
           consoleErrors={formData.consoleErrors}
           screenshotUrls={formData.screenshotUrls}
           isUploading={isUploading}
-          onStepsChange={(value) => setFormData((prev) => ({ ...prev, stepsToReproduce: value }))}
           onExpectedChange={(value) =>
             setFormData((prev) => ({ ...prev, expectedBehavior: value }))
           }

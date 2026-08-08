@@ -15,13 +15,11 @@ import { ConsoleErrorInstructions } from './ConsoleErrorInstructions';
 import { ScreenshotUpload } from './ScreenshotUpload';
 
 interface BugDetailsSectionProps {
-  stepsToReproduce: string;
   expectedBehavior: string;
   actualBehavior: string;
   consoleErrors: string;
   screenshotUrls: string[];
   isUploading: boolean;
-  onStepsChange: (value: string) => void;
   onExpectedChange: (value: string) => void;
   onActualChange: (value: string) => void;
   onConsoleErrorsChange: (value: string) => void;
@@ -30,13 +28,11 @@ interface BugDetailsSectionProps {
 }
 
 export function BugDetailsSection({
-  stepsToReproduce,
   expectedBehavior,
   actualBehavior,
   consoleErrors,
   screenshotUrls,
   isUploading,
-  onStepsChange,
   onExpectedChange,
   onActualChange,
   onConsoleErrorsChange,
@@ -54,17 +50,11 @@ export function BugDetailsSection({
             </Box>
           </Typography>
 
-          <TextField
-            fullWidth
-            label="Steps to Reproduce"
-            placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
-            value={stepsToReproduce}
-            onChange={(e) => onStepsChange(e.target.value)}
-            multiline
-            rows={3}
-            sx={{ mb: 2 }}
-            helperText="List the steps to reproduce the issue"
-          />
+          {/* "Steps to Reproduce" removed (Phase C1): answered on 5 of 168 bug
+              reports over two years. Asking harder does not fix a 3% response
+              rate, and a shorter form should lift the fields that do work. The
+              same Firestore field still backs the feature form's required Use
+              Case, so it is not dead. */}
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
             <TextField
