@@ -1,6 +1,7 @@
 # Feedback intake — make bug reports diagnosable
 
-**Status:** Phase A done (a7f4e0c0), Phase D done (c78d5e6e). B1, C, B2 outstanding.
+**Status:** COMPLETE — A (a7f4e0c0), D (c78d5e6e), B1 (e308c06b), C (af06b1ba), B2 (622ee8f1).
+Not yet deployed; ships on the next Deploy dispatch.
 **Date:** 2026-08-07
 **Origin:** trend analysis over all 289 feedback records, run while working the
 2026-08-04→06 feedback batch (see "Evidence" below).
@@ -199,6 +200,8 @@ and is left optional for now — bugs already have `pageUrl`, screenshots and
 
 ## Phase B1 — Capture the record identifier
 
+> **DONE — commit e308c06b.**
+
 The highest diagnostic win per line of code, and cheaper than it first appears:
 `pageUrl` is already captured 100% of the time and, for detail pages, already
 contains the document id. This is parse + resolve, not new plumbing.
@@ -213,6 +216,10 @@ removes the screenshot-OCR step.
   degrade to storing nothing rather than guessing.
 
 ## Phase C — Remove the noise
+
+> **DONE — commit af06b1ba.** C3 landed as _make severity required_
+> rather than dropping it: the four levels already carry written definitions,
+> so forcing a choice is what makes them discriminate. Mirrors impact in D.
 
 Shortening the form should itself lift the fields that work.
 
@@ -231,6 +238,8 @@ No migration for the 289 existing records — the fields simply stop being writt
 - **Risk:** low, pending the C2 check
 
 ## Phase B2 — Auto-attach console errors
+
+> **DONE — commit 622ee8f1.**
 
 The form currently instructs users to press F12, open the Console tab, copy and
 paste
