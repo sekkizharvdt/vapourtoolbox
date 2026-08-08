@@ -170,6 +170,7 @@ describe('getTypeConfig', () => {
 
 describe('BugDetailsSection', () => {
   const defaultProps = {
+    autoCapturedErrorCount: 0,
     expectedBehavior: '',
     actualBehavior: '',
     consoleErrors: '',

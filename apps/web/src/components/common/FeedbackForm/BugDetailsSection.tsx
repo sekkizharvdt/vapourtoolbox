@@ -7,7 +7,7 @@
  * console errors, and screenshots.
  */
 
-import { Box, Typography, TextField, Card, CardContent, Chip } from '@mui/material';
+import { Box, Typography, TextField, Card, CardContent, Chip, Alert } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
 import CodeIcon from '@mui/icons-material/Code';
 import ScreenshotIcon from '@mui/icons-material/Screenshot';
@@ -15,6 +15,8 @@ import { ConsoleErrorInstructions } from './ConsoleErrorInstructions';
 import { ScreenshotUpload } from './ScreenshotUpload';
 
 interface BugDetailsSectionProps {
+  /** How many console errors were captured automatically (Phase B2). */
+  autoCapturedErrorCount: number;
   expectedBehavior: string;
   actualBehavior: string;
   consoleErrors: string;
@@ -28,6 +30,7 @@ interface BugDetailsSectionProps {
 }
 
 export function BugDetailsSection({
+  autoCapturedErrorCount,
   expectedBehavior,
   actualBehavior,
   consoleErrors,
@@ -89,7 +92,19 @@ export function BugDetailsSection({
             </Box>
           </Typography>
 
-          <ConsoleErrorInstructions />
+          {/* When errors were captured automatically there is nothing to ask
+              for, and repeating the F12 instructions would be misleading. The
+              box stays available for anything the user wants to add. */}
+          {autoCapturedErrorCount > 0 ? (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {autoCapturedErrorCount === 1
+                ? '1 console error was captured automatically'
+                : `${autoCapturedErrorCount} console errors were captured automatically`}{' '}
+              and will be attached — you do not need to copy anything.
+            </Alert>
+          ) : (
+            <ConsoleErrorInstructions />
+          )}
 
           <TextField
             fullWidth

@@ -35,6 +35,7 @@ import { useToast } from '@/components/common/Toast';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { getLastAppRouteUrl } from '@/lib/feedback/lastAppRoute';
+import { getRecentConsoleErrors, getConsoleErrorCount } from '@/lib/feedback/consoleErrorBuffer';
 import {
   resolveRelatedDocument,
   formatRelatedDocument,
@@ -246,7 +247,12 @@ export function FeedbackForm() {
         stepsToReproduce: formData.stepsToReproduce,
         expectedBehavior: formData.expectedBehavior,
         actualBehavior: formData.actualBehavior,
-        consoleErrors: formData.consoleErrors,
+        // Captured automatically (Phase B2) rather than relying on the user to
+        // open devtools and paste, which yielded 21% overall and 2% from one of
+        // the two main reporters. Anything they typed is kept and leads.
+        consoleErrors: [formData.consoleErrors.trim(), getRecentConsoleErrors()]
+          .filter(Boolean)
+          .join('\n\n--- captured automatically ---\n\n'),
         userId: user?.uid || null,
         userEmail: user?.email || null,
         userName: user?.displayName || null,
@@ -486,6 +492,7 @@ export function FeedbackForm() {
       {/* Bug-specific Fields */}
       {formData.type === 'bug' && (
         <BugDetailsSection
+          autoCapturedErrorCount={getConsoleErrorCount()}
           expectedBehavior={formData.expectedBehavior}
           actualBehavior={formData.actualBehavior}
           consoleErrors={formData.consoleErrors}
