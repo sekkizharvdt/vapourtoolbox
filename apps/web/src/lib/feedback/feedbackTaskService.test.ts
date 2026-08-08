@@ -9,6 +9,7 @@ import {
   addFollowUpToFeedback,
   closeFeedbackFromTask,
   getFeedbackById,
+  notifyReporterOfQuestion,
 } from './feedbackTaskService';
 
 // Mock firebase/firestore
@@ -37,6 +38,11 @@ jest.mock('@/lib/tasks/taskNotificationService', () => ({
   createTaskNotification: jest.fn(),
 }));
 
+// Mock admin lookup used when notifying triage of a reporter's reply
+jest.mock('@/lib/auth/userLookup', () => ({
+  getUsersWithPermission: jest.fn(),
+}));
+
 // Mock firebase typeHelpers
 jest.mock('@/lib/firebase/typeHelpers', () => ({
   docToTyped: jest.fn((id, data) => ({ id, ...data })),
@@ -44,11 +50,13 @@ jest.mock('@/lib/firebase/typeHelpers', () => ({
 
 import { doc, updateDoc, getDoc, type Firestore } from 'firebase/firestore';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import { getUsersWithPermission } from '@/lib/auth/userLookup';
 
 const mockDoc = doc as jest.Mock;
 const mockUpdateDoc = updateDoc as jest.Mock;
 const mockGetDoc = getDoc as jest.Mock;
 const mockCreateTaskNotification = createTaskNotification as jest.Mock;
+const mockGetUsersWithPermission = getUsersWithPermission as jest.Mock;
 
 describe('feedbackTaskService', () => {
   const mockDb = {} as unknown as Firestore;
@@ -56,6 +64,7 @@ describe('feedbackTaskService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDoc.mockReturnValue('feedbackDocRef');
+    mockGetUsersWithPermission.mockResolvedValue([]);
   });
 
   describe('createFeedbackResolutionTask', () => {
@@ -278,6 +287,123 @@ describe('feedbackTaskService', () => {
       mockGetDoc.mockRejectedValue(error);
 
       await expect(getFeedbackById(mockDb, 'feedback-1')).rejects.toThrow('Query failed');
+    });
+  });
+
+  // Phase A of docs/reviews/2026-08-07-feedback-intake-plan.md. The deployed CF
+  // onFeedbackResolved only notifies on status -> 'resolved', so questions asked
+  // mid-flight and reporter replies both reached nobody.
+  describe('notifyReporterOfQuestion', () => {
+    const baseParams = {
+      feedbackId: 'feedback-1',
+      feedbackTitle: 'Payment Method & Bank Accounts',
+      reporterUserId: 'reporter-1',
+      adminNotes: 'Should 1102 be a default, or the only option?',
+      askedByName: 'Sekkizhar',
+      askedByUserId: 'admin-1',
+    };
+
+    it('notifies the reporter as an actionable feedback question', async () => {
+      mockCreateTaskNotification.mockResolvedValue('task-1');
+
+      const result = await notifyReporterOfQuestion(baseParams);
+
+      expect(result).toBe('task-1');
+      expect(mockCreateTaskNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'actionable',
+          category: 'FEEDBACK_QUESTION_ASKED',
+          userId: 'reporter-1',
+          entityType: 'FEEDBACK',
+          entityId: 'feedback-1',
+          linkUrl: '/feedback/feedback-1',
+        })
+      );
+    });
+
+    it('skips anonymous feedback, which has no reporter to notify', async () => {
+      const result = await notifyReporterOfQuestion({
+        ...baseParams,
+        reporterUserId: undefined,
+      });
+
+      expect(result).toBeNull();
+      expect(mockCreateTaskNotification).not.toHaveBeenCalled();
+    });
+
+    it('does not notify someone about their own note', async () => {
+      // Revathi both reports and triages, so this case is real.
+      const result = await notifyReporterOfQuestion({
+        ...baseParams,
+        askedByUserId: 'reporter-1',
+      });
+
+      expect(result).toBeNull();
+      expect(mockCreateTaskNotification).not.toHaveBeenCalled();
+    });
+
+    it('skips blank notes', async () => {
+      const result = await notifyReporterOfQuestion({ ...baseParams, adminNotes: '   ' });
+
+      expect(result).toBeNull();
+      expect(mockCreateTaskNotification).not.toHaveBeenCalled();
+    });
+
+    it('never fails the caller when the notification write fails', async () => {
+      mockCreateTaskNotification.mockRejectedValue(new Error('offline'));
+
+      await expect(notifyReporterOfQuestion(baseParams)).resolves.toBeNull();
+    });
+  });
+
+  describe('addFollowUpToFeedback — admin notification', () => {
+    beforeEach(() => {
+      // jest.clearAllMocks() resets recorded calls but NOT implementations, so
+      // a rejection configured by an earlier test would leak into these.
+      mockUpdateDoc.mockResolvedValue(undefined);
+      mockCreateTaskNotification.mockResolvedValue('task-1');
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ title: 'Vendor Bills with Vendor Payment', userId: 'reporter-1' }),
+      });
+    });
+
+    it('notifies each admin with FEEDBACK_REOPENED', async () => {
+      mockGetUsersWithPermission.mockResolvedValue(['admin-1', 'admin-2']);
+
+      await addFollowUpToFeedback(mockDb, 'feedback-1', 'Still not fixed', 'reporter-1', 'Revathi');
+
+      expect(mockCreateTaskNotification).toHaveBeenCalledTimes(2);
+      expect(mockCreateTaskNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'FEEDBACK_REOPENED',
+          type: 'informational',
+          entityId: 'feedback-1',
+        })
+      );
+    });
+
+    it('does not notify the reporter about their own reply', async () => {
+      // Revathi holds MANAGE_USERS, so she appears in her own recipient list.
+      mockGetUsersWithPermission.mockResolvedValue(['reporter-1', 'admin-2']);
+
+      await addFollowUpToFeedback(mockDb, 'feedback-1', 'Still not fixed', 'reporter-1', 'Revathi');
+
+      expect(mockCreateTaskNotification).toHaveBeenCalledTimes(1);
+      expect(mockCreateTaskNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'admin-2' })
+      );
+    });
+
+    it('still records the reply when notifying fails', async () => {
+      mockGetUsersWithPermission.mockRejectedValue(new Error('lookup failed'));
+
+      await expect(
+        addFollowUpToFeedback(mockDb, 'feedback-1', 'Still not fixed', 'reporter-1', 'Revathi')
+      ).resolves.toBeUndefined();
+
+      // The comment write must still have happened.
+      expect(mockUpdateDoc).toHaveBeenCalled();
     });
   });
 });

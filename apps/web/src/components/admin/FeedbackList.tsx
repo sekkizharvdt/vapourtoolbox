@@ -21,6 +21,8 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
+import { notifyReporterOfQuestion } from '@/lib/feedback/feedbackTaskService';
 import {
   FeedbackItem,
   FeedbackType,
@@ -33,6 +35,7 @@ import {
 import type { ReporterOption } from './feedback/FeedbackFilters';
 
 export function FeedbackList() {
+  const { user } = useAuth();
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,18 +148,46 @@ export function FeedbackList() {
     [selectedFeedback]
   );
 
-  const handleAdminNotesChange = useCallback(async (feedbackId: string, notes: string) => {
-    try {
-      const { db } = getFirebase();
-      const feedbackRef = doc(db, 'feedback', feedbackId);
-      await updateDoc(feedbackRef, {
-        adminNotes: notes,
-        updatedAt: Timestamp.now(),
-      });
-    } catch (err) {
-      console.error('Error updating notes:', err);
-    }
-  }, []);
+  const handleAdminNotesChange = useCallback(
+    async (feedbackId: string, notes: string) => {
+      const previous = feedback.find((f) => f.id === feedbackId);
+
+      try {
+        const { db } = getFirebase();
+        const feedbackRef = doc(db, 'feedback', feedbackId);
+        await updateDoc(feedbackRef, {
+          adminNotes: notes,
+          updatedAt: Timestamp.now(),
+        });
+
+        // Tell the reporter a question is waiting. Without this, notes added
+        // before an item is resolved reach nobody — the deployed CF
+        // onFeedbackResolved only fires on status -> 'resolved', which also
+        // carries the notes, so firing here too would double-notify.
+        // Fires on blur, and only when the text actually changed, so simply
+        // tabbing through the field is silent.
+        const changed = (previous?.adminNotes ?? '') !== notes;
+        if (changed && previous && previous.status !== 'resolved') {
+          await notifyReporterOfQuestion({
+            feedbackId,
+            feedbackTitle: previous.title,
+            reporterUserId: previous.userId,
+            adminNotes: notes,
+            askedByName: user?.displayName || user?.email || 'The team',
+            askedByUserId: user?.uid,
+          });
+        }
+
+        // Keep local state in step so a second blur does not re-notify.
+        setFeedback((prev) =>
+          prev.map((f) => (f.id === feedbackId ? { ...f, adminNotes: notes } : f))
+        );
+      } catch (err) {
+        console.error('Error updating notes:', err);
+      }
+    },
+    [feedback, user]
+  );
 
   const handleResolutionNotesChange = useCallback(async (feedbackId: string, notes: string) => {
     try {

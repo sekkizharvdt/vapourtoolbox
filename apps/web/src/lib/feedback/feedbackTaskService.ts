@@ -10,6 +10,8 @@ import { doc, updateDoc, getDoc, Timestamp, arrayUnion, type Firestore } from 'f
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import { getUsersWithPermission } from '@/lib/auth/userLookup';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 
 const logger = createLogger({ context: 'feedbackTaskService' });
@@ -95,9 +97,152 @@ export async function createFeedbackResolutionTask(
 }
 
 /**
+ * Notify the reporter that triage has asked them a question.
+ *
+ * The deployed CF `onFeedbackResolved` only fires on status -> 'resolved', so
+ * notes added while an item is still 'new' or 'in_progress' reached nobody: the
+ * reporter had to happen to reopen the item to discover a question was waiting.
+ *
+ * Call this when admin notes are saved WITHOUT resolving. Resolving already
+ * carries the notes in the resolution notification, so firing here as well
+ * would double-notify.
+ *
+ * Returns the task id, or null when there is nothing to notify (anonymous
+ * reporter, or notes unchanged). Best-effort: never fails the caller's save.
+ */
+export async function notifyReporterOfQuestion(params: {
+  feedbackId: string;
+  feedbackTitle: string;
+  reporterUserId?: string;
+  adminNotes: string;
+  askedByName: string;
+  askedByUserId?: string;
+}): Promise<string | null> {
+  const { feedbackId, feedbackTitle, reporterUserId, adminNotes, askedByName, askedByUserId } =
+    params;
+
+  // Anonymous feedback has no reporter to notify — same guard the CF applies.
+  if (!reporterUserId) {
+    logger.info('No reporter userId on feedback, skipping question notification', { feedbackId });
+    return null;
+  }
+
+  // Never notify someone about their own note (Revathi triages her own reports).
+  if (askedByUserId && askedByUserId === reporterUserId) return null;
+
+  if (!adminNotes.trim()) return null;
+
+  try {
+    const taskId = await createTaskNotification({
+      type: 'actionable',
+      category: 'FEEDBACK_QUESTION_ASKED',
+      userId: reporterUserId,
+      assignedBy: askedByUserId ?? 'system',
+      assignedByName: askedByName,
+      title: `Question on: ${feedbackTitle}`,
+      message: `${askedByName} needs more detail before this can be finished: "${truncate(adminNotes, 200)}" Reply with the Follow-up button on the feedback item.`,
+      entityType: 'FEEDBACK',
+      entityId: feedbackId,
+      linkUrl: `/feedback/${feedbackId}`,
+      priority: 'MEDIUM',
+      autoCompletable: true,
+      metadata: { feedbackTitle, askedByName },
+    });
+
+    logger.info('Notified reporter of feedback question', { taskId, feedbackId, reporterUserId });
+    return taskId;
+  } catch (error) {
+    logger.warn('Could not notify reporter of feedback question', {
+      feedbackId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+/**
+ * Notify the people who triage feedback that a reporter has replied.
+ *
+ * Uses FEEDBACK_REOPENED, which was already declared on the `feedback` channel
+ * in TASK_CHANNEL_DEFINITIONS but never emitted — a category that routes
+ * nowhere is invisible, so it has to be registered there as well as in the
+ * union.
+ *
+ * Best-effort: a reply must never fail because the notification could not be
+ * written. The comment is already saved by this point, so we warn and carry on
+ * rather than rolling the reply back (rule 27).
+ */
+async function notifyAdminsOfFollowUp(
+  db: Firestore,
+  feedbackId: string,
+  feedbackTitle: string,
+  followUpComment: string,
+  reporterUserId: string,
+  reporterName: string
+): Promise<void> {
+  try {
+    // /admin is gated on MANAGE_USERS (bitfield 1) OR MANAGE_ADMIN (bitfield 2)
+    // — see app/admin/layout.tsx. getUsersWithPermission only reads bitfield 1,
+    // so MANAGE_USERS is the gate used here. That currently loses nothing: no
+    // account holds MANAGE_ADMIN, and the two people who can reach /admin
+    // (Revathi SP, K Sekkizhar Prasanna) both hold MANAGE_USERS. If someone is
+    // ever granted MANAGE_ADMIN alone they will silently miss these, and this
+    // lookup needs a second-bitfield variant.
+    const adminIds = await getUsersWithPermission(
+      db,
+      'default-entity',
+      PERMISSION_FLAGS.MANAGE_USERS
+    );
+
+    // Never notify the reporter about their own comment.
+    const recipients = adminIds.filter((id) => id !== reporterUserId);
+
+    if (recipients.length === 0) {
+      logger.warn('No admin recipients for feedback follow-up', { feedbackId });
+      return;
+    }
+
+    await Promise.all(
+      recipients.map((adminId) =>
+        createTaskNotification({
+          type: 'informational',
+          category: 'FEEDBACK_REOPENED',
+          userId: adminId,
+          assignedBy: reporterUserId,
+          assignedByName: reporterName,
+          title: `Reply on: ${feedbackTitle}`,
+          message: `${reporterName} replied: "${truncate(followUpComment, 200)}"`,
+          entityType: 'FEEDBACK',
+          entityId: feedbackId,
+          linkUrl: `/admin/feedback?id=${feedbackId}`,
+          priority: 'MEDIUM',
+          metadata: { feedbackTitle, reporterName, reporterUserId },
+        })
+      )
+    );
+
+    logger.info('Notified admins of feedback follow-up', {
+      feedbackId,
+      recipientCount: recipients.length,
+    });
+  } catch (error) {
+    logger.warn('Could not notify admins of feedback follow-up', {
+      feedbackId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** Trim a user-supplied comment for use inside a notification message. */
+function truncate(text: string, max: number): string {
+  const clean = text.trim().replace(/\s+/g, ' ');
+  return clean.length <= max ? clean : `${clean.slice(0, max - 1)}…`;
+}
+
+/**
  * Add a follow-up comment to feedback when reporter is not satisfied
  *
- * Changes feedback status back to 'in_progress' and notifies admin.
+ * Changes feedback status back to 'in_progress' and notifies the triage team.
  */
 export async function addFollowUpToFeedback(
   db: Firestore,
@@ -129,9 +274,8 @@ export async function addFollowUpToFeedback(
       updatedAt: Timestamp.now(),
     });
 
-    // Create informational notification for admins about the follow-up
-    // Note: This would need an admin user ID or role-based notification
-    // For now, we'll log it and the admin can see it in the feedback list
+    const feedbackTitle = (feedbackSnap.data()?.title as string) ?? feedbackId;
+    await notifyAdminsOfFollowUp(db, feedbackId, feedbackTitle, followUpComment, userId, userName);
 
     logger.info('Added follow-up comment to feedback', {
       feedbackId,

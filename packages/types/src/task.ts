@@ -87,6 +87,7 @@ export type TaskNotificationCategory =
   // Feedback
   | 'FEEDBACK_RESOLUTION_CHECK' // Actionable: Verify fix with reporter, close or follow up
   | 'FEEDBACK_REOPENED' // Informational: Reporter requested follow-up on resolved feedback
+  | 'FEEDBACK_QUESTION_ASKED' // Actionable: Triage asked the reporter a question, answer needed
   // HR / Leave Management
   | 'LEAVE_SUBMITTED' // Actionable: Review and approve/reject leave request
   | 'LEAVE_APPROVED' // Informational: Your leave request was approved
@@ -482,7 +483,9 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
     name: 'Feedback',
     icon: 'MessageSquare',
     description: 'Bug reports and feature request follow-ups',
-    categories: ['FEEDBACK_RESOLUTION_CHECK', 'FEEDBACK_REOPENED'],
+    // A category absent from this list routes to no channel and is invisible in
+    // the Flow inbox — keep it in step with TaskNotificationCategory above.
+    categories: ['FEEDBACK_RESOLUTION_CHECK', 'FEEDBACK_REOPENED', 'FEEDBACK_QUESTION_ASKED'],
     isDefault: true,
   },
   hr: {
