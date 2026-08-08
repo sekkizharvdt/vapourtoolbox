@@ -297,43 +297,40 @@ describe('BugDetailsSection', () => {
 });
 
 describe('FeatureRequestSection', () => {
+  // Reduced to one required question in Phase D — 83% of the 122 requests on
+  // record answered neither of the two optional ones, and Expected Outcome
+  // largely restated the description.
   const defaultProps = {
     useCase: '',
-    expectedOutcome: '',
     onUseCaseChange: jest.fn(),
-    onExpectedOutcomeChange: jest.fn(),
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should render use case and expected outcome fields', () => {
+  it('should render the use case field', () => {
     render(<FeatureRequestSection {...defaultProps} />);
 
     expect(screen.getByLabelText(/Use Case/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Expected Outcome/i)).toBeInTheDocument();
   });
 
-  it('should display info alert about context', () => {
+  it('should no longer ask for expected outcome', () => {
     render(<FeatureRequestSection {...defaultProps} />);
 
-    expect(
-      screen.getByText(/The more context you provide, the better we can understand/i)
-    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Expected Outcome/i)).not.toBeInTheDocument();
   });
 
-  it('should display existing values in fields', () => {
-    render(
-      <FeatureRequestSection
-        {...defaultProps}
-        useCase="I want to export data"
-        expectedOutcome="Data exports to CSV"
-      />
-    );
+  it('should mark the use case field as required', () => {
+    render(<FeatureRequestSection {...defaultProps} />);
+
+    expect(screen.getByLabelText(/Use Case/i)).toBeRequired();
+  });
+
+  it('should display an existing value in the field', () => {
+    render(<FeatureRequestSection {...defaultProps} useCase="I want to export data" />);
 
     expect(screen.getByDisplayValue('I want to export data')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Data exports to CSV')).toBeInTheDocument();
   });
 
   it('should call onUseCaseChange when use case field changes', () => {
@@ -343,15 +340,6 @@ describe('FeatureRequestSection', () => {
     fireEvent.change(useCaseField, { target: { value: 'New use case' } });
 
     expect(defaultProps.onUseCaseChange).toHaveBeenCalledWith('New use case');
-  });
-
-  it('should call onExpectedOutcomeChange when expected outcome field changes', () => {
-    render(<FeatureRequestSection {...defaultProps} />);
-
-    const outcomeField = screen.getByLabelText(/Expected Outcome/i);
-    fireEvent.change(outcomeField, { target: { value: 'New outcome' } });
-
-    expect(defaultProps.onExpectedOutcomeChange).toHaveBeenCalledWith('New outcome');
   });
 });
 

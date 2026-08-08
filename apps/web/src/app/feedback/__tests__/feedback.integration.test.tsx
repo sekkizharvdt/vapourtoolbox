@@ -89,8 +89,14 @@ jest.mock('@/components/common/FeedbackForm/BugDetailsSection', () => ({
   BugDetailsSection: () => <div data-testid="bug-details">Bug Details Section</div>,
 }));
 
+// Exposes the use-case input because it is required from Phase D onward —
+// a stub with no inputs cannot satisfy the form's validation.
 jest.mock('@/components/common/FeedbackForm/FeatureRequestSection', () => ({
-  FeatureRequestSection: () => <div data-testid="feature-details">Feature Request Section</div>,
+  FeatureRequestSection: ({ onUseCaseChange }: { onUseCaseChange: (value: string) => void }) => (
+    <div data-testid="feature-details">
+      <input data-testid="use-case-input" onChange={(e) => onUseCaseChange(e.target.value)} />
+    </div>
+  ),
 }));
 
 // Mock MUI icons
@@ -107,6 +113,15 @@ jest.mock('@mui/icons-material/Send', () => {
 });
 
 describe('Feedback Integration Tests', () => {
+  // Phase D made a use case and an impact required on feature requests.
+  async function fillFeatureRequiredFields() {
+    fireEvent.change(await screen.findByTestId('use-case-input'), {
+      target: { value: 'When raising a PO I have to check the PR by hand' },
+    });
+    fireEvent.mouseDown(await screen.findByLabelText(/Impact/i));
+    fireEvent.click(await screen.findByText(/Cannot work without this/i));
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAddDoc.mockResolvedValue({ id: 'new-feedback-id' });
@@ -210,6 +225,8 @@ describe('Feedback Integration Tests', () => {
           value: 'Add ability to export filtered transactions to Excel format for reporting.',
         },
       });
+
+      await fillFeatureRequiredFields();
 
       // Step 4: Submit
       fireEvent.click(screen.getByRole('button', { name: /Submit Feedback/i }));
@@ -331,6 +348,8 @@ describe('Feedback Integration Tests', () => {
 
       const descriptionField = screen.getByLabelText(/Description/i);
       fireEvent.change(descriptionField, { target: { value: 'Feature description' } });
+
+      await fillFeatureRequiredFields();
 
       // Submit
       fireEvent.click(screen.getByRole('button', { name: /Submit Feedback/i }));

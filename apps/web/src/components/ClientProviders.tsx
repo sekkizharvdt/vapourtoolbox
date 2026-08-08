@@ -30,6 +30,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
 import { ConfirmDialogProvider } from '@/components/common/ConfirmDialog';
 import { ToastProvider } from '@/components/common/Toast';
+import { RouteTracker } from '@/components/common/RouteTracker';
 
 // Validate Firebase configuration on module load
 // This will throw clear errors if env variables are missing
@@ -44,7 +45,12 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
             <VapourThemeProvider defaultMode="light">
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enIN}>
                 <ConfirmDialogProvider>
-                  <ToastProvider>{children}</ToastProvider>
+                  <ToastProvider>
+                    {/* Renders nothing; records the route so the feedback form
+                        knows which screen the user came from. */}
+                    <RouteTracker />
+                    {children}
+                  </ToastProvider>
                 </ConfirmDialogProvider>
               </LocalizationProvider>
             </VapourThemeProvider>

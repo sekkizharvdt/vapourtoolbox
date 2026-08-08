@@ -33,6 +33,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/common/Toast';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import { getLastAppRouteUrl } from '@/lib/feedback/lastAppRoute';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import { FeedbackTypeSelector } from './FeedbackTypeSelector';
@@ -75,16 +76,24 @@ export function FeedbackForm() {
     if (typeof window !== 'undefined') {
       const browserInfo = `${navigator.userAgent}\nScreen: ${window.screen.width}x${window.screen.height}\nViewport: ${window.innerWidth}x${window.innerHeight}`;
       // Use referrer if available (the page they came from), otherwise leave empty for bugs
+      // document.referrer is only set on a full page load — Next.js client-side
+      // navigation leaves it empty, which is why feature requests captured a
+      // pageUrl only 16% of the time. Fall back to the route the user was last
+      // on (recorded by RouteTracker), so the originating screen is captured
+      // without asking for it.
       const referrer = document.referrer;
       const referrerUrl = referrer && referrer.includes(window.location.host) ? referrer : '';
-      // Detect module from referrer if available, otherwise from current URL
-      const detectedModule = referrerUrl
-        ? detectModuleFromUrl(referrerUrl)
+      const originUrl = referrerUrl || getLastAppRouteUrl();
+      // Detect module from wherever the user came from, never from /feedback itself
+      const detectedModule = originUrl
+        ? detectModuleFromUrl(originUrl)
         : detectModuleFromUrl(window.location.href);
       setFormData((prev) => ({
         ...prev,
         browserInfo,
-        pageUrl: referrerUrl, // Start with referrer URL for bugs, user can edit
+        // Captured for features too, not just bugs — the screen that prompted an
+        // idea is often the whole context for it. Users can still edit it.
+        pageUrl: originUrl,
         module: detectedModule,
       }));
     }
@@ -175,6 +184,23 @@ export function FeedbackForm() {
     if (formData.type === 'bug' && !formData.pageUrl.trim()) {
       toast.error('Please provide the page URL where you encountered this bug');
       return;
+    }
+
+    // Feature requests: require the two things that make a request rankable.
+    // Both fields already existed and were optional, and were answered ~17% and
+    // ~41% of the time — leaving 83% of requests with no use case and no way to
+    // prioritise them against each other. One required question yields 100%;
+    // requiring four would just cause abandonment, so only these two are
+    // enforced (Phase D of docs/reviews/2026-08-07-feedback-intake-plan.md).
+    if (formData.type === 'feature') {
+      if (!formData.stepsToReproduce.trim()) {
+        toast.error('Please describe a situation where this feature would help you');
+        return;
+      }
+      if (!formData.impact) {
+        toast.error('Please choose how much this feature would help your workflow');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -343,7 +369,7 @@ export function FeedbackForm() {
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>
               Feature Priority
             </Typography>
-            <FormControl fullWidth sx={{ maxWidth: 400 }}>
+            <FormControl fullWidth sx={{ maxWidth: 400 }} required error={!formData.impact}>
               <InputLabel id="impact-label">Impact</InputLabel>
               <Select
                 labelId="impact-label"
@@ -357,7 +383,10 @@ export function FeedbackForm() {
                   </MenuItem>
                 ))}
               </Select>
-              <FormHelperText>How much would this feature help your workflow?</FormHelperText>
+              <FormHelperText>
+                How much would this feature help your workflow? This is how requests get ranked
+                against each other.
+              </FormHelperText>
             </FormControl>
           </CardContent>
         </Card>
@@ -431,11 +460,7 @@ export function FeedbackForm() {
       {formData.type === 'feature' && (
         <FeatureRequestSection
           useCase={formData.stepsToReproduce}
-          expectedOutcome={formData.expectedBehavior}
           onUseCaseChange={(value) => setFormData((prev) => ({ ...prev, stepsToReproduce: value }))}
-          onExpectedOutcomeChange={(value) =>
-            setFormData((prev) => ({ ...prev, expectedBehavior: value }))
-          }
         />
       )}
 

@@ -107,30 +107,37 @@ jest.mock('../BugDetailsSection', () => ({
   ),
 }));
 
+// Expected Outcome was removed in Phase D — the section now asks one required
+// question, so the mock exposes one input.
 jest.mock('../FeatureRequestSection', () => ({
-  FeatureRequestSection: ({
-    onUseCaseChange,
-    onExpectedOutcomeChange,
-  }: {
-    onUseCaseChange: (value: string) => void;
-    onExpectedOutcomeChange: (value: string) => void;
-  }) => (
+  FeatureRequestSection: ({ onUseCaseChange }: { onUseCaseChange: (value: string) => void }) => (
     <div data-testid="feature-request-section">
       <input
         data-testid="use-case-input"
         onChange={(e) => onUseCaseChange(e.target.value)}
         placeholder="Use case"
       />
-      <input
-        data-testid="expected-outcome-input"
-        onChange={(e) => onExpectedOutcomeChange(e.target.value)}
-        placeholder="Expected outcome"
-      />
     </div>
   ),
 }));
 
 describe('FeedbackForm', () => {
+  // Feature requests now require a use case and an impact (Phase D) — both
+  // fields already existed and were optional, and were left blank on 83% and
+  // 59% of records respectively.
+  async function fillFeatureRequiredFields() {
+    // findBy*, not getBy*: the feature section renders after the type switch.
+    // The section itself is mocked above, so address its input by test id.
+    const useCaseField = await screen.findByTestId('use-case-input');
+    fireEvent.change(useCaseField, {
+      target: { value: 'When raising a PO I have to check the PR by hand' },
+    });
+
+    // The Impact select is rendered inline by the form, not by the mocked section.
+    fireEvent.mouseDown(await screen.findByLabelText(/Impact/i));
+    fireEvent.click(await screen.findByText(/Cannot work without this/i));
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAddDoc.mockResolvedValue({ id: 'new-feedback-id' });
@@ -242,6 +249,8 @@ describe('FeedbackForm', () => {
       const descriptionField = screen.getByLabelText(/Description/i);
       await userEvent.type(descriptionField, 'Feature description');
 
+      await fillFeatureRequiredFields();
+
       // Submit
       fireEvent.click(screen.getByRole('button', { name: /Submit Feedback/i }));
 
@@ -272,6 +281,8 @@ describe('FeedbackForm', () => {
 
       const descriptionField = screen.getByLabelText(/Description/i);
       await userEvent.type(descriptionField, 'Feature description');
+
+      await fillFeatureRequiredFields();
 
       // Submit
       fireEvent.click(screen.getByRole('button', { name: /Submit Feedback/i }));
