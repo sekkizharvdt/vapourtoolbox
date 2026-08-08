@@ -43,14 +43,23 @@ The simulator advances through a "rung ladder", each rung gated on the previous:
 
 **Published artifact state as of this doc:**
 
-| Fixture                                          | Version | Cases                   |
-| ------------------------------------------------ | ------- | ----------------------- |
-| `docs/thermal/fixtures/flash-chamber-cases.json` | **v9**  | 11                      |
-| `docs/thermal/fixtures/condenser-cases.json`     | **v5**  | 7                       |
-| `docs/thermal/fixtures/vacuum-system-cases.json` | v3      | 5 evacuation cases      |
-| `docs/thermal/fixtures/metal-properties.json`    | **v1**  | 10 grades — NEW, unsent |
+| Fixture                                          | Version | Cases              |
+| ------------------------------------------------ | ------- | ------------------ |
+| `docs/thermal/fixtures/flash-chamber-cases.json` | **v9**  | 11                 |
+| `docs/thermal/fixtures/condenser-cases.json`     | **v5**  | 7                  |
+| `docs/thermal/fixtures/vacuum-system-cases.json` | v3      | 5 evacuation cases |
+| `docs/thermal/fixtures/metal-properties.json`    | **v1**  | 10 grades          |
 
-Flash chamber **v9 has not been sent to the simulator yet**. It is additive only (`nozzles[].dn`); every other value is byte-identical to v8, so it needs no re-run if they gate on temperatures, flows or geometry. Batch it with the next send.
+**Send log** — the only record of what has crossed; there is no repo access in either direction, so nothing else tracks this.
+
+| Sent       | What                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------ |
+| 2026-08-07 | `flash-chamber-cases.json` **v9**, `metal-properties.json` **v1**, `condenser-cases.json` **v5** |
+| —          | `vacuum-system-cases.json` v3 — no record; their rung 3 completion implies they have it          |
+
+⚠ **v9 went across carrying a `generatedBy` that points at a path which does not exist** (`scripts/thermal/generate-flash-chamber-fixtures.ts`; the real generator is `apps/web/src/lib/thermal/__generators__/flashChamberFixtures.gen.ts`). That is the field a consumer reads to ask how the numbers were produced. Fixing it bumps the fixture, so either relay the correction as a note or send the corrected file as v10 — see Phase 1 of the [next-stage plan](2026-08-07-simulator-bridge-next-stage-plan.md).
+
+v9 was additive only over v8 (`nozzles[].dn`); every other value is byte-identical, so it needs no re-run if they gate on temperatures, flows or geometry.
 
 The capability register — what the toolbox can and cannot supply, marked COMPUTED / ASSUMED / PLACEHOLDER / ABSENT — is [`docs/thermal/simulator-data-capability.md`](../thermal/simulator-data-capability.md). **Keep it current; it is what stops the back-and-forth.**
 
