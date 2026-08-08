@@ -27,6 +27,7 @@ import {
   MenuItem,
   Stack,
   FormHelperText,
+  Alert,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +35,11 @@ import { useToast } from '@/components/common/Toast';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { getLastAppRouteUrl } from '@/lib/feedback/lastAppRoute';
+import {
+  resolveRelatedDocument,
+  formatRelatedDocument,
+  type RelatedDocument,
+} from '@/lib/feedback/relatedDocument';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import { FeedbackTypeSelector } from './FeedbackTypeSelector';
@@ -69,6 +75,8 @@ export function FeedbackForm() {
   const [formData, setFormData] = useState<FeedbackFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  // The record the user was looking at, derived from the URL (Phase B1).
+  const [relatedDocument, setRelatedDocument] = useState<RelatedDocument | null>(null);
 
   // Capture browser info and auto-detect module on mount
   // Try to get the referring page (where user came from) as default for bug location
@@ -96,6 +104,15 @@ export function FeedbackForm() {
         pageUrl: originUrl,
         module: detectedModule,
       }));
+
+      // Work out WHICH record the user was looking at. Only 1% of reports name
+      // a document number in the text, so this is derived rather than asked for
+      // (Phase B1). Resolved once on mount; a failure leaves it unset and the
+      // report is no worse off than before.
+      if (originUrl) {
+        const { db } = getFirebase();
+        void resolveRelatedDocument(db, originUrl).then(setRelatedDocument);
+      }
     }
   }, []);
 
@@ -228,6 +245,17 @@ export function FeedbackForm() {
         status: 'new',
         priority: formData.type === 'bug' ? 'medium' : 'low',
       };
+
+      // Which record this is about, derived from the URL rather than typed
+      // (Phase B1). Conditional spread — Firestore rejects undefined (rule 12).
+      if (relatedDocument) {
+        feedbackData.relatedDocument = {
+          collection: relatedDocument.collection,
+          docId: relatedDocument.docId,
+          label: relatedDocument.label,
+          ...(relatedDocument.number !== undefined && { number: relatedDocument.number }),
+        };
+      }
 
       // Only add optional fields if they have values (avoid undefined in Firestore)
       if (formData.severity) {
@@ -398,6 +426,15 @@ export function FeedbackForm() {
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
             Details
           </Typography>
+
+          {/* Shown so the reporter can see we already know which record this is
+              about, and correct us if they had navigated on. */}
+          {relatedDocument && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Linked to <strong>{formatRelatedDocument(relatedDocument)}</strong> — captured
+              automatically from the page you came from.
+            </Alert>
+          )}
 
           <TextField
             fullWidth

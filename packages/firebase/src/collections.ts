@@ -130,6 +130,10 @@ export const COLLECTIONS = {
   MATERIAL_PRICES: 'materialPrices',
   STOCK_MOVEMENTS: 'stockMovements',
 
+  // Bought-out catalogue. Snake_case in Firestore, unlike its neighbours.
+  BOUGHT_OUT_ITEMS: 'bought_out_items',
+  BOUGHT_OUT_PRICES: 'bought_out_prices',
+
   // Service Catalog (Phase 3)
   SERVICES: 'services',
   SERVICE_RATES: 'serviceRates',

@@ -44,6 +44,17 @@ export interface FeedbackItem {
   adminNotes?: string;
   resolutionNotes?: string;
   followUpComments?: FollowUpComment[];
+  /**
+   * The record the report is about, derived from the URL the reporter came from
+   * (Phase B1). Absent on reports predating the capture, and on reports filed
+   * from a list page rather than a detail page.
+   */
+  relatedDocument?: {
+    collection: string;
+    docId: string;
+    label: string;
+    number?: string;
+  };
   // Bug-specific fields
   severity?: FeedbackSeverity;
   frequency?: FeedbackFrequency;

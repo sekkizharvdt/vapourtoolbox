@@ -195,11 +195,20 @@ export function FeedbackDetailDialog({
           )}
 
           {/* Technical Info */}
-          {(feedback.pageUrl || feedback.browserInfo) && (
+          {(feedback.pageUrl || feedback.browserInfo || feedback.relatedDocument) && (
             <Box>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Technical Information
               </Typography>
+              {/* Which record the report is about, derived from the URL rather
+                  than typed — only 1% of reports name a document number
+                  themselves, and finding it used to mean reading a screenshot. */}
+              {feedback.relatedDocument && (
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <strong>Record:</strong> {feedback.relatedDocument.label}{' '}
+                  {feedback.relatedDocument.number ?? `(${feedback.relatedDocument.docId})`}
+                </Typography>
+              )}
               {feedback.pageUrl && (
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <strong>Page URL:</strong>{' '}
