@@ -88,6 +88,7 @@ import {
   computeNextReviewDate,
   deriveNextReviewTitle,
   buildCarryForwardAgenda,
+  buildTaskContent,
 } from './meetingService';
 
 // ============================================================================
@@ -243,14 +244,72 @@ describe('buildCarryForwardAgenda', () => {
     expect(buildCarryForwardAgenda('Old meeting', [])).toBeUndefined();
   });
 
-  it('lists each carried item with its action and assignee', () => {
+  it('lists each carried item by its subject and assignee', () => {
     const agenda = buildCarryForwardAgenda('Weekly review — 6 Jul', [
-      makeItem({ action: 'Follow up with vendor', assigneeName: 'Priya' }),
-      makeItem({ id: 'item-2', action: 'Send revised P&ID', assigneeName: 'Arun' }),
+      makeItem({ description: 'Pump vendor delay', assigneeName: 'Priya' }),
+      makeItem({ id: 'item-2', description: 'Revised P&ID', assigneeName: 'Arun' }),
     ]);
     expect(agenda).toContain('Carried forward from "Weekly review — 6 Jul"');
+    expect(agenda).toContain('- Pump vendor delay — Priya');
+    expect(agenda).toContain('- Revised P&ID — Arun');
+  });
+
+  it('falls back to the action when a carried item has no subject', () => {
+    const agenda = buildCarryForwardAgenda('Weekly review — 6 Jul', [
+      makeItem({ description: '', action: 'Follow up with vendor', assigneeName: 'Priya' }),
+    ]);
     expect(agenda).toContain('- Follow up with vendor — Priya');
-    expect(agenda).toContain('- Send revised P&ID — Arun');
+  });
+
+  it('does not repeat one shared disposition for every carried row', () => {
+    const agenda = buildCarryForwardAgenda('Weekly review — 6 Jul', [
+      makeItem({ description: 'Data standardized for PFD', action: 'To be implemented' }),
+      makeItem({ id: 'item-2', description: 'Accounting reports', action: 'To be implemented' }),
+    ]);
+    expect(agenda).toContain('- Data standardized for PFD — Priya');
+    expect(agenda).toContain('- Accounting reports — Priya');
+    expect(agenda).not.toContain('- To be implemented —');
+  });
+});
+
+describe('buildTaskContent', () => {
+  it('titles the task by the discussion subject and keeps the action as the body', () => {
+    expect(
+      buildTaskContent({
+        description: 'Data standardized for PFD',
+        action: 'To be implemented in toolbox',
+      })
+    ).toEqual({ title: 'Data standardized for PFD', description: 'To be implemented in toolbox' });
+  });
+
+  it('falls back to the action when no subject was recorded', () => {
+    expect(buildTaskContent({ description: '   ', action: 'Follow up with vendor' })).toEqual({
+      title: 'Follow up with vendor',
+    });
+  });
+
+  it('omits the description when it would duplicate the title (rule 12)', () => {
+    expect(buildTaskContent({ description: 'Send P&ID', action: 'Send P&ID' })).toEqual({
+      title: 'Send P&ID',
+    });
+    expect(buildTaskContent({ description: 'Send P&ID', action: '' })).toEqual({
+      title: 'Send P&ID',
+    });
+  });
+
+  it('tolerates action items saved without a description field (rule 14c)', () => {
+    expect(
+      buildTaskContent({ description: undefined as unknown as string, action: 'Ship it' })
+    ).toEqual({ title: 'Ship it' });
+  });
+
+  it('gives distinct titles to rows sharing one disposition', () => {
+    const rows = [
+      { description: 'Data standardized for PFD', action: 'To be implemented in toolbox' },
+      { description: 'Accounting reports', action: 'To be implemented in toolbox' },
+      { description: 'Material list generation', action: 'To be implemented in toolbox' },
+    ].map(buildTaskContent);
+    expect(new Set(rows.map((r) => r.title)).size).toBe(3);
   });
 });
 
@@ -298,6 +357,39 @@ describe('finalizeMeeting', () => {
         assigneeId: 'user-2',
       })
     );
+  });
+
+  it('titles generated tasks by the subject, not the shared disposition', async () => {
+    const { txSets } = await runFinalize({ ...baseMeetingData, status: 'draft' }, [
+      makeItem({
+        id: 'item-1',
+        description: 'Data standardized for PFD',
+        action: 'To be implemented in toolbox',
+      }),
+      makeItem({
+        id: 'item-2',
+        description: 'Accounting reports',
+        action: 'To be implemented in toolbox',
+      }),
+    ]);
+
+    expect(txSets.map((s) => s.data.title)).toEqual([
+      'Data standardized for PFD',
+      'Accounting reports',
+    ]);
+    expect(txSets.map((s) => s.data.description)).toEqual([
+      'To be implemented in toolbox',
+      'To be implemented in toolbox',
+    ]);
+  });
+
+  it('titles a task by its action when the row has no description', async () => {
+    const { txSets } = await runFinalize({ ...baseMeetingData, status: 'draft' }, [
+      makeItem({ description: '', action: 'Follow up with vendor' }),
+    ]);
+
+    expect(txSets[0]!.data.title).toBe('Follow up with vendor');
+    expect(txSets[0]!.data).not.toHaveProperty('description');
   });
 
   it('omits project fields when the meeting has no project link (rule 12)', async () => {
@@ -375,11 +467,11 @@ describe('startNextReview', () => {
     const { txSets, txUpdates } = setupCreatePath({
       itemStatuses: [
         {
-          item: makeItem({ id: 'a', generatedTaskId: 't-a', action: 'Still open item' }),
+          item: makeItem({ id: 'a', generatedTaskId: 't-a', description: 'Still open item' }),
           taskStatus: 'todo',
         },
         {
-          item: makeItem({ id: 'b', generatedTaskId: 't-b', action: 'Completed item' }),
+          item: makeItem({ id: 'b', generatedTaskId: 't-b', description: 'Completed item' }),
           taskStatus: 'done',
         },
       ],

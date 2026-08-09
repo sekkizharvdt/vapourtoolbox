@@ -290,17 +290,34 @@ export default function TeamBoardPage() {
                             ) : (
                               <TodoIcon sx={{ fontSize: 16, color: 'action.active' }} />
                             )}
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                flex: 1,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {task.title}
-                            </Typography>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {task.title}
+                              </Typography>
+                              {/* Meeting-generated tasks carry the disposition
+                                  ("To be implemented in toolbox") here */}
+                              {task.description && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{
+                                    display: 'block',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {task.description}
+                                </Typography>
+                              )}
+                            </Box>
                             <Chip
                               icon={<FlagIcon />}
                               label={task.priority}

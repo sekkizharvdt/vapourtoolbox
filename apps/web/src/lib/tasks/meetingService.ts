@@ -84,6 +84,35 @@ function docToActionItem(id: string, data: DocumentData): MeetingActionItem {
   };
 }
 
+/**
+ * Split an action item into the generated task's title and description.
+ *
+ * The MoM table records two different things: `description` is the subject that
+ * was discussed ("Data standardized for PFD") and `action` is the disposition
+ * ("To be implemented in toolbox"). The subject is what identifies the task on
+ * the Team Board and in task lists — a whole meeting's worth of rows commonly
+ * shares one disposition, so titling tasks by `action` renders every card
+ * identical. The subject therefore becomes the title, the disposition the body.
+ *
+ * Rows saved without a subject fall back to the disposition as the title, since
+ * `action` is the only field the meeting form makes mandatory.
+ *
+ * Pure function — exported for unit tests and the backfill script
+ * (`scripts/backfill-meeting-task-titles.js`).
+ */
+export function buildTaskContent(item: Pick<MeetingActionItem, 'description' | 'action'>): {
+  title: string;
+  description?: string;
+} {
+  // rule 14c: action items saved before `description` existed may lack the field
+  const subject = (item.description ?? '').trim();
+  const disposition = (item.action ?? '').trim();
+
+  if (!subject) return { title: disposition };
+  if (!disposition || disposition === subject) return { title: subject };
+  return { title: subject, description: disposition };
+}
+
 // ============================================================================
 // MEETING CRUD
 // ============================================================================
@@ -435,10 +464,11 @@ export async function finalizeMeeting(
     // Create tasks from action items
     actionableItems.forEach((item) => {
       const taskRef = doc(collection(db, COLLECTIONS.MANUAL_TASKS));
+      const { title, description } = buildTaskContent(item);
 
       const taskData: Record<string, unknown> = {
-        title: item.action,
-        ...(item.description && { description: item.description }),
+        title,
+        ...(description && { description }),
         createdBy: userId,
         createdByName: userName,
         assigneeId: item.assigneeId,
@@ -554,7 +584,9 @@ export function buildCarryForwardAgenda(
 ): string | undefined {
   if (carriedItems.length === 0) return undefined;
   const lines = carriedItems.map((item) => {
-    const label = item.action || item.description || '(no action recorded)';
+    // Same title the carried item's task carries, so the agenda and the Team
+    // Board name the row identically.
+    const label = buildTaskContent(item).title || '(no action recorded)';
     return `- ${label} — ${item.assigneeName || 'Unassigned'}`;
   });
   return `Carried forward from "${previousTitle}":\n${lines.join('\n')}`;
