@@ -24,7 +24,6 @@ interface FinancialReport {
   description: string;
   icon: React.ReactNode;
   path: string;
-  comingSoon?: boolean;
 }
 
 export default function FinancialReportsPage() {
@@ -35,6 +34,15 @@ export default function FinancialReportsPage() {
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
 
   const reports: FinancialReport[] = [
+    {
+      title: 'Management Report (Quarterly / Annual)',
+      description:
+        'Everything in one document for a fiscal quarter or full year — executive summary, ' +
+        'comparative P&L, balance sheet, cash flow, AR/AP aging, working capital ratios, GST, ' +
+        'project performance, and data-quality checks. Downloadable as PDF.',
+      icon: <ReportIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/period-report',
+    },
     {
       title: 'Trial Balance',
       description: 'View all account balances with debits and credits for a specific period',
@@ -90,13 +98,6 @@ export default function FinancialReportsPage() {
       icon: <GSTIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/gst-summary',
     },
-    {
-      title: 'Custom Reports',
-      description: 'Build custom financial reports with filters and groupings',
-      icon: <ReportIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/accounting/reports/custom',
-      comingSoon: true,
-    },
   ];
 
   if (!hasViewAccess) {
@@ -141,31 +142,8 @@ export default function FinancialReportsPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'relative',
-                ...(report.comingSoon && {
-                  opacity: 0.7,
-                  backgroundColor: 'action.hover',
-                }),
               }}
             >
-              {report.comingSoon && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'warning.main',
-                    color: 'warning.contrastText',
-                    px: 1,
-                    py: 0.5,
-                    borderRadius: 1,
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  Coming Soon
-                </Box>
-              )}
-
               <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
                 <Box sx={{ mb: 2 }}>{report.icon}</Box>
                 <Typography variant="h6" component="h2" gutterBottom>
@@ -177,12 +155,8 @@ export default function FinancialReportsPage() {
               </CardContent>
 
               <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={() => router.push(report.path)}
-                  disabled={report.comingSoon}
-                >
-                  {report.comingSoon ? 'Coming Soon' : 'View Report'}
+                <Button variant="contained" onClick={() => router.push(report.path)}>
+                  View Report
                 </Button>
               </CardActions>
             </Card>

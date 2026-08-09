@@ -19,11 +19,7 @@ import {
   Alert,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
-import {
-  Print as PrintIcon,
-  FileDownload as DownloadIcon,
-  Home as HomeIcon,
-} from '@mui/icons-material';
+import { Print as PrintIcon, Home as HomeIcon } from '@mui/icons-material';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
@@ -150,9 +146,6 @@ export default function CashFlowStatementPage() {
                 <>
                   <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
                     Print
-                  </Button>
-                  <Button variant="outlined" startIcon={<DownloadIcon />}>
-                    Export PDF
                   </Button>
                 </>
               )}
