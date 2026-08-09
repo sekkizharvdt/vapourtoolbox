@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-08-07 (feedback module added — form auto-capture, reporter/admin loop, no notifications either way; notifications entry now names `createNotification` as the single writer)
+Last verified: 2026-08-09 (accounting routes list corrected — 9 routes were missing; added `/accounting/reports` sub-map noting the CSV/Excel-only shared exporter, the orphaned `period-report`, and the no-export routes)
 
 ## Monorepo layout
 
@@ -76,7 +76,11 @@ Canonical pages: [`/materials/pipes`](../apps/web/src/app/materials/pipes/page.t
 
 ## Routes (`apps/web/src/app/`)
 
-- `/accounting` — transactions, journal-entries, bills, invoices, payments, payment-batches, chart-of-accounts, reports, data-health, trash
+- `/accounting` — transactions, journal-entries, bills, grn-bills, invoices, payments, payment-batches, payment-planning, chart-of-accounts, cost-centres, fiscal-years, fixed-assets, interproject-loans, recurring, tax-compliance, files, reports, data-health, trash
+  - `/accounting/reports` — trial-balance, balance-sheet, profit-loss, cash-flow, account-ledger, entity-ledger, project-financial, receipts-payments, gst-summary, **period-report**. Generators in `lib/accounting/reports/` (`balanceSheet.ts`, `profitLoss.ts`, `cashFlow.ts`, `receiptsPayments.ts`, `periodReportData.ts`, `glDrilldown.ts`).
+  - **Export capability is uneven.** `lib/accounting/reports/exportReport.ts` provides `downloadReportCSV` / `downloadReportExcel` over a shared `ExportSection[]` — **no PDF function**. The 9 hub reports wire CSV+Excel (project-financial wires nothing; cash-flow has a dead "Export PDF" button with no `onClick`). `period-report` is the ONLY accounting report with a real PDF, via its own `components/pdf/PeriodReportPDFDocument.tsx`, and it is **not linked from the reports hub or any nav** — reachable only by typing the URL. It is also the richest report (exec summary, comparative P&L, BS, CF, AR/AP aging, working capital ratios, GST, project performance, data quality, trial balance, on an Indian-FY quarter/FY period model).
+  - Statutory reporting already exists — do NOT rebuild: GSTR-1/2/3B + portal JSON in `lib/accounting/gstReports/`, Form 16A / Form 26Q in `tdsReportGenerator.ts`, surfaced at `/accounting/tax-compliance`.
+  - `fixed-assets`, `payment-planning`, `tax-compliance`, `cost-centres`, `interproject-loans` have NO export of any kind, though the underlying math exists (`getDepreciationSchedule`/`previewDepreciation`, `generateCashFlowForecast`).
 - `/procurement` — pos, rfqs, quotes, purchase-requests, goods-receipts, packing-lists, amendments, three-way-match, work-completion
 - `/proposals`, `/projects`, `/documents`, `/estimation` (BOM editor), `/bought-out`, `/materials`, `/ssot`, `/services`
 - `/thermal` — `(protected)/` calculators
