@@ -191,10 +191,43 @@ describe('generateFlashChamberSSOT', () => {
     expect(vessel.liquidHoldupM3!).toBeLessThan(vessel.grossVolumeM3!);
   });
 
-  it('leaves metal mass blank and says why', () => {
+  it('publishes metal mass with the derivation that lets a consumer check it', () => {
+    const out = generateFlashChamberSSOT(seawater);
+    const vessel = out.equipment[0]!;
+    const d = vessel.metalMassDerivation!;
+
+    expect(vessel.metalMassKg).toBeCloseTo(seawater.chamberSizing.metalMass.totalKg, 6);
+    expect(d.basis).toBe('component-breakdown');
+
+    // The components must sum to the total, or the breakdown describes a
+    // different vessel than the number does.
+    const summed = Object.values(d.componentsKg!).reduce((a, b) => a + b, 0);
+    expect(summed).toBeCloseTo(vessel.metalMassKg!, 6);
+
+    // Only shell and heads are real here — a flash chamber has no bundle and no
+    // coolant side, and zero must mean "none", not "not computed".
+    expect(d.computedFromGeometry).toEqual(['shell', 'dishedHeads']);
+    expect(d.componentsKg!.tubes).toBe(0);
+    expect(d.componentsKg!.waterBoxes).toBe(0);
+  });
+
+  it('labels the mass as resting on an ASSUMED wall thickness', () => {
+    // The mass is real geometry at an assumed thickness, so it is an assumed
+    // mass. If that label is ever dropped it becomes a design value by accident.
+    const out = generateFlashChamberSSOT(seawater);
+    const d = out.equipment[0]!.metalMassDerivation!;
+
+    expect(d.wallThicknessSource).toBe('assumed');
+    expect(d.caveats!.some((c) => c.includes('ASSUMED wall thickness'))).toBe(true);
+    expect(d.caveats!.some((c) => c.includes('FLOOR'))).toBe(true);
+    // Skirt and internals are outside the envelope and must stay named.
+    expect(d.excludes.some((e) => e.includes('skirt'))).toBe(true);
+  });
+
+  it('warns what the metal mass does and does not cover', () => {
     const out = generateFlashChamberSSOT(seawater);
 
-    expect(out.equipment[0]!.metalMassKg).toBeUndefined();
-    expect(out.warnings.some((w) => w.includes('Metal mass is blank'))).toBe(true);
+    expect(out.warnings.some((w) => w.includes('pressure envelope only'))).toBe(true);
+    expect(out.warnings.some((w) => w.includes('floor'))).toBe(true);
   });
 });

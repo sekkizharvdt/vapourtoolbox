@@ -40,20 +40,21 @@ planning error, so availability is stated on its own.
 
 ## Flash chamber (`flashChamberCalculator.ts`)
 
-| Quantity                                     | Exported? | Status     | Notes                                                                    |
-| -------------------------------------------- | --------- | ---------- | ------------------------------------------------------------------------ |
-| Vapour / brine flow, temperature, enthalpy   | yes       | COMPUTED   | Fixed point on brine salinity, converged 1e-9                            |
-| BPE                                          | yes       | COMPUTED   | At the **outlet** salinity, not the feed — this was a defect until v8    |
-| Chamber diameter, zone heights               | yes       | COMPUTED   | Souders-Brown + retention time                                           |
-| Elevations (BTL, LG-L, operating, LG-H, TTL) | yes       | COMPUTED   | Full set                                                                 |
-| Retention / liquid volume                    | yes       | COMPUTED   | From retention time and diameter                                         |
-| Nozzle sizes, NPSHa                          | yes       | COMPUTED   | Velocity-based                                                           |
-| NPSHa margin over pump NPSHr                 | yes       | COMPUTED   | **Only when `pumpNPSHr` is supplied.** See _NPSHa adequacy_ below        |
-| Inlet pressure                               | yes       | COMPUTED   | Chamber + spray-nozzle ΔP; default 3 bar                                 |
-| Suction friction loss                        | yes       | ASSUMED    | Flat 0.5 m default, settable. NOT from a pipe run — see below            |
-| **Wall thickness**                           | yes       | **ABSENT** | No shell in the model at all. See _Vessel metalwork_ below               |
-| **Metal mass**                               | yes       | **ABSENT** | No weight estimate exists for this vessel                                |
-| SSOT export                                  | yes       | COMPUTED   | Generator + UI shipped. Streams, equipment and lines, incl. holdup drums |
+| Quantity                                     | Exported? | Status   | Notes                                                                    |
+| -------------------------------------------- | --------- | -------- | ------------------------------------------------------------------------ |
+| Vapour / brine flow, temperature, enthalpy   | yes       | COMPUTED | Fixed point on brine salinity, converged 1e-9                            |
+| BPE                                          | yes       | COMPUTED | At the **outlet** salinity, not the feed — this was a defect until v8    |
+| Chamber diameter, zone heights               | yes       | COMPUTED | Souders-Brown + retention time                                           |
+| Elevations (BTL, LG-L, operating, LG-H, TTL) | yes       | COMPUTED | Full set                                                                 |
+| Retention / liquid volume                    | yes       | COMPUTED | From retention time and diameter                                         |
+| Nozzle sizes, NPSHa                          | yes       | COMPUTED | Velocity-based                                                           |
+| NPSHa margin over pump NPSHr                 | yes       | COMPUTED | **Only when `pumpNPSHr` is supplied.** See _NPSHa adequacy_ below        |
+| Inlet pressure                               | yes       | COMPUTED | Chamber + spray-nozzle ΔP; default 3 bar                                 |
+| Suction friction loss                        | yes       | ASSUMED  | Flat 0.5 m default, settable. NOT from a pipe run — see below            |
+| Wall thickness                               | yes       | ASSUMED  | 6 mm SS 316L. No buckling check exists — see _Vessel metalwork_ below    |
+| Metal mass (pressure envelope)               | yes       | ASSUMED  | Shell + 2 heads from geometry at the assumed wall. See below             |
+| Wall heat capacity `M·c`                     | yes       | ASSUMED  | Published with the mass; inherits the thickness assumption               |
+| SSOT export                                  | yes       | COMPUTED | Generator + UI shipped. Streams, equipment and lines, incl. holdup drums |
 
 ### NPSHa adequacy — read before consuming a margin or a verdict
 
@@ -86,6 +87,30 @@ that would carry a failing one.
 
 For a consumer: never infer a margin. Read `npshSafetyMargin` from the result,
 or treat `isAdequate` as meaningless.
+
+### Flash chamber metal mass — a floor, at an assumed thickness
+
+`chamberSizing.metalMass` (fixture **v10**) is the **pressure envelope only**: cylindrical
+shell plus two 2:1 SE dished heads, computed from the diameter and tangent-to-tangent height
+the calculator already produces. It carries the density and specific heat used, the heat
+capacity product, and what it leaves out.
+
+Two things a consumer must not do with it:
+
+- **Do not treat it as a design mass.** The geometry is real; the 6 mm wall is not calculated.
+  This repo performs no external-pressure buckling check (ASME VIII Div 1 UG-28), which is
+  what actually sets plate on a vacuum vessel. `wallThicknessSource: "assumed"` travels with
+  every value and is asserted by test. A mass derived from an assumed thickness is an assumed
+  mass.
+- **Do not treat it as a total.** It excludes the support skirt (thermally remote from the
+  contents), nozzles, flanges, reinforcing pads, stiffening rings — which a vacuum vessel
+  usually needs and this repo does not size — internals, insulation and cladding. It is a
+  **floor** for wall thermal mass.
+
+`shellKg + dishedHeadsKg == totalKg` exactly, and `heatCapacityJPerK == totalKg ×
+specificHeatJPerKgK` exactly, at the published precision. Both are asserted on the artifact:
+components published to a different precision than the total they claim to sum to is a
+relation a consumer cannot reproduce.
 
 ### Suction friction — an estimate, not a hydraulic calculation
 

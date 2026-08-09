@@ -292,6 +292,54 @@ export interface ChamberSizing {
 
   /** Souders-Brown vapour-velocity criterion diameter in mm (D_SB) */
   vaporVelocityDiameter: number;
+
+  /**
+   * Metal mass of the pressure envelope — shell plus both dished heads.
+   *
+   * ⚠ **An ASSUMED mass, not a design value.** It is computed from real
+   * geometry, but at an assumed wall thickness: this repo performs no
+   * external-pressure buckling check (ASME VIII Div 1 UG-28), which is what
+   * actually sets plate on a vacuum vessel. `wallThicknessSource` says so and
+   * must travel with the number.
+   *
+   * EXCLUDES the support skirt, nozzles, flanges, stiffening rings and
+   * internals — none of which this calculator sizes. It is a floor, not a
+   * total.
+   *
+   * Published because a dynamic model needs `M·c` for the wall, and the mass
+   * was the missing half.
+   */
+  metalMass: VesselMetalMass;
+}
+
+/**
+ * Pressure-envelope metal mass and the basis it was formed on.
+ *
+ * The components are separate from the total on purpose: a consumer modelling
+ * only the wetted cylinder can drop the heads, and one that disagrees with the
+ * 2:1 SE blank-area factor can recompute them. Neither is possible from a total.
+ */
+export interface VesselMetalMass {
+  /** Cylindrical shell, kg */
+  shellKg: number;
+  /** Both dished heads together, kg */
+  dishedHeadsKg: number;
+  /** Shell + heads, kg */
+  totalKg: number;
+  /** Heat capacity of the envelope, J/K — mass × the grade's specific heat */
+  heatCapacityJPerK: number;
+  /** Wall thickness used, mm */
+  wallThicknessMM: number;
+  /** Where that thickness came from. `assumed` means no calculation produced it */
+  wallThicknessSource: 'assumed' | 'user-input' | 'procurement-record' | 'calculated';
+  /** Grade key from METAL_PROPERTIES */
+  material: string;
+  /** Density used, kg/m³ — echoed so the figure can be checked, not just compared */
+  densityKgM3: number;
+  /** Specific heat used, J/(kg·K) */
+  specificHeatJPerKgK: number;
+  /** What the figure deliberately leaves out */
+  excludes: string[];
 }
 
 /**

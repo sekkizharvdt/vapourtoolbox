@@ -1,8 +1,17 @@
 {
-  "schemaVersion": 9,
-  "generatedBy": "scripts/thermal/generate-flash-chamber-fixtures.ts",
+  "schemaVersion": 10,
+  "generatedBy": "apps/web/src/lib/thermal/__generators__/flashChamberFixtures.gen.ts",
   "generatedFor": "vapour-dynamics rung 0/1 — spec section 7.1 / 7.2",
   "schemaChanges": {
+    "v10": {
+      "added": [
+        "chamberSizing.metalMass — the vessel pressure envelope: shell + both 2:1 SE dished heads, with the heat capacity product, the density and specific heat used, and what the figure excludes. This is the M for the M·c a wall model needs; the c was already published in metal-properties.json."
+      ],
+      "fixed": [
+        "generatedBy pointed at scripts/thermal/generate-flash-chamber-fixtures.ts, a path that does not exist. The real generator is this file. v9 was sent carrying the wrong path — it is the field a consumer reads to ask how the numbers were made."
+      ],
+      "note": "READ metalMass.wallThicknessSource BEFORE USING THE MASS. It is \"assumed\": the geometry is real but the 6 mm wall is not calculated, because this repo performs no external-pressure buckling check (ASME VIII Div 1 UG-28), which is what actually sets plate on a vacuum vessel. A mass derived from an assumed thickness is an assumed mass. It is also the PRESSURE ENVELOPE ONLY — no skirt, nozzles, stiffening rings or internals — so it is a floor for wall thermal mass, not a total. No other value changed from v9."
+    },
     "v9": {
       "added": [
         "nozzles[].dn — nominal diameter in MM from the pipe table (e.g. \"125\" where nps is \"5\"). No physics changed; every other value is byte-identical to v8."
@@ -199,7 +208,25 @@
           "vaporLoadingDiameter": 1100,
           "crossSectionLoading": 1.7913407065914486,
           "sbMaxVelocity": 13.816114119063181,
-          "vaporVelocityDiameter": 1100
+          "vaporVelocityDiameter": 1100,
+          "metalMass": {
+            "shellKg": 965.66,
+            "dishedHeadsKg": 98.9,
+            "totalKg": 1064.56,
+            "heatCapacityJPerK": 532280,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -384,7 +411,25 @@
           "vaporLoadingDiameter": 600,
           "crossSectionLoading": 1.8459943766247147,
           "sbMaxVelocity": 7.8012449405232225,
-          "vaporVelocityDiameter": 500
+          "vaporVelocityDiameter": 500,
+          "metalMass": {
+            "shellKg": 1455.45,
+            "dishedHeadsKg": 29.42,
+            "totalKg": 1484.87,
+            "heatCapacityJPerK": 742435,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -568,7 +613,25 @@
           "vaporLoadingDiameter": 1100,
           "crossSectionLoading": 1.6589241767265412,
           "sbMaxVelocity": 13.816114119063181,
-          "vaporVelocityDiameter": 1000
+          "vaporVelocityDiameter": 1000,
+          "metalMass": {
+            "shellKg": 947.82,
+            "dishedHeadsKg": 98.9,
+            "totalKg": 1046.72,
+            "heatCapacityJPerK": 523360,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -752,7 +815,25 @@
           "vaporLoadingDiameter": 700,
           "crossSectionLoading": 1.4785502115971019,
           "sbMaxVelocity": 10.842373642819213,
-          "vaporVelocityDiameter": 600
+          "vaporVelocityDiameter": 600,
+          "metalMass": {
+            "shellKg": 787.18,
+            "dishedHeadsKg": 40.05,
+            "totalKg": 827.23,
+            "heatCapacityJPerK": 413615,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -933,7 +1014,25 @@
           "vaporLoadingDiameter": 800,
           "crossSectionLoading": 1.7703596678747475,
           "sbMaxVelocity": 12.053423299998503,
-          "vaporVelocityDiameter": 700
+          "vaporVelocityDiameter": 700,
+          "metalMass": {
+            "shellKg": 914.12,
+            "dishedHeadsKg": 52.31,
+            "totalKg": 966.43,
+            "heatCapacityJPerK": 483215,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -1114,7 +1213,25 @@
           "vaporLoadingDiameter": 500,
           "crossSectionLoading": 2.336865877111963,
           "sbMaxVelocity": 6.313600432530093,
-          "vaporVelocityDiameter": 300
+          "vaporVelocityDiameter": 300,
+          "metalMass": {
+            "shellKg": 2454.87,
+            "dishedHeadsKg": 13.08,
+            "totalKg": 2467.95,
+            "heatCapacityJPerK": 1233975,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -1298,7 +1415,25 @@
           "vaporLoadingDiameter": 600,
           "crossSectionLoading": 1.7187782030106817,
           "sbMaxVelocity": 10.842373642819213,
-          "vaporVelocityDiameter": 500
+          "vaporVelocityDiameter": 500,
+          "metalMass": {
+            "shellKg": 851.96,
+            "dishedHeadsKg": 29.42,
+            "totalKg": 881.38,
+            "heatCapacityJPerK": 440690,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -1481,7 +1616,25 @@
           "vaporLoadingDiameter": 300,
           "crossSectionLoading": 1.7525066507387854,
           "sbMaxVelocity": 7.8012449405232225,
-          "vaporVelocityDiameter": 300
+          "vaporVelocityDiameter": 300,
+          "metalMass": {
+            "shellKg": 1561.64,
+            "dishedHeadsKg": 7.36,
+            "totalKg": 1569,
+            "heatCapacityJPerK": 784500,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -1665,7 +1818,25 @@
           "vaporLoadingDiameter": 1400,
           "crossSectionLoading": 2.442558604658098,
           "sbMaxVelocity": 7.8012449405232225,
-          "vaporVelocityDiameter": 1000
+          "vaporVelocityDiameter": 1000,
+          "metalMass": {
+            "shellKg": 644.51,
+            "dishedHeadsKg": 117.69,
+            "totalKg": 762.2,
+            "heatCapacityJPerK": 381100,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -1848,7 +2019,25 @@
           "vaporLoadingDiameter": 1800,
           "crossSectionLoading": 2.5099460703028087,
           "sbMaxVelocity": 7.8012449405232225,
-          "vaporVelocityDiameter": 1400
+          "vaporVelocityDiameter": 1400,
+          "metalMass": {
+            "shellKg": 928.51,
+            "dishedHeadsKg": 209.23,
+            "totalKg": 1137.74,
+            "heatCapacityJPerK": 568870,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {
@@ -2032,7 +2221,25 @@
           "vaporLoadingDiameter": 1900,
           "crossSectionLoading": 2.346013423234384,
           "sbMaxVelocity": 7.8012449405232225,
-          "vaporVelocityDiameter": 1400
+          "vaporVelocityDiameter": 1400,
+          "metalMass": {
+            "shellKg": 962.15,
+            "dishedHeadsKg": 236.2,
+            "totalKg": 1198.35,
+            "heatCapacityJPerK": 599175,
+            "wallThicknessMM": 6,
+            "wallThicknessSource": "assumed",
+            "material": "ss_316l",
+            "densityKgM3": 8000,
+            "specificHeatJPerKgK": 500,
+            "excludes": [
+              "support skirt — thermally remote from the contents",
+              "nozzles, flanges and reinforcing pads",
+              "stiffening rings (a vacuum vessel usually needs them; this repo does not size them)",
+              "internals: demister, spray header, baffles",
+              "insulation and cladding"
+            ]
+          }
         },
         "nozzles": [
           {

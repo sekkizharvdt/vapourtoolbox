@@ -19,7 +19,8 @@
  *   - something reformatted the artifact — check `.prettierignore`
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   buildFixturePayload,
@@ -46,6 +47,55 @@ describe('committed flash-chamber fixtures are reproducible', () => {
 
     for (let v = 2; v <= payload.schemaVersion; v++) {
       expect(documented).toContain(`v${v}`);
+    }
+  });
+
+  it('names a generator that actually exists', () => {
+    // v9 shipped — and was sent — pointing at scripts/thermal/generate-flash-
+    // chamber-fixtures.ts, which has never existed. It is the field a consumer
+    // reads to ask how the numbers were produced, so a dead path is a false
+    // claim rather than a cosmetic slip.
+    const { payload } = buildFixturePayload();
+    const repoRoot = join(__dirname, '..', '..', '..', '..', '..', '..');
+
+    expect(existsSync(join(repoRoot, payload.generatedBy))).toBe(true);
+  });
+
+  it('publishes a metal mass whose components sum to its total', () => {
+    // Two copies of a quantity is how they diverge. If shell + heads stops
+    // summing, the breakdown is describing a different vessel than the total.
+    for (const c of buildFixturePayload().payload.cases) {
+      const m = c.expected.chamberSizing.metalMass;
+      expect(m.shellKg + m.dishedHeadsKg).toBeCloseTo(m.totalKg, 2);
+    }
+  });
+
+  it('keeps the metal mass labelled as resting on an assumed thickness', () => {
+    // The geometry is real; the 6 mm wall is not calculated. If that label is
+    // dropped the mass silently becomes a design value.
+    for (const c of buildFixturePayload().payload.cases) {
+      const m = c.expected.chamberSizing.metalMass;
+      expect(m.wallThicknessSource).toBe('assumed');
+      expect(m.excludes.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('publishes a heat capacity that is the mass times its own specific heat', () => {
+    // The M·c a wall model needs. Pairing a mass with the wrong grade's cp is
+    // invisible in either number alone and moves every time constant.
+    for (const c of buildFixturePayload().payload.cases) {
+      const m = c.expected.chamberSizing.metalMass;
+      expect(m.heatCapacityJPerK).toBeCloseTo(m.totalKg * m.specificHeatJPerKgK, 0);
+    }
+  });
+
+  it('lands the metal mass at a vessel scale, not a units-slip scale', () => {
+    // A tonne-scale drum. A factor of 1000 either way is the failure worth
+    // catching cheaply.
+    for (const c of buildFixturePayload().payload.cases) {
+      const m = c.expected.chamberSizing.metalMass;
+      expect(m.totalKg).toBeGreaterThan(100);
+      expect(m.totalKg).toBeLessThan(20_000);
     }
   });
 });

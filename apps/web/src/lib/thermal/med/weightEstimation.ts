@@ -27,21 +27,14 @@ export const MATERIAL_COST_RATES: { [key: string]: number } = {
 };
 
 /**
- * Weight of a 2:1 semi-ellipsoidal dished head (ASME standard)
+ * Weight of a 2:1 semi-ellipsoidal dished head (ASME standard).
  *
- * Approximate formula: W ≈ (π/4) × D² × t × ρ × K
- * where K ≈ 1.084 for 2:1 SE (accounts for knuckle region)
- *
- * @param diameterMM Inside diameter in mm
- * @param thicknessMM Thickness in mm
- * @param density Material density in kg/m³
+ * Re-exported from `vesselMetalMass`, which is the canonical home now that the
+ * flash chamber needs the same relation (rule 16). Keeping a second copy here
+ * is how the two would drift.
  */
-export function dishedHeadWeight(diameterMM: number, thicknessMM: number, density: number): number {
-  const D = diameterMM / 1000; // m
-  const t = thicknessMM / 1000; // m
-  const K = 1.084; // 2:1 SE factor
-  return (Math.PI / 4) * D * D * t * density * K;
-}
+export { dishedHeadMassKg as dishedHeadWeight } from '../vesselMetalMass';
+import { dishedHeadMassKg } from '../vesselMetalMass';
 
 /**
  * Estimate weight for a single evaporator shell
@@ -70,7 +63,7 @@ export function estimateShellWeight(
   const shellWt = Math.PI * ((shellOD * shellOD - D * D) / 4) * shellL * shellDensity;
 
   // 2 × 2:1 SE dished heads
-  const headWt = 2 * dishedHeadWeight(shellIDmm, shellThkMM, shellDensity);
+  const headWt = 2 * dishedHeadMassKg(shellIDmm, shellThkMM, shellDensity);
 
   // 2 × tube sheets (flat circular plates with holes — approximate as solid)
   const tsWt = 2 * (Math.PI / 4) * D * D * tsT * shellDensity;

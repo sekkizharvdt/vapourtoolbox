@@ -30,7 +30,7 @@ import type { FlashChamberInput } from '@vapour/types';
 
 import { calculateFlashChamber, resolveInletPressureMbar } from '../flashChamberCalculator';
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 const OUTPUT_PATH = join(
   __dirname,
@@ -305,9 +305,30 @@ export function buildFixturePayload() {
 
   const payload = {
     schemaVersion: SCHEMA_VERSION,
-    generatedBy: 'scripts/thermal/generate-flash-chamber-fixtures.ts',
+    generatedBy: 'apps/web/src/lib/thermal/__generators__/flashChamberFixtures.gen.ts',
     generatedFor: 'vapour-dynamics rung 0/1 — spec section 7.1 / 7.2',
     schemaChanges: {
+      v10: {
+        added: [
+          'chamberSizing.metalMass — the vessel pressure envelope: shell + both 2:1 SE dished ' +
+            'heads, with the heat capacity product, the density and specific heat used, and ' +
+            'what the figure excludes. This is the M for the M·c a wall model needs; the c ' +
+            'was already published in metal-properties.json.',
+        ],
+        fixed: [
+          'generatedBy pointed at scripts/thermal/generate-flash-chamber-fixtures.ts, a path ' +
+            'that does not exist. The real generator is this file. v9 was sent carrying the ' +
+            'wrong path — it is the field a consumer reads to ask how the numbers were made.',
+        ],
+        note:
+          'READ metalMass.wallThicknessSource BEFORE USING THE MASS. It is "assumed": the ' +
+          'geometry is real but the 6 mm wall is not calculated, because this repo performs no ' +
+          'external-pressure buckling check (ASME VIII Div 1 UG-28), which is what actually ' +
+          'sets plate on a vacuum vessel. A mass derived from an assumed thickness is an ' +
+          'assumed mass. It is also the PRESSURE ENVELOPE ONLY — no skirt, nozzles, stiffening ' +
+          'rings or internals — so it is a floor for wall thermal mass, not a total. ' +
+          'No other value changed from v9.',
+      },
       v9: {
         added: [
           'nozzles[].dn — nominal diameter in MM from the pipe table (e.g. "125" where nps is ' +

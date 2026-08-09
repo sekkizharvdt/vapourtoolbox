@@ -44,7 +44,7 @@ import type {
   NozzleSizing,
 } from '@vapour/types';
 import { MaterialCategory, PIPE_MATERIAL_CODES } from '@vapour/types';
-import { getBrineSalinity } from '@vapour/constants';
+import { getBrineSalinity, METAL_PROPERTIES, type MetalGrade } from '@vapour/constants';
 import { enrichStreamInput } from './streamCalculations';
 import {
   round,
@@ -207,6 +207,34 @@ export function generateFlashChamberSSOT(
       shellLengthMM: round(cs.totalHeight, 1),
       grossVolumeM3,
       liquidHoldupM3: operatingHoldupM3,
+      metalMassKg: cs.metalMass.totalKg,
+      metalMassDerivation: {
+        material: cs.metalMass.material,
+        materialLabel: METAL_PROPERTIES[cs.metalMass.material as MetalGrade].label,
+        densityKgM3: cs.metalMass.densityKgM3,
+        wallThicknessMm: cs.metalMass.wallThicknessMM,
+        wallThicknessSource: cs.metalMass.wallThicknessSource,
+        basis: 'component-breakdown',
+        componentsKg: {
+          shell: cs.metalMass.shellKg,
+          dishedHeads: cs.metalMass.dishedHeadsKg,
+          // A flash chamber has no bundle and no coolant side. Zero here means
+          // "this vessel has none", not "not computed" — the excludes list
+          // below carries what was genuinely left out.
+          tubeSheets: 0,
+          tubes: 0,
+          waterBoxes: 0,
+          internals: 0,
+        },
+        computedFromGeometry: ['shell', 'dishedHeads'],
+        excludes: cs.metalMass.excludes,
+        caveats: [
+          'ASSUMED wall thickness — no external-pressure buckling check (ASME VIII Div 1 ' +
+            'UG-28) exists in this repo, and that is what sets plate on a vacuum vessel. The ' +
+            'mass is real geometry at an assumed thickness, so it is an assumed mass.',
+          'Pressure envelope only. This is a FLOOR for the wall thermal mass, not a total.',
+        ],
+      },
       // Bottom tangent line above FFL — the datum the extraction pump's static
       // head is measured from.
       elevationM: round(elevations.btl, 3),
@@ -279,9 +307,11 @@ export function generateFlashChamberSSOT(
   );
 
   warnings.push(
-    'Metal mass is blank: the flash chamber calculator carries no wall thickness or material, so ' +
-      'there is no geometric basis for one. It must be entered before the register can carry a ' +
-      'wall thermal mass.'
+    `Metal mass ${cs.metalMass.totalKg} kg is the pressure envelope only (shell ` +
+      `${cs.metalMass.shellKg} kg + heads ${cs.metalMass.dishedHeadsKg} kg) at an ASSUMED ` +
+      `${cs.metalMass.wallThicknessMM} mm wall — no external-pressure buckling check exists. ` +
+      `It excludes the skirt, nozzles, stiffening rings and internals, so treat it as a floor ` +
+      `for wall thermal mass, not a total. Heat capacity ${cs.metalMass.heatCapacityJPerK} J/K.`
   );
 
   if (result.warnings.length > 0) {

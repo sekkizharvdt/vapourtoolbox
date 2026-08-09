@@ -23,6 +23,9 @@ import {
   getSeawaterEnthalpy,
   getBoilingPointElevation,
   getBrineSalinity,
+  METAL_PROPERTIES,
+  ASSUMED_VESSEL_WALL_THICKNESS_MM,
+  ASSUMED_VESSEL_MATERIAL,
 } from '@vapour/constants';
 
 import {
@@ -33,6 +36,7 @@ import {
 } from './pipeService';
 import { tonHrToKgS, tonHrToM3S, barToHead } from './thermalUtils';
 import { computeNPSHa, npshMargin } from './npsha';
+import { vesselEnvelopeMass } from './vesselMetalMass';
 
 import type {
   FlashChamberInput,
@@ -45,6 +49,7 @@ import type {
   NPSHaAtLevel,
   FlashChamberElevations,
   FlowRateUnit,
+  VesselMetalMass,
 } from '@vapour/types';
 import {
   FLOW_RATE_CONVERSIONS,
@@ -815,6 +820,46 @@ function calculateChamberSize(
   // Vapour loading (ton/hr/m²) — for display only
   const vaporLoading = vaporFlow / actualCrossSectionArea;
 
+  // Pressure-envelope metal mass. Real geometry at an ASSUMED wall thickness —
+  // see VesselMetalMass. Computed here rather than left to a consumer so the
+  // mass and the geometry it came from cannot drift apart.
+  const envelope = vesselEnvelopeMass({
+    insideDiameterMM: roundedDiameter,
+    tangentToTangentMM: Math.round(totalHeight),
+    thicknessMM: ASSUMED_VESSEL_WALL_THICKNESS_MM,
+    grade: ASSUMED_VESSEL_MATERIAL,
+  });
+
+  // Rounded so the PUBLISHED numbers are self-consistent: the total is the sum
+  // of the rounded components, and the heat capacity is formed from the rounded
+  // total. Rounding each independently off the full-precision values leaves
+  // shell + heads ≠ total by ~0.01 kg and C ≠ M·c by ~2 J/K — small, but it
+  // means a consumer reproducing the relation from what we published does not
+  // get what we published, which is the whole point of publishing components.
+  const shellKg = round2(envelope.shellKg);
+  const dishedHeadsKg = round2(envelope.dishedHeadsKg);
+  const totalKg = round2(shellKg + dishedHeadsKg);
+  const specificHeatJPerKgK = METAL_PROPERTIES[ASSUMED_VESSEL_MATERIAL].specificHeatJPerKgK;
+
+  const metalMass: VesselMetalMass = {
+    shellKg,
+    dishedHeadsKg,
+    totalKg,
+    heatCapacityJPerK: Math.round(totalKg * specificHeatJPerKgK),
+    wallThicknessMM: ASSUMED_VESSEL_WALL_THICKNESS_MM,
+    wallThicknessSource: 'assumed',
+    material: ASSUMED_VESSEL_MATERIAL,
+    densityKgM3: envelope.densityKgM3,
+    specificHeatJPerKgK,
+    excludes: [
+      'support skirt — thermally remote from the contents',
+      'nozzles, flanges and reinforcing pads',
+      'stiffening rings (a vacuum vessel usually needs them; this repo does not size them)',
+      'internals: demister, spray header, baffles',
+      'insulation and cladding',
+    ],
+  };
+
   return {
     diameter: roundedDiameter,
     crossSectionArea: actualCrossSectionArea,
@@ -831,7 +876,13 @@ function calculateChamberSize(
     crossSectionLoading,
     sbMaxVelocity,
     vaporVelocityDiameter,
+    metalMass,
   };
+}
+
+/** Round to 2 dp — masses in kg, where more digits than this are noise */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 // ============================================================================

@@ -57,6 +57,20 @@ jest.mock('@vapour/constants', () => ({
     if (brineFlow <= 0) return 999999;
     return (inletSalinity * waterFlow) / brineFlow;
   }),
+  // Real values, not stubs: the envelope metal mass is a straight product of
+  // these, so a fake density would make every mass assertion meaningless.
+  METAL_PROPERTIES: {
+    ss_316l: {
+      densityKgM3: 8000,
+      specificHeatJPerKgK: 500,
+      specificHeatQuotedRangeC: [0, 100],
+      specificHeatBasis: 'mill-datasheet-conventional',
+      thermalConductivityWmK: 16,
+      label: 'SS 316L',
+    },
+  },
+  ASSUMED_VESSEL_WALL_THICKNESS_MM: 6,
+  ASSUMED_VESSEL_MATERIAL: 'ss_316l',
 }));
 
 // Mock pipeService

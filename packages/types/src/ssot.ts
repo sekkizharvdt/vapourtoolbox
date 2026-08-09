@@ -356,6 +356,19 @@ export interface ProcessEquipmentInput {
   grossVolumeM3?: number;
   liquidHoldupM3?: number;
   metalMassKg?: number;
+  /**
+   * How `metalMassKg` was arrived at.
+   *
+   * Was missing from this input type while `ProcessEquipment` carried it, so
+   * `medDesignGenerator` wrote it only because a conditional spread bypasses
+   * excess-property checking — the field reached Firestore unchecked. Rule 22:
+   * every typed field must be writable on create.
+   */
+  metalMassDerivation?: EquipmentMetalMassDerivation;
+  /** Wetted wall area at normal operating level in m² */
+  wettedAreaM2?: number;
+  /** Total internal wall area, wetted plus dry, in m² */
+  totalAreaM2?: number;
   heatTransferAreaM2?: number;
   elevationM?: number;
   provenance?: SSOTProvenance;
