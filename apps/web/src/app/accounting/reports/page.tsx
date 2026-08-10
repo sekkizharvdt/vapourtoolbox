@@ -18,6 +18,7 @@ import {
   PieChart as ConcentrationIcon,
   AccountBalance as BankBookIcon,
   CurrencyExchange as FxIcon,
+  ReceiptLong as ExpenseIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -127,6 +128,14 @@ export default function FinancialReportsPage() {
       description: 'Monthly cash receipts and payments with categorized breakdowns',
       icon: <ReceiptsPaymentsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/receipts-payments',
+    },
+    {
+      title: 'Expense Analysis',
+      description:
+        'Where operating spend goes — by expense account, by project, and by counterparty, ' +
+        'with movement against the previous period and a monthly trend',
+      icon: <ExpenseIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/expense-analysis',
     },
     {
       title: 'GST Summary',
