@@ -1,304 +1,211 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
-  Container,
-  Typography,
   Box,
-  Card,
-  CardContent,
-  Grid,
-  TextField,
-  Alert,
-  LinearProgress,
+  Paper,
+  Stack,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
   TableContainer,
-  Paper,
-  Chip,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
   Button,
-  Stack,
+  Alert,
+  Grid,
+  Card,
+  CardContent,
+  Chip,
+  LinearProgress,
 } from '@mui/material';
-import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
-  TrendingUp as UpIcon,
-  TrendingDown as DownIcon,
-  AccountBalance as RevenueIcon,
-  Payment as ExpenseIcon,
-  ShowChart as ProfitIcon,
   Home as HomeIcon,
   FileDownload as DownloadIcon,
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
-
+import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
+import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { COLLECTIONS } from '@vapour/firebase';
-import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
-import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
-import type { BaseTransaction, CostCentre } from '@vapour/types';
-import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { createLogger } from '@vapour/logger';
+import { formatCurrency, formatDate, formatNumber } from '@/lib/utils/formatters';
 import {
   downloadReportCSV,
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
 import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
+import {
+  generateProjectFinancialsReport,
+  type ProjectFinancialsReport,
+} from '@/lib/accounting/reports/projectFinancials';
 
-interface ProjectFinancials {
-  projectId: string;
-  projectName: string;
-  revenue: number;
-  expenses: number;
-  profit: number;
-  budget?: number;
-  budgetCurrency?: string;
-  transactions: BaseTransaction[];
-  costCentres: CostCentre[];
+const logger = createLogger({ context: 'ProjectFinancialReport' });
+
+function currentFiscalYear(now = new Date()) {
+  const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  return { start: `${y}-04-01`, end: `${y + 1}-03-31` };
 }
 
 export default function ProjectFinancialReportPage() {
   const { claims } = useAuth();
   const exportPDF = useReportPDFExport();
+  const fy = currentFiscalYear();
+
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [startDate, setStartDate] = useState(fy.start);
+  const [endDate, setEndDate] = useState(fy.end);
   const [loading, setLoading] = useState(false);
-  const [financials, setFinancials] = useState<ProjectFinancials | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<ProjectFinancialsReport | null>(null);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
-  // Set default date range (current month)
-  useEffect(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    const startStr = firstDay.toISOString().split('T')[0];
-    const endStr = lastDay.toISOString().split('T')[0];
-
-    if (startStr) setStartDate(startStr);
-    if (endStr) setEndDate(endStr);
-  }, []);
-
-  // Load financial data when project or dates change
-  useEffect(() => {
-    if (!selectedProject || !startDate || !endDate) {
-      setFinancials(null);
+  const handleGenerate = async () => {
+    if (!selectedProject) {
+      setError('Select a project first.');
       return;
     }
-
-    loadFinancials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProject, startDate, endDate]);
-
-  const loadFinancials = async () => {
-    if (!selectedProject) return;
-
+    if (!startDate || !endDate || new Date(startDate) > new Date(endDate)) {
+      setError('Select a valid date range.');
+      return;
+    }
     setLoading(true);
     setError(null);
-
     try {
       const { db } = getFirebase();
-
-      // Convert date strings to Timestamps
-      const startTimestamp = Timestamp.fromDate(new Date(startDate + 'T00:00:00'));
-      const endTimestamp = Timestamp.fromDate(new Date(endDate + 'T23:59:59'));
-
-      // Query transactions for this project in the date range
-      const transactionConstraints = [
-        where('projectId', '==', selectedProject),
-        where('date', '>=', startTimestamp),
-        where('date', '<=', endTimestamp),
-      ];
-      const transactionsQuery = query(
-        collection(db, COLLECTIONS.TRANSACTIONS),
-        ...transactionConstraints
+      setReport(
+        await generateProjectFinancialsReport(db, selectedProject, {
+          startDate: new Date(`${startDate}T00:00:00`),
+          endDate: new Date(`${endDate}T23:59:59`),
+        })
       );
-
-      const transactionsSnapshot = await getDocs(transactionsQuery);
-
-      // Calculate revenue and expenses
-      let revenue = 0;
-      let expenses = 0;
-      const transactions: BaseTransaction[] = [];
-
-      transactionsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        // Rule 3: skip trashed transactions so revenue/expense totals and the
-        // listing match the live books (filtered client-side, not in the query).
-        if (data.isDeleted) return;
-        const transaction = docToTypedWithDates<BaseTransaction>(doc.id, data);
-
-        transactions.push(transaction);
-
-        // Calculate revenue and expenses based on transaction type
-        const amount = data.amount ?? 0;
-        if (data.type === 'CUSTOMER_INVOICE' || data.type === 'CUSTOMER_PAYMENT') {
-          revenue += amount;
-        } else if (data.type === 'VENDOR_BILL' || data.type === 'VENDOR_PAYMENT') {
-          expenses += amount;
-        }
-      });
-
-      // Query cost centres for this project
-      const costCentreConstraints = [where('projectId', '==', selectedProject)];
-      const costCentresQuery = query(
-        collection(db, COLLECTIONS.COST_CENTRES),
-        ...costCentreConstraints
-      );
-
-      const costCentresSnapshot = await getDocs(costCentresQuery);
-      const costCentres: CostCentre[] = costCentresSnapshot.docs.map((doc) =>
-        docToTypedWithDates<CostCentre>(doc.id, doc.data())
-      );
-
-      // Get project budget from cost centres
-      const totalBudget = costCentres.reduce((sum, cc) => sum + (cc.budgetAmount || 0), 0);
-      const budgetCurrency = costCentres.find((cc) => cc.budgetCurrency)?.budgetCurrency;
-
-      setFinancials({
-        projectId: selectedProject,
-        projectName: '', // Will be populated from ProjectSelector
-        revenue,
-        expenses,
-        profit: revenue - expenses,
-        budget: totalBudget > 0 ? totalBudget : undefined,
-        budgetCurrency,
-        transactions,
-        costCentres,
-      });
     } catch (err) {
-      console.error('[ProjectFinancialReport] Error loading financials:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load financial data');
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Failed to generate project financial report', { error: message });
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const getTransactionTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      CUSTOMER_INVOICE: 'Invoice',
-      CUSTOMER_PAYMENT: 'Payment Received',
-      VENDOR_BILL: 'Bill',
-      VENDOR_PAYMENT: 'Payment Made',
-      JOURNAL_ENTRY: 'Journal Entry',
-    };
-    return labels[type] || type;
-  };
+  const buildExportSections = (): ExportSection[] => {
+    if (!report) return [];
+    const money = { width: 18, align: 'right' as const, format: 'currency' as const };
+    const measure = [
+      { header: 'Measure', key: 'measure', width: 34 },
+      { header: 'Amount', key: 'amount', ...money },
+    ];
 
-  const getTransactionTypeColor = (
-    type: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    if (type === 'CUSTOMER_INVOICE' || type === 'CUSTOMER_PAYMENT') return 'success';
-    if (type === 'VENDOR_BILL' || type === 'VENDOR_PAYMENT') return 'error';
-    return 'default';
-  };
-
-  const buildProjectExportSections = (): ExportSection[] => {
-    if (!financials) return [];
-
-    const summaryCols = [
-      { header: 'Measure', key: 'measure', width: 30 },
+    const sections: ExportSection[] = [
       {
-        header: 'Amount',
-        key: 'amount',
-        width: 18,
-        align: 'right' as const,
-        format: 'currency' as const,
+        title: 'Result (accrual basis)',
+        columns: measure,
+        rows: [
+          { measure: '  Revenue — invoices raised', amount: report.accrual.revenue },
+          { measure: '  Expenses — bills and direct payments', amount: report.accrual.expenses },
+        ],
+        summary: {
+          measure:
+            report.accrual.marginPct === null
+              ? 'Profit'
+              : `Profit (${report.accrual.marginPct.toFixed(1)}% margin)`,
+          amount: report.accrual.profit,
+        },
+      },
+      {
+        title: 'Cash movement',
+        columns: measure,
+        rows: [
+          { measure: '  Received from customers', amount: report.cash.receipts },
+          { measure: '  Paid to vendors and others', amount: report.cash.payments },
+        ],
+        summary: { measure: 'Net cash movement', amount: report.cash.net },
       },
     ];
-    const summaryRows: Record<string, string | number>[] = [
-      { measure: '  Revenue', amount: financials.revenue },
-      { measure: '  Expenses', amount: financials.expenses },
-    ];
-    if (financials.budget !== undefined) {
-      summaryRows.push({ measure: '  Budget', amount: financials.budget });
-      summaryRows.push({
-        measure: '  Budget Variance',
-        amount: financials.budget - financials.expenses,
+
+    if (report.budget.amount !== null) {
+      sections.push({
+        title: 'Budget',
+        columns: measure,
+        rows: [
+          { measure: '  Budget', amount: report.budget.amount },
+          { measure: '  Spent (accrual expenses)', amount: report.accrual.expenses },
+          {
+            measure: `  Utilisation — ${report.budget.utilisationPct?.toFixed(1) ?? '—'}%`,
+            amount: '',
+          },
+        ],
+        summary: { measure: 'Remaining', amount: report.budget.variance },
       });
     }
 
-    return [
-      {
-        title: 'Summary',
-        columns: summaryCols,
-        rows: summaryRows,
-        summary: { measure: 'Profit', amount: financials.profit },
-      },
-      {
-        title: 'Transactions',
+    for (const g of report.groups) {
+      sections.push({
+        title: `${g.label} — ${g.contributesTo}`,
         columns: [
           { header: 'Date', key: 'date', width: 12 },
-          { header: 'Number', key: 'number', width: 16 },
-          { header: 'Type', key: 'type', width: 16 },
-          { header: 'Description', key: 'description', width: 30 },
+          { header: 'Number', key: 'number', width: 18 },
+          { header: 'Counterparty', key: 'counterparty', width: 24 },
+          { header: 'Description', key: 'description', width: 34 },
           { header: 'Ccy', key: 'currency', width: 6, align: 'center' as const },
-          {
-            header: 'Amount',
-            key: 'amount',
-            width: 15,
-            align: 'right' as const,
-            format: 'currency' as const,
-          },
-          {
-            header: 'Amount (INR)',
-            key: 'baseAmount',
-            width: 15,
-            align: 'right' as const,
-            format: 'currency' as const,
-          },
+          { header: 'Amount', key: 'native', width: 14, align: 'right' as const },
+          { header: 'Amount (INR)', key: 'inr', ...money },
         ],
-        // Both the native amount (what the page shows) and the INR base amount
-        // (the only figure comparable across currencies — rule 21). The summary
-        // above totals native amounts, so on a mixed-currency project the two
-        // columns are what makes that visible rather than silently wrong.
-        rows: financials.transactions.map((t) => ({
+        rows: g.transactions.map((t) => ({
           date: t.date,
-          number: t.transactionNumber,
-          type: getTransactionTypeLabel(t.type),
+          number: t.reference,
+          counterparty: t.counterparty,
           description: t.description,
           currency: t.currency,
-          amount: t.amount,
-          baseAmount: t.baseAmount,
+          native: formatNumber(t.nativeAmount, 2),
+          inr: t.amountInr,
         })),
-      },
-    ];
+        summary: {
+          date: '',
+          number: `Total — ${g.transactions.length} item(s)`,
+          counterparty: '',
+          description: '',
+          currency: '',
+          native: '',
+          inr: g.total,
+        },
+      });
+    }
+
+    return sections;
   };
 
-  const exportFilename = `Project_Financial_${financials?.projectName || 'report'}_${startDate}_to_${endDate}`;
-  const handleExportCSV = () => downloadReportCSV(buildProjectExportSections(), exportFilename);
+  const filename = report
+    ? `Project_Financials_${report.projectName}_${startDate}_to_${endDate}`
+    : 'Project_Financials';
+  const handleExportCSV = () => downloadReportCSV(buildExportSections(), filename);
   const handleExportExcel = () =>
-    downloadReportExcel(buildProjectExportSections(), exportFilename, 'Project Financial');
+    downloadReportExcel(buildExportSections(), filename, 'Project Financials');
   const handleExportPDF = () =>
-    exportPDF(buildProjectExportSections(), exportFilename, {
-      title: 'Project Financial Report',
-      subtitle: financials?.projectName
-        ? `${financials.projectName} — ${startDate} to ${endDate}`
-        : `${startDate} to ${endDate}`,
+    exportPDF(buildExportSections(), filename, {
+      title: report
+        ? `Project Financial Report — ${report.projectName}`
+        : 'Project Financial Report',
+      subtitle: report ? `${formatDate(report.startDate)} to ${formatDate(report.endDate)}` : '',
     });
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Project Financial Reports
-          </Typography>
-          <Alert severity="error">You do not have permission to access financial reports.</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ p: 3 }}>
+        <PageHeader title="Project Financial Report" />
+        <Alert severity="error">You do not have permission to access financial reports.</Alert>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <Box sx={{ p: 3 }}>
       <PageBreadcrumbs
         items={[
           { label: 'Accounting', href: '/accounting', icon: <HomeIcon fontSize="small" /> },
@@ -306,262 +213,255 @@ export default function ProjectFinancialReportPage() {
           { label: 'Project Financial' },
         ]}
       />
+      <PageHeader
+        title="Project Financial Report"
+        subtitle="Did the project make money, and has the cash arrived — the two are not the same."
+      />
 
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Project Financial Reports
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Analyze project-wise revenue, expenses, and profitability
-        </Typography>
-        {financials && (
-          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportCSV}
-            >
-              CSV
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportExcel}
-              color="primary"
-            >
-              Excel
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<PdfIcon />}
-              onClick={handleExportPDF}
-              color="primary"
-            >
-              PDF
-            </Button>
-          </Stack>
-        )}
-      </Box>
-
-      {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <ProjectSelector
-                value={selectedProject}
-                onChange={setSelectedProject}
-                label="Select Project"
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField
-                fullWidth
-                label="Start Date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField
-                fullWidth
-                label="End Date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid size={{ xs: 12, md: 4 }}>
+            <ProjectSelector
+              value={selectedProject}
+              onChange={setSelectedProject}
+              label="Select Project"
+              required
+            />
           </Grid>
-        </CardContent>
-      </Card>
+          <Grid size={{ xs: 6, md: 2 }}>
+            <TextField
+              fullWidth
+              label="From"
+              type="date"
+              size="small"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Grid>
+          <Grid size={{ xs: 6, md: 2 }}>
+            <TextField
+              fullWidth
+              label="To"
+              type="date"
+              size="small"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" onClick={handleGenerate} disabled={loading}>
+                {loading ? 'Generating…' : 'Generate'}
+              </Button>
+              {report && (
+                <>
+                  <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportCSV}>
+                    CSV
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleExportExcel}
+                    color="primary"
+                  >
+                    Excel
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PdfIcon />}
+                    onClick={handleExportPDF}
+                    color="primary"
+                  >
+                    PDF
+                  </Button>
+                </>
+              )}
+            </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
 
-      {/* Loading State */}
-      {loading && (
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Loading financial data...
-          </Typography>
-          <LinearProgress />
-        </Box>
-      )}
-
-      {/* Error State */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
 
-      {/* Financial Summary */}
-      {financials && !loading && (
+      {loading && <LoadingState message="Reading project transactions…" />}
+
+      {!loading && !report && !error && (
+        <EmptyState
+          title="No report yet"
+          message="Choose a project and date range, then Generate."
+        />
+      )}
+
+      {!loading && report && (
         <>
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            {/* Revenue Card */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <RevenueIcon color="success" sx={{ mr: 1 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Revenue
-                    </Typography>
-                  </Box>
-                  <Typography variant="h5" color="success.main" fontWeight="medium">
-                    {formatCurrency(financials.revenue, financials.budgetCurrency)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {report.projectName}
+            <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+              {formatDate(report.startDate)} – {formatDate(report.endDate)}
+            </Typography>
+          </Typography>
 
-            {/* Expenses Card */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ height: '100%' }}>
                 <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <ExpenseIcon color="error" sx={{ mr: 1 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Expenses
-                    </Typography>
-                  </Box>
-                  <Typography variant="h5" color="error.main" fontWeight="medium">
-                    {formatCurrency(financials.expenses, financials.budgetCurrency)}
+                  <Typography variant="overline" color="text.secondary">
+                    Result — accrual basis
                   </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Profit/Loss Card */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <ProfitIcon
-                      color={financials.profit >= 0 ? 'success' : 'error'}
-                      sx={{ mr: 1 }}
-                    />
-                    <Typography variant="body2" color="text.secondary">
-                      {financials.profit >= 0 ? 'Profit' : 'Loss'}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {financials.profit >= 0 ? (
-                      <UpIcon color="success" fontSize="small" />
-                    ) : (
-                      <DownIcon color="error" fontSize="small" />
-                    )}
-                    <Typography
-                      variant="h5"
-                      color={financials.profit >= 0 ? 'success.main' : 'error.main'}
-                      fontWeight="medium"
+                  <Stack spacing={0.5} sx={{ mt: 1 }}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">Revenue (invoices raised)</Typography>
+                      <Typography variant="body2">
+                        {formatCurrency(report.accrual.revenue)}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">Expenses (bills + direct payments)</Typography>
+                      <Typography variant="body2">
+                        {formatCurrency(report.accrual.expenses)}
+                      </Typography>
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      sx={{ borderTop: 1, borderColor: 'divider', pt: 0.5 }}
                     >
-                      {formatCurrency(Math.abs(financials.profit), financials.budgetCurrency)}
-                    </Typography>
-                  </Box>
+                      <Typography variant="subtitle2">Profit</Typography>
+                      <Typography
+                        variant="subtitle2"
+                        color={report.accrual.profit >= 0 ? 'success.main' : 'error.main'}
+                      >
+                        {formatCurrency(report.accrual.profit)}
+                        {report.accrual.marginPct !== null &&
+                          ` (${report.accrual.marginPct.toFixed(1)}%)`}
+                      </Typography>
+                    </Stack>
+                  </Stack>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Budget Utilization Card */}
-            {financials.budget && financials.budget > 0 && (
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Budget Utilization
-                    </Typography>
-                    <Typography variant="h5" fontWeight="medium" gutterBottom>
-                      {((financials.expenses / financials.budget) * 100).toFixed(1)}%
-                    </Typography>
-                    <LinearProgress
-                      variant="determinate"
-                      value={Math.min((financials.expenses / financials.budget) * 100, 100)}
-                      color={
-                        (financials.expenses / financials.budget) * 100 < 75
-                          ? 'success'
-                          : (financials.expenses / financials.budget) * 100 < 90
-                            ? 'warning'
-                            : 'error'
-                      }
-                    />
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {formatCurrency(financials.expenses, financials.budgetCurrency)} of{' '}
-                      {formatCurrency(financials.budget, financials.budgetCurrency)}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Typography variant="overline" color="text.secondary">
+                    Cash movement
+                  </Typography>
+                  <Stack spacing={0.5} sx={{ mt: 1 }}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">Received from customers</Typography>
+                      <Typography variant="body2">
+                        {formatCurrency(report.cash.receipts)}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">Paid out</Typography>
+                      <Typography variant="body2">
+                        {formatCurrency(report.cash.payments)}
+                      </Typography>
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      sx={{ borderTop: 1, borderColor: 'divider', pt: 0.5 }}
+                    >
+                      <Typography variant="subtitle2">Net cash movement</Typography>
+                      <Typography
+                        variant="subtitle2"
+                        color={report.cash.net >= 0 ? 'success.main' : 'error.main'}
+                      >
+                        {formatCurrency(report.cash.net)}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
 
-          {/* Transactions Table */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Transactions ({financials.transactions.length})
-              </Typography>
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Number</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {financials.transactions.length === 0 ? (
+          {report.budget.amount !== null && (
+            <Paper sx={{ p: 2, mb: 3 }}>
+              <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography variant="subtitle2">
+                  Budget {formatCurrency(report.budget.amount)} · spent{' '}
+                  {formatCurrency(report.accrual.expenses)}
+                </Typography>
+                <Typography
+                  variant="subtitle2"
+                  color={(report.budget.variance ?? 0) >= 0 ? 'success.main' : 'error.main'}
+                >
+                  {(report.budget.variance ?? 0) >= 0 ? 'Remaining ' : 'Over by '}
+                  {formatCurrency(Math.abs(report.budget.variance ?? 0))}
+                </Typography>
+              </Stack>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min(report.budget.utilisationPct ?? 0, 100)}
+                color={(report.budget.utilisationPct ?? 0) > 100 ? 'error' : 'primary'}
+              />
+            </Paper>
+          )}
+
+          {report.excludedCount > 0 && (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              {report.excludedCount} journal entry/transfer totalling{' '}
+              {formatCurrency(report.excludedTotal)} is listed below but excluded from both results
+              — folding adjustments in would double-count the entries they adjust.
+            </Alert>
+          )}
+
+          {report.groups.length === 0 ? (
+            <EmptyState message="No transactions for this project in the selected period." />
+          ) : (
+            report.groups.map((g) => (
+              <Paper sx={{ p: 2, mb: 3 }} key={g.type}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                  <Typography variant="subtitle1">{g.label}</Typography>
+                  <Chip size="small" variant="outlined" label={g.contributesTo} />
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Typography variant="subtitle2">{formatCurrency(g.total)}</Typography>
+                </Stack>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
                       <TableRow>
-                        <TableCell colSpan={6} align="center">
-                          No transactions found for the selected period
-                        </TableCell>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Number</TableCell>
+                        <TableCell>Counterparty</TableCell>
+                        <TableCell>Description</TableCell>
+                        <TableCell align="right">Amount</TableCell>
+                        <TableCell align="right">Amount (INR)</TableCell>
                       </TableRow>
-                    ) : (
-                      financials.transactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
-                          <TableCell>{formatDate(transaction.date)}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={getTransactionTypeLabel(transaction.type)}
-                              color={getTransactionTypeColor(transaction.type)}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>{transaction.transactionNumber || '-'}</TableCell>
-                          <TableCell>{transaction.description || '-'}</TableCell>
+                    </TableHead>
+                    <TableBody>
+                      {g.transactions.map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell>{formatDate(t.date)}</TableCell>
+                          <TableCell>{t.reference}</TableCell>
+                          <TableCell>{t.counterparty || '—'}</TableCell>
+                          <TableCell>{t.description || '—'}</TableCell>
                           <TableCell align="right">
-                            {formatCurrency(
-                              transaction.amount ?? 0,
-                              transaction.currency || financials.budgetCurrency
-                            )}
+                            {t.currency !== 'INR'
+                              ? `${t.currency} ${formatNumber(t.nativeAmount, 2)}`
+                              : '—'}
                           </TableCell>
-                          <TableCell>
-                            <Chip label={transaction.status} size="small" />
-                          </TableCell>
+                          <TableCell align="right">{formatCurrency(t.amountInr)}</TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            ))
+          )}
         </>
       )}
-
-      {/* Empty State */}
-      {!financials && !loading && !error && (
-        <Alert severity="info">Select a project and date range to view financial reports</Alert>
-      )}
-    </Container>
+    </Box>
   );
 }
