@@ -20,6 +20,12 @@ import {
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
+import {
   Home as HomeIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
@@ -28,6 +34,8 @@ import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   Loop as RecurringIcon,
+  FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
   Warning as WarningIcon,
@@ -52,6 +60,7 @@ export default function PaymentPlanningPage() {
   const router = useRouter();
   const { claims } = useAuth();
 
+  const exportPDF = useReportPDFExport();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState<CashFlowSummary | null>(null);
@@ -108,6 +117,146 @@ export default function PaymentPlanningPage() {
       setLoading(false);
     }
   }, [hasViewAccess, loadData]);
+
+  /**
+   * The forecast is the one number set here worth taking away — a weekly cash
+   * position and the items putting it at risk. Built on the shared
+   * ExportSection[] so CSV, Excel and PDF all come from one shape.
+   */
+  const buildForecastExportSections = (): ExportSection[] => {
+    if (!forecast) return [];
+    const money = { width: 16, align: 'right' as const, format: 'currency' as const };
+
+    const sections: ExportSection[] = [
+      {
+        title: 'Cash position',
+        columns: [
+          { header: 'Measure', key: 'measure', width: 34 },
+          { header: 'Amount', key: 'amount', ...money },
+        ],
+        rows: [
+          { measure: '  Opening cash balance', amount: forecast.openingCashBalance },
+          { measure: '  Projected receipts', amount: forecast.totalProjectedReceipts },
+          { measure: '  Projected payments', amount: forecast.totalProjectedPayments },
+          { measure: '  Overdue receivables', amount: forecast.overdueReceivables },
+          { measure: '  Overdue payables', amount: forecast.overduePayables },
+        ],
+        summary: {
+          measure: `Projected closing balance (${forecast.forecastDays} days)`,
+          amount: forecast.projectedClosingBalance,
+        },
+      },
+      {
+        title: 'Receipts by source',
+        columns: [
+          { header: 'Source', key: 'source', width: 34 },
+          { header: 'Amount', key: 'amount', ...money },
+        ],
+        rows: [
+          { source: '  Invoices', amount: forecast.receiptsBySource.invoices },
+          { source: '  Recurring', amount: forecast.receiptsBySource.recurring },
+          { source: '  Manual', amount: forecast.receiptsBySource.manual },
+        ],
+        summary: { source: 'Total receipts', amount: forecast.totalProjectedReceipts },
+      },
+      {
+        title: 'Payments by source',
+        columns: [
+          { header: 'Source', key: 'source', width: 34 },
+          { header: 'Amount', key: 'amount', ...money },
+        ],
+        rows: [
+          { source: '  Bills', amount: forecast.paymentsBySource.bills },
+          { source: '  Recurring', amount: forecast.paymentsBySource.recurring },
+          { source: '  Manual', amount: forecast.paymentsBySource.manual },
+        ],
+        summary: { source: 'Total payments', amount: forecast.totalProjectedPayments },
+      },
+      {
+        title: 'Weekly forecast',
+        columns: [
+          { header: 'Week', key: 'week', width: 10, align: 'right' as const },
+          { header: 'From', key: 'from', width: 12 },
+          { header: 'To', key: 'to', width: 12 },
+          { header: 'Receipts', key: 'receipts', ...money },
+          { header: 'Payments', key: 'payments', ...money },
+          { header: 'Net', key: 'net', ...money },
+        ],
+        rows: forecast.weeklyForecasts.map((w) => ({
+          week: w.weekNumber,
+          from: w.weekStartDate,
+          to: w.weekEndDate,
+          receipts: w.totalReceipts,
+          payments: w.totalPayments,
+          net: w.netCashFlow,
+        })),
+        summary: {
+          week: '',
+          from: 'Total',
+          to: '',
+          receipts: forecast.totalProjectedReceipts,
+          payments: forecast.totalProjectedPayments,
+          net: forecast.netForecastedCashFlow,
+        },
+      },
+      {
+        title: 'Daily forecast',
+        columns: [
+          { header: 'Date', key: 'date', width: 12 },
+          { header: 'Opening', key: 'opening', ...money },
+          { header: 'Receipts', key: 'receipts', ...money },
+          { header: 'Payments', key: 'payments', ...money },
+          { header: 'Net', key: 'net', ...money },
+          { header: 'Closing', key: 'closing', ...money },
+        ],
+        rows: forecast.dailyForecasts.map((d) => ({
+          date: d.date,
+          opening: d.openingBalance,
+          receipts: d.projectedReceipts,
+          payments: d.projectedPayments,
+          net: d.netCashFlow,
+          closing: d.closingBalance,
+        })),
+      },
+    ];
+
+    if (forecast.atRiskItems.length > 0) {
+      sections.push({
+        title: 'At-risk items',
+        columns: [
+          { header: 'Reference', key: 'reference', width: 18 },
+          { header: 'Counterparty', key: 'entity', width: 26 },
+          { header: 'Direction', key: 'direction', width: 10 },
+          { header: 'Expected', key: 'expected', width: 12 },
+          { header: 'Days overdue', key: 'overdue', width: 12, align: 'right' as const },
+          { header: 'Risk', key: 'risk', width: 12 },
+          { header: 'Amount', key: 'amount', ...money },
+        ],
+        rows: forecast.atRiskItems.map((i) => ({
+          reference: i.sourceReference,
+          entity: i.entityName ?? '',
+          direction: i.direction,
+          expected: i.expectedDate,
+          overdue: i.daysOverdue,
+          risk: i.riskStatus,
+          amount: i.amount,
+        })),
+      });
+    }
+
+    return sections;
+  };
+
+  const forecastFilename = `Cash_Flow_Forecast_${new Date().toISOString().slice(0, 10)}`;
+  const handleExportForecastCSV = () =>
+    downloadReportCSV(buildForecastExportSections(), forecastFilename);
+  const handleExportForecastExcel = () =>
+    downloadReportExcel(buildForecastExportSections(), forecastFilename, 'Cash Flow Forecast');
+  const handleExportForecastPDF = () =>
+    exportPDF(buildForecastExportSections(), forecastFilename, {
+      title: 'Cash Flow Forecast',
+      subtitle: `${forecast?.forecastDays ?? 0}-day outlook`,
+    });
 
   const handleAddReceipt = () => {
     setDialogDirection('INFLOW');
@@ -183,6 +332,33 @@ export default function PaymentPlanningPage() {
           >
             Add Payment
           </Button>
+          {forecast && (
+            <>
+              <Tooltip title="Export forecast as CSV">
+                <IconButton onClick={handleExportForecastCSV} aria-label="Export CSV">
+                  <DownloadIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export forecast as Excel">
+                <IconButton
+                  onClick={handleExportForecastExcel}
+                  color="primary"
+                  aria-label="Export Excel"
+                >
+                  <DownloadIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export forecast as PDF">
+                <IconButton
+                  onClick={handleExportForecastPDF}
+                  color="primary"
+                  aria-label="Export PDF"
+                >
+                  <PdfIcon />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
           <Tooltip title="Refresh data">
             <IconButton onClick={loadData} disabled={loading} aria-label="Refresh data">
               <RefreshIcon />
