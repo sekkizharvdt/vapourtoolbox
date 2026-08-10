@@ -19,6 +19,8 @@ import {
   TableContainer,
   Paper,
   Chip,
+  Button,
+  Stack,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -28,6 +30,8 @@ import {
   Payment as ExpenseIcon,
   ShowChart as ProfitIcon,
   Home as HomeIcon,
+  FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,6 +43,12 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { BaseTransaction, CostCentre } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 
 interface ProjectFinancials {
   projectId: string;
@@ -54,6 +64,7 @@ interface ProjectFinancials {
 
 export default function ProjectFinancialReportPage() {
   const { claims } = useAuth();
+  const exportPDF = useReportPDFExport();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -189,6 +200,90 @@ export default function ProjectFinancialReportPage() {
     return 'default';
   };
 
+  const buildProjectExportSections = (): ExportSection[] => {
+    if (!financials) return [];
+
+    const summaryCols = [
+      { header: 'Measure', key: 'measure', width: 30 },
+      {
+        header: 'Amount',
+        key: 'amount',
+        width: 18,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+    ];
+    const summaryRows: Record<string, string | number>[] = [
+      { measure: '  Revenue', amount: financials.revenue },
+      { measure: '  Expenses', amount: financials.expenses },
+    ];
+    if (financials.budget !== undefined) {
+      summaryRows.push({ measure: '  Budget', amount: financials.budget });
+      summaryRows.push({
+        measure: '  Budget Variance',
+        amount: financials.budget - financials.expenses,
+      });
+    }
+
+    return [
+      {
+        title: 'Summary',
+        columns: summaryCols,
+        rows: summaryRows,
+        summary: { measure: 'Profit', amount: financials.profit },
+      },
+      {
+        title: 'Transactions',
+        columns: [
+          { header: 'Date', key: 'date', width: 12 },
+          { header: 'Number', key: 'number', width: 16 },
+          { header: 'Type', key: 'type', width: 16 },
+          { header: 'Description', key: 'description', width: 30 },
+          { header: 'Ccy', key: 'currency', width: 6, align: 'center' as const },
+          {
+            header: 'Amount',
+            key: 'amount',
+            width: 15,
+            align: 'right' as const,
+            format: 'currency' as const,
+          },
+          {
+            header: 'Amount (INR)',
+            key: 'baseAmount',
+            width: 15,
+            align: 'right' as const,
+            format: 'currency' as const,
+          },
+        ],
+        // Both the native amount (what the page shows) and the INR base amount
+        // (the only figure comparable across currencies — rule 21). The summary
+        // above totals native amounts, so on a mixed-currency project the two
+        // columns are what makes that visible rather than silently wrong.
+        rows: financials.transactions.map((t) => ({
+          date: t.date,
+          number: t.transactionNumber,
+          type: getTransactionTypeLabel(t.type),
+          description: t.description,
+          currency: t.currency,
+          amount: t.amount,
+          baseAmount: t.baseAmount,
+        })),
+      },
+    ];
+  };
+
+  const exportFilename = `Project_Financial_${financials?.projectName || 'report'}_${startDate}_to_${endDate}`;
+  const handleExportCSV = () => downloadReportCSV(buildProjectExportSections(), exportFilename);
+  const handleExportExcel = () =>
+    downloadReportExcel(buildProjectExportSections(), exportFilename, 'Project Financial');
+  const handleExportPDF = () =>
+    exportPDF(buildProjectExportSections(), exportFilename, {
+      title: 'Project Financial Report',
+      subtitle: financials?.projectName
+        ? `${financials.projectName} — ${startDate} to ${endDate}`
+        : `${startDate} to ${endDate}`,
+    });
+
   if (!hasViewAccess) {
     return (
       <Container maxWidth="xl">
@@ -219,6 +314,36 @@ export default function ProjectFinancialReportPage() {
         <Typography variant="body1" color="text.secondary">
           Analyze project-wise revenue, expenses, and profitability
         </Typography>
+        {financials && (
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportCSV}
+            >
+              CSV
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportExcel}
+              color="primary"
+            >
+              Excel
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PdfIcon />}
+              onClick={handleExportPDF}
+              color="primary"
+            >
+              PDF
+            </Button>
+          </Stack>
+        )}
       </Box>
 
       {/* Filters */}

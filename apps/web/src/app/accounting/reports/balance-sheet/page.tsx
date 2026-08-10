@@ -31,6 +31,7 @@ import {
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
   FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +53,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 
 // ---------------------------------------------------------------------------
 // AccountRow: renders a single account row with an expandable GL drill-down
@@ -186,6 +188,7 @@ function AccountRow({
 export default function BalanceSheetPage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const exportPDF = useReportPDFExport();
   const [asOfDate, setAsOfDate] = useState<string>(() => {
     const today = new Date().toISOString().split('T')[0];
     return today || '';
@@ -313,6 +316,11 @@ export default function BalanceSheetPage() {
     downloadReportCSV(buildExportSections(), `Balance_Sheet_${asOfDate}`);
   const handleExportExcel = () =>
     downloadReportExcel(buildExportSections(), `Balance_Sheet_${asOfDate}`, 'Balance Sheet');
+  const handleExportPDF = () =>
+    exportPDF(buildExportSections(), `Balance_Sheet_${asOfDate}`, {
+      title: 'Balance Sheet',
+      subtitle: `As of ${asOfDate}`,
+    });
 
   const accountRowProps = {
     expandedAccountId,
@@ -359,6 +367,16 @@ export default function BalanceSheetPage() {
                   aria-label="Export Excel"
                 >
                   <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export PDF">
+                <IconButton
+                  onClick={handleExportPDF}
+                  size="small"
+                  color="primary"
+                  aria-label="Export PDF"
+                >
+                  <PdfIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             </Box>

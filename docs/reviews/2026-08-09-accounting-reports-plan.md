@@ -1,6 +1,8 @@
 # Accounting reports — insight layer + PDF export
 
-**Status:** PLANNED — not started
+**Status:** Phase 0 COMPLETE (1794db17). Phase 1 COMPLETE. Phases 2–4 planned,
+gated on DC1–DC5 and the Phase 0.4 accountant demo. Not deployed; ships on the
+next Deploy dispatch.
 **Date:** 2026-08-09
 **Origin:** The accounting user asked for "more insightful reports that can be
 downloaded in PDF". This plan is the result of an orientation pass over
@@ -226,23 +228,38 @@ rule-32 failure this repo has paid for repeatedly.
   derived from `ExportColumn.width`, right-aligning `format: 'currency'`.
 - **1.4** Wire one handler into each of the nine hub reports (~3 lines each), and
   give `project-financial` its first export by building `ExportSection[]` for it.
-- **1.5** Bespoke documents for **balance-sheet** and **profit-loss** only —
-  statement layout (indented account hierarchy, subtotal rules, comparative
-  columns) reads badly as a flat table. Everything else uses the generic document.
+- **1.5** ~~Bespoke documents for balance-sheet and profit-loss.~~ **Dropped on
+  inspection — not needed.** Both reports' `ExportSection[]` already model the
+  statement: one titled section per group (Assets / Liabilities / Equity, Revenue /
+  COGS / Operating / Other / Summary), account rows pre-indented as
+  `"  <code> <name>"`, and a `summary` total row. That maps one-to-one onto
+  `ReportSection` + `ReportTable`'s `totalRow`, so the generic document renders
+  them as proper statements. Writing two bespoke documents would have been a
+  parallel implementation of layout the data already carried (rule 32).
 
 **Constraints**
 
-- Currency renders as `INR 1,234.00`. **Never the ₹ glyph** — no custom font is
-  registered, and referencing an unregistered family previously made every report
-  PDF throw at render time (documented in `reportComponents.tsx`).
-- Reuse `formatCurrency`/`formatDate` from `lib/utils/formatters` (rule 34); do
-  not add a local formatter.
+- **Never the ₹ glyph** — no custom font is registered, and referencing an
+  unregistered family previously made every report PDF throw at render time
+  (documented in `reportComponents.tsx`). Implemented as plain grouped numbers
+  ("1,23,456.00") plus a single "All amounts in INR" note under the header,
+  rather than the per-cell `INR ` prefix this plan first sketched: repeating the
+  prefix in every cell of a currency column reads badly and buys nothing.
+- Cell rendering goes through `formatCellValue` — the function CSV already used,
+  now exported — so the three downloads cannot drift apart (rule 32).
 - `@react-pdf/renderer` must stay behind the dynamic import in `generatePDFBlob`
   so it never enters the static bundle.
 
 **Acceptance:** every report under `/accounting/reports` offers CSV, Excel, and
 PDF; the three exports of the same report contain the same numbers; no dead
 export controls remain.
+
+**Delivered.** All ten report pages export PDF. `cash-flow` and
+`project-financial` had no `ExportSection[]` builder at all and gained one, so
+both now offer CSV and Excel for the first time as well. Error handling is one
+shared hook, `useReportPDFExport` — PDF is the one export that can fail at
+runtime, and nine copies of the same try/catch would have drifted. 13 unit tests
+cover `formatCellValue` and the orientation rule.
 
 ---
 

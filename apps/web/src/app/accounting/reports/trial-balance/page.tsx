@@ -24,6 +24,7 @@ import {
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
   FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -40,6 +41,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 import { formatDate } from '@/lib/utils/formatters';
 
 interface AccountBalance {
@@ -55,6 +57,7 @@ interface AccountBalance {
 export default function TrialBalancePage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const exportPDF = useReportPDFExport();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ debit: 0, credit: 0 });
@@ -197,6 +200,11 @@ export default function TrialBalancePage() {
       `Trial_Balance_${new Date().toISOString().slice(0, 10)}`,
       'Trial Balance'
     );
+  const handleExportPDF = () =>
+    exportPDF(buildExportSections(), `Trial_Balance_${new Date().toISOString().slice(0, 10)}`, {
+      title: 'Trial Balance',
+      subtitle: `As of ${formatDate(new Date())}`,
+    });
 
   return (
     <Box p={3}>
@@ -227,6 +235,16 @@ export default function TrialBalancePage() {
                 aria-label="Export Excel"
               >
                 <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Export PDF">
+              <IconButton
+                onClick={handleExportPDF}
+                size="small"
+                color="primary"
+                aria-label="Export PDF"
+              >
+                <PdfIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>

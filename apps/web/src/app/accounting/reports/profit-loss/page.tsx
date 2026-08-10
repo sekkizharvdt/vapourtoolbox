@@ -32,6 +32,7 @@ import {
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
   FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,6 +49,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 import type { TransactionType } from '@vapour/types';
 import { TRANSACTION_TYPE_SHORT_LABELS } from '@vapour/constants';
 
@@ -228,6 +230,7 @@ function ExpandableRow({ label, amount, accounts, expanded, onToggle }: Expandab
 
 export default function ProfitLossPage() {
   const { claims } = useAuth();
+  const exportPDF = useReportPDFExport();
   const [startDate, setStartDate] = useState<string>(() => {
     // Default to first day of current month
     const now = new Date();
@@ -346,6 +349,11 @@ export default function ProfitLossPage() {
       `PnL_${startDate}_to_${endDate}`,
       'Profit & Loss'
     );
+  const handleExportPDF = () =>
+    exportPDF(buildPnLExportSections(), `PnL_${startDate}_to_${endDate}`, {
+      title: 'Profit & Loss Statement',
+      subtitle: `${startDate} to ${endDate}`,
+    });
 
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) {
@@ -414,6 +422,16 @@ export default function ProfitLossPage() {
                   aria-label="Export Excel"
                 >
                   <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export PDF">
+                <IconButton
+                  onClick={handleExportPDF}
+                  size="small"
+                  color="primary"
+                  aria-label="Export PDF"
+                >
+                  <PdfIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             </Box>

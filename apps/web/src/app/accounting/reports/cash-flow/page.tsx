@@ -19,7 +19,12 @@ import {
   Alert,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
-import { Print as PrintIcon, Home as HomeIcon } from '@mui/icons-material';
+import {
+  Print as PrintIcon,
+  Home as HomeIcon,
+  FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
+} from '@mui/icons-material';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
@@ -29,9 +34,16 @@ import {
   type CashFlowStatement,
 } from '@/lib/accounting/reports/cashFlow';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 
 export default function CashFlowStatementPage() {
   const { claims } = useAuth();
+  const exportPDF = useReportPDFExport();
   const [startDate, setStartDate] = useState<string>(() => {
     const date = new Date();
     date.setMonth(date.getMonth() - 1);
@@ -81,6 +93,62 @@ export default function CashFlowStatementPage() {
   const handlePrint = () => {
     window.print();
   };
+
+  const buildCashFlowExportSections = (): ExportSection[] => {
+    if (!statement) return [];
+    const cols = [
+      { header: 'Particulars', key: 'description', width: 45 },
+      {
+        header: 'Amount',
+        key: 'amount',
+        width: 18,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+    ];
+
+    const activitySection = (section: typeof statement.operating): ExportSection => ({
+      title: section.title,
+      columns: cols,
+      // Subtotal lines already carry their own emphasis in the statement, so the
+      // section total is the summary row and the lines render as-is.
+      rows: section.lines.map((line) => ({
+        description: `  ${line.description}`,
+        amount: line.amount,
+      })),
+      summary: { description: section.title + ' — Total', amount: section.total },
+    });
+
+    return [
+      {
+        title: 'Opening Balance',
+        columns: cols,
+        rows: [{ description: '  Opening Cash & Cash Equivalents', amount: statement.openingCash }],
+      },
+      activitySection(statement.operating),
+      activitySection(statement.investing),
+      activitySection(statement.financing),
+      {
+        title: 'Summary',
+        columns: cols,
+        rows: [
+          { description: '  Net Change in Cash', amount: statement.netCashFlow },
+          { description: '  Opening Cash & Cash Equivalents', amount: statement.openingCash },
+        ],
+        summary: { description: 'Closing Cash & Cash Equivalents', amount: statement.closingCash },
+      },
+    ];
+  };
+
+  const exportFilename = `Cash_Flow_${startDate}_to_${endDate}`;
+  const handleExportCSV = () => downloadReportCSV(buildCashFlowExportSections(), exportFilename);
+  const handleExportExcel = () =>
+    downloadReportExcel(buildCashFlowExportSections(), exportFilename, 'Cash Flow');
+  const handleExportPDF = () =>
+    exportPDF(buildCashFlowExportSections(), exportFilename, {
+      title: 'Cash Flow Statement',
+      subtitle: `${startDate} to ${endDate}`,
+    });
 
   if (!hasViewAccess) {
     return (
@@ -146,6 +214,25 @@ export default function CashFlowStatementPage() {
                 <>
                   <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
                     Print
+                  </Button>
+                  <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportCSV}>
+                    CSV
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleExportExcel}
+                    color="primary"
+                  >
+                    Excel
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PdfIcon />}
+                    onClick={handleExportPDF}
+                    color="primary"
+                  >
+                    PDF
                   </Button>
                 </>
               )}

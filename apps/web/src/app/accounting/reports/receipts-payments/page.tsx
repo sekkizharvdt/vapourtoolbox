@@ -30,6 +30,7 @@ import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Print as PrintIcon,
   FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
   Home as HomeIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
@@ -56,6 +57,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -78,6 +80,7 @@ const YEARS = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i).reverse()
 
 export default function ReceiptsPaymentsPage() {
   const { claims } = useAuth();
+  const exportPDF = useReportPDFExport();
 
   // Date selection
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
@@ -196,6 +199,11 @@ export default function ReceiptsPaymentsPage() {
 
   const handleExportCSV = () =>
     downloadReportCSV(buildRPExportSections(), `Receipts_Payments_${month}_${year}`);
+  const handleExportPDF = () =>
+    exportPDF(buildRPExportSections(), `Receipts_Payments_${month}_${year}`, {
+      title: 'Receipts & Payments',
+      subtitle: `${MONTHS.find((m) => m.value === month)?.label ?? ''} ${year}`.trim(),
+    });
   const handleExportExcel = () =>
     downloadReportExcel(
       buildRPExportSections(),
@@ -288,6 +296,14 @@ export default function ReceiptsPaymentsPage() {
                     color="primary"
                   >
                     Excel
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PdfIcon />}
+                    onClick={handleExportPDF}
+                    color="primary"
+                  >
+                    PDF
                   </Button>
                 </>
               )}

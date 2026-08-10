@@ -26,6 +26,7 @@ import {
   KeyboardArrowUp as CollapseIcon,
   OpenInNew as OpenInNewIcon,
   FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
@@ -40,6 +41,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 import { FiscalYearFilter, useFiscalYearFilter } from '@/components/accounting/FiscalYearFilter';
 
 interface LedgerEntry {
@@ -152,6 +154,7 @@ function buildMonthGroups(lines: LedgerLine[], fyOpening: number): MonthGroup[] 
 
 export default function AccountLedgerPage() {
   const router = useRouter();
+  const exportPDF = useReportPDFExport();
   const searchParams = useSearchParams();
   const preselectedAccountId = searchParams.get('accountId');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(preselectedAccountId);
@@ -391,6 +394,12 @@ export default function AccountLedgerPage() {
       `Account_Ledger_${new Date().toISOString().slice(0, 10)}`,
       'Account Ledger'
     );
+  const handleExportPDF = () =>
+    exportPDF(
+      buildLedgerExportSections(),
+      `Account_Ledger_${new Date().toISOString().slice(0, 10)}`,
+      { title: 'Account Ledger', subtitle: fy.options.find((o) => o.id === fy.selectedId)?.name }
+    );
 
   return (
     <Box p={3}>
@@ -424,6 +433,15 @@ export default function AccountLedgerPage() {
               aria-label="Export Excel"
             >
               <DownloadIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              onClick={handleExportPDF}
+              size="small"
+              color="primary"
+              title="Export PDF"
+              aria-label="Export PDF"
+            >
+              <PdfIcon fontSize="small" />
             </IconButton>
           </Box>
         )}

@@ -32,7 +32,12 @@ function escapeCsvField(value: string): string {
   return value;
 }
 
-function formatCellValue(
+/**
+ * Render one cell as text. Shared by the CSV and PDF exports (Excel writes the
+ * raw value with an equivalent `numFmt`), so the three downloads of a report
+ * always show the same numbers.
+ */
+export function formatCellValue(
   value: string | number | Date | null | undefined,
   format?: ExportColumn['format']
 ): string {
@@ -215,6 +220,70 @@ export async function downloadReportExcel(
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
   triggerDownload(blob, `${filename}.xlsx`);
+}
+
+// ── PDF layout ───────────────────────────────────────────────────────────────────
+
+/** Past this many columns an A4 portrait page stops being readable. */
+export const LANDSCAPE_COLUMN_THRESHOLD = 6;
+
+/** Widest section drives the page size — a report is one orientation throughout. */
+export function maxColumnCount(sections: ExportSection[]): number {
+  return sections.reduce((max, section) => Math.max(max, section.columns.length), 0);
+}
+
+export function resolveOrientation(
+  sections: ExportSection[],
+  explicit?: 'portrait' | 'landscape'
+): 'portrait' | 'landscape' {
+  if (explicit) return explicit;
+  return maxColumnCount(sections) > LANDSCAPE_COLUMN_THRESHOLD ? 'landscape' : 'portrait';
+}
+
+// ── PDF Export ───────────────────────────────────────────────────────────────────
+
+export interface ReportPDFOptions {
+  /** Centred title in the PDF header. Defaults to the filename. */
+  title?: string;
+  /** Line under the title — period, as-of date, or entity name. */
+  subtitle?: string;
+  /** Force page orientation. Default: portrait, switching to landscape past 6 columns. */
+  orientation?: 'portrait' | 'landscape';
+}
+
+/**
+ * Render `sections` as a PDF and download it.
+ *
+ * Takes the same `ExportSection[]` as the CSV and Excel exports, so a report
+ * gains PDF by passing its existing builder to one more handler.
+ */
+export async function downloadReportPDF(
+  sections: ExportSection[],
+  filename: string,
+  options: ReportPDFOptions = {}
+): Promise<void> {
+  // Dynamic imports keep @react-pdf/renderer out of every report page's static
+  // bundle — it is only fetched when a user actually asks for a PDF.
+  const [{ createElement }, { AccountingReportPDFDocument }, { downloadPDF, sanitiseFilename }] =
+    await Promise.all([
+      import('react'),
+      import('@/components/pdf/AccountingReportPDFDocument'),
+      import('@/lib/pdf/pdfUtils'),
+    ]);
+
+  // A missing logo degrades to a text-only header rather than failing the export.
+  const { fetchLogoAsDataUri } = await import('@/lib/pdf/logoUtils');
+  const logoDataUri = await fetchLogoAsDataUri();
+
+  const element = createElement(AccountingReportPDFDocument, {
+    sections,
+    title: options.title ?? filename,
+    ...(options.subtitle !== undefined && { subtitle: options.subtitle }),
+    ...(options.orientation !== undefined && { orientation: options.orientation }),
+    ...(logoDataUri !== undefined && { logoDataUri }),
+  });
+
+  await downloadPDF(element, sanitiseFilename(`${filename}.pdf`));
 }
 
 // ── Download helper ──────────────────────────────────────────────────────────────

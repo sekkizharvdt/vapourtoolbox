@@ -25,6 +25,7 @@ import {
   KeyboardArrowDown as ExpandIcon,
   KeyboardArrowUp as CollapseIcon,
   FileDownload as ExportIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
 
@@ -40,6 +41,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 
 type GSTType = 'CGST' | 'SGST' | 'IGST';
 
@@ -59,6 +61,7 @@ interface GSTAccountData {
 }
 
 export default function GSTSummaryPage() {
+  const exportPDF = useReportPDFExport();
   const { toast } = useToast();
 
   const { claims } = useAuth();
@@ -175,7 +178,7 @@ export default function GSTSummaryPage() {
     }
   };
 
-  const handleExport = (format: 'csv' | 'excel') => {
+  const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
     if (!data) return;
 
     const totalInput = data.reduce((sum, d) => sum + d.inputBalance, 0);
@@ -221,8 +224,13 @@ export default function GSTSummaryPage() {
     const filename = `GST_Summary_${startDate}_to_${endDate}`;
     if (format === 'csv') {
       downloadReportCSV(sections, filename);
-    } else {
+    } else if (format === 'excel') {
       downloadReportExcel(sections, filename);
+    } else {
+      void exportPDF(sections, filename, {
+        title: 'GST Summary',
+        subtitle: `${startDate} to ${endDate}`,
+      });
     }
   };
 
@@ -297,6 +305,14 @@ export default function GSTSummaryPage() {
               onClick={() => handleExport('excel')}
             >
               Excel
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PdfIcon />}
+              onClick={() => handleExport('pdf')}
+            >
+              PDF
             </Button>
           </>
         )}

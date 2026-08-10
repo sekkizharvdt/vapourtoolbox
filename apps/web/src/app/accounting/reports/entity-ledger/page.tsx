@@ -23,6 +23,7 @@ import {
   Business as BusinessIcon,
   Home as HomeIcon,
   FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { useSearchParams } from 'next/navigation';
@@ -47,6 +48,7 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import { useReportPDFExport } from '@/lib/accounting/reports/useReportPDFExport';
 import { FiscalYearFilter, useFiscalYearFilter } from '@/components/accounting/FiscalYearFilter';
 import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
@@ -77,6 +79,7 @@ function toDate(value: unknown): Date | null {
 function EntityLedgerInner() {
   const searchParams = useSearchParams();
   useAuth();
+  const exportPDF = useReportPDFExport();
   const [entities, setEntities] = useState<BusinessEntity[]>([]);
   const [selectedEntity, setSelectedEntity] = useState<BusinessEntity | null>(null);
   const [allTransactions, setAllTransactions] = useState<EntityTransaction[]>([]);
@@ -606,6 +609,12 @@ function EntityLedgerInner() {
       `Entity_Ledger_${selectedEntity?.code || 'unknown'}_${new Date().toISOString().slice(0, 10)}`,
       'Entity Ledger'
     );
+  const handleExportPDF = () =>
+    exportPDF(
+      buildEntityLedgerExport(),
+      `Entity_Ledger_${selectedEntity?.code || 'unknown'}_${new Date().toISOString().slice(0, 10)}`,
+      { title: 'Entity Ledger', subtitle: selectedEntity?.name ?? undefined }
+    );
 
   return (
     <Box>
@@ -640,6 +649,15 @@ function EntityLedgerInner() {
               aria-label="Export Excel"
             >
               <DownloadIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              onClick={handleExportPDF}
+              size="small"
+              color="primary"
+              title="Export PDF"
+              aria-label="Export PDF"
+            >
+              <PdfIcon fontSize="small" />
             </IconButton>
           </Box>
         )}
