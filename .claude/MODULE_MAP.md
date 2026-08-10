@@ -5,6 +5,21 @@ Keep this file current: when you add/move a module, service, or route, update th
 
 Last verified: 2026-08-09 (accounting routes list corrected — 9 routes were missing; added `/accounting/reports` sub-map noting the CSV/Excel-only shared exporter, the orphaned `period-report`, and the no-export routes)
 
+## Firestore admin access (for counting records — rule 31)
+
+Service account key: **`docs/inputs/firebase-service-account-key.json`** (project
+`vapour-toolbox`). Gitignored via the `inputs/` rule in `.gitignore:63` and not tracked — never
+commit it, never print its contents. There is **no** key at `firebase-service-account.json` or
+`mcp-servers/firebase-feedback/service-account-key.json`, despite older docs saying so.
+
+Run one-off analysis scripts **from the repo root** (`node ./script.js`) so `firebase-admin`
+resolves from the root `node_modules`; a script run from `/tmp` or the scratchpad fails with
+`MODULE_NOT_FOUND`. Keep such scripts read-only and delete them after use, or add them under
+`scripts/analysis/`.
+
+Live data volumes as of 2026-08-10: `transactions` 1052 (0 soft-deleted), `entities` 181,
+`accounts` 110, `costCentres` 12, `projects` 11, `fixedAssets` 0.
+
 ## Monorepo layout
 
 - `apps/web` — Next.js app (static export, `output: 'export'`)

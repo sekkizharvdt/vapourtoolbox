@@ -1,8 +1,9 @@
 # Accounting reports — insight layer + PDF export
 
-**Status:** Phase 0 COMPLETE (1794db17). Phase 1 COMPLETE. Phases 2–4 planned,
-gated on DC1–DC5 and the Phase 0.4 accountant demo. Not deployed; ships on the
-next Deploy dispatch.
+**Status:** Phase 0 COMPLETE (1794db17). Phase 1 COMPLETE (8e756e93). DC1–DC5 RUN
+2026-08-10 — results below reshaped Phases 2–4 (4C dropped, 3A deferred, 2A and 4B
+rescoped, 2C promoted). Remaining gate is the Phase 0.4 accountant demo. Not
+deployed; ships on the next Deploy dispatch.
 **Date:** 2026-08-09
 **Origin:** The accounting user asked for "more insightful reports that can be
 downloaded in PDF". This plan is the result of an orientation pass over
@@ -78,17 +79,23 @@ be the entire origin of the request.
 
 `project-financial/page.tsx` has no export of any kind.
 
-### F4 — `forexGainLoss` is computed and read by nothing
+### F4 — the FX settlement fields are never written — CORRECTED by DC1
 
 `BaseTransaction` carries `currency`, `exchangeRate`, `baseAmount`,
 `bankSettlementRate`, `bankSettlementAmount`, `bankSettlementDate`,
 `bankCharges`, and `forexGainLoss`. `forexGainLoss` is computed in
-`transactionHelpers.ts` and appears in **no UI and no report** — it is dead data
-today.
+`transactionHelpers.ts` and appears in no UI and no report.
 
-This matches the locked FX decision (rate derived per transaction from the INR
-bank receipt, no `exchangeRates` collection): the per-transaction fields are the
-source of truth, so a report over them needs no new data model.
+**As first written this finding was too generous.** DC1 shows the settlement
+fields are set on **zero** of the 32 non-INR transactions — they are not "computed
+but unread", they are never persisted by any create or edit path. Only
+`currency` + `exchangeRate` are populated (32/32).
+
+So the FX work splits: a **currency-exposure** report is buildable today, and a
+**realized gain/loss + settlement variance** report needs the settlement fields to
+start being captured first. That capture gap is itself worth raising with the
+accountant — it is where the INR-bank-receipt rate from the locked FX decision
+(no `exchangeRates` collection) was supposed to land.
 
 ### F5 — Five accounting routes have no export at all
 
@@ -117,71 +124,61 @@ which keeps most report queries index-free anyway.
 
 ---
 
-## Gating data checks (rule 31)
+## Gating data checks (rule 31) — RUN 2026-08-10
 
-**No service-account credentials are present in this working copy** —
-`mcp-servers/firebase-feedback/service-account-key.json` and
-`firebase-service-account.json` are both absent. These counts must be run before
-the phases they gate, otherwise we risk shipping reports over empty datasets.
+Service account key found at **`docs/inputs/firebase-service-account-key.json`**
+(project `vapour-toolbox`, gitignored, untracked). Run analysis scripts from the
+repo root so `firebase-admin` resolves. Counts are over live (non-soft-deleted)
+`transactions` unless stated.
 
-```js
-// scratch script — needs firebase-service-account.json at repo root
-const admin = require('firebase-admin');
-admin.initializeApp({
-  credential: admin.credential.cert(require('./firebase-service-account.json')),
-});
-const db = admin.firestore();
+**DC5 — sizing.** 1052 transactions, **0 soft-deleted**. Well under the 5k
+threshold, so report generators can keep the house single-`getDocs` pattern; no
+chunking needed. Composition: DIRECT_PAYMENT 247, JOURNAL_ENTRY 242, VENDOR_BILL
+240, VENDOR_PAYMENT 195, CUSTOMER_PAYMENT 58, CUSTOMER_INVOICE 50, DIRECT_RECEIPT
+20, **EXPENSE_CLAIM 0, BANK_TRANSFER 0**.
 
-(async () => {
-  const txns = await db.collection('transactions').get();
-  const live = txns.docs.map((d) => d.data()).filter((t) => t.isDeleted !== true);
+**DC1 — foreign currency. Splits the FX report in two.** 32 non-INR transactions
+(USD, EUR); all 32 carry `exchangeRate`. But `bankSettlementAmount`,
+`bankSettlementRate`, `forexGainLoss`, and `bankCharges` are set on **zero**
+records.
 
-  // DC1 — gates Phase 2A (FX report)
-  const fx = live.filter((t) => t.currency && t.currency !== 'INR');
-  console.log(
-    'DC1 non-INR txns:',
-    fx.length,
-    '| with bankSettlementAmount:',
-    fx.filter((t) => t.bankSettlementAmount != null).length,
-    '| with forexGainLoss:',
-    fx.filter((t) => t.forexGainLoss != null).length,
-    '| currencies:',
-    [...new Set(fx.map((t) => t.currency))]
-  );
+> This corrects finding F4. `forexGainLoss` is not merely _read_ by nothing — it
+> is _written_ by nothing. The settlement fields exist on the type and are never
+> populated by any create/edit path. A realized-FX report would render an empty
+> table today.
 
-  // DC2 — gates Phase 4C (budget vs actual)
-  const withLines = live.filter((t) => Array.isArray(t.lineItems) && t.lineItems.length);
-  const lines = withLines.flatMap((t) => t.lineItems);
-  console.log(
-    'DC2 line items:',
-    lines.length,
-    '| with budgetLineItemId:',
-    lines.filter((l) => l.budgetLineItemId).length
-  );
+**DC2 — budget line items. Kills 4C.** 298 line items; **0** carry
+`budgetLineItemId` and **0** carry `costCentreId`. Fill rate is zero, not merely
+sparse. Line-item budget-vs-actual is impossible and the fix is data entry, not a
+report.
 
-  // DC3 — gates Phase 4A (bank book / reconciliation)
-  console.log('DC3 reconciled:', live.filter((t) => t.reconciledDate).length, 'of', live.length);
+**DC3 — bank reconciliation.** `reconciledDate` set on **0** of 1052. But
+`bankAccountId` is set on **516**. A bank book keyed on `bankAccountId` is viable;
+the reconciliation-status half is not.
 
-  // DC4 — gates Phase 3A priority
-  console.log('DC4 fixed assets:', (await db.collection('fixedAssets').get()).size);
+**DC4 — fixed assets. Defers 3A.** The `fixedAssets` collection is **empty (0)**.
+An asset register and depreciation schedule would both render blank.
 
-  // DC5 — sizing: does any report need pagination/chunking?
-  console.log(
-    'DC5 total live txns:',
-    live.length,
-    '| entities:',
-    (await db.collection('entities').get()).size
-  );
-})();
-```
+**Receivables and concentration inputs — both strongly backed.** 50 customer
+invoices, **100% with `dueDate` and 100% with `paymentTerms`** — DSO, ageing
+velocity, and on-time-payment percentage are all computable. 86 distinct entities
+referenced across the 1052 transactions (of 181 in the master).
 
-| Check | Gates    | Decision rule                                                                          |
-| ----- | -------- | -------------------------------------------------------------------------------------- |
-| DC1   | Phase 2A | < 5 non-INR transactions → drop 2A to backlog; the report would render an empty table  |
-| DC2   | Phase 4C | `budgetLineItemId` fill rate < ~50% → **drop 4C**; the fix is data entry, not a report |
-| DC3   | Phase 4A | 0 reconciled → build the bank book without the reconciliation section                  |
-| DC4   | Phase 3A | 0 assets → defer 3A behind Phase 4                                                     |
-| DC5   | all      | > ~5k live transactions → report generators need chunked reads, not one `getDocs`      |
+### What the checks changed
+
+| Item                 | Planned              | After DC                                                                                                                                                                       |
+| -------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2A FX                | Tier 1, ranked first | **Rescope.** Exposure-by-currency only (32 txns × `exchangeRate`). Realized gain/loss, settlement variance, and bank charges have no data — building them ships empty columns. |
+| 2B Concentration     | Tier 1               | **Unchanged, green.** 86 active counterparties.                                                                                                                                |
+| 2C Receivables / DSO | Tier 1               | **Promoted to first.** The only Tier-1 report with 100% field coverage.                                                                                                        |
+| 3A Fixed assets      | "cheapest value"     | **Deferred.** 0 assets.                                                                                                                                                        |
+| 3B Forecast export   | Tier 2               | Unchanged.                                                                                                                                                                     |
+| 4A Bank book         | Tier 3               | **Viable without the reconciliation section** (516 txns have `bankAccountId`, 0 reconciled).                                                                                   |
+| 4B Expense analysis  | Tier 3               | **Rescope.** 0 EXPENSE_CLAIM records; the analysis has to run on the 247 DIRECT_PAYMENT rows instead.                                                                          |
+| 4C Budget vs actual  | Gated                | **Dropped.** Zero fill.                                                                                                                                                        |
+
+Revised build order: **2C → 2B → 3B → 4A (no reconciliation) → 2A (exposure only)
+→ 4B (direct payments)**. 3A and 4C are out until the underlying data exists.
 
 ---
 
