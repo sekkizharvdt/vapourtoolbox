@@ -16,6 +16,7 @@ import {
   AccountBalanceWallet as GSTIcon,
   Speed as ReceivablesIcon,
   PieChart as ConcentrationIcon,
+  AccountBalance as BankBookIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -97,6 +98,14 @@ export default function FinancialReportsPage() {
         'Financial history for vendors and customers - invoices, bills, payments, and balances',
       icon: <EntityIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/entity-ledger',
+    },
+    {
+      title: 'Bank Book',
+      description:
+        'Opening to closing balance for each bank and cash account, with every receipt and ' +
+        'payment behind it and a breakdown by payment method',
+      icon: <BankBookIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/bank-book',
     },
     {
       title: 'Project Financial Reports',
