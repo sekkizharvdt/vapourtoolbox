@@ -8,8 +8,8 @@
     "H": "page.tsx without PageHeader — large pre-existing backlog; targeted sweeps only per the locked decision, not a full migration. 189→190 (2026-07-03, reviewed): /projects/page.tsx and /projects/list/page.tsx became thin wrappers around the shared ProjectsListClient, which renders the PageHeader — composition false-positive, not a missing header."
   },
   "ratchetBaselines": {
-    "F": 50,
-    "G": 216,
-    "H": 190
+    "F": 49,
+    "G": 215,
+    "H": 188
   }
 }

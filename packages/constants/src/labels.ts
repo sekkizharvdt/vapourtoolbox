@@ -15,6 +15,23 @@
  */
 
 // ============================================================================
+// SHARED — cross-domain enums
+// ============================================================================
+
+/**
+ * Priority labels, shared by every domain that ranks work the same way
+ * (purchase requests, manual tasks, …). Mirrors the values `getPriorityColor`
+ * in `statuses.ts` understands — keep the two in step.
+ */
+export const PRIORITY_LABELS = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+  CRITICAL: 'Critical',
+  URGENT: 'Urgent',
+} as const;
+
+// ============================================================================
 // PROCUREMENT — offer commercial terms (review #29, #31)
 // ============================================================================
 
@@ -101,18 +118,39 @@ export const RFQ_LABELS = {
 } as const;
 
 // ============================================================================
-// PROCUREMENT — PR dashboard chips (review #13)
+// PROCUREMENT — purchase request enums
 // ============================================================================
 
-export const PR_STATUS_CATEGORY_LABELS = {
-  /** Top-row primary categories. */
-  draft: 'Draft',
-  submitted: 'Submitted',
-  convertedToRFQ: 'Converted to RFQ',
-  /** Sub-breakdown of Submitted. */
-  pendingApproval: 'Pending Approval',
-  approved: 'Approved',
-  rejected: 'Rejected',
+/**
+ * Labels for `PurchaseRequestStatus` (packages/types/src/procurement/purchaseRequest.ts).
+ * Rendered via `StatusChip` with `context="purchaseRequest"`.
+ *
+ * `SUBMITTED` reads as "Pending Approval" because that is what the state means
+ * to the user — the PR has left the requester and is waiting on an approver.
+ * `UNDER_REVIEW` is a legacy state no current transition writes; it is kept so
+ * older documents still render a real label.
+ */
+export const PURCHASE_REQUEST_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  SUBMITTED: 'Pending Approval',
+  UNDER_REVIEW: 'Under Review',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  CONVERTED_TO_RFQ: 'Converted to RFQ',
+} as const;
+
+/** Labels for `PurchaseRequestType`. */
+export const PURCHASE_REQUEST_TYPE_LABELS = {
+  PROJECT: 'Project',
+  BUDGETARY: 'Budgetary',
+  INTERNAL: 'Internal',
+} as const;
+
+/** Labels for `PurchaseRequestCategory`. */
+export const PURCHASE_REQUEST_CATEGORY_LABELS = {
+  SERVICE: 'Service',
+  RAW_MATERIAL: 'Raw Material',
+  BOUGHT_OUT: 'Bought Out',
 } as const;
 
 // ============================================================================
@@ -303,14 +341,6 @@ export const CONDITION_CATEGORY_ORDER = [
 export const MEETING_STATUS_LABELS = {
   draft: 'Draft',
   finalized: 'Finalized',
-} as const;
-
-/** Labels for `ManualTaskPriority`. */
-export const MANUAL_TASK_PRIORITY_LABELS = {
-  LOW: 'Low',
-  MEDIUM: 'Medium',
-  HIGH: 'High',
-  URGENT: 'Urgent',
 } as const;
 
 /** Labels for `ManualTaskStatus`. Lowercase enum values match existing type. */

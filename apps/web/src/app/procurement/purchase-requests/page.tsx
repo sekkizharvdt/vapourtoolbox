@@ -3,52 +3,59 @@
 /**
  * Purchase Requests List Page
  *
- * Shows all purchase requests with filters and search
+ * Search-first list. Status is the ONE control for the workflow dimension —
+ * the old stats card, its six clickable count chips and the Active/Converted
+ * tab strip were three controls for that same dimension and could disagree
+ * with each other. Counts now ride on the Status options.
+ *
+ * Rationale + the sibling-page gap list: docs/reviews/2026-08-10-pr-list-ia-plan.md
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   Button,
   TextField,
   Stack,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  IconButton,
   MenuItem,
   Select,
   FormControl,
   InputLabel,
-  CircularProgress,
-  TablePagination,
-  Tabs,
-  Tab,
+  Chip,
+  InputAdornment,
 } from '@mui/material';
-import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
-  FilterList as FilterListIcon,
-  Assignment as AssignmentIcon,
-  Archive as ArchiveIcon,
   Home as HomeIcon,
   Delete as DeleteIcon,
+  Search as SearchIcon,
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { createLogger } from '@vapour/logger';
+import {
+  PageHeader,
+  FilterBar,
+  DataTable,
+  StatusChip,
+  TableActionCell,
+  type DataTableColumn,
+} from '@vapour/ui';
+import {
+  PURCHASE_REQUEST_STATUS_LABELS,
+  PURCHASE_REQUEST_TYPE_LABELS,
+  PURCHASE_REQUEST_CATEGORY_LABELS,
+  PRIORITY_LABELS,
+  getPriorityColor,
+} from '@vapour/constants';
+import type { PurchaseRequest, PurchaseRequestStatus } from '@vapour/types';
+import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { useAuth } from '@/contexts/AuthContext';
-import type { PurchaseRequest } from '@vapour/types';
 import { listPurchaseRequests } from '@/lib/procurement/purchaseRequest';
+import { purchaseRequestListHelp } from '@/lib/help/pageHelpContent';
 import { formatDate } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/components/common/Toast';
@@ -56,7 +63,45 @@ import { getFirebase } from '@/lib/firebase';
 import { softDeletePurchaseRequest } from '@/lib/procurement/procurementDeleteService';
 import { downloadPRListCSV } from '@/lib/procurement/purchaseRequest/exportPRList';
 import { downloadPRListPDF } from '@/lib/procurement/purchaseRequest/prListPDF';
-import { getStatusColor, getPriorityColor } from '@vapour/constants';
+
+const logger = createLogger({ context: 'PurchaseRequestsPage' });
+
+/** Synthetic Status options — everything except converted, and no filter. */
+const STATUS_ACTIVE = 'ACTIVE';
+const STATUS_ALL = 'ALL';
+
+/** Page size per fetch, and the ceiling on how many pages we will walk. */
+const FETCH_PAGE_SIZE = 100;
+const MAX_FETCH_PAGES = 10;
+
+const ALL_STATUSES = Object.keys(PURCHASE_REQUEST_STATUS_LABELS) as PurchaseRequestStatus[];
+
+/** Statuses that may still be moved to Trash from the list. */
+const DELETABLE_STATUSES: PurchaseRequestStatus[] = [
+  'DRAFT',
+  'SUBMITTED',
+  'APPROVED',
+  'CONVERTED_TO_RFQ',
+];
+
+/**
+ * Row view-model: `createdAtMs` exists purely so DataTable's generic sorter
+ * compares numbers instead of stringifying a Firestore Timestamp.
+ */
+type PurchaseRequestRow = PurchaseRequest & { createdAtMs: number };
+
+/** Firestore hands back a Timestamp even where the type says Date (rule 14). */
+function toMillis(raw: unknown): number {
+  if (raw && typeof raw === 'object' && 'toDate' in raw) {
+    return (raw as { toDate: () => Date }).toDate().getTime();
+  }
+  if (raw instanceof Date) return raw.getTime();
+  if (typeof raw === 'string' || typeof raw === 'number') {
+    const parsed = new Date(raw).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
 
 export default function PurchaseRequestsPage() {
   const router = useRouter();
@@ -66,90 +111,145 @@ export default function PurchaseRequestsPage() {
   const { db } = getFirebase();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
-  const [filteredRequests, setFilteredRequests] = useState<PurchaseRequest[]>([]);
 
-  // Tab state: 'active' or 'archived'
-  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-
-  // Filters
+  // Filters — Status defaults to Active, which is what the old default tab showed.
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [typeFilter, setTypeFilter] = useState<string>('ALL');
-  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>(STATUS_ACTIVE);
+  const [projectFilter, setProjectFilter] = useState<string>(STATUS_ALL);
+  const [typeFilter, setTypeFilter] = useState<string>(STATUS_ALL);
+  const [categoryFilter, setCategoryFilter] = useState<string>(STATUS_ALL);
 
-  // Export state
   const [exportingPDF, setExportingPDF] = useState(false);
 
-  // Pagination state
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(50);
+  // Deliberately not a useCallback: `useToast()` hands back a fresh object
+  // whenever a toast opens, so a memoised loader depending on it would turn the
+  // error path into a loop (toast → new identity → refetch → error → toast).
+  const loadRequests = async () => {
+    setLoading(true);
+    try {
+      // Every filter below is client-side, so a partial first page would
+      // under-report the Status counts and silently hide older PRs — walk
+      // the cursor to the end (bounded, so a bad cursor can't spin forever).
+      const all: PurchaseRequest[] = [];
+      let afterId: string | undefined;
+      let pagesFetched = 0;
 
-  // Compute stats from requests
-  const stats = useMemo(() => {
-    const counts = {
-      total: requests.length,
-      active: 0,
-      draft: 0,
-      submitted: 0,
-      underReview: 0,
-      approved: 0,
-      rejected: 0,
-      archived: 0, // CONVERTED_TO_RFQ
-    };
+      while (pagesFetched < MAX_FETCH_PAGES) {
+        const result = await listPurchaseRequests({ limit: FETCH_PAGE_SIZE, afterId });
+        all.push(...result.items);
+        pagesFetched++;
+        if (!result.hasMore || !result.lastDocId) break;
+        afterId = result.lastDocId;
+        if (pagesFetched === MAX_FETCH_PAGES) {
+          logger.warn('Purchase request fetch hit the page ceiling; list is truncated', {
+            loaded: all.length,
+            maxPages: MAX_FETCH_PAGES,
+          });
+        }
+      }
+
+      setRequests(all);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to load purchase requests', { error: message });
+      toast.error(`Failed to load purchase requests: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Keyed on the uid, not the `user` object: an auth context that hands back a
+  // fresh object per render would otherwise refetch on every render.
+  useEffect(() => {
+    if (!user?.uid) return;
+    loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  /** Per-status counts, plus the two synthetic buckets. */
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>([
+      [STATUS_ALL, requests.length],
+      [STATUS_ACTIVE, 0],
+      ...ALL_STATUSES.map((status) => [status, 0] as const),
+    ]);
 
     requests.forEach((req) => {
-      switch (req.status) {
-        case 'DRAFT':
-          counts.draft++;
-          counts.active++;
-          break;
-        case 'SUBMITTED':
-          counts.submitted++;
-          counts.active++;
-          break;
-        case 'UNDER_REVIEW':
-          counts.underReview++;
-          counts.active++;
-          break;
-        case 'APPROVED':
-          counts.approved++;
-          counts.active++;
-          break;
-        case 'REJECTED':
-          counts.rejected++;
-          counts.active++;
-          break;
-        case 'CONVERTED_TO_RFQ':
-          counts.archived++;
-          break;
+      counts.set(req.status, (counts.get(req.status) ?? 0) + 1);
+      if (req.status !== 'CONVERTED_TO_RFQ') {
+        counts.set(STATUS_ACTIVE, (counts.get(STATUS_ACTIVE) ?? 0) + 1);
       }
     });
 
     return counts;
   }, [requests]);
 
-  useEffect(() => {
-    loadRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  /**
+   * Status options carry their count. UNDER_REVIEW is a legacy state nothing
+   * writes any more — it only appears when a document still sits in it.
+   */
+  const statusOptions = useMemo(() => {
+    const workflowOptions = ALL_STATUSES.filter(
+      (status) => status !== 'UNDER_REVIEW' || (statusCounts.get('UNDER_REVIEW') ?? 0) > 0
+    ).map((status) => ({ value: status as string, label: PURCHASE_REQUEST_STATUS_LABELS[status] }));
 
-  useEffect(() => {
-    applyFilters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requests, searchQuery, statusFilter, typeFilter, categoryFilter, activeTab]);
+    return [
+      { value: STATUS_ACTIVE, label: 'Active' },
+      { value: STATUS_ALL, label: 'All' },
+      ...workflowOptions,
+    ];
+  }, [statusCounts]);
 
-  const loadRequests = async () => {
-    if (!user) return;
+  /** Distinct project names across the loaded PRs, for the Project filter. */
+  const projectOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          requests
+            .map((req) => req.projectName)
+            .filter((name): name is string => Boolean(name && name.trim()))
+        ),
+      ].sort((a, b) => a.localeCompare(b)),
+    [requests]
+  );
 
-    setLoading(true);
-    try {
-      const result = await listPurchaseRequests({});
-      setRequests(result.items);
-    } catch (error) {
-      console.error('[PurchaseRequestsPage] Error loading requests:', error);
-    } finally {
-      setLoading(false);
-    }
+  const rows = useMemo<PurchaseRequestRow[]>(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return requests
+      .filter((req) => {
+        if (statusFilter === STATUS_ACTIVE) {
+          if (req.status === 'CONVERTED_TO_RFQ') return false;
+        } else if (statusFilter !== STATUS_ALL && req.status !== statusFilter) {
+          return false;
+        }
+
+        if (projectFilter !== STATUS_ALL && req.projectName !== projectFilter) return false;
+        if (typeFilter !== STATUS_ALL && req.type !== typeFilter) return false;
+        if (categoryFilter !== STATUS_ALL && req.category !== categoryFilter) return false;
+
+        if (query) {
+          const haystack = [
+            req.number,
+            req.title,
+            req.description,
+            req.projectName,
+            req.submittedByName,
+          ];
+          if (!haystack.some((field) => field?.toLowerCase().includes(query))) return false;
+        }
+
+        return true;
+      })
+      .map((req) => ({ ...req, createdAtMs: toMillis(req.createdAt) }));
+  }, [requests, searchQuery, statusFilter, projectFilter, typeFilter, categoryFilter]);
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter(STATUS_ACTIVE);
+    setProjectFilter(STATUS_ALL);
+    setTypeFilter(STATUS_ALL);
+    setCategoryFilter(STATUS_ALL);
   };
 
   const handleDelete = async (pr: PurchaseRequest) => {
@@ -174,81 +274,115 @@ export default function PurchaseRequestsPage() {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...requests];
-
-    // Filter by active/archived tab (skip when a specific status chip is selected)
-    if (statusFilter === 'ALL') {
-      if (activeTab === 'active') {
-        filtered = filtered.filter((req) => req.status !== 'CONVERTED_TO_RFQ');
-      } else {
-        filtered = filtered.filter((req) => req.status === 'CONVERTED_TO_RFQ');
-      }
+  const handleExportPDF = async () => {
+    setExportingPDF(true);
+    try {
+      await downloadPRListPDF(rows);
+    } finally {
+      setExportingPDF(false);
     }
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (req) =>
-          req.number.toLowerCase().includes(query) ||
-          req.projectName?.toLowerCase().includes(query) ||
-          req.description?.toLowerCase().includes(query)
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter((req) => req.status === statusFilter);
-    }
-
-    // Type filter
-    if (typeFilter !== 'ALL') {
-      filtered = filtered.filter((req) => req.type === typeFilter);
-    }
-
-    // Category filter
-    if (categoryFilter !== 'ALL') {
-      filtered = filtered.filter((req) => req.category === categoryFilter);
-    }
-
-    setFilteredRequests(filtered);
   };
 
-  // Pagination handlers
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: 'active' | 'archived') => {
-    setActiveTab(newValue);
-    setPage(0);
-    setStatusFilter('ALL'); // Reset status filter when switching tabs
-  };
-
-  // Paginate requests in memory (client-side pagination)
-  const paginatedRequests = filteredRequests.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const columns: DataTableColumn<PurchaseRequestRow>[] = [
+    {
+      key: 'number',
+      label: 'PR Number',
+      minWidth: 130,
+      render: (row) => (
+        <Typography variant="body2" fontWeight={600}>
+          {row.number}
+        </Typography>
+      ),
+    },
+    {
+      key: 'projectName',
+      label: 'Project',
+      minWidth: 160,
+      render: (row) => row.projectName || '-',
+    },
+    {
+      key: 'title',
+      label: 'Title / Description',
+      minWidth: 260,
+      render: (row) => (
+        <Box>
+          <Typography variant="body2" fontWeight={500}>
+            {row.title || '-'}
+          </Typography>
+          {row.description && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {row.description}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      sortable: false,
+      render: (row) => (
+        <StatusChip status={row.type} labels={PURCHASE_REQUEST_TYPE_LABELS} variant="outlined" />
+      ),
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      sortable: false,
+      render: (row) => (
+        <StatusChip
+          status={row.category}
+          labels={PURCHASE_REQUEST_CATEGORY_LABELS}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      sortable: false,
+      // Priority has its own color scale (getPriorityColor), which StatusChip
+      // does not read — the label still comes from the canonical map.
+      render: (row) => (
+        <Chip
+          label={PRIORITY_LABELS[row.priority] ?? row.priority}
+          size="small"
+          color={getPriorityColor(row.priority)}
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: false,
+      render: (row) => (
+        <StatusChip
+          status={row.status}
+          labels={PURCHASE_REQUEST_STATUS_LABELS}
+          context="purchaseRequest"
+        />
+      ),
+    },
+    {
+      key: 'createdAtMs',
+      label: 'Date',
+      minWidth: 110,
+      render: (row) => formatDate(row.createdAt),
+    },
+  ];
 
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
-        {/* Breadcrumbs */}
         <PageBreadcrumbs
           items={[
             { label: 'Procurement', href: '/procurement', icon: <HomeIcon fontSize="small" /> },
@@ -256,322 +390,163 @@ export default function PurchaseRequestsPage() {
           ]}
         />
 
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="h4" gutterBottom>
-              Purchase Requests
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage and track all purchase requests
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push('/procurement/purchase-requests/new')}
-          >
-            New Purchase Request
-          </Button>
-        </Stack>
-
-        {/* Stats Dashboard */}
-        <Card variant="outlined">
-          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-              <AssignmentIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight="bold">
-                Total PRs
-              </Typography>
-              <Typography variant="subtitle1" fontWeight="bold">
-                {stats.total}
-              </Typography>
-            </Stack>
-            {/* Primary categories — Draft / Submitted / Converted to RFQ (per procurement review). */}
-            <Stack direction="row" flexWrap="wrap" gap={1}>
-              {[
-                { label: 'Draft', value: stats.draft, filter: 'DRAFT', color: 'default' as const },
-                {
-                  label: 'Submitted',
-                  // Umbrella count of every PR that has left Draft but not yet been
-                  // converted: pending + approved + rejected + any legacy under-review.
-                  value: stats.submitted + stats.underReview + stats.approved + stats.rejected,
-                  filter: 'SUBMITTED',
-                  color: 'info' as const,
-                },
-                {
-                  label: 'Converted to RFQ',
-                  value: stats.archived,
-                  filter: 'CONVERTED_TO_RFQ',
-                  color: 'primary' as const,
-                },
-              ].map((item) => (
-                <Chip
-                  key={item.filter}
-                  label={`${item.label}: ${item.value}`}
-                  color={item.color}
-                  variant={statusFilter === item.filter ? 'filled' : 'outlined'}
-                  onClick={() => setStatusFilter(item.filter)}
-                  sx={{ cursor: 'pointer' }}
-                />
-              ))}
-            </Stack>
-            {/* Submitted breakdown: Pending Approval / Approved / Rejected. */}
-            <Stack
-              direction="row"
-              flexWrap="wrap"
-              gap={1}
-              alignItems="center"
-              sx={{ mt: 1, pl: 1 }}
-            >
-              <Typography variant="caption" color="text.secondary">
-                Submitted breakdown:
-              </Typography>
-              {[
-                {
-                  label: 'Pending Approval',
-                  // SUBMITTED + legacy UNDER_REVIEW collapse into a single
-                  // "awaiting action" sub-bucket.
-                  value: stats.submitted + stats.underReview,
-                  filter: 'SUBMITTED',
-                  color: 'warning' as const,
-                },
-                {
-                  label: 'Approved',
-                  value: stats.approved,
-                  filter: 'APPROVED',
-                  color: 'success' as const,
-                },
-                {
-                  label: 'Rejected',
-                  value: stats.rejected,
-                  filter: 'REJECTED',
-                  color: 'error' as const,
-                },
-              ].map((item) => (
-                <Chip
-                  key={item.filter + '-sub'}
-                  size="small"
-                  label={`${item.label}: ${item.value}`}
-                  color={item.color}
-                  variant={statusFilter === item.filter ? 'filled' : 'outlined'}
-                  onClick={() => setStatusFilter(item.filter)}
-                  sx={{ cursor: 'pointer' }}
-                />
-              ))}
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {/* Tabs for Active vs Archived */}
-        <Paper sx={{ px: 2 }}>
-          <Tabs value={activeTab} onChange={handleTabChange}>
-            <Tab
-              value="active"
-              label={`Active (${stats.active})`}
-              icon={<AssignmentIcon />}
-              iconPosition="start"
-            />
-            <Tab
-              value="archived"
-              label={`Converted to RFQ (${stats.archived})`}
-              icon={<ArchiveIcon />}
-              iconPosition="start"
-            />
-          </Tabs>
-        </Paper>
-
-        {/* Filters */}
-        <Paper sx={{ p: 3 }}>
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-            <TextField
-              label="Search"
-              placeholder="Search by number, project, or department"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              size="small"
-              sx={{ minWidth: 300 }}
-            />
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="ALL">All Status</MenuItem>
-                <MenuItem value="DRAFT">Draft</MenuItem>
-                <MenuItem value="SUBMITTED">Submitted (Pending Approval)</MenuItem>
-                <MenuItem value="APPROVED">Approved</MenuItem>
-                <MenuItem value="REJECTED">Rejected</MenuItem>
-                <MenuItem value="CONVERTED_TO_RFQ">Converted to RFQ</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={typeFilter}
-                label="Type"
-                onChange={(e) => setTypeFilter(e.target.value)}
-              >
-                <MenuItem value="ALL">All Types</MenuItem>
-                <MenuItem value="PROJECT">Project</MenuItem>
-                <MenuItem value="BUDGETARY">Budgetary</MenuItem>
-                <MenuItem value="INTERNAL">Internal</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={categoryFilter}
-                label="Category"
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
-                <MenuItem value="ALL">All Categories</MenuItem>
-                <MenuItem value="SERVICE">Service</MenuItem>
-                <MenuItem value="RAW_MATERIAL">Raw Material</MenuItem>
-                <MenuItem value="BOUGHT_OUT">Bought Out</MenuItem>
-              </Select>
-            </FormControl>
-
+        <PageHeader
+          title="Purchase Requests"
+          subtitle="Manage and track all purchase requests"
+          help={purchaseRequestListHelp}
+          action={
             <Button
-              startIcon={<FilterListIcon />}
-              onClick={() => {
-                setSearchQuery('');
-                setStatusFilter('ALL');
-                setTypeFilter('ALL');
-                setCategoryFilter('ALL');
-              }}
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => router.push('/procurement/purchase-requests/new')}
             >
-              Clear Filters
+              New Purchase Request
             </Button>
+          }
+        />
 
-            <Box sx={{ flexGrow: 1 }} />
+        <FilterBar onClear={handleClearFilters}>
+          <TextField
+            size="small"
+            placeholder="Search PR number, title, description, project, or requester"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="disabled" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ flexGrow: 1, minWidth: 320 }}
+          />
 
+          <FormControl size="small" sx={{ minWidth: 190 }}>
+            <InputLabel id="pr-status-filter-label">Status</InputLabel>
+            <Select
+              labelId="pr-status-filter-label"
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              {statusOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {`${option.label} (${statusCounts.get(option.value) ?? 0})`}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 190 }}>
+            <InputLabel id="pr-project-filter-label">Project</InputLabel>
+            <Select
+              labelId="pr-project-filter-label"
+              value={projectFilter}
+              label="Project"
+              onChange={(e) => setProjectFilter(e.target.value)}
+            >
+              <MenuItem value={STATUS_ALL}>All Projects</MenuItem>
+              {projectOptions.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel id="pr-type-filter-label">Type</InputLabel>
+            <Select
+              labelId="pr-type-filter-label"
+              value={typeFilter}
+              label="Type"
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <MenuItem value={STATUS_ALL}>All Types</MenuItem>
+              {Object.entries(PURCHASE_REQUEST_TYPE_LABELS).map(([value, label]) => (
+                <MenuItem key={value} value={value}>
+                  {label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="pr-category-filter-label">Category</InputLabel>
+            <Select
+              labelId="pr-category-filter-label"
+              value={categoryFilter}
+              label="Category"
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <MenuItem value={STATUS_ALL}>All Categories</MenuItem>
+              {Object.entries(PURCHASE_REQUEST_CATEGORY_LABELS).map(([value, label]) => (
+                <MenuItem key={value} value={value}>
+                  {label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
             <Button
               size="small"
               startIcon={<CsvIcon />}
-              onClick={() => downloadPRListCSV(filteredRequests)}
-              disabled={filteredRequests.length === 0}
+              onClick={() => downloadPRListCSV(rows)}
+              disabled={rows.length === 0}
             >
               CSV
             </Button>
             <Button
               size="small"
               startIcon={<PdfIcon />}
-              onClick={async () => {
-                setExportingPDF(true);
-                try {
-                  await downloadPRListPDF(filteredRequests);
-                } finally {
-                  setExportingPDF(false);
-                }
-              }}
-              disabled={filteredRequests.length === 0 || exportingPDF}
+              onClick={handleExportPDF}
+              disabled={rows.length === 0 || exportingPDF}
             >
               {exportingPDF ? 'Generating...' : 'PDF'}
             </Button>
           </Stack>
-        </Paper>
+        </FilterBar>
 
-        {/* Table */}
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>PR Number</TableCell>
-                <TableCell>Project</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredRequests.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {requests.length === 0
-                        ? 'No purchase requests found. Create your first one!'
-                        : 'No requests match the current filters'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedRequests.map((request) => (
-                  <TableRow key={request.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
-                        {request.number}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{request.projectName || '-'}</TableCell>
-                    <TableCell>{request.description || '-'}</TableCell>
-                    <TableCell>
-                      <Chip label={request.type} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={request.category} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={request.priority}
-                        size="small"
-                        color={getPriorityColor(request.priority)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={request.status.replace('_', ' ')}
-                        size="small"
-                        color={getStatusColor(request.status, 'purchaseRequest')}
-                      />
-                    </TableCell>
-                    <TableCell>{formatDate(request.createdAt)}</TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => router.push(`/procurement/purchase-requests/${request.id}`)}
-                        aria-label="View details"
-                      >
-                        <VisibilityIcon />
-                      </IconButton>
-                      {(
-                        ['DRAFT', 'SUBMITTED', 'APPROVED', 'CONVERTED_TO_RFQ'] as string[]
-                      ).includes(request.status) && (
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(request)}
-                          title="Move to Trash"
-                          aria-label="Move to Trash"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[25, 50, 100]}
-            component="div"
-            count={filteredRequests.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </TableContainer>
+        <DataTable<PurchaseRequestRow>
+          columns={columns}
+          rows={rows}
+          getRowKey={(row) => row.id}
+          loading={loading}
+          sortable
+          defaultSortKey="createdAtMs"
+          defaultSortDirection="desc"
+          emptyMessage={
+            requests.length === 0
+              ? 'No purchase requests found. Create your first one!'
+              : 'No requests match the current filters'
+          }
+          onRowClick={(row) => router.push(`/procurement/purchase-requests/${row.id}`)}
+          renderActions={(row) => (
+            <TableActionCell
+              actions={[
+                {
+                  icon: <VisibilityIcon />,
+                  label: 'View details',
+                  onClick: (event) => {
+                    event?.stopPropagation();
+                    router.push(`/procurement/purchase-requests/${row.id}`);
+                  },
+                },
+                {
+                  icon: <DeleteIcon />,
+                  label: 'Move to Trash',
+                  color: 'error',
+                  show: DELETABLE_STATUSES.includes(row.status),
+                  onClick: (event) => {
+                    event?.stopPropagation();
+                    handleDelete(row);
+                  },
+                },
+              ]}
+            />
+          )}
+        />
       </Stack>
     </Box>
   );
