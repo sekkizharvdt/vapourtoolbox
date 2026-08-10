@@ -5,10 +5,16 @@
  * stored on materials referenced in the Purchase Request items.
  */
 
-import { doc, getDoc, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Material } from '@vapour/types';
+import {
+  matchVendorsByCategory,
+  describeMatch,
+  type CategoryMatchVendor,
+  type CategoryMatchItem,
+} from './vendorCategoryMatch';
 
 const logger = createLogger({ context: 'rfq:suggestions' });
 
@@ -19,6 +25,49 @@ export interface VendorSuggestion {
   materialCount: number;
   /** Material codes this vendor is preferred for */
   materialCodes: string[];
+  /** Why this vendor was suggested, for display (feedback A9uW3WWI). */
+  reason?: string;
+}
+
+/**
+ * Suggest vendors from their Entity-module categorisation (feedback A9uW3WWI).
+ *
+ * This exists because the preferred-vendor signal below is empty in practice:
+ * `preferredVendors` is set on 0 of 791 materials and 0 of 138 bought-out items,
+ * so suggestVendorsForRFQ always returned nothing. Vendor categories are the
+ * only signal with data behind them — 104 of 173 vendors carry them.
+ *
+ * See vendorCategoryMatch.ts for why this matches at category level rather than
+ * the bought-out sub-category the request described.
+ */
+export async function suggestVendorsByCategory(
+  db: Firestore,
+  items: CategoryMatchItem[]
+): Promise<VendorSuggestion[]> {
+  if (items.length === 0) return [];
+
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.ENTITIES));
+    const vendors: CategoryMatchVendor[] = snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<CategoryMatchVendor, 'id'>) }))
+      // Vendors only — entities also hold customers (rule 1).
+      .filter((v) => ((v as { roles?: string[] }).roles ?? []).includes('VENDOR'));
+
+    return matchVendorsByCategory(vendors, items).map((m) => ({
+      vendorId: m.vendorId,
+      vendorName: m.vendorName,
+      materialCount: 0,
+      materialCodes: [],
+      reason: describeMatch(m),
+    }));
+  } catch (error) {
+    // Suggestions are an assist, never a gate — the full vendor list is still
+    // there to pick from (rule 27).
+    logger.warn('Could not suggest vendors by category', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 }
 
 /**

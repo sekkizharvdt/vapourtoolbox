@@ -47,7 +47,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
 import { listPurchaseRequests, getPurchaseRequestItems } from '@/lib/procurement/purchaseRequest';
 import { createRFQFromPRs, type VendorSuggestion } from '@/lib/procurement/rfq';
-import { suggestVendorsForRFQ } from '@/lib/procurement/rfq/suggestions';
+import { suggestVendorsForRFQ, suggestVendorsByCategory } from '@/lib/procurement/rfq/suggestions';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -180,14 +180,33 @@ export default function NewRFQPage() {
     try {
       // Get all PR items to extract materialIds
       const allItems = await Promise.all(selectedPRs.map((prId) => getPurchaseRequestItems(prId)));
-      const materialIds = allItems.flat().map((item) => item.materialId);
+      const items = allItems.flat();
+      const materialIds = items.map((item) => item.materialId);
 
-      const suggestions = await suggestVendorsForRFQ(db, materialIds);
+      // Two independent signals (feedback A9uW3WWI). The preferred-vendor one
+      // leads when present because it is specific, but it is empty in practice
+      // — no material or bought-out item currently records a preferred vendor —
+      // so category matching is what actually populates this today.
+      const [byMaterial, byCategory] = await Promise.all([
+        suggestVendorsForRFQ(db, materialIds),
+        suggestVendorsByCategory(
+          db,
+          items.map((item) => ({ itemType: item.itemType, description: item.description }))
+        ),
+      ]);
+
+      const seen = new Set(byMaterial.map((s) => s.vendorId));
+      const suggestions = [...byMaterial, ...byCategory.filter((s) => !seen.has(s.vendorId))];
       setVendorSuggestions(suggestions);
 
-      // Auto-select suggested vendors
-      if (suggestions.length > 0 && selectedVendors.length === 0) {
-        setSelectedVendors(suggestions.map((s) => s.vendorId));
+      // Auto-select only the preferred-vendor matches, never the category ones.
+      // A category match can be broad — 70 of the 104 categorised vendors are
+      // simply "Bought Out Items" — and auto-selecting those would quietly
+      // address the RFQ to most of the vendor book. The request was to offer
+      // suggestions for the user to pick from, so category hits are sorted to
+      // the top and labelled, and the user chooses.
+      if (byMaterial.length > 0 && selectedVendors.length === 0) {
+        setSelectedVendors(byMaterial.map((s) => s.vendorId));
       }
     } catch (err) {
       console.error('[NewRFQPage] Error loading vendor suggestions:', err);
@@ -528,7 +547,13 @@ export default function NewRFQPage() {
                             {vendor.name}
                             {suggestion && (
                               <Tooltip
-                                title={`Preferred vendor for ${suggestion.materialCodes.join(', ')} (${suggestion.materialCount} item${suggestion.materialCount > 1 ? 's' : ''})`}
+                                title={
+                                  // Category matches carry a reason instead of
+                                  // material codes (feedback A9uW3WWI).
+                                  suggestion.reason
+                                    ? `Suggested — ${suggestion.reason}`
+                                    : `Preferred vendor for ${suggestion.materialCodes.join(', ')} (${suggestion.materialCount} item${suggestion.materialCount > 1 ? 's' : ''})`
+                                }
                               >
                                 <Chip
                                   icon={<StarIcon />}

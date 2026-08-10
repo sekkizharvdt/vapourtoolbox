@@ -55,5 +55,5 @@ export {
 } from './workflow';
 
 // Export vendor suggestions
-export { suggestVendorsForRFQ } from './suggestions';
+export { suggestVendorsForRFQ, suggestVendorsByCategory } from './suggestions';
 export type { VendorSuggestion } from './suggestions';
