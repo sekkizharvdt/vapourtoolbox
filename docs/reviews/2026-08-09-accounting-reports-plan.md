@@ -59,6 +59,17 @@ trial balance — and renders all of it through
 **The accountant may be asking for something that already exists and has never
 been shown to them.** This is the reason Phase 0 precedes everything.
 
+**Confirmed by its first real run (2026-08-10).** Linking the page made it
+reachable, and `Load preview` immediately failed with `FAILED_PRECONDITION` — the
+project-performance query (`type ==` + `date` range, `periodReportData.ts:327`
+and `:335`) needs a `transactions` index on **`type ASC + date ASC`**, and only
+`type ASC + date DESC` existed. Direction matters: the descending index does not
+serve the implicit ascending sort of a range query. Nobody had hit it because
+nobody could reach the page — exactly the silent-failure mode rule 2 exists to
+prevent. Fixed by adding the index; an empirical sweep of the sibling report
+queries (project-financial, entity-ledger, trial-balance, cash-flow,
+profit-loss, data-quality) found no other gap.
+
 ### F2 — The shared exporter has no PDF path
 
 [exportReport.ts](../../apps/web/src/lib/accounting/reports/exportReport.ts)
