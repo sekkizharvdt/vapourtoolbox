@@ -23,6 +23,7 @@ import {
   RadioGroup,
   Radio,
   FormLabel,
+  FormHelperText,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -76,6 +77,8 @@ export function GenerateNewTab({
   setShowEquipmentCodes,
   showProjectName,
   setShowProjectName,
+  isVendorNeutral,
+  setIsVendorNeutral,
   watermark,
   setWatermark,
   customNotes,
@@ -314,6 +317,19 @@ export function GenerateNewTab({
               }
               label="Show project name"
             />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isVendorNeutral}
+                  onChange={(e) => setIsVendorNeutral(e.target.checked)}
+                />
+              }
+              label="Vendor-neutral copy (no vendor named)"
+            />
+            <FormHelperText sx={{ ml: 4, mt: -1 }}>
+              Produces one PDF with the TO section omitted, for approaching vendors added after the
+              RFQ was raised. Vendor-wise PDFs are unaffected.
+            </FormHelperText>
             <Divider sx={{ my: 1 }} />
             <TextField
               label="Watermark (optional)"

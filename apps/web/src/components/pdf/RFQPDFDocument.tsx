@@ -148,6 +148,7 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
     customNotes,
     watermark,
     isIndividualVendor,
+    isVendorNeutral,
     showProjectName,
   } = data;
 
@@ -198,9 +199,11 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
           ]}
         />
 
-        {/* Vendor Section */}
-        <Text style={local.sectionTitle}>TO</Text>
-        {isIndividualVendor && vendor ? (
+        {/* Vendor Section. Omitted entirely for a vendor-neutral copy
+            (feedback BbRGBiKB) so the same PDF can go to a vendor found after
+            the RFQ was raised, with no hand-editing. */}
+        {!isVendorNeutral && <Text style={local.sectionTitle}>TO</Text>}
+        {isVendorNeutral ? null : isIndividualVendor && vendor ? (
           <KeyValueTable
             labelWidth="25%"
             valueWidth="75%"

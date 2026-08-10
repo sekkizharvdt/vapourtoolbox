@@ -102,6 +102,7 @@ export default function GenerateRFQPDFDialog({
   const [showDeliveryDates, setShowDeliveryDates] = useState(true);
   const [showEquipmentCodes, setShowEquipmentCodes] = useState(true);
   const [showProjectName, setShowProjectName] = useState(true);
+  const [isVendorNeutral, setIsVendorNeutral] = useState(false);
 
   // Additional
   const [watermark, setWatermark] = useState('');
@@ -235,6 +236,7 @@ export default function GenerateRFQPDFDialog({
         showDeliveryDates,
         showEquipmentCodes,
         showProjectName,
+        isVendorNeutral,
         watermark: watermark || undefined,
         customNotes: customNotes || undefined,
         contactPersonName: contactPersonName || undefined,
@@ -352,6 +354,8 @@ export default function GenerateRFQPDFDialog({
                 setShowEquipmentCodes={setShowEquipmentCodes}
                 showProjectName={showProjectName}
                 setShowProjectName={setShowProjectName}
+                isVendorNeutral={isVendorNeutral}
+                setIsVendorNeutral={setIsVendorNeutral}
                 watermark={watermark}
                 setWatermark={setWatermark}
                 customNotes={customNotes}

@@ -156,6 +156,13 @@ export interface RFQPDFGenerationOptions {
   /** Hide the Project row in the TO section. Use when the buyer doesn't want
    *  to disclose project context to the vendor. Default: true (show). */
   showProjectName?: boolean;
+  /**
+   * Omit the TO section entirely, producing one PDF that names no vendor
+   * (feedback BbRGBiKB). Lets the same RFQ be sent to a vendor discovered after
+   * it was raised, without editing the PDF by hand. Everything else — items,
+   * terms, dates, PR references — is unchanged. Default: false.
+   */
+  isVendorNeutral?: boolean;
 
   // Watermark (optional)
   watermark?: string; // e.g., "DRAFT", "CONFIDENTIAL"
@@ -250,6 +257,8 @@ export interface RFQPDFData {
   showEquipmentCodes: boolean;
   showProjectName: boolean;
   isIndividualVendor: boolean; // true = addressed to one vendor
+  /** Omit the TO section entirely — no vendor named (feedback BbRGBiKB). */
+  isVendorNeutral?: boolean;
 }
 
 /**
@@ -299,6 +308,11 @@ export interface RFQPDFGenerationResult {
   combinedPdfUrl?: string;
   combinedPdfPath?: string;
   combinedDocumentId?: string; // Document management system ID
+
+  // Vendor-neutral copy — one PDF naming no vendor (feedback BbRGBiKB)
+  vendorNeutralPdfUrl?: string;
+  vendorNeutralPdfPath?: string;
+  vendorNeutralDocumentId?: string;
 
   // Error handling
   error?: string;

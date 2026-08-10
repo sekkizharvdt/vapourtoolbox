@@ -320,6 +320,7 @@ function preparePDFData(
     showEquipmentCodes: options.showEquipmentCodes !== false,
     showProjectName: options.showProjectName !== false,
     isIndividualVendor: isIndividual && vendor !== undefined,
+    isVendorNeutral: options.isVendorNeutral === true,
 
     customNotes: options.customNotes,
     watermark: options.watermark,
@@ -584,6 +585,62 @@ export async function generateRFQPDFs(
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error generating combined PDF:', msg);
+        errors.push({ error: msg });
+      }
+    }
+
+    // Generate the vendor-neutral copy (feedback BbRGBiKB).
+    // Independent of `mode`: the request was for an ADDITIONAL option, with
+    // vendor-wise generation untouched, so this runs alongside whichever mode
+    // was chosen and produces exactly one extra file naming no vendor.
+    if (options.isVendorNeutral) {
+      try {
+        const pdfData = preparePDFData(
+          rfq,
+          items,
+          prNumbers,
+          prAttachments,
+          options,
+          undefined,
+          false,
+          // No vendor list — the TO section is omitted entirely by the document.
+          []
+        );
+
+        const element = React.createElement(RFQPDFDocument, { data: pdfData, logoDataUri });
+        const blob = await generatePDFBlob(element);
+
+        const storagePath = `rfq-pdfs/${options.rfqId}/${Date.now()}-vendor-neutral.pdf`;
+        const uploadResult = await uploadPDFBlob(storage, blob, storagePath);
+
+        let documentId: string | undefined;
+        if (!uploadResult.isLocalBlob) {
+          const previousDoc = await findLatestRFQDocument(db, options.rfqId);
+          documentId = await createDocumentRecord(db, {
+            fileName: `${rfq.number}-vendor-neutral.pdf`,
+            downloadUrl: uploadResult.downloadUrl,
+            storageRef: storagePath,
+            fileSize: uploadResult.fileSize,
+            rfqId: rfq.id,
+            rfqNumber: rfq.number,
+            tenantId: rfq.tenantId,
+            projectId: rfq.projectIds?.[0],
+            projectName: rfq.projectNames?.[0],
+            userId,
+            userName,
+            version: previousDoc ? previousDoc.version + 1 : 1,
+            previousDocumentId: previousDoc?.documentId,
+            revisionNotes: 'Vendor-neutral copy',
+          });
+        }
+
+        result.vendorNeutralPdfUrl = uploadResult.downloadUrl;
+        result.vendorNeutralPdfPath = storagePath;
+        result.vendorNeutralDocumentId = documentId;
+        totalFiles++;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error generating vendor-neutral PDF:', msg);
         errors.push({ error: msg });
       }
     }

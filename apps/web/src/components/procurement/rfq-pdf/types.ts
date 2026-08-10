@@ -72,6 +72,8 @@ export interface GenerateNewTabProps {
   setShowEquipmentCodes: (value: boolean) => void;
   showProjectName: boolean;
   setShowProjectName: (value: boolean) => void;
+  isVendorNeutral: boolean;
+  setIsVendorNeutral: (value: boolean) => void;
   watermark: string;
   setWatermark: (value: string) => void;
   customNotes: string;
