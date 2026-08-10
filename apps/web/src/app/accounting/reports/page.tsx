@@ -15,6 +15,7 @@ import {
   Payments as ReceiptsPaymentsIcon,
   AccountBalanceWallet as GSTIcon,
   Speed as ReceivablesIcon,
+  PieChart as ConcentrationIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,6 +82,14 @@ export default function FinancialReportsPage() {
         'on-time payment rate, ageing, and the worst-paying accounts',
       icon: <ReceivablesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/receivables-performance',
+    },
+    {
+      title: 'Customer & Vendor Concentration',
+      description:
+        'Who the revenue and the spend depend on — ranked shares, cumulative exposure, ' +
+        'top-N concentration, and movement against the previous period',
+      icon: <ConcentrationIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/concentration',
     },
     {
       title: 'Entity Ledger',
