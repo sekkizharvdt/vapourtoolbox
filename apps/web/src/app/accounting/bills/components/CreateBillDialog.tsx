@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { derivePaid } from '@/lib/accounting/amountHelpers';
 import { Grid, Box, Typography, Stack, Button as MuiButton, Divider } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
@@ -236,7 +237,7 @@ export function CreateBillDialog({
         ...(selectedPoId && { sourceDocumentId: selectedPoId }),
         ...(sourcePoNumber && { sourcePoNumber }),
         // Payment tracking - preserve existing values on edit, initialize on create
-        paidAmount: editingBill?.paidAmount ?? 0,
+        paidAmount: derivePaid(editingBill),
         // rule21-exempt: edit-form pre-fill — preserve cached outstanding on edit, default to total on create.
         outstandingAmount: editingBill?.outstandingAmount ?? totalAmount,
         paymentStatus: editingBill?.paymentStatus ?? 'UNPAID',
@@ -244,7 +245,9 @@ export function CreateBillDialog({
 
       if (editingBill?.id) {
         // Update existing bill - recalculate outstanding if total changed
-        const existingPaidAmount = editingBill.paidAmount ?? 0;
+        // derivePaid, not editingBill.paidAmount: that field is never updated, so
+        // re-saving a partially-paid bill reset it to UNPAID with full outstanding.
+        const existingPaidAmount = derivePaid(editingBill);
         const newOutstanding = totalAmount - existingPaidAmount;
         const updatedBill = {
           ...bill,

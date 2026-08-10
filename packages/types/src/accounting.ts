@@ -326,6 +326,11 @@ export interface OutstandingItem {
   date: Date;
   dueDate?: Date;
   amount: number;
+  /**
+   * @deprecated Never updated after creation — the payment path writes
+   * `amountPaid` instead. Reading this returns 0 on settled documents. Use
+   * `derivePaid()` / `deriveOutstanding()` from `lib/accounting/amountHelpers`.
+   */
   paidAmount: number;
   outstandingAmount: number;
   daysOverdue: number;

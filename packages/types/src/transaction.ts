@@ -176,6 +176,11 @@ export interface CustomerInvoice extends BaseTransaction {
   totalAmount: number; // After tax
 
   // Payment tracking
+  /**
+   * @deprecated Never updated after creation — the payment path writes
+   * `amountPaid` instead. Reading this returns 0 on settled documents. Use
+   * `derivePaid()` / `deriveOutstanding()` from `lib/accounting/amountHelpers`.
+   */
   paidAmount: number;
   outstandingAmount: number;
   paymentStatus: PaymentStatus;
@@ -238,6 +243,11 @@ export interface VendorBill extends BaseTransaction {
   totalAmount: number; // After tax
 
   // Payment tracking
+  /**
+   * @deprecated Never updated after creation — the payment path writes
+   * `amountPaid` instead. Reading this returns 0 on settled documents. Use
+   * `derivePaid()` / `deriveOutstanding()` from `lib/accounting/amountHelpers`.
+   */
   paidAmount: number;
   outstandingAmount: number;
   paymentStatus: PaymentStatus;

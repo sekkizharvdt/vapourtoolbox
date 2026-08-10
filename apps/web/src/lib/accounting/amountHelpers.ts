@@ -52,6 +52,25 @@ export function getInrAmount(data: AmountSource | null | undefined): number {
 }
 
 /**
+ * The amount actually settled against a document, in INR.
+ *
+ * **`amountPaid` is the live field; `paidAmount` is dead.** The atomic payment
+ * path (`paymentHelpers.ts`) writes `amountPaid`, while the `CustomerInvoice` /
+ * `VendorBill` types declare `paidAmount` and the create dialogs initialise it to
+ * 0 and never touch it again — it is nonzero on zero records in production.
+ * Reading the declared name therefore returns 0 on fully-settled documents.
+ *
+ * Always come through here (or `deriveOutstanding`) rather than reading either
+ * field directly.
+ */
+export function derivePaid(
+  data: { amountPaid?: unknown; paidAmount?: unknown } | null | undefined
+): number {
+  if (!data) return 0;
+  return roundToPaisa(asNumber(data.amountPaid) ?? asNumber(data.paidAmount) ?? 0); // rule21-exempt
+}
+
+/**
  * Computes outstanding amount per rule #21 — derive from total - paid; never
  * trust a cached `outstandingAmount`. Returned value is non-negative and
  * rounded to paisa.
@@ -63,8 +82,6 @@ export function deriveOutstanding(
   data: (AmountSource & { amountPaid?: unknown; paidAmount?: unknown }) | null | undefined
 ): number {
   if (!data) return 0;
-  const total = getInrAmount(data);
-  const paid = asNumber(data.amountPaid) ?? asNumber(data.paidAmount) ?? 0; // rule21-exempt
-  const remaining = total - paid;
+  const remaining = getInrAmount(data) - derivePaid(data);
   return Math.max(0, roundToPaisa(remaining));
 }

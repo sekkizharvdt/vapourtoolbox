@@ -22,6 +22,7 @@
  */
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { derivePaid } from './utils/amountHelpers';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 
@@ -78,9 +79,15 @@ export async function syncPOPaymentToGRs(
   let anyBillExists = false;
   for (const billDoc of billsSnap.docs) {
     anyBillExists = true;
-    const bill = billDoc.data() as { paidAmount?: number; isDeleted?: boolean };
+    const bill = billDoc.data() as {
+      amountPaid?: number;
+      paidAmount?: number;
+      isDeleted?: boolean;
+    };
     if (bill.isDeleted) continue;
-    totalPaid += Number(bill.paidAmount) || 0;
+    // derivePaid resolves amountPaid first: paidAmount is initialised to 0 and
+    // never updated, so reading it left every PO looking entirely unpaid.
+    totalPaid += derivePaid(bill);
   }
 
   let bucket: PaymentBucket;
