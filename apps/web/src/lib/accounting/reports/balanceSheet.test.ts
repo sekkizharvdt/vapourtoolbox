@@ -84,9 +84,10 @@ describe('Balance Sheet Report', () => {
       expect(report.assets.totalCurrentAssets).toBe(55000);
       expect(report.assets.totalAssets).toBe(55000);
 
-      // Current liabilities: Payable (20000) + Loan (10000) = 30000
-      // Code 2500 is in range 2000-2999, so it's classified as current
-      expect(report.liabilities.totalCurrentLiabilities).toBe(30000);
+      // A loan is long-term, not current — it was previously filed as current
+      // purely because its code fell in 2000-2999.
+      expect(report.liabilities.totalCurrentLiabilities).toBe(20000);
+      expect(report.liabilities.totalLongTermLiabilities).toBe(10000);
       expect(report.liabilities.totalLiabilities).toBe(30000);
 
       // Equity: Capital (30000) + Retained (10000) + Current Year Profit
@@ -138,9 +139,9 @@ describe('Balance Sheet Report', () => {
       expect(report.assets.currentAssets[0]!.balance).toBe(5000);
     });
 
-    it('should classify all 1xxx codes as current assets', async () => {
-      // All codes in range 1000-1999 are classified as current assets
-      // regardless of name keywords like "building" or "vehicle"
+    it('separates fixed assets from current ones instead of filing everything 1xxx as current', async () => {
+      // Previously every code in 1000-1999 was called current, so Building and
+      // Vehicle were reported as current assets and working capital was wrong.
       const accounts = [
         mockDoc('acc-1', { code: '1200', name: 'Inventory Stock', debit: 10000, credit: 0 }),
         mockDoc('acc-2', { code: '1300', name: 'Prepaid Insurance', debit: 5000, credit: 0 }),
@@ -152,10 +153,74 @@ describe('Balance Sheet Report', () => {
 
       const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
-      // All 1xxx accounts go to current assets since isCurrentAsset checks code range first
-      expect(report.assets.currentAssets).toHaveLength(4);
-      expect(report.assets.totalCurrentAssets).toBe(85000);
-      expect(report.assets.fixedAssets).toHaveLength(0);
+      expect(report.assets.currentAssets).toHaveLength(2);
+      expect(report.assets.totalCurrentAssets).toBe(15000);
+      expect(report.assets.fixedAssets).toHaveLength(2);
+      expect(report.assets.totalFixedAssets).toBe(70000);
+      // The overall total is unchanged — only the split was wrong.
+      expect(report.assets.totalAssets).toBe(85000);
+    });
+
+    it('trusts accountType over a contradicting code prefix', async () => {
+      // Mirrors production: 1401 "TDS on Consultancy" is a LIABILITY numbered in
+      // the asset range, and 5223 "Travelling Advance" a LIABILITY in the expense
+      // range. Classifying on the code put both on the wrong side of the sheet.
+      const accounts = [
+        mockDoc('acc-1', {
+          code: '1401',
+          name: 'TDS on Consultancy',
+          accountType: 'LIABILITY',
+          debit: 0,
+          credit: 8000,
+        }),
+        mockDoc('acc-2', {
+          code: '5223',
+          name: 'Travelling Advance',
+          accountType: 'LIABILITY',
+          debit: 0,
+          credit: 2000,
+        }),
+      ];
+
+      mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
+
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
+
+      expect(report.assets.totalAssets).toBe(0);
+      expect(report.liabilities.totalLiabilities).toBe(10000);
+      // The travelling advance must not leak into profit as an expense.
+      expect(report.equity.currentYearProfit).toBe(0);
+    });
+
+    it('keeps reserves in equity rather than dropping them', async () => {
+      const accounts = [
+        mockDoc('acc-1', {
+          code: '3300',
+          name: 'Reserves & Surplus',
+          accountType: 'EQUITY',
+          debit: 0,
+          credit: 25000,
+        }),
+      ];
+
+      mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
+
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
+
+      expect(report.equity.totalEquity).toBe(25000);
+    });
+
+    it('skips group headers so their children are not counted twice', async () => {
+      const accounts = [
+        mockDoc('acc-1', { code: '1100', name: 'Cash & Bank', isGroup: true, debit: 9999 }),
+        mockDoc('acc-2', { code: '1101', name: 'Cash in Hand', debit: 5000, credit: 0 }),
+      ];
+
+      mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
+
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
+
+      expect(report.assets.totalAssets).toBe(5000);
     });
 
     it('should classify liabilities by name keywords', async () => {
