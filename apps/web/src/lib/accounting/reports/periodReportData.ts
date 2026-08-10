@@ -322,7 +322,7 @@ async function fetchProjectPerformance(
   const endTs = Timestamp.fromDate(periodEndInclusive(period));
 
   const txnsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-  const [invSnap, billSnap] = await Promise.all([
+  const [invSnap, billSnap, projectSnap, costCentreSnap] = await Promise.all([
     getDocs(
       query(
         txnsRef,
@@ -339,7 +339,46 @@ async function fetchProjectPerformance(
         where('date', '<=', endTs)
       )
     ),
+    // Names are resolved at render time from the masters rather than read off the
+    // transaction (rule 13). No invoice or bill actually carries
+    // `projectName`/`projectNames[]`, so relying on the denormalised field made
+    // every row fall back to displaying a raw Firestore document id.
+    getDocs(collection(db, COLLECTIONS.PROJECTS)),
+    // `projectIds` does not always hold a project: some transactions tag a cost
+    // centre instead (e.g. the "Administration" overhead centre carries 100+
+    // bills). Those ids resolve against no project and would otherwise render raw.
+    getDocs(collection(db, COLLECTIONS.COST_CENTRES)),
   ]);
+
+  const readName = (d: { id: string; data: () => unknown }) => {
+    const name = (d.data() as { name?: unknown }).name;
+    return typeof name === 'string' && name.trim() ? name.trim() : null;
+  };
+
+  const projectNameById = new Map<string, string>();
+  for (const d of projectSnap.docs) {
+    const name = readName(d);
+    if (name) projectNameById.set(d.id, name);
+  }
+
+  const costCentreNameById = new Map<string, string>();
+  for (const d of costCentreSnap.docs) {
+    const name = readName(d);
+    if (name) costCentreNameById.set(d.id, name);
+  }
+
+  /**
+   * Project master wins, then the cost-centre master, then any denormalised name,
+   * and the raw id only as a last resort. Cost centres are suffixed so a reader
+   * does not mistake an overhead pool for a project with a negative margin.
+   */
+  const resolveName = (id: string, denormalised: string | undefined) => {
+    const project = projectNameById.get(id);
+    if (project) return project;
+    const costCentre = costCentreNameById.get(id);
+    if (costCentre) return `${costCentre} (cost centre)`;
+    return denormalised && denormalised !== id ? denormalised : id;
+  };
 
   const projects = new Map<string, ProjectPerformanceRow>();
   const ensureRow = (id: string, name: string) => {
@@ -383,7 +422,7 @@ async function fetchProjectPerformance(
     // Split amount equally across multiple projects — naive but defensible absent explicit splits.
     const per = amount / ids.length;
     ids.forEach((id, i) => {
-      const row = ensureRow(id, names[i] ?? id);
+      const row = ensureRow(id, resolveName(id, names[i]));
       row.revenue += per;
       row.invoiceCount++;
     });
@@ -405,7 +444,7 @@ async function fetchProjectPerformance(
     const names = extractProjectNames(data, ids);
     const per = amount / ids.length;
     ids.forEach((id, i) => {
-      const row = ensureRow(id, names[i] ?? id);
+      const row = ensureRow(id, resolveName(id, names[i]));
       row.expense += per;
       row.billCount++;
     });
