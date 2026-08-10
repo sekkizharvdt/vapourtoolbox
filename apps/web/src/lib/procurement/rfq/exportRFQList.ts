@@ -10,6 +10,9 @@ import { formatDate } from '@/lib/utils/formatters';
 
 const CSV_HEADERS = [
   'RFQ Number',
+  // Traceability back to the originating PR (feedback Yha4l7oB). Denormalised
+  // on the RFQ at creation (rule 26), so no lookup is needed.
+  'Source PR',
   'Title',
   'Vendors',
   'Status',
@@ -29,6 +32,7 @@ function escapeCsvField(value: string): string {
 export function downloadRFQListCSV(rfqs: RFQ[]): void {
   const rows = rfqs.map((r) => [
     r.number,
+    r.purchaseRequestNumbers?.join(', ') || '-',
     r.title || '-',
     r.vendorNames?.join(', ') || '-',
     r.status.replace(/_/g, ' '),

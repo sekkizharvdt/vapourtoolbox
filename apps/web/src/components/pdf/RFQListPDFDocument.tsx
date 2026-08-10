@@ -19,8 +19,11 @@ import {
 
 const columns: TableColumn[] = [
   { key: 'number', header: 'RFQ Number', width: '14%' },
-  { key: 'title', header: 'Title', width: '20%' },
-  { key: 'vendors', header: 'Vendors', width: '16%' },
+  // Traceability back to the originating PR (feedback Yha4l7oB). Its 12% is
+  // taken from Title and Vendors so the row still totals 100%.
+  { key: 'sourcePr', header: 'Source PR', width: '12%' },
+  { key: 'title', header: 'Title', width: '12%' },
+  { key: 'vendors', header: 'Vendors', width: '12%' },
   { key: 'status', header: 'Status', width: '10%' },
   { key: 'offers', header: 'Offers Received', width: '10%', align: 'center' },
   { key: 'dueDate', header: 'Due Date', width: '10%' },
@@ -37,6 +40,7 @@ export function RFQListPDFDocument({ rfqs }: RFQListPDFDocumentProps) {
 
   const rows = rfqs.map((r) => ({
     number: r.number,
+    sourcePr: r.purchaseRequestNumbers?.join(', ') || '-',
     title: r.title || '-',
     vendors: r.vendorNames?.join(', ') || '-',
     status: r.status.replace(/_/g, ' '),

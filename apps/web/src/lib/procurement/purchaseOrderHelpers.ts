@@ -211,7 +211,10 @@ export function filterPOsBySearch(pos: PurchaseOrder[], searchQuery: string): Pu
       po.number.toLowerCase().includes(query) ||
       po.vendorName.toLowerCase().includes(query) ||
       po.title?.toLowerCase().includes(query) ||
-      po.selectedOfferNumber?.toLowerCase().includes(query)
+      po.selectedOfferNumber?.toLowerCase().includes(query) ||
+      // Project name is denormalised onto the PO at creation (rule 26), so
+      // searching by it costs nothing extra (feedback Yha4l7oB).
+      po.projectNames?.some((name) => name.toLowerCase().includes(query))
   );
 }
 

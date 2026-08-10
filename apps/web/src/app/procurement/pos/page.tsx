@@ -6,7 +6,7 @@
  * Display all purchase orders with filters and search
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -89,6 +89,14 @@ export default function PurchaseOrdersPage() {
   const [filteredPOs, setFilteredPOs] = useState<PurchaseOrder[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
+  const [projectFilter, setProjectFilter] = useState<string>('ALL');
+
+  // Distinct project names across the loaded POs, for the Project filter.
+  const projectOptions = useMemo(
+    () =>
+      [...new Set(pos.flatMap((po) => po.projectNames ?? []))].filter(Boolean).sort() as string[],
+    [pos]
+  );
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -102,7 +110,7 @@ export default function PurchaseOrdersPage() {
   useEffect(() => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pos, searchQuery, statusFilter]);
+  }, [pos, searchQuery, statusFilter, projectFilter]);
 
   const loadPOs = async () => {
     setLoading(true);
@@ -146,6 +154,13 @@ export default function PurchaseOrdersPage() {
 
     // Apply search
     filtered = filterPOsBySearch(filtered, searchQuery);
+
+    // Project filter (feedback Yha4l7oB). Options come from the POs already
+    // loaded — projectNames is denormalised at creation (rule 26) — so this
+    // needs no extra query and no composite index.
+    if (projectFilter !== 'ALL') {
+      filtered = filtered.filter((po) => po.projectNames?.includes(projectFilter));
+    }
 
     setFilteredPOs(filtered);
   };
@@ -222,7 +237,7 @@ export default function PurchaseOrdersPage() {
         {/* Filters */}
         <FilterBar>
           <TextField
-            placeholder="Search by PO number, vendor, or offer..."
+            placeholder="Search by PO number, vendor, project, or offer..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
@@ -245,11 +260,28 @@ export default function PurchaseOrdersPage() {
             </Select>
           </FormControl>
 
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Project</InputLabel>
+            <Select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              label="Project"
+            >
+              <MenuItem value="ALL">All Projects</MenuItem>
+              {projectOptions.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <Button
             startIcon={<FilterListIcon />}
             onClick={() => {
               setSearchQuery('');
               setStatusFilter('ALL');
+              setProjectFilter('ALL');
             }}
           >
             Clear Filters

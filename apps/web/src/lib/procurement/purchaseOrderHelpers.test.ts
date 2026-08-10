@@ -440,6 +440,31 @@ describe('Purchase Order Helpers', () => {
       expect(filterPOsBySearch(testPOs, '   ')).toHaveLength(3);
     });
 
+    it('should filter by project name (feedback Yha4l7oB)', () => {
+      const pos = [
+        createMockPO({ id: 'p1', number: 'PO-1', projectNames: ['Narippaiyur - KGDS'] }),
+        createMockPO({ id: 'p2', number: 'PO-2', projectNames: ['Desolenator MEP'] }),
+      ];
+
+      const result = filterPOsBySearch(pos, 'narippaiyur');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('p1');
+    });
+
+    it('should match any project on a multi-project PO', () => {
+      const pos = [createMockPO({ id: 'p1', number: 'PO-1', projectNames: ['Alpha', 'Beta'] })];
+
+      expect(filterPOsBySearch(pos, 'beta')).toHaveLength(1);
+    });
+
+    it('should not throw when projectNames is absent', () => {
+      const pos = [createMockPO({ id: 'p1', number: 'PO-1', projectNames: undefined })];
+
+      expect(() => filterPOsBySearch(pos, 'anything')).not.toThrow();
+      expect(filterPOsBySearch(pos, 'anything')).toHaveLength(0);
+    });
+
     it('should filter by PO number', () => {
       const result = filterPOsBySearch(testPOs, 'PO-2024-001');
       expect(result).toHaveLength(1);
