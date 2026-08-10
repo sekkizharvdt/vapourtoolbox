@@ -295,15 +295,41 @@ customer, spend by vendor, top-N as % of total, period-over-period movement,
 customers invoiced but never receipted. Entity ledger handles one entity at a
 time; nothing in the app ranks across entities.
 
-### 2C — Receivables Performance (DSO)
+### 2C — Receivables Performance (DSO) — **DELIVERED**
 
-`receivablesPerformance.ts` + `/accounting/reports/receivables-performance`. DSO,
-average days-to-collect, on-time payment %, worst payers, and an aging **trend**
-across months. `PaymentAllocation.invoiceDate`/`dueDate` were denormalised for
-exactly this (per the type's own comment), so no parent re-fetch is needed.
+`receivablesPerformance.ts` + `/accounting/reports/receivables-performance`, with
+CSV/Excel/PDF and 22 unit tests. Ships DSO, amount-weighted and median
+days-to-collect, on-time rate by value and by count, a five-band ageing that
+separates not-yet-due from arrears, monthly invoiced-vs-collected movement, and a
+per-customer table flagging arrears over 90 days.
 
-Today's aging is a static snapshot with no velocity — this is the "insight" the
-existing reports most visibly lack.
+**Two plan assumptions were wrong and the build corrected them:**
+
+1. The plan said `PaymentAllocation.invoiceDate`/`dueDate` "were denormalised for
+   exactly this, so no parent re-fetch is needed". They are populated on **17 of
+   55** allocations. The report joins on `invoiceId` instead.
+
+2. A first draft reconstructed outstanding by replaying allocations, on the
+   reading that rule 21 forbids trusting stored paid figures. Checked against live
+   data that produced **₹1.22 Cr** against the canonical **₹11.8 L** — a tenfold
+   divergence, because `invoiceAllocations` are historically incomplete (7 receipts
+   carry none; some allocate to a synthetic opening-balance id). Rule 21 bars
+   trusting the cached `outstandingAmount`, **not** the maintained `amountPaid`,
+   and a second definition of "outstanding" is the parallel implementation rule 32
+   exists to prevent. The report now uses `deriveOutstanding` like every other
+   surface.
+
+   Note the field-name trap that caused the misreading: the atomic payment path
+   writes **`amountPaid`**, while the `CustomerInvoice` type declares
+   **`paidAmount`**. Reading `paidAmount` alone returns 0 on invoices that are
+   fully paid. `deriveOutstanding` resolves `amountPaid` first and is correct;
+   ad-hoc scripts reading `paidAmount` are not.
+
+   Consequence for scope: because `amountPaid` is a running total with no dated
+   history, ageing is **as at today**, not as at the period end. The period still
+   bounds every flow metric. `asOfIsAfterPeriodEnd` drives an in-page notice when
+   a historical period is selected, and the monthly trend reports real flows
+   (invoiced, collected, net) rather than a reconstructed closing balance.
 
 ---
 

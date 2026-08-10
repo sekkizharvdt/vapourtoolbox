@@ -14,6 +14,7 @@ import {
   Home as HomeIcon,
   Payments as ReceiptsPaymentsIcon,
   AccountBalanceWallet as GSTIcon,
+  Speed as ReceivablesIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,6 +73,14 @@ export default function FinancialReportsPage() {
       description: 'Detailed transaction history for any specific account',
       icon: <LedgerIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/account-ledger',
+    },
+    {
+      title: 'Receivables Performance',
+      description:
+        'How quickly customers pay — days sales outstanding, average and median days to collect, ' +
+        'on-time payment rate, ageing, and the worst-paying accounts',
+      icon: <ReceivablesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/receivables-performance',
     },
     {
       title: 'Entity Ledger',
