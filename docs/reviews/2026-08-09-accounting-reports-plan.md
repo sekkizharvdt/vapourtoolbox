@@ -1,9 +1,11 @@
 # Accounting reports — insight layer + PDF export
 
-**Status:** Phase 0 COMPLETE (1794db17). Phase 1 COMPLETE (8e756e93). DC1–DC5 RUN
-2026-08-10 — results below reshaped Phases 2–4 (4C dropped, 3A deferred, 2A and 4B
-rescoped, 2C promoted). Remaining gate is the Phase 0.4 accountant demo. Not
-deployed; ships on the next Deploy dispatch.
+**Status:** COMPLETE. Phases 0 (1794db17), 1 (8e756e93), 2C (7792ee30),
+2B (4037650b), 3B (a17b0ee3), 4A (8024a09a), 2A (99550d34), 4B (85adae94), plus the
+index fix (b35e6394) and project-name fix (0102e1c1). 3A and 4C dropped on data
+grounds — see the DC results. Not deployed beyond the first two phases; the rest
+ships on the next Deploy dispatch.
+
 **Date:** 2026-08-09
 **Origin:** The accounting user asked for "more insightful reports that can be
 downloaded in PDF". This plan is the result of an orientation pass over
@@ -399,3 +401,46 @@ the next **Deploy - Production** dispatch. No local `firebase deploy`.
   a report.
 - Charts inside PDFs — `@react-pdf/renderer` has no chart primitive; summary
   cards and tables only.
+
+---
+
+## Outcome
+
+Eleven reports now sit under `/accounting/reports`, every one of them exporting
+CSV, Excel and PDF; `payment-planning` exports its forecast too. 132 unit tests
+cover the reports module.
+
+**Six new surfaces:** receivables performance (DSO), customer & vendor
+concentration, bank book, FX exposure, expense analysis, and the cash-flow
+forecast export.
+
+**Two dropped, both on evidence rather than judgement.** The fixed-asset register
+has no assets to register; line-item budget-vs-actual has zero fill on
+`budgetLineItemId` across all 298 line items. Neither is a reporting problem.
+
+### What the build corrected in this plan
+
+Every one of these came from checking data rather than reasoning about it:
+
+| Assumption                                                   | Reality                                                                                                                          |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| FX realized gain/loss is buildable                           | The settlement fields are written by nothing. Only exposure is buildable.                                                        |
+| `EXPENSE_CLAIM` drives expense analysis                      | Zero records. `DIRECT_PAYMENT` carries the spend.                                                                                |
+| Allocation `invoiceDate`/`dueDate` are denormalised for this | Populated on 17 of 55. Join on `invoiceId`.                                                                                      |
+| Rule 21 forbids trusting stored paid figures                 | It forbids trusting `outstandingAmount`. `amountPaid` is maintained and canonical — reconstructing outstanding diverged tenfold. |
+| A `(type, date)` index covers a date-range query             | Direction matters. `type ASC + date DESC` does not serve the implicit ascending sort.                                            |
+| Bespoke PDF documents needed for statements                  | The `ExportSection[]` already carried the structure.                                                                             |
+
+### Known gaps this work surfaced but did not close
+
+- **FX settlement capture.** `bankSettlementRate`, `bankSettlementAmount`,
+  `bankCharges`, `forexGainLoss` are never written. Realized FX gain/loss stays
+  unreportable until the invoice and payment dialogs record them. This is the
+  single highest-value follow-up.
+- **Bank reconciliation.** `reconciledDate` is set on nothing, so the bank book
+  ships without a reconciliation section.
+- **Cost centres tagged as projects.** `projectIds` on transactions sometimes
+  holds a cost-centre id; both the period report and expense analysis resolve
+  against both masters to compensate.
+- **`paidAmount` vs `amountPaid`.** The type declares one name, the write path
+  uses the other. Any new code reading the declared name silently gets zero.
