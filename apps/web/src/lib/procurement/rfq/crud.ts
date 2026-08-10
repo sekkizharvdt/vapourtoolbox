@@ -181,21 +181,34 @@ export async function createRFQ(
 
   // Fetch PR numbers in parallel so the RFQ dashboard can show them without
   // an N+1 lookup at render time.
-  const purchaseRequestNumbers: string[] = await Promise.all(
+  const sourcePRs = await Promise.all(
     input.purchaseRequestIds.map(async (prId) => {
       try {
         const prDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId));
         if (prDoc.exists()) {
           const prData = prDoc.data();
-          return prData.number || '';
+          return {
+            number: (prData.number as string) || '',
+            type: prData.type as string | undefined,
+          };
         }
-        return '';
+        return { number: '', type: undefined };
       } catch (err) {
         logger.warn('Failed to fetch PR number', { prId, error: err });
-        return '';
+        return { number: '', type: undefined };
       }
     })
   );
+
+  const purchaseRequestNumbers: string[] = sourcePRs.map((pr) => pr.number);
+
+  // Carry the budgetary nature of the source PR onto the RFQ (feedback
+  // A2gvtjZB). Budgetary requests exist to price future work, so quotations are
+  // still collected against them, but they must not turn into a Purchase Order.
+  // Denormalised here (rule 26) so the dashboard can show it without an N+1
+  // lookup; createPOFromOffer enforces it and treats the source PRs as the
+  // authority, so an RFQ predating this field is still blocked correctly.
+  const isBudgetary = sourcePRs.some((pr) => pr.type === 'BUDGETARY');
 
   const now = Timestamp.now();
 
@@ -209,6 +222,7 @@ export async function createRFQ(
     ...(purchaseRequestNumbers.some((n) => n) && {
       purchaseRequestNumbers: purchaseRequestNumbers.filter((n) => n),
     }),
+    ...(isBudgetary && { isBudgetary: true }),
     projectIds,
     projectNames,
     title: sanitizedInput.title,

@@ -109,6 +109,65 @@ export function calculateAdvanceAmount(params: {
 }
 
 // ============================================================================
+// BUDGETARY GUARD
+// ============================================================================
+
+/**
+ * Refuse to build a PO on an RFQ that came from a budgetary purchase request.
+ *
+ * The source PRs are the authority, not the RFQ's denormalised `isBudgetary`
+ * flag: RFQs created before that field existed do not carry it, and there were
+ * four such RFQs when this shipped. Checking the PRs makes those blocked too,
+ * with no backfill and no `(field ?? legacyField)` fallback (rule 31).
+ *
+ * Silent on failure to read: a transient Firestore error must not block a
+ * legitimate PO, and the flag is a policy guard rather than a safety interlock.
+ */
+async function requireNonBudgetaryRFQ(
+  db: ReturnType<typeof getFirebase>['db'],
+  rfqId: string | undefined
+): Promise<void> {
+  if (!rfqId) return;
+
+  try {
+    const rfqSnap = await getDoc(doc(db, COLLECTIONS.RFQS, rfqId));
+    if (!rfqSnap.exists()) return;
+
+    const rfq = rfqSnap.data();
+    let budgetary = rfq.isBudgetary === true;
+
+    if (!budgetary) {
+      const prIds = (rfq.purchaseRequestIds as string[] | undefined) ?? [];
+      const prSnaps = await Promise.all(
+        prIds.map((prId) => getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId)))
+      );
+      budgetary = prSnaps.some((snap) => snap.exists() && snap.data()?.type === 'BUDGETARY');
+    }
+
+    if (budgetary) {
+      throw new BudgetaryRFQError(
+        `${rfq.number ?? 'This RFQ'} came from a budgetary purchase request, so it cannot be turned into a Purchase Order. ` +
+          `The quotations stay available for estimating and future procurement — raise a project purchase request to order against.`
+      );
+    }
+  } catch (error) {
+    if (error instanceof BudgetaryRFQError) throw error;
+    logger.warn('Could not verify whether the RFQ is budgetary; allowing PO creation', {
+      rfqId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** Distinguishes the policy refusal from a read failure inside the guard. */
+class BudgetaryRFQError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BudgetaryRFQError';
+  }
+}
+
+// ============================================================================
 // PO NUMBER GENERATION (ATOMIC)
 // ============================================================================
 
@@ -196,6 +255,14 @@ export async function createPOFromOffer(
       if (!offer.vendorId) {
         throw new Error('Quote has no linked vendor — PO creation requires a registered vendor');
       }
+
+      // Rule 23: a budgetary enquiry must not become a commitment. Quotations
+      // are deliberately still collected against budgetary RFQs — they price
+      // future work and stay available for later procurement — but converting
+      // one into a Purchase Order is what the user is asking us to prevent
+      // (feedback A2gvtjZB). Two RFQs sourced from budgetary PRs had already
+      // reached PO_PROCESSED before this guard existed.
+      await requireNonBudgetaryRFQ(db, offer.rfqId);
 
       const offerItemsQuery = query(
         collection(db, COLLECTIONS.VENDOR_QUOTE_ITEMS),

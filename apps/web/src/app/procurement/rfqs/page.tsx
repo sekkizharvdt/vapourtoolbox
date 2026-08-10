@@ -365,6 +365,15 @@ export default function RFQsPage() {
                         <Typography variant="body2" fontWeight="medium">
                           {rfq.number}
                         </Typography>
+                        {rfq.isBudgetary && (
+                          <Chip
+                            label="Budgetary"
+                            color="warning"
+                            variant="outlined"
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         {rfq.purchaseRequestNumbers && rfq.purchaseRequestNumbers.length > 0 ? (

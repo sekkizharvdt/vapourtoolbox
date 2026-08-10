@@ -29,6 +29,13 @@ export interface RFQ {
   // Source PRs
   purchaseRequestIds: string[];
   purchaseRequestNumbers?: string[]; // Denormalized for display/tracking
+  /**
+   * True when any source PR is of type 'BUDGETARY'. Denormalised at creation so
+   * the dashboard can flag it without loading the PRs. Quotations may still be
+   * collected against a budgetary RFQ — only PO creation is blocked
+   * (feedback A2gvtjZB). Absent on RFQs created before this field existed.
+   */
+  isBudgetary?: boolean;
 
   // Project linkage (can span multiple projects)
   projectIds: string[];

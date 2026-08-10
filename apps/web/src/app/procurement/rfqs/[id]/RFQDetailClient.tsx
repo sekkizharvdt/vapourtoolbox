@@ -15,6 +15,7 @@ import {
   Button,
   Stack,
   Chip,
+  Tooltip,
   Divider,
   Table,
   TableBody,
@@ -306,6 +307,10 @@ export default function RFQDetailPage() {
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
               <Chip label={getRFQStatusText(rfq.status)} color={getRFQStatusColor(rfq.status)} />
+              {/* The budgetary nature of the source PR was invisible here, so
+                  users could not tell a pricing enquiry from a real one
+                  (feedback A2gvtjZB). */}
+              {rfq.isBudgetary && <Chip label="Budgetary" color="warning" variant="outlined" />}
               <Typography variant="body2" color={dueDateInfo.color}>
                 {dueDateInfo.text}
               </Typography>
@@ -353,14 +358,28 @@ export default function RFQDetailPage() {
             {/* Once a winning offer is selected, surface Create PO directly on the
                 RFQ page so users don't have to re-enter the comparison screen. */}
             {rfq.selectedOfferId && rfq.status !== 'PO_PROCESSED' && (
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<ShoppingCartIcon />}
-                onClick={() => router.push(`/procurement/pos/new?offerId=${rfq.selectedOfferId}`)}
+              <Tooltip
+                title={
+                  rfq.isBudgetary
+                    ? 'This RFQ came from a budgetary purchase request — quotations are kept for estimating, but no Purchase Order can be raised against it'
+                    : ''
+                }
               >
-                Create PO
-              </Button>
+                {/* span so the tooltip still fires while the button is disabled */}
+                <span>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<ShoppingCartIcon />}
+                    disabled={rfq.isBudgetary === true}
+                    onClick={() =>
+                      router.push(`/procurement/pos/new?offerId=${rfq.selectedOfferId}`)
+                    }
+                  >
+                    Create PO
+                  </Button>
+                </span>
+              </Tooltip>
             )}
             {canCompleteRFQ(rfq) && (
               <Button
