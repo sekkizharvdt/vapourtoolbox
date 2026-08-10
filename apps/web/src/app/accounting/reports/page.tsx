@@ -17,6 +17,7 @@ import {
   Speed as ReceivablesIcon,
   PieChart as ConcentrationIcon,
   AccountBalance as BankBookIcon,
+  CurrencyExchange as FxIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -112,6 +113,14 @@ export default function FinancialReportsPage() {
       description: 'Project-wise income, expenses, and budget analysis',
       icon: <ProjectIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/project-financial',
+    },
+    {
+      title: 'Foreign Currency Exposure',
+      description:
+        'Non-INR transactions by currency — amounts booked, effective and spread of booking ' +
+        'rates, and net open exposure in INR',
+      icon: <FxIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/fx-exposure',
     },
     {
       title: 'Receipts & Payments',
