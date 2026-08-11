@@ -12,9 +12,12 @@ import {
   RadioButtonUnchecked as TodoIcon,
   PlayCircleOutline as InProgressIcon,
   CheckCircle as DoneIcon,
+  CheckCircleOutline as MarkDoneIcon,
+  PlayArrow as StartIcon,
   Flag as FlagIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
+import { MANUAL_TASK_STATUS_LABELS } from '@vapour/constants';
 import type { ManualTask, ManualTaskStatus } from '@vapour/types';
 
 interface ManualTaskCardProps {
@@ -29,14 +32,6 @@ const PRIORITY_COLORS: Record<string, 'default' | 'info' | 'warning' | 'error'> 
   HIGH: 'warning',
   URGENT: 'error',
 };
-
-const STATUS_CYCLE: ManualTaskStatus[] = ['todo', 'in_progress', 'done'];
-
-function getNextStatus(current: ManualTaskStatus): ManualTaskStatus {
-  const idx = STATUS_CYCLE.indexOf(current);
-  if (idx === -1 || idx === STATUS_CYCLE.length - 1) return 'todo';
-  return STATUS_CYCLE[idx + 1]!;
-}
 
 function StatusIcon({ status }: { status: ManualTaskStatus }) {
   switch (status) {
@@ -93,27 +88,16 @@ export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCar
     >
       <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-          {/* Status toggle */}
-          <Tooltip
-            title={
-              isTerminal
-                ? task.status === 'done'
-                  ? 'Completed'
-                  : 'Cancelled'
-                : `Mark as ${getNextStatus(task.status)}`
-            }
-          >
-            <span>
-              <IconButton
-                size="small"
-                disabled={isTerminal}
-                onClick={() => onStatusChange(task.id, getNextStatus(task.status))}
-                sx={{ mt: -0.25 }}
-                aria-label="Action"
-              >
-                <StatusIcon status={task.status} />
-              </IconButton>
-            </span>
+          {/* Current status — indicator only. The actions that CHANGE the status
+              are the explicit Start / Mark as done buttons on the right, so a
+              click can never mean something other than its own label. */}
+          <Tooltip title={MANUAL_TASK_STATUS_LABELS[task.status]}>
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', mt: 0.25, px: 0.5 }}
+              aria-label={`Status: ${MANUAL_TASK_STATUS_LABELS[task.status]}`}
+            >
+              <StatusIcon status={task.status} />
+            </Box>
           </Tooltip>
 
           {/* Content */}
@@ -184,16 +168,45 @@ export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCar
             </Box>
           </Box>
 
+          {/* Status actions — one button per transition, labelled with what it does */}
+          {task.status === 'todo' && (
+            <Tooltip title="Start task">
+              <IconButton
+                size="small"
+                onClick={() => onStatusChange(task.id, 'in_progress')}
+                sx={{ mt: -0.25 }}
+                aria-label="Start task"
+              >
+                <StartIcon fontSize="small" color="primary" />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {!isTerminal && (
+            <Tooltip title="Mark as done">
+              <IconButton
+                size="small"
+                onClick={() => onStatusChange(task.id, 'done')}
+                sx={{ mt: -0.25 }}
+                aria-label="Mark as done"
+              >
+                <MarkDoneIcon fontSize="small" color="success" />
+              </IconButton>
+            </Tooltip>
+          )}
+
           {/* Delete */}
           {onDelete && task.status !== 'done' && (
-            <IconButton
-              size="small"
-              onClick={() => onDelete(task.id)}
-              sx={{ mt: -0.25 }}
-              aria-label="Remove"
-            >
-              <DeleteIcon fontSize="small" color="action" />
-            </IconButton>
+            <Tooltip title="Delete task">
+              <IconButton
+                size="small"
+                onClick={() => onDelete(task.id)}
+                sx={{ mt: -0.25 }}
+                aria-label="Delete task"
+              >
+                <DeleteIcon fontSize="small" color="action" />
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
       </CardContent>

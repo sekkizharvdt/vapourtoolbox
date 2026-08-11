@@ -35,6 +35,7 @@ function TaskListInner() {
 
   const [tasks, setTasks] = useState<ManualTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabValue>('all');
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -54,6 +55,7 @@ function TaskListInner() {
     if (!db || !user) return;
 
     setLoading(true);
+    setLoadError(null);
 
     const unsubscribe = subscribeToMyTasks(
       db,
@@ -61,9 +63,14 @@ function TaskListInner() {
       user.uid,
       (updatedTasks) => {
         setTasks(updatedTasks);
+        setLoadError(null);
         setLoading(false);
       },
-      () => {
+      (error) => {
+        // A failed listener used to leave an empty list that looked like
+        // "no tasks yet" — while the local cache could still make the same
+        // page look populated after another page had loaded the same docs.
+        setLoadError(error instanceof Error ? error.message : String(error));
         setLoading(false);
       }
     );
@@ -88,8 +95,9 @@ function TaskListInner() {
       try {
         await updateTaskStatus(db, taskId, status);
         if (status === 'done') toast.success('Task completed');
-      } catch {
-        toast.error('Failed to update task');
+        else if (status === 'in_progress') toast.success('Task started');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
       }
     },
     [db, toast]
@@ -191,7 +199,11 @@ function TaskListInner() {
         />
       </Tabs>
 
-      {filteredTasks.length === 0 ? (
+      {loadError ? (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          <Typography variant="body2">Could not load your tasks: {loadError}</Typography>
+        </Alert>
+      ) : filteredTasks.length === 0 ? (
         <Alert severity="info" sx={{ mt: 2 }}>
           {tab === 'all' ? (
             <>

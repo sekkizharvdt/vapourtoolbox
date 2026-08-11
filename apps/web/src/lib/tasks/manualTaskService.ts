@@ -6,8 +6,12 @@
  * link to projects, proposals, or meetings.
  *
  * **Required Firestore Composite Indexes:**
- * - manualTasks: (tenantId, assigneeId, status, createdAt DESC)
- * - manualTasks: (tenantId, status, createdAt DESC)
+ * - manualTasks: (tenantId, assigneeId, createdAt DESC) — `subscribeToMyTasks`.
+ *   The (tenantId, assigneeId, status, createdAt) index does NOT cover it: an
+ *   index only serves a query whose orderBy field immediately follows its
+ *   equality fields, and `status` sits in between.
+ * - manualTasks: (tenantId, assigneeId, status, createdAt DESC) — `getMyTasks` with a status filter
+ * - manualTasks: (tenantId, status, createdAt DESC) — `subscribeToTeamTasks`, portfolio dashboard
  */
 
 import {
@@ -272,7 +276,7 @@ export function subscribeToMyTasks(
       callback(tasks);
     },
     (error) => {
-      console.error('[manualTaskService] subscribeToMyTasks error:', error);
+      logger.error('subscribeToMyTasks listener failed', { tenantId, assigneeId, error });
       onError?.(error);
     }
   );
@@ -301,7 +305,7 @@ export function subscribeToTeamTasks(
       callback(tasks);
     },
     (error) => {
-      console.error('[manualTaskService] subscribeToTeamTasks error:', error);
+      logger.error('subscribeToTeamTasks listener failed', { tenantId, error });
       onError?.(error);
     }
   );
@@ -379,6 +383,12 @@ export async function updateTaskStatus(
     throw new Error('Task not found');
   }
   const currentStatus = taskDoc.data().status as ManualTaskStatus;
+
+  // Rule 9: idempotent. A double-click, a retry, or a click on a card rendered
+  // from a stale snapshot re-sends the status the task already has — that is a
+  // no-op, not "Cannot transition task from 'in_progress' to 'in_progress'".
+  if (currentStatus === status) return;
+
   const allowed = ALLOWED_TRANSITIONS[currentStatus];
   if (!allowed || !allowed.includes(status)) {
     throw new Error(`Cannot transition task from '${currentStatus}' to '${status}'`);
