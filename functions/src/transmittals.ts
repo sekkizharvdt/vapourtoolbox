@@ -45,17 +45,26 @@ async function generateTransmittalPDF(transmittalData: {
   createdByName: string;
   documents: TransmittalDocument[];
 }): Promise<Buffer> {
-  // Configure chromium for serverless environment
-  chromium.setHeadlessMode = 'shell';
+  // Configure chromium for serverless environment.
+  // @sparticuz/chromium 149 dropped setHeadlessMode, headless and
+  // defaultViewport. These are the exact values 131.0.1 supplied, inlined so
+  // the rendered PDF geometry is unchanged.
   chromium.setGraphicsMode = false;
 
   const executablePath = await chromium.executablePath();
 
   const browser = await puppeteer.launch({
     args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
+    defaultViewport: {
+      deviceScaleFactor: 1,
+      hasTouch: false,
+      height: 1080,
+      isLandscape: true,
+      isMobile: false,
+      width: 1920,
+    },
     executablePath,
-    headless: chromium.headless,
+    headless: 'shell',
   });
 
   try {
@@ -254,7 +263,11 @@ async function generateTransmittalPDF(transmittalData: {
 </html>
     `;
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    // puppeteer 25 removed the networkidle0/networkidle2 wait conditions. The
+    // transmittal HTML above is fully self-contained — no external images,
+    // fonts, stylesheets or scripts — so there is no network activity to settle
+    // and 'load' is equivalent here.
+    await page.setContent(html, { waitUntil: 'load' });
 
     const pdfBuffer = await page.pdf({
       format: 'A4',
