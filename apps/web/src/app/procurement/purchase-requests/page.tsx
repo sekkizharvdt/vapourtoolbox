@@ -46,12 +46,12 @@ import {
 } from '@vapour/ui';
 import {
   PURCHASE_REQUEST_STATUS_LABELS,
-  PURCHASE_REQUEST_TYPE_LABELS,
+  PURCHASE_REQUEST_RAISED_FOR_LABELS,
   PURCHASE_REQUEST_CATEGORY_LABELS,
-  PRIORITY_LABELS,
-  getPriorityColor,
+  PURCHASE_REQUEST_BUDGETARY_LABEL,
 } from '@vapour/constants';
 import type { PurchaseRequest, PurchaseRequestStatus } from '@vapour/types';
+import { describeLinkage } from '@/lib/procurement/purchaseRequest/linkage';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import { useAuth } from '@/contexts/AuthContext';
 import { listPurchaseRequests } from '@/lib/procurement/purchaseRequest';
@@ -115,9 +115,10 @@ export default function PurchaseRequestsPage() {
   // Filters — Status defaults to Active, which is what the old default tab showed.
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(STATUS_ACTIVE);
-  const [projectFilter, setProjectFilter] = useState<string>(STATUS_ALL);
-  const [typeFilter, setTypeFilter] = useState<string>(STATUS_ALL);
+  const [linkedToFilter, setLinkedToFilter] = useState<string>(STATUS_ALL);
+  const [raisedForFilter, setRaisedForFilter] = useState<string>(STATUS_ALL);
   const [categoryFilter, setCategoryFilter] = useState<string>(STATUS_ALL);
+  const [budgetaryFilter, setBudgetaryFilter] = useState<string>(STATUS_ALL);
 
   const [exportingPDF, setExportingPDF] = useState(false);
 
@@ -200,14 +201,18 @@ export default function PurchaseRequestsPage() {
     ];
   }, [statusCounts]);
 
-  /** Distinct project names across the loaded PRs, for the Project filter. */
-  const projectOptions = useMemo(
+  /**
+   * Distinct linkage names across the loaded PRs — projects, proposals and the
+   * administration cost centre all land in one "Linked to" filter, since that
+   * is the question a user actually asks ("what was raised for X?").
+   */
+  const linkedToOptions = useMemo(
     () =>
       [
         ...new Set(
           requests
-            .map((req) => req.projectName)
-            .filter((name): name is string => Boolean(name && name.trim()))
+            .map((req) => describeLinkage(req))
+            .filter((name) => name !== '-' && name.trim().length > 0)
         ),
       ].sort((a, b) => a.localeCompare(b)),
     [requests]
@@ -224,16 +229,20 @@ export default function PurchaseRequestsPage() {
           return false;
         }
 
-        if (projectFilter !== STATUS_ALL && req.projectName !== projectFilter) return false;
-        if (typeFilter !== STATUS_ALL && req.type !== typeFilter) return false;
+        if (linkedToFilter !== STATUS_ALL && describeLinkage(req) !== linkedToFilter) return false;
+        if (raisedForFilter !== STATUS_ALL && req.raisedFor !== raisedForFilter) return false;
         if (categoryFilter !== STATUS_ALL && req.category !== categoryFilter) return false;
+        if (budgetaryFilter !== STATUS_ALL) {
+          const wantBudgetary = budgetaryFilter === 'BUDGETARY';
+          if ((req.isBudgetary === true) !== wantBudgetary) return false;
+        }
 
         if (query) {
           const haystack = [
             req.number,
             req.title,
             req.description,
-            req.projectName,
+            describeLinkage(req),
             req.submittedByName,
           ];
           if (!haystack.some((field) => field?.toLowerCase().includes(query))) return false;
@@ -242,14 +251,23 @@ export default function PurchaseRequestsPage() {
         return true;
       })
       .map((req) => ({ ...req, createdAtMs: toMillis(req.createdAt) }));
-  }, [requests, searchQuery, statusFilter, projectFilter, typeFilter, categoryFilter]);
+  }, [
+    requests,
+    searchQuery,
+    statusFilter,
+    linkedToFilter,
+    raisedForFilter,
+    categoryFilter,
+    budgetaryFilter,
+  ]);
 
   const handleClearFilters = () => {
     setSearchQuery('');
     setStatusFilter(STATUS_ACTIVE);
-    setProjectFilter(STATUS_ALL);
-    setTypeFilter(STATUS_ALL);
+    setLinkedToFilter(STATUS_ALL);
+    setRaisedForFilter(STATUS_ALL);
     setCategoryFilter(STATUS_ALL);
+    setBudgetaryFilter(STATUS_ALL);
   };
 
   const handleDelete = async (pr: PurchaseRequest) => {
@@ -295,10 +313,18 @@ export default function PurchaseRequestsPage() {
       ),
     },
     {
-      key: 'projectName',
-      label: 'Project',
-      minWidth: 160,
-      render: (row) => row.projectName || '-',
+      key: 'linkedTo',
+      label: 'Linked To',
+      minWidth: 170,
+      sortable: false,
+      render: (row) => (
+        <Box>
+          <Typography variant="body2">{describeLinkage(row)}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {PURCHASE_REQUEST_RAISED_FOR_LABELS[row.raisedFor] ?? row.raisedFor ?? '-'}
+          </Typography>
+        </Box>
+      ),
     },
     {
       key: 'title',
@@ -327,37 +353,25 @@ export default function PurchaseRequestsPage() {
       ),
     },
     {
-      key: 'type',
-      label: 'Type',
-      sortable: false,
-      render: (row) => (
-        <StatusChip status={row.type} labels={PURCHASE_REQUEST_TYPE_LABELS} variant="outlined" />
-      ),
-    },
-    {
       key: 'category',
       label: 'Category',
       sortable: false,
       render: (row) => (
-        <StatusChip
-          status={row.category}
-          labels={PURCHASE_REQUEST_CATEGORY_LABELS}
-          variant="outlined"
-        />
-      ),
-    },
-    {
-      key: 'priority',
-      label: 'Priority',
-      sortable: false,
-      // Priority has its own color scale (getPriorityColor), which StatusChip
-      // does not read — the label still comes from the canonical map.
-      render: (row) => (
-        <Chip
-          label={PRIORITY_LABELS[row.priority] ?? row.priority}
-          size="small"
-          color={getPriorityColor(row.priority)}
-        />
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <StatusChip
+            status={row.category}
+            labels={PURCHASE_REQUEST_CATEGORY_LABELS}
+            variant="outlined"
+          />
+          {row.isBudgetary && (
+            <Chip
+              label={PURCHASE_REQUEST_BUDGETARY_LABEL}
+              size="small"
+              color="warning"
+              variant="outlined"
+            />
+          )}
+        </Stack>
       ),
     },
     {
@@ -438,15 +452,15 @@ export default function PurchaseRequestsPage() {
           </FormControl>
 
           <FormControl size="small" sx={{ minWidth: 190 }}>
-            <InputLabel id="pr-project-filter-label">Project</InputLabel>
+            <InputLabel id="pr-linked-to-filter-label">Linked To</InputLabel>
             <Select
-              labelId="pr-project-filter-label"
-              value={projectFilter}
-              label="Project"
-              onChange={(e) => setProjectFilter(e.target.value)}
+              labelId="pr-linked-to-filter-label"
+              value={linkedToFilter}
+              label="Linked To"
+              onChange={(e) => setLinkedToFilter(e.target.value)}
             >
-              <MenuItem value={STATUS_ALL}>All Projects</MenuItem>
-              {projectOptions.map((name) => (
+              <MenuItem value={STATUS_ALL}>All</MenuItem>
+              {linkedToOptions.map((name) => (
                 <MenuItem key={name} value={name}>
                   {name}
                 </MenuItem>
@@ -455,15 +469,15 @@ export default function PurchaseRequestsPage() {
           </FormControl>
 
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel id="pr-type-filter-label">Type</InputLabel>
+            <InputLabel id="pr-raised-for-filter-label">Raised For</InputLabel>
             <Select
-              labelId="pr-type-filter-label"
-              value={typeFilter}
-              label="Type"
-              onChange={(e) => setTypeFilter(e.target.value)}
+              labelId="pr-raised-for-filter-label"
+              value={raisedForFilter}
+              label="Raised For"
+              onChange={(e) => setRaisedForFilter(e.target.value)}
             >
-              <MenuItem value={STATUS_ALL}>All Types</MenuItem>
-              {Object.entries(PURCHASE_REQUEST_TYPE_LABELS).map(([value, label]) => (
+              <MenuItem value={STATUS_ALL}>All</MenuItem>
+              {Object.entries(PURCHASE_REQUEST_RAISED_FOR_LABELS).map(([value, label]) => (
                 <MenuItem key={value} value={value}>
                   {label}
                 </MenuItem>
@@ -485,6 +499,20 @@ export default function PurchaseRequestsPage() {
                   {label}
                 </MenuItem>
               ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel id="pr-budgetary-filter-label">Firm / Budgetary</InputLabel>
+            <Select
+              labelId="pr-budgetary-filter-label"
+              value={budgetaryFilter}
+              label="Firm / Budgetary"
+              onChange={(e) => setBudgetaryFilter(e.target.value)}
+            >
+              <MenuItem value={STATUS_ALL}>All</MenuItem>
+              <MenuItem value="FIRM">Firm</MenuItem>
+              <MenuItem value="BUDGETARY">{PURCHASE_REQUEST_BUDGETARY_LABEL}</MenuItem>
             </Select>
           </FormControl>
 

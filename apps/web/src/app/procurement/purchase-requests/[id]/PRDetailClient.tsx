@@ -29,6 +29,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Tooltip,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -54,7 +55,15 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { findRFQsByPurchaseRequestId } from '@/lib/procurement/rfq/queries';
 import { formatDate } from '@/lib/utils/formatters';
-import { getStatusColor, getPriorityColor } from '@vapour/constants';
+import {
+  PURCHASE_REQUEST_STATUS_LABELS,
+  PURCHASE_REQUEST_CATEGORY_LABELS,
+  PURCHASE_REQUEST_RAISED_FOR_LABELS,
+  PURCHASE_REQUEST_LINKAGE_LABELS,
+  PURCHASE_REQUEST_BUDGETARY_LABEL,
+} from '@vapour/constants';
+import { StatusChip } from '@vapour/ui';
+import { describeLinkage } from '@/lib/procurement/purchaseRequest/linkage';
 import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 
 export default function PRDetailPage() {
@@ -249,13 +258,32 @@ export default function PRDetailPage() {
               {pr.number}
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
-              <Chip
-                label={pr.status.replace(/_/g, ' ')}
-                color={getStatusColor(pr.status, 'purchaseRequest')}
+              <StatusChip
+                status={pr.status}
+                labels={PURCHASE_REQUEST_STATUS_LABELS}
+                context="purchaseRequest"
+                size="medium"
               />
-              <Chip label={pr.priority} color={getPriorityColor(pr.priority)} size="small" />
-              <Chip label={pr.type} variant="outlined" size="small" />
-              <Chip label={pr.category} variant="outlined" size="small" />
+              <StatusChip
+                status={pr.category}
+                labels={PURCHASE_REQUEST_CATEGORY_LABELS}
+                variant="outlined"
+              />
+              <Chip
+                label={`${PURCHASE_REQUEST_RAISED_FOR_LABELS[pr.raisedFor] ?? pr.raisedFor}: ${describeLinkage(pr)}`}
+                variant="outlined"
+                size="small"
+              />
+              {pr.isBudgetary && (
+                <Tooltip title="Quotations may be collected, but this request cannot become a purchase order.">
+                  <Chip
+                    label={PURCHASE_REQUEST_BUDGETARY_LABEL}
+                    color="warning"
+                    variant="outlined"
+                    size="small"
+                  />
+                </Tooltip>
+              )}
             </Stack>
           </Box>
 
@@ -312,9 +340,9 @@ export default function PRDetailPage() {
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <Box flex={1}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Project
+                  {PURCHASE_REQUEST_LINKAGE_LABELS[pr.raisedFor] ?? 'Linked To'}
                 </Typography>
-                <Typography variant="body1">{pr.projectName || 'N/A'}</Typography>
+                <Typography variant="body1">{describeLinkage(pr)}</Typography>
               </Box>
 
               <Box flex={1}>

@@ -169,8 +169,8 @@ export const procurementGuide: WorkflowGuideModule = {
             ['2', 'Click **New Purchase Request**.', 'The **New Purchase Request** form.'],
             [
               '3',
-              'Set **Type** to *Project*, **Category** to *Raw Material*, **Priority** to *High*.',
-              'A project picker appears once Type is *Project*.',
+              'Set **Raised for** to _Project_ and **Category** to _Raw Material_. Leave **Budgetary** unticked.',
+              'A **Project** picker sits next to Raised for. Category says "One kind per request".',
             ],
             ['4', 'Pick your test project.', 'The project name shows in the picker.'],
             [
@@ -180,13 +180,13 @@ export const procurementGuide: WorkflowGuideModule = {
             ],
             [
               '6',
-              'Choose **Approver A** in the **Approver** field.',
-              'Your own name is **not** in the list to choose from.',
+              'Check the form has no Approver field.',
+              'Approver is asked for at submit time, not here — a draft does not need one.',
             ],
             [
               '7',
-              'Click **Add Item**, then fill Type, Description, Specification, Qty, Unit and Equipment Code.',
-              'A line-item row appears; the chip next to **Line Items** counts up to "1 item".',
+              'Click **Add Item**, then use the search icon to pick a material and fill Qty, Unit and Equipment Code.',
+              'The row has **no Type column** — the picker opens straight to Materials, because the request is for raw materials.',
             ],
             ['8', 'Add a second line item.', 'The chip reads "2 items".'],
             [
@@ -196,8 +196,8 @@ export const procurementGuide: WorkflowGuideModule = {
             ],
             [
               '10',
-              'Click **Edit**, then click **Save & Submit**.',
-              'The status chip changes to **SUBMITTED**, and an **Approval Status** panel shows **Assigned Approver** = Approver A with a **Pending Approval** chip.',
+              'Click **Edit**, click **Save & Submit**, and choose **Approver A** in the dialog.',
+              'Your own name is **not** offered. The status chip changes to **SUBMITTED**, and an **Approval Status** panel shows **Assigned Approver** = Approver A.',
             ],
             [
               '11',
@@ -271,13 +271,13 @@ export const procurementGuide: WorkflowGuideModule = {
             ],
             [
               '2',
-              'Fill in **every** field: Type, Category, Priority, Project, Title, Required By Date, Approver.',
+              'Fill in **every** field: Raised for, its linkage, Category, Budgetary, Title, Required By Date.',
               'All accept input.',
             ],
             [
               '3',
-              'Add **three** line items. On each, fill Type, Description, Specification, Qty, Unit and Equipment Code — use different values on every row.',
-              'Three distinct rows.',
+              'Add **three** line items. On each, pick the item from the catalog and fill Specification, Qty, Unit and Equipment Code — different values per row.',
+              "Three distinct rows, all of the request's one category.",
             ],
             [
               '4',
@@ -1572,7 +1572,7 @@ export const procurementGuide: WorkflowGuideModule = {
             [
               '4',
               '**As the creator**, open the PO.',
-              'A banner reads "Returned by *Approver A*: *your comments*". The **Edit** button is back.',
+              'A banner reads "Returned by _Approver A_: _your comments_". The **Edit** button is back.',
             ],
             [
               '5',
@@ -2103,7 +2103,7 @@ export const procurementGuide: WorkflowGuideModule = {
             ],
             [
               '3',
-              "Set that line's **Condition** to *Damaged* and type **Condition Notes**.",
+              "Set that line's **Condition** to _Damaged_ and type **Condition Notes**.",
               'Both are saved with the line.',
             ],
             [
@@ -2111,7 +2111,7 @@ export const procurementGuide: WorkflowGuideModule = {
               'Tick the issues flag on that line and list the issues, one per line.',
               'The issues box accepts multiple lines.',
             ],
-            ['5', 'On another line, set **Testing** = *Fail*.', 'Accepted.'],
+            ['5', 'On another line, set **Testing** = _Fail_.', 'Accepted.'],
             [
               '6',
               'Click **Create Goods Receipt**.',
@@ -2267,7 +2267,7 @@ export const procurementGuide: WorkflowGuideModule = {
             [
               '5b',
               'Ask **Accounts** to check the bell icon.',
-              'A task headed "Clear Payment for GR *number*", asking them to review and clear the receipt for payment.',
+              'A task headed "Clear Payment for GR _number_", asking them to review and clear the receipt for payment.',
             ],
             [
               '6',
@@ -2339,7 +2339,7 @@ export const procurementGuide: WorkflowGuideModule = {
             [
               '3',
               'Choose **Accounts** and click **Send**.',
-              'A chip reads "Sent to Accounting — *Accounts*". The **Send to Accounting** button is gone.',
+              'A chip reads "Sent to Accounting — _Accounts_". The **Send to Accounting** button is gone.',
             ],
             ['4', '**As Accounts**, open the same goods receipt.', 'A **Create Bill** button.'],
             ['5', 'Click **Create Bill**.', 'A **Bill Created** chip appears on the receipt.'],
@@ -2456,7 +2456,7 @@ export const procurementGuide: WorkflowGuideModule = {
             [
               '8',
               'Read the **Discrepancies** panel.',
-              'A count in the heading, an amber "*n* Unresolved" chip, and a row per problem with Type, Description, **Expected**, **Actual** and a **Pending** status chip. A line billed but missing from the PO or the goods receipt is listed here too.',
+              'A count in the heading, an amber "_n_ Unresolved" chip, and a row per problem with Type, Description, **Expected**, **Actual** and a **Pending** status chip. A line billed but missing from the PO or the goods receipt is listed here too.',
             ],
             [
               '9',
@@ -2525,7 +2525,7 @@ export const procurementGuide: WorkflowGuideModule = {
             [
               '2',
               'Click **Resolve** on one row, pick a **Resolution Type** (Accept Variance, Corrected by Vendor, Price Adjustment, Quantity Adjustment, Waived), type **Resolution Notes** and confirm.',
-              'That row\'s status chip changes to **Resolved** and the "*n* Unresolved" count drops by one.',
+              'That row\'s status chip changes to **Resolved** and the "_n_ Unresolved" count drops by one.',
             ],
             [
               '3',
@@ -2700,7 +2700,7 @@ export const procurementGuide: WorkflowGuideModule = {
             ['3', 'Type a **Reason for Amendment**.', 'Accepted. It is compulsory.'],
             [
               '4',
-              'Tick **Price Change**, set **Amend by** = *Grand Total* and enter a **New Grand Total**.',
+              'Tick **Price Change**, set **Amend by** = _Grand Total_ and enter a **New Grand Total**.',
               'The form shows the change against the current total.',
             ],
             [

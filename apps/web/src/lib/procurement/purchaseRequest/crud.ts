@@ -31,10 +31,12 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { PurchaseRequest, PurchaseRequestItem } from '@vapour/types';
+import { catalogKindToItemType } from '@vapour/types';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import { generatePRNumber } from './utils';
 import type {
   CreatePurchaseRequestInput,
+  CreatePurchaseRequestItemInput,
   UpdatePurchaseRequestInput,
   ListPurchaseRequestsFilters,
   PaginatedPurchaseRequestsResult,
@@ -42,6 +44,58 @@ import type {
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'purchaseRequest/crud' });
+
+/**
+ * The master-data link a line must carry, per PR category. A PR is for one
+ * kind only, so a line linked to the wrong catalog is a bug in the caller —
+ * reject it here rather than writing an item the RFQ flow cannot source
+ * (rule 23).
+ */
+const REQUIRED_LINK_FIELD = {
+  RAW_MATERIAL: 'materialId',
+  BOUGHT_OUT: 'boughtOutItemId',
+  SERVICE: 'serviceId',
+} as const;
+
+/**
+ * Validate the header linkage and every line's catalog link before any write.
+ *
+ * `raisedFor` decides which linkage is mandatory: a project PR without a
+ * project, or an internal PR without the administration cost centre, would
+ * leave the document unattributable to any budget.
+ */
+function requireValidPurchaseRequest(input: {
+  raisedFor: CreatePurchaseRequestInput['raisedFor'];
+  category: CreatePurchaseRequestInput['category'];
+  projectId?: string;
+  proposalId?: string;
+  costCentreId?: string;
+  items: CreatePurchaseRequestItemInput[];
+}): void {
+  if (input.raisedFor === 'PROJECT' && !input.projectId) {
+    throw new Error('A project purchase request must name the project it is raised for.');
+  }
+  if (input.raisedFor === 'PROPOSAL' && !input.proposalId) {
+    throw new Error('A proposal purchase request must name the proposal it is raised for.');
+  }
+  if (input.raisedFor === 'INTERNAL' && !input.costCentreId) {
+    throw new Error(
+      'An internal purchase request must carry the administration cost centre. ' +
+        'Check that a cost centre with the code CC-ADMIN exists.'
+    );
+  }
+
+  const linkField = REQUIRED_LINK_FIELD[input.category];
+  input.items.forEach((item, index) => {
+    if (!item[linkField]) {
+      throw new Error(
+        `Line ${index + 1} ("${item.description}") has no ${linkField}, ` +
+          `which a ${input.category} purchase request requires. ` +
+          `Pick the item from the catalog, or change the request's category.`
+      );
+    }
+  });
+}
 
 /**
  * Create a new Purchase Request
@@ -54,6 +108,8 @@ export async function createPurchaseRequest(
   const { db } = getFirebase();
 
   try {
+    requireValidPurchaseRequest(input);
+
     const batch = writeBatch(db);
     const now = Timestamp.now();
 
@@ -69,17 +125,21 @@ export async function createPurchaseRequest(
       ...(input.tenantId && { tenantId: input.tenantId }),
 
       // Classification
-      type: input.type,
+      raisedFor: input.raisedFor,
       category: input.category,
+      isBudgetary: input.isBudgetary ?? false,
 
-      // Project linkage
+      // Linkage — one triple per raisedFor (see requireLinkage above)
       ...(input.projectId && { projectId: input.projectId }),
       ...(input.projectName && { projectName: input.projectName }),
+      ...(input.proposalId && { proposalId: input.proposalId }),
+      ...(input.proposalNumber && { proposalNumber: input.proposalNumber }),
+      ...(input.costCentreId && { costCentreId: input.costCentreId }),
+      ...(input.costCentreCode && { costCentreCode: input.costCentreCode }),
 
       // Header
       title: input.title,
       description: input.description,
-      priority: input.priority || 'MEDIUM',
       ...(input.requiredBy && { requiredBy: Timestamp.fromDate(input.requiredBy) }),
 
       // Line items
@@ -123,8 +183,8 @@ export async function createPurchaseRequest(
         quantity: item.quantity,
         unit: item.unit,
 
-        // Item type
-        ...(item.itemType && { itemType: item.itemType }),
+        // Item kind — stamped from the PR's category, never asked per line
+        itemType: catalogKindToItemType(input.category),
 
         // Unified catalog linkage (written alongside the legacy per-kind ids)
         ...(item.catalogRef && { catalogRef: item.catalogRef }),
@@ -198,12 +258,19 @@ export async function createPurchaseRequest(
       {
         entityName: prNumber,
         metadata: {
-          type: input.type,
+          raisedFor: input.raisedFor,
           category: input.category,
+          isBudgetary: input.isBudgetary ?? false,
           itemCount: input.items.length,
-          projectId: input.projectId,
-          projectName: input.projectName,
-          priority: input.priority || 'MEDIUM',
+          ...(input.projectId && { projectId: input.projectId, projectName: input.projectName }),
+          ...(input.proposalId && {
+            proposalId: input.proposalId,
+            proposalNumber: input.proposalNumber,
+          }),
+          ...(input.costCentreId && {
+            costCentreId: input.costCentreId,
+            costCentreCode: input.costCentreCode,
+          }),
         },
       }
     );
@@ -315,8 +382,12 @@ export async function listPurchaseRequests(
       constraints.push(where('projectId', '==', filters.projectId));
     }
 
-    if (filters.type) {
-      constraints.push(where('type', '==', filters.type));
+    if (filters.raisedFor) {
+      constraints.push(where('raisedFor', '==', filters.raisedFor));
+    }
+
+    if (filters.isBudgetary !== undefined) {
+      constraints.push(where('isBudgetary', '==', filters.isBudgetary));
     }
 
     if (filters.category) {
@@ -329,10 +400,6 @@ export async function listPurchaseRequests(
 
     if (filters.createdBy) {
       constraints.push(where('createdBy', '==', filters.createdBy));
-    }
-
-    if (filters.priority) {
-      constraints.push(where('priority', '==', filters.priority));
     }
 
     // Order by creation date (newest first)

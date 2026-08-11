@@ -134,7 +134,7 @@ export async function submitPurchaseRequestForApproval(
         entityType: 'PURCHASE_REQUEST',
         entityId: prId,
         linkUrl: `/procurement/purchase-requests/${prId}`,
-        priority: pr.priority === 'URGENT' ? 'HIGH' : 'MEDIUM',
+        priority: 'MEDIUM',
         autoCompletable: true,
         projectId: pr.projectId,
       });

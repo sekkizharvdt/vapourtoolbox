@@ -27,6 +27,8 @@ import {
   Chip,
   CircularProgress,
   Tooltip,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -46,30 +48,36 @@ import {
   createPurchaseRequest,
   submitPurchaseRequestForApproval,
   uploadPRAttachment,
+  clearCatalogLinks,
   type CreatePurchaseRequestInput,
   type CreatePurchaseRequestItemInput,
 } from '@/lib/procurement/purchaseRequest';
-import type { PurchaseRequestAttachmentType } from '@vapour/types';
+import type {
+  PurchaseRequestAttachmentType,
+  PurchaseRequestCategory,
+  PurchaseRequestRaisedFor,
+} from '@vapour/types';
+import {
+  PURCHASE_REQUEST_CATEGORY_LABELS,
+  PURCHASE_REQUEST_RAISED_FOR_LABELS,
+  PURCHASE_REQUEST_BUDGETARY_LABEL,
+} from '@vapour/constants';
 import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
 import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
-import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
-import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
+import { PRLinkageSelector, type PRLinkage } from '@/components/procurement/PRLinkageSelector';
+import { SubmitPRForApprovalDialog } from '@/components/procurement/SubmitPRForApprovalDialog';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import CatalogPickerDialog, {
   type CatalogSelection,
 } from '@/components/catalog/CatalogPickerDialog';
-import { itemTypeToCatalogKind, catalogKindToItemType } from '@vapour/types';
 
 interface FormData {
-  type: 'PROJECT' | 'BUDGETARY' | 'INTERNAL';
-  category: 'SERVICE' | 'RAW_MATERIAL' | 'BOUGHT_OUT';
-  projectId: string;
-  projectName: string;
+  raisedFor: PurchaseRequestRaisedFor;
+  category: PurchaseRequestCategory;
+  isBudgetary: boolean;
+  linkage: PRLinkage;
   title: string;
-  description: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   requiredBy: string;
-  approverId: string;
-  approverName: string;
 }
 
 /** Values of the fixed Unit dropdown options below (SERVICE extras included). */
@@ -125,6 +133,7 @@ function normalizeImportedUnit(raw: string): string {
 export default function NewPurchaseRequestPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
   const tenantId = claims?.tenantId || 'default-entity';
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -140,32 +149,62 @@ export default function NewPurchaseRequestPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
-    type: 'PROJECT',
+    raisedFor: 'PROJECT',
     category: 'RAW_MATERIAL',
-    projectId: '',
-    projectName: '',
+    isBudgetary: false,
+    linkage: {},
     title: '',
-    description: '',
-    priority: 'MEDIUM',
     requiredBy: '',
-    approverId: '',
-    approverName: '',
   });
+
+  // Approver is asked for by the Submit for Approval dialog, not the form —
+  // a draft never needs one.
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<CreatePurchaseRequestItemInput[]>([
     { description: '', quantity: 1, unit: 'NOS', equipmentCode: '' },
   ]);
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleProjectSelect = (projectId: string | null, projectName?: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      projectId: projectId || '',
-      projectName: projectName || '',
-    }));
+  /** Switching what the PR is raised for invalidates whatever was linked. */
+  const handleRaisedForChange = (raisedFor: PurchaseRequestRaisedFor) => {
+    setFormData((prev) => ({ ...prev, raisedFor, linkage: {} }));
+  };
+
+  const handleLinkageChange = (linkage: PRLinkage) => {
+    setFormData((prev) => ({ ...prev, linkage }));
+  };
+
+  /**
+   * Changing the category invalidates every line's catalog link — a material
+   * PR cannot hold a bought-out reference. Confirm first when there is
+   * something to lose, since this clears the whole table at once.
+   */
+  const handleCategoryChange = async (category: PurchaseRequestCategory) => {
+    if (category === formData.category) return;
+
+    const linkedCount = lineItems.filter(
+      (item) => item.materialId || item.boughtOutItemId || item.serviceId
+    ).length;
+
+    if (linkedCount > 0) {
+      const confirmed = await confirm({
+        title: 'Change category?',
+        message:
+          `This request is for ${PURCHASE_REQUEST_CATEGORY_LABELS[formData.category]}. ` +
+          `Switching to ${PURCHASE_REQUEST_CATEGORY_LABELS[category]} will clear the ` +
+          `${linkedCount} item${linkedCount === 1 ? '' : 's'} already picked from the catalog.`,
+        confirmText: 'Change and clear items',
+        confirmColor: 'error',
+      });
+      if (!confirmed) return;
+    }
+
+    setFormData((prev) => ({ ...prev, category }));
+    setLineItems((prev) => prev.map(clearCatalogLinks));
   };
 
   const handleLineItemChange = (index: number, field: string, value: string | number) => {
@@ -202,33 +241,17 @@ export default function NewPurchaseRequestPage() {
   };
 
   /**
-   * One handler for every catalog kind. The user may switch tabs inside the
-   * picker, so the selected kind (not the row's previous type) wins: the
-   * row's itemType is set from the selection and every other kind's
-   * master-data link is cleared. Writes the same legacy per-kind fields as
-   * before PLUS the unified catalogRef (design 2026-06-15 §3.1, rule 26).
+   * The picker is locked to the PR's category, so the selection can only be
+   * of that kind. Writes the legacy per-kind fields PLUS the unified
+   * catalogRef (design 2026-06-15 §3.1, rule 26).
    */
   const handleCatalogSelect = (selection: CatalogSelection) => {
     const updatedItems = [...lineItems];
     const item = updatedItems[catalogPickerIndex];
     if (item) {
       const cleared: CreatePurchaseRequestItemInput = {
-        ...item,
-        itemType: catalogKindToItemType(selection.ref.kind),
+        ...clearCatalogLinks(item),
         catalogRef: selection.ref,
-        materialId: undefined,
-        materialCode: undefined,
-        materialName: undefined,
-        boughtOutItemId: undefined,
-        boughtOutItemCode: undefined,
-        boughtOutItemName: undefined,
-        serviceId: undefined,
-        serviceCode: undefined,
-        serviceName: undefined,
-        serviceCategory: undefined,
-        turnaroundDays: undefined,
-        testMethodStandard: undefined,
-        sampleRequirements: undefined,
       };
       const { source } = selection;
       if (source.kind === 'RAW_MATERIAL') {
@@ -281,67 +304,33 @@ export default function NewPurchaseRequestPage() {
 
   const isServiceCategory = formData.category === 'SERVICE';
 
-  // Per-line type. New rows inherit the header category as their default, but
-  // each line can be overridden so one PR can mix material / bought-out / service
-  // lines (feedback Jit9vLshG7oIZpt9Qhka).
-  const defaultItemType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =
-    formData.category === 'SERVICE'
-      ? 'SERVICE'
-      : formData.category === 'BOUGHT_OUT'
-        ? 'BOUGHT_OUT'
-        : 'MATERIAL';
-  const rowType = (item: CreatePurchaseRequestItemInput): 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =>
-    item.itemType ?? defaultItemType;
-
-  // One dialog for all kinds — the row's type only picks the initial tab.
+  // The picker is locked to the PR's one category — no tab choice per row.
   const openPickerForRow = (index: number) => {
     if (!lineItems[index]) return;
     setCatalogPickerIndex(index);
     setCatalogPickerOpen(true);
   };
 
-  // Changing a line's type clears any master-data link from the previous type so
-  // a stale reference can't survive (matches the vendor-quote new-page behaviour).
-  const handleLineTypeChange = (index: number, newType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE') => {
-    setLineItems((prev) => {
-      const next = [...prev];
-      const item = next[index];
-      if (!item) return prev;
-      next[index] = {
-        ...item,
-        itemType: newType,
-        catalogRef: undefined,
-        materialId: undefined,
-        materialCode: undefined,
-        materialName: undefined,
-        boughtOutItemId: undefined,
-        boughtOutItemCode: undefined,
-        boughtOutItemName: undefined,
-        serviceId: undefined,
-        serviceCode: undefined,
-        serviceName: undefined,
-        serviceCategory: undefined,
-      };
-      return next;
-    });
-  };
-
-  const validateForm = (requireApprover: boolean = false): boolean => {
+  const validateForm = (): boolean => {
     setError(null);
 
-    // Validate basic info
-    if (formData.type === 'PROJECT' && !formData.projectId) {
-      setError('Please select a project');
+    // The linkage the request needs depends on what it is raised for.
+    if (formData.raisedFor === 'PROJECT' && !formData.linkage.projectId) {
+      setError('Please select the project this request is raised for');
+      return false;
+    }
+    if (formData.raisedFor === 'PROPOSAL' && !formData.linkage.proposalId) {
+      setError('Please select the proposal this request is raised for');
+      return false;
+    }
+    if (formData.raisedFor === 'INTERNAL' && !formData.linkage.costCentreId) {
+      setError(
+        'The administration cost centre could not be found, so this internal request cannot be charged anywhere.'
+      );
       return false;
     }
     if (!formData.title.trim()) {
       setError('Please enter title');
-      return false;
-    }
-
-    // Validate approver is selected when submitting for approval
-    if (requireApprover && !formData.approverId) {
-      setError('Please select an approver before submitting for approval');
       return false;
     }
 
@@ -364,23 +353,17 @@ export default function NewPurchaseRequestPage() {
 
       // Require a master-data reference so downstream cost/stock/pricing
       // feedback loops can attach to the item. See PROCUREMENT-MATERIALS-AUDIT-2026-04-24.md #4.
-      // The required link depends on the line's own type (material / bought-out / service).
-      const type = rowType(item);
-      if (type === 'SERVICE' && !item.serviceId) {
+      // The request carries one category, so every line needs that catalog's link.
+      const missingLink =
+        (formData.category === 'SERVICE' && !item.serviceId) ||
+        (formData.category === 'BOUGHT_OUT' && !item.boughtOutItemId) ||
+        (formData.category === 'RAW_MATERIAL' && !item.materialId);
+
+      if (missingLink) {
         setError(
-          `Line ${i + 1}: Please pick a service from the services catalog (search icon next to the description).`
-        );
-        return false;
-      }
-      if (type === 'BOUGHT_OUT' && !item.boughtOutItemId) {
-        setError(
-          `Line ${i + 1}: Please pick a bought-out item from the bought-out database (search icon next to the description).`
-        );
-        return false;
-      }
-      if (type === 'MATERIAL' && !item.materialId) {
-        setError(
-          `Line ${i + 1}: Please pick a material from the materials database (search icon next to the description).`
+          `Line ${i + 1}: Please pick a ${PURCHASE_REQUEST_CATEGORY_LABELS[
+            formData.category
+          ].toLowerCase()} item from the catalog (search icon next to the description).`
         );
         return false;
       }
@@ -389,7 +372,7 @@ export default function NewPurchaseRequestPage() {
     return true;
   };
 
-  const buildInput = (): CreatePurchaseRequestInput => {
+  const buildInput = (approver?: { id: string; name: string }): CreatePurchaseRequestInput => {
     // Auto-generate description from line items (first 3 items summarized)
     const validItems = lineItems.filter((item) => item.description.trim() !== '');
     const itemSummary = validItems
@@ -403,17 +386,15 @@ export default function NewPurchaseRequestPage() {
 
     return {
       tenantId,
-      type: formData.type,
+      raisedFor: formData.raisedFor,
       category: formData.category,
-      projectId: formData.projectId,
-      projectName: formData.projectName,
+      isBudgetary: formData.isBudgetary,
+      ...formData.linkage,
       title: formData.title,
       description: autoDescription,
-      priority: formData.priority,
       requiredBy: formData.requiredBy ? new Date(formData.requiredBy) : undefined,
       items: validItems,
-      ...(formData.approverId && { approverId: formData.approverId }),
-      ...(formData.approverName && { approverName: formData.approverName }),
+      ...(approver && { approverId: approver.id, approverName: approver.name }),
     };
   };
 
@@ -467,17 +448,28 @@ export default function NewPurchaseRequestPage() {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!user || !validateForm(true)) return; // true = require approver
+  /** Validate first, then ask for the approver — not the other way round. */
+  const handleOpenSubmitDialog = () => {
+    if (!user || !validateForm()) return;
+    setSubmitDialogOpen(true);
+  };
+
+  /**
+   * Create the PR with its approver already set, then submit it. Errors are
+   * re-thrown so the dialog shows them next to the field instead of behind it.
+   */
+  const handleSubmit = async (approverId: string, approverName: string) => {
+    if (!user) return;
 
     setSubmitting(true);
     setError(null);
 
     try {
+      const userName = user.displayName || user.email || 'Unknown';
       const result = await createPurchaseRequest(
-        buildInput(),
+        buildInput({ id: approverId, name: approverName }),
         user.uid,
-        user.displayName || user.email || 'Unknown'
+        userName
       );
 
       await uploadPendingAttachments(result.prId);
@@ -485,14 +477,15 @@ export default function NewPurchaseRequestPage() {
       await submitPurchaseRequestForApproval(
         result.prId,
         user.uid,
-        user.displayName || user.email || 'Unknown',
+        userName,
         claims?.permissions ?? 0
       );
 
+      setSubmitDialogOpen(false);
       router.push('/procurement/purchase-requests/' + result.prId);
     } catch (err) {
       console.error('[NewPurchaseRequest] Error submitting:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit purchase request');
+      throw err;
     } finally {
       setSubmitting(false);
     }
@@ -500,10 +493,6 @@ export default function NewPurchaseRequestPage() {
 
   const validItemsCount = lineItems.filter((item) => item.description.trim() !== '').length;
   const isProcessing = saving || submitting;
-
-  // Initial tab for the catalog picker — follows the row it was opened for.
-  const catalogPickerRow = lineItems[catalogPickerIndex];
-  const catalogPickerRowType = catalogPickerRow ? rowType(catalogPickerRow) : defaultItemType;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
@@ -553,55 +542,61 @@ export default function NewPurchaseRequestPage() {
           <Divider sx={{ mb: 3 }} />
 
           <Stack spacing={3}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
               <TextField
                 select
-                label="Type"
-                value={formData.type}
-                onChange={(e) => handleInputChange('type', e.target.value)}
-                fullWidth
+                size="small"
+                label="Raised for"
+                value={formData.raisedFor}
+                onChange={(e) => handleRaisedForChange(e.target.value as PurchaseRequestRaisedFor)}
                 required
+                sx={{ minWidth: 170 }}
               >
-                <MenuItem value="PROJECT">Project</MenuItem>
-                <MenuItem value="BUDGETARY">Budgetary</MenuItem>
-                <MenuItem value="INTERNAL">Internal</MenuItem>
+                {Object.entries(PURCHASE_REQUEST_RAISED_FOR_LABELS).map(([value, label]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
               </TextField>
+
+              <PRLinkageSelector
+                raisedFor={formData.raisedFor}
+                value={formData.linkage}
+                onChange={handleLinkageChange}
+              />
 
               <TextField
                 select
+                size="small"
                 label="Category"
                 value={formData.category}
-                onChange={(e) => handleInputChange('category', e.target.value)}
-                fullWidth
+                onChange={(e) => handleCategoryChange(e.target.value as PurchaseRequestCategory)}
                 required
+                sx={{ minWidth: 170 }}
+                helperText="One kind per request"
               >
-                <MenuItem value="SERVICE">Service</MenuItem>
-                <MenuItem value="RAW_MATERIAL">Raw Material</MenuItem>
-                <MenuItem value="BOUGHT_OUT">Bought Out</MenuItem>
+                {Object.entries(PURCHASE_REQUEST_CATEGORY_LABELS).map(([value, label]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
               </TextField>
 
-              <TextField
-                select
-                label="Priority"
-                value={formData.priority}
-                onChange={(e) => handleInputChange('priority', e.target.value)}
-                fullWidth
-                required
-              >
-                <MenuItem value="LOW">Low</MenuItem>
-                <MenuItem value="MEDIUM">Medium</MenuItem>
-                <MenuItem value="HIGH">High</MenuItem>
-                <MenuItem value="URGENT">Urgent</MenuItem>
-              </TextField>
-            </Stack>
-
-            {(formData.type === 'PROJECT' || formData.type === 'BUDGETARY') && (
-              <ProjectSelector
-                value={formData.projectId}
-                onChange={handleProjectSelect}
-                required={formData.type === 'PROJECT'}
+              <FormControlLabel
+                sx={{ whiteSpace: 'nowrap', mt: 0.5 }}
+                control={
+                  <Checkbox
+                    checked={formData.isBudgetary}
+                    onChange={(e) => handleInputChange('isBudgetary', e.target.checked)}
+                  />
+                }
+                label={
+                  <Tooltip title="Collect quotations for pricing only — this request can never become a purchase order.">
+                    <span>{PURCHASE_REQUEST_BUDGETARY_LABEL}</span>
+                  </Tooltip>
+                }
               />
-            )}
+            </Stack>
 
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField
@@ -624,20 +619,6 @@ export default function NewPurchaseRequestPage() {
                 helperText="Optional"
               />
             </Stack>
-
-            <ApproverSelector
-              value={formData.approverId || null}
-              onChange={(userId) => handleInputChange('approverId', userId || '')}
-              onChangeWithName={(userId, displayName) => {
-                handleInputChange('approverId', userId || '');
-                handleInputChange('approverName', displayName || '');
-              }}
-              label="Approver"
-              approvalType="pr"
-              helperText="Select who should approve this purchase request"
-              excludeUserIds={user ? [user.uid] : []}
-              required
-            />
           </Stack>
         </Paper>
 
@@ -654,20 +635,29 @@ export default function NewPurchaseRequestPage() {
             <Stack direction="row" alignItems="center" spacing={2}>
               <Typography variant="h6">Line Items</Typography>
               <Chip
+                label={PURCHASE_REQUEST_CATEGORY_LABELS[formData.category]}
+                size="small"
+                variant="outlined"
+              />
+              <Chip
                 label={`${validItemsCount} item${validItemsCount !== 1 ? 's' : ''}`}
                 size="small"
                 color={validItemsCount > 0 ? 'primary' : 'default'}
               />
             </Stack>
             <Stack direction="row" spacing={1}>
-              <Button
-                variant="outlined"
-                startIcon={<DescriptionIcon />}
-                onClick={() => setDocumentDialogOpen(true)}
-                size="small"
-              >
-                Import PDF
-              </Button>
+              {/* PDF parsing only ever produces material links, so it is
+                  meaningless on a bought-out or service request. */}
+              {formData.category === 'RAW_MATERIAL' && (
+                <Button
+                  variant="outlined"
+                  startIcon={<DescriptionIcon />}
+                  onClick={() => setDocumentDialogOpen(true)}
+                  size="small"
+                >
+                  Import PDF
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 startIcon={<UploadIcon />}
@@ -704,11 +694,10 @@ export default function NewPurchaseRequestPage() {
                   column's min-content grows and the Qty number input (which
                   has no intrinsic width) collapsed to ~0px, hiding the value
                   (feedback wYDJBZDfirOyen4825aq / z5byKojWw5ViuOK9lqsk). */}
-              <Table size="small" sx={{ minWidth: 1180 }}>
+              <Table size="small" sx={{ minWidth: 1050 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell width={50}>#</TableCell>
-                    <TableCell width={130}>Type *</TableCell>
                     {/* Explicit widths: these two cells hold auto-resizing
                         textareas; content-sized columns let the two resize
                         observers feed each other and freeze the page
@@ -726,24 +715,6 @@ export default function NewPurchaseRequestPage() {
                     <TableRow key={index} hover>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>
-                        <TextField
-                          select
-                          value={rowType(item)}
-                          onChange={(e) =>
-                            handleLineTypeChange(
-                              index,
-                              e.target.value as 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE'
-                            )
-                          }
-                          size="small"
-                          fullWidth
-                        >
-                          <MenuItem value="MATERIAL">Material</MenuItem>
-                          <MenuItem value="BOUGHT_OUT">Bought-Out</MenuItem>
-                          <MenuItem value="SERVICE">Service</MenuItem>
-                        </TextField>
-                      </TableCell>
-                      <TableCell>
                         <Stack direction="row" spacing={0.5} alignItems="flex-start">
                           <TextField
                             value={item.description}
@@ -758,9 +729,9 @@ export default function NewPurchaseRequestPage() {
                           />
                           <Tooltip
                             title={
-                              rowType(item) === 'SERVICE'
+                              formData.category === 'SERVICE'
                                 ? 'Pick from Services Catalog'
-                                : rowType(item) === 'BOUGHT_OUT'
+                                : formData.category === 'BOUGHT_OUT'
                                   ? 'Pick from Bought-Out DB'
                                   : 'Pick from Materials DB'
                             }
@@ -808,9 +779,9 @@ export default function NewPurchaseRequestPage() {
                           !item.boughtOutItemCode && (
                             <Chip
                               label={
-                                rowType(item) === 'SERVICE'
+                                formData.category === 'SERVICE'
                                   ? 'Pick service from catalog'
-                                  : rowType(item) === 'BOUGHT_OUT'
+                                  : formData.category === 'BOUGHT_OUT'
                                     ? 'Pick item from bought-out DB'
                                     : 'Pick material from master'
                               }
@@ -1049,13 +1020,8 @@ export default function NewPurchaseRequestPage() {
         {/* Summary/Info Section */}
         <Alert severity="info" icon={<SendIcon />}>
           <Typography variant="body2">
-            <strong>Ready to submit?</strong> Once submitted, this purchase request will be sent to{' '}
-            {formData.approverName ? (
-              <strong>{formData.approverName}</strong>
-            ) : (
-              'the selected approver'
-            )}{' '}
-            for approval. You can also save as draft to continue later.
+            <strong>Ready to submit?</strong> You will be asked who should approve this request. You
+            can also save as draft to continue later.
           </Typography>
         </Alert>
 
@@ -1075,7 +1041,7 @@ export default function NewPurchaseRequestPage() {
           <Button
             variant="contained"
             startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-            onClick={handleSubmit}
+            onClick={handleOpenSubmitDialog}
             disabled={isProcessing}
           >
             Submit for Approval
@@ -1095,15 +1061,23 @@ export default function NewPurchaseRequestPage() {
         open={documentDialogOpen}
         onClose={() => setDocumentDialogOpen(false)}
         onItemsImported={handleDocumentImport}
-        projectName={formData.projectName || undefined}
+        projectName={formData.linkage.projectName || undefined}
       />
 
-      {/* Unified Catalog Picker — Materials / Bought-Out / Services as tabs */}
+      {/* Catalog picker, locked to the request's one category */}
       <CatalogPickerDialog
         open={catalogPickerOpen}
         onClose={() => setCatalogPickerOpen(false)}
         onSelect={handleCatalogSelect}
-        defaultKind={itemTypeToCatalogKind(catalogPickerRowType)}
+        defaultKind={formData.category}
+        kinds={[formData.category]}
+      />
+
+      <SubmitPRForApprovalDialog
+        open={submitDialogOpen}
+        onClose={() => setSubmitDialogOpen(false)}
+        onConfirm={handleSubmit}
+        excludeUserIds={user ? [user.uid] : []}
       />
     </Box>
   );

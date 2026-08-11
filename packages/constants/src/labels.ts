@@ -139,12 +139,25 @@ export const PURCHASE_REQUEST_STATUS_LABELS = {
   CONVERTED_TO_RFQ: 'Converted to RFQ',
 } as const;
 
-/** Labels for `PurchaseRequestType`. */
-export const PURCHASE_REQUEST_TYPE_LABELS = {
+/** Labels for `PurchaseRequestRaisedFor` — what the PR is raised against. */
+export const PURCHASE_REQUEST_RAISED_FOR_LABELS = {
   PROJECT: 'Project',
-  BUDGETARY: 'Budgetary',
+  PROPOSAL: 'Proposal',
   INTERNAL: 'Internal',
 } as const;
+
+/**
+ * The linkage each `raisedFor` asks for, used as the selector's field label.
+ * INTERNAL asks nothing — it is always the CC-ADMIN cost centre.
+ */
+export const PURCHASE_REQUEST_LINKAGE_LABELS = {
+  PROJECT: 'Project',
+  PROPOSAL: 'Proposal',
+  INTERNAL: 'Cost Centre',
+} as const;
+
+/** Chip/checkbox wording for the pricing-only flag. */
+export const PURCHASE_REQUEST_BUDGETARY_LABEL = 'Budgetary';
 
 /** Labels for `PurchaseRequestCategory`. */
 export const PURCHASE_REQUEST_CATEGORY_LABELS = {

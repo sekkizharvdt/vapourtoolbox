@@ -62,11 +62,11 @@ function makePR(overrides: Partial<PurchaseRequest> & { id: string }): PurchaseR
   const base: PurchaseRequest = {
     id: overrides.id,
     number: 'PR/2026/0001',
-    type: 'PROJECT',
+    raisedFor: 'PROJECT',
     category: 'RAW_MATERIAL',
+    isBudgetary: false,
     title: 'Test PR',
     description: 'Test description',
-    priority: 'MEDIUM',
     itemCount: 1,
     isBulkUpload: false,
     status: 'DRAFT',

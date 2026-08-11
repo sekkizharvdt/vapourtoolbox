@@ -128,3 +128,13 @@ export const NOTIFICATIONS = {
   AUTO_HIDE_DURATION: 6000, // 6 seconds
   MAX_SNACK: 3,
 };
+
+/**
+ * Code of the standing administration cost centre.
+ *
+ * Internal purchase requests are charged here automatically instead of asking
+ * the requester — every other cost centre is a `CC-PRJ-*` mirror of a project.
+ * Resolve the document id by querying `costCentres` on this code; never
+ * hardcode the id, which differs per environment.
+ */
+export const ADMIN_COST_CENTRE_CODE = 'CC-ADMIN';

@@ -189,13 +189,13 @@ export async function createRFQ(
           const prData = prDoc.data();
           return {
             number: (prData.number as string) || '',
-            type: prData.type as string | undefined,
+            isBudgetary: prData.isBudgetary === true,
           };
         }
-        return { number: '', type: undefined };
+        return { number: '', isBudgetary: false };
       } catch (err) {
         logger.warn('Failed to fetch PR number', { prId, error: err });
-        return { number: '', type: undefined };
+        return { number: '', isBudgetary: false };
       }
     })
   );
@@ -208,7 +208,7 @@ export async function createRFQ(
   // Denormalised here (rule 26) so the dashboard can show it without an N+1
   // lookup; createPOFromOffer enforces it and treats the source PRs as the
   // authority, so an RFQ predating this field is still blocked correctly.
-  const isBudgetary = sourcePRs.some((pr) => pr.type === 'BUDGETARY');
+  const isBudgetary = sourcePRs.some((pr) => pr.isBudgetary);
 
   const now = Timestamp.now();
 

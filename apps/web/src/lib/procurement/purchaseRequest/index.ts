@@ -25,6 +25,7 @@ export type {
   ListPurchaseRequestsFilters,
   PaginatedPurchaseRequestsResult,
 } from './types';
+export { clearCatalogLinks } from './types';
 
 // Export CRUD operations
 export {

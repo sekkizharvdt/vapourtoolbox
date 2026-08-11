@@ -18,7 +18,7 @@
 
 // Purchase Request types
 export {
-  type PurchaseRequestType,
+  type PurchaseRequestRaisedFor,
   type PurchaseRequestCategory,
   type PurchaseRequestItemType,
   type PurchaseRequestStatus,

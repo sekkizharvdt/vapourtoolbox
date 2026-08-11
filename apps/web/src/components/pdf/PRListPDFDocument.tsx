@@ -8,7 +8,13 @@
 import React from 'react';
 import { Document } from '@react-pdf/renderer';
 import type { PurchaseRequest } from '@vapour/types';
+import {
+  PURCHASE_REQUEST_CATEGORY_LABELS,
+  PURCHASE_REQUEST_RAISED_FOR_LABELS,
+  PURCHASE_REQUEST_STATUS_LABELS,
+} from '@vapour/constants';
 import { formatDate } from '@/lib/utils/formatters';
+import { describeLinkage } from '@/lib/procurement/purchaseRequest/linkage';
 import {
   ReportPage,
   ListHeader,
@@ -19,13 +25,13 @@ import {
 
 const columns: TableColumn[] = [
   { key: 'number', header: 'PR Number', width: '12%' },
-  { key: 'project', header: 'Project', width: '16%' },
-  { key: 'description', header: 'Description', width: '24%' },
-  { key: 'type', header: 'Type', width: '10%' },
+  { key: 'raisedFor', header: 'Raised For', width: '9%' },
+  { key: 'linkedTo', header: 'Linked To', width: '17%' },
+  { key: 'description', header: 'Description', width: '26%' },
   { key: 'category', header: 'Category', width: '12%' },
-  { key: 'priority', header: 'Priority', width: '8%' },
-  { key: 'status', header: 'Status', width: '10%' },
-  { key: 'date', header: 'Date', width: '8%' },
+  { key: 'budgetary', header: 'Budgetary', width: '7%' },
+  { key: 'status', header: 'Status', width: '11%' },
+  { key: 'date', header: 'Date', width: '6%' },
 ];
 
 interface PRListPDFDocumentProps {
@@ -37,12 +43,12 @@ export function PRListPDFDocument({ requests }: PRListPDFDocumentProps) {
 
   const rows = requests.map((r) => ({
     number: r.number,
-    project: r.projectName || '-',
+    raisedFor: PURCHASE_REQUEST_RAISED_FOR_LABELS[r.raisedFor] ?? r.raisedFor ?? '-',
+    linkedTo: describeLinkage(r),
     description: r.description || '-',
-    type: r.type,
-    category: r.category,
-    priority: r.priority,
-    status: r.status.replace(/_/g, ' '),
+    category: PURCHASE_REQUEST_CATEGORY_LABELS[r.category] ?? r.category,
+    budgetary: r.isBudgetary ? 'Yes' : 'No',
+    status: PURCHASE_REQUEST_STATUS_LABELS[r.status] ?? r.status,
     date: formatDate(r.createdAt),
   }));
 

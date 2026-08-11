@@ -141,7 +141,7 @@ async function requireNonBudgetaryRFQ(
       const prSnaps = await Promise.all(
         prIds.map((prId) => getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId)))
       );
-      budgetary = prSnaps.some((snap) => snap.exists() && snap.data()?.type === 'BUDGETARY');
+      budgetary = prSnaps.some((snap) => snap.exists() && snap.data()?.isBudgetary === true);
     }
 
     if (budgetary) {

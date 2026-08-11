@@ -28,6 +28,8 @@ import {
   Alert,
   Chip,
   Tooltip,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
@@ -39,8 +41,9 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
-import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
+import { PRLinkageSelector, type PRLinkage } from '@/components/procurement/PRLinkageSelector';
+import { SubmitPRForApprovalDialog } from '@/components/procurement/SubmitPRForApprovalDialog';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import CatalogPickerDialog, {
   type CatalogSelection,
 } from '@/components/catalog/CatalogPickerDialog';
@@ -48,9 +51,16 @@ import type {
   PurchaseRequest,
   PurchaseRequestAttachment,
   PurchaseRequestItem,
+  PurchaseRequestCategory,
+  PurchaseRequestRaisedFor,
   CatalogRef,
 } from '@vapour/types';
-import { itemTypeToCatalogKind, catalogKindToItemType } from '@vapour/types';
+import { catalogKindToItemType } from '@vapour/types';
+import {
+  PURCHASE_REQUEST_CATEGORY_LABELS,
+  PURCHASE_REQUEST_RAISED_FOR_LABELS,
+  PURCHASE_REQUEST_BUDGETARY_LABEL,
+} from '@vapour/constants';
 import {
   getPurchaseRequestById,
   getPurchaseRequestItems,
@@ -131,6 +141,7 @@ export default function EditPRPage() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -140,18 +151,27 @@ export default function EditPRPage() {
   const [prId, setPrId] = useState<string | null>(null);
 
   // Form state
-  const [formData, setFormData] = useState({
-    type: 'PROJECT' as 'PROJECT' | 'BUDGETARY' | 'INTERNAL',
-    category: 'RAW_MATERIAL' as 'SERVICE' | 'RAW_MATERIAL' | 'BOUGHT_OUT',
-    projectId: '',
-    projectName: '',
+  const [formData, setFormData] = useState<{
+    raisedFor: PurchaseRequestRaisedFor;
+    category: PurchaseRequestCategory;
+    isBudgetary: boolean;
+    linkage: PRLinkage;
+    title: string;
+    description: string;
+    requiredBy: string;
+  }>({
+    raisedFor: 'PROJECT',
+    category: 'RAW_MATERIAL',
+    isBudgetary: false,
+    linkage: {},
     title: '',
     description: '',
-    priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
     requiredBy: '',
-    approverId: '', // User ID of the selected approver
-    approverName: '', // Display name of the selected approver
   });
+
+  // Approver is asked for by the submit dialog, not the form (rule: a draft
+  // never needs one).
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
   const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
@@ -200,18 +220,29 @@ export default function EditPRPage() {
 
       setPr(prData);
 
-      // Populate form data
+      // Populate form data — every saved field is restored, including the
+      // linkage triple that matches raisedFor (rule 22).
       setFormData({
-        type: prData.type,
+        raisedFor: prData.raisedFor,
         category: prData.category,
-        projectId: prData.projectId || '',
-        projectName: prData.projectName || '',
+        isBudgetary: prData.isBudgetary === true,
+        linkage: {
+          ...(prData.projectId && {
+            projectId: prData.projectId,
+            projectName: prData.projectName,
+          }),
+          ...(prData.proposalId && {
+            proposalId: prData.proposalId,
+            proposalNumber: prData.proposalNumber,
+          }),
+          ...(prData.costCentreId && {
+            costCentreId: prData.costCentreId,
+            costCentreCode: prData.costCentreCode,
+          }),
+        },
         title: prData.title,
         description: prData.description,
-        priority: prData.priority,
         requiredBy: prData.requiredBy?.toDate?.()?.toISOString().split('T')[0] || '',
-        approverId: prData.approverId || '',
-        approverName: prData.approverName || '',
       });
 
       // Populate line items
@@ -224,7 +255,6 @@ export default function EditPRPage() {
           unit: item.unit,
           equipmentCode: item.equipmentCode || '',
           estimatedUnitCost: item.estimatedUnitCost || 0,
-          itemType: item.itemType,
           catalogRef: resolveCatalogRef(item),
           materialId: item.materialId,
           materialCode: item.materialCode,
@@ -252,16 +282,67 @@ export default function EditPRPage() {
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleProjectSelect = (projectId: string | null, projectName?: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      projectId: projectId || '',
-      projectName: projectName || '',
-    }));
+  /** Switching what the PR is raised for invalidates whatever was linked. */
+  const handleRaisedForChange = (raisedFor: PurchaseRequestRaisedFor) => {
+    setFormData((prev) => ({ ...prev, raisedFor, linkage: {} }));
+  };
+
+  const handleLinkageChange = (linkage: PRLinkage) => {
+    setFormData((prev) => ({ ...prev, linkage }));
+  };
+
+  /**
+   * Changing the category invalidates every line's catalog link — a material
+   * request cannot hold a bought-out reference. Confirm before discarding.
+   */
+  const handleCategoryChange = async (category: PurchaseRequestCategory) => {
+    if (category === formData.category) return;
+
+    const linkedCount = lineItems.filter(
+      (item) => !item.isDeleted && (item.materialId || item.boughtOutItemId || item.serviceId)
+    ).length;
+
+    if (linkedCount > 0) {
+      const confirmed = await confirm({
+        title: 'Change category?',
+        message:
+          `This request is for ${PURCHASE_REQUEST_CATEGORY_LABELS[formData.category]}. ` +
+          `Switching to ${PURCHASE_REQUEST_CATEGORY_LABELS[category]} will clear the ` +
+          `${linkedCount} item${linkedCount === 1 ? '' : 's'} already picked from the catalog.`,
+        confirmText: 'Change and clear items',
+        confirmColor: 'error',
+      });
+      if (!confirmed) return;
+    }
+
+    setFormData((prev) => ({ ...prev, category }));
+    setLineItems((prev) =>
+      prev.map((item) =>
+        item.isDeleted
+          ? item
+          : {
+              ...item,
+              catalogRef: undefined,
+              materialId: undefined,
+              materialCode: undefined,
+              materialName: undefined,
+              boughtOutItemId: undefined,
+              boughtOutItemCode: undefined,
+              boughtOutItemName: undefined,
+              serviceId: undefined,
+              serviceCode: undefined,
+              serviceName: undefined,
+              serviceCategory: undefined,
+              turnaroundDays: undefined,
+              testMethodStandard: undefined,
+              sampleRequirements: undefined,
+            }
+      )
+    );
   };
 
   const handleLineItemChange = (index: number, field: string, value: string | number) => {
@@ -308,10 +389,9 @@ export default function EditPRPage() {
   };
 
   /**
-   * One handler for every catalog kind. The user may switch tabs inside the
-   * picker, so the selected kind wins: the row's itemType follows the
-   * selection and every other kind's link is cleared. Writes the same legacy
-   * per-kind fields as before PLUS the unified catalogRef (rule 26).
+   * The picker is locked to the request's one category, so the selection can
+   * only be of that kind. Writes the legacy per-kind fields PLUS the unified
+   * catalogRef (rule 26).
    */
   const handleCatalogSelect = (selection: CatalogSelection) => {
     setLineItems((prev) => {
@@ -320,7 +400,6 @@ export default function EditPRPage() {
       if (item) {
         const cleared: LineItemFormData = {
           ...item,
-          itemType: catalogKindToItemType(selection.ref.kind),
           catalogRef: selection.ref,
           materialId: undefined,
           materialCode: undefined,
@@ -385,69 +464,34 @@ export default function EditPRPage() {
     setCatalogPickerOpen(false);
   };
 
-  // Per-line type — new rows inherit the header category, each line overridable
-  // so one PR can mix material / bought-out / service (feedback Jit9v).
-  const defaultItemType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =
-    formData.category === 'SERVICE'
-      ? 'SERVICE'
-      : formData.category === 'BOUGHT_OUT'
-        ? 'BOUGHT_OUT'
-        : 'MATERIAL';
-  const rowType = (item: LineItemFormData): 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE' =>
-    item.itemType ?? defaultItemType;
-
-  // Initial tab for the catalog picker — follows the row it was opened for.
-  const catalogPickerRow = lineItems[catalogPickerIndex];
-  const catalogPickerRowType = catalogPickerRow ? rowType(catalogPickerRow) : defaultItemType;
-
-  // One dialog for all kinds — the row's type only picks the initial tab.
+  // The picker is locked to the request's one category — no tab choice per row.
   const openPickerForRow = (index: number) => {
     if (!lineItems[index]) return;
     setCatalogPickerIndex(index);
     setCatalogPickerOpen(true);
   };
 
-  // Changing a line's type clears the previous type's master-data link.
-  const handleLineTypeChange = (index: number, newType: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE') => {
-    setLineItems((prev) => {
-      const updated = [...prev];
-      const item = updated[index];
-      if (!item) return prev;
-      updated[index] = {
-        ...item,
-        itemType: newType,
-        catalogRef: undefined,
-        materialId: undefined,
-        materialCode: undefined,
-        materialName: undefined,
-        boughtOutItemId: undefined,
-        boughtOutItemCode: undefined,
-        boughtOutItemName: undefined,
-        serviceId: undefined,
-        serviceCode: undefined,
-        serviceName: undefined,
-        serviceCategory: undefined,
-      };
-      return updated;
-    });
-  };
-
-  const handleSave = async (submitForApproval: boolean = false) => {
+  const handleSave = async (approver?: { id: string; name: string }) => {
     if (!user || !pr) return;
+    const submitForApproval = Boolean(approver);
 
     // Validation
     if (!formData.title.trim()) {
       setError('Title is required');
       return;
     }
-    if (formData.type === 'PROJECT' && !formData.projectId) {
-      setError('Please select a project');
+    if (formData.raisedFor === 'PROJECT' && !formData.linkage.projectId) {
+      setError('Please select the project this request is raised for');
       return;
     }
-
-    // Validate approver is selected when submitting for approval
-    if (submitForApproval && !formData.approverId) {
-      setError('Please select an approver before submitting for approval');
+    if (formData.raisedFor === 'PROPOSAL' && !formData.linkage.proposalId) {
+      setError('Please select the proposal this request is raised for');
+      return;
+    }
+    if (formData.raisedFor === 'INTERNAL' && !formData.linkage.costCentreId) {
+      setError(
+        'The administration cost centre could not be found, so this internal request cannot be charged anywhere.'
+      );
       return;
     }
 
@@ -467,18 +511,17 @@ export default function EditPRPage() {
         setError(`Line ${i + 1}: Quantity must be greater than 0`);
         return;
       }
-      // Require a master-data reference matching the line's type (rule 23).
-      const type = rowType(item);
-      if (type === 'SERVICE' && !item.serviceId) {
-        setError(`Line ${i + 1}: Please pick a service from the services catalog.`);
-        return;
-      }
-      if (type === 'BOUGHT_OUT' && !item.boughtOutItemId) {
-        setError(`Line ${i + 1}: Please pick a bought-out item from the bought-out database.`);
-        return;
-      }
-      if (type === 'MATERIAL' && !item.materialId) {
-        setError(`Line ${i + 1}: Please pick a material from the materials database.`);
+      // Every line needs the catalog link its category implies (rule 23).
+      const missingLink =
+        (formData.category === 'SERVICE' && !item.serviceId) ||
+        (formData.category === 'BOUGHT_OUT' && !item.boughtOutItemId) ||
+        (formData.category === 'RAW_MATERIAL' && !item.materialId);
+      if (missingLink) {
+        setError(
+          `Line ${i + 1}: Please pick a ${PURCHASE_REQUEST_CATEGORY_LABELS[
+            formData.category
+          ].toLowerCase()} item from the catalog.`
+        );
         return;
       }
     }
@@ -505,9 +548,9 @@ export default function EditPRPage() {
 
       // Update PR header
       const prRef = doc(db, COLLECTIONS.PURCHASE_REQUESTS, pr.id);
-      // Clear project reference when type doesn't use projects
-      const hasProject =
-        (formData.type === 'PROJECT' || formData.type === 'BUDGETARY') && formData.projectId;
+      // Exactly one linkage triple survives a save — the others are nulled so
+      // switching what the PR is raised for cannot leave a stale project on it.
+      const { linkage } = formData;
 
       // Saving a REJECTED PR revives it as a DRAFT (feedback
       // EIJ6u3qCGvNjJR0PDDFT) — the edit page admits rejected PRs precisely
@@ -519,18 +562,21 @@ export default function EditPRPage() {
       }
 
       batch.update(prRef, {
-        type: formData.type,
+        raisedFor: formData.raisedFor,
         category: formData.category,
-        projectId: hasProject ? formData.projectId : null,
-        projectName: hasProject ? formData.projectName : null,
+        isBudgetary: formData.isBudgetary,
+        projectId: linkage.projectId ?? null,
+        projectName: linkage.projectName ?? null,
+        proposalId: linkage.proposalId ?? null,
+        proposalNumber: linkage.proposalNumber ?? null,
+        costCentreId: linkage.costCentreId ?? null,
+        costCentreCode: linkage.costCentreCode ?? null,
         title: formData.title,
         description: autoDescription,
-        priority: formData.priority,
         ...(formData.requiredBy && {
           requiredBy: Timestamp.fromDate(new Date(formData.requiredBy)),
         }),
-        ...(formData.approverId && { approverId: formData.approverId }),
-        ...(formData.approverName && { approverName: formData.approverName }),
+        ...(approver && { approverId: approver.id, approverName: approver.name }),
         ...(revivingRejected && {
           status: 'DRAFT',
           rejectionReason: null,
@@ -567,7 +613,8 @@ export default function EditPRPage() {
               estimatedUnitCost: item.estimatedUnitCost,
               estimatedTotalCost: item.estimatedUnitCost * item.quantity,
             }),
-            ...(item.itemType && { itemType: item.itemType }),
+            // Item kind follows the request's category, not the row.
+            itemType: catalogKindToItemType(formData.category),
             ...(item.catalogRef && { catalogRef: item.catalogRef }),
             ...(item.materialId && { materialId: item.materialId }),
             ...(item.materialCode && { materialCode: item.materialCode }),
@@ -601,7 +648,7 @@ export default function EditPRPage() {
             estimatedUnitCost: item.estimatedUnitCost || null,
             estimatedTotalCost:
               item.estimatedUnitCost > 0 ? item.estimatedUnitCost * item.quantity : null,
-            itemType: item.itemType || null,
+            itemType: catalogKindToItemType(formData.category),
             catalogRef: item.catalogRef || null,
             materialId: item.materialId || null,
             materialCode: item.materialCode || null,
@@ -705,7 +752,7 @@ export default function EditPRPage() {
             <Button
               variant="outlined"
               startIcon={<SaveIcon />}
-              onClick={() => handleSave(false)}
+              onClick={() => handleSave()}
               disabled={saving}
             >
               {saving ? 'Saving...' : 'Save Draft'}
@@ -713,7 +760,7 @@ export default function EditPRPage() {
             <Button
               variant="contained"
               startIcon={<SaveIcon />}
-              onClick={() => handleSave(true)}
+              onClick={() => setSubmitDialogOpen(true)}
               disabled={saving}
             >
               {saving ? 'Submitting...' : 'Save & Submit'}
@@ -741,64 +788,70 @@ export default function EditPRPage() {
           <Divider sx={{ mb: 3 }} />
 
           <Stack spacing={3}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
               <TextField
                 select
-                label="Type"
-                value={formData.type}
-                onChange={(e) => handleInputChange('type', e.target.value)}
-                fullWidth
+                size="small"
+                label="Raised for"
+                value={formData.raisedFor}
+                onChange={(e) => handleRaisedForChange(e.target.value as PurchaseRequestRaisedFor)}
                 required
+                sx={{ minWidth: 170 }}
               >
-                <MenuItem value="PROJECT">Project</MenuItem>
-                <MenuItem value="BUDGETARY">Budgetary</MenuItem>
-                <MenuItem value="INTERNAL">Internal</MenuItem>
+                {Object.entries(PURCHASE_REQUEST_RAISED_FOR_LABELS).map(([value, label]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
               </TextField>
+
+              <PRLinkageSelector
+                raisedFor={formData.raisedFor}
+                value={formData.linkage}
+                onChange={handleLinkageChange}
+              />
 
               <TextField
                 select
+                size="small"
                 label="Category"
                 value={formData.category}
-                onChange={(e) => handleInputChange('category', e.target.value)}
-                fullWidth
+                onChange={(e) => handleCategoryChange(e.target.value as PurchaseRequestCategory)}
                 required
+                sx={{ minWidth: 170 }}
+                helperText="One kind per request"
               >
-                <MenuItem value="SERVICE">Service</MenuItem>
-                <MenuItem value="RAW_MATERIAL">Raw Material</MenuItem>
-                <MenuItem value="BOUGHT_OUT">Bought Out</MenuItem>
+                {Object.entries(PURCHASE_REQUEST_CATEGORY_LABELS).map(([value, label]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
               </TextField>
-            </Stack>
 
-            {(formData.type === 'PROJECT' || formData.type === 'BUDGETARY') && (
-              <ProjectSelector
-                value={formData.projectId}
-                onChange={handleProjectSelect}
-                required={formData.type === 'PROJECT'}
+              <FormControlLabel
+                sx={{ whiteSpace: 'nowrap', mt: 0.5 }}
+                control={
+                  <Checkbox
+                    checked={formData.isBudgetary}
+                    onChange={(e) => handleInputChange('isBudgetary', e.target.checked)}
+                  />
+                }
+                label={
+                  <Tooltip title="Collect quotations for pricing only — this request can never become a purchase order.">
+                    <span>{PURCHASE_REQUEST_BUDGETARY_LABEL}</span>
+                  </Tooltip>
+                }
               />
-            )}
-
-            <TextField
-              label="Title"
-              value={formData.title}
-              onChange={(e) => handleInputChange('title', e.target.value)}
-              fullWidth
-              required
-            />
+            </Stack>
 
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField
-                select
-                label="Priority"
-                value={formData.priority}
-                onChange={(e) => handleInputChange('priority', e.target.value)}
-                fullWidth
+                label="Title"
+                value={formData.title}
+                onChange={(e) => handleInputChange('title', e.target.value)}
                 required
-              >
-                <MenuItem value="LOW">Low</MenuItem>
-                <MenuItem value="MEDIUM">Medium</MenuItem>
-                <MenuItem value="HIGH">High</MenuItem>
-                <MenuItem value="URGENT">Urgent</MenuItem>
-              </TextField>
+                sx={{ flex: 2 }}
+              />
 
               <TextField
                 label="Required By Date"
@@ -806,30 +859,23 @@ export default function EditPRPage() {
                 value={formData.requiredBy}
                 onChange={(e) => handleInputChange('requiredBy', e.target.value)}
                 InputLabelProps={{ shrink: true }}
-                fullWidth
+                sx={{ flex: 1 }}
               />
             </Stack>
-
-            <ApproverSelector
-              value={formData.approverId || null}
-              onChange={(userId) => handleInputChange('approverId', userId || '')}
-              onChangeWithName={(userId, displayName) => {
-                handleInputChange('approverId', userId || '');
-                handleInputChange('approverName', displayName || '');
-              }}
-              label="Approver"
-              approvalType="pr"
-              helperText="Select who should approve this purchase request"
-              excludeUserIds={user ? [user.uid] : []}
-              required
-            />
           </Stack>
         </Paper>
 
         {/* Line Items */}
         <Paper sx={{ p: 3 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-            <Typography variant="h6">Line Items</Typography>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Typography variant="h6">Line Items</Typography>
+              <Chip
+                label={PURCHASE_REQUEST_CATEGORY_LABELS[formData.category]}
+                size="small"
+                variant="outlined"
+              />
+            </Stack>
             <Button startIcon={<AddIcon />} onClick={handleAddLineItem} size="small">
               Add Item
             </Button>
@@ -841,7 +887,6 @@ export default function EditPRPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>#</TableCell>
-                  <TableCell sx={{ width: 130 }}>Type *</TableCell>
                   <TableCell>Description *</TableCell>
                   <TableCell>Specification</TableCell>
                   <TableCell sx={{ width: 100 }}>Qty *</TableCell>
@@ -854,7 +899,7 @@ export default function EditPRPage() {
               <TableBody>
                 {lineItems.filter((item) => !item.isDeleted).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={8} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                         No line items. Click &quot;Add Item&quot; to add one.
                       </Typography>
@@ -868,24 +913,6 @@ export default function EditPRPage() {
                       <TableRow key={item.id || `new-${index}`}>
                         <TableCell>{displayIndex + 1}</TableCell>
                         <TableCell>
-                          <TextField
-                            select
-                            size="small"
-                            fullWidth
-                            value={rowType(item)}
-                            onChange={(e) =>
-                              handleLineTypeChange(
-                                index,
-                                e.target.value as 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE'
-                              )
-                            }
-                          >
-                            <MenuItem value="MATERIAL">Material</MenuItem>
-                            <MenuItem value="BOUGHT_OUT">Bought-Out</MenuItem>
-                            <MenuItem value="SERVICE">Service</MenuItem>
-                          </TextField>
-                        </TableCell>
-                        <TableCell>
                           <Stack direction="row" spacing={0.5} alignItems="flex-start">
                             <TextField
                               size="small"
@@ -898,9 +925,9 @@ export default function EditPRPage() {
                             />
                             <Tooltip
                               title={
-                                rowType(item) === 'SERVICE'
+                                formData.category === 'SERVICE'
                                   ? 'Pick from Services Catalog'
-                                  : rowType(item) === 'BOUGHT_OUT'
+                                  : formData.category === 'BOUGHT_OUT'
                                     ? 'Pick from Bought-Out DB'
                                     : 'Pick from Materials DB'
                               }
@@ -1059,7 +1086,19 @@ export default function EditPRPage() {
         open={catalogPickerOpen}
         onClose={() => setCatalogPickerOpen(false)}
         onSelect={handleCatalogSelect}
-        defaultKind={itemTypeToCatalogKind(catalogPickerRowType)}
+        defaultKind={formData.category}
+        kinds={[formData.category]}
+      />
+
+      <SubmitPRForApprovalDialog
+        open={submitDialogOpen}
+        onClose={() => setSubmitDialogOpen(false)}
+        onConfirm={async (approverId, approverName) => {
+          await handleSave({ id: approverId, name: approverName });
+          setSubmitDialogOpen(false);
+        }}
+        prNumber={pr?.number}
+        excludeUserIds={user ? [user.uid] : []}
       />
     </Box>
   );

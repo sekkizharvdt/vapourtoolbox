@@ -5,7 +5,7 @@
  */
 
 import type {
-  PurchaseRequestType,
+  PurchaseRequestRaisedFor,
   PurchaseRequestCategory,
   PurchaseRequestStatus,
   CatalogRef,
@@ -16,17 +16,22 @@ export interface CreatePurchaseRequestInput {
   tenantId?: string;
 
   // Classification
-  type: PurchaseRequestType;
+  raisedFor: PurchaseRequestRaisedFor;
   category: PurchaseRequestCategory;
+  /** Pricing-only request — the resulting RFQ can never become a PO. */
+  isBudgetary?: boolean;
 
-  // Project linkage
-  projectId: string;
-  projectName: string;
+  // Linkage — the service requires the triple matching `raisedFor`
+  projectId?: string;
+  projectName?: string;
+  proposalId?: string;
+  proposalNumber?: string;
+  costCentreId?: string;
+  costCentreCode?: string;
 
   // Header
   title: string;
   description: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   requiredBy?: Date;
 
   // Approval workflow
@@ -42,8 +47,8 @@ export interface CreatePurchaseRequestInput {
 }
 
 export interface CreatePurchaseRequestItemInput {
-  // Item type (defaults to MATERIAL for backward compat)
-  itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
+  // No itemType here — a line inherits the PR's `category`, which the service
+  // stamps onto every item via catalogKindToItemType().
 
   /**
    * Unified catalog linkage (Phase 2 facade — design 2026-06-15 §3.1).
@@ -97,21 +102,49 @@ export interface CreatePurchaseRequestItemInput {
   deliveryLocation?: string;
 }
 
+/**
+ * Strip every catalog link from a line, keeping what the user typed.
+ *
+ * Used whenever the PR's category changes: a request is for one kind only, so
+ * a material reference cannot survive a switch to bought-out. Shared by the
+ * New and Edit forms so the two cannot drift (rule 32).
+ */
+export function clearCatalogLinks(
+  item: CreatePurchaseRequestItemInput
+): CreatePurchaseRequestItemInput {
+  return {
+    ...item,
+    catalogRef: undefined,
+    materialId: undefined,
+    materialCode: undefined,
+    materialName: undefined,
+    boughtOutItemId: undefined,
+    boughtOutItemCode: undefined,
+    boughtOutItemName: undefined,
+    serviceId: undefined,
+    serviceCode: undefined,
+    serviceName: undefined,
+    serviceCategory: undefined,
+    turnaroundDays: undefined,
+    testMethodStandard: undefined,
+    sampleRequirements: undefined,
+  };
+}
+
 export interface UpdatePurchaseRequestInput {
   title?: string;
   description?: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   requiredBy?: Date;
 }
 
 export interface ListPurchaseRequestsFilters {
   tenantId?: string;
   projectId?: string;
-  type?: PurchaseRequestType;
+  raisedFor?: PurchaseRequestRaisedFor;
+  isBudgetary?: boolean;
   category?: PurchaseRequestCategory;
   status?: PurchaseRequestStatus;
   createdBy?: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   /** Maximum number of results to return. Default: 50. Max: 100. */
   limit?: number;
   /** Cursor for pagination - pass lastDocId from previous response */

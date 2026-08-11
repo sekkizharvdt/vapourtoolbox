@@ -11,7 +11,27 @@ import type { CatalogRef } from '../catalog';
 // PURCHASE REQUEST TYPES
 // ============================================================================
 
-export type PurchaseRequestType = 'PROJECT' | 'BUDGETARY' | 'INTERNAL';
+/**
+ * What the request is raised for — drives which linkage the form asks for.
+ *
+ * Replaces the old `PurchaseRequestType` ('PROJECT' | 'BUDGETARY' | 'INTERNAL'),
+ * which jammed two independent questions into one field: what the PR is for,
+ * and whether it is a firm order or a price check. A budgetary quote for a
+ * project could not say "project", so all nine budgetary PRs in the system
+ * lost their project link. Budgetary is now `isBudgetary`, orthogonal to this.
+ */
+export type PurchaseRequestRaisedFor = 'PROJECT' | 'PROPOSAL' | 'INTERNAL';
+
+/**
+ * The one kind of thing a PR is for. A PR carries raw materials OR bought-out
+ * items OR services, never a mix: a pump vendor quotes pumps, so a mixed PR
+ * could never go out as a single RFQ. Every line item inherits this — items
+ * have no per-line type question.
+ *
+ * Structurally identical to `CatalogKind`, so `catalogKindToItemType(category)`
+ * is the canonical way to derive a line's `itemType`. Do not write a second
+ * mapping helper.
+ */
 export type PurchaseRequestCategory = 'SERVICE' | 'RAW_MATERIAL' | 'BOUGHT_OUT';
 export type PurchaseRequestStatus =
   | 'DRAFT'
@@ -29,17 +49,29 @@ export interface PurchaseRequest {
   tenantId?: string;
 
   // Classification
-  type: PurchaseRequestType;
+  raisedFor: PurchaseRequestRaisedFor;
   category: PurchaseRequestCategory;
 
-  // Project linkage (required only for type='PROJECT')
+  /**
+   * Pricing-only request: quotations may be collected, but the resulting RFQ
+   * can never become a purchase order (`requireNonBudgetaryRFQ`). Independent
+   * of `raisedFor` — a budgetary quote for a live project is the common case.
+   */
+  isBudgetary: boolean;
+
+  // Linkage — exactly one of these triples is set, per `raisedFor`.
+  // PROJECT: project ids. PROPOSAL: proposal ids. INTERNAL: the CC-ADMIN
+  // cost centre, assigned automatically rather than asked for.
   projectId?: string;
   projectName?: string; // Denormalized
+  proposalId?: string;
+  proposalNumber?: string; // Denormalized
+  costCentreId?: string;
+  costCentreCode?: string; // Denormalized
 
   // Header information
   title: string;
   description: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   requiredBy?: Timestamp; // Target delivery date
 
   // Line items
@@ -86,7 +118,13 @@ export interface PurchaseRequestItem {
   id: string;
   purchaseRequestId: string;
 
-  // Item type discriminator (defaults to MATERIAL for backward compat)
+  /**
+   * Item kind, stamped from the parent PR's `category` at save — never asked
+   * per line, since a PR carries one kind only. Still persisted because the
+   * RFQ vendor suggestion (`vendorCategoryMatch`), PO line creation, quote
+   * comparison and material pricing all read it. Optional only because items
+   * created before the field existed do not carry it.
+   */
   itemType?: PurchaseRequestItemType;
 
   /**
