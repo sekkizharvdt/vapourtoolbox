@@ -64,13 +64,9 @@ async function renderPdfAsImages(pdfBytes: Uint8Array): Promise<Uint8Array[]> {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      // Render page to canvas
-      // pdfjs-dist types don't match DOM canvas context perfectly
-      const renderContext = {
-        canvasContext: context,
-        viewport,
-      };
-      await page.render(renderContext as Parameters<typeof page.render>[0]).promise;
+      // Render page to canvas. `canvas` is required alongside `canvasContext`;
+      // it used to be omitted, hidden behind a cast on the whole argument.
+      await page.render({ canvas, canvasContext: context, viewport }).promise;
 
       // Convert canvas to PNG bytes
       const blob = await new Promise<Blob>((resolve, reject) => {
