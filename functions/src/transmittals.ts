@@ -12,7 +12,7 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 
 interface GenerateTransmittalRequest {
   transmittalId: string;
@@ -372,7 +372,9 @@ async function gatherDocumentFiles(
  */
 async function createZipArchive(files: { filename: string; buffer: Buffer }[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const archive = archiver('zip', {
+    // archiver 8 removed the callable factory — archiver('zip', opts) is now
+    // new ZipArchive(opts). Same stream API: append/on/finalize are unchanged.
+    const archive = new ZipArchive({
       zlib: { level: 9 }, // Maximum compression
     });
 
