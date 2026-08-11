@@ -18,7 +18,7 @@
     "node": "22"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
+    "@anthropic-ai/sdk": "^0.116.0",
     "@google-cloud/documentai": "^10.0.0",
     "@sparticuz/chromium": "^149.0.0",
     "archiver": "^7.0.1",
