@@ -49,7 +49,7 @@
     "firebase-tools": "^15.26.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
-    "pdf.js-extract": "^0.2.1",
+    "pdf.js-extract": "^1.0.1",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.12",
