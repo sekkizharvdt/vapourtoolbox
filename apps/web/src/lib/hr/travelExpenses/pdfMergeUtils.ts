@@ -12,10 +12,12 @@ import type { TravelExpenseCategory } from '@vapour/types';
 
 const logger = createLogger({ context: 'pdfMergeUtils' });
 
-// Configure PDF.js worker
-// In Next.js, we need to use the legacy build and configure the worker path
+// Configure PDF.js worker.
+// The worker ships as .mjs, not .js — pdfjs-dist has published only
+// pdf.worker.min.mjs since v4, and cdnjs mirrors the package contents, so the
+// old .js URL 404s and the image fallback below never runs.
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 }
 
 /**
