@@ -9,7 +9,7 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "firebase": "^11.2.0"
+    "firebase": "^12.17.1"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

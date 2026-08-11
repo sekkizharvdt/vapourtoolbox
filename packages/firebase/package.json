@@ -10,7 +10,7 @@
   "dependencies": {
     "@vapour/types": "workspace:*",
     "@vapour/utils": "workspace:*",
-    "firebase": "^11.2.0",
+    "firebase": "^12.17.1",
     "firebase-admin": "^13.0.2",
     "zod": "^4.4.3"
   },

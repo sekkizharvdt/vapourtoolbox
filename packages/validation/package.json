@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@vapour/types": "workspace:*",
-    "firebase": "^11.2.0",
+    "firebase": "^12.17.1",
     "isomorphic-dompurify": "^3.22.0",
     "zod": "^4.4.3"
   },
