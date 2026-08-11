@@ -220,6 +220,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect, smoke-e2e]
     timeout-minutes: 15
+    # The repo default for GITHUB_TOKEN is read-only
+    # (default_workflow_permissions: "read"), which made the "Tag deployed
+    # commit" step below 403 on every run. Only this job needs write, and only
+    # to move the prod-deployed tag — the other jobs stay read-only.
+    permissions:
+      contents: write
     # smoke-e2e result 'skipped' (skip_smoke=true) still allows deploy;
     # 'failure' blocks it. !cancelled() keeps this job runnable when its
     # needs include a skipped job.
@@ -381,8 +387,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -f prod-deployed
-          git push -f origin prod-deployed
-        continue-on-error: true
+          # Deliberately not `continue-on-error`, which hid a 403 here on every
+          # run. Deploy has already succeeded by this point, so a tagging
+          # failure must not fail the job — but it must be visible, because a
+          # stale tag silently makes the next run's change detection fall back
+          # to HEAD~1 and over-select targets.
+          if ! git push -f origin prod-deployed; then
+            echo "::warning title=prod-deployed tag not moved::Deploy succeeded but the tag push failed. The next deploy will diff against HEAD~1 instead of this commit and may redeploy more targets than changed."
+          fi
 
       - name: Deployment Success
         run: |
