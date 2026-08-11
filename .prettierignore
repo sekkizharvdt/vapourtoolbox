@@ -1,5 +1,15 @@
 # Generated artifacts — a single writer owns the formatting.
 #
+# Lockfiles are written by pnpm/npm, and the lint-staged globs
+# ('*.{json,md,yml,yaml}' and '{apps,packages,functions,scripts,docs}/**/*.json')
+# otherwise claim them. pnpm emits single-line `resolution: {integrity: ...}`;
+# prettier rewraps it across three lines. The next install rewrites it back, so
+# every dependency change produced a ~9,000-line reformat diff on top of the few
+# lines that actually changed — unreviewable, and a guaranteed merge conflict
+# between parallel sessions. Let pnpm/npm own their own files.
+pnpm-lock.yaml
+functions/package-lock.json
+#
 # flash-chamber-cases.json is emitted by
 # apps/web/src/lib/thermal/__generators__/flashChamberFixtures.gen.ts and is
 # consumed by the external dynamic-simulator work as a numerical gate. Letting
