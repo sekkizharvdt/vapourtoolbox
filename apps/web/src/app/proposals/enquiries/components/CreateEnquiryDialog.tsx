@@ -376,7 +376,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
     // Validate with Zod schema
     const validation = createEnquiryFormSchema.safeParse(data);
     if (!validation.success) {
-      const firstError = validation.error.errors[0];
+      const firstError = validation.error.issues[0];
       setError(firstError?.message || 'Please check your form data');
       return;
     }

@@ -7,7 +7,7 @@
 
 import { HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { z, ZodSchema, ZodError } from 'zod';
+import { ZodSchema, ZodError } from 'zod';
 
 /**
  * Validation result type
@@ -51,7 +51,7 @@ export function validate<T>(schema: ZodSchema<T>, data: unknown): ValidationResu
     };
   } catch (error) {
     if (error instanceof ZodError) {
-      const issues = error.errors.map((err) => ({
+      const issues = error.issues.map((err) => ({
         path: err.path.join('.'),
         message: err.message,
       }));
@@ -115,82 +115,15 @@ export function validateOrThrow<T>(
   return result.data!;
 }
 
-/**
- * Validate partial data (for updates)
- *
- * Validates only the fields that are present in the data object.
- * Useful for PATCH/update operations where not all fields are required.
- *
- * @param schema - Zod schema to validate against
- * @param data - Partial data to validate
- * @returns Validation result with typed partial data
- *
- * @example
- * ```typescript
- * const result = validatePartial(entitySchema, { name: 'New Name' });
- * // Only validates the 'name' field
- * ```
- */
-export function validatePartial<T>(
-  schema: ZodSchema<T>,
-  data: unknown
-): ValidationResult<Partial<T>> {
-  try {
-    const partialSchema = z.object({}).passthrough();
-    const validatedData = partialSchema.parse(data);
-    return {
-      success: true,
-      data: validatedData,
-    };
-  } catch (error) {
-    if (error instanceof ZodError) {
-      const issues = error.errors.map((err) => ({
-        path: err.path.join('.'),
-        message: err.message,
-      }));
-
-      return {
-        success: false,
-        error: {
-          message: `Validation failed: ${issues.map((i) => `${i.path}: ${i.message}`).join(', ')}`,
-          issues,
-        },
-      };
-    }
-
-    return {
-      success: false,
-      error: {
-        message: 'Validation failed due to unexpected error',
-      },
-    };
-  }
-}
-
-/**
- * Validate partial data and throw on error
- *
- * @param schema - Zod schema to validate against
- * @param data - Partial data to validate
- * @param errorCode - Firebase HttpsError code
- * @returns Validated partial data
- * @throws HttpsError if validation fails
- */
-export function validatePartialOrThrow<T>(
-  schema: ZodSchema<T>,
-  data: unknown,
-  errorCode: 'invalid-argument' | 'failed-precondition' = 'invalid-argument'
-): Partial<T> {
-  const result = validatePartial(schema, data);
-
-  if (!result.success) {
-    throw new HttpsError(errorCode, result.error!.message, {
-      issues: result.error!.issues,
-    });
-  }
-
-  return result.data!;
-}
+// `validatePartial` and `validatePartialOrThrow` were removed during the zod 4
+// migration. `validatePartial` took a schema and ignored it, parsing with
+// `z.object({}).passthrough()` — which validates nothing and hands back the
+// input unchanged — so despite its name and docs it never validated anything,
+// and `validatePartialOrThrow` inherited that. zod 4's stricter inference
+// surfaced it: the passthrough result is `{ [x: string]: unknown }`, no longer
+// assignable to `Partial<T>`. Neither had callers, so they were deleted rather
+// than cast into silence. A real implementation needs a ZodObject (for
+// `.partial()`), not the generic `ZodSchema<T>` the old signatures accepted.
 
 /**
  * Sanitize and validate data

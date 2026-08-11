@@ -48,7 +48,7 @@ export function getFirebaseClientConfig(): FirebaseClientConfig {
     return firebaseClientConfigSchema.parse(config);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map((err) => err.message).join('\n');
+      const missingVars = error.issues.map((err) => err.message).join('\n');
       throw new Error(
         `Firebase Client Configuration Error:\n${missingVars}\n\n` +
           `Please check your environment variables. Required variables:\n` +
@@ -78,7 +78,7 @@ export function getFirebaseAdminConfig(): FirebaseAdminConfig {
     return firebaseAdminConfigSchema.parse(config);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map((err) => err.message).join('\n');
+      const missingVars = error.issues.map((err) => err.message).join('\n');
       throw new Error(
         `Firebase Admin Configuration Error:\n${missingVars}\n\n` +
           `Please check your environment variables. Required variables:\n` +
