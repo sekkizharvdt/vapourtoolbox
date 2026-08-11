@@ -245,7 +245,11 @@ async function generateTransmittalPDF(transmittalData: {
 </html>
     `;
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    // puppeteer 25 removed the networkidle0/networkidle2 wait conditions. The
+    // transmittal HTML above is fully self-contained — no external images,
+    // fonts, stylesheets or scripts — so there is no network activity to settle
+    // and 'load' is equivalent here.
+    await page.setContent(html, { waitUntil: 'load' });
 
     const pdfBuffer = await page.pdf({
       format: 'A4',
