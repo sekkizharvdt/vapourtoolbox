@@ -65,7 +65,7 @@ export function CashFlowChart({ forecast }: CashFlowChartProps) {
               tickFormatter={(value) => `₹${(value / 100000).toFixed(0)}L`}
             />
             <Tooltip
-              formatter={(value: number) => [formatCurrency(value), '']}
+              formatter={(value) => [formatCurrency(Number(value)), '']}
               labelFormatter={(label) => `Date: ${label}`}
             />
             <Legend />
@@ -99,7 +99,7 @@ export function CashFlowChart({ forecast }: CashFlowChartProps) {
               tickFormatter={(value) => `₹${(value / 100000).toFixed(0)}L`}
             />
             <Tooltip
-              formatter={(value: number) => [formatCurrency(value), '']}
+              formatter={(value) => [formatCurrency(Number(value)), '']}
               labelFormatter={(label) => `Date: ${label}`}
             />
             <Legend />
@@ -127,7 +127,7 @@ export function CashFlowChart({ forecast }: CashFlowChartProps) {
                 tickFormatter={(value) => `₹${(value / 100000).toFixed(0)}L`}
               />
               <Tooltip
-                formatter={(value: number) => [formatCurrency(value), '']}
+                formatter={(value) => [formatCurrency(Number(value)), '']}
                 labelFormatter={(_, payload) => {
                   if (payload && payload[0]) {
                     return `${payload[0].payload.week} (${payload[0].payload.weekStart})`;
