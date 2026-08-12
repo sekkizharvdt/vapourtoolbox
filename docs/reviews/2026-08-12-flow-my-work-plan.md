@@ -208,7 +208,43 @@ collection, no new index beyond D3.
 1.3 Triage classification as a pure function over `WorkItem` — testable without the
 emulator, which is where the group definitions get pinned down.
 
-### Phase 2 — the page
+### Phase 2 — IMPLEMENTED 2026-08-12 (uncommitted)
+
+**D2 resolved: My Work is served at `/flow`.**
+
+- `app/flow/page.tsx` — My Work. Triage grouping by default (Needs you / Waiting
+  on others / FYI, FYI collapsed), a Triage ⇄ By source toggle synced to `?group=`
+  via `history.replaceState` (rule 30b), `Dismiss all` on the FYI header, and the
+  New Task dialog carried over from the old tasks page. `?new=true` still opens
+  the dialog, then strips itself.
+- `app/flow/components/WorkItemRow.tsx` — one row for both kinds, replacing
+  `TaskCard` and `ManualTaskCard` (both deleted, rule 32). Priority reads as a
+  coloured left edge instead of a chip; actions appear on hover on pointer
+  devices and stay visible on touch; the row offers exactly what
+  `WorkItem.actions` permits, never re-deriving it.
+- `app/flow/inbox/page.tsx`, `app/flow/tasks/page.tsx` — redirects. Under
+  `output: 'export'` there is no server redirect, so they `router.replace` on
+  mount; `/flow/tasks?new=true` forwards the flag.
+- `CreateTaskDialog` moved to `app/flow/components/` — the tasks route is now
+  only a redirect.
+
+**Correction to §2 of this plan.** It claimed the module destinations were
+"already in the sidebar". They were not: `Sidebar.tsx` lists Flow as a single
+entry (`time-tracking`) with no children — only Admin has sub-items — so Team
+Board, Meetings and Portfolio were reachable _only_ through the hub cards.
+Replacing the hub without a replacement would have stranded all three.
+`app/flow/components/FlowNav.tsx`, rendered by the Flow layout, now carries
+My Work / Team / Meetings / Portfolio on every page in the module — which also
+removes today's detour back through `/flow` to get between them.
+
+Verified: full `pnpm --filter @vapour/web build` passes and `/flow.html`,
+`/flow/tasks.html`, `/flow/inbox.html` all emit. UI ratchets improved and were
+lowered to lock it in — CircularProgress 215→213, missing PageHeader 188→187.
+
+**Not verified in a browser** — the page has not been exercised against live
+data, and the Waiting group cannot populate until the new index deploys.
+
+### Phase 2 — original scope
 
 2.1 Build **My Work** at `/flow`, on the inbox's codebase (it owns the live
 subscription, filters and search), with `CreateTaskDialog` ported over from

@@ -1,5 +1,7 @@
 /**
- * Task Module Components
+ * Flow Module Components
  */
 
-export { TaskCard } from './TaskCard';
+export { FlowNav } from './FlowNav';
+export { WorkItemRow } from './WorkItemRow';
+export { CreateTaskDialog } from './CreateTaskDialog';

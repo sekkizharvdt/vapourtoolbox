@@ -1,15 +1,15 @@
 {
-  "_doc": "Config for scripts/audit/check-ui-standards.js. `enforced` lists zero-tolerance category letters (A-E) that currently block the commit — add a letter once its violation count reaches 0. `ratchetBaselines` records the current count for each count-ratchet category (F-H); the check fails if a count rises above its baseline. Lower a baseline by hand after a sweep reduces the real count — never raise one without review.",
+  "_doc": "Config for scripts/audit/check-ui-standards.js. `enforced` lists zero-tolerance category letters (A-E) that currently block the commit \u2014 add a letter once its violation count reaches 0. `ratchetBaselines` records the current count for each count-ratchet category (F-H); the check fails if a count rises above its baseline. Lower a baseline by hand after a sweep reduces the real count \u2014 never raise one without review.",
   "enforced": ["A", "C", "D", "E"],
   "notes": {
-    "B": "Raw .toLocaleDateString() calls — Phase 4 Sweep A was a targeted sweep (Appendix A file list), not exhaustive. ~38 production call sites remain outside that scope. Add 'B' to enforced once a follow-up sweep brings this to 0.",
-    "F": "Raw <TablePagination> usage — locked decision (2026-07-03): adopt DataTable for new pages + 3 pilots only, not a full migration. This is a large legitimate backlog, not a bug.",
-    "G": "Raw <CircularProgress> usage — includes many legitimate small-scope uses (inline button/submit spinners), not just full-page loading anti-patterns. Coarse ratchet: prevents unbounded growth, not a per-instance correctness signal.",
-    "H": "page.tsx without PageHeader — large pre-existing backlog; targeted sweeps only per the locked decision, not a full migration. 189→190 (2026-07-03, reviewed): /projects/page.tsx and /projects/list/page.tsx became thin wrappers around the shared ProjectsListClient, which renders the PageHeader — composition false-positive, not a missing header."
+    "B": "Raw .toLocaleDateString() calls \u2014 Phase 4 Sweep A was a targeted sweep (Appendix A file list), not exhaustive. ~38 production call sites remain outside that scope. Add 'B' to enforced once a follow-up sweep brings this to 0.",
+    "F": "Raw <TablePagination> usage \u2014 locked decision (2026-07-03): adopt DataTable for new pages + 3 pilots only, not a full migration. This is a large legitimate backlog, not a bug.",
+    "G": "Raw <CircularProgress> usage \u2014 includes many legitimate small-scope uses (inline button/submit spinners), not just full-page loading anti-patterns. Coarse ratchet: prevents unbounded growth, not a per-instance correctness signal. 215\u2192213 (2026-08-12): the old /flow/inbox and /flow/tasks page bodies were replaced by LoadingState.",
+    "H": "page.tsx without PageHeader \u2014 large pre-existing backlog; targeted sweeps only per the locked decision, not a full migration. 189\u2192190 (2026-07-03, reviewed): /projects/page.tsx and /projects/list/page.tsx became thin wrappers around the shared ProjectsListClient, which renders the PageHeader \u2014 composition false-positive, not a missing header. 188\u2192187 (2026-08-12): /flow/page.tsx became My Work and now renders a PageHeader."
   },
   "ratchetBaselines": {
     "F": 49,
-    "G": 215,
-    "H": 188
+    "G": 213,
+    "H": 187
   }
 }
