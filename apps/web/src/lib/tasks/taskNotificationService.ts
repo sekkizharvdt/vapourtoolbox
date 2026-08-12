@@ -62,7 +62,7 @@ export type CountResult = { success: true; count: number } | { success: false; e
 /**
  * Convert Firestore DocumentData to TaskNotification with proper type safety
  */
-function docToTaskNotification(id: string, data: DocumentData): TaskNotification {
+export function docToTaskNotification(id: string, data: DocumentData): TaskNotification {
   return {
     id,
     type: data.type,

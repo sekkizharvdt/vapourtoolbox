@@ -2869,7 +2869,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "userId",
+          "fieldPath": "assignedBy",
           "order": "ASCENDING"
         },
         {
@@ -3558,24 +3558,6 @@
         },
         {
           "fieldPath": "isDeleted",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "documentFolders",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "module",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isDeleted",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "projectId",
           "order": "ASCENDING"
         }
       ]

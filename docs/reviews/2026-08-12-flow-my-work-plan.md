@@ -170,7 +170,31 @@ before writing.
 **Exit criteria:** open notifications for this user under ~15, and no category that
 can only grow.
 
-### Phase 1 — the union model
+### Phase 1 — IMPLEMENTED 2026-08-12 (uncommitted)
+
+- `lib/tasks/workItems.ts` — the `WorkItem` discriminated union, triage
+  classification, source mapping, ordering and the two groupers. Pure: no
+  Firestore, no React. 29 unit tests in `workItems.test.ts` pin the rules that are
+  most likely to drift — informational items never inflating "Waiting", approvals
+  grouping under their originating module rather than under `approvals`, meeting
+  winning over project as a task's source, and `autoCompletable` withholding the
+  manual Complete.
+- `lib/tasks/myWorkService.ts` — `subscribeToMyWork` fans in the two existing
+  subscriptions plus the waiting-on-others query, dedupes by id (a self-raised
+  notification classifies as "Needs you", not "Waiting"), reports a failed stream
+  instead of rendering an empty list, and exposes `loaded` only once all three
+  streams have reported.
+- `firestore.indexes.json` — added `taskNotifications (assignedBy, status,
+createdAt DESC)` for the Waiting query (rule 2), and removed two pre-existing
+  duplicate index definitions found while checking: `taskNotifications (userId,
+status, createdAt)` and `documentFolders (module, isDeleted, projectId)`.
+  **Needs a Deploy dispatch before the Waiting group can load.**
+- D7 applied: `WCC_READY_FOR_BILLING` and `DOCUMENT_INTERNAL_REVIEW` are now
+  created with `autoCompletable: false`, so a human can close them. The 4 WCC
+  notifications already in Firestore still carry `true` — the backfill has to
+  clear that flag on existing open copies, or they stay stuck.
+
+### Phase 1 — original scope
 
 1.1 `lib/tasks/workItems.ts` — a `WorkItem` discriminated union
 (`{ kind: 'notification' } | { kind: 'task' }`) with the fields the list needs:

@@ -476,7 +476,11 @@ export async function submitDocument(
           entityId: request.masterDocumentId,
           linkUrl: `/documents/${request.masterDocumentId}?tab=submit`,
           priority: 'MEDIUM',
-          autoCompletable: true,
+          // No document-review completion path exists, so nothing can
+          // auto-complete this and autoCompletable would also hide the manual
+          // Complete button — leaving it closable by nobody. The reviewer ticks
+          // it off. (Plan D7.)
+          autoCompletable: false,
           projectId: request.projectId,
         });
       } catch (notificationError) {

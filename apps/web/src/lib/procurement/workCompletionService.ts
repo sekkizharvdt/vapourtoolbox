@@ -105,7 +105,11 @@ export async function createWorkCompletionCertificate(
     entityId: wccRef.id,
     linkUrl: `/procurement/work-completion/${wccRef.id}`,
     priority: 'HIGH',
-    autoCompletable: true,
+    // No WCC→bill path exists (only GR→bill), so nothing can auto-complete
+    // this. Marking it autoCompletable also hid the manual Complete button,
+    // leaving it closable by nobody — the accounting user ticks it off by hand
+    // until the billing path exists. (Plan D7.)
+    autoCompletable: false,
     projectId: input.projectId,
   }).catch((err) => {
     logger.error('Failed to create WCC billing notification', { error: err, wccId: wccRef.id });
