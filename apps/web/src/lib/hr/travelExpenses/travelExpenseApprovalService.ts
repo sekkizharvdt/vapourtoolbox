@@ -186,8 +186,22 @@ export async function submitTravelExpenseReport(
       updatedBy: userId,
     });
 
-    // Create task notifications for approvers
-    const notificationPromises = approverIds.map((approverId) => {
+    // Create task notifications for approvers — never for the submitter, even
+    // when they hold the approver permission and so appear in approverIds.
+    // `preventSelfApproval` would refuse the approval anyway, so notifying them
+    // only produces an item nobody can action. (TE-2025-0007 raised exactly
+    // that: an approval request addressed to its own submitter.)
+    const recipients = approverIds.filter((approverId) => approverId !== userId);
+
+    if (recipients.length === 0) {
+      logger.warn('Travel expense has no approver other than its submitter', {
+        reportId,
+        submitterId: userId,
+        approverIds,
+      });
+    }
+
+    const notificationPromises = recipients.map((approverId) => {
       const notificationInput: CreateTaskNotificationInput = {
         type: 'actionable',
         category: 'TRAVEL_EXPENSE_SUBMITTED',

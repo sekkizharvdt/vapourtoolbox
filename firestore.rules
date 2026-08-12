@@ -306,11 +306,16 @@ service cloud.firestore {
     // ============================================
 
     match /taskNotifications/{notificationId} {
-      // Read: Users can read their own task notifications
-      //       (either as recipient via userId or as assignee via assigneeId)
+      // Read: Users can read their own task notifications (as recipient via
+      //       userId or as assignee via assigneeId), and the ones they raised
+      //       for someone else (assignedBy) — that is the "Waiting on others"
+      //       group in My Work. Without this clause the whole query is
+      //       rejected: Firestore evaluates a query against the rule up front
+      //       rather than filtering the rows it is allowed to return.
       allow read: if isAuthenticated() &&
                      (isOwner(resource.data.userId) ||
-                      isOwner(resource.data.assigneeId));
+                      isOwner(resource.data.assigneeId) ||
+                      isOwner(resource.data.assignedBy));
 
       // Create: Only internal users can create task notifications
       // Notifications are created as part of approval/assignment workflows
