@@ -30,6 +30,7 @@ import {
 } from '@mui/material';
 import {
   CheckCircle as CompleteIcon,
+  DoneAll as DismissIcon,
   OpenInNew as ViewIcon,
   Comment as CommentIcon,
   Flag as FlagIcon,
@@ -54,6 +55,7 @@ const priorityColors: Record<
 interface TaskCardProps {
   task: TaskNotification;
   onComplete?: (taskId: string) => void;
+  onDismiss?: (taskId: string) => void;
   onViewThread?: (taskId: string) => void;
   isActive?: boolean;
   threadCount?: number;
@@ -62,6 +64,7 @@ interface TaskCardProps {
 export const TaskCard = memo(function TaskCard({
   task,
   onComplete,
+  onDismiss,
   onViewThread,
   isActive = false,
   threadCount = 0,
@@ -86,6 +89,9 @@ export const TaskCard = memo(function TaskCard({
     task.type === 'actionable' &&
     (task.status === 'pending' || task.status === 'in_progress') &&
     !task.autoCompletable;
+  // Informational items are dismissed, not completed — the only way they leave
+  // the list. Explicit action, never on render (see the My Work plan, D5).
+  const canDismiss = task.type === 'informational' && task.status === 'pending';
   const isInProgress = task.status === 'in_progress';
   const isCompleted = task.status === 'completed';
   const hasActionLink = !!task.linkUrl;
@@ -241,6 +247,23 @@ export const TaskCard = memo(function TaskCard({
                     sx={{ minWidth: 'auto', px: 1.5 }}
                   >
                     Complete
+                  </Button>
+                )}
+
+                {/* Dismiss — informational items only */}
+                {canDismiss && onDismiss && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="inherit"
+                    startIcon={<DismissIcon />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDismiss(task.id);
+                    }}
+                    sx={{ minWidth: 'auto', px: 1.5 }}
+                  >
+                    Dismiss
                   </Button>
                 )}
 

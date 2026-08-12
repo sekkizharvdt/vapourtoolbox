@@ -11,8 +11,7 @@ import { createLogger } from '@vapour/logger';
 import type { PurchaseRequest } from '@vapour/types';
 import {
   createTaskNotification,
-  findTaskNotificationByEntity,
-  completeActionableTask,
+  completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { getPurchaseRequestItems } from './crud';
 import { validateProjectBudget } from './utils';
@@ -246,16 +245,11 @@ export async function approvePurchaseRequest(
 
     await batch.commit();
 
-    // Auto-complete the review task if it exists
-    const reviewTask = await findTaskNotificationByEntity(
-      'PURCHASE_REQUEST',
-      prId,
-      'PR_SUBMITTED',
-      'in_progress'
-    );
-    if (reviewTask) {
-      await completeActionableTask(reviewTask.id, userId, true);
-    }
+    // Close every open review notification for this PR — all approvers, both
+    // `pending` and `in_progress`. The old lookup filtered on `in_progress`
+    // alone, a status nothing in the UI can produce, so it never matched and
+    // approved PRs kept their review notifications forever.
+    await completeTaskNotificationsByEntity('PURCHASE_REQUEST', prId, userId);
 
     // Audit log: PR approved (non-blocking)
     const auditContext = createAuditContext(userId, '', userName);
@@ -388,16 +382,8 @@ export async function rejectPurchaseRequest(
 
     await batch.commit();
 
-    // Auto-complete the review task if it exists
-    const reviewTask = await findTaskNotificationByEntity(
-      'PURCHASE_REQUEST',
-      prId,
-      'PR_SUBMITTED',
-      'in_progress'
-    );
-    if (reviewTask) {
-      await completeActionableTask(reviewTask.id, userId, true);
-    }
+    // Close every open review notification for this PR (see approve path).
+    await completeTaskNotificationsByEntity('PURCHASE_REQUEST', prId, userId);
 
     // Audit log: PR rejected (non-blocking)
     const auditContext = createAuditContext(userId, '', userName);

@@ -36,8 +36,7 @@ jest.mock('firebase/firestore', () => ({
 // Mock task notification service
 jest.mock('@/lib/tasks/taskNotificationService', () => ({
   createTaskNotification: jest.fn().mockResolvedValue(undefined),
-  findTaskNotificationByEntity: jest.fn().mockResolvedValue(null),
-  completeActionableTask: jest.fn().mockResolvedValue(undefined),
+  completeTaskNotificationsByEntity: jest.fn().mockResolvedValue(0),
 }));
 
 // Mock user helpers
@@ -100,8 +99,7 @@ import {
 } from './approvalWorkflow';
 import {
   createTaskNotification,
-  findTaskNotificationByEntity,
-  completeActionableTask,
+  completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { requirePermission, preventSelfApproval } from '@/lib/auth';
 
@@ -235,7 +233,7 @@ describe('approvalWorkflow', () => {
       ).rejects.toThrow('Proposal not found');
     });
 
-    it('should auto-complete review task if exists', async () => {
+    it('closes every open review notification for the proposal', async () => {
       mockGetDoc.mockResolvedValueOnce({
         exists: () => true,
         data: () => ({
@@ -245,13 +243,15 @@ describe('approvalWorkflow', () => {
         }),
       });
 
-      (findTaskNotificationByEntity as jest.Mock).mockResolvedValueOnce({
-        id: 'task-123',
-      });
-
       await approveProposal(mockDb, 'proposal-123', mockUserId, mockUserName, mockPermissions);
 
-      expect(completeActionableTask).toHaveBeenCalledWith('task-123', mockUserId, true);
+      // Every approver's copy closes — not just one in a status the UI
+      // cannot produce.
+      expect(completeTaskNotificationsByEntity).toHaveBeenCalledWith(
+        'PROPOSAL',
+        'proposal-123',
+        mockUserId
+      );
     });
   });
 

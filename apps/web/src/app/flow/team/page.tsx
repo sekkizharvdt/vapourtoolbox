@@ -29,7 +29,6 @@ import {
   Search as SearchIcon,
   Flag as FlagIcon,
   RadioButtonUnchecked as TodoIcon,
-  PlayCircleOutline as InProgressIcon,
 } from '@mui/icons-material';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useFirestore } from '@/lib/firebase/hooks';
@@ -208,9 +207,11 @@ export default function TeamBoardPage() {
       ) : (
         <Grid container spacing={2}>
           {sortedMembers.map((member) => {
+            // Tasks are open or done — `in_progress` is no longer reachable from
+            // the UI, so the board counts open work as one number. The query still
+            // includes in_progress so any task left in that state stays visible.
             const memberTasks = tasksByAssignee[member.uid] || [];
-            const todoCount = memberTasks.filter((t) => t.status === 'todo').length;
-            const inProgressCount = memberTasks.filter((t) => t.status === 'in_progress').length;
+            const openCount = memberTasks.length;
 
             return (
               <Grid key={member.uid} size={{ xs: 12, sm: 6, lg: 4 }}>
@@ -237,28 +238,16 @@ export default function TeamBoardPage() {
                           </Typography>
                         )}
                       </Box>
-                      {/* Status summary chips */}
-                      <Stack direction="row" spacing={0.5}>
-                        {todoCount > 0 && (
-                          <Chip
-                            icon={<TodoIcon sx={{ fontSize: 14 }} />}
-                            label={todoCount}
-                            size="small"
-                            variant="outlined"
-                            sx={{ height: 24 }}
-                          />
-                        )}
-                        {inProgressCount > 0 && (
-                          <Chip
-                            icon={<InProgressIcon sx={{ fontSize: 14 }} />}
-                            label={inProgressCount}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            sx={{ height: 24 }}
-                          />
-                        )}
-                      </Stack>
+                      {/* Open-task count */}
+                      {openCount > 0 && (
+                        <Chip
+                          icon={<TodoIcon sx={{ fontSize: 14 }} />}
+                          label={openCount}
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 24 }}
+                        />
+                      )}
                     </Stack>
 
                     {/* Task list */}
@@ -285,11 +274,7 @@ export default function TeamBoardPage() {
                               bgcolor: 'action.hover',
                             }}
                           >
-                            {task.status === 'in_progress' ? (
-                              <InProgressIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                            ) : (
-                              <TodoIcon sx={{ fontSize: 16, color: 'action.active' }} />
-                            )}
+                            <TodoIcon sx={{ fontSize: 16, color: 'action.active' }} />
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Typography
                                 variant="body2"

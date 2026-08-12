@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 
 import {
   Box,
+  Button,
   Typography,
   Chip,
   CircularProgress,
@@ -37,7 +38,12 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToUserTasks } from '@/lib/tasks/channelService';
-import { completeActionableTask } from '@/lib/tasks/taskNotificationService';
+import {
+  completeActionableTask,
+  acknowledgeInformational,
+  acknowledgeInformationalBatch,
+} from '@/lib/tasks/taskNotificationService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { TaskCard } from '../components/TaskCard';
 import { useToast } from '@/components/common/Toast';
 import type { TaskNotification, DefaultTaskChannelId } from '@vapour/types';
@@ -65,6 +71,7 @@ const FILTER_CHIPS: { id: FilterCategory; label: string; icon: React.ReactElemen
 export default function InboxPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { confirm } = useConfirmDialog();
 
   const [notifications, setNotifications] = useState<TaskNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +163,53 @@ export default function InboxPage() {
     [userId, completing, toast, notifications]
   );
 
+  // Informational items in the CURRENT filter — what "Dismiss all" acts on, so
+  // the button can never clear more than what is on screen.
+  const dismissableHere = useMemo(
+    () => filteredNotifications.filter((n) => n.type === 'informational' && n.status === 'pending'),
+    [filteredNotifications]
+  );
+
+  const handleDismiss = useCallback(
+    async (taskId: string) => {
+      const previous = notifications;
+      setNotifications((prev) => prev.filter((n) => n.id !== taskId));
+
+      try {
+        await acknowledgeInformational(taskId);
+      } catch (err) {
+        setNotifications(previous);
+        toast.error(err instanceof Error ? err.message : 'Failed to dismiss notification');
+      }
+    },
+    [notifications, toast]
+  );
+
+  const handleDismissAll = useCallback(async () => {
+    if (dismissableHere.length === 0) return;
+
+    const confirmed = await confirm({
+      title: 'Dismiss notifications',
+      message: `Dismiss ${dismissableHere.length} informational notification${
+        dismissableHere.length !== 1 ? 's' : ''
+      }? They move to the archive — nothing is deleted, and items that need action from you are left alone.`,
+      confirmText: 'Dismiss all',
+    });
+    if (!confirmed) return;
+
+    const previous = notifications;
+    const dismissedIds = new Set(dismissableHere.map((n) => n.id));
+    setNotifications((prev) => prev.filter((n) => !dismissedIds.has(n.id)));
+
+    try {
+      const count = await acknowledgeInformationalBatch(dismissableHere);
+      toast.success(`Dismissed ${count} notification${count !== 1 ? 's' : ''}`);
+    } catch (err) {
+      setNotifications(previous);
+      toast.error(err instanceof Error ? err.message : 'Failed to dismiss notifications');
+    }
+  }, [dismissableHere, notifications, confirm, toast]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -177,9 +231,17 @@ export default function InboxPage() {
         <Typography variant="h4" component="h1">
           Inbox
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {filteredNotifications.length} notification{filteredNotifications.length !== 1 ? 's' : ''}
-        </Typography>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Typography variant="body2" color="text.secondary">
+            {filteredNotifications.length} notification
+            {filteredNotifications.length !== 1 ? 's' : ''}
+          </Typography>
+          {dismissableHere.length > 0 && (
+            <Button size="small" variant="outlined" onClick={handleDismissAll}>
+              Dismiss all ({dismissableHere.length})
+            </Button>
+          )}
+        </Stack>
       </Box>
 
       {/* Search */}
@@ -239,7 +301,12 @@ export default function InboxPage() {
       ) : (
         <Box>
           {filteredNotifications.map((notification) => (
-            <TaskCard key={notification.id} task={notification} onComplete={handleComplete} />
+            <TaskCard
+              key={notification.id}
+              task={notification}
+              onComplete={handleComplete}
+              onDismiss={handleDismiss}
+            />
           ))}
         </Box>
       )}

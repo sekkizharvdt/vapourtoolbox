@@ -24,7 +24,11 @@ import { ManualTaskCard } from './components/ManualTaskCard';
 import { CreateTaskDialog } from './components/CreateTaskDialog';
 import type { ManualTask, ManualTaskStatus } from '@vapour/types';
 
-type TabValue = 'all' | 'todo' | 'in_progress' | 'done';
+/**
+ * A task is open or done — `in_progress` is not reachable from the UI, so the
+ * Open tab covers any task left in that state before the change.
+ */
+type TabValue = 'all' | 'open' | 'done';
 
 function TaskListInner() {
   const router = useRouter();
@@ -78,15 +82,17 @@ function TaskListInner() {
     return () => unsubscribe();
   }, [db, user, tenantId]);
 
+  const isOpen = (t: ManualTask) => t.status === 'todo' || t.status === 'in_progress';
+
   // Filter tasks by tab
   const filteredTasks = tasks.filter((t) => {
     if (tab === 'all') return t.status !== 'cancelled';
-    return t.status === tab;
+    if (tab === 'open') return isOpen(t);
+    return t.status === 'done';
   });
 
   // Counts for tab badges
-  const todoCount = tasks.filter((t) => t.status === 'todo').length;
-  const inProgressCount = tasks.filter((t) => t.status === 'in_progress').length;
+  const openCount = tasks.filter(isOpen).length;
   const doneCount = tasks.filter((t) => t.status === 'done').length;
 
   const handleStatusChange = useCallback(
@@ -167,24 +173,13 @@ function TaskListInner() {
         <Tab
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              Todo
-              {todoCount > 0 && (
-                <Chip label={todoCount} size="small" color="default" sx={{ height: 20 }} />
+              Open
+              {openCount > 0 && (
+                <Chip label={openCount} size="small" color="default" sx={{ height: 20 }} />
               )}
             </Box>
           }
-          value="todo"
-        />
-        <Tab
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              In Progress
-              {inProgressCount > 0 && (
-                <Chip label={inProgressCount} size="small" color="primary" sx={{ height: 20 }} />
-              )}
-            </Box>
-          }
-          value="in_progress"
+          value="open"
         />
         <Tab
           label={
@@ -217,9 +212,7 @@ function TaskListInner() {
               <Typography variant="body2">No completed tasks yet.</Typography>
             </Box>
           ) : (
-            <Typography variant="body2">
-              No {tab === 'todo' ? 'pending' : 'in progress'} tasks.
-            </Typography>
+            <Typography variant="body2">No open tasks — everything is done.</Typography>
           )}
         </Alert>
       ) : (

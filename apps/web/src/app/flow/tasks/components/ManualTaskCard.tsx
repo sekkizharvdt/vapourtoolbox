@@ -12,8 +12,6 @@ import {
   RadioButtonUnchecked as TodoIcon,
   PlayCircleOutline as InProgressIcon,
   CheckCircle as DoneIcon,
-  CheckCircleOutline as MarkDoneIcon,
-  PlayArrow as StartIcon,
   Flag as FlagIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
@@ -33,6 +31,11 @@ const PRIORITY_COLORS: Record<string, 'default' | 'info' | 'warning' | 'error'> 
   URGENT: 'error',
 };
 
+/**
+ * `in_progress` is no longer reachable from the UI — a task is open or done.
+ * The icon case stays so any task left in that state before the change still
+ * renders (and can still be completed).
+ */
 function StatusIcon({ status }: { status: ManualTaskStatus }) {
   switch (status) {
     case 'todo':
@@ -88,16 +91,22 @@ export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCar
     >
       <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-          {/* Current status — indicator only. The actions that CHANGE the status
-              are the explicit Start / Mark as done buttons on the right, so a
-              click can never mean something other than its own label. */}
-          <Tooltip title={MANUAL_TASK_STATUS_LABELS[task.status]}>
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', mt: 0.25, px: 0.5 }}
-              aria-label={`Status: ${MANUAL_TASK_STATUS_LABELS[task.status]}`}
-            >
-              <StatusIcon status={task.status} />
-            </Box>
+          {/* Complete toggle — checkbox semantics: the circle means "not done
+              yet, click to complete". It has exactly one meaning, which is what
+              a task list leads everyone to expect. Terminal tasks show their
+              state and are not clickable. */}
+          <Tooltip title={isTerminal ? MANUAL_TASK_STATUS_LABELS[task.status] : 'Mark as done'}>
+            <span>
+              <IconButton
+                size="small"
+                disabled={isTerminal}
+                onClick={() => onStatusChange(task.id, 'done')}
+                sx={{ mt: -0.25 }}
+                aria-label={isTerminal ? MANUAL_TASK_STATUS_LABELS[task.status] : 'Mark as done'}
+              >
+                <StatusIcon status={task.status} />
+              </IconButton>
+            </span>
           </Tooltip>
 
           {/* Content */}
@@ -167,33 +176,6 @@ export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCar
               )}
             </Box>
           </Box>
-
-          {/* Status actions — one button per transition, labelled with what it does */}
-          {task.status === 'todo' && (
-            <Tooltip title="Start task">
-              <IconButton
-                size="small"
-                onClick={() => onStatusChange(task.id, 'in_progress')}
-                sx={{ mt: -0.25 }}
-                aria-label="Start task"
-              >
-                <StartIcon fontSize="small" color="primary" />
-              </IconButton>
-            </Tooltip>
-          )}
-
-          {!isTerminal && (
-            <Tooltip title="Mark as done">
-              <IconButton
-                size="small"
-                onClick={() => onStatusChange(task.id, 'done')}
-                sx={{ mt: -0.25 }}
-                aria-label="Mark as done"
-              >
-                <MarkDoneIcon fontSize="small" color="success" />
-              </IconButton>
-            </Tooltip>
-          )}
 
           {/* Delete */}
           {onDelete && task.status !== 'done' && (

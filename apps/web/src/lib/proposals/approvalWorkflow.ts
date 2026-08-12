@@ -12,8 +12,7 @@ import type { Proposal, ApprovalRecord, ProposalStatus, AuditAction } from '@vap
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import {
   createTaskNotification,
-  findTaskNotificationByEntity,
-  completeActionableTask,
+  completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { getProposalApprovers } from './userHelpers';
 import { updateEnquiryStatus } from '@/lib/enquiry/enquiryService';
@@ -197,16 +196,8 @@ export async function cancelProposalSubmission(
       updatedBy: userId,
     });
 
-    // Dismiss the approver's pending task notification, if any.
-    const pendingTask = await findTaskNotificationByEntity(
-      'PROPOSAL',
-      proposalId,
-      'PROPOSAL_SUBMITTED',
-      'in_progress'
-    );
-    if (pendingTask) {
-      await completeActionableTask(pendingTask.id, userId, true);
-    }
+    // Dismiss the approvers' open task notifications (see the approve path).
+    await completeTaskNotificationsByEntity('PROPOSAL', proposalId, userId);
 
     logger.info('Proposal submission cancelled', { proposalId, userId });
 
@@ -286,16 +277,10 @@ export async function approveProposal(
       updatedBy: userId,
     });
 
-    // Auto-complete the review task if it exists
-    const reviewTask = await findTaskNotificationByEntity(
-      'PROPOSAL',
-      proposalId,
-      'PROPOSAL_SUBMITTED',
-      'in_progress'
-    );
-    if (reviewTask) {
-      await completeActionableTask(reviewTask.id, userId, true);
-    }
+    // Close every open review notification for this proposal — all approvers,
+    // both `pending` and `in_progress`. The old lookup filtered on
+    // `in_progress` alone, a status nothing in the UI can produce.
+    await completeTaskNotificationsByEntity('PROPOSAL', proposalId, userId);
 
     // Create informational notification for submitter
     if (proposal.submittedByUserId) {
@@ -398,16 +383,10 @@ export async function rejectProposal(
       updatedBy: userId,
     });
 
-    // Auto-complete the review task if it exists
-    const reviewTask = await findTaskNotificationByEntity(
-      'PROPOSAL',
-      proposalId,
-      'PROPOSAL_SUBMITTED',
-      'in_progress'
-    );
-    if (reviewTask) {
-      await completeActionableTask(reviewTask.id, userId, true);
-    }
+    // Close every open review notification for this proposal — all approvers,
+    // both `pending` and `in_progress`. The old lookup filtered on
+    // `in_progress` alone, a status nothing in the UI can produce.
+    await completeTaskNotificationsByEntity('PROPOSAL', proposalId, userId);
 
     // Create informational notification for submitter
     if (proposal.submittedByUserId) {
@@ -504,16 +483,10 @@ export async function requestProposalChanges(
       updatedBy: userId,
     });
 
-    // Auto-complete the review task if it exists
-    const reviewTask = await findTaskNotificationByEntity(
-      'PROPOSAL',
-      proposalId,
-      'PROPOSAL_SUBMITTED',
-      'in_progress'
-    );
-    if (reviewTask) {
-      await completeActionableTask(reviewTask.id, userId, true);
-    }
+    // Close every open review notification for this proposal — all approvers,
+    // both `pending` and `in_progress`. The old lookup filtered on
+    // `in_progress` alone, a status nothing in the UI can produce.
+    await completeTaskNotificationsByEntity('PROPOSAL', proposalId, userId);
 
     // Create informational notification for submitter
     if (proposal.submittedByUserId) {

@@ -9,7 +9,11 @@
 import { doc, updateDoc, getDoc, Timestamp, arrayUnion, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import {
+  createTaskNotification,
+  completeTaskNotificationsByEntity,
+  findTaskNotificationsByEntity,
+} from '@/lib/tasks/taskNotificationService';
 import { getUsersWithPermission } from '@/lib/auth/userLookup';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
@@ -60,6 +64,24 @@ export async function createFeedbackResolutionTask(
   resolutionNotes?: string
 ): Promise<string> {
   try {
+    // Rule 9: resolving an item that is already awaiting the reporter's review
+    // must not stack a second "Review Fix" on the same feedback. Reuse the open
+    // one — one feedback doc had accumulated four.
+    const existing = await findTaskNotificationsByEntity(
+      'FEEDBACK',
+      feedbackId,
+      'FEEDBACK_RESOLUTION_CHECK',
+      ['pending', 'in_progress']
+    );
+    const openForReporter = existing.find((n) => n.userId === reporterUserId);
+    if (openForReporter) {
+      logger.info('Feedback already has an open resolution task — reusing it', {
+        feedbackId,
+        taskId: openForReporter.id,
+      });
+      return openForReporter.id;
+    }
+
     const taskId = await createTaskNotification({
       type: 'actionable',
       category: 'FEEDBACK_RESOLUTION_CHECK',
@@ -318,9 +340,15 @@ export async function closeFeedbackFromTask(
       updatedAt: Timestamp.now(),
     });
 
+    // The "Review Fix" notification asked the reporter to verify; closing IS the
+    // verification, so it must not survive its own answer. Omitting this is what
+    // left 211 open notifications pointing at already-closed feedback.
+    const completed = await completeTaskNotificationsByEntity('FEEDBACK', feedbackId, userId);
+
     logger.info('Feedback closed by reporter', {
       feedbackId,
       userId,
+      notificationsCompleted: completed,
     });
   } catch (error) {
     logger.error('Error closing feedback', { feedbackId, error });

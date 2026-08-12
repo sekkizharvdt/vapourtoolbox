@@ -207,6 +207,13 @@ export async function completeRFQ(
     updatedBy: userId,
   });
 
+  // Close the evaluation request — selecting an offer is its answer.
+  {
+    const { completeTaskNotificationsByEntity } =
+      await import('@/lib/tasks/taskNotificationService');
+    await completeTaskNotificationsByEntity('RFQ', rfqId, userId);
+  }
+
   logger.info('RFQ completed', { rfqId, selectedOfferId });
 }
 
@@ -258,6 +265,13 @@ export async function cancelRFQ(
       },
     }
   );
+
+  // A cancelled RFQ has nothing left to evaluate — close its open requests.
+  {
+    const { completeTaskNotificationsByEntity } =
+      await import('@/lib/tasks/taskNotificationService');
+    await completeTaskNotificationsByEntity('RFQ', rfqId, userId);
+  }
 
   logger.info('RFQ cancelled', { rfqId });
 }

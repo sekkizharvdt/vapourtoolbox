@@ -19,6 +19,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  writeBatch,
   query,
   where,
   orderBy,
@@ -448,10 +449,61 @@ export async function acknowledgeInformational(taskNotificationId: string): Prom
   }
 }
 
+/** Firestore hard limit on operations in a single batch (rule 20). */
+const BATCH_SIZE = 500;
+
 /**
- * Acknowledge all informational task notifications for a user
+ * Dismiss a set of informational notifications the caller already holds.
+ *
+ * Takes the documents rather than ids so the type/status guard costs no extra
+ * reads: anything not informational-and-still-pending is skipped, which also
+ * makes a repeat call a no-op (rule 9). Writes are chunked at 500 (rule 20).
+ *
+ * Returns the number actually dismissed.
  */
-export async function acknowledgeAllInformational(userId: string): Promise<void> {
+export async function acknowledgeInformationalBatch(
+  taskNotifications: TaskNotification[]
+): Promise<number> {
+  // rule5-exempt: task / notification write scoped to the calling user (firestore.rules check userId/assigneeId, not a permission flag); the recipient identity IS the gate
+  const { db } = getFirebase();
+
+  const dismissable = taskNotifications.filter(
+    (n) => n.type === 'informational' && n.status === 'pending'
+  );
+  if (dismissable.length === 0) return 0;
+
+  try {
+    for (let i = 0; i < dismissable.length; i += BATCH_SIZE) {
+      const slice = dismissable.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      const now = Timestamp.now();
+
+      slice.forEach((n) => {
+        batch.update(doc(db, COLLECTIONS.TASK_NOTIFICATIONS, n.id), {
+          acknowledgedAt: now,
+          status: 'acknowledged',
+          read: true,
+          updatedAt: now,
+        });
+      });
+
+      await batch.commit();
+    }
+
+    return dismissable.length;
+  } catch (error) {
+    logger.error('Failed to dismiss informational notifications', {
+      error,
+      count: dismissable.length,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Acknowledge every pending informational notification for a user.
+ */
+export async function acknowledgeAllInformational(userId: string): Promise<number> {
   try {
     const informational = await getUserTaskNotifications({
       userId,
@@ -459,14 +511,12 @@ export async function acknowledgeAllInformational(userId: string): Promise<void>
       status: 'pending',
     });
 
-    const acknowledgePromises = informational.map((taskNotification) =>
-      acknowledgeInformational(taskNotification.id)
-    );
-
-    await Promise.all(acknowledgePromises);
+    return await acknowledgeInformationalBatch(informational);
   } catch (error) {
     logger.error('Failed to acknowledge all informational notifications', { error, userId });
-    throw new Error('Failed to acknowledge all informational notifications');
+    throw error instanceof Error
+      ? error
+      : new Error('Failed to acknowledge all informational notifications');
   }
 }
 

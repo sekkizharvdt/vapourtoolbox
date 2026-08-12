@@ -193,6 +193,14 @@ export async function firstApprovePO(
     }
   );
 
+  // Close the first approver's request before raising the second one — the
+  // order matters, or the new notification is completed along with the old.
+  {
+    const { completeTaskNotificationsByEntity } =
+      await import('@/lib/tasks/taskNotificationService');
+    await completeTaskNotificationsByEntity('PURCHASE_ORDER', poId, userId);
+  }
+
   // Notify the second/final approver that it's their turn.
   if (po.secondApproverId) {
     const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
@@ -305,6 +313,15 @@ export async function approvePO(
   ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 
   logger.info('PO approved', { poId });
+
+  // Close the approval requests this decision answers. Done before the advance
+  // payment handoff below, so a failure there can still raise its own
+  // ACCOUNTING_HANDOFF_FAILED task without it being completed immediately.
+  {
+    const { completeTaskNotificationsByEntity } =
+      await import('@/lib/tasks/taskNotificationService');
+    await completeTaskNotificationsByEntity('PURCHASE_ORDER', poId, userId);
+  }
 
   // Create advance payment if required (outside transaction)
   // This involves complex GL entry generation that can't easily be in same transaction
@@ -436,6 +453,14 @@ export async function rejectPO(
   );
 
   logger.info('PO rejected', { poId });
+
+  // Close the approval requests this rejection answers, before raising the
+  // submitter's informational notification below.
+  {
+    const { completeTaskNotificationsByEntity } =
+      await import('@/lib/tasks/taskNotificationService');
+    await completeTaskNotificationsByEntity('PURCHASE_ORDER', poId, userId);
+  }
 
   // Notify the submitter — previously silent despite the PO_REJECTED
   // category existing (feedback sUjQ9E0O9tS9YZHqEtox).

@@ -66,6 +66,7 @@ jest.mock('@/lib/tasks/taskNotificationService', () => ({
   createTaskNotification: (...args: unknown[]) => mockCreateTaskNotification(...args),
   findTaskNotificationsByEntity: (...args: unknown[]) => mockFindTaskNotificationsByEntity(...args),
   completeActionableTask: (...args: unknown[]) => mockCompleteActionableTask(...args),
+  completeTaskNotificationsByEntity: jest.fn().mockResolvedValue(0),
 }));
 
 import { advancePOStatusIfAllowed, returnPOForRevision, rejectPO } from './workflow';

@@ -27,8 +27,7 @@ import { getUsersWithPermission } from '@/lib/auth/userLookup';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import {
   createTaskNotification,
-  findTaskNotificationByEntity,
-  completeActionableTask,
+  completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { charterApprovalStateMachine } from '@/lib/workflow/stateMachines';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
@@ -49,17 +48,15 @@ async function getProjectOrThrow(
   return { projectRef, project };
 }
 
-/** Dismiss the approvers' pending charter-review task, if any. */
+/**
+ * Close every open charter-review notification for the project.
+ *
+ * The previous lookup filtered on status `in_progress` alone — a status only
+ * `startActionableTask` produces, which no UI calls — so it matched nothing and
+ * decided charters kept their review notifications forever.
+ */
 async function completePendingCharterTask(projectId: string, userId: string): Promise<void> {
-  const pendingTask = await findTaskNotificationByEntity(
-    'PROJECT',
-    projectId,
-    'CHARTER_SUBMITTED',
-    'in_progress'
-  );
-  if (pendingTask) {
-    await completeActionableTask(pendingTask.id, userId, true);
-  }
+  await completeTaskNotificationsByEntity('PROJECT', projectId, userId);
 }
 
 /**

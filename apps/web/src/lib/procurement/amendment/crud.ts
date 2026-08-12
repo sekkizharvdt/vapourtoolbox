@@ -517,6 +517,13 @@ export async function approveAmendment(
 
     await batch.commit();
 
+    // Close the approver's review request — this decision is its answer.
+    {
+      const { completeTaskNotificationsByEntity } =
+        await import('@/lib/tasks/taskNotificationService');
+      await completeTaskNotificationsByEntity('PURCHASE_ORDER_AMENDMENT', amendmentId, userId);
+    }
+
     logger.info('Amendment approved and applied', {
       amendmentId,
       purchaseOrderId: amendment.purchaseOrderId,
@@ -602,6 +609,13 @@ export async function rejectAmendment(
     batch.set(historyRef, historyData);
 
     await batch.commit();
+
+    // Close the approver's review request (see the approve path).
+    {
+      const { completeTaskNotificationsByEntity } =
+        await import('@/lib/tasks/taskNotificationService');
+      await completeTaskNotificationsByEntity('PURCHASE_ORDER_AMENDMENT', amendmentId, userId);
+    }
 
     logger.info('Amendment rejected', { amendmentId });
   } catch (error) {

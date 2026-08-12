@@ -36,6 +36,8 @@ jest.mock('@vapour/logger', () => ({
 // Mock taskNotificationService
 jest.mock('@/lib/tasks/taskNotificationService', () => ({
   createTaskNotification: jest.fn(),
+  completeTaskNotificationsByEntity: jest.fn(),
+  findTaskNotificationsByEntity: jest.fn(),
 }));
 
 // Mock admin lookup used when notifying triage of a reporter's reply
@@ -49,13 +51,19 @@ jest.mock('@/lib/firebase/typeHelpers', () => ({
 }));
 
 import { doc, updateDoc, getDoc, type Firestore } from 'firebase/firestore';
-import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import {
+  createTaskNotification,
+  completeTaskNotificationsByEntity,
+  findTaskNotificationsByEntity,
+} from '@/lib/tasks/taskNotificationService';
 import { getUsersWithPermission } from '@/lib/auth/userLookup';
 
 const mockDoc = doc as jest.Mock;
 const mockUpdateDoc = updateDoc as jest.Mock;
 const mockGetDoc = getDoc as jest.Mock;
 const mockCreateTaskNotification = createTaskNotification as jest.Mock;
+const mockCompleteByEntity = completeTaskNotificationsByEntity as jest.Mock;
+const mockFindByEntity = findTaskNotificationsByEntity as jest.Mock;
 const mockGetUsersWithPermission = getUsersWithPermission as jest.Mock;
 
 describe('feedbackTaskService', () => {
@@ -65,6 +73,9 @@ describe('feedbackTaskService', () => {
     jest.clearAllMocks();
     mockDoc.mockReturnValue('feedbackDocRef');
     mockGetUsersWithPermission.mockResolvedValue([]);
+    // Default: no resolution task outstanding, nothing to auto-complete
+    mockFindByEntity.mockResolvedValue([]);
+    mockCompleteByEntity.mockResolvedValue(0);
   });
 
   describe('createFeedbackResolutionTask', () => {
@@ -123,6 +134,41 @@ describe('feedbackTaskService', () => {
           }),
         })
       );
+    });
+
+    it('reuses the open resolution task instead of stacking a second one', async () => {
+      mockFindByEntity.mockResolvedValue([
+        { id: 'task-existing', userId: 'user-123', status: 'pending' },
+      ]);
+
+      const taskId = await createFeedbackResolutionTask(
+        'feedback-1',
+        'Login button not working',
+        'user-123',
+        'John Doe',
+        'Admin User'
+      );
+
+      expect(taskId).toBe('task-existing');
+      expect(mockCreateTaskNotification).not.toHaveBeenCalled();
+    });
+
+    it('creates a task when the open one belongs to a different reporter', async () => {
+      mockFindByEntity.mockResolvedValue([
+        { id: 'task-someone-else', userId: 'user-999', status: 'pending' },
+      ]);
+      mockCreateTaskNotification.mockResolvedValue('task-new');
+
+      const taskId = await createFeedbackResolutionTask(
+        'feedback-1',
+        'Login button not working',
+        'user-123',
+        'John Doe',
+        'Admin User'
+      );
+
+      expect(taskId).toBe('task-new');
+      expect(mockCreateTaskNotification).toHaveBeenCalled();
     });
 
     it('should throw error when task creation fails', async () => {
@@ -222,6 +268,19 @@ describe('feedbackTaskService', () => {
       );
     });
 
+    it('completes the reporter’s open notifications for that feedback', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ status: 'resolved', title: 'Test feedback' }),
+      });
+      mockUpdateDoc.mockResolvedValue(undefined);
+      mockCompleteByEntity.mockResolvedValue(2);
+
+      await closeFeedbackFromTask(mockDb, 'feedback-1', 'user-123', 'John Doe');
+
+      expect(mockCompleteByEntity).toHaveBeenCalledWith('FEEDBACK', 'feedback-1', 'user-123');
+    });
+
     it('should throw error when feedback not found', async () => {
       mockGetDoc.mockResolvedValue({
         exists: () => false,
@@ -230,6 +289,7 @@ describe('feedbackTaskService', () => {
       await expect(closeFeedbackFromTask(mockDb, 'nonexistent', 'user-1', 'User')).rejects.toThrow(
         'Feedback not found'
       );
+      expect(mockCompleteByEntity).not.toHaveBeenCalled();
     });
 
     it('should throw error when update fails', async () => {

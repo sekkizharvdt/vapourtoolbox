@@ -37,8 +37,7 @@ jest.mock('firebase/firestore', () => ({
 // Mock task notification service
 jest.mock('@/lib/tasks/taskNotificationService', () => ({
   createTaskNotification: jest.fn().mockResolvedValue(undefined),
-  findTaskNotificationByEntity: jest.fn().mockResolvedValue(null),
-  completeActionableTask: jest.fn().mockResolvedValue(undefined),
+  completeTaskNotificationsByEntity: jest.fn().mockResolvedValue(0),
 }));
 
 // Mock auth functions — preventSelfApproval mirrors the real guard so the
@@ -100,8 +99,7 @@ jest.mock('@vapour/logger', () => ({
 import { submitCharterForApproval, approveCharter, rejectCharter } from './charterApprovalService';
 import {
   createTaskNotification,
-  findTaskNotificationByEntity,
-  completeActionableTask,
+  completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { requirePermission, preventSelfApproval } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit/clientAuditService';
@@ -359,21 +357,20 @@ describe('charterApprovalService', () => {
       expect(mockUpdateDoc).toHaveBeenCalledTimes(1); // approval write only
     });
 
-    it('auto-completes the pending review task', async () => {
-      (findTaskNotificationByEntity as jest.Mock).mockResolvedValueOnce({ id: 'task-1' });
+    it('closes every open review notification for the project', async () => {
       mockGetDoc.mockResolvedValueOnce(
         withAuthStatus('PENDING_APPROVAL', { submittedBy: 'submitter-456' })
       );
 
       await approveCharter(mockDb, 'project-123', mockUserId, mockUserName, mockPermissions);
 
-      expect(findTaskNotificationByEntity).toHaveBeenCalledWith(
+      // Not filtered by category or by a status the UI cannot produce —
+      // every approver's copy has to close, pending or in_progress.
+      expect(completeTaskNotificationsByEntity).toHaveBeenCalledWith(
         'PROJECT',
         'project-123',
-        'CHARTER_SUBMITTED',
-        'in_progress'
+        mockUserId
       );
-      expect(completeActionableTask).toHaveBeenCalledWith('task-1', mockUserId, true);
     });
   });
 

@@ -116,6 +116,9 @@ jest.mock('@/lib/utils/idempotencyService', () => ({
 // Mock task notification
 jest.mock('@/lib/tasks/taskNotificationService', () => ({
   createTaskNotification: jest.fn().mockResolvedValue('notification-1'),
+  completeTaskNotificationsByEntity: jest.fn().mockResolvedValue(0),
+  findTaskNotificationsByEntity: jest.fn().mockResolvedValue([]),
+  completeActionableTask: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Import after mocks
