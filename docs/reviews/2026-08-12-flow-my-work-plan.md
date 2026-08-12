@@ -1,7 +1,7 @@
 # Flow — "My Work": triage-grouped list, source grouping, dismissible informationals
 
 **Date:** 2026-08-12
-**Status:** Phase 0 implemented (uncommitted); backfill dry-run only. D2/D4/D5 still open.
+**Status:** Phases 0–2 implemented and committed (`aa4ed8a4`, `d216a31b`, `e9e9d36f`). D2 resolved (`/flow`), D3 resolved, D7 applied. **Open: D4, D5, D6 — and the backfill has still only been dry-run.**
 **Motivation:** My Tasks and Inbox are two lists of work you owe. Project- and
 proposal-generated tasks are coming, and there is no obvious list for them to land in.
 
