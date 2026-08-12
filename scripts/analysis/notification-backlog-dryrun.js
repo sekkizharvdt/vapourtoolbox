@@ -1,11 +1,28 @@
 /**
- * Notification backlog — DRY RUN (reads only, writes nothing).
+ * Notification backlog — audit, and optionally clear it.
  *
- * Counts open taskNotifications whose source document has already reached a
- * terminal state, i.e. the ones the Phase 0.2 auto-close wiring would have
- * closed had it existed. Run from the repo root so firebase-admin resolves:
+ * Finds open taskNotifications whose source document has already reached a
+ * terminal state: the ones the Phase 0.2 auto-close wiring would have closed
+ * had it existed. Run from the repo root so firebase-admin resolves:
  *
- *   node scripts/analysis/notification-backlog-dryrun.js
+ *   node scripts/analysis/notification-backlog-dryrun.js            # read-only
+ *   node scripts/analysis/notification-backlog-dryrun.js --apply    # writes
+ *
+ * `--apply` performs three passes, all chunked at 500 ops (rule 20):
+ *
+ *   1. complete notifications whose source is terminal
+ *   2. acknowledge informational notifications older than 30 days
+ *   3. clear `autoCompletable` on the categories no workflow can close
+ *      (WCC_READY_FOR_BILLING, DOCUMENT_INTERNAL_REVIEW — plan D7), so a
+ *      person can tick them off
+ *
+ * Every touched document is stamped `backfill: { at, pass }`, so what the
+ * script changed can be found later and undone:
+ *
+ *   db.collection('taskNotifications').where('backfill.pass', '==', 'complete-stale')
+ *
+ * This writes to other users' inboxes, not only the operator's. Run the
+ * read-only pass first and read the table.
  *
  * Plan: docs/reviews/2026-08-12-flow-my-work-plan.md (Phase 0.4).
  */
@@ -65,6 +82,34 @@ const SOURCES = {
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Firestore's hard cap on operations in one batch (rule 20). */
+const BATCH_SIZE = 500;
+
+/** Categories that are autoCompletable with no workflow able to complete them. */
+const UNCLOSABLE_CATEGORIES = new Set(['WCC_READY_FOR_BILLING', 'DOCUMENT_INTERNAL_REVIEW']);
+
+const APPLY = process.argv.includes('--apply');
+
+/**
+ * Commit `updates` in chunks. Each entry is { ref, data }.
+ * Returns the number of documents written.
+ */
+async function commitInChunks(updates, label) {
+  if (updates.length === 0) return 0;
+
+  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+    const slice = updates.slice(i, i + BATCH_SIZE);
+    const batch = db.batch();
+    slice.forEach(({ ref, data }) => batch.update(ref, data));
+    await batch.commit();
+    console.log(
+      `   ${label}: committed ${Math.min(i + BATCH_SIZE, updates.length)}/${updates.length}`
+    );
+  }
+
+  return updates.length;
+}
+
 async function main() {
   const snap = await db
     .collection('taskNotifications')
@@ -91,6 +136,7 @@ async function main() {
 
   const rows = [];
   let closableTotal = 0;
+  const closableIds = [];
 
   for (const [entityType, notifications] of byEntity) {
     const source = SOURCES[entityType];
@@ -122,6 +168,7 @@ async function main() {
     });
 
     closableTotal += closable.length;
+    closable.forEach((n) => closableIds.push(n.id));
     rows.push({
       entityType,
       open: notifications.length,
@@ -133,12 +180,86 @@ async function main() {
   rows.sort((a, b) => b.open - a.open);
   console.table(rows);
 
-  console.log(`\nWould complete (source already terminal): ${closableTotal}`);
-  console.log(`Would acknowledge (informational older than 30 days): ${informationalOld.length}`);
+  // Items nobody can close: autoCompletable, but no workflow completes them and
+  // the UI hides the manual button for exactly that flag (plan D7).
+  const stuckIds = [];
+  byEntity.forEach((notifications) => {
+    notifications.forEach((n) => {
+      if (
+        n.autoCompletable &&
+        UNCLOSABLE_CATEGORIES.has(n.category) &&
+        !closableIds.includes(n.id)
+      ) {
+        stuckIds.push(n.id);
+      }
+    });
+  });
+
+  console.log(`\nComplete (source already terminal):            ${closableTotal}`);
+  console.log(`Acknowledge (informational older than 30 days): ${informationalOld.length}`);
+  console.log(`Un-stick (autoCompletable with no closer):      ${stuckIds.length}`);
   console.log(
     `\nRemaining open afterwards: ~${snap.size - closableTotal} — the genuinely live queue.`
   );
-  console.log('\nDRY RUN — nothing was written.');
+
+  if (!APPLY) {
+    console.log('\nDRY RUN — nothing was written. Re-run with --apply to commit.');
+    return;
+  }
+
+  console.log('\nAPPLYING…\n');
+  const at = admin.firestore.Timestamp.now();
+  const col = db.collection('taskNotifications');
+
+  const completed = await commitInChunks(
+    closableIds.map((id) => ({
+      ref: col.doc(id),
+      data: {
+        status: 'completed',
+        autoCompletedAt: at,
+        completionConfirmed: true,
+        read: true,
+        updatedAt: at,
+        backfill: { at, pass: 'complete-stale' },
+      },
+    })),
+    'complete-stale'
+  );
+
+  // Acknowledging only touches items still open — anything completed by the
+  // pass above is already gone from the list.
+  const acknowledged = await commitInChunks(
+    informationalOld
+      .filter((id) => !closableIds.includes(id))
+      .map((id) => ({
+        ref: col.doc(id),
+        data: {
+          status: 'acknowledged',
+          acknowledgedAt: at,
+          read: true,
+          updatedAt: at,
+          backfill: { at, pass: 'acknowledge-old-informational' },
+        },
+      })),
+    'acknowledge-old'
+  );
+
+  const unstuck = await commitInChunks(
+    stuckIds.map((id) => ({
+      ref: col.doc(id),
+      data: {
+        autoCompletable: false,
+        updatedAt: at,
+        backfill: { at, pass: 'unstick-autocompletable' },
+      },
+    })),
+    'unstick'
+  );
+
+  console.log(
+    `\nDone. completed=${completed} acknowledged=${acknowledged} unstuck=${unstuck}\n` +
+      `Undo a pass with: where('backfill.pass', '==', '<pass>')`
+  );
 }
 
 main()
