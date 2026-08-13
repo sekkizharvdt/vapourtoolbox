@@ -424,6 +424,20 @@ export function CommercialTermsForm({
               </Stack>
             )}
 
+            {/* Packing Instructions (feedback K8tVouBR) — sits with P&F because
+                that is where the user is already thinking about packing. */}
+            <TextField
+              label="Packing Instructions (optional)"
+              value={terms.packingInstructions ?? ''}
+              onChange={(e) => handleChange('packingInstructions', e.target.value)}
+              disabled={disabled}
+              multiline
+              rows={3}
+              fullWidth
+              placeholder="e.g. Sea-worthy export packing, moisture and corrosion protection, suitable for rough handling in transit"
+              helperText="Shown on the PO and the PO PDF for the supplier"
+            />
+
             {/* 11. Delivery Address */}
             <TextField
               label="Delivery Address"

@@ -410,6 +410,13 @@ export interface POCommercialTerms {
 
   // 11. Delivery Address
   deliveryAddress: string;
+  /**
+   * Project-specific packing requirements for the supplier — sea-worthy export
+   * packing, moisture/corrosion protection, precautions for rough handling
+   * (feedback K8tVouBR). Free text; shown on the PO view and the PO PDF so the
+   * requirement reaches the vendor. Used for both indigenous and import orders.
+   */
+  packingInstructions?: string;
 
   // 12. Document Submission — "post order documents" (GAD, datasheet, QAP, ...)
   // the vendor must submit before starting production (review 2.3).

@@ -265,6 +265,18 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                         : 'Not included'}
                 </Typography>
               </Box>
+              {/* Packing Instructions (feedback K8tVouBR) — omitted when the PO
+                  carries none, including every PO raised before the field. */}
+              {terms.packingInstructions && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Packing Instructions
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {terms.packingInstructions}
+                  </Typography>
+                </Box>
+              )}
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
                   Delivery Address

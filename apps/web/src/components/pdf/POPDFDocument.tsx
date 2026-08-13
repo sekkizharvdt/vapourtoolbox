@@ -375,6 +375,18 @@ export function POPDFDocument({
           </View>
         </View>
 
+        {/* Packing Instructions (feedback K8tVouBR). Its own block rather than a
+            column, since these run to several lines and must be unmissable for
+            the supplier. Omitted entirely when the PO carries none. */}
+        {po.commercialTerms?.packingInstructions && (
+          <View style={local.twoCol}>
+            <View style={local.col}>
+              <Text style={local.colLabel}>Packing Instructions</Text>
+              <Text style={local.colValue}>{po.commercialTerms.packingInstructions}</Text>
+            </View>
+          </View>
+        )}
+
         {/* Project Info */}
         {po.projectNames.length > 0 && (
           <ReportSection title="Projects">
