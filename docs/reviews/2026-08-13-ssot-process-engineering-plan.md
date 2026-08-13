@@ -437,6 +437,34 @@ super-admin only; issuing documents follows the existing master document list co
 
 ---
 
+## 2.9 Where SSOT lives before a job is won — OPEN
+
+Raised 2026-08-13, and it is the right question: process design happens **during** the proposal,
+because you size the equipment in order to price it. SSOT today hangs off a project, so
+proposal-stage engineering has nowhere to go.
+
+`ProjectStatus` already includes `PROPOSAL`, so the obvious move is to create the project early,
+at that status, and do the engineering there. **That collides with award-time conversion as it
+stands:** `convertProposalToProject` always creates a _new_ project and refuses to run twice. A
+project created early to hold the SSOT would leave two project records for one job, with the
+process data under the wrong one.
+
+Three ways out:
+
+| Option                                                                                          | What it costs                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. One record, created at proposal status, adopted on award** _(recommended)_                 | Give the conversion an adopt path so the existing project becomes the awarded one by status transition. No copying, no second home, provenance and hand edits survive because nothing moves.                                    |
+| B. SSOT subcollections under proposals, copied to the project on award                          | Two homes for one concept. Copy logic to write and test, provenance to preserve across the copy, security rules duplicated, generators and the sync layer parameterised by parent type. This is what rule 32 exists to prevent. |
+| C. Polymorphic parent — registers owned by a "workspace" that a proposal or a project points at | Cleanest in theory. In practice a data-model change to six services, the rules file and the sync layer, all of which hard-code the `projects/{id}/…` path today.                                                                |
+
+**The one real trade-off in option A** is document numbering: a project created at proposal stage
+consumes a `PRJ/26/XXX` code, and a lost bid keeps it. Either that is acceptable, or the real
+code is assigned only on award and the proposal-stage record carries a provisional identifier.
+**That is a document-control convention, so it is the team's call, not a technical one.**
+
+This also connects to work already queued: the proposal acceptance UI that makes _Convert to
+Project_ reachable at all.
+
 # Part 3 — Build plan
 
 Only starts once Part 2 is accepted. Phases are ordered by dependency; sizes are relative, and

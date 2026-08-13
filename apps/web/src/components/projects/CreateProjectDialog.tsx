@@ -44,6 +44,10 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { ProjectStatus, ProjectPriority, BusinessEntity, ProjectMember } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'CreateProjectDialog' });
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -58,7 +62,7 @@ interface UserOption {
 }
 
 export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -258,11 +262,22 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
       const { db } = getFirebase();
       const projectsRef = collection(db, COLLECTIONS.PROJECTS);
 
-      // Generate project code based on project start date
-      const code = await generateProjectCode(new Date(startDate));
+      // Rule 35: every Firestore call in this handler is wrapped, not just the
+      // write. Whichever runs first is the one that fails on a stale token, and
+      // the code query runs before the create.
+      const code = await retryOnStaleToken(() => generateProjectCode(new Date(startDate)));
 
       // Prepare project data
       const projectData = {
+        // Required by the security rule on this collection:
+        //   allow create: if hasPermission(8) && isInternalUser() &&
+        //                    request.resource.data.tenantId == request.auth.token.tenantId;
+        // Omitting it made every manual project creation fail with "Missing or
+        // insufficient permissions", which reads like a permissions problem and
+        // is actually a missing field. projectConversion.ts already wrote this;
+        // this dialog never did, so proposals could become projects while the
+        // New Project button could not.
+        tenantId: claims?.tenantId || 'default-entity',
         code,
         name: name.trim(),
         description: description.trim() || null,
@@ -295,7 +310,7 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
       };
 
       // Create project and update users' assignedProjects atomically
-      const docRef = await addDoc(projectsRef, projectData);
+      const docRef = await retryOnStaleToken(() => addDoc(projectsRef, projectData));
       const projectId = docRef.id;
 
       // Use batch to update all team members' assignedProjects
@@ -316,7 +331,7 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
         });
       }
 
-      await batch.commit();
+      await retryOnStaleToken(() => batch.commit());
 
       // Reset form
       setName('');
@@ -333,8 +348,11 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
 
       onSuccess();
     } catch (err) {
-      console.error('Error creating project:', err);
-      setError('Failed to create project. Please try again.');
+      // Surface the real message (rule 27). "Please try again" hid a
+      // permission-denied behind advice that could never work — retrying a
+      // request the rules reject just produces the same rejection.
+      logger.error('Error creating project', { error: err });
+      setError(`Failed to create project: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
