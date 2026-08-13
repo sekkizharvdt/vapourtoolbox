@@ -27,7 +27,8 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
-import { preventSelfApproval } from '@/lib/auth/authorizationService';
+import { preventSelfApproval, requirePermission } from '@/lib/auth/authorizationService';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { paymentBatchStateMachine } from '@/lib/workflow/stateMachines';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
@@ -262,7 +263,14 @@ export async function listPaymentBatches(
   }
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => docToPaymentBatch(docSnap.data(), docSnap.id));
+  return (
+    snapshot.docs
+      // Rule 3: a deleted batch must leave the list. Filtered client-side, not
+      // via where('isDeleted','!=',true), which would drop every batch written
+      // before the field existed.
+      .filter((docSnap) => !docSnap.data().isDeleted)
+      .map((docSnap) => docToPaymentBatch(docSnap.data(), docSnap.id))
+  );
 }
 
 /**
@@ -1279,4 +1287,86 @@ export async function getPaymentBatchStats(db: Firestore): Promise<PaymentBatchS
   }
 
   return stats;
+}
+
+/**
+ * Soft-delete a payment batch (feedback 6u3mQFnM).
+ *
+ * Only a batch that has not yet been approved can go: once it is APPROVED,
+ * EXECUTING or COMPLETED it represents money that has moved or been authorised,
+ * and removing it would hide that. Terminal REJECTED/CANCELLED batches are the
+ * record of a decision, so they stay too.
+ *
+ * Soft-delete rather than hard: the batch stays recoverable and the audit trail
+ * survives (rule 3, rule 18).
+ */
+export async function softDeletePaymentBatch(
+  db: Firestore,
+  batchId: string,
+  userId: string,
+  userName: string,
+  userPermissions: number,
+  reason?: string
+): Promise<void> {
+  // rule19-exempt: single-field idempotent toggle (isDeleted=true); the read
+  // validates current status and gathers audit metadata, the write flips one
+  // boolean — concurrent calls converge to deleted.
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+    userId,
+    'delete payment batch'
+  );
+
+  const batchRef = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+  const snap = await getDoc(batchRef);
+
+  if (!snap.exists()) {
+    throw new Error('Payment batch not found');
+  }
+
+  const batch = snap.data();
+
+  if (batch.isDeleted) return; // Already gone — nothing to do (rule 9).
+
+  const deletableStatuses = ['DRAFT', 'PENDING_APPROVAL'];
+  if (!deletableStatuses.includes(batch.status)) {
+    throw new Error(
+      `A ${String(batch.status).replace(/_/g, ' ').toLowerCase()} batch cannot be deleted. ` +
+        `Only draft and pending-approval batches can be removed — cancel it instead.`
+    );
+  }
+
+  await updateDoc(batchRef, {
+    isDeleted: true,
+    deletedAt: Timestamp.now(),
+    deletedBy: userId,
+    ...(reason && { deletionReason: reason }),
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  });
+
+  try {
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'BATCH_DELETED',
+      'PAYMENT_BATCH',
+      batchId,
+      `Deleted payment batch ${batch.batchNumber ?? batchId} (${batch.status})`,
+      {
+        entityName: batch.batchNumber as string,
+        severity: 'CRITICAL',
+        metadata: {
+          status: batch.status,
+          totalAmount: batch.totalAmount,
+          ...(reason && { deletionReason: reason }),
+        },
+      }
+    );
+  } catch (auditError) {
+    logger.warn('Failed to write audit log for payment batch deletion', { batchId, auditError });
+  }
+
+  logger.info('Payment batch soft deleted', { batchId, status: batch.status });
 }

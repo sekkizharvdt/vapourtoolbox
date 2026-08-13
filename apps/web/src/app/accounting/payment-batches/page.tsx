@@ -29,7 +29,16 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
-import { listPaymentBatches, getPaymentBatchStats } from '@/lib/accounting/paymentBatchService';
+import {
+  listPaymentBatches,
+  getPaymentBatchStats,
+  softDeletePaymentBatch,
+} from '@/lib/accounting/paymentBatchService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useToast } from '@/components/common/Toast';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import DeleteIcon from '@mui/icons-material/Delete';
 import type { PaymentBatch, PaymentBatchStatus, PaymentBatchStats } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { getStatusColor } from '@vapour/ui';
@@ -59,7 +68,43 @@ type FilterStatus = 'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'COMPLET
 
 export default function PaymentBatchesPage() {
   const router = useRouter();
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
+  // loadData is scoped inside its effect; bumping this re-runs it after a delete.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { toast } = useToast();
+
+  // Only an unapproved batch can be removed — see softDeletePaymentBatch for why
+  // (feedback 6u3mQFnM).
+  const DELETABLE: PaymentBatchStatus[] = ['DRAFT', 'PENDING_APPROVAL'];
+
+  const handleDelete = async (batch: PaymentBatch) => {
+    const ok = await confirm({
+      title: 'Delete payment batch?',
+      message: `Move ${batch.batchNumber} to deleted? It can be restored, and nothing in it has been paid yet.`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+      // Destructive — focus Cancel, not Confirm.
+      focusConfirm: false,
+    });
+    if (!ok) return;
+
+    try {
+      const { db } = getFirebase();
+      await softDeletePaymentBatch(
+        db,
+        batch.id,
+        user?.uid ?? '',
+        user?.displayName || user?.email || 'Unknown',
+        claims?.permissions ?? 0
+      );
+      toast.success(`${batch.batchNumber} deleted`);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not delete the batch');
+    }
+  };
+
   const fy = useFiscalYearFilter();
   const [batches, setBatches] = useState<PaymentBatch[]>([]);
   const [stats, setStats] = useState<PaymentBatchStats | null>(null);
@@ -103,7 +148,7 @@ export default function PaymentBatchesPage() {
     };
 
     loadData();
-  }, [hasViewAccess, statusFilter]);
+  }, [hasViewAccess, statusFilter, refreshKey]);
 
   const handleCreate = () => {
     router.push('/accounting/payment-batches/new');
@@ -277,16 +322,33 @@ export default function PaymentBatchesPage() {
                     {batch.notes && ` - ${batch.notes}`}
                   </Typography>
                 </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Balance
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    color={batch.remainingBalance >= 0 ? 'success.main' : 'error.main'}
-                  >
-                    {formatCurrency(batch.remainingBalance)}
-                  </Typography>
+                <Box sx={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Balance
+                    </Typography>
+                    <Typography
+                      variant="h6"
+                      color={batch.remainingBalance >= 0 ? 'success.main' : 'error.main'}
+                    >
+                      {formatCurrency(batch.remainingBalance)}
+                    </Typography>
+                  </Box>
+                  {hasManageAccess && DELETABLE.includes(batch.status) && (
+                    <Tooltip title="Delete batch">
+                      <IconButton
+                        aria-label={`Delete ${batch.batchNumber}`}
+                        size="small"
+                        onClick={(e) => {
+                          // The whole card opens the batch — do not navigate.
+                          e.stopPropagation();
+                          void handleDelete(batch);
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               </Box>
 
