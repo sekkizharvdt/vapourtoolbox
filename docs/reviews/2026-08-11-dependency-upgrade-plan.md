@@ -269,7 +269,11 @@ Held    prettier 3.9, @types/node 26   (deliberate, see top of file)
 The three Wave 3 prerequisites are independent of one another, so they can be picked up in any order.
 Two of them are really infrastructure projects rather than dependency work:
 
-1. **Jest → ESM** unblocks firebase-admin 14 (and will keep recurring as more packages go ESM-only).
+1. **Test-runner modernisation** unblocks firebase-admin 14 (and will keep recurring as more packages
+   go ESM-only). Planned in detail in
+   [2026-08-12-jest-modernisation-plan.md](./2026-08-12-jest-modernisation-plan.md) — which
+   recommends **Vitest over Jest-ESM**, on the strength of 530 `jest.mock()` calls that Vitest
+   preserves and Jest-ESM would require rewriting.
 2. **ESLint flat config** unblocks both Next 16 and ESLint 10 — one migration, two items.
 3. **MUI 9** unblocks nothing else; it is pure UI work and can wait indefinitely.
 
