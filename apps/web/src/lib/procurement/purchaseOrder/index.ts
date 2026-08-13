@@ -12,6 +12,7 @@ export {
   getPOItems,
   updatePOItemHsnSac,
   updatePOItemFields,
+  updatePOItemQuantity,
   listPOs,
   updateDraftPO,
   type CreatePOFromOfferTerms,

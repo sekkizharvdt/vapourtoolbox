@@ -28,12 +28,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import { PageBreadcrumbs } from '@/components/common/PageBreadcrumbs';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
   Home as HomeIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -49,6 +56,7 @@ import {
   updateDraftPO,
   getPOItems,
   updatePOItemFields,
+  updatePOItemQuantity,
   addPOAttachment,
   removePOAttachment,
 } from '@/lib/procurement/purchaseOrder';
@@ -98,6 +106,57 @@ export default function EditPOClient() {
 
   // Line items — Specification + HSN/SAC are editable here (moved out of View).
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
+
+  // Quantity is changed one line at a time through its own dialog, not with the
+  // bulk save: it needs a reason, it recomputes the PO totals, and it writes a
+  // note back to the originating PR line (feedback MesC9vYA).
+  const [qtyItem, setQtyItem] = useState<PurchaseOrderItem | null>(null);
+  const [qtyValue, setQtyValue] = useState('');
+  const [qtyReason, setQtyReason] = useState('');
+  const [qtySaving, setQtySaving] = useState(false);
+  const [qtyError, setQtyError] = useState<string | null>(null);
+
+  const openQtyDialog = (item: PurchaseOrderItem) => {
+    setQtyItem(item);
+    setQtyValue(String(item.quantity));
+    setQtyReason('');
+    setQtyError(null);
+  };
+
+  const handleQtySave = async () => {
+    if (!qtyItem || !poId || !user) return;
+
+    const parsed = Number(qtyValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setQtyError('Enter a quantity greater than zero');
+      return;
+    }
+    if (!qtyReason.trim()) {
+      setQtyError('A reason is required — it is what tells the engineer why the quantity changed');
+      return;
+    }
+
+    setQtySaving(true);
+    setQtyError(null);
+    try {
+      await updatePOItemQuantity(
+        poId,
+        qtyItem.id,
+        parsed,
+        qtyReason,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        claims?.permissions || 0
+      );
+      setQtyItem(null);
+      // Totals and the line both moved — reload rather than patch locally.
+      await loadPO();
+    } catch (err) {
+      setQtyError(err instanceof Error ? err.message : 'Could not change the quantity');
+    } finally {
+      setQtySaving(false);
+    }
+  };
   // Original spec/HSN/description per item id, to write only changed items on save.
   const originalItemFields = useRef<
     Map<string, { specification: string; hsnSacCode: string; description: string }>
@@ -588,7 +647,31 @@ export default function EditPOClient() {
                               />
                             </TableCell>
                             <TableCell align="right">
-                              {item.quantity} {item.unit}
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'flex-end',
+                                  gap: 0.5,
+                                }}
+                              >
+                                <span>
+                                  {item.quantity} {item.unit}
+                                </span>
+                                {/* DRAFT only — a PO in approval is being read by
+                                    the approver (feedback MesC9vYA). */}
+                                {po?.status === 'DRAFT' && (
+                                  <Tooltip title="Change quantity">
+                                    <IconButton
+                                      aria-label={`Change quantity for ${item.description}`}
+                                      size="small"
+                                      onClick={() => openQtyDialog(item)}
+                                    >
+                                      <EditIcon fontSize="inherit" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </Box>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -635,6 +718,61 @@ export default function EditPOClient() {
           </>
         )}
       </Stack>
+
+      {/* Quantity change (feedback MesC9vYA). Separate from Save because it
+          needs a reason, recomputes the PO totals, and records a note back on
+          the originating PR line. */}
+      <Dialog
+        open={!!qtyItem}
+        onClose={() => !qtySaving && setQtyItem(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Change ordered quantity</DialogTitle>
+        <DialogContent>
+          {qtyItem && (
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                {qtyItem.description}
+              </Typography>
+              {qtyError && <Alert severity="error">{qtyError}</Alert>}
+              <TextField
+                label="Quantity"
+                type="number"
+                value={qtyValue}
+                onChange={(e) => setQtyValue(e.target.value)}
+                helperText={`Currently ${qtyItem.quantity} ${qtyItem.unit}`}
+                slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                fullWidth
+                autoFocus
+              />
+              <TextField
+                label="Reason"
+                value={qtyReason}
+                onChange={(e) => setQtyReason(e.target.value)}
+                placeholder="e.g. Increased for spare requirement"
+                helperText="Recorded against the purchase request so the engineer who raised it can see why"
+                multiline
+                rows={2}
+                required
+                fullWidth
+              />
+              <Alert severity="info">
+                The PO totals and advance amount are recalculated, and a note is added to the
+                originating purchase request line.
+              </Alert>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQtyItem(null)} disabled={qtySaving}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleQtySave} disabled={qtySaving}>
+            {qtySaving ? 'Saving...' : 'Change quantity'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
