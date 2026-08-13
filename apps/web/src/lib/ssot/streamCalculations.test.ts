@@ -15,6 +15,7 @@ import {
   calculateBoilingPointElevation,
   calculateStreamProperties,
   enrichStreamInput,
+  hasPropertyCorrelations,
   type StreamCalculationInput,
 } from './streamCalculations';
 import type { ProcessStreamInput, FluidType } from '@vapour/types';
@@ -121,13 +122,42 @@ describe('Stream Calculations', () => {
       expect(inferFluidType('fw-supply')).toBe('FEED WATER');
     });
 
-    it('should default to sea water for unknown prefixes', () => {
-      expect(inferFluidType('X-001')).toBe('SEA WATER');
-      expect(inferFluidType('unknown')).toBe('SEA WATER');
+    it('should return null for unknown prefixes rather than guessing', () => {
+      // Previously these returned SEA WATER. A guess that looks like an answer
+      // is worse than no answer: the caller cannot tell it apart from a real
+      // match, so the stream gets seawater correlations and nothing says so.
+      expect(inferFluidType('X-001')).toBeNull();
+      expect(inferFluidType('unknown')).toBeNull();
+      expect(inferFluidType('')).toBeNull();
+      expect(inferFluidType('   ')).toBeNull();
     });
 
     it('should handle whitespace', () => {
       expect(inferFluidType('  SW-001  ')).toBe('SEA WATER');
+    });
+
+    it('should match the longest prefix, not the first one that fits', () => {
+      // BG (biogas) and B (brine) both match a tag starting "BG". First-match
+      // ordering classified biogas as brine and handed a gas the properties of
+      // a concentrated salt solution.
+      expect(inferFluidType('BG1')).toBe('BIOGAS');
+      expect(inferFluidType('BG-101')).toBe('BIOGAS');
+      expect(inferFluidType('bg1')).toBe('BIOGAS');
+      // The brine tags it could have been confused with still work.
+      expect(inferFluidType('B1')).toBe('BRINE WATER');
+      expect(inferFluidType('BH')).toBe('BRINE WATER');
+      // Same shape of collision on the seawater/steam pair.
+      expect(inferFluidType('SW3')).toBe('SEA WATER');
+      expect(inferFluidType('S1')).toBe('STEAM');
+    });
+
+    it('should classify the MED generator feed tags as feed water', () => {
+      // F1/FH/FSH are what medDesignGenerator emits. Only "FW" was tested
+      // before, so every one of these fell through to the sea water default.
+      expect(inferFluidType('F1')).toBe('FEED WATER');
+      expect(inferFluidType('FH')).toBe('FEED WATER');
+      expect(inferFluidType('FSH')).toBe('FEED WATER');
+      expect(inferFluidType('F-PH1')).toBe('FEED WATER');
     });
   });
 
@@ -565,6 +595,56 @@ describe('Stream Calculations', () => {
       const result = calculateStreamProperties(input);
 
       expect(result.pressureBar).toBe(2.5);
+    });
+  });
+
+  describe('fluids with no correlation', () => {
+    it('should report that biogas properties cannot be derived', () => {
+      expect(hasPropertyCorrelations('BIOGAS')).toBe(false);
+      expect(hasPropertyCorrelations('SEA WATER')).toBe(true);
+      expect(hasPropertyCorrelations('STEAM')).toBe(true);
+      expect(hasPropertyCorrelations('NCG')).toBe(true);
+    });
+
+    it('should leave biogas density and enthalpy undefined, not guess them', () => {
+      const result = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+      });
+
+      // The failure this guards against is a plausible number, not a crash:
+      // biogas modelled as air gives ~1.2 kg/m³ against a real ~1.15, and
+      // modelled as water gives 1000. Both size a pipe without complaint.
+      expect(result.density).toBeUndefined();
+      expect(result.enthalpy).toBeUndefined();
+
+      // The unit conversions are pure arithmetic and remain valid.
+      expect(result.flowRateKgHr).toBe(1800);
+      expect(result.pressureBar).toBeCloseTo(1.05, 6);
+    });
+
+    it('should throw a descriptive error if biogas density is requested directly', () => {
+      expect(() => calculateDensity('BIOGAS', 38, undefined, 1050)).toThrow(/composition/i);
+    });
+
+    it('should not overwrite supplied biogas properties when enriching', () => {
+      const enriched = enrichStreamInput({
+        lineTag: 'BG1',
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+        density: 1.15,
+        enthalpy: 42,
+      });
+
+      // The whole point: a value the engineer took off the basic design must
+      // survive a recalculation that cannot produce one itself.
+      expect(enriched.density).toBe(1.15);
+      expect(enriched.enthalpy).toBe(42);
+      expect(enriched.flowRateKgHr).toBe(1800);
     });
   });
 });

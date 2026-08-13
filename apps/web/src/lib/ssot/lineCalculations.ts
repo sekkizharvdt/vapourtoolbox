@@ -5,14 +5,72 @@
  * Uses continuity equation: A = Q / V, where D = sqrt(4A/π)
  */
 
-import type { ProcessLineInput } from '@vapour/types';
+import { FLUID_TYPES, type FluidType, type ProcessLineInput } from '@vapour/types';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-/** Default design velocity in m/s (typical for liquid process lines) */
+/**
+ * Fallback design velocity in m/s, used only when the line's fluid is not a
+ * recognised `FluidType`.
+ *
+ * This is a LIQUID velocity. It was previously the single default for every
+ * line regardless of service, which meant a hand-entered gas line was sized as
+ * though it were water — a biogas main at 1.5 m/s comes out several pipe sizes
+ * too large. Prefer `getDesignVelocity(fluid)`, which is fluid-aware; this
+ * constant remains only for the case where the fluid string is unrecognised.
+ */
 export const DEFAULT_DESIGN_VELOCITY = 1.5;
+
+/**
+ * Design velocity per fluid service, m/s.
+ *
+ * ⚠ THE GAS VALUES ARE ASSUMED AND AWAIT CONFIRMATION (plan §2.7, checkpoint
+ * CP1). They are typical process-design figures, not values this repo derived
+ * or that the team has signed off. They are stated here rather than buried so
+ * they can be reviewed as numbers: changing one changes every line size
+ * computed from it.
+ *
+ * Liquids keep 1.5 m/s — the value already in use, unchanged, so no existing
+ * line resizes as a side effect of this change.
+ *
+ * Gas services are sized at a velocity here, but low-pressure gas mains are
+ * commonly sized on allowable pressure drop per unit length instead, because a
+ * blower has very little head to spend. Which basis applies is the open
+ * question in §2.7; until it is answered these velocities are the stand-in.
+ */
+export const DESIGN_VELOCITY_BY_FLUID: Record<FluidType, number> = {
+  // ── Liquids: unchanged from the previous single default ─────────────────
+  'SEA WATER': 1.5,
+  'BRINE WATER': 1.5,
+  'DISTILLATE WATER': 1.5,
+  'FEED WATER': 1.5,
+
+  // ── Gases and vapours: ASSUMED, pending CP1 ─────────────────────────────
+  /** Vapour ducts and steam mains. Typical range 25–40 m/s. */
+  STEAM: 30,
+  /** Non-condensable gas headers to the vacuum system. Typical range 15–25 m/s. */
+  NCG: 20,
+  /** Biogas mains at low pressure. Typical range 5–15 m/s. */
+  BIOGAS: 10,
+};
+
+/**
+ * Design velocity for a line's fluid service, m/s.
+ *
+ * `ProcessLine.fluid` is a free string rather than a `FluidType` — generators
+ * write the fluid type into it, but a hand-entered line may hold anything. An
+ * unrecognised value falls back to the liquid default rather than guessing at a
+ * phase, since a wrong liquid velocity oversizes a line while a wrong gas
+ * velocity can undersize one.
+ */
+export function getDesignVelocity(fluid: string | undefined): number {
+  if (!fluid) return DEFAULT_DESIGN_VELOCITY;
+  const normalised = fluid.toUpperCase().trim();
+  const match = FLUID_TYPES.find((f) => f === normalised);
+  return match ? DESIGN_VELOCITY_BY_FLUID[match] : DEFAULT_DESIGN_VELOCITY;
+}
 
 // ============================================================================
 // Calculations
@@ -99,8 +157,9 @@ export function enrichLineInput(input: ProcessLineInput): ProcessLineInput {
   let calculatedID = input.calculatedID;
   let actualVelocity = input.actualVelocity;
 
-  // Calculate required ID from design velocity
-  const designVelocity = inputDesignVelocity || DEFAULT_DESIGN_VELOCITY;
+  // Calculate required ID from design velocity. An explicit velocity on the
+  // input always wins — generated lines carry the one the design sized them at.
+  const designVelocity = inputDesignVelocity || getDesignVelocity(input.fluid);
   if (flowRateKgS > 0 && designVelocity > 0) {
     calculatedID = calculateInnerDiameter(flowRateKgS, density, designVelocity);
   }

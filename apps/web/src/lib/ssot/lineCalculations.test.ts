@@ -11,6 +11,7 @@ import {
   calculateInnerDiameter,
   calculateVelocity,
   enrichLineInput,
+  getDesignVelocity,
   DEFAULT_DESIGN_VELOCITY,
 } from './lineCalculations';
 import type { ProcessLineInput } from '@vapour/types';
@@ -310,6 +311,66 @@ describe('Line Calculations', () => {
       // Velocity should be around 1.7 m/s (acceptable for liquids)
       expect(velocity).toBeGreaterThan(1.5);
       expect(velocity).toBeLessThan(2.0);
+    });
+  });
+
+  describe('getDesignVelocity', () => {
+    it('should keep 1.5 m/s for every liquid service', () => {
+      // Unchanged on purpose: no existing line may resize as a side effect of
+      // making the velocity fluid-aware.
+      expect(getDesignVelocity('SEA WATER')).toBe(1.5);
+      expect(getDesignVelocity('BRINE WATER')).toBe(1.5);
+      expect(getDesignVelocity('DISTILLATE WATER')).toBe(1.5);
+      expect(getDesignVelocity('FEED WATER')).toBe(1.5);
+    });
+
+    it('should give gases a gas velocity', () => {
+      expect(getDesignVelocity('BIOGAS')).toBe(10);
+      expect(getDesignVelocity('STEAM')).toBe(30);
+      expect(getDesignVelocity('NCG')).toBe(20);
+    });
+
+    it('should match case-insensitively, since fluid is a free string on a line', () => {
+      expect(getDesignVelocity('biogas')).toBe(10);
+      expect(getDesignVelocity('  Steam  ')).toBe(30);
+    });
+
+    it('should fall back to the liquid default for an unrecognised fluid', () => {
+      // A wrong liquid velocity oversizes a line; a wrong gas velocity can
+      // undersize one. The safer error is the one that costs money, not
+      // pressure drop.
+      expect(getDesignVelocity('Cooling water')).toBe(DEFAULT_DESIGN_VELOCITY);
+      expect(getDesignVelocity('')).toBe(DEFAULT_DESIGN_VELOCITY);
+      expect(getDesignVelocity(undefined)).toBe(DEFAULT_DESIGN_VELOCITY);
+    });
+  });
+
+  describe('enrichLineInput fluid awareness', () => {
+    it('should size a biogas line at the gas velocity, not the liquid default', () => {
+      const enriched = enrichLineInput(
+        createTestInput({
+          fluid: 'BIOGAS',
+          flowRateKgS: 0.5,
+          density: 1.15,
+          designVelocity: undefined as unknown as number,
+        })
+      );
+
+      expect(enriched.designVelocity).toBe(10);
+
+      // 0.5 kg/s at 1.15 kg/m³ is 0.435 m³/s. At 10 m/s that is a 235 mm bore;
+      // at the old 1.5 m/s default it would have been 607 mm — three pipe
+      // sizes larger, on a line the blower could never have justified.
+      expect(enriched.calculatedID).toBeGreaterThan(200);
+      expect(enriched.calculatedID).toBeLessThan(260);
+    });
+
+    it('should never override a velocity the design already chose', () => {
+      const enriched = enrichLineInput(
+        createTestInput({ fluid: 'BIOGAS', flowRateKgS: 0.5, density: 1.15, designVelocity: 7 })
+      );
+
+      expect(enriched.designVelocity).toBe(7);
     });
   });
 });

@@ -16,7 +16,8 @@ export type FluidType =
   | 'DISTILLATE WATER'
   | 'STEAM'
   | 'NCG'
-  | 'FEED WATER';
+  | 'FEED WATER'
+  | 'BIOGAS';
 
 export const FLUID_TYPES: FluidType[] = [
   'SEA WATER',
@@ -25,9 +26,26 @@ export const FLUID_TYPES: FluidType[] = [
   'STEAM',
   'NCG',
   'FEED WATER',
+  'BIOGAS',
 ];
 
-// Line tag prefix to fluid type mapping
+/**
+ * Line tag prefix → fluid type.
+ *
+ * This map is the ONLY place prefixes are declared; `inferFluidType` reads it
+ * rather than carrying its own copy of the list.
+ *
+ * ⚠ Matching MUST be longest-prefix. `BG` (biogas) and `B` (brine) both match a
+ * tag beginning `BG`, and first-match-wins in declaration order would classify
+ * a biogas stream as brine and hand it seawater correlations — a gas given the
+ * properties of a concentrated salt solution, silently. The same trap exists
+ * for any future prefix that extends an existing one.
+ *
+ * Both `F` and `FW` map to feed water on purpose: the MED generator emits feed
+ * streams as `F1`, `FH`, `FSH`, while hand-entered tags have historically used
+ * `FW`. Before longest-prefix matching, only `FW` was tested, so every `F…` tag
+ * fell through to the default and was silently classified as sea water.
+ */
 export const LINE_TAG_FLUID_MAP: Record<string, FluidType> = {
   SW: 'SEA WATER',
   B: 'BRINE WATER',
@@ -35,6 +53,8 @@ export const LINE_TAG_FLUID_MAP: Record<string, FluidType> = {
   S: 'STEAM',
   NCG: 'NCG',
   F: 'FEED WATER',
+  FW: 'FEED WATER',
+  BG: 'BIOGAS',
 };
 
 // ============================================

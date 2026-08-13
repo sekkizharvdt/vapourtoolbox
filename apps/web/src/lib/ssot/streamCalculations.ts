@@ -31,6 +31,7 @@ import {
   getEntropySuperheated,
 } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
+import { LINE_TAG_FLUID_MAP } from '@vapour/types';
 import type { FluidType, ProcessStreamInput, SteamRegion } from '@vapour/types';
 
 const logger = createLogger({ context: 'streamCalculations' });
@@ -40,9 +41,18 @@ const logger = createLogger({ context: 'streamCalculations' });
 // ============================================================================
 
 export interface StreamCalculationResult {
-  // Core properties
-  density: number; // kg/m³
-  enthalpy: number; // kJ/kg
+  /**
+   * Density in kg/m³, or `undefined` when the fluid has no correlation in this
+   * repo and its properties must be supplied.
+   *
+   * Optional rather than required because not every fluid is one we can model:
+   * biogas needs a gas composition, which is a separate piece of work. Making
+   * this required would force a fabricated number into the one place a reader
+   * cannot tell a computed value from an invented one.
+   */
+  density?: number; // kg/m³
+  /** Enthalpy in kJ/kg, or `undefined` — see `density`. */
+  enthalpy?: number; // kJ/kg
   flowRateKgHr: number; // kg/hr (calculated from kg/s)
   pressureBar: number; // bar (calculated from mbar)
   // Extended properties
@@ -67,28 +77,41 @@ export interface StreamCalculationInput {
 // ============================================================================
 
 /**
- * Infer fluid type from line tag prefix
+ * Infer fluid type from a line tag prefix, or `null` when the tag matches no
+ * known prefix.
  *
- * Common prefixes:
- * - SW: Sea Water
- * - B: Brine
- * - D: Distillate
- * - S: Steam
- * - NCG: Non-Condensable Gas
- * - FW: Feed Water
+ * Prefixes come from `LINE_TAG_FLUID_MAP` — this function does not carry its
+ * own copy of the list, so adding a fluid there is enough to teach it.
+ *
+ * ── Two properties this function must have ───────────────────────────────
+ * **Longest prefix wins.** `BG1` matches both `B` (brine) and `BG` (biogas).
+ * The previous implementation tested prefixes in a fixed order and returned the
+ * first hit, so a biogas stream would have been classified as brine and given
+ * seawater correlations — a gas sized and costed as a salt solution, with
+ * nothing in the UI to show it had happened.
+ *
+ * **No silent default.** The previous implementation returned `SEA WATER` for
+ * anything it did not recognise. That is how the MED generator's own feed
+ * streams (`F1`, `FH`, `FSH`) were classified as sea water: only `FW` was
+ * tested, so every one of them fell through to the default. A guess that looks
+ * like an answer is worse than no answer, so an unrecognised tag now returns
+ * `null` and the caller asks the engineer.
  */
-export function inferFluidType(lineTag: string): FluidType {
+export function inferFluidType(lineTag: string): FluidType | null {
   const tag = lineTag.toUpperCase().trim();
+  if (!tag) return null;
 
-  if (tag.startsWith('SW')) return 'SEA WATER';
-  if (tag.startsWith('B')) return 'BRINE WATER';
-  if (tag.startsWith('D')) return 'DISTILLATE WATER';
-  if (tag.startsWith('S')) return 'STEAM';
-  if (tag.startsWith('NCG')) return 'NCG';
-  if (tag.startsWith('FW')) return 'FEED WATER';
+  let bestPrefix = '';
+  let bestFluid: FluidType | null = null;
 
-  // Default to sea water if unknown
-  return 'SEA WATER';
+  for (const [prefix, fluid] of Object.entries(LINE_TAG_FLUID_MAP)) {
+    if (tag.startsWith(prefix) && prefix.length > bestPrefix.length) {
+      bestPrefix = prefix;
+      bestFluid = fluid;
+    }
+  }
+
+  return bestFluid;
 }
 
 // ============================================================================
@@ -120,6 +143,23 @@ function getSteamRegionType(pressureBar: number, tempC: number): SteamRegion {
 // ============================================================================
 // Property Calculations
 // ============================================================================
+
+/**
+ * Whether this repo can derive a fluid's properties from temperature and
+ * pressure alone.
+ *
+ * Sea water and its family have Sharqawy correlations, steam has IAPWS-IF97,
+ * and NCG is modelled as dry air. **Biogas has none of that**: its properties
+ * follow from a gas composition (CH₄/CO₂/H₂S and water saturation), not from a
+ * temperature, so nothing here can produce them and they are supplied by
+ * whoever did the basic design until the composition-based model lands.
+ *
+ * Returning false is the honest answer, and the callers below leave the
+ * properties blank rather than substituting a plausible-looking number.
+ */
+export function hasPropertyCorrelations(fluidType: FluidType): boolean {
+  return fluidType !== 'BIOGAS';
+}
 
 /**
  * Calculate density based on fluid type
@@ -174,6 +214,17 @@ export function calculateDensity(
       return (pressurePa * M) / (R * tempK);
     }
 
+    case 'BIOGAS':
+      // Deliberately not modelled as air. Biogas is roughly 60/40 CH₄/CO₂ and
+      // saturated with water at digester temperature, giving a molar mass near
+      // 27 g/mol against air's 29 — close enough to look right and wrong enough
+      // to matter. Density follows from the composition, which this function is
+      // not given.
+      throw new Error(
+        'BIOGAS density requires a gas composition, which this calculation does not receive. ' +
+          'Supply the density with the stream, or use the composition-based model when available.'
+      );
+
     default:
       throw new Error(`Unknown fluid type: ${fluidType}`);
   }
@@ -224,6 +275,15 @@ export function calculateEnthalpy(
       // NCG enthalpy - approximate as ideal gas with Cp ≈ 1.0 kJ/(kg·K)
       // Reference state: h = 0 at 0°C
       return 1.0 * temperature;
+
+    case 'BIOGAS':
+      // See calculateDensity — enthalpy needs a composition-weighted Cp, and
+      // the water the gas carries out of the digester contributes latent heat
+      // that an air-like Cp does not represent at all.
+      throw new Error(
+        'BIOGAS enthalpy requires a gas composition, which this calculation does not receive. ' +
+          'Supply the enthalpy with the stream, or use the composition-based model when available.'
+      );
 
     default:
       throw new Error(`Unknown fluid type: ${fluidType}`);
@@ -419,6 +479,13 @@ export function calculateStreamProperties(input: StreamCalculationInput): Stream
   const flowRateKgHr = flowRateKgS * 3600;
   const pressureBar = pressureMbar / 1000;
 
+  // A fluid with no correlation gets its unit conversions and nothing else.
+  // The alternative — letting calculateDensity throw — would lose the flow and
+  // pressure conversions too, which are pure arithmetic and always valid.
+  if (!hasPropertyCorrelations(fluidType)) {
+    return { flowRateKgHr, pressureBar };
+  }
+
   // Calculate core properties
   const density = calculateDensity(fluidType, temperature, tds, pressureMbar);
   const enthalpy = calculateEnthalpy(fluidType, temperature, tds, pressureMbar);
@@ -471,18 +538,23 @@ export function enrichStreamInput(input: ProcessStreamInput): ProcessStreamInput
       tds,
     });
 
+    // A property this repo cannot compute must not erase one the user supplied.
+    // `calculated.density` is now undefined for fluids with no correlation, and
+    // assigning it straight over the input would silently blank a figure the
+    // engineer typed in from the client's basic design — the one kind of number
+    // that cannot be recovered by recalculating.
     return {
       ...input,
       flowRateKgHr: calculated.flowRateKgHr,
       pressureBar: calculated.pressureBar,
-      density: calculated.density,
-      enthalpy: calculated.enthalpy,
-      specificHeat: calculated.specificHeat,
-      viscosity: calculated.viscosity,
-      thermalConductivity: calculated.thermalConductivity,
-      entropy: calculated.entropy,
-      boilingPointElevation: calculated.boilingPointElevation,
-      steamRegion: calculated.steamRegion,
+      density: calculated.density ?? input.density,
+      enthalpy: calculated.enthalpy ?? input.enthalpy,
+      specificHeat: calculated.specificHeat ?? input.specificHeat,
+      viscosity: calculated.viscosity ?? input.viscosity,
+      thermalConductivity: calculated.thermalConductivity ?? input.thermalConductivity,
+      entropy: calculated.entropy ?? input.entropy,
+      boilingPointElevation: calculated.boilingPointElevation ?? input.boilingPointElevation,
+      steamRegion: calculated.steamRegion ?? input.steamRegion,
     };
   } catch (error) {
     // If calculation fails (e.g., out of range), return input unchanged

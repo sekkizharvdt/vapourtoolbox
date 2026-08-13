@@ -35,6 +35,12 @@ import { LoadingState, EmptyState } from '@vapour/ui';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { ProcessLine, ProcessLineInput } from '@vapour/types';
 import { subscribeToLines, createLine, updateLine, deleteLine } from '@/lib/ssot/lineService';
+import {
+  DEFAULT_DESIGN_VELOCITY,
+  getDesignVelocity,
+  calculateInnerDiameter,
+  calculateVelocity,
+} from '@/lib/ssot/lineCalculations';
 import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import { createLogger } from '@vapour/logger';
 
@@ -68,8 +74,11 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
   const [inputDataTag, setInputDataTag] = useState('');
   const [flowRateKgS, setFlowRateKgS] = useState<number | ''>('');
   const [density, setDensity] = useState<number | ''>('');
-  const [designVelocity, setDesignVelocity] = useState<number | ''>(1.5);
+  const [designVelocity, setDesignVelocity] = useState<number | ''>(DEFAULT_DESIGN_VELOCITY);
   const [selectedID, setSelectedID] = useState<number | ''>('');
+  // Once the engineer types a velocity, the fluid no longer overrides it —
+  // otherwise changing the service would silently discard a deliberate choice.
+  const [velocityEdited, setVelocityEdited] = useState(false);
 
   // Calculated values
   const [calculatedID, setCalculatedID] = useState<number | null>(null);
@@ -95,7 +104,18 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
     return () => unsubscribe();
   }, [projectId]);
 
-  // Auto-calculate when inputs change
+  // Offer the design velocity for the service. A gas sized at the liquid
+  // default comes out several pipe sizes too large, which is what happened to
+  // every hand-entered line before the velocity became fluid-aware.
+  useEffect(() => {
+    if (!velocityEdited) {
+      setDesignVelocity(getDesignVelocity(fluid));
+    }
+  }, [fluid, velocityEdited]);
+
+  // Auto-calculate when inputs change. The sizing formulae come from
+  // lineCalculations so the preview here and the value written by the service
+  // cannot drift apart — they were separate copies of the same arithmetic.
   useEffect(() => {
     if (
       flowRateKgS !== '' &&
@@ -104,11 +124,9 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
       designVelocity !== '' &&
       Number(designVelocity) > 0
     ) {
-      const Q = Number(flowRateKgS) / Number(density); // m³/s
-      const V = Number(designVelocity);
-      const A = Q / V; // m²
-      const D = Math.sqrt((4 * A) / Math.PI) * 1000; // mm
-      setCalculatedID(D);
+      setCalculatedID(
+        calculateInnerDiameter(Number(flowRateKgS), Number(density), Number(designVelocity))
+      );
     } else {
       setCalculatedID(null);
     }
@@ -120,11 +138,9 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
       selectedID !== '' &&
       Number(selectedID) > 0
     ) {
-      const Q = Number(flowRateKgS) / Number(density); // m³/s
-      const D = Number(selectedID) / 1000; // m
-      const A = (Math.PI * D * D) / 4; // m²
-      const V = Q / A; // m/s
-      setActualVelocity(V);
+      setActualVelocity(
+        calculateVelocity(Number(flowRateKgS), Number(density), Number(selectedID))
+      );
     } else {
       setActualVelocity(null);
     }
@@ -137,7 +153,8 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
     setInputDataTag('');
     setFlowRateKgS('');
     setDensity('');
-    setDesignVelocity(1.5);
+    setDesignVelocity(DEFAULT_DESIGN_VELOCITY);
+    setVelocityEdited(false);
     setSelectedID('');
     setCalculatedID(null);
     setActualVelocity(null);
@@ -160,6 +177,9 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
     setFlowRateKgS(item.flowRateKgS);
     setDensity(item.density);
     setDesignVelocity(item.designVelocity);
+    // The saved line carries the velocity it was sized at — never overwrite it
+    // with the fluid default just because the record was opened for editing.
+    setVelocityEdited(true);
     setSelectedID(item.selectedID);
     setCalculatedID(item.calculatedID);
     setActualVelocity(item.actualVelocity);
@@ -176,6 +196,15 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
       setError('Line number is required');
       return;
     }
+    // Density sets the volumetric flow and therefore the pipe size. The payload
+    // used to fall back to 1000 kg/m³ when this was blank — water's density,
+    // written onto whatever the line actually carries. On a gas line that is
+    // wrong by roughly three orders of magnitude and the resulting size looks
+    // entirely plausible.
+    if (density === '' || Number(density) <= 0) {
+      setError('Density is required — it determines the pipe size');
+      return;
+    }
 
     setSaving(true);
     setError('');
@@ -187,8 +216,8 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
         fluid: fluid.trim(),
         inputDataTag: inputDataTag.trim(),
         flowRateKgS: Number(flowRateKgS) || 0,
-        density: Number(density) || 1000,
-        designVelocity: Number(designVelocity) || 1.5,
+        density: Number(density),
+        designVelocity: Number(designVelocity) || getDesignVelocity(fluid),
         calculatedID: calculatedID || 0,
         selectedID: Number(selectedID) || 0,
         actualVelocity: actualVelocity || 0,
@@ -382,9 +411,17 @@ export default function LinesTab({ projectId, userId, accessCheck }: LinesTabPro
                 label="Design Velocity"
                 type="number"
                 value={designVelocity}
-                onChange={(e) => setDesignVelocity(e.target.value ? Number(e.target.value) : '')}
+                onChange={(e) => {
+                  setVelocityEdited(true);
+                  setDesignVelocity(e.target.value ? Number(e.target.value) : '');
+                }}
                 fullWidth
                 InputProps={{ endAdornment: <InputAdornment position="end">m/s</InputAdornment> }}
+                helperText={
+                  velocityEdited
+                    ? 'Entered manually'
+                    : `Default for ${fluid.trim() || 'this service'}`
+                }
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>

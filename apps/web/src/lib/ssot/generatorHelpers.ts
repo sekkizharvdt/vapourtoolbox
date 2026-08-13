@@ -39,6 +39,15 @@ export const LINE_MATERIAL_OPTIONS: Record<FluidType, MaterialCategory[]> = {
   // Vapour ducts and the heating steam supply.
   STEAM: [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_STAINLESS_304L],
   NCG: [MaterialCategory.PIPES_STAINLESS_316L, MaterialCategory.PIPES_STAINLESS_304L],
+  // ⚠ PROVISIONAL — awaiting the team's materials decision (plan §2.1, CP1).
+  // Wet biogas carries H₂S, which with free water present is a sour service, so
+  // this is a materials call rather than a default. 316L is offered alone
+  // deliberately: a single conservative option cannot be mis-picked, whereas
+  // offering carbon steel beside it would let the cheaper choice be made before
+  // anyone has ruled on the H₂S partial pressure. Carbon steel with a corrosion
+  // allowance, and HDPE for low-pressure buried mains, are the alternatives to
+  // put to the team — neither is assumed here.
+  BIOGAS: [MaterialCategory.PIPES_STAINLESS_316L],
 };
 
 /** Line-number fluid code per service */
@@ -49,6 +58,7 @@ export const FLUID_CODE: Record<FluidType, string> = {
   STEAM: 'S',
   NCG: 'NCG',
   'FEED WATER': 'F',
+  BIOGAS: 'BG',
 };
 
 /** Leading digits of a DN designation, e.g. 'DN150' → '150' */
