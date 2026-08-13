@@ -7,6 +7,7 @@
 'use client';
 
 import { Box, Typography, Button, Stack, Chip, Alert } from '@mui/material';
+import { formatDate } from '@/lib/utils/formatters';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
@@ -102,6 +103,20 @@ export function POHeader({
           </Typography>
           <Stack direction="row" spacing={1} alignItems="center">
             <Chip label={getPOStatusText(po.status)} color={getPOStatusColor(po.status)} />
+            {/* An amended PO looked identical to an untouched one, so users had
+                to open the Amendment module to find out (feedback U6iynk9T).
+                Only the LATEST amendment is shown, as requested. */}
+            {po.lastAmendmentNumber && (
+              <Chip
+                label={
+                  po.lastAmendmentDate
+                    ? `Amendment ${po.lastAmendmentNumber} · ${formatDate(po.lastAmendmentDate)}`
+                    : `Amendment ${po.lastAmendmentNumber}`
+                }
+                color="warning"
+                variant="outlined"
+              />
+            )}
             {advancePaymentStatus && (
               <Chip
                 label={advancePaymentStatus.text}

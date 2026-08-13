@@ -236,6 +236,18 @@ export function POPDFDocument({
     { label: 'PO Number', value: po.number },
     { label: 'Date', value: formatTimestamp(po.createdAt) },
     { label: 'Status', value: po.status },
+    // Latest amendment only (feedback U6iynk9T) — absent on POs never amended,
+    // so an untouched PO's PDF is unchanged.
+    ...(po.lastAmendmentNumber
+      ? [
+          {
+            label: 'Amendment',
+            value: po.lastAmendmentDate
+              ? `No. ${po.lastAmendmentNumber} dated ${formatTimestamp(po.lastAmendmentDate)}`
+              : `No. ${po.lastAmendmentNumber}`,
+          },
+        ]
+      : []),
     ...(po.title ? [{ label: 'Title', value: po.title }] : []),
     { label: 'Vendor Offer Reference', value: vendorOfferReference },
   ];
