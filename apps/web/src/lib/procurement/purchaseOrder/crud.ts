@@ -21,6 +21,7 @@ import {
   limit,
   Timestamp,
   writeBatch,
+  arrayUnion,
   type QueryConstraint,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -49,6 +50,7 @@ import { rfqStateMachine } from '@/lib/workflow/stateMachines';
 import { removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
 import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 import { calculateGST } from '@/lib/accounting/gstCalculator';
+import { calculatePOTotals, sumLineItems } from './totals';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -1067,4 +1069,243 @@ export async function updateDraftPO(
   );
 
   logger.info('Draft PO updated', { poId, poNumber: po.number });
+}
+
+/**
+ * Record a downstream quantity change back on the originating PR line.
+ *
+ * The PR stays terminal — this is a note, not a reopening. The trail is
+ * PO item -> rfqItemId -> RFQ item -> purchaseRequestItemId, which is intact on
+ * every record (28/28 PO lines and 47/47 RFQ lines carry their link).
+ *
+ * Best-effort: the quantity change is already committed by the time this runs,
+ * and losing the note must not fail the edit or leave the PO half-updated. A
+ * failure is warned about, not thrown (rule 27).
+ */
+async function noteQuantityChangeOnPR(
+  db: ReturnType<typeof getFirebase>['db'],
+  params: {
+    rfqItemId?: string;
+    poId: string;
+    poNumber: string;
+    previousQuantity: number;
+    newQuantity: number;
+    reason: string;
+    changedByName: string;
+  }
+): Promise<void> {
+  // rule19-exempt: the getDoc is a lookup of a DIFFERENT, immutable document
+  // (the RFQ line, to find which PR line it came from) — it is never the thing
+  // written. The write itself is an atomic arrayUnion on the PR line, so there
+  // is no read-modify-write and no update to lose.
+  if (!params.rfqItemId) return;
+
+  try {
+    const rfqItemSnap = await getDoc(doc(db, COLLECTIONS.RFQ_ITEMS, params.rfqItemId));
+    if (!rfqItemSnap.exists()) return;
+
+    const prItemId = rfqItemSnap.data().purchaseRequestItemId as string | undefined;
+    if (!prItemId) return;
+
+    // arrayUnion rather than read-append-write: two lines of the same PO can
+    // trace back to one PR line, and reading the array to rebuild it would let
+    // concurrent changes drop an entry (rule 19). The append is atomic
+    // server-side, so no read is needed and none can be lost.
+    await updateDoc(doc(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS, prItemId), {
+      quantityChanges: arrayUnion({
+        documentNumber: params.poNumber,
+        documentId: params.poId,
+        previousQuantity: params.previousQuantity,
+        newQuantity: params.newQuantity,
+        reason: params.reason,
+        changedByName: params.changedByName,
+        changedAt: Timestamp.now(),
+      }),
+    });
+
+    logger.info('Recorded quantity change on the originating PR line', { prItemId });
+  } catch (error) {
+    logger.warn('Could not record the quantity change on the PR line', {
+      rfqItemId: params.rfqItemId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Change the ordered quantity on a DRAFT purchase order line.
+ *
+ * Fills the gap between a PR being approved and a PO being issued: until now
+ * quantity was immutable from the moment the PO was created, so a late change
+ * — a spare requirement noticed during PO preparation — left only two bad
+ * options, cancelling the PO (terminal, and the source quote is already marked
+ * PO_CREATED so it cannot be rebuilt) or raising an amendment on a PO the
+ * vendor has never seen (feedback MesC9vYA).
+ *
+ * DRAFT only, deliberately. A PO sitting in PENDING_APPROVAL is being read by
+ * an approver, and changing the value underneath them would have them approve
+ * figures they never saw. Use returnPO to bring it back to DRAFT first — that
+ * already clears the prior approvals so the new quantity is approved afresh.
+ *
+ * A reason is required: "60 -> 80" tells the requesting engineer that something
+ * changed, "60 -> 80, spares" tells them whether to care.
+ */
+export async function updatePOItemQuantity(
+  poId: string,
+  poItemId: string,
+  newQuantity: number,
+  reason: string,
+  userId: string,
+  userName: string,
+  userPermissions: number
+): Promise<{ previousQuantity: number; newQuantity: number }> {
+  // rule19-exempt: reads the PO + its items to recompute totals, then writes the
+  // line and the header — an edit on a DRAFT document with no concurrent actor
+  // (a PO in approval cannot reach here).
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'change purchase order quantity'
+  );
+
+  if (!reason.trim()) {
+    throw new Error('A reason is required when changing the ordered quantity');
+  }
+  if (!Number.isFinite(newQuantity) || newQuantity <= 0) {
+    throw new Error('Quantity must be greater than zero');
+  }
+
+  const { db } = getFirebase();
+
+  const poSnap = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId));
+  if (!poSnap.exists()) {
+    throw new Error('Purchase Order not found');
+  }
+  const po = poSnap.data();
+
+  if (po.status !== 'DRAFT') {
+    throw new Error(
+      `Quantity can only be changed while the purchase order is a draft (this one is ${String(po.status).replace(/_/g, ' ').toLowerCase()}). ` +
+        `Return it for revision first, or raise an amendment if it has already been issued.`
+    );
+  }
+
+  const itemsSnap = await getDocs(
+    query(collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS), where('purchaseOrderId', '==', poId))
+  );
+  const items = itemsSnap.docs.map((d) => ({ ...(d.data() as PurchaseOrderItem), id: d.id }));
+
+  const target = items.find((i) => i.id === poItemId);
+  if (!target) {
+    throw new Error('Line item not found on this purchase order');
+  }
+
+  const previousQuantity = target.quantity;
+  if (Math.abs(previousQuantity - newQuantity) < 0.0001) {
+    return { previousQuantity, newQuantity };
+  }
+
+  // Keep the per-line discount proportional to the new quantity — the vendor
+  // quoted a rate, not a flat sum, so scaling it is what preserves the agreed
+  // price. `amount` stays net of discount, as everything downstream assumes.
+  const gross = roundToPaisa(newQuantity * target.unitPrice);
+  const scaledDiscount =
+    target.discountAmount && previousQuantity > 0
+      ? roundToPaisa((target.discountAmount / previousQuantity) * newQuantity)
+      : 0;
+  const newAmount = roundToPaisa(gross - scaledDiscount);
+
+  const updatedItems = items.map((i) =>
+    i.id === poItemId ? { ...i, quantity: newQuantity, amount: newAmount } : i
+  );
+
+  // Recompute the header from the line items. The effective tax rate is
+  // preserved from the PO as issued rather than re-derived, so a quantity
+  // change never silently reprices the tax.
+  const previousTaxable = roundToPaisa((po.grandTotal as number) - ((po.totalTax as number) ?? 0));
+  const effectiveTaxRate =
+    previousTaxable > 0 ? ((po.totalTax as number) ?? 0) / previousTaxable : 0;
+
+  const totals = calculatePOTotals({
+    subtotal: sumLineItems(updatedItems),
+    discount: (po.discount as number) ?? 0,
+    effectiveTaxRate,
+    commercialTerms: po.commercialTerms as POCommercialTerms | undefined,
+    vendorState: po.vendorState as string | undefined,
+    companyState: po.companyState as string | undefined,
+  });
+
+  const advanceAmount = calculateAdvanceAmount({
+    grandTotal: totals.grandTotal,
+    taxableValue: totals.taxableValue,
+    advancePaymentRequired: po.advancePaymentRequired as boolean | undefined,
+    advancePercentage: po.advancePercentage as number | undefined,
+    commercialTerms: po.commercialTerms as POCommercialTerms | undefined,
+  });
+
+  const now = Timestamp.now();
+  const batch = writeBatch(db);
+
+  batch.update(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, poItemId), {
+    quantity: newQuantity,
+    amount: newAmount,
+    ...(target.discountAmount !== undefined && { discountAmount: scaledDiscount }),
+    updatedAt: now,
+    updatedBy: userId,
+  });
+
+  batch.update(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
+    subtotal: totals.subtotal,
+    cgst: totals.cgst,
+    sgst: totals.sgst,
+    igst: totals.igst,
+    totalTax: totals.totalTax,
+    grandTotal: totals.grandTotal,
+    advanceAmount,
+    updatedAt: now,
+    updatedBy: userId,
+  });
+
+  await batch.commit();
+
+  try {
+    await logAuditEvent(
+      db,
+      createAuditContext(userId, '', userName),
+      'PO_UPDATED',
+      'PURCHASE_ORDER',
+      poId,
+      `Quantity on "${target.description}" changed from ${previousQuantity} to ${newQuantity} on ${po.number}. Reason: ${reason.trim()}`,
+      {
+        entityName: po.number as string,
+        severity: 'CRITICAL',
+        metadata: {
+          poItemId,
+          previousQuantity,
+          newQuantity,
+          reason: reason.trim(),
+          previousGrandTotal: po.grandTotal,
+          newGrandTotal: totals.grandTotal,
+        },
+      }
+    );
+  } catch (auditError) {
+    logger.warn('Failed to write audit log for PO quantity change', { poId, poItemId, auditError });
+  }
+
+  // Tell the engineer who raised the PR what was actually ordered (MesC9vYA).
+  await noteQuantityChangeOnPR(db, {
+    rfqItemId: target.rfqItemId,
+    poId,
+    poNumber: (po.number as string) ?? poId,
+    previousQuantity,
+    newQuantity,
+    reason: reason.trim(),
+    changedByName: userName,
+  });
+
+  logger.info('PO line quantity changed', { poId, poItemId, previousQuantity, newQuantity });
+
+  return { previousQuantity, newQuantity };
 }

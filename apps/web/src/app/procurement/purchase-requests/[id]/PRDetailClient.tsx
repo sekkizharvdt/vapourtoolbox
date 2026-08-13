@@ -532,7 +532,32 @@ export default function PRDetailPage() {
                       <TableCell>
                         <Typography variant="body2">{item.specification || '-'}</Typography>
                       </TableCell>
-                      <TableCell align="right">{item.quantity}</TableCell>
+                      <TableCell align="right">
+                        {item.quantity}
+                        {/* What was actually ordered downstream. The PR itself is
+                            never reopened, so this is the only place the raising
+                            engineer sees that procurement changed the quantity,
+                            and why (feedback MesC9vYA). */}
+                        {item.quantityChanges?.map((change, i) => (
+                          <Tooltip
+                            key={`${change.documentId}-${i}`}
+                            title={`${change.documentNumber}: ${change.previousQuantity} → ${change.newQuantity} by ${change.changedByName}. Reason: ${change.reason}`}
+                          >
+                            <Typography
+                              variant="caption"
+                              display="block"
+                              color={
+                                change.newQuantity > change.previousQuantity
+                                  ? 'warning.main'
+                                  : 'info.main'
+                              }
+                            >
+                              {change.newQuantity > change.previousQuantity ? '↑' : '↓'}{' '}
+                              {change.newQuantity} on {change.documentNumber}
+                            </Typography>
+                          </Tooltip>
+                        ))}
+                      </TableCell>
                       <TableCell>{item.unit}</TableCell>
                       <TableCell>{item.equipmentCode || '-'}</TableCell>
                       <TableCell align="right">

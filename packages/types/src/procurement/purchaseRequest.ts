@@ -114,9 +114,31 @@ export interface PurchaseRequest {
 
 export type PurchaseRequestItemType = 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';
 
+/**
+ * A quantity change made downstream, recorded back on the PR line.
+ *
+ * A PR is terminal once converted to an RFQ, so it is never reopened — but the
+ * engineer who raised it should still be able to see what was actually ordered
+ * against their line, and why (feedback MesC9vYA). Append-only: a second change
+ * adds an entry rather than overwriting the first.
+ */
+export interface PurchaseRequestItemQuantityChange {
+  /** Where the change happened, e.g. "PO/2026/010". */
+  documentNumber: string;
+  documentId: string;
+  previousQuantity: number;
+  newQuantity: number;
+  reason: string;
+  changedByName: string;
+  changedAt: Timestamp;
+}
+
 export interface PurchaseRequestItem {
   id: string;
   purchaseRequestId: string;
+
+  /** Downstream quantity changes, newest last. Absent until one occurs. */
+  quantityChanges?: PurchaseRequestItemQuantityChange[];
 
   /**
    * Item kind, stamped from the parent PR's `category` at save — never asked
