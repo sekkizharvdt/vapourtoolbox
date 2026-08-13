@@ -15,12 +15,13 @@ The team asked whether the SSOT module can take a project whose basic design was
 someone else, hold its process data, size the equipment from it, and produce the valve list,
 instrument list and equipment datasheets as controlled documents.
 
-The answer is yes. This document says **how the work would actually be done, step by step**,
-and asks the team to accept that workflow before any code is written. Part 1 is the workflow.
-Part 2 is the list of things the team has to agree. Part 3 is the build plan, and only becomes
-real once Part 2 is signed.
+The answer is yes. This document says **how the work would actually be done, step by step**.
+Part 1 is the workflow. Part 2 is the list of things the team has to agree. Part 3 is the build
+plan. Part 4 is the checkpoints, which is where review now happens.
 
-Nothing here is built yet. Two of the six stages exist today in some form; the rest do not.
+Part 2 was reviewed and agreed on 2026-08-13 and building has started, one slice at a time.
+**CP1 is built and waiting for review** — see Part 4 for the fifteen-minute check. Everything
+from CP2 onward is unbuilt. Of the six workflow stages, two existed before this work began.
 
 ---
 
