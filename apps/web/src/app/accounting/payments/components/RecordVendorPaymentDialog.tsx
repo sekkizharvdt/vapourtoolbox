@@ -726,12 +726,23 @@ export function RecordVendorPaymentDialog({
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
-              label="Payment Amount"
+              // Gross, not the cash that leaves the bank. This field settles the
+              // bill, so it must be the bill value BEFORE TDS: the GL posts
+              // Dr AP (this amount) / Cr Bank (this amount − TDS) / Cr TDS
+              // Payable. Entering the already-net figure under-settles the bill
+              // and makes the net-payable line look doubly deducted, which is
+              // what feedback zeZC6HtN reported.
+              label={tdsDeducted ? 'Payment Amount (before TDS)' : 'Payment Amount'}
               type="number"
               value={amount}
               onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               required
+              helperText={
+                tdsDeducted
+                  ? 'Enter the full bill amount being settled. TDS is withheld below — do not subtract it here.'
+                  : undefined
+              }
               {...getFieldProps(3)}
             />
           </Grid>

@@ -46,6 +46,8 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { getInrAmount } from '@/lib/accounting/amountHelpers';
 
 type AdvancePayment = (CustomerPayment | VendorPayment) & {
+  /** Amount not yet applied to a bill/invoice (feedback IMD0kEzM). */
+  unapplied?: number;
   id: string;
   paymentType: 'customer' | 'vendor';
 };
@@ -84,19 +86,45 @@ export default function AdvancesPage() {
 
       const result: AdvancePayment[] = [];
 
+      // An advance stops being an advance once it has been applied to bills or
+      // invoices — it is then just a settled payment. Leaving fully-applied ones
+      // on this page made it look like money was still unaccounted for
+      // (feedback IMD0kEzM): 10 of the 31 flagged advances were fully applied.
+      // Partially-applied ones stay, showing what is left.
+      const unappliedAmount = (data: CustomerPayment | VendorPayment): number => {
+        const record = data as unknown as {
+          billAllocations?: Array<{ allocatedAmount?: number }>;
+          invoiceAllocations?: Array<{ allocatedAmount?: number }>;
+        };
+        const allocations = record.billAllocations ?? record.invoiceAllocations ?? [];
+        const applied = allocations.reduce((sum, a) => sum + (a.allocatedAmount ?? 0), 0);
+        // Rule 21: compare with a paisa tolerance, never against exact zero.
+        return getInrAmount(data) - applied;
+      };
+
       customerSnap.forEach((doc) => {
         const data = doc.data() as CustomerPayment;
         if (data.isDeleted) return;
-        if (data.isAdvance === true) {
-          result.push({ ...data, id: doc.id, paymentType: 'customer' });
+        if (data.isAdvance === true && unappliedAmount(data) > 0.01) {
+          result.push({
+            ...data,
+            id: doc.id,
+            paymentType: 'customer',
+            unapplied: unappliedAmount(data),
+          });
         }
       });
 
       vendorSnap.forEach((doc) => {
         const data = doc.data() as VendorPayment;
         if (data.isDeleted) return;
-        if (data.isAdvance === true) {
-          result.push({ ...data, id: doc.id, paymentType: 'vendor' });
+        if (data.isAdvance === true && unappliedAmount(data) > 0.01) {
+          result.push({
+            ...data,
+            id: doc.id,
+            paymentType: 'vendor',
+            unapplied: unappliedAmount(data),
+          });
         }
       });
 
@@ -273,13 +301,16 @@ export default function AdvancesPage() {
               <TableCell>Entity</TableCell>
               <TableCell>Method</TableCell>
               <TableCell align="right">Amount</TableCell>
+              {/* Shows what is still unapplied when part of an advance has
+                  already gone against a bill (feedback IMD0kEzM). */}
+              <TableCell align="right">Unapplied</TableCell>
               <TableCell>Reference</TableCell>
               <TableCell align="center">Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredAdvances.length === 0 ? (
-              <EmptyState message="No advance payments recorded." variant="table" colSpan={8} />
+              <EmptyState message="No advance payments recorded." variant="table" colSpan={9} />
             ) : (
               filteredAdvances
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
@@ -314,6 +345,9 @@ export default function AdvancesPage() {
                       >
                         {formatCurrency(getInrAmount(advance), 'INR')}
                       </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(advance.unapplied ?? getInrAmount(advance), 'INR')}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
