@@ -124,6 +124,65 @@ export interface SSOTProvenance {
 }
 
 // ============================================
+// Gas composition — the input a mixture's properties follow from
+// ============================================
+
+/**
+ * How a gas analysis was reported.
+ *
+ * `DRY` is what a laboratory almost always returns; the real stream off a
+ * digester is saturated. `WET` means the analysis already accounts for the
+ * water it carries.
+ */
+export type GasAnalysisBasis = 'DRY' | 'WET';
+
+/** The unit an H₂S reading was reported in */
+export type H2SUnit = 'PPMV' | 'MOL_PERCENT';
+
+/**
+ * Gas composition for a stream whose properties cannot be derived from
+ * temperature and pressure alone.
+ *
+ * Stored **as reported**, not as normalised fractions. The normalisation and
+ * the saturation water are derived at calculation time, so the record always
+ * shows what the analysis actually said and the derivation can be re-run when
+ * the correction rules improve. Storing only the processed fractions would
+ * make the original reading unrecoverable.
+ *
+ * Components are CH₄, CO₂ and H₂S only — N₂ and O₂ are excluded by decision
+ * (2026-08-13) as negligible. Where an analysis reports a couple of percent of
+ * N₂, folding it into CO₂ or CH₄ moves molar mass by about ±1%.
+ */
+export interface GasComposition {
+  /** Methane, mol% as reported */
+  methaneMolPercent: number;
+  /** Carbon dioxide, mol% as reported */
+  carbonDioxideMolPercent: number;
+  /** Hydrogen sulphide, in `hydrogenSulphideUnit` */
+  hydrogenSulphide: number;
+  /**
+   * Unit of the H₂S reading.
+   *
+   * Digester gas H₂S runs 100–10,000 ppmv, so it is normally quoted in ppm.
+   * The same figure read as a percentage instead of ppm is wrong by a factor
+   * of 10,000, and both readings look reasonable on a form.
+   */
+  hydrogenSulphideUnit: H2SUnit;
+  /** Whether the analysis is dry or wet */
+  basis: GasAnalysisBasis;
+  /**
+   * DRY basis only: whether the actual stream is saturated at its temperature.
+   *
+   * When true, the water is added from the steam tables at calculation time.
+   * At 38 °C that is around 6.6 mol% of the real gas, worth 2–3% on molar mass
+   * and therefore on density and line size.
+   */
+  saturatedAtStreamTemperature?: boolean;
+  /** Where the analysis came from — lab report number, client document, date */
+  sourceReference?: string;
+}
+
+// ============================================
 // INPUT_DATA - Master Stream Data (195 rows)
 // ============================================
 export interface ProcessStream {
@@ -152,6 +211,12 @@ export interface ProcessStream {
 
   // Derived fields
   fluidType: FluidType; // Inferred from lineTag prefix: SW=SEA WATER, D=DISTILLATE, S=STEAM, etc.
+
+  /**
+   * Gas analysis, for fluids with no correlation. Present on biogas streams;
+   * absent on everything the toolbox models from temperature and pressure.
+   */
+  composition?: GasComposition;
 
   /** Generated-vs-manual provenance (absent on legacy hand-entered records = MANUAL) */
   provenance?: SSOTProvenance;
@@ -183,6 +248,8 @@ export interface ProcessStreamInput {
   entropy?: number; // kJ/(kg·K) - for steam
   boilingPointElevation?: number; // °C - for seawater/brine
   steamRegion?: SteamRegion; // For steam: saturation, subcooled, or superheated
+  /** Gas analysis — the input biogas properties are derived from */
+  composition?: GasComposition;
   provenance?: SSOTProvenance;
 }
 

@@ -20,6 +20,7 @@
  */
 
 import { getSaturationPressure, getEnthalpyVapor } from '@vapour/constants';
+import { wilkeViscosityOfStates, wassiljewaConductivityOfStates } from './gasMixture';
 
 // ── Physical constants ─────────────────────────────────────────────────────────
 
@@ -219,6 +220,12 @@ function steamConductivity(tempC: number): number {
 /**
  * Wilke's mixing rule for dynamic viscosity of a binary gas mixture.
  *
+ * Delegates to the shared n-component rule in `gasMixture` — the binary form
+ * written out here previously is that sum with two terms and Φᵢᵢ = 1, so the
+ * numbers are unchanged. The property values stay this module's own: air and
+ * low-pressure steam are modelled by the fits above, not by the gas-mixture
+ * component table (rule 32 — one implementation of the rule, data per caller).
+ *
  * @param y1   mole fraction of component 1 (NCG)
  * @param y2   mole fraction of component 2 (water vapour)
  * @param mu1  viscosity of component 1 (Pa·s)
@@ -234,18 +241,10 @@ function wilkeViscosity(
   M1: number,
   M2: number
 ): number {
-  if (y1 < 1e-9) return mu2;
-  if (y2 < 1e-9) return mu1;
-
-  const sq8 = Math.sqrt(8);
-  const phi12 =
-    Math.pow(1 + Math.sqrt(mu1 / mu2) * Math.pow(M2 / M1, 0.25), 2) /
-    (sq8 * Math.sqrt(1 + M1 / M2));
-  const phi21 =
-    Math.pow(1 + Math.sqrt(mu2 / mu1) * Math.pow(M1 / M2, 0.25), 2) /
-    (sq8 * Math.sqrt(1 + M2 / M1));
-
-  return (y1 * mu1) / (y1 + y2 * phi12) + (y2 * mu2) / (y2 + y1 * phi21);
+  return wilkeViscosityOfStates([
+    { moleFraction: y1, molarMassGmol: M1, viscosity: mu1 },
+    { moleFraction: y2, molarMassGmol: M2, viscosity: mu2 },
+  ]);
 }
 
 /**
@@ -262,18 +261,10 @@ function wassiljewaConductivity(
   M1: number,
   M2: number
 ): number {
-  if (y1 < 1e-9) return lam2;
-  if (y2 < 1e-9) return lam1;
-
-  const sq8 = Math.sqrt(8);
-  const phi12 =
-    Math.pow(1 + Math.sqrt(mu1 / mu2) * Math.pow(M2 / M1, 0.25), 2) /
-    (sq8 * Math.sqrt(1 + M1 / M2));
-  const phi21 =
-    Math.pow(1 + Math.sqrt(mu2 / mu1) * Math.pow(M1 / M2, 0.25), 2) /
-    (sq8 * Math.sqrt(1 + M2 / M1));
-
-  return (y1 * lam1) / (y1 + y2 * phi12) + (y2 * lam2) / (y2 + y1 * phi21);
+  return wassiljewaConductivityOfStates([
+    { moleFraction: y1, molarMassGmol: M1, viscosity: mu1, conductivity: lam1 },
+    { moleFraction: y2, molarMassGmol: M2, viscosity: mu2, conductivity: lam2 },
+  ]);
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────────

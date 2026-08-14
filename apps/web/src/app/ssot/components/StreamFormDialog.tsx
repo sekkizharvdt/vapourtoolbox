@@ -7,7 +7,7 @@
  * Auto-calculates density and enthalpy based on fluid type.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -26,7 +26,14 @@ import {
   Divider,
   Box,
 } from '@mui/material';
-import type { ProcessStream, ProcessStreamInput, FluidType } from '@vapour/types';
+import type {
+  ProcessStream,
+  ProcessStreamInput,
+  FluidType,
+  GasComposition,
+  GasAnalysisBasis,
+  H2SUnit,
+} from '@vapour/types';
 import { FLUID_TYPES } from '@vapour/types';
 import { FLUID_CODE } from '@/lib/ssot/generatorHelpers';
 import { createStream, updateStream } from '@/lib/ssot/streamService';
@@ -35,6 +42,8 @@ import {
   inferFluidType,
   calculateStreamProperties,
   hasPropertyCorrelations,
+  requiresComposition,
+  calculateCompositionProperties,
 } from '@/lib/ssot/streamCalculations';
 import { createLogger } from '@vapour/logger';
 
@@ -76,6 +85,15 @@ export default function StreamFormDialog({
   const [temperature, setTemperature] = useState<number | ''>('');
   const [tds, setTds] = useState<number | ''>('');
 
+  // Gas analysis, for fluids whose properties follow from a composition
+  const [methane, setMethane] = useState<number | ''>('');
+  const [carbonDioxide, setCarbonDioxide] = useState<number | ''>('');
+  const [h2s, setH2s] = useState<number | ''>('');
+  const [h2sUnit, setH2sUnit] = useState<H2SUnit>('PPMV');
+  const [basis, setBasis] = useState<GasAnalysisBasis>('DRY');
+  const [saturated, setSaturated] = useState(true);
+  const [analysisSource, setAnalysisSource] = useState('');
+
   // Calculated fields (display only)
   const [flowRateKgHr, setFlowRateKgHr] = useState<number | null>(null);
   const [pressureBar, setPressureBar] = useState<number | null>(null);
@@ -98,6 +116,14 @@ export default function StreamFormDialog({
         setPressureBar(stream.pressureBar);
         setDensity(stream.density);
         setEnthalpy(stream.enthalpy);
+        // Rule 22: every saved field restored, or the round trip loses it
+        setMethane(stream.composition?.methaneMolPercent ?? '');
+        setCarbonDioxide(stream.composition?.carbonDioxideMolPercent ?? '');
+        setH2s(stream.composition?.hydrogenSulphide ?? '');
+        setH2sUnit(stream.composition?.hydrogenSulphideUnit ?? 'PPMV');
+        setBasis(stream.composition?.basis ?? 'DRY');
+        setSaturated(stream.composition?.saturatedAtStreamTemperature ?? true);
+        setAnalysisSource(stream.composition?.sourceReference ?? '');
       } else {
         // Creating new stream
         resetForm();
@@ -106,10 +132,49 @@ export default function StreamFormDialog({
     }
   }, [open, stream]);
 
-  // Whether this repo can derive density and enthalpy for the chosen fluid.
-  // When it cannot (biogas), the two fields become inputs the engineer fills in
-  // from the basic design rather than read-only outputs.
+  // Whether this repo can derive density and enthalpy from T and P alone.
   const propertiesAreComputed = hasPropertyCorrelations(fluidType);
+  // Whether it can derive them once an analysis is supplied.
+  const needsComposition = requiresComposition(fluidType);
+
+  // The analysis as entered, or null while it is still incomplete. CH₄ and CO₂
+  // are the minimum; H₂S may legitimately be zero on a scrubbed gas.
+  const composition = useMemo<GasComposition | null>(() => {
+    if (!needsComposition) return null;
+    if (methane === '' || carbonDioxide === '') return null;
+    return {
+      methaneMolPercent: Number(methane),
+      carbonDioxideMolPercent: Number(carbonDioxide),
+      hydrogenSulphide: h2s === '' ? 0 : Number(h2s),
+      hydrogenSulphideUnit: h2sUnit,
+      basis,
+      ...(basis === 'DRY' && { saturatedAtStreamTemperature: saturated }),
+      ...(analysisSource.trim() && { sourceReference: analysisSource.trim() }),
+    };
+  }, [needsComposition, methane, carbonDioxide, h2s, h2sUnit, basis, saturated, analysisSource]);
+
+  // Derived gas properties, plus what the resolution actually did to the
+  // numbers — the normalisation and the saturation water are shown rather than
+  // applied silently, because both change the density the line is sized on.
+  const gasResult = useMemo(() => {
+    if (!composition || temperature === '' || pressureMbar === '') return null;
+    try {
+      return {
+        ...calculateCompositionProperties(composition, Number(temperature), Number(pressureMbar)),
+        error: null as string | null,
+      };
+    } catch (err) {
+      return {
+        resolved: null,
+        properties: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }, [composition, temperature, pressureMbar]);
+
+  // A composition that resolved is the source of density and enthalpy; without
+  // one they stay hand-entered.
+  const propertiesFromComposition = !!gasResult?.properties;
 
   // Auto-calculate when inputs change
   useEffect(() => {
@@ -121,6 +186,7 @@ export default function StreamFormDialog({
           pressureMbar: Number(pressureMbar),
           flowRateKgS: Number(flowRateKgS),
           tds: tds !== '' ? Number(tds) : undefined,
+          composition: composition ?? undefined,
         });
         setFlowRateKgHr(result.flowRateKgHr);
         setPressureBar(result.pressureBar);
@@ -133,7 +199,7 @@ export default function StreamFormDialog({
         logger.warn('Stream calculation failed', { error: err });
       }
     }
-  }, [fluidType, flowRateKgS, pressureMbar, temperature, tds]);
+  }, [fluidType, flowRateKgS, pressureMbar, temperature, tds, composition]);
 
   // Choosing a fluid proposes the tag prefix for that service, so the naming
   // convention comes from the system rather than from memory. The tag stays
@@ -182,6 +248,13 @@ export default function StreamFormDialog({
     setPressureBar(null);
     setDensity(null);
     setEnthalpy(null);
+    setMethane('');
+    setCarbonDioxide('');
+    setH2s('');
+    setH2sUnit('PPMV');
+    setBasis('DRY');
+    setSaturated(true);
+    setAnalysisSource('');
   };
 
   const handleSubmit = async () => {
@@ -209,12 +282,16 @@ export default function StreamFormDialog({
     // Nothing can derive these for a fluid with no correlation, so they have to
     // be supplied. Previously the payload fell back to 1000 kg/m³ when density
     // was blank — water's density, written silently onto a gas stream.
-    if (!propertiesAreComputed && density === null) {
+    if (!propertiesAreComputed && !propertiesFromComposition && density === null) {
       setError(`Density must be entered for ${fluidType} — it cannot be calculated from T and P`);
       return;
     }
-    if (!propertiesAreComputed && enthalpy === null) {
+    if (!propertiesAreComputed && !propertiesFromComposition && enthalpy === null) {
       setError(`Enthalpy must be entered for ${fluidType} — it cannot be calculated from T and P`);
+      return;
+    }
+    if (gasResult?.error) {
+      setError(gasResult.error);
       return;
     }
     if (density === null) {
@@ -238,6 +315,7 @@ export default function StreamFormDialog({
         tds: tds !== '' ? Number(tds) : undefined,
         density,
         enthalpy: enthalpy ?? 0,
+        ...(composition && { composition }),
       };
 
       if (isEditing && stream) {
@@ -376,22 +454,160 @@ export default function StreamFormDialog({
             />
           </Grid>
 
+          {needsComposition && (
+            <>
+              <Grid size={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Gas Analysis
+                  </Typography>
+                </Divider>
+                <Alert severity="info" sx={{ mb: 1 }}>
+                  {fluidType} properties follow from the composition, not from temperature and
+                  pressure. Enter the analysis and density, enthalpy, Cp, viscosity and conductivity
+                  are all derived from it.
+                </Alert>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  label="Methane (CH₄)"
+                  type="number"
+                  value={methane}
+                  onChange={(e) => setMethane(e.target.value ? Number(e.target.value) : '')}
+                  fullWidth
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">mol%</InputAdornment>,
+                  }}
+                  inputProps={{ step: 0.1, min: 0, max: 100 }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  label="Carbon Dioxide (CO₂)"
+                  type="number"
+                  value={carbonDioxide}
+                  onChange={(e) => setCarbonDioxide(e.target.value ? Number(e.target.value) : '')}
+                  fullWidth
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">mol%</InputAdornment>,
+                  }}
+                  inputProps={{ step: 0.1, min: 0, max: 100 }}
+                />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 2 }}>
+                <TextField
+                  label="H₂S"
+                  type="number"
+                  value={h2s}
+                  onChange={(e) => setH2s(e.target.value ? Number(e.target.value) : '')}
+                  fullWidth
+                  inputProps={{ step: h2sUnit === 'PPMV' ? 10 : 0.01, min: 0 }}
+                />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>H₂S unit</InputLabel>
+                  <Select
+                    value={h2sUnit}
+                    onChange={(e) => setH2sUnit(e.target.value as H2SUnit)}
+                    label="H₂S unit"
+                  >
+                    <MenuItem value="PPMV">ppmv</MenuItem>
+                    <MenuItem value="MOL_PERCENT">mol%</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Analysis basis</InputLabel>
+                  <Select
+                    value={basis}
+                    onChange={(e) => setBasis(e.target.value as GasAnalysisBasis)}
+                    label="Analysis basis"
+                  >
+                    <MenuItem value="DRY">Dry — as a lab reports it</MenuItem>
+                    <MenuItem value="WET">Wet — water already included</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {basis === 'DRY' && (
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Actual stream</InputLabel>
+                    <Select
+                      value={saturated ? 'SATURATED' : 'DRY_STREAM'}
+                      onChange={(e) => setSaturated(e.target.value === 'SATURATED')}
+                      label="Actual stream"
+                    >
+                      <MenuItem value="SATURATED">Saturated with water</MenuItem>
+                      <MenuItem value="DRY_STREAM">Genuinely dry</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  label="Analysis reference"
+                  value={analysisSource}
+                  onChange={(e) => setAnalysisSource(e.target.value)}
+                  fullWidth
+                  placeholder="Lab report or client document"
+                />
+              </Grid>
+
+              {gasResult?.error && (
+                <Grid size={12}>
+                  <Alert severity="error">{gasResult.error}</Alert>
+                </Grid>
+              )}
+
+              {gasResult?.resolved && gasResult.properties && (
+                <Grid size={12}>
+                  <Alert severity="success" icon={false}>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      <strong>Composition used:</strong>{' '}
+                      {(gasResult.resolved.moleFractions.CH4 * 100).toFixed(2)}% CH₄,{' '}
+                      {(gasResult.resolved.moleFractions.CO2 * 100).toFixed(2)}% CO₂,{' '}
+                      {(gasResult.resolved.moleFractions.H2S * 100).toFixed(4)}% H₂S
+                      {gasResult.resolved.waterMolPercent > 0 &&
+                        `, ${gasResult.resolved.waterMolPercent.toFixed(2)}% H₂O (saturation)`}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Molar mass {gasResult.properties.molarMassGmol.toFixed(2)} g/mol · Cp{' '}
+                      {gasResult.properties.specificHeat.toFixed(3)} kJ/kg·K · k{' '}
+                      {gasResult.properties.isentropicExponent.toFixed(3)} · µ{' '}
+                      {(gasResult.properties.viscosity * 1e6).toFixed(2)} µPa·s · LHV{' '}
+                      {gasResult.properties.lowerHeatingValueMJNm3.toFixed(2)} MJ/Nm³ · H₂S partial
+                      pressure {gasResult.properties.h2sPartialPressureMbar.toFixed(3)} mbar
+                    </Typography>
+                    {gasResult.resolved.warnings.map((w) => (
+                      <Typography key={w} variant="body2" sx={{ mt: 0.5 }} color="warning.main">
+                        {w}
+                      </Typography>
+                    ))}
+                  </Alert>
+                </Grid>
+              )}
+            </>
+          )}
+
           <Grid size={12}>
             <Divider sx={{ my: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                {propertiesAreComputed
+                {propertiesAreComputed || propertiesFromComposition
                   ? 'Calculated Values (auto-updated)'
                   : 'Flow and pressure calculated — density and enthalpy must be supplied'}
               </Typography>
             </Divider>
           </Grid>
 
-          {!propertiesAreComputed && (
+          {!propertiesAreComputed && !propertiesFromComposition && (
             <Grid size={12}>
               <Alert severity="info" sx={{ mb: 1 }}>
-                {fluidType} properties cannot be derived from temperature and pressure — they follow
-                from the gas composition. Enter the density and enthalpy from the basic design or
-                the gas analysis.
+                No analysis entered, so density and enthalpy have to come from the basic design.
+                Fill in the gas analysis above and they are derived instead.
               </Alert>
             </Grid>
           )}
@@ -418,7 +634,7 @@ export default function StreamFormDialog({
             </Box>
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
-            {propertiesAreComputed ? (
+            {propertiesAreComputed || propertiesFromComposition ? (
               <Box sx={{ p: 1.5, bgcolor: 'grey.100', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   Density
@@ -444,7 +660,7 @@ export default function StreamFormDialog({
             )}
           </Grid>
           <Grid size={{ xs: 12, sm: 3 }}>
-            {propertiesAreComputed ? (
+            {propertiesAreComputed || propertiesFromComposition ? (
               <Box sx={{ p: 1.5, bgcolor: 'grey.100', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   Enthalpy

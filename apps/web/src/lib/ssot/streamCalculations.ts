@@ -32,7 +32,13 @@ import {
 } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import { LINE_TAG_FLUID_MAP } from '@vapour/types';
-import type { FluidType, ProcessStreamInput, SteamRegion } from '@vapour/types';
+import type { FluidType, GasComposition, ProcessStreamInput, SteamRegion } from '@vapour/types';
+import {
+  calculateGasMixtureProperties,
+  resolveBiogasComposition,
+  type GasMixtureProperties,
+  type ResolvedComposition,
+} from '@/lib/thermal/gasMixture';
 
 const logger = createLogger({ context: 'streamCalculations' });
 
@@ -66,6 +72,8 @@ export interface StreamCalculationResult {
 
 export interface StreamCalculationInput {
   fluidType: FluidType;
+  /** Gas analysis — required for a fluid with no correlation, ignored otherwise */
+  composition?: GasComposition;
   temperature: number; // °C
   pressureMbar: number; // mbar(a)
   flowRateKgS: number; // kg/s
@@ -146,19 +154,64 @@ function getSteamRegionType(pressureBar: number, tempC: number): SteamRegion {
 
 /**
  * Whether this repo can derive a fluid's properties from temperature and
- * pressure alone.
+ * pressure **alone**.
  *
  * Sea water and its family have Sharqawy correlations, steam has IAPWS-IF97,
- * and NCG is modelled as dry air. **Biogas has none of that**: its properties
- * follow from a gas composition (CH₄/CO₂/H₂S and water saturation), not from a
- * temperature, so nothing here can produce them and they are supplied by
- * whoever did the basic design until the composition-based model lands.
- *
- * Returning false is the honest answer, and the callers below leave the
- * properties blank rather than substituting a plausible-looking number.
+ * and NCG is modelled as dry air. Biogas has none of that — its properties
+ * follow from a **composition**. So this stays false for biogas even now that
+ * the mixture model exists: without an analysis there is still nothing to
+ * compute from, and the caller must either be given one or leave the
+ * properties to be supplied.
  */
 export function hasPropertyCorrelations(fluidType: FluidType): boolean {
   return fluidType !== 'BIOGAS';
+}
+
+/**
+ * Whether a fluid's properties can be derived once a composition is supplied.
+ *
+ * The pairing with `hasPropertyCorrelations` is the whole point: biogas is
+ * `false` there and `true` here, which is exactly the distinction between
+ * "we cannot know this" and "we can, once you tell us what the gas is".
+ */
+export function requiresComposition(fluidType: FluidType): boolean {
+  return fluidType === 'BIOGAS';
+}
+
+/**
+ * Properties of a gas stream derived from its analysis.
+ *
+ * Separate from `calculateStreamProperties` because the inputs are different in
+ * kind: a composition rather than a temperature. The extra outputs — heating
+ * value, isentropic exponent, H₂S partial pressure — have no equivalent for a
+ * liquid and are what a burner, a blower and a materials decision need.
+ */
+export function calculateCompositionProperties(
+  composition: GasComposition,
+  temperature: number,
+  pressureMbar: number
+): { resolved: ResolvedComposition; properties: GasMixtureProperties } {
+  const resolved = resolveBiogasComposition(
+    {
+      methaneMolPercent: composition.methaneMolPercent,
+      carbonDioxideMolPercent: composition.carbonDioxideMolPercent,
+      hydrogenSulphide: composition.hydrogenSulphide,
+      hydrogenSulphideUnit: composition.hydrogenSulphideUnit,
+      basis: composition.basis,
+      saturatedAtStreamTemperature: composition.saturatedAtStreamTemperature,
+    },
+    temperature,
+    pressureMbar
+  );
+
+  return {
+    resolved,
+    properties: calculateGasMixtureProperties({
+      moleFractions: resolved.moleFractions,
+      temperatureC: temperature,
+      pressureMbar,
+    }),
+  };
 }
 
 /**
@@ -479,11 +532,28 @@ export function calculateStreamProperties(input: StreamCalculationInput): Stream
   const flowRateKgHr = flowRateKgS * 3600;
   const pressureBar = pressureMbar / 1000;
 
-  // A fluid with no correlation gets its unit conversions and nothing else.
+  // A fluid with no correlation derives its properties from a composition when
+  // one is supplied, and otherwise gets its unit conversions and nothing else.
   // The alternative — letting calculateDensity throw — would lose the flow and
   // pressure conversions too, which are pure arithmetic and always valid.
   if (!hasPropertyCorrelations(fluidType)) {
-    return { flowRateKgHr, pressureBar };
+    if (!input.composition) {
+      return { flowRateKgHr, pressureBar };
+    }
+    const { properties } = calculateCompositionProperties(
+      input.composition,
+      temperature,
+      pressureMbar
+    );
+    return {
+      flowRateKgHr,
+      pressureBar,
+      density: properties.density,
+      enthalpy: properties.enthalpy,
+      specificHeat: properties.specificHeat,
+      viscosity: properties.viscosity,
+      thermalConductivity: properties.thermalConductivity,
+    };
   }
 
   // Calculate core properties
@@ -522,7 +592,7 @@ export function calculateStreamProperties(input: StreamCalculationInput): Stream
  * all calculated fields are properly set.
  */
 export function enrichStreamInput(input: ProcessStreamInput): ProcessStreamInput {
-  const { fluidType, temperature, pressureMbar, flowRateKgS, tds } = input;
+  const { fluidType, temperature, pressureMbar, flowRateKgS, tds, composition } = input;
 
   // Skip calculation if required fields are missing
   if (temperature === undefined || pressureMbar === undefined || flowRateKgS === undefined) {
@@ -536,6 +606,7 @@ export function enrichStreamInput(input: ProcessStreamInput): ProcessStreamInput
       pressureMbar,
       flowRateKgS,
       tds,
+      composition,
     });
 
     // A property this repo cannot compute must not erase one the user supplied.

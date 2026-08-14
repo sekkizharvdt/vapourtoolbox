@@ -645,6 +645,38 @@ velocity basis (§2.7). Biogas pipe material ships as 316L alone — a single co
 that cannot be mis-picked — and the gas velocities are marked in code as assumed, pending your
 answer.
 
+### CP2 — built 2026-08-13, awaiting review
+
+**This is the checkpoint that can be falsified with a number.** Open a biogas stream, enter your
+gas analysis, and compare what comes out against the basic design's own figures.
+
+1. `/ssot` → Streams → Add → fluid BIOGAS. A **Gas Analysis** section appears: CH₄ mol%, CO₂
+   mol%, H₂S with a ppmv/mol% switch, the analysis basis, whether the stream is saturated, and a
+   reference field for the report the numbers came from.
+2. Enter the analysis. Density and enthalpy stop being hand-entered and are derived, and the
+   panel shows **the composition actually used** — including the saturation water added and any
+   normalisation — plus molar mass, Cp, isentropic exponent, viscosity, calorific value and the
+   **H₂S partial pressure** that answers the §2.1 materials question.
+3. Set the basis to dry-and-saturated, then to genuinely dry, and watch the density move. That
+   difference is the 2–3% described above; if it does not appear, the correction is not working.
+4. Enter an analysis that sums to 97.5%. It must say what it normalised to, not silently fix it.
+5. Leave the analysis blank. Density and enthalpy must go back to being required by hand — a
+   composition is not a correlation, and without one there is still nothing to compute from.
+
+**What to check against:** your own basic design figures for density and Cp, and the published
+~21.5 MJ/Nm³ for 60% methane biogas.
+
+**Accuracy, stated rather than implied:** molar mass exact, density <1%, Cp/Cv/k ~1%, viscosity
+2–3%, conductivity ~5%, heating value exact to the tabulated constants. The ideal-gas assumption
+holds at digester pressure and **fails under compression** — biogas upgrading at tens of bar
+needs a real equation of state and this model must not be used there. That limit is written into
+the module.
+
+**One bug found by its own test.** The calorific value per normal cubic metre came out at
+0.021 MJ/Nm³ instead of 21.5 — a kJ-versus-J conversion, wrong by exactly a thousand. It was
+caught only because the test was anchored to a published figure rather than to whatever the code
+happened to produce. A test asserting `toBe(0.0215)` would have passed forever.
+
 **CP7 is the odd one out and deliberately so.** It is the only checkpoint reviewed as a document
 rather than as working software, because instrumentation templates are convention, not
 calculation — and building them first and reviewing after is how you end up with two hundred

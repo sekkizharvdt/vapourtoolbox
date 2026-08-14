@@ -16,6 +16,7 @@ import {
   calculateStreamProperties,
   enrichStreamInput,
   hasPropertyCorrelations,
+  requiresComposition,
   type StreamCalculationInput,
 } from './streamCalculations';
 import type { ProcessStreamInput, FluidType } from '@vapour/types';
@@ -62,6 +63,11 @@ jest.mock('@vapour/constants', () => ({
   getEnthalpyVapor: jest.fn((temp: number) => {
     // Approximate: h ≈ 2676 kJ/kg at 100°C
     return 2676 + 2.0 * (temp - 100);
+  }),
+  // Saturation pressure in bar, via the Magnus form. Needed by gasMixture to
+  // work out how much water a saturated gas carries: ~0.066 bar at 38 °C.
+  getSaturationPressure: jest.fn((temp: number) => {
+    return 0.0061121 * Math.exp((17.502 * temp) / (240.97 + temp));
   }),
   // Pressure-aware steam properties
   getRegion: jest.fn((pressureBar: number, temp: number) => {
@@ -627,6 +633,95 @@ describe('Stream Calculations', () => {
 
     it('should throw a descriptive error if biogas density is requested directly', () => {
       expect(() => calculateDensity('BIOGAS', 38, undefined, 1050)).toThrow(/composition/i);
+    });
+
+    it('should derive biogas properties once a composition is supplied', () => {
+      const result = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+        composition: {
+          methaneMolPercent: 60,
+          carbonDioxideMolPercent: 39.8,
+          hydrogenSulphide: 2000,
+          hydrogenSulphideUnit: 'PPMV',
+          basis: 'DRY',
+          saturatedAtStreamTemperature: true,
+        },
+      });
+
+      // Real digester gas at these conditions sits near 1.1 kg/m³ — three
+      // orders of magnitude from the 1000 the old fallback would have written.
+      expect(result.density).toBeGreaterThan(0.9);
+      expect(result.density).toBeLessThan(1.4);
+      expect(result.specificHeat).toBeGreaterThan(1);
+      expect(result.specificHeat).toBeLessThan(2.5);
+      expect(result.viscosity).toBeGreaterThan(1e-5);
+      expect(result.viscosity).toBeLessThan(2e-5);
+      expect(result.flowRateKgHr).toBe(1800);
+    });
+
+    it('should still report no correlation for biogas — a composition is not a correlation', () => {
+      // The pair is the distinction between "cannot know" and "can know once
+      // told". A caller with no analysis must still not get a number.
+      expect(hasPropertyCorrelations('BIOGAS')).toBe(false);
+      expect(requiresComposition('BIOGAS')).toBe(true);
+      expect(requiresComposition('SEA WATER')).toBe(false);
+    });
+
+    it('should make the saturated gas lighter than the same analysis treated as dry', () => {
+      const asDry = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+        composition: {
+          methaneMolPercent: 60,
+          carbonDioxideMolPercent: 39.8,
+          hydrogenSulphide: 2000,
+          hydrogenSulphideUnit: 'PPMV',
+          basis: 'DRY',
+          saturatedAtStreamTemperature: false,
+        },
+      });
+      const asSaturated = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+        composition: {
+          methaneMolPercent: 60,
+          carbonDioxideMolPercent: 39.8,
+          hydrogenSulphide: 2000,
+          hydrogenSulphideUnit: 'PPMV',
+          basis: 'DRY',
+          saturatedAtStreamTemperature: true,
+        },
+      });
+
+      expect(asSaturated.density as number).toBeLessThan(asDry.density as number);
+    });
+
+    it('should enrich a biogas input from its composition', () => {
+      const enriched = enrichStreamInput({
+        lineTag: 'BG-1',
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+        composition: {
+          methaneMolPercent: 60,
+          carbonDioxideMolPercent: 40,
+          hydrogenSulphide: 0,
+          hydrogenSulphideUnit: 'PPMV',
+          basis: 'WET',
+        },
+      });
+
+      expect(enriched.density).toBeDefined();
+      expect(enriched.density as number).toBeGreaterThan(0.9);
+      expect(enriched.composition?.methaneMolPercent).toBe(60);
     });
 
     it('should not overwrite supplied biogas properties when enriching', () => {
