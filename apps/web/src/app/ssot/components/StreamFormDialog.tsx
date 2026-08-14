@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import type { ProcessStream, ProcessStreamInput, FluidType } from '@vapour/types';
 import { FLUID_TYPES } from '@vapour/types';
+import { FLUID_CODE } from '@/lib/ssot/generatorHelpers';
 import { createStream, updateStream } from '@/lib/ssot/streamService';
 import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import {
@@ -65,6 +66,11 @@ export default function StreamFormDialog({
   const [lineTag, setLineTag] = useState('');
   const [description, setDescription] = useState('');
   const [fluidType, setFluidType] = useState<FluidType>('SEA WATER');
+  // Once the engineer picks a fluid from the dropdown, the tag stops changing
+  // it. Otherwise selecting BIOGAS and then typing a third-party tag such as
+  // "S-101" silently reclassifies the stream as steam — inference is a
+  // convenience for our own tags, not an authority over a stated choice.
+  const [fluidChosenExplicitly, setFluidChosenExplicitly] = useState(false);
   const [flowRateKgS, setFlowRateKgS] = useState<number | ''>('');
   const [pressureMbar, setPressureMbar] = useState<number | ''>('');
   const [temperature, setTemperature] = useState<number | ''>('');
@@ -129,10 +135,29 @@ export default function StreamFormDialog({
     }
   }, [fluidType, flowRateKgS, pressureMbar, temperature, tds]);
 
-  // Auto-detect fluid type from line tag
+  // Choosing a fluid proposes the tag prefix for that service, so the naming
+  // convention comes from the system rather than from memory. The tag stays
+  // editable — a stream table from another engineering house arrives with its
+  // own tags, and those have to be enterable as they are.
+  const handleFluidTypeChange = (value: FluidType) => {
+    setFluidType(value);
+    setFluidChosenExplicitly(true);
+
+    const prefix = FLUID_CODE[value];
+    const trimmed = lineTag.trim();
+    // Only rewrite a tag that is empty or is still just another service's
+    // prefix. Anything the engineer has actually typed is left alone.
+    const isUntouched =
+      trimmed === '' || Object.values(FLUID_CODE).some((code) => trimmed === `${code}-`);
+    if (isUntouched) {
+      setLineTag(`${prefix}-`);
+    }
+  };
+
+  // Infer the fluid from a typed tag, unless the engineer has already stated it
   const handleLineTagChange = (value: string) => {
     setLineTag(value);
-    if (!isEditing && value.length >= 1) {
+    if (!isEditing && !fluidChosenExplicitly && value.length >= 1) {
       const inferredType = inferFluidType(value);
       // `null` means the tag matched no known prefix. Leave the fluid on
       // whatever is currently selected so the engineer chooses it deliberately
@@ -148,6 +173,7 @@ export default function StreamFormDialog({
     setLineTag('');
     setDescription('');
     setFluidType('SEA WATER');
+    setFluidChosenExplicitly(false);
     setFlowRateKgS('');
     setPressureMbar('');
     setTemperature('');
@@ -252,7 +278,7 @@ export default function StreamFormDialog({
               fullWidth
               required
               placeholder="e.g., SW1, D19, S13"
-              helperText="Prefix determines fluid type (SW=Seawater, D=Distillate, S=Steam)"
+              helperText="Picking a fluid fills in its prefix; typing a tag infers the fluid until you pick one"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
@@ -260,7 +286,7 @@ export default function StreamFormDialog({
               <InputLabel>Fluid Type</InputLabel>
               <Select
                 value={fluidType}
-                onChange={(e) => setFluidType(e.target.value as FluidType)}
+                onChange={(e) => handleFluidTypeChange(e.target.value as FluidType)}
                 label="Fluid Type"
               >
                 {FLUID_TYPES.map((type) => (

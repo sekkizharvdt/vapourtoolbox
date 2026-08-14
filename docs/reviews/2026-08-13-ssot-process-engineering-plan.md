@@ -393,6 +393,45 @@ selection is judged on H₂S partial pressure in the presence of free water, so 
 question — what is a biogas line made of — stops being a judgement call and becomes a number
 the register can compute and a rule the toolbox can apply.
 
+### How the composition is entered — three decisions
+
+Asked 2026-08-13: "the first stream will have methane, carbon dioxide and hydrogen sulphide,
+could we include an option to provide percentages of all three?" Yes — that is the input the
+model needs. Three things have to be settled about the form, because each one silently changes
+the answer:
+
+1. **Mole percent, not mass percent.** Gas analyses are quoted in mol% (identical to vol% for
+   an ideal gas), and every mixing rule above is molar. The same three numbers read as mass%
+   give a different molar mass and therefore a different density. The field must say which it
+   is and refuse to be ambiguous.
+2. **H₂S in ppm, with a percent option.** Digester gas H₂S is typically 100–10,000 ppmv, so
+   entering it as a percentage means typing 0.05. A field that reads "2" when the analysis says
+   "2%" and a field that reads "2" when the analysis says "2 ppm" differ by a factor of 10,000,
+   and both look reasonable.
+3. **Dry basis or wet basis — this is the one that gets missed.** Gas leaves a digester
+   **saturated**, and a lab analysis is almost always reported **dry**. At 38 °C saturation,
+   water is around 6.6 vol% of the real gas. Taking a dry analysis, normalising it to 100% and
+   treating it as the actual stream understates molar mass by roughly 2–3%, which lands
+   straight in the density and then in the line size. So the form asks which basis the analysis
+   is on, and when it is dry-and-saturated the toolbox adds the water itself from the steam
+   tables — the NCG calculator already does exactly this for air.
+
+**Three components only — CH₄, CO₂ and H₂S. Decided 2026-08-13: N₂ and O₂ are not offered.**
+Air ingress is treated as negligible.
+
+That is defensible, and worth recording with the number rather than the word. Where an analysis
+does report a couple of percent of N₂, the engineer folds it into CO₂ or CH₄, and molar mass
+moves by roughly **±1%** — N₂ at 28 g/mol sits between CH₄ at 16 and CO₂ at 44, so either
+choice errs, in opposite directions, by about the same amount. Density follows molar mass
+directly, so the error lands there. It is smaller than the 2–3% the dry-versus-wet basis
+question is worth, and well inside what a line size will notice.
+
+**One consequence to handle rather than ignore:** with N₂ and O₂ excluded, a real analysis will
+often not sum to 100%, so the three entered fractions are normalised to 100% — and the form
+**shows the normalised values it actually used**. Normalising is the right call once the
+balance cannot be entered; doing it silently is how a reading disappears without anyone seeing
+what replaced it.
+
 ### What stays out of reach
 
 High-pressure real-gas behaviour (upgrading or bottling, where a proper equation of state is
