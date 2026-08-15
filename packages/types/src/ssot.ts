@@ -79,8 +79,15 @@ export type SteamRegion = 'saturation' | 'subcooled' | 'superheated';
  * The two generated sources are kept distinct so regeneration only refreshes
  * what its own calculator owns: re-running the MED design must not overwrite a
  * flash chamber's geometry, and vice versa.
+ *
+ * `IMPORTED` records came from a spreadsheet — typically a basic design done by
+ * another engineering house. They are scoped the same way: re-importing a
+ * revised file refreshes what the last import created and leaves both the
+ * generators' records and anything hand-entered alone. Their match key is the
+ * natural tag from the file (stream tag, equipment tag, line number), which is
+ * stable across revisions in a way a generated sequence is not.
  */
-export type SSOTRecordSource = 'MANUAL' | 'MED_DESIGN' | 'FLASH_CHAMBER';
+export type SSOTRecordSource = 'MANUAL' | 'MED_DESIGN' | 'FLASH_CHAMBER' | 'IMPORTED';
 
 /**
  * Provenance metadata carried by every register that the MED designer can
@@ -183,6 +190,59 @@ export interface GasComposition {
 }
 
 // ============================================
+// Property basis — where a number came from
+// ============================================
+
+/**
+ * How a property value was arrived at.
+ *
+ * The distinction is not bookkeeping. A density this repo computed from a
+ * validated correlation, a density taken off a client's basic design, and a
+ * density somebody assumed because no source existed are three different
+ * claims, and a datasheet that prints them identically is asserting something
+ * it cannot support. This codebase has already been bitten by exactly that: a
+ * vessel wall thickness of 6 mm is an unsourced working assumption with no
+ * external-pressure check behind it, and every mass derived from it silently
+ * inherited the assumption.
+ */
+export type PropertyBasis = 'COMPUTED' | 'SUPPLIED' | 'ASSUMED';
+
+export const PROPERTY_BASIS_LABELS: Record<PropertyBasis, string> = {
+  COMPUTED: 'Computed',
+  SUPPLIED: 'Supplied',
+  ASSUMED: 'Assumed',
+};
+
+/**
+ * Per-property basis for a stream.
+ *
+ * Keyed by the field name on the stream itself, so a record can carry a
+ * computed density beside a supplied specific heat — the normal state of a
+ * stream taken from someone else's basic design, where some numbers are given
+ * and the rest are derived from them.
+ *
+ * `COMPUTED` here means computed **by this repo**. Where the computation rests
+ * on a supplied input — biogas properties derived from a client's gas analysis
+ * — `sourceReference` names that input, because a computed value is no better
+ * than what it was computed from.
+ */
+export interface StreamPropertyBasis {
+  density?: PropertyBasis;
+  enthalpy?: PropertyBasis;
+  specificHeat?: PropertyBasis;
+  viscosity?: PropertyBasis;
+  thermalConductivity?: PropertyBasis;
+  entropy?: PropertyBasis;
+  boilingPointElevation?: PropertyBasis;
+  /**
+   * Where a supplied or assumed value came from, or what a computed value
+   * rests on — client document number, lab report, or the reason for the
+   * assumption.
+   */
+  sourceReference?: string;
+}
+
+// ============================================
 // Flow entry units
 // ============================================
 
@@ -257,6 +317,9 @@ export interface ProcessStream {
   /** The flow rate as entered, when it was not entered in kg/s */
   flowInput?: StreamFlowInput;
 
+  /** Where each property came from — computed here, supplied, or assumed */
+  propertyBasis?: StreamPropertyBasis;
+
   /** Generated-vs-manual provenance (absent on legacy hand-entered records = MANUAL) */
   provenance?: SSOTProvenance;
 
@@ -291,6 +354,8 @@ export interface ProcessStreamInput {
   composition?: GasComposition;
   /** The flow rate as entered, when it was not entered in kg/s */
   flowInput?: StreamFlowInput;
+  /** Where each property came from — computed here, supplied, or assumed */
+  propertyBasis?: StreamPropertyBasis;
   provenance?: SSOTProvenance;
 }
 

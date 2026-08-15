@@ -37,7 +37,9 @@ import type {
   FlowUnit,
   GasComposition,
   ProcessStreamInput,
+  PropertyBasis,
   SteamRegion,
+  StreamPropertyBasis,
 } from '@vapour/types';
 import {
   calculateGasMixtureProperties,
@@ -515,6 +517,59 @@ export function calculateBoilingPointElevation(
   } catch {
     return undefined;
   }
+}
+
+// ============================================================================
+// Property basis
+// ============================================================================
+
+/** The stream properties that carry a basis */
+const BASIS_TRACKED_PROPERTIES = [
+  'density',
+  'enthalpy',
+  'specificHeat',
+  'viscosity',
+  'thermalConductivity',
+  'entropy',
+  'boilingPointElevation',
+] as const;
+
+type BasisTrackedProperty = (typeof BASIS_TRACKED_PROPERTIES)[number];
+
+/**
+ * Mark which properties this repo actually computed.
+ *
+ * Anything the calculation produced is `COMPUTED`. Anything left over — a value
+ * present on the stream that the calculation did not generate — was put there
+ * by a person, and this function will not guess whether that was a supplied
+ * figure or an assumption. It leaves those keys absent so the caller has to
+ * say, which is §2.3's requirement expressed in code rather than in a comment.
+ *
+ * `handEnteredBasis` is applied to exactly those left-over properties.
+ */
+export function deriveStreamPropertyBasis(
+  calculated: StreamCalculationResult,
+  saved: Pick<ProcessStreamInput, BasisTrackedProperty>,
+  handEnteredBasis?: PropertyBasis,
+  sourceReference?: string
+): StreamPropertyBasis {
+  const basis: StreamPropertyBasis = {};
+
+  for (const key of BASIS_TRACKED_PROPERTIES) {
+    const wasComputed = calculated[key] !== undefined;
+    const hasValue = saved[key] !== undefined && saved[key] !== null;
+    if (wasComputed) {
+      basis[key] = 'COMPUTED';
+    } else if (hasValue && handEnteredBasis) {
+      basis[key] = handEnteredBasis;
+    }
+  }
+
+  // Rule 12: never write an undefined into Firestore
+  if (sourceReference) {
+    basis.sourceReference = sourceReference;
+  }
+  return basis;
 }
 
 // ============================================================================

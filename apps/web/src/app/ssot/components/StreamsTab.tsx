@@ -161,7 +161,7 @@ export default function StreamsTab({ projectId, userId, accessCheck }: StreamsTa
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Line Tag</TableCell>
+              <TableCell>Stream Tag</TableCell>
               <TableCell>Fluid Type</TableCell>
               <TableCell align="right">Flow (kg/s)</TableCell>
               <TableCell align="right">Flow (kg/hr)</TableCell>

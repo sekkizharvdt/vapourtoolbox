@@ -34,8 +34,9 @@ import type {
   GasAnalysisBasis,
   H2SUnit,
   FlowUnit,
+  PropertyBasis,
 } from '@vapour/types';
-import { FLUID_TYPES, FLOW_UNIT_LABELS } from '@vapour/types';
+import { FLUID_TYPES, FLOW_UNIT_LABELS, PROPERTY_BASIS_LABELS } from '@vapour/types';
 import { FLUID_CODE } from '@/lib/ssot/generatorHelpers';
 import { createStream, updateStream } from '@/lib/ssot/streamService';
 import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
@@ -46,6 +47,7 @@ import {
   requiresComposition,
   calculateCompositionProperties,
   convertFlowToKgS,
+  deriveStreamPropertyBasis,
 } from '@/lib/ssot/streamCalculations';
 import { createLogger } from '@vapour/logger';
 
@@ -97,6 +99,12 @@ export default function StreamFormDialog({
   const [saturated, setSaturated] = useState(true);
   const [analysisSource, setAnalysisSource] = useState('');
 
+  // §2.3: a value this repo did not compute is either supplied or assumed, and
+  // the engineer says which. There is deliberately no third option and no
+  // default that quietly picks one.
+  const [handEnteredBasis, setHandEnteredBasis] = useState<PropertyBasis>('SUPPLIED');
+  const [basisSource, setBasisSource] = useState('');
+
   // Calculated fields (display only)
   const [flowRateKgHr, setFlowRateKgHr] = useState<number | null>(null);
   const [pressureBar, setPressureBar] = useState<number | null>(null);
@@ -130,6 +138,8 @@ export default function StreamFormDialog({
         setBasis(stream.composition?.basis ?? 'DRY');
         setSaturated(stream.composition?.saturatedAtStreamTemperature ?? true);
         setAnalysisSource(stream.composition?.sourceReference ?? '');
+        setHandEnteredBasis(stream.propertyBasis?.density === 'ASSUMED' ? 'ASSUMED' : 'SUPPLIED');
+        setBasisSource(stream.propertyBasis?.sourceReference ?? '');
       } else {
         // Creating new stream
         resetForm();
@@ -186,7 +196,11 @@ export default function StreamFormDialog({
   // converted to a mass flow until the density is known — and density does not
   // depend on the flow at all. Computing it with a zero flow breaks that
   // ordering knot without inventing anything.
-  const derivedDensity = useMemo(() => {
+  // Everything this repo can compute for the stream, independent of the flow.
+  // Doubles as the record of WHICH properties were computed, which is what the
+  // basis below is derived from — a property present here was calculated, and
+  // one that is absent came from a person.
+  const computedProperties = useMemo(() => {
     if (pressureMbar === '' || temperature === '') return undefined;
     try {
       return calculateStreamProperties({
@@ -196,13 +210,15 @@ export default function StreamFormDialog({
         flowRateKgS: 0,
         tds: tds !== '' ? Number(tds) : undefined,
         composition: composition ?? undefined,
-      }).density;
+      });
     } catch {
       // An out-of-range or incomplete input is normal while typing; the field
       // below simply reports that the conversion is not available yet.
       return undefined;
     }
   }, [fluidType, temperature, pressureMbar, tds, composition]);
+
+  const derivedDensity = computedProperties?.density;
 
   // The entered flow in kg/s, or null when a volumetric entry has no density
   // to convert with yet.
@@ -299,12 +315,14 @@ export default function StreamFormDialog({
     setBasis('DRY');
     setSaturated(true);
     setAnalysisSource('');
+    setHandEnteredBasis('SUPPLIED');
+    setBasisSource('');
   };
 
   const handleSubmit = async () => {
     // Validation
     if (!lineTag.trim()) {
-      setError('Line Tag is required');
+      setError('Stream Tag is required');
       return;
     }
     if (flowConversionBlocked) {
@@ -368,6 +386,23 @@ export default function StreamFormDialog({
         enthalpy: enthalpy ?? 0,
         ...(composition && { composition }),
         ...(flowUnit !== 'KG_S' && { flowInput: { value: Number(flowValue), unit: flowUnit } }),
+        propertyBasis: deriveStreamPropertyBasis(
+          {
+            flowRateKgHr: flowRateKgHr ?? 0,
+            pressureBar: pressureBar ?? 0,
+            ...(computedProperties ?? {}),
+          },
+          {
+            density: density ?? undefined,
+            enthalpy: enthalpy ?? undefined,
+          },
+          handEnteredBasis,
+          // A property computed from a supplied gas analysis is no better than
+          // that analysis, so the analysis reference travels with it.
+          basisSource.trim() ||
+            (propertiesFromComposition ? analysisSource.trim() : '') ||
+            undefined
+        ),
       };
 
       if (isEditing && stream) {
@@ -402,7 +437,7 @@ export default function StreamFormDialog({
           {/* Basic Info */}
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
-              label="Line Tag"
+              label="Stream Tag"
               value={lineTag}
               onChange={(e) => handleLineTagChange(e.target.value)}
               fullWidth
@@ -677,12 +712,48 @@ export default function StreamFormDialog({
           </Grid>
 
           {!propertiesAreComputed && !propertiesFromComposition && (
-            <Grid size={12}>
-              <Alert severity="info" sx={{ mb: 1 }}>
-                No analysis entered, so density and enthalpy have to come from the basic design.
-                Fill in the gas analysis above and they are derived instead.
-              </Alert>
-            </Grid>
+            <>
+              <Grid size={12}>
+                <Alert severity="info" sx={{ mb: 1 }}>
+                  No analysis entered, so density and enthalpy have to come from the basic design.
+                  Fill in the gas analysis above and they are derived instead.
+                </Alert>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Basis of these values</InputLabel>
+                  <Select
+                    value={handEnteredBasis}
+                    onChange={(e) => setHandEnteredBasis(e.target.value as PropertyBasis)}
+                    label="Basis of these values"
+                  >
+                    <MenuItem value="SUPPLIED">
+                      {PROPERTY_BASIS_LABELS.SUPPLIED} — from a document
+                    </MenuItem>
+                    <MenuItem value="ASSUMED">
+                      {PROPERTY_BASIS_LABELS.ASSUMED} — nobody calculated it
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 8 }}>
+                <TextField
+                  label={
+                    handEnteredBasis === 'SUPPLIED'
+                      ? 'Source document'
+                      : 'Reason for the assumption'
+                  }
+                  value={basisSource}
+                  onChange={(e) => setBasisSource(e.target.value)}
+                  fullWidth
+                  placeholder={
+                    handEnteredBasis === 'SUPPLIED'
+                      ? 'Client basic design, drawing or report number'
+                      : 'Why this value was assumed, and what would replace it'
+                  }
+                />
+              </Grid>
+            </>
           )}
 
           {/* Calculated Values (Read-only display) */}

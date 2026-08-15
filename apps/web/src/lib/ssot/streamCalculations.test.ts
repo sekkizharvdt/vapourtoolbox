@@ -19,6 +19,7 @@ import {
   requiresComposition,
   convertFlowToKgS,
   convertFlowFromKgS,
+  deriveStreamPropertyBasis,
   type StreamCalculationInput,
 } from './streamCalculations';
 import type { ProcessStreamInput, FluidType } from '@vapour/types';
@@ -603,6 +604,120 @@ describe('Stream Calculations', () => {
       const result = calculateStreamProperties(input);
 
       expect(result.pressureBar).toBe(2.5);
+    });
+  });
+
+  describe('deriveStreamPropertyBasis', () => {
+    it('should mark everything the calculation produced as computed', () => {
+      const calculated = calculateStreamProperties({
+        fluidType: 'SEA WATER',
+        temperature: 25,
+        pressureMbar: 1013,
+        flowRateKgS: 1,
+        tds: 35000,
+      });
+      const basis = deriveStreamPropertyBasis(calculated, {
+        density: calculated.density,
+        enthalpy: calculated.enthalpy,
+      });
+
+      expect(basis.density).toBe('COMPUTED');
+      expect(basis.enthalpy).toBe('COMPUTED');
+      expect(basis.specificHeat).toBe('COMPUTED');
+    });
+
+    it('should mark a hand-entered value with the basis the engineer chose', () => {
+      // Biogas with no analysis: nothing is computed, so both values came from
+      // a person and the engineer has to say which kind of number they are.
+      const calculated = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+      });
+      const basis = deriveStreamPropertyBasis(
+        calculated,
+        { density: 1.15, enthalpy: 42 },
+        'SUPPLIED',
+        'Client BD doc 1234'
+      );
+
+      expect(basis.density).toBe('SUPPLIED');
+      expect(basis.enthalpy).toBe('SUPPLIED');
+      expect(basis.sourceReference).toBe('Client BD doc 1234');
+    });
+
+    it('should distinguish assumed from supplied', () => {
+      const calculated = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+      });
+      const basis = deriveStreamPropertyBasis(
+        calculated,
+        { density: 1.2 },
+        'ASSUMED',
+        'No analysis yet'
+      );
+
+      expect(basis.density).toBe('ASSUMED');
+    });
+
+    it('should leave a property with no value and no computation unmarked', () => {
+      // Silence is the honest answer: claiming COMPUTED for something nothing
+      // computed is the exact failure this field exists to prevent.
+      const calculated = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+      });
+      const basis = deriveStreamPropertyBasis(calculated, {}, 'SUPPLIED');
+
+      expect(basis.density).toBeUndefined();
+      expect(basis.enthalpy).toBeUndefined();
+    });
+
+    it('should mark composition-derived properties computed, carrying the analysis reference', () => {
+      // A value computed from a supplied analysis is no better than that
+      // analysis, so the reference travels with the computed mark.
+      const calculated = calculateStreamProperties({
+        fluidType: 'BIOGAS',
+        temperature: 38,
+        pressureMbar: 1050,
+        flowRateKgS: 0.5,
+        composition: {
+          methaneMolPercent: 60,
+          carbonDioxideMolPercent: 40,
+          hydrogenSulphide: 0,
+          hydrogenSulphideUnit: 'PPMV',
+          basis: 'WET',
+        },
+      });
+      const basis = deriveStreamPropertyBasis(
+        calculated,
+        { density: calculated.density },
+        'SUPPLIED',
+        'Lab analysis 2026-08-14'
+      );
+
+      expect(basis.density).toBe('COMPUTED');
+      expect(basis.sourceReference).toBe('Lab analysis 2026-08-14');
+    });
+
+    it('should never write an undefined source reference', () => {
+      const calculated = calculateStreamProperties({
+        fluidType: 'SEA WATER',
+        temperature: 25,
+        pressureMbar: 1013,
+        flowRateKgS: 1,
+        tds: 35000,
+      });
+      const basis = deriveStreamPropertyBasis(calculated, { density: 1 });
+
+      // Rule 12 — Firestore rejects undefined
+      expect('sourceReference' in basis).toBe(false);
     });
   });
 
