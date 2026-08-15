@@ -8,7 +8,7 @@
 export type { RFQ, RFQItem, RFQStatus } from '@vapour/types';
 
 // Import RFQStatus for use in this file
-import type { RFQStatus } from '@vapour/types';
+import type { CatalogLineDimensions, RFQStatus } from '@vapour/types';
 
 /**
  * Input for creating a new RFQ
@@ -50,6 +50,8 @@ export interface CreateRFQItemInput {
   // Item details (from PR)
   description: string;
   specification?: string;
+  /** Structured plate size carried from the PR line. */
+  dimensions?: CatalogLineDimensions;
   quantity: number;
   unit: string;
 

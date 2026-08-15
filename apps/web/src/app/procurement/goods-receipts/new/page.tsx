@@ -41,16 +41,24 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import type { PurchaseOrder, ItemCondition, PackingList } from '@vapour/types';
+import type {
+  CatalogLineDimensions,
+  PurchaseOrder,
+  ItemCondition,
+  PackingList,
+} from '@vapour/types';
 import { listPOs, getPOItems } from '@/lib/procurement/purchaseOrderService';
 import { createGoodsReceipt } from '@/lib/procurement/goodsReceiptService';
 import { getPackingListsByPO } from '@/lib/procurement/packingListService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
+import LineDimensionsChip from '@/components/procurement/LineDimensionsChip';
 
 interface InspectionItem {
   poItemId: string;
   description: string;
+  /** Ordered plate size, carried from the PO line for on-screen verification. */
+  dimensions?: CatalogLineDimensions;
   orderedQuantity: number;
   previouslyReceivedQuantity: number;
   receivedQuantity: number;
@@ -180,6 +188,7 @@ export default function NewGoodsReceiptPage() {
         return {
           poItemId: item.id,
           description: item.description,
+          ...(item.dimensions && { dimensions: item.dimensions }),
           orderedQuantity: item.quantity,
           previouslyReceivedQuantity: item.quantityDelivered || 0,
           receivedQuantity: pending,
@@ -562,6 +571,7 @@ export default function NewGoodsReceiptPage() {
                               {item.equipmentCode}
                             </Typography>
                           )}
+                          <LineDimensionsChip dimensions={item.dimensions} />
                         </TableCell>
                         <TableCell align="right">
                           {item.orderedQuantity} {item.unit}

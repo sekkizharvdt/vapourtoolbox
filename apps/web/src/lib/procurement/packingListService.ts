@@ -204,7 +204,10 @@ export async function createPackingList(
     if (poItem?.equipmentId) plItemData.equipmentId = poItem.equipmentId;
     if (poItem?.equipmentCode) plItemData.equipmentCode = poItem.equipmentCode;
     if (item.weight !== undefined) plItemData.weight = item.weight;
+    // `dimensions` here is the CARTON size the packer measures; the plate's own
+    // size travels separately as `itemDimensions` (see PackingListItem).
     if (item.dimensions) plItemData.dimensions = item.dimensions;
+    if (poItem?.dimensions) plItemData.itemDimensions = poItem.dimensions;
 
     const itemRef = doc(collection(db, COLLECTIONS.PACKING_LIST_ITEMS));
     batch.set(itemRef, plItemData);

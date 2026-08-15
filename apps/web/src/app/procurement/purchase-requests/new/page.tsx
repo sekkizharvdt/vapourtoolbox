@@ -70,6 +70,8 @@ import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import CatalogPickerDialog, {
   type CatalogSelection,
 } from '@/components/catalog/CatalogPickerDialog';
+import EditLineDimensionsDialog from '@/components/materials/EditLineDimensionsDialog';
+import { formatLineDimensions, withQuantity } from '@/lib/catalog/lineDimensions';
 
 interface FormData {
   raisedFor: PurchaseRequestRaisedFor;
@@ -146,6 +148,8 @@ export default function NewPurchaseRequestPage() {
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
   const [catalogPickerIndex, setCatalogPickerIndex] = useState<number>(0);
+  // Row whose dimensions are being adjusted after the fact, or null.
+  const [dimensionsRowIndex, setDimensionsRowIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -211,7 +215,14 @@ export default function NewPurchaseRequestPage() {
     const updatedItems = [...lineItems];
     const item = updatedItems[index];
     if (item) {
-      updatedItems[index] = { ...item, [field]: value };
+      const next = { ...item, [field]: value };
+      // A sized line's total weight is derived from the piece count, so editing
+      // quantity in the row must re-derive it — otherwise the chip and the
+      // vendor-facing documents keep quoting the weight of the old count.
+      if (field === 'quantity' && next.dimensions) {
+        next.dimensions = withQuantity(next.dimensions, Number(value) || 0);
+      }
+      updatedItems[index] = next;
       setLineItems(updatedItems);
     }
   };
@@ -256,6 +267,10 @@ export default function NewPurchaseRequestPage() {
       const { source } = selection;
       if (source.kind === 'RAW_MATERIAL') {
         const { material, fullCode } = source;
+        // A dimensioned material (plate) comes back sized: the piece count and
+        // the shape/thickness/size replace "how many kg of this grade", which
+        // is what the material's own baseUnit would otherwise ask for.
+        const sized = selection.dimensions;
         updatedItems[catalogPickerIndex] = {
           ...cleared,
           description: material.name,
@@ -264,7 +279,9 @@ export default function NewPurchaseRequestPage() {
           specification: item.specification?.trim()
             ? item.specification
             : selection.item.specification || fullCode || material.materialCode || '',
-          unit: (material.baseUnit || 'NOS').toUpperCase(),
+          ...(sized
+            ? { dimensions: sized.dimensions, quantity: sized.quantity, unit: 'NOS' }
+            : { unit: (material.baseUnit || 'NOS').toUpperCase() }),
           materialId: material.id,
           materialCode: material.materialCode,
           materialName: material.name,
@@ -755,6 +772,21 @@ export default function NewPurchaseRequestPage() {
                             sx={{ mt: 0.5 }}
                           />
                         )}
+                        {/* Sized plate: show the size, and let it be adjusted
+                            without re-picking the material. */}
+                        {item.dimensions && (
+                          <Chip
+                            label={`${formatLineDimensions(item.dimensions)}${
+                              item.dimensions.totalWeightKg !== undefined
+                                ? ` · ${item.dimensions.totalWeightKg} kg`
+                                : ''
+                            }`}
+                            size="small"
+                            color="primary"
+                            onClick={() => setDimensionsRowIndex(index)}
+                            sx={{ mt: 0.5, ml: 0.5 }}
+                          />
+                        )}
                         {item.serviceCode && (
                           <Chip
                             label={item.serviceCode}
@@ -1071,7 +1103,26 @@ export default function NewPurchaseRequestPage() {
         onSelect={handleCatalogSelect}
         defaultKind={formData.category}
         kinds={[formData.category]}
+        captureDimensions
       />
+
+      {/* Adjust a sized line without re-picking the material */}
+      {dimensionsRowIndex !== null && lineItems[dimensionsRowIndex]?.materialId && (
+        <EditLineDimensionsDialog
+          open
+          onClose={() => setDimensionsRowIndex(null)}
+          materialId={lineItems[dimensionsRowIndex].materialId}
+          materialName={lineItems[dimensionsRowIndex].materialName}
+          dimensions={lineItems[dimensionsRowIndex].dimensions}
+          quantity={lineItems[dimensionsRowIndex].quantity}
+          onSave={(dimensions, quantity) => {
+            const index = dimensionsRowIndex;
+            setLineItems((prev) =>
+              prev.map((row, i) => (i === index ? { ...row, dimensions, quantity } : row))
+            );
+          }}
+        />
+      )}
 
       <SubmitPRForApprovalDialog
         open={submitDialogOpen}

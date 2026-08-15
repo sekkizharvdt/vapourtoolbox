@@ -34,7 +34,13 @@ import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import type { Material, MaterialVariant, MaterialCategory, MaterialType } from '@vapour/types';
+import type {
+  CatalogLineDimensions,
+  Material,
+  MaterialVariant,
+  MaterialCategory,
+  MaterialType,
+} from '@vapour/types';
 import {
   MATERIAL_CATEGORY_GROUPS,
   MATERIAL_CATEGORY_LABELS,
@@ -52,8 +58,14 @@ import { createMaterial } from '@/lib/materials/crud';
 import { rankByNameSimilarity } from '@/lib/catalog/similarity';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialVariantSelector from './MaterialVariantSelector';
+import MaterialDimensionsForm, {
+  initialDimensionsDraft,
+  resolveDimensionsDraft,
+  type DimensionsDraft,
+} from './MaterialDimensionsForm';
 import PipingMaterialTable from './PipingMaterialTable';
 import { hasVariants } from '@/lib/materials/variantUtils';
+import { needsDimensions } from '@/lib/catalog/lineDimensions';
 
 /**
  * Maximum rows rendered at once in picker lists. Lists are not virtualized, so
@@ -64,13 +76,31 @@ import { hasVariants } from '@/lib/materials/variantUtils';
  */
 export const RENDER_CAP = 100;
 
+/** Dimensions plus the piece count they were sized for. */
+export interface DimensionsSelection {
+  dimensions: CatalogLineDimensions;
+  quantity: number;
+}
+
 interface MaterialPickerDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (material: Material, variant?: MaterialVariant, fullCode?: string) => void;
+  onSelect: (
+    material: Material,
+    variant?: MaterialVariant,
+    fullCode?: string,
+    dimensions?: DimensionsSelection
+  ) => void;
   title?: string;
   categories?: MaterialCategory[];
   requireVariantSelection?: boolean;
+  /**
+   * Ask for shape / thickness / size when the selected material is dimensioned
+   * (plates — `needsDimensions`). Procurement lines turn this on so a plate
+   * arrives fully specified instead of as a bare grade; catalog browsing
+   * leaves it off. No effect on piping, whose size is the material document.
+   */
+  captureDimensions?: boolean;
   /**
    * Optional defaults for the inline "Create new material" form. Pre-fills
    * the form from a parsed line item so the user doesn't re-type the
@@ -106,6 +136,7 @@ export default function MaterialPickerDialog({
   title = 'Select Material',
   categories,
   requireVariantSelection = true,
+  captureDimensions = false,
   createDefaults,
   headerSlot,
 }: MaterialPickerDialogProps) {
@@ -128,6 +159,9 @@ export default function MaterialPickerDialog({
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<MaterialVariant | null>(null);
   const [selectedFullCode, setSelectedFullCode] = useState<string>('');
+
+  // Dimensions draft for the selected material, when this picker captures them.
+  const [dimensionsDraft, setDimensionsDraft] = useState<DimensionsDraft | null>(null);
 
   // Piping-specific state
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
@@ -201,6 +235,7 @@ export default function MaterialPickerDialog({
       setSelectedMaterial(null);
       setSelectedVariant(null);
       setSelectedFullCode('');
+      setDimensionsDraft(null);
       setSelectedFamily(null);
       setFamilyMaterials([]);
       setLoadingFamily(false);
@@ -332,10 +367,17 @@ export default function MaterialPickerDialog({
     }
   };
 
+  /** Does this selection need the shape/thickness/size step? */
+  const capturesFor = useCallback(
+    (material: Material | null) => !!material && captureDimensions && needsDimensions(material),
+    [captureDimensions]
+  );
+
   const handleMaterialSelect = (material: Material) => {
     setSelectedMaterial(material);
     setSelectedVariant(null);
     setSelectedFullCode(material.materialCode);
+    setDimensionsDraft(capturesFor(material) ? initialDimensionsDraft(material) : null);
   };
 
   const handlePipingSelect = (material: Material) => {
@@ -349,6 +391,19 @@ export default function MaterialPickerDialog({
 
   // Handle search result click — navigate to the right group and select
   const handleSearchResultSelect = (material: Material) => {
+    // A dimensioned material can't be taken straight off the search list —
+    // it still owes a shape, thickness and size. Drop into its group's detail
+    // panel instead of closing with a half-specified line.
+    if (capturesFor(material)) {
+      const group = availableGroups.find((g) => g.categories.includes(material.category));
+      if (group) setSelectedGroupKey(group.key);
+      setView('list');
+      setSearchText('');
+      setSearchResults(null);
+      handleMaterialSelect(material);
+      return;
+    }
+
     // Determine the piping category type
     if (isFlatPipingCategory(material.category)) {
       // It's a piping material — select it directly
@@ -373,6 +428,7 @@ export default function MaterialPickerDialog({
       setSelectedMaterial(null);
       setSelectedVariant(null);
       setSelectedFullCode('');
+      setDimensionsDraft(null);
     } else if (view === 'list') {
       // Back to category selection
       setView('categories');
@@ -391,6 +447,22 @@ export default function MaterialPickerDialog({
 
     if (!selectedMaterial) return;
 
+    // Dimensioned material: the shape/thickness/size form supplies both the
+    // variant and the sizes, so it replaces the variant-selection check.
+    if (capturesFor(selectedMaterial) && dimensionsDraft) {
+      const resolved = resolveDimensionsDraft(selectedMaterial, dimensionsDraft);
+      if (!resolved) {
+        setError('Enter a shape, thickness and every dimension before selecting.');
+        return;
+      }
+      const variant = (selectedMaterial.variants ?? []).find(
+        (v) => v.id === resolved.dimensions.variantId
+      );
+      onSelect(selectedMaterial, variant, selectedMaterial.materialCode, resolved);
+      onClose();
+      return;
+    }
+
     if (requireVariantSelection && hasVariants(selectedMaterial) && !selectedVariant) {
       setError('Please select a variant');
       return;
@@ -402,8 +474,10 @@ export default function MaterialPickerDialog({
 
   const canConfirm = isPipingMode
     ? !!selectedPipingMaterial
-    : selectedMaterial &&
-      (!requireVariantSelection || !hasVariants(selectedMaterial) || selectedVariant);
+    : capturesFor(selectedMaterial)
+      ? !!dimensionsDraft && !!resolveDimensionsDraft(selectedMaterial!, dimensionsDraft)
+      : selectedMaterial &&
+        (!requireVariantSelection || !hasVariants(selectedMaterial) || selectedVariant);
 
   const showingDetail = isPipingMode ? !!selectedFamily : !!selectedMaterial;
 
@@ -1060,12 +1134,23 @@ export default function MaterialPickerDialog({
 
                           <Divider sx={{ my: 2 }} />
 
-                          <MaterialVariantSelector
-                            material={selectedMaterial}
-                            selectedVariantId={selectedVariant?.id}
-                            onVariantSelect={handleVariantSelect}
-                            compact
-                          />
+                          {/* A dimensioned material owes a shape, thickness and
+                              size — that form carries the thickness dropdown,
+                              so it stands in for the variant selector. */}
+                          {capturesFor(selectedMaterial) && dimensionsDraft ? (
+                            <MaterialDimensionsForm
+                              material={selectedMaterial}
+                              draft={dimensionsDraft}
+                              onChange={setDimensionsDraft}
+                            />
+                          ) : (
+                            <MaterialVariantSelector
+                              material={selectedMaterial}
+                              selectedVariantId={selectedVariant?.id}
+                              onVariantSelect={handleVariantSelect}
+                              compact
+                            />
+                          )}
                         </>
                       ) : null}
                     </>

@@ -8,6 +8,7 @@ import type {
   PurchaseRequestRaisedFor,
   PurchaseRequestCategory,
   PurchaseRequestStatus,
+  CatalogLineDimensions,
   CatalogRef,
 } from '@vapour/types';
 
@@ -60,6 +61,12 @@ export interface CreatePurchaseRequestItemInput {
   // Item details
   description: string;
   specification?: string;
+
+  /**
+   * Structured size for a dimensioned raw material (plates). When set,
+   * `quantity` is a piece count and the kg live on `dimensions.totalWeightKg`.
+   */
+  dimensions?: CatalogLineDimensions;
 
   // Quantity
   quantity: number;
@@ -115,6 +122,9 @@ export function clearCatalogLinks(
   return {
     ...item,
     catalogRef: undefined,
+    // Sizes belong to the material that was cleared — a plate's 2000×1000×6
+    // means nothing once the line points at a bought-out pump.
+    dimensions: undefined,
     materialId: undefined,
     materialCode: undefined,
     materialName: undefined,

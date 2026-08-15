@@ -34,6 +34,46 @@ export interface CatalogRef {
   name: string;
 }
 
+/**
+ * How a raw-material line is dimensioned — the plate/section size the engineer
+ * actually wants, captured structurally instead of typed into `specification`.
+ *
+ * Only RAW_MATERIAL lines whose material uses the variants model (plates —
+ * `usesVariantModel(category)`) carry this. Piping needs none: a pipe document
+ * IS its NPS + schedule, so picking the material already fixes the section, and
+ * length rides on `quantity` in metres.
+ *
+ * The shape/parameter vocabulary is the existing shapes dataset
+ * (`apps/web/src/data/shapes`, ids like `plate-rectangular`), and the weights
+ * are produced by the same `calculateShape` the BOM editor uses — this is a
+ * second CONSUMER of that model, not a second copy of it (rule 32).
+ *
+ * Weights are denormalized (rule 26) so PDFs, vendor comparison and reports
+ * never re-run the calculator or re-fetch the shape.
+ */
+export interface CatalogLineDimensions {
+  /** Shape id from the shapes dataset, e.g. `plate-rectangular`. */
+  shapeId: string;
+  /** Denormalized shape name for display, e.g. "Rectangular Plate". */
+  shapeName: string;
+
+  /** Selected `MaterialVariant.id` — for plates, the thickness variant. */
+  variantId?: string;
+  /** Denormalized variant code, e.g. "6mm". */
+  variantCode?: string;
+
+  /**
+   * Shape parameter values in **mm**, keyed by the shape's own parameter names
+   * (`{ L: 2000, W: 1000, t: 6 }`). Same shape as `BOMItem.component.parameters`.
+   */
+  parameters: Record<string, number>;
+
+  /** Weight of ONE piece, kg — derived, rounded to 3 decimals. */
+  unitWeightKg?: number;
+  /** `unitWeightKg × quantity`, kg — derived, rounded to 3 decimals. */
+  totalWeightKg?: number;
+}
+
 // ============================================================================
 // Phase-1 `itemType` ↔ CatalogKind mapping
 // ============================================================================

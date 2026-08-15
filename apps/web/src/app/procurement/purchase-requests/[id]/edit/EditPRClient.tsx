@@ -47,12 +47,15 @@ import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import CatalogPickerDialog, {
   type CatalogSelection,
 } from '@/components/catalog/CatalogPickerDialog';
+import EditLineDimensionsDialog from '@/components/materials/EditLineDimensionsDialog';
+import { formatLineDimensions, withQuantity } from '@/lib/catalog/lineDimensions';
 import type {
   PurchaseRequest,
   PurchaseRequestAttachment,
   PurchaseRequestItem,
   PurchaseRequestCategory,
   PurchaseRequestRaisedFor,
+  CatalogLineDimensions,
   CatalogRef,
 } from '@vapour/types';
 import { catalogKindToItemType } from '@vapour/types';
@@ -113,6 +116,8 @@ interface LineItemFormData {
   id?: string;
   description: string;
   specification: string;
+  /** Structured plate size; when set, `quantity` is a piece count. */
+  dimensions?: CatalogLineDimensions;
   quantity: number;
   unit: string;
   equipmentCode: string;
@@ -174,6 +179,8 @@ export default function EditPRPage() {
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
+  // Row whose dimensions are being adjusted after the fact, or null.
+  const [dimensionsRowIndex, setDimensionsRowIndex] = useState<number | null>(null);
   const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
   const [catalogPickerIndex, setCatalogPickerIndex] = useState<number>(0);
@@ -251,6 +258,7 @@ export default function EditPRPage() {
           id: item.id,
           description: item.description,
           specification: item.specification || '',
+          dimensions: item.dimensions,
           quantity: item.quantity,
           unit: item.unit,
           equipmentCode: item.equipmentCode || '',
@@ -327,6 +335,7 @@ export default function EditPRPage() {
           : {
               ...item,
               catalogRef: undefined,
+              dimensions: undefined,
               materialId: undefined,
               materialCode: undefined,
               materialName: undefined,
@@ -350,7 +359,13 @@ export default function EditPRPage() {
       const updated = [...prev];
       const item = updated[index];
       if (item) {
-        updated[index] = { ...item, [field]: value };
+        const next = { ...item, [field]: value };
+        // Re-derive the total weight when the piece count changes (see the
+        // matching note on the New PR page).
+        if (field === 'quantity' && next.dimensions) {
+          next.dimensions = withQuantity(next.dimensions, Number(value) || 0);
+        }
+        updated[index] = next;
       }
       return updated;
     });
@@ -401,6 +416,7 @@ export default function EditPRPage() {
         const cleared: LineItemFormData = {
           ...item,
           catalogRef: selection.ref,
+          dimensions: undefined,
           materialId: undefined,
           materialCode: undefined,
           materialName: undefined,
@@ -418,6 +434,9 @@ export default function EditPRPage() {
         const { source } = selection;
         if (source.kind === 'RAW_MATERIAL') {
           const { material, fullCode } = source;
+          // A sized plate arrives with its piece count; an unsized material
+          // keeps asking in its own base unit.
+          const sized = selection.dimensions;
           updated[catalogPickerIndex] = {
             ...cleared,
             description: material.name,
@@ -425,7 +444,9 @@ export default function EditPRPage() {
             specification: item.specification?.trim()
               ? item.specification
               : selection.item.specification || fullCode || material.materialCode || '',
-            unit: (material.baseUnit || 'NOS').toUpperCase(),
+            ...(sized
+              ? { dimensions: sized.dimensions, quantity: sized.quantity, unit: 'NOS' }
+              : { unit: (material.baseUnit || 'NOS').toUpperCase() }),
             materialId: material.id,
             materialCode: material.materialCode,
             materialName: material.name,
@@ -606,6 +627,7 @@ export default function EditPRPage() {
             lineNumber,
             description: item.description,
             ...(item.specification && { specification: item.specification }),
+            ...(item.dimensions && { dimensions: item.dimensions }),
             quantity: item.quantity,
             unit: item.unit,
             ...(item.equipmentCode && { equipmentCode: item.equipmentCode }),
@@ -642,6 +664,7 @@ export default function EditPRPage() {
             lineNumber,
             description: item.description,
             specification: item.specification || null,
+            dimensions: item.dimensions || null,
             quantity: item.quantity,
             unit: item.unit,
             equipmentCode: item.equipmentCode || null,
@@ -951,6 +974,20 @@ export default function EditPRPage() {
                               sx={{ mt: 0.5 }}
                             />
                           )}
+                          {/* Sized plate — click to adjust without re-picking. */}
+                          {item.dimensions && (
+                            <Chip
+                              label={`${formatLineDimensions(item.dimensions)}${
+                                item.dimensions.totalWeightKg !== undefined
+                                  ? ` · ${item.dimensions.totalWeightKg} kg`
+                                  : ''
+                              }`}
+                              size="small"
+                              color="primary"
+                              onClick={() => setDimensionsRowIndex(index)}
+                              sx={{ mt: 0.5, ml: 0.5 }}
+                            />
+                          )}
                           {item.boughtOutItemCode && (
                             <Chip
                               label={item.boughtOutItemCode}
@@ -1088,7 +1125,26 @@ export default function EditPRPage() {
         onSelect={handleCatalogSelect}
         defaultKind={formData.category}
         kinds={[formData.category]}
+        captureDimensions
       />
+
+      {/* Adjust a sized line without re-picking the material */}
+      {dimensionsRowIndex !== null && lineItems[dimensionsRowIndex]?.materialId && (
+        <EditLineDimensionsDialog
+          open
+          onClose={() => setDimensionsRowIndex(null)}
+          materialId={lineItems[dimensionsRowIndex].materialId}
+          materialName={lineItems[dimensionsRowIndex].materialName}
+          dimensions={lineItems[dimensionsRowIndex].dimensions}
+          quantity={lineItems[dimensionsRowIndex].quantity}
+          onSave={(dimensions, quantity) => {
+            const index = dimensionsRowIndex;
+            setLineItems((prev) =>
+              prev.map((row, i) => (i === index ? { ...row, dimensions, quantity } : row))
+            );
+          }}
+        />
+      )}
 
       <SubmitPRForApprovalDialog
         open={submitDialogOpen}

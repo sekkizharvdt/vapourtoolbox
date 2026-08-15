@@ -16,7 +16,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
-import type { CatalogRef } from './catalog';
+import type { CatalogLineDimensions, CatalogRef } from './catalog';
 import type { CurrencyCode } from './common';
 import type { OfferDeviation } from './procurement/offer';
 
@@ -220,6 +220,13 @@ export interface VendorQuoteItem {
   description: string;
   /** Detailed technical specification text (optional; absent on pre-split rows). */
   specification?: string;
+
+  /**
+   * Structured plate size carried from the RFQ line this quote answers, so
+   * offer comparison lines up like against like. Vendors don't restate it —
+   * a deviation from the enquiry size belongs in `deviations`.
+   */
+  dimensions?: CatalogLineDimensions;
 
   // --- Master-data links --------------------------------------------------
 

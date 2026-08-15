@@ -27,6 +27,7 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type {
+  CatalogLineDimensions,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderStatus,
@@ -534,6 +535,7 @@ export async function createPOFromOffer(
         {
           projectId: string;
           specification?: string;
+          dimensions?: CatalogLineDimensions;
           equipmentId?: string;
           equipmentCode?: string;
           materialId?: string;
@@ -567,6 +569,7 @@ export async function createPOFromOffer(
               data: {
                 projectId: rfqItemData.projectId || '',
                 specification: rfqItemData.specification,
+                dimensions: rfqItemData.dimensions,
                 equipmentId: rfqItemData.equipmentId,
                 equipmentCode: rfqItemData.equipmentCode,
                 materialId: rfqItemData.materialId,
@@ -687,6 +690,11 @@ export async function createPOFromOffer(
         // until a buyer re-typed it on the edit page (feedback Mqj9wmh96ui3mlBtWNOF).
         const spec = item.specification || rfqItemInfo.specification;
         if (spec) poItemData.specification = spec;
+
+        // Structured plate size — prefer the quoted line (a vendor may have
+        // been asked to re-size), fall back to what the enquiry stated.
+        const dimensions = item.dimensions || rfqItemInfo.dimensions;
+        if (dimensions) poItemData.dimensions = dimensions;
 
         // Per-line discount travels with the line (same feedback): `amount` is
         // already net, these fields make the discount visible on view/PDF.

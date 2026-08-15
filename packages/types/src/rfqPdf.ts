@@ -269,6 +269,12 @@ export interface RFQPDFItem {
   lineNumber: number;
   description: string;
   specification?: string;
+  /**
+   * Structured plate size, already rendered to text by the PDF service —
+   * e.g. "Rectangular Plate 2000 × 1000 × 6 mm — 188.4 kg total". Preformatted
+   * because the shapes dataset it reads lives in apps/web, not here.
+   */
+  dimensionsText?: string;
   quantity: number;
   unit: string;
 

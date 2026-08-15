@@ -40,6 +40,7 @@ import type {
 import { generatePDFBlob } from '@/lib/pdf/pdfUtils';
 import { fetchLogoAsDataUri } from '@/lib/pdf/logoUtils';
 import { RFQPDFDocument } from '@/components/pdf/RFQPDFDocument';
+import { describeLineDimensions } from '@/lib/catalog/lineDimensions';
 
 /* ─── Interfaces ─────────────────────────────────────────── */
 
@@ -382,6 +383,7 @@ export async function generateRFQPDFs(
         lineNumber: data.lineNumber,
         description: data.description,
         specification: data.specification,
+        ...(data.dimensions && { dimensionsText: describeLineDimensions(data.dimensions) }),
         quantity: data.quantity,
         unit: data.unit,
         technicalSpec: data.technicalSpec,

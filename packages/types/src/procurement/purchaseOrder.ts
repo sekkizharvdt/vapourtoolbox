@@ -5,7 +5,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
-import type { CatalogRef } from '../catalog';
+import type { CatalogLineDimensions, CatalogRef } from '../catalog';
 
 // ============================================================================
 // PURCHASE ORDER TYPES
@@ -208,6 +208,13 @@ export interface PurchaseOrderItem {
   lineNumber: number;
   description: string;
   specification?: string;
+
+  /**
+   * Structured plate size carried down the offer/RFQ chain, so the PO PDF and
+   * the goods receipt both state the ordered size. `quantity` is a piece count
+   * whenever this is present.
+   */
+  dimensions?: CatalogLineDimensions;
 
   // Equipment linkage
   projectId: string;

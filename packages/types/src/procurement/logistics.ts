@@ -5,6 +5,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
+import type { CatalogLineDimensions } from '../catalog';
 
 // ============================================================================
 // PACKING LIST TYPES
@@ -94,10 +95,18 @@ export interface PackingListItem {
   equipmentId?: string;
   equipmentCode?: string;
 
+  /**
+   * Structured size of the GOODS, carried from the PO line — not to be
+   * confused with `dimensions` below, which is the size of the CARTON they
+   * ship in. Named apart on purpose: `dimensions` was already taken by the
+   * package measurement when plate sizing arrived.
+   */
+  itemDimensions?: CatalogLineDimensions;
+
   // Package assignment
   packageNumber: string; // e.g., "PKG-001"
   weight?: number;
-  dimensions?: string; // e.g., "100x50x30 cm"
+  dimensions?: string; // Package/carton size, free text, e.g. "100x50x30 cm"
 
   // QR code (optional for tracking)
   qrCode?: string;
@@ -198,6 +207,13 @@ export interface GoodsReceiptItem {
   // Item details
   lineNumber: number;
   description: string;
+
+  /**
+   * Structured plate size carried from the PO line, so the storekeeper checks
+   * the delivered plate against the ordered size instead of against prose.
+   * Quantities here stay piece counts, matching the PO line.
+   */
+  dimensions?: CatalogLineDimensions;
 
   // Equipment linkage
   equipmentId?: string;

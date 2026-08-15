@@ -65,6 +65,7 @@ import {
   getGRAvailableActions,
 } from '@/lib/procurement/goodsReceiptHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import LineDimensionsChip from '@/components/procurement/LineDimensionsChip';
 
 export default function GRDetailClient() {
   const router = useRouter();
@@ -446,6 +447,8 @@ export default function GRDetailClient() {
                               {item.equipmentCode}
                             </Typography>
                           )}
+                          {/* Ordered size — what the delivery is checked against. */}
+                          <LineDimensionsChip dimensions={item.dimensions} />
                         </TableCell>
                         <TableCell align="right">{item.orderedQuantity}</TableCell>
                         <TableCell align="right">{item.receivedQuantity}</TableCell>

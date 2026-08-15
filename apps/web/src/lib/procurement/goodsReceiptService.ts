@@ -282,6 +282,9 @@ export async function createGoodsReceipt(
               poItemId: item.poItemId,
               lineNumber: index + 1,
               description: poItem?.description || 'Unknown Item',
+              // Ordered plate size, so receiving checks against the size the
+              // PO stated rather than against the description text.
+              dimensions: poItem?.dimensions,
               equipmentId: poItem?.equipmentId,
               equipmentCode: poItem?.equipmentCode,
               orderedQuantity: poItem?.quantity || 0,

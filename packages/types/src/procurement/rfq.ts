@@ -5,6 +5,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
+import type { CatalogLineDimensions } from '../catalog';
 
 // ============================================================================
 // RFQ (REQUEST FOR QUOTATION) TYPES
@@ -102,6 +103,13 @@ export interface RFQItem {
   lineNumber: number;
   description: string;
   specification?: string;
+
+  /**
+   * Structured plate size carried verbatim from the PR line, so the enquiry
+   * that reaches the vendor states the size instead of burying it in prose.
+   * `quantity` is a piece count whenever this is present.
+   */
+  dimensions?: CatalogLineDimensions;
 
   quantity: number;
   unit: string;

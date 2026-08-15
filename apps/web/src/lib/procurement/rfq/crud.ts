@@ -269,6 +269,7 @@ export async function createRFQ(
 
     // Add optional fields only if they have values
     if (item.specification) itemData.specification = item.specification;
+    if (item.dimensions) itemData.dimensions = item.dimensions;
     if (item.projectId) itemData.projectId = item.projectId;
     if (item.equipmentId) itemData.equipmentId = item.equipmentId;
     if (item.equipmentCode) itemData.equipmentCode = item.equipmentCode;
@@ -403,6 +404,8 @@ export async function createRFQFromPRs(
       // Add optional fields only if they have values
       if (pr.projectId) rfqItem.projectId = pr.projectId;
       if (prItem.specification) rfqItem.specification = prItem.specification;
+      // Structured plate size — the enquiry must state it, not bury it in prose.
+      if (prItem.dimensions) rfqItem.dimensions = prItem.dimensions;
       if (prItem.equipmentId) rfqItem.equipmentId = prItem.equipmentId;
       if (prItem.equipmentCode) rfqItem.equipmentCode = prItem.equipmentCode;
       if (prItem.technicalSpec) rfqItem.technicalSpec = prItem.technicalSpec;

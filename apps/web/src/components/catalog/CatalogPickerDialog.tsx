@@ -22,7 +22,9 @@
 import { useEffect, useState } from 'react';
 import { Tab, Tabs } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
-import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
+import MaterialPickerDialog, {
+  type DimensionsSelection,
+} from '@/components/materials/MaterialPickerDialog';
 import BoughtOutPickerDialog from '@/components/boughtOut/BoughtOutPickerDialog';
 import ServicePickerDialog from '@/components/services/ServicePickerDialog';
 import {
@@ -54,6 +56,12 @@ export interface CatalogSelection {
   item: CatalogItem;
   /** The full backing document, discriminated by kind. */
   source: CatalogSelectionSource;
+  /**
+   * Shape / thickness / size captured for a dimensioned raw material, with the
+   * piece count it was sized for. Present only when the consumer asked for
+   * `captureDimensions` AND the material is dimensioned (plates).
+   */
+  dimensions?: DimensionsSelection;
 }
 
 interface CatalogPickerDialogProps {
@@ -79,6 +87,12 @@ interface CatalogPickerDialogProps {
     unit?: string;
     defaultRateValue?: number;
   };
+  /**
+   * Ask a dimensioned raw material (plates) for its shape, thickness and size
+   * before returning it. Procurement line consumers turn this on; catalog
+   * browsing leaves it off. See `MaterialPickerDialog.captureDimensions`.
+   */
+  captureDimensions?: boolean;
 }
 
 const KIND_TABS: Array<{ kind: CatalogKind; label: string }> = [
@@ -94,6 +108,7 @@ export default function CatalogPickerDialog({
   defaultKind = 'RAW_MATERIAL',
   kinds,
   serviceCreateDefaults,
+  captureDimensions = false,
 }: CatalogPickerDialogProps) {
   const { claims } = useAuth();
   const tenantId = claims?.tenantId || 'default-entity';
@@ -131,7 +146,8 @@ export default function CatalogPickerDialog({
   const handleMaterialSelect = (
     material: Material,
     variant?: MaterialVariant,
-    fullCode?: string
+    fullCode?: string,
+    dimensions?: DimensionsSelection
   ) => {
     const item = materialToCatalogItem(material);
     onSelect({
@@ -143,6 +159,7 @@ export default function CatalogPickerDialog({
         ...(variant && { variant }),
         ...(fullCode && { fullCode }),
       },
+      ...(dimensions && { dimensions }),
     });
   };
 
@@ -165,7 +182,10 @@ export default function CatalogPickerDialog({
         title="Select Material"
         // Line-item consumers link at material level; variant-aware consumers
         // (stage 2: Quotes/BOM) can lift this into a prop when they migrate.
+        // Dimensioned materials are the exception — `captureDimensions` asks
+        // them for shape/thickness/size, which pins the variant anyway.
         requireVariantSelection={false}
+        captureDimensions={captureDimensions}
         headerSlot={tabs}
       />
       <BoughtOutPickerDialog

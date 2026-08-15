@@ -178,6 +178,7 @@ export async function createPurchaseRequest(
         lineNumber: index + 1,
         description: item.description,
         ...(item.specification && { specification: item.specification }),
+        ...(item.dimensions && { dimensions: item.dimensions }),
 
         // Quantity
         quantity: item.quantity,

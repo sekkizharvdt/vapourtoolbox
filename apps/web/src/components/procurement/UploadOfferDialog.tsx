@@ -61,7 +61,7 @@ import {
   type CreateVendorQuoteItemInput,
 } from '@/lib/vendorQuotes';
 import { computeQuoteLineAmounts } from '@/lib/vendorQuotes/lineMath';
-import type { RFQ, RFQItem, OfferDeviation } from '@vapour/types';
+import type { CatalogLineDimensions, RFQ, RFQItem, OfferDeviation } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
 import {
   collection as fsCollection,
@@ -101,6 +101,8 @@ interface OfferItemData {
   rfqItemDescription: string;
   rfqItemQuantity: number;
   rfqItemUnit: string;
+  /** Structured plate size from the RFQ line — carried, never re-typed. */
+  rfqItemDimensions?: CatalogLineDimensions;
   description: string;
   quotedQuantity: number;
   unit: string;
@@ -219,6 +221,7 @@ export default function UploadOfferDialog({
       rfqItemDescription: rfqItem.description,
       rfqItemQuantity: rfqItem.quantity,
       rfqItemUnit: rfqItem.unit,
+      ...(rfqItem.dimensions && { rfqItemDimensions: rfqItem.dimensions }),
       description: rfqItem.description,
       quotedQuantity: rfqItem.quantity,
       unit: rfqItem.unit,
@@ -722,6 +725,7 @@ export default function UploadOfferDialog({
         itemType: 'MATERIAL',
         rfqItemId: item.rfqItemId,
         description: item.description,
+        ...(item.rfqItemDimensions && { dimensions: item.rfqItemDimensions }),
         quantity: item.quotedQuantity,
         unit: item.unit,
         unitPrice: item.unitPrice,

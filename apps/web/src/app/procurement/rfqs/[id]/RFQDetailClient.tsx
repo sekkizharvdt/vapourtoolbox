@@ -66,6 +66,7 @@ import {
 import { formatDate } from '@/lib/utils/formatters';
 import GenerateRFQPDFDialog from '@/components/procurement/GenerateRFQPDFDialog';
 import UploadOfferDialog from '@/components/procurement/UploadOfferDialog';
+import LineDimensionsChip from '@/components/procurement/LineDimensionsChip';
 
 /**
  * Check if RFQ can receive offers (ISSUED or OFFERS_RECEIVED status)
@@ -596,6 +597,7 @@ export default function RFQDetailPage() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{item.specification || '-'}</Typography>
+                      <LineDimensionsChip dimensions={item.dimensions} />
                     </TableCell>
                     <TableCell>{item.quantity}</TableCell>
                     <TableCell>{item.unit}</TableCell>

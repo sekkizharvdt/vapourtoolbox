@@ -155,6 +155,8 @@ export function RFQPDFDocument({ data, logoDataUri }: RFQPDFDocumentProps) {
   // Build spec string for an item (specification + technicalSpec + makeModel)
   const buildSpecString = (item: RFQPDFData['items'][0]): string => {
     const parts: string[] = [];
+    // Size first: for a plate it is the whole enquiry.
+    if (item.dimensionsText) parts.push(item.dimensionsText);
     if (item.specification) parts.push(item.specification);
     if (item.technicalSpec) parts.push(item.technicalSpec);
     if (item.makeModel) parts.push(`Make/Model: ${item.makeModel}`);

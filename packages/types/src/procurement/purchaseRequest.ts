@@ -5,7 +5,7 @@
  */
 
 import type { Timestamp } from 'firebase/firestore';
-import type { CatalogRef } from '../catalog';
+import type { CatalogLineDimensions, CatalogRef } from '../catalog';
 
 // ============================================================================
 // PURCHASE REQUEST TYPES
@@ -155,6 +155,13 @@ export interface PurchaseRequestItem {
    * readable for back-compat until every consumer reads catalogRef.
    */
   catalogRef?: CatalogRef;
+
+  /**
+   * Structured size for a dimensioned raw material (plates). Absent on every
+   * other line kind — see `CatalogLineDimensions`. When present, `quantity` is
+   * a PIECE count and `dimensions.totalWeightKg` carries the kg.
+   */
+  dimensions?: CatalogLineDimensions;
 
   // Item details
   lineNumber: number;

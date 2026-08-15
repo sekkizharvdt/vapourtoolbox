@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import type { PurchaseOrder, PurchaseOrderItem } from '@vapour/types';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
+import LineDimensionsChip from '@/components/procurement/LineDimensionsChip';
 
 interface POLineItemsTableProps {
   po: PurchaseOrder;
@@ -136,6 +137,7 @@ export function POLineItemsTable({
                   <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
                     {item.specification || '—'}
                   </Typography>
+                  <LineDimensionsChip dimensions={item.dimensions} />
                 </TableCell>
                 <TableCell>
                   <HsnSacCell item={item} editable={editable} onUpdateHsnSac={onUpdateHsnSac} />

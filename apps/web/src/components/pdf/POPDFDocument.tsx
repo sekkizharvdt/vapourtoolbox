@@ -29,6 +29,7 @@ import {
 } from '@/lib/pdf/reportComponents';
 import { formatDate, formatCurrencyCode } from '@/lib/utils/formatters';
 import { amountToWords } from '@/lib/utils/currency';
+import { describeLineDimensions } from '@/lib/catalog/lineDimensions';
 
 const local = StyleSheet.create({
   header: {
@@ -428,7 +429,13 @@ export function POPDFDocument({
             rows={sortedItems.map((item) => ({
               sno: item.lineNumber,
               description: item.description,
-              specification: item.specification || '—',
+              specification:
+                [
+                  item.dimensions ? describeLineDimensions(item.dimensions) : '',
+                  item.specification || '',
+                ]
+                  .filter(Boolean)
+                  .join('\n') || '—',
               hsnSac: item.hsnSacCode || '—',
               qty: item.quantity,
               unit: item.unit,

@@ -27,6 +27,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import type {
+  CatalogLineDimensions,
   CatalogRef,
   CurrencyCode,
   OfferDeviation,
@@ -108,6 +109,8 @@ export interface CreateVendorQuoteItemInput {
   description: string;
   /** Detailed technical spec, separate from the general-name description. */
   specification?: string;
+  /** Structured plate size, carried from the RFQ line this quote answers. */
+  dimensions?: CatalogLineDimensions;
 
   /** Unified catalog linkage, written alongside the legacy per-kind ids (design 2026-06-15 §3.1). */
   catalogRef?: CatalogRef;
@@ -323,6 +326,7 @@ export async function createVendorQuote(
           lineNumber: item.lineNumber ?? idx + 1,
           description: item.description,
           specification: item.specification,
+          dimensions: item.dimensions,
 
           catalogRef: item.catalogRef,
           materialId: item.materialId,
@@ -781,6 +785,7 @@ export async function addVendorQuoteItem(
     lineNumber,
     description: input.description,
     specification: input.specification,
+    dimensions: input.dimensions,
 
     catalogRef: input.catalogRef,
     materialId: input.materialId,

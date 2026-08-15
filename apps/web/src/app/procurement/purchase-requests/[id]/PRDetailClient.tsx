@@ -65,6 +65,7 @@ import {
 import { StatusChip } from '@vapour/ui';
 import { describeLinkage } from '@/lib/procurement/purchaseRequest/linkage';
 import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
+import LineDimensionsChip from '@/components/procurement/LineDimensionsChip';
 
 export default function PRDetailPage() {
   const pathname = usePathname();
@@ -531,6 +532,7 @@ export default function PRDetailPage() {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{item.specification || '-'}</Typography>
+                        <LineDimensionsChip dimensions={item.dimensions} />
                       </TableCell>
                       <TableCell align="right">
                         {item.quantity}
