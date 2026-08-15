@@ -183,6 +183,42 @@ export interface GasComposition {
 }
 
 // ============================================
+// Flow entry units
+// ============================================
+
+/**
+ * The unit a flow rate was entered in.
+ *
+ * The register stores kg/s because every calculation downstream is a mass
+ * balance, but almost nobody specifies a plant that way: a biogas plant is
+ * "500 m³/hr", a pump is "40 m³/hr", a vendor quotes Nm³/hr. Forcing the
+ * conversion onto the engineer is how a 500 m³/hr stream gets entered as
+ * 500 kg/hr — the same number against the wrong unit, nearly nine times the
+ * real mass flow, and entirely plausible on the screen.
+ */
+export type FlowUnit = 'KG_S' | 'KG_HR' | 'M3_HR' | 'NM3_HR';
+
+export const FLOW_UNIT_LABELS: Record<FlowUnit, string> = {
+  KG_S: 'kg/s',
+  KG_HR: 'kg/hr',
+  M3_HR: 'm³/hr',
+  NM3_HR: 'Nm³/hr',
+};
+
+/**
+ * A flow rate as the engineer entered it, before conversion to kg/s.
+ *
+ * Kept for the same reason the gas analysis is stored as reported: reopening a
+ * stream should show the number the specification is written in, not the mass
+ * flow it was converted to. Without this, "500 m³/hr" becomes "0.0160 kg/s"
+ * permanently and nobody can check it against the datasheet it came from.
+ */
+export interface StreamFlowInput {
+  value: number;
+  unit: FlowUnit;
+}
+
+// ============================================
 // INPUT_DATA - Master Stream Data (195 rows)
 // ============================================
 export interface ProcessStream {
@@ -218,6 +254,9 @@ export interface ProcessStream {
    */
   composition?: GasComposition;
 
+  /** The flow rate as entered, when it was not entered in kg/s */
+  flowInput?: StreamFlowInput;
+
   /** Generated-vs-manual provenance (absent on legacy hand-entered records = MANUAL) */
   provenance?: SSOTProvenance;
 
@@ -250,6 +289,8 @@ export interface ProcessStreamInput {
   steamRegion?: SteamRegion; // For steam: saturation, subcooled, or superheated
   /** Gas analysis — the input biogas properties are derived from */
   composition?: GasComposition;
+  /** The flow rate as entered, when it was not entered in kg/s */
+  flowInput?: StreamFlowInput;
   provenance?: SSOTProvenance;
 }
 

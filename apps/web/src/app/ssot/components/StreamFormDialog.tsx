@@ -33,8 +33,9 @@ import type {
   GasComposition,
   GasAnalysisBasis,
   H2SUnit,
+  FlowUnit,
 } from '@vapour/types';
-import { FLUID_TYPES } from '@vapour/types';
+import { FLUID_TYPES, FLOW_UNIT_LABELS } from '@vapour/types';
 import { FLUID_CODE } from '@/lib/ssot/generatorHelpers';
 import { createStream, updateStream } from '@/lib/ssot/streamService';
 import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
@@ -44,6 +45,7 @@ import {
   hasPropertyCorrelations,
   requiresComposition,
   calculateCompositionProperties,
+  convertFlowToKgS,
 } from '@/lib/ssot/streamCalculations';
 import { createLogger } from '@vapour/logger';
 
@@ -80,7 +82,8 @@ export default function StreamFormDialog({
   // "S-101" silently reclassifies the stream as steam — inference is a
   // convenience for our own tags, not an authority over a stated choice.
   const [fluidChosenExplicitly, setFluidChosenExplicitly] = useState(false);
-  const [flowRateKgS, setFlowRateKgS] = useState<number | ''>('');
+  const [flowValue, setFlowValue] = useState<number | ''>('');
+  const [flowUnit, setFlowUnit] = useState<FlowUnit>('KG_S');
   const [pressureMbar, setPressureMbar] = useState<number | ''>('');
   const [temperature, setTemperature] = useState<number | ''>('');
   const [tds, setTds] = useState<number | ''>('');
@@ -108,7 +111,10 @@ export default function StreamFormDialog({
         setLineTag(stream.lineTag);
         setDescription(stream.description || '');
         setFluidType(stream.fluidType);
-        setFlowRateKgS(stream.flowRateKgS);
+        // Rule 22: show the number the specification is written in, not the
+        // mass flow it was converted to.
+        setFlowValue(stream.flowInput?.value ?? stream.flowRateKgS);
+        setFlowUnit(stream.flowInput?.unit ?? 'KG_S');
         setPressureMbar(stream.pressureMbar);
         setTemperature(stream.temperature);
         setTds(stream.tds || '');
@@ -176,6 +182,43 @@ export default function StreamFormDialog({
   // one they stay hand-entered.
   const propertiesFromComposition = !!gasResult?.properties;
 
+  // Density without reference to the flow, because a volumetric flow cannot be
+  // converted to a mass flow until the density is known — and density does not
+  // depend on the flow at all. Computing it with a zero flow breaks that
+  // ordering knot without inventing anything.
+  const derivedDensity = useMemo(() => {
+    if (pressureMbar === '' || temperature === '') return undefined;
+    try {
+      return calculateStreamProperties({
+        fluidType,
+        temperature: Number(temperature),
+        pressureMbar: Number(pressureMbar),
+        flowRateKgS: 0,
+        tds: tds !== '' ? Number(tds) : undefined,
+        composition: composition ?? undefined,
+      }).density;
+    } catch {
+      // An out-of-range or incomplete input is normal while typing; the field
+      // below simply reports that the conversion is not available yet.
+      return undefined;
+    }
+  }, [fluidType, temperature, pressureMbar, tds, composition]);
+
+  // The entered flow in kg/s, or null when a volumetric entry has no density
+  // to convert with yet.
+  const flowRateKgS = useMemo(() => {
+    if (flowValue === '') return '' as const;
+    const converted = convertFlowToKgS(Number(flowValue), flowUnit, {
+      density: derivedDensity,
+      temperatureC: temperature === '' ? undefined : Number(temperature),
+      pressureMbar: pressureMbar === '' ? undefined : Number(pressureMbar),
+    });
+    return converted === null ? '' : converted;
+  }, [flowValue, flowUnit, derivedDensity, temperature, pressureMbar]);
+
+  const flowNeedsDensity = flowUnit === 'M3_HR' || flowUnit === 'NM3_HR';
+  const flowConversionBlocked = flowValue !== '' && flowNeedsDensity && flowRateKgS === '';
+
   // Auto-calculate when inputs change
   useEffect(() => {
     if (flowRateKgS !== '' && pressureMbar !== '' && temperature !== '') {
@@ -240,7 +283,8 @@ export default function StreamFormDialog({
     setDescription('');
     setFluidType('SEA WATER');
     setFluidChosenExplicitly(false);
-    setFlowRateKgS('');
+    setFlowValue('');
+    setFlowUnit('KG_S');
     setPressureMbar('');
     setTemperature('');
     setTds('');
@@ -261,6 +305,13 @@ export default function StreamFormDialog({
     // Validation
     if (!lineTag.trim()) {
       setError('Line Tag is required');
+      return;
+    }
+    if (flowConversionBlocked) {
+      setError(
+        `A flow in ${FLOW_UNIT_LABELS[flowUnit]} needs the density to become a mass flow. ` +
+          'Enter the gas analysis, or switch the unit to kg/s or kg/hr.'
+      );
       return;
     }
     if (flowRateKgS === '' || Number(flowRateKgS) <= 0) {
@@ -316,6 +367,7 @@ export default function StreamFormDialog({
         density,
         enthalpy: enthalpy ?? 0,
         ...(composition && { composition }),
+        ...(flowUnit !== 'KG_S' && { flowInput: { value: Number(flowValue), unit: flowUnit } }),
       };
 
       if (isEditing && stream) {
@@ -395,19 +447,40 @@ export default function StreamFormDialog({
           </Grid>
 
           {/* Input Parameters */}
-          <Grid size={{ xs: 12, sm: 4 }}>
+          <Grid size={{ xs: 8, sm: 3 }}>
             <TextField
               label="Flow Rate"
               type="number"
-              value={flowRateKgS}
-              onChange={(e) => setFlowRateKgS(e.target.value ? Number(e.target.value) : '')}
+              value={flowValue}
+              onChange={(e) => setFlowValue(e.target.value ? Number(e.target.value) : '')}
               fullWidth
               required
-              InputProps={{
-                endAdornment: <InputAdornment position="end">kg/s</InputAdornment>,
-              }}
-              inputProps={{ step: 0.001, min: 0 }}
+              inputProps={{ step: flowUnit === 'KG_S' ? 0.001 : 1, min: 0 }}
+              error={flowConversionBlocked}
+              helperText={
+                flowConversionBlocked
+                  ? 'Needs density — enter the analysis'
+                  : flowUnit !== 'KG_S' && flowRateKgS !== ''
+                    ? `= ${Number(flowRateKgS).toFixed(4)} kg/s`
+                    : ' '
+              }
             />
+          </Grid>
+          <Grid size={{ xs: 4, sm: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Unit</InputLabel>
+              <Select
+                value={flowUnit}
+                onChange={(e) => setFlowUnit(e.target.value as FlowUnit)}
+                label="Unit"
+              >
+                {(Object.keys(FLOW_UNIT_LABELS) as FlowUnit[]).map((u) => (
+                  <MenuItem key={u} value={u}>
+                    {FLOW_UNIT_LABELS[u]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField

@@ -32,7 +32,13 @@ import {
 } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import { LINE_TAG_FLUID_MAP } from '@vapour/types';
-import type { FluidType, GasComposition, ProcessStreamInput, SteamRegion } from '@vapour/types';
+import type {
+  FluidType,
+  FlowUnit,
+  GasComposition,
+  ProcessStreamInput,
+  SteamRegion,
+} from '@vapour/types';
 import {
   calculateGasMixtureProperties,
   resolveBiogasComposition,
@@ -509,6 +515,68 @@ export function calculateBoilingPointElevation(
   } catch {
     return undefined;
   }
+}
+
+// ============================================================================
+// Flow unit conversion
+// ============================================================================
+
+/** Normal conditions for an Nm³: 0 °C and 1013.25 mbar */
+const NORMAL_TEMPERATURE_K = 273.15;
+const NORMAL_PRESSURE_MBAR = 1013.25;
+
+/**
+ * Convert an entered flow rate to the kg/s the register stores.
+ *
+ * Returns `null` when the conversion needs a density that is not available
+ * yet — a volumetric flow cannot become a mass flow without one, and guessing
+ * is how a stream ends up with a mass flow nobody can trace.
+ *
+ * `NM3_HR` is handled by scaling the actual density back to normal conditions
+ * rather than by looking up a molar mass:
+ *
+ *   ρₙ = ρ · (Pₙ/P) · (T/Tₙ)
+ *
+ * which follows from the ideal gas law and needs nothing the caller does not
+ * already have. It is only valid for a gas — which is the only case where an
+ * Nm³ means anything.
+ */
+export function convertFlowToKgS(
+  value: number,
+  unit: FlowUnit,
+  context: { density?: number; temperatureC?: number; pressureMbar?: number }
+): number | null {
+  switch (unit) {
+    case 'KG_S':
+      return value;
+    case 'KG_HR':
+      return value / 3600;
+    case 'M3_HR': {
+      if (!context.density || context.density <= 0) return null;
+      return (value * context.density) / 3600;
+    }
+    case 'NM3_HR': {
+      const { density, temperatureC, pressureMbar } = context;
+      if (!density || density <= 0) return null;
+      if (temperatureC === undefined || !pressureMbar) return null;
+      const normalDensity =
+        density *
+        (NORMAL_PRESSURE_MBAR / pressureMbar) *
+        ((temperatureC + 273.15) / NORMAL_TEMPERATURE_K);
+      return (value * normalDensity) / 3600;
+    }
+  }
+}
+
+/** Convert a stored kg/s back to the unit it was entered in, for display */
+export function convertFlowFromKgS(
+  flowRateKgS: number,
+  unit: FlowUnit,
+  context: { density?: number; temperatureC?: number; pressureMbar?: number }
+): number | null {
+  const perUnit = convertFlowToKgS(1, unit, context);
+  if (perUnit === null || perUnit === 0) return null;
+  return flowRateKgS / perUnit;
 }
 
 // ============================================================================

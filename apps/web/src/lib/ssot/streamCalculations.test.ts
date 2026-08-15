@@ -17,6 +17,8 @@ import {
   enrichStreamInput,
   hasPropertyCorrelations,
   requiresComposition,
+  convertFlowToKgS,
+  convertFlowFromKgS,
   type StreamCalculationInput,
 } from './streamCalculations';
 import type { ProcessStreamInput, FluidType } from '@vapour/types';
@@ -601,6 +603,60 @@ describe('Stream Calculations', () => {
       const result = calculateStreamProperties(input);
 
       expect(result.pressureBar).toBe(2.5);
+    });
+  });
+
+  describe('flow unit conversion', () => {
+    it('should pass kg/s through unchanged', () => {
+      expect(convertFlowToKgS(0.5, 'KG_S', {})).toBe(0.5);
+    });
+
+    it('should convert kg/hr without needing a density', () => {
+      expect(convertFlowToKgS(1800, 'KG_HR', {})).toBeCloseTo(0.5, 9);
+    });
+
+    it('should convert m³/hr using the density', () => {
+      // The case that motivated this: a 500 m³/hr biogas plant. At 1.15 kg/m³
+      // that is 0.16 kg/s — not the 0.139 kg/s that entering "500" against
+      // kg/hr produces, which is nearly nine times the real mass flow.
+      expect(convertFlowToKgS(500, 'M3_HR', { density: 1.15 })).toBeCloseTo(0.1597, 4);
+    });
+
+    it('should refuse a volumetric flow with no density rather than guess', () => {
+      expect(convertFlowToKgS(500, 'M3_HR', {})).toBeNull();
+      expect(convertFlowToKgS(500, 'M3_HR', { density: 0 })).toBeNull();
+      expect(convertFlowToKgS(500, 'NM3_HR', { density: 1.15 })).toBeNull();
+    });
+
+    it('should scale Nm³/hr back to normal conditions', () => {
+      // A gas at 1013.25 mbar and 0 °C is already at normal conditions, so
+      // Nm³/hr and m³/hr must agree exactly there.
+      const atNormal = convertFlowToKgS(500, 'NM3_HR', {
+        density: 1.2,
+        temperatureC: 0,
+        pressureMbar: 1013.25,
+      });
+      expect(atNormal).toBeCloseTo(convertFlowToKgS(500, 'M3_HR', { density: 1.2 }) as number, 9);
+    });
+
+    it('should make a hot low-pressure gas carry more mass per Nm³ than per m³', () => {
+      // At 30 °C and 100 mbar the actual gas is far less dense than at normal
+      // conditions, so a normal cubic metre is much more mass than an actual one.
+      const actual = convertFlowToKgS(500, 'M3_HR', { density: 0.115 }) as number;
+      const normal = convertFlowToKgS(500, 'NM3_HR', {
+        density: 0.115,
+        temperatureC: 30,
+        pressureMbar: 100,
+      }) as number;
+      expect(normal).toBeGreaterThan(actual * 5);
+    });
+
+    it('should round-trip through the reverse conversion', () => {
+      const ctx = { density: 1.15, temperatureC: 38, pressureMbar: 1050 };
+      for (const unit of ['KG_S', 'KG_HR', 'M3_HR', 'NM3_HR'] as const) {
+        const kgs = convertFlowToKgS(500, unit, ctx) as number;
+        expect(convertFlowFromKgS(kgs, unit, ctx)).toBeCloseTo(500, 6);
+      }
     });
   });
 
