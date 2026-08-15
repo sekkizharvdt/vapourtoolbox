@@ -677,6 +677,74 @@ the module.
 caught only because the test was anchored to a published figure rather than to whatever the code
 happened to produce. A test asserting `toBe(0.0215)` would have passed forever.
 
+### CP2b — property basis, built 2026-08-15, awaiting review
+
+§2.3's per-property basis was listed under phase 1 and **was not built in CP1 or CP2** — an
+oversight, caught before CP3 because imported values are the `SUPPLIED` case the whole mechanism
+exists for. Marking an import without it would have been marking nothing.
+
+Every stream now records where each property came from: `COMPUTED` for anything this repo
+derived, `SUPPLIED` or `ASSUMED` for anything a person typed — and **the engineer picks which,
+with no default that quietly chooses**. A property with no value and no computation is left
+unmarked rather than claimed as computed.
+
+Where a computed value rests on a supplied input — biogas properties from a client's gas
+analysis — the analysis reference travels with the computed mark, because a computed number is
+no better than what it was computed from.
+
+**How to check it:** add a biogas stream with an analysis, and the basis reads computed against
+the analysis reference. Add one without, and a Basis selector appears offering only Supplied or
+Assumed, with a source or a reason beside it. Neither can be skipped.
+
+**Also in this slice:** the stream form's identifier is now labelled **Stream Tag**, not "Line
+Tag". It always held the stream tag, and calling it a line tag while the line register calls the
+same thing `inputDataTag` is what made the two registers hard to tell apart. The stored field
+name is unchanged — renaming that moves the generators and the 36 existing records with it, so
+it stays a separate job.
+
+### CP3 — built 2026-08-15, awaiting review
+
+**Export and import, and the export is the template.** There is no separate
+format specification to keep in step with the code: `Export Excel` produces the
+layout the importer accepts, so an engineer preparing a third party's data
+starts from a file the toolbox made — even for an empty project, where the
+sheets come out with headers and no rows.
+
+**The whole merge path is reused, not rebuilt.** An import produces the same
+`SSOTGeneration` shape a calculator bridge does, so `planSSOTSync` and
+`applySSOTSync` run unchanged: what will be created, updated, left alone and
+orphaned is shown before anything is written, hand-entered records are never
+touched, and fields edited by hand on a previously imported record are
+preserved. The match key is the tag in the file — stream tag, equipment tag,
+line number — because that is what stays constant when the client issues
+revision B.
+
+**Inputs are trusted; derived values are recomputed.** A density that disagrees
+with the composition beside it loses to the composition. The exported file
+carries derived values so a person can read it, not so the importer can believe
+them. Columns are matched by name, so inserting one in the file changes nothing.
+
+**Every imported value is attributed.** The dialog will not accept a file until
+the source document is named, and that reference lands on the basis of every
+value the file supplied — which is what §2.3 was built for and why it had to
+land first.
+
+**How to check it:**
+
+1. `/ssot` → Export Excel on the biogas project. You get every register, with
+   BG-1's analysis and its 500 m³/hr flow in the units they were entered in.
+2. Edit a value in the sheet, add a row, and import it back. The preview must
+   show one update and one create before anything is written.
+3. Import the same file twice. The second run must report updates, not
+   duplicates — that is the match key doing its job.
+4. Put a fluid the register does not know in a row. It must be reported and
+   skipped, never guessed.
+5. Add a stream by hand, then re-import. The hand-entered record must come back
+   as _left alone_.
+
+**Still export-only:** instruments, valves and the pipe table. They export for
+reading, but the import covers the three registers the merge path knows.
+
 **CP7 is the odd one out and deliberately so.** It is the only checkpoint reviewed as a document
 rather than as working software, because instrumentation templates are convention, not
 calculation — and building them first and reviewing after is how you end up with two hundred

@@ -21,7 +21,11 @@ import {
   Paper,
   Button,
 } from '@mui/material';
-import { TableChart as TableChartIcon, Download as DownloadIcon } from '@mui/icons-material';
+import {
+  TableChart as TableChartIcon,
+  Download as DownloadIcon,
+  UploadFile as UploadFileIcon,
+} from '@mui/icons-material';
 import { PageHeader, LoadingState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProjectsForUser } from '@/lib/projects/projectService';
@@ -29,6 +33,15 @@ import type { SSOTAccessCheck } from '@/lib/ssot/ssotAuth';
 import type { Project } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { useToast } from '@/components/common/Toast';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
+import { listStreams } from '@/lib/ssot/streamService';
+import { listEquipment } from '@/lib/ssot/equipmentService';
+import { listLines } from '@/lib/ssot/lineService';
+import { listInstruments } from '@/lib/ssot/instrumentService';
+import { listValves } from '@/lib/ssot/valveService';
+import { listPipeSizes } from '@/lib/ssot/pipeTableService';
+import { buildSSOTWorkbook, ssotWorkbookFilename, XLSX_MIME_TYPE } from '@/lib/ssot/ssotExcel';
+import { ImportSSOTDialog } from '@/components/ssot/ImportSSOTDialog';
 import StreamsTab from './components/StreamsTab';
 import EquipmentTab from './components/EquipmentTab';
 import LinesTab from './components/LinesTab';
@@ -75,6 +88,10 @@ export default function SSOTPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [tabValue, setTabValue] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  // Bumped after an import so every tab re-reads its register
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // PE-6: Load projects scoped to user access
   useEffect(() => {
@@ -124,10 +141,53 @@ export default function SSOTPage() {
 
   const handleExportExcel = useCallback(async () => {
     if (!selectedProjectId) return;
-    // Excel export (future enhancement)
-    logger.info('Export Excel requested', { projectId: selectedProjectId });
-    toast.info('Excel export coming soon');
-  }, [selectedProjectId, toast]);
+    const project = projects.find((p) => p.id === selectedProjectId);
+    if (!project) return;
+
+    setExporting(true);
+    try {
+      // Rule 35: a token that has gone stale fails on whichever read runs
+      // first, so the whole set is wrapped rather than the first one.
+      const [streams, equipment, lines, instruments, valves, pipeTable] = await retryOnStaleToken(
+        () =>
+          Promise.all([
+            listStreams(selectedProjectId),
+            listEquipment(selectedProjectId),
+            listLines(selectedProjectId),
+            listInstruments(selectedProjectId),
+            listValves(selectedProjectId),
+            listPipeSizes(selectedProjectId),
+          ])
+      );
+
+      const buffer = await buildSSOTWorkbook({
+        projectCode: project.code,
+        projectName: project.name,
+        streams,
+        equipment,
+        lines,
+        instruments,
+        valves,
+        pipeTable,
+      });
+
+      const url = URL.createObjectURL(new Blob([buffer], { type: XLSX_MIME_TYPE }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = ssotWorkbookFilename(project.code);
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        `Exported ${streams.length} streams, ${equipment.length} equipment and ${lines.length} lines`
+      );
+    } catch (err) {
+      logger.error('Export failed', { error: err });
+      toast.error(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setExporting(false);
+    }
+  }, [selectedProjectId, projects, toast]);
 
   if (loading && projects.length === 0) {
     return <LoadingState message="Loading projects..." />;
@@ -140,14 +200,24 @@ export default function SSOTPage() {
           title="Process Data (SSOT)"
           subtitle="Single Source of Truth for process engineering data"
           action={
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportExcel}
-              disabled={!selectedProjectId}
-            >
-              Export Excel
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleExportExcel}
+                disabled={!selectedProjectId || exporting}
+              >
+                {exporting ? 'Exporting…' : 'Export Excel'}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<UploadFileIcon />}
+                onClick={() => setImportOpen(true)}
+                disabled={!selectedProjectId}
+              >
+                Import
+              </Button>
+            </Box>
           }
         />
 
@@ -224,42 +294,42 @@ export default function SSOTPage() {
             </Paper>
 
             {/* Tab Panels */}
-            <TabPanel value={tabValue} index={0}>
+            <TabPanel key={refreshKey} value={tabValue} index={0}>
               <StreamsTab
                 projectId={selectedProjectId}
                 userId={user?.uid || ''}
                 accessCheck={accessCheck}
               />
             </TabPanel>
-            <TabPanel value={tabValue} index={1}>
+            <TabPanel key={refreshKey} value={tabValue} index={1}>
               <EquipmentTab
                 projectId={selectedProjectId}
                 userId={user?.uid || ''}
                 accessCheck={accessCheck}
               />
             </TabPanel>
-            <TabPanel value={tabValue} index={2}>
+            <TabPanel key={refreshKey} value={tabValue} index={2}>
               <LinesTab
                 projectId={selectedProjectId}
                 userId={user?.uid || ''}
                 accessCheck={accessCheck}
               />
             </TabPanel>
-            <TabPanel value={tabValue} index={3}>
+            <TabPanel key={refreshKey} value={tabValue} index={3}>
               <InstrumentsTab
                 projectId={selectedProjectId}
                 userId={user?.uid || ''}
                 accessCheck={accessCheck}
               />
             </TabPanel>
-            <TabPanel value={tabValue} index={4}>
+            <TabPanel key={refreshKey} value={tabValue} index={4}>
               <ValvesTab
                 projectId={selectedProjectId}
                 userId={user?.uid || ''}
                 accessCheck={accessCheck}
               />
             </TabPanel>
-            <TabPanel value={tabValue} index={5}>
+            <TabPanel key={refreshKey} value={tabValue} index={5}>
               <PipeTableTab
                 projectId={selectedProjectId}
                 userId={user?.uid || ''}
@@ -269,6 +339,18 @@ export default function SSOTPage() {
           </>
         )}
       </Box>
+
+      {selectedProjectId && (
+        <ImportSSOTDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          projectId={selectedProjectId}
+          projectLabel={projects.find((p) => p.id === selectedProjectId)?.code ?? 'this project'}
+          userId={user?.uid || ''}
+          accessCheck={accessCheck}
+          onImported={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
     </>
   );
 }
