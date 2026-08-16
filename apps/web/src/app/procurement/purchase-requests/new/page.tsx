@@ -6,7 +6,7 @@
  * Consolidated single-page form to create purchase requests with all sections visible
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Stack,
@@ -53,6 +53,8 @@ import {
   type CreatePurchaseRequestItemInput,
 } from '@/lib/procurement/purchaseRequest';
 import type {
+  Material,
+  MaterialCategory,
   PurchaseRequestAttachmentType,
   PurchaseRequestCategory,
   PurchaseRequestRaisedFor,
@@ -71,6 +73,14 @@ import CatalogPickerDialog, {
   type CatalogSelection,
 } from '@/components/catalog/CatalogPickerDialog';
 import EditLineDimensionsDialog from '@/components/materials/EditLineDimensionsDialog';
+import InlineMaterialSelector, {
+  EMPTY_INLINE_STATE,
+  resolveInlineSelection,
+  type InlineSelectorState,
+} from '@/components/materials/InlineMaterialSelector';
+import { getRawMaterialKinds } from '@/lib/catalog/inlineSizing';
+import { queryMaterials } from '@/lib/materials/materialService';
+import { getFirebase } from '@/lib/firebase';
 import { formatLineDimensions, withQuantity } from '@/lib/catalog/lineDimensions';
 
 interface FormData {
@@ -150,6 +160,13 @@ export default function NewPurchaseRequestPage() {
   const [catalogPickerIndex, setCatalogPickerIndex] = useState<number>(0);
   // Row whose dimensions are being adjusted after the fact, or null.
   const [dimensionsRowIndex, setDimensionsRowIndex] = useState<number | null>(null);
+  // Raw materials backing the inline dropdowns (plates + pipes — the only
+  // categories priced by weight or length, so the only ones small and
+  // structured enough to offer without a dialog).
+  const [rawMaterials, setRawMaterials] = useState<Material[]>([]);
+  // Inline cascade state, one entry per line item. Kept in lockstep with
+  // `lineItems` by every handler that adds, removes or replaces rows.
+  const [inlineStates, setInlineStates] = useState<InlineSelectorState[]>([EMPTY_INLINE_STATE]);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -168,6 +185,73 @@ export default function NewPurchaseRequestPage() {
   const [lineItems, setLineItems] = useState<CreatePurchaseRequestItemInput[]>([
     { description: '', quantity: 1, unit: 'NOS', equipmentCode: '' },
   ]);
+
+  // Load the inline-selectable raw materials once. Only plates and pipes
+  // qualify (priced by KG / METER), which is ~360 documents — small enough to
+  // hold and turn into dropdowns, unlike the full catalogue.
+  useEffect(() => {
+    if (formData.category !== 'RAW_MATERIAL' || rawMaterials.length > 0) return;
+    const { db } = getFirebase();
+    if (!db) return;
+
+    let cancelled = false;
+    const categories = getRawMaterialKinds().flatMap((k) => k.categories) as MaterialCategory[];
+    queryMaterials(db, {
+      categories,
+      isActive: true,
+      sortField: 'name',
+      sortDirection: 'asc',
+      limitResults: 500,
+    })
+      .then((result) => {
+        if (!cancelled) setRawMaterials(result.materials);
+      })
+      .catch((err) => {
+        // Non-fatal: the catalog picker still works, so degrade to it rather
+        // than blocking the form.
+        console.warn('[NewPR] inline material load failed', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.category, rawMaterials.length]);
+
+  /**
+   * A completed inline cascade writes the same fields the picker would — the
+   * two paths must produce identical line items, or downstream behaviour would
+   * depend on how the user happened to choose.
+   */
+  const handleInlineChange = (index: number, next: InlineSelectorState) => {
+    setInlineStates((prev) => prev.map((s, i) => (i === index ? next : s)));
+
+    const resolved = resolveInlineSelection(next, rawMaterials);
+    if (!resolved) return;
+
+    setLineItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const { material } = resolved;
+        return {
+          ...clearCatalogLinks(item),
+          catalogRef: {
+            kind: 'RAW_MATERIAL' as const,
+            id: material.id,
+            code: material.materialCode,
+            name: material.name,
+          },
+          description: material.name,
+          specification: item.specification?.trim() ? item.specification : material.materialCode,
+          materialId: material.id,
+          materialCode: material.materialCode,
+          materialName: material.name,
+          unit: resolved.unit,
+          ...(resolved.dimensions && { dimensions: resolved.dimensions }),
+          ...(resolved.quantity !== undefined && { quantity: resolved.quantity }),
+        };
+      })
+    );
+  };
 
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -235,19 +319,23 @@ export default function NewPurchaseRequestPage() {
       ...prev,
       { description: '', quantity: 1, unit: 'NOS', equipmentCode: '' },
     ]);
+    setInlineStates((prev) => [...prev, EMPTY_INLINE_STATE]);
   };
 
   const handleRemoveLineItem = (index: number) => {
     setLineItems((prev) => prev.filter((_, i) => i !== index));
+    setInlineStates((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleExcelImport = (importedItems: CreatePurchaseRequestItemInput[]) => {
     setLineItems(normalizeImportedItems(importedItems));
+    setInlineStates(importedItems.map(() => EMPTY_INLINE_STATE));
     setExcelDialogOpen(false);
   };
 
   const handleDocumentImport = (importedItems: CreatePurchaseRequestItemInput[]) => {
     setLineItems(normalizeImportedItems(importedItems));
+    setInlineStates(importedItems.map(() => EMPTY_INLINE_STATE));
     setDocumentDialogOpen(false);
   };
 
@@ -763,6 +851,18 @@ export default function NewPurchaseRequestPage() {
                             </IconButton>
                           </Tooltip>
                         </Stack>
+                        {/* Express lane: dropdowns for the small structured set
+                            that raw material is, driven by CATALOG_SIZING. The
+                            search icon above stays for everything else. */}
+                        {formData.category === 'RAW_MATERIAL' && rawMaterials.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <InlineMaterialSelector
+                              materials={rawMaterials}
+                              state={inlineStates[index] ?? EMPTY_INLINE_STATE}
+                              onChange={(next) => handleInlineChange(index, next)}
+                            />
+                          </Box>
+                        )}
                         {item.materialCode && (
                           <Chip
                             label={item.materialCode}

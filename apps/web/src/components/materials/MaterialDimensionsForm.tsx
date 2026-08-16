@@ -92,6 +92,12 @@ interface MaterialDimensionsFormProps {
   onChange: (draft: DimensionsDraft) => void;
   /** Hide the piece-count field where the caller owns quantity (the PR row). */
   showQuantity?: boolean;
+  /**
+   * Hide the thickness dropdown where the caller already chose the variant —
+   * the inline PR row picks grade and thickness in its own cascade, so
+   * repeating the control here would be two controls for one value.
+   */
+  showVariantSelect?: boolean;
 }
 
 export default function MaterialDimensionsForm({
@@ -99,6 +105,7 @@ export default function MaterialDimensionsForm({
   draft,
   onChange,
   showQuantity = true,
+  showVariantSelect = true,
 }: MaterialDimensionsFormProps) {
   const shapes = useMemo(() => getShapesForMaterial(material), [material]);
   const variants = useMemo(
@@ -160,23 +167,27 @@ export default function MaterialDimensionsForm({
           ))}
         </TextField>
 
-        <TextField
-          select
-          label="Thickness"
-          value={draft.variantId}
-          onChange={(e) => onChange({ ...draft, variantId: e.target.value })}
-          size="small"
-          fullWidth
-          required
-          disabled={variants.length === 0}
-          helperText={variants.length === 0 ? 'This material has no thickness variants' : undefined}
-        >
-          {variants.map((variant) => (
-            <MenuItem key={variant.id} value={variant.id}>
-              {getVariantDisplayName(variant)}
-            </MenuItem>
-          ))}
-        </TextField>
+        {showVariantSelect && (
+          <TextField
+            select
+            label="Thickness"
+            value={draft.variantId}
+            onChange={(e) => onChange({ ...draft, variantId: e.target.value })}
+            size="small"
+            fullWidth
+            required
+            disabled={variants.length === 0}
+            helperText={
+              variants.length === 0 ? 'This material has no thickness variants' : undefined
+            }
+          >
+            {variants.map((variant) => (
+              <MenuItem key={variant.id} value={variant.id}>
+                {getVariantDisplayName(variant)}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
       </Stack>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
