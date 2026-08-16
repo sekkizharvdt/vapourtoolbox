@@ -505,6 +505,25 @@ export interface BoughtOutItem extends TimestampFields {
     testReportUrl?: string;
   };
 
+  /**
+   * Size/rating variants of ONE product, when the vendor sells a range and
+   * prices each size separately.
+   *
+   * This is the shape the catalogue actually has: `FL-WN-CS-A105` is one
+   * weld-neck flange product with 49 NPS/class variants, and "Demister Pad
+   * w/ Grids" is one product in 7 sizes × 2 thicknesses. Holding those as
+   * 49 and 14 separate documents made the picker unreadable — every row
+   * carried the same `name`, with the distinguishing attribute buried in
+   * `description`.
+   *
+   * A variant is NOT a way to record a dimensioned raw material. If the item
+   * is priced in Rs/kg or Rs/m it belongs in `materials`, where the size is
+   * entered per line (`CatalogLineDimensions`). Variants exist because a
+   * unit-rate item's price is fixed per size — a demister pad cannot be
+   * priced by weight, since the vendor supplies the grid around it.
+   */
+  variants?: BoughtOutVariant[];
+
   // Metadata
   tags?: string[];
   isActive: boolean;
@@ -514,6 +533,58 @@ export interface BoughtOutItem extends TimestampFields {
   // Audit
   createdBy: string;
   updatedBy: string;
+}
+
+/**
+ * One purchasable size/rating of a `BoughtOutItem`.
+ *
+ * Deliberately mirrors `MaterialVariant` (same id/variantCode/displayName/
+ * availability vocabulary) so the two pickers can share selection UI, but it
+ * carries `specifications` + `pricing` rather than `dimensions` +
+ * `weightPerUnit`: a bought-out variant differs by rating and model, and is
+ * quoted as a unit rate, not derived from geometry.
+ */
+export interface BoughtOutVariant {
+  /** Stable id, unique within the parent item. */
+  id: string;
+  /** Short code, e.g. "DN100-150", "2800x960-50". */
+  variantCode: string;
+  /** Human-readable, e.g. "NPS 4 150#", "2800×960, 50mm thk". */
+  displayName: string;
+
+  /**
+   * Only the specification fields that DIFFER from the parent — the parent's
+   * `specifications` supplies the rest. A weld-neck flange variant states its
+   * NPS and pressure class; the grade and standard stay on the product.
+   */
+  specifications?: Partial<BoughtOutSpecifications>;
+
+  /** Unit rate for this size. Absent until a quote or price is recorded. */
+  pricing?: {
+    listPrice: Money;
+    currency: CurrencyCode;
+    leadTime?: number;
+    moq?: number;
+    vendorId?: string;
+    lastUpdated?: Timestamp;
+    /** Effective date behind `listPrice` — an older quote must not overwrite a newer one. */
+    effectiveDate?: Timestamp;
+  };
+
+  /** `bought_out_prices` document ids for this variant. */
+  priceHistory: string[];
+
+  /** In stock or orderable. */
+  isAvailable: boolean;
+  discontinuedDate?: Timestamp;
+
+  /**
+   * Code of the `materials` document this variant came from, when it was
+   * created by the taxonomy migration (docs/reviews/2026-08-16-materials-
+   * taxonomy-cleanup.md). Lets a stale `materialCode` on an old procurement
+   * line still be traced to the item that replaced it.
+   */
+  migratedFromMaterialCode?: string;
 }
 
 // ============================================================================
