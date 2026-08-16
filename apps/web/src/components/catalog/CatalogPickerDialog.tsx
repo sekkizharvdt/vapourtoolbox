@@ -40,13 +40,14 @@ import type {
   Material,
   MaterialVariant,
   BoughtOutItem,
+  BoughtOutVariant,
   Service,
 } from '@vapour/types';
 
 /** Kind-specific backing document for consumers that need fields beyond CatalogItem. */
 export type CatalogSelectionSource =
   | { kind: 'RAW_MATERIAL'; material: Material; variant?: MaterialVariant; fullCode?: string }
-  | { kind: 'BOUGHT_OUT'; boughtOutItem: BoughtOutItem }
+  | { kind: 'BOUGHT_OUT'; boughtOutItem: BoughtOutItem; variant?: BoughtOutVariant }
   | { kind: 'SERVICE'; service: Service };
 
 export interface CatalogSelection {
@@ -163,9 +164,13 @@ export default function CatalogPickerDialog({
     });
   };
 
-  const handleBoughtOutSelect = (boughtOutItem: BoughtOutItem) => {
+  const handleBoughtOutSelect = (boughtOutItem: BoughtOutItem, variant?: BoughtOutVariant) => {
     const item = boughtOutToCatalogItem(boughtOutItem);
-    onSelect({ ref: toCatalogRef(item), item, source: { kind: 'BOUGHT_OUT', boughtOutItem } });
+    onSelect({
+      ref: toCatalogRef(item),
+      item,
+      source: { kind: 'BOUGHT_OUT', boughtOutItem, ...(variant && { variant }) },
+    });
   };
 
   const handleServiceSelect = (service: Service) => {

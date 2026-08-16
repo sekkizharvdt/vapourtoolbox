@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import {
   type BoughtOutItem,
+  type BoughtOutVariant,
   type BoughtOutCategory,
   type CreateBoughtOutItemInput,
   type CurrencyCode,
@@ -48,7 +49,12 @@ import { RENDER_CAP } from '@/components/materials/MaterialPickerDialog';
 interface BoughtOutPickerDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (item: BoughtOutItem) => void;
+  /**
+   * Fires with the chosen item and, when the item has variants, the chosen
+   * size. A variant-bearing product cannot be selected without one — the
+   * product is "Weld Neck Flange A105", the orderable article is "NPS 4 150#".
+   */
+  onSelect: (item: BoughtOutItem, variant?: BoughtOutVariant) => void;
   tenantId: string;
   /** Optional category filter — narrows the list when the row already has a category hint. */
   category?: BoughtOutCategory;
@@ -101,6 +107,9 @@ export default function BoughtOutPickerDialog({
   // Possible-duplicate candidates surfaced before creating (5C — "always ask").
   // Non-null means the confirm panel is showing; the user picks one or proceeds.
   const [dupCandidates, setDupCandidates] = useState<BoughtOutItem[] | null>(null);
+  // Item whose size is being chosen. A product with variants is not orderable
+  // until one is picked, so clicking it opens this step instead of selecting.
+  const [variantItem, setVariantItem] = useState<BoughtOutItem | null>(null);
 
   // Reset state on open and re-apply external category hint.
   useEffect(() => {
@@ -117,6 +126,7 @@ export default function BoughtOutPickerDialog({
       setCreatePrice('');
       setCreateCurrency('INR');
       setDupCandidates(null);
+      setVariantItem(null);
       setCategoryFilter(category ?? 'ALL');
     }
   }, [open, category]);
@@ -249,7 +259,61 @@ export default function BoughtOutPickerDialog({
       </DialogTitle>
       {headerSlot}
       <DialogContent>
-        {showCreate && dupCandidates ? (
+        {variantItem ? (
+          /* Size step — a product with variants is not orderable until one is
+             chosen. "Weld Neck Flange A105" is the product; "NPS 4 150#" is
+             the article a vendor quotes. */
+          <Stack spacing={1} sx={{ pt: 1 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => setVariantItem(null)}
+              size="small"
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              Back to list
+            </Button>
+            <Typography variant="subtitle1" fontWeight="medium">
+              {variantItem.name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {variantItem.variants?.length ?? 0} sizes &mdash; select one
+            </Typography>
+            <List sx={{ maxHeight: 420, overflow: 'auto' }}>
+              {(variantItem.variants ?? []).map((variant) => (
+                <ListItem key={variant.id} disablePadding>
+                  <ListItemButton
+                    disabled={variant.isAvailable === false}
+                    onClick={() => {
+                      onSelect(variantItem, variant);
+                      onClose();
+                    }}
+                    sx={{ borderRadius: 1, mb: 0.5 }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                        >
+                          <Typography variant="body2" fontWeight="medium">
+                            {variant.displayName || variant.variantCode}
+                          </Typography>
+                          {variant.isAvailable === false && (
+                            <Chip label="Unavailable" size="small" color="default" />
+                          )}
+                        </Box>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                          {variant.variantCode}
+                        </Typography>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Stack>
+        ) : showCreate && dupCandidates ? (
           /* Possible-duplicate gate (5C) — surfaced before creating. */
           <Stack spacing={1} sx={{ pt: 1 }}>
             <Alert severity="warning">
@@ -432,6 +496,11 @@ export default function BoughtOutPickerDialog({
                   <ListItem key={item.id} disablePadding>
                     <ListItemButton
                       onClick={() => {
+                        // A product with sizes owes one before it is orderable.
+                        if (item.variants && item.variants.length > 0) {
+                          setVariantItem(item);
+                          return;
+                        }
                         onSelect(item);
                         onClose();
                       }}
@@ -453,6 +522,13 @@ export default function BoughtOutPickerDialog({
                             />
                             {item.needsReview && (
                               <Chip label="Needs review" size="small" color="warning" />
+                            )}
+                            {item.variants && item.variants.length > 0 && (
+                              <Chip
+                                label={`${item.variants.length} sizes`}
+                                size="small"
+                                color="primary"
+                              />
                             )}
                           </Box>
                         }
