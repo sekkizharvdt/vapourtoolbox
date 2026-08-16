@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-08-15 (plate line dimensions — catalog row, materials data-model note, new exemplar)
+Last verified: 2026-08-16 (catalogue sizing model + inline PR dropdowns; taxonomy migration prepared, NOT applied)
 
 ## Firestore admin access (for counting records — rule 31)
 
@@ -89,6 +89,35 @@ Two shapes live in the `materials` collection. Getting this wrong silently retur
 Read through `lib/materials/queries.ts` — `queryMaterials` (drops `isMigrated` parents), `searchMaterials`, `queryMaterialsByFamily`, `queryPipingFamilies`. Derive category lists from `MATERIAL_CATEGORY_GROUPS` (`@vapour/types`), never a hardcoded array — a hardcoded list is how duplex/super-duplex pipes and slip-on/blind flanges went missing from their module pages until `c816ab8e`. Indexed by `(category ASC, materialCode ASC)`.
 
 Canonical pages: [`/materials/pipes`](../apps/web/src/app/materials/pipes/page.tsx), `/materials/flanges`, `/materials/fittings`.
+
+**Catalogue sizing is modelled on three orthogonal axes** — `CATALOG_SIZING` in
+`packages/types/src/catalog.ts`, enforced by `scripts/audit/check-catalog-taxonomy.js`
+in the pre-commit hook:
+
+|         | discriminators (→ variants) | orderSizing (→ line) | pricingUnit |
+| ------- | --------------------------- | -------------------- | ----------- |
+| Plate   | thickness                   | SHAPE                | KG          |
+| Pipe    | nps + schedule              | LENGTH               | METER       |
+| Fitting | nps + schedule              | NONE                 | PIECE       |
+| Flange  | nps + pressureClass         | NONE                 | PIECE       |
+
+Pipe is the case that proves the axes are independent — it has BOTH discriminators and
+an order dimension. Because sizing is per category, WHICH collection a doc lives in is a
+filing convenience, not a semantic decision. `getCatalogSizing(category)` is the single
+answer; never write a second "is this raw material" predicate (the guardrail fails on it).
+`MaterialVariant` and `BoughtOutVariant` both extend `CatalogVariant` — one concept.
+
+**Inline selection on a procurement line:** `lib/catalog/inlineSizing.ts` +
+`components/materials/InlineMaterialSelector.tsx` render dropdowns for the kinds priced
+by KG/METER (plates, pipes only — derived, never hardcoded), with the catalog picker kept
+for the long tail. Wired into the PR New and Edit rows.
+
+**A taxonomy migration is PREPARED BUT NOT APPLIED.** `scripts/analysis/migrate-boughtout-taxonomy.js`
+(dry run by default) moves 403 unit-rate docs out of `materials` into `bought_out_items` as
+24 products / ~1,185 variants, and synthesizes the duplex A815 fitting family. Blocked on
+re-homing `/materials/flanges` and `/materials/fittings`, which still read `materials` and
+would go empty the moment sources are flagged `isMigrated`. Plan + open items:
+`docs/reviews/2026-08-16-materials-taxonomy-cleanup.md`.
 
 **Plates get sized on the procurement line, pipes don't.** A plate material is
 one doc per grade (16 of them) with thickness as ~29 variants, so picking the

@@ -1,5 +1,12 @@
 # Materials ↔ bought-out taxonomy — agreed plan
 
+> **Status 2026-08-16.** The sizing model, the guardrail, the inline PR dropdowns and
+> the bought-out variant picker have shipped. **The data migration has NOT been run** —
+> `--apply` is still unexecuted. The one remaining blocker is re-homing
+> `/materials/flanges` and `/materials/fittings` (~930 lines) against `bought_out_items`;
+> they read `materials` today and would go empty the moment the migration flags sources
+> `isMigrated`. Everything else on the critical path is done.
+
 > **Nothing has been written to Firestore.** Generated 2026-08-16 against `vapour-toolbox`.
 
 ## The rule (decided)
