@@ -1,0 +1,31 @@
+{
+  // Build output and dependencies — excluded from the file watcher and search.
+  // apps/web/.next alone reaches several GB, which is what triggers VS Code's
+  // "exclude large folders" prompt.
+  //
+  // This file IS tracked: .gitignore ignores .vscode/* but re-includes
+  // settings.json and extensions.json, so it is shared with the repo.
+  // apps/web/tsconfig.json is deliberately left alone — its include/exclude is
+  // Next.js's stock config and `.next/types/**/*.ts` carries generated route
+  // types that excluding `.next` would drop.
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/out/**": true,
+    "**/.turbo/**": true,
+    "**/dist/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/out": true,
+    "**/.turbo": true,
+    "**/dist": true,
+    "**/pnpm-lock.yaml": true
+  },
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEventsOnParentDirectory",
+    "watchDirectory": "useFsEvents"
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

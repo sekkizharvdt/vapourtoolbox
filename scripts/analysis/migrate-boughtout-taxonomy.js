@@ -145,6 +145,120 @@ function productName(key, members) {
     .trim();
 }
 
+/** Normalize an NPS string so "2 1/2", "2-1/2" and "21/2" compare equal. */
+function normNps(v) {
+  return String(v).replace(/\s+/g, '').replace(/-/g, '');
+}
+
+/**
+ * Which pipe grade a fitting family welds to. Wall thickness for a given
+ * NPS + schedule is a dimensional standard (B36.10 for carbon, B36.19M for
+ * stainless/duplex), so the mating pipe is the honest source — inventing a
+ * wall thickness per fitting would be a second, unsourced copy of that table.
+ */
+const FITTING_TO_PIPE_GRADE = {
+  'FT-BW-CS-A234': 'PIPES_CARBON_STEEL',
+  'FT-BW-SS-A403': 'PIPES_STAINLESS_316L',
+  'FT-BW-DX-A815': 'PIPES_DUPLEX_2205',
+};
+
+/**
+ * Build `grade → nps → schedule → { od, wall, kgPerM }` from the pipe catalogue.
+ * This is what lets a fitting variant state a schedule and still be traceable
+ * to a real dimensional record.
+ */
+function buildPipeIndex(live) {
+  const index = {};
+  for (const p of live) {
+    if (!String(p.category).startsWith('PIPES')) continue;
+    if (!p.nps || !p.schedule) continue; // one malformed doc has neither
+    const byNps = (index[p.category] = index[p.category] || {});
+    const bySch = (byNps[normNps(p.nps)] = byNps[normNps(p.nps)] || {});
+    bySch[String(p.schedule)] = {
+      outsideDiameter_mm: p.outsideDiameter_mm,
+      wallThickness_mm: p.wallThickness_mm,
+      weightPerMeter_kg: p.weightPerMeter_kg,
+      sourceMaterialCode: p.materialCode,
+    };
+  }
+  return index;
+}
+
+/**
+ * Schedules a fitting is available in, and where each one's dimensions come from.
+ *
+ * A reducer's NPS is a pair ("6 x 4"); it is bored for both, so only schedules
+ * the LARGER bore offers are valid. Sizes above the pipe catalogue's range
+ * (fittings reach NPS 24, pipes stop at 12) return no schedules — they stay
+ * single variants flagged `scheduleUnsourced` rather than inventing a wall.
+ */
+function schedulesForFitting(m, pipeIndex) {
+  const pipeCategory = FITTING_TO_PIPE_GRADE[m.familyCode];
+  const byNps = pipeIndex[pipeCategory];
+  if (!byNps) return [];
+
+  const bores = normNps(m.nps).split('x').filter(Boolean);
+  const perBore = bores.map((b) => byNps[b]).filter(Boolean);
+  if (perBore.length !== bores.length) return []; // some bore has no pipe
+
+  // Intersect: a reducer must be orderable in the schedule at both ends.
+  const [first, ...rest] = perBore;
+  return Object.keys(first)
+    .filter((sch) => rest.every((b) => b[sch]))
+    .sort((a, b) => Number(a) - Number(b))
+    .map((sch) => ({ schedule: sch, dims: perBore[perBore.length - 1][sch] }));
+}
+
+/**
+ * Variants for one product. Butt-weld fittings expand each catalogue NPS into
+ * one variant per schedule its mating pipe offers (decided 2026-08-16 — a
+ * Sch 160 elbow and a Sch 10 elbow are different unit rates, so schedule has
+ * to be a variant, not a line-level note). Everything else is one variant per
+ * source document.
+ */
+function buildVariants(members, pipeIndex) {
+  const out = [];
+  for (const { m, p } of members) {
+    const scheds = m.category === 'FITTINGS_BUTT_WELD' ? schedulesForFitting(m, pipeIndex) : [];
+
+    if (scheds.length === 0) {
+      out.push({
+        variantCode: p.variantCode,
+        displayName: p.displayName,
+        specifications: variantSpecifications(m),
+        priceHistory: [],
+        isAvailable: m.isActive !== false,
+        migratedFromMaterialCode: m.materialCode,
+        // Fittings above the pipe catalogue's range (NPS 14-24) get no
+        // schedule rather than an invented wall thickness.
+        ...(m.category === 'FITTINGS_BUTT_WELD' && { scheduleUnsourced: true }),
+      });
+      continue;
+    }
+
+    for (const { schedule, dims } of scheds) {
+      out.push({
+        variantCode: `${p.variantCode}-SCH${schedule}`,
+        displayName: `${p.displayName} Sch ${schedule}`,
+        specifications: {
+          ...variantSpecifications(m),
+          schedule,
+          // Sourced from the mating pipe, not invented.
+          wallThickness_mm: dims.wallThickness_mm,
+          ...(dims.outsideDiameter_mm !== undefined && {
+            outsideDiameter_mm: dims.outsideDiameter_mm,
+          }),
+          wallThicknessSource: dims.sourceMaterialCode,
+        },
+        priceHistory: [],
+        isAvailable: m.isActive !== false,
+        migratedFromMaterialCode: m.materialCode,
+      });
+    }
+  }
+  return out.map((v, i) => ({ id: `v${String(i + 1).padStart(3, '0')}`, ...v }));
+}
+
 /** Carry the piping dimensions onto the variant so nothing is lost in the move. */
 function variantSpecifications(m) {
   const spec = {};
@@ -172,6 +286,8 @@ function variantSpecifications(m) {
     const m = d.data();
     if (m.isMigrated !== true) live.push({ id: d.id, ...m });
   });
+
+  const pipeIndex = buildPipeIndex(live);
 
   const moving = live.filter(
     (m) => !(RAW_CATEGORIES.has(m.category) || RAW_CODES.has(m.materialCode))
@@ -214,21 +330,32 @@ function variantSpecifications(m) {
             members.map((x) => x.m)
           )
         : first.name;
+    const built = buildVariants(members, pipeIndex);
     rows.push({
       product: name,
       familyKey: key,
       category: TO_BOUGHT_OUT_CATEGORY[first.category] || 'OTHER',
-      variants: members.length,
+      variants: built.length,
+      sources: members.length,
+      unsourced: built.filter((v) => v.scheduleUnsourced).length,
     });
   }
   rows
     .sort((a, b) => b.variants - a.variants)
     .forEach((r) =>
       console.log(
-        `  ${String(r.familyKey).padEnd(30)} ${String(r.variants).padStart(3)} variants  ` +
-          `[${r.category}]  "${r.product}"`
+        `  ${String(r.familyKey).padEnd(38)} ${String(r.variants).padStart(4)} variants ` +
+          `(${String(r.sources).padStart(3)} docs` +
+          `${r.unsourced ? `, ${r.unsourced} without schedule` : ''})  "${r.product}"`
       )
     );
+
+  const totalVariants = rows.reduce((n, r) => n + r.variants, 0);
+  const totalUnsourced = rows.reduce((n, r) => n + (r.unsourced || 0), 0);
+  console.log(
+    `\n  ${target.length} docs → ${rows.length} products → ${totalVariants} variants` +
+      `${totalUnsourced ? ` (${totalUnsourced} fitting variants have no schedule — NPS above the pipe range)` : ''}`
+  );
 
   if (!APPLY) {
     console.log('\nRe-run with --apply to write (a backup is taken first).');
@@ -251,15 +378,7 @@ function variantSpecifications(m) {
           )
         : first.name;
 
-    const variants = members.map(({ m, p }, i) => ({
-      id: `v${String(i + 1).padStart(3, '0')}`,
-      variantCode: p.variantCode,
-      displayName: p.displayName,
-      specifications: variantSpecifications(m),
-      priceHistory: [],
-      isAvailable: m.isActive !== false,
-      migratedFromMaterialCode: m.materialCode,
-    }));
+    const variants = buildVariants(members, pipeIndex);
 
     const ref = db.collection('bought_out_items').doc();
     const doc = {
