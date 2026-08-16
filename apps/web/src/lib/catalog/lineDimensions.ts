@@ -2,7 +2,7 @@
  * Structured line dimensions for procurement raw-material lines.
  *
  * Plates are the case this exists for. A plate material is one document per
- * grade with thickness as variants (`usesVariantModel`), so picking the
+ * grade with thickness as variants, so picking the
  * material alone leaves the size unstated — engineers used to type it into the
  * free-text `specification` ("114 dia x 4 thk x 6000 lg"), which nothing
  * downstream can read. Here the engineer picks a shape, a thickness variant,
@@ -18,7 +18,7 @@
  */
 
 import type { CatalogLineDimensions, Material, MaterialVariant, Shape } from '@vapour/types';
-import { usesVariantModel } from '@vapour/types';
+import { getCatalogSizing } from '@vapour/types';
 import { getAllShapes, getShapeById } from '@/lib/shapes/shapeData';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
 
@@ -37,11 +37,15 @@ function roundKg(value: number): number {
 /**
  * Does this material need a dimensions step at all?
  *
- * True for the variants-model categories (plates). Piping and everything flat
- * answers false, so the picker stays a single click for them.
+ * Reads the category's declared `orderSizing` — 'SHAPE' means the buyer states
+ * a shape and its parameters, which is exactly this module's job. Previously
+ * this asked `usesVariantModel`, which gave the right answer for plates only
+ * because plates happen to be the variants-model categories; the two questions
+ * are independent (a fitting has variants and needs no line dimensions, a pipe
+ * needs a length and has neither).
  */
 export function needsDimensions(material: Material): boolean {
-  return usesVariantModel(material.category);
+  return getCatalogSizing(material.category).orderSizing === 'SHAPE';
 }
 
 /**

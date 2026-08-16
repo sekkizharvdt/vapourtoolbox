@@ -34,6 +34,212 @@ export interface CatalogRef {
   name: string;
 }
 
+// ============================================================================
+// How a catalogue item is sized and priced (decided 2026-08-16)
+// ============================================================================
+//
+// Three ORTHOGONAL questions. Conflating them is what produced the mess this
+// model replaces — 33 documents misfiled, and a "priced per kg → raw material"
+// rule that happens to give the right answer for pipes but not for the right
+// reason.
+//
+//   1. discriminators — what makes this a distinct purchasable article.
+//      Becomes a variant (or, for piping today, a document per combination).
+//   2. orderSizing    — what the BUYER states on the order line.
+//   3. pricingUnit    — how quantity × rate works.
+//
+//                 discriminators        orderSizing   pricingUnit
+//   Plate         thickness             SHAPE         KG
+//   Pipe          nps + schedule        LENGTH        METER
+//   Fitting       nps + schedule        NONE          PIECE
+//   Flange        nps + pressureClass   NONE          PIECE
+//   Demister pad  size + thickness      NONE          PIECE
+//
+// Pipe is the case that proves the axes are independent: it has BOTH
+// discriminators (like a fitting) and an order dimension (like a plate).
+// Under a single-axis rule it looks like a contradiction; here it is just a
+// row in the table.
+//
+// Because these are declared per category, the COLLECTION a document lives in
+// (`materials` vs `bought_out_items`) is a filing convenience — schema fit and
+// module pages — not a semantic decision. Misfiling becomes cosmetic instead
+// of corrupting, which is the point.
+
+/** How quantity × rate works for an item. */
+export type CatalogPricingUnit = 'KG' | 'METER' | 'PIECE';
+
+/** What size information the buyer supplies on the order line. */
+export type CatalogOrderSizing =
+  /** None — the variant fully determines the article (fitting, valve, demister pad). */
+  | 'NONE'
+  /** `quantity` IS the length, in metres (pipe). */
+  | 'LENGTH'
+  /** Buyer picks a shape and states its parameters — see `CatalogLineDimensions` (plate). */
+  | 'SHAPE';
+
+export interface CatalogSizing {
+  /**
+   * Field names that distinguish one purchasable article from another, e.g.
+   * `['nps', 'schedule']`. These are the keys a variant fills in.
+   */
+  discriminators: string[];
+  orderSizing: CatalogOrderSizing;
+  pricingUnit: CatalogPricingUnit;
+}
+
+/**
+ * Default for a discrete manufactured article you buy whole: one size per
+ * variant, nothing stated on the line, priced per piece. Anything that departs
+ * from this is listed explicitly below — silence means "ordinary article".
+ */
+const DEFAULT_SIZING: CatalogSizing = {
+  discriminators: ['size'],
+  orderSizing: 'NONE',
+  pricingUnit: 'PIECE',
+};
+
+/**
+ * Categories whose sizing differs from `DEFAULT_SIZING`. Keyed by the string
+ * value of `MaterialCategory` so this file stays free of an import cycle.
+ *
+ * Only categories with real documents are listed. A category is added when it
+ * gets data, not in anticipation — an unlisted category falls back to the
+ * default and `check-catalog-taxonomy.js` reports any document whose
+ * `baseUnit` contradicts it.
+ */
+const SIZING_OVERRIDES: Record<string, CatalogSizing> = {
+  // Plates — bought by weight, cut to a shape the engineer states per line.
+  PLATES_CARBON_STEEL: { discriminators: ['thickness'], orderSizing: 'SHAPE', pricingUnit: 'KG' },
+  PLATES_STAINLESS_STEEL: {
+    discriminators: ['thickness'],
+    orderSizing: 'SHAPE',
+    pricingUnit: 'KG',
+  },
+  PLATES_DUPLEX_STEEL: { discriminators: ['thickness'], orderSizing: 'SHAPE', pricingUnit: 'KG' },
+  PLATES_ALLOY_STEEL: { discriminators: ['thickness'], orderSizing: 'SHAPE', pricingUnit: 'KG' },
+
+  // Pipes — the document fixes NPS and schedule; `quantity` carries length.
+  PIPES_CARBON_STEEL: {
+    discriminators: ['nps', 'schedule'],
+    orderSizing: 'LENGTH',
+    pricingUnit: 'METER',
+  },
+  PIPES_STAINLESS_304L: {
+    discriminators: ['nps', 'schedule'],
+    orderSizing: 'LENGTH',
+    pricingUnit: 'METER',
+  },
+  PIPES_STAINLESS_316L: {
+    discriminators: ['nps', 'schedule'],
+    orderSizing: 'LENGTH',
+    pricingUnit: 'METER',
+  },
+  PIPES_ALLOY_STEEL: {
+    discriminators: ['nps', 'schedule'],
+    orderSizing: 'LENGTH',
+    pricingUnit: 'METER',
+  },
+  PIPES_DUPLEX_2205: {
+    discriminators: ['nps', 'schedule'],
+    orderSizing: 'LENGTH',
+    pricingUnit: 'METER',
+  },
+  PIPES_SUPER_DUPLEX_2507: {
+    discriminators: ['nps', 'schedule'],
+    orderSizing: 'LENGTH',
+    pricingUnit: 'METER',
+  },
+
+  // Butt-weld fittings — wall follows the mating pipe schedule (ASME B16.9).
+  FITTINGS_BUTT_WELD: {
+    discriminators: ['nps', 'schedule'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+  // Socket-weld and threaded fittings are rated by CLASS, not schedule
+  // (ASME B16.11) — a distinction the old flat model could not express.
+  FITTINGS_SOCKET_WELD: {
+    discriminators: ['nps', 'pressureClass'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+  FITTINGS_THREADED: {
+    discriminators: ['nps', 'pressureClass'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+
+  // Flanges — NPS plus pressure class.
+  FLANGES: { discriminators: ['nps', 'pressureClass'], orderSizing: 'NONE', pricingUnit: 'PIECE' },
+  FLANGES_WELD_NECK: {
+    discriminators: ['nps', 'pressureClass'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+  FLANGES_SLIP_ON: {
+    discriminators: ['nps', 'pressureClass'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+  FLANGES_BLIND: {
+    discriminators: ['nps', 'pressureClass'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+
+  // Demister pads — a face size and a pad thickness, priced per piece because
+  // the vendor supplies the grid around it.
+  DEMISTER_PAD: {
+    discriminators: ['size', 'thickness'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+  STRAINERS: { discriminators: ['size', 'service'], orderSizing: 'NONE', pricingUnit: 'PIECE' },
+  EXPANSION_BELLOWS: {
+    discriminators: ['nps', 'length'],
+    orderSizing: 'NONE',
+    pricingUnit: 'PIECE',
+  },
+};
+
+/** The sizing model for a category. Never returns undefined. */
+export function getCatalogSizing(category: string): CatalogSizing {
+  return SIZING_OVERRIDES[category] ?? DEFAULT_SIZING;
+}
+
+/** Categories explicitly modelled (i.e. not falling back to the default). */
+export function getModelledSizingCategories(): string[] {
+  return Object.keys(SIZING_OVERRIDES);
+}
+
+/**
+ * Shared vocabulary for "one purchasable size of a product".
+ *
+ * `MaterialVariant` and `BoughtOutVariant` both extend this rather than
+ * restating it — they are ONE concept with two schema-specific extensions
+ * (a material variant carries geometry and weight; a bought-out variant
+ * carries a specification block and a unit rate), and rule 32 applies to our
+ * own types as much as to services.
+ */
+export interface CatalogVariant {
+  /** Stable id, unique within the parent item. */
+  id: string;
+  /** Short code, e.g. "6mm", "DN100-150". */
+  variantCode: string;
+  /** Human-readable, e.g. "6mm thickness", "NPS 4 150#". */
+  displayName: string;
+  /**
+   * Values of the parent category's `discriminators`, e.g.
+   * `{ nps: '4', schedule: '40' }`. The uniform read path — a consumer can
+   * render or compare variants without knowing which collection they came from.
+   */
+  discriminators?: Record<string, string | number>;
+  /** Price-history document ids. */
+  priceHistory: string[];
+  /** In stock or orderable. */
+  isAvailable: boolean;
+}
+
 /**
  * How a raw-material line is dimensioned — the plate/section size the engineer
  * actually wants, captured structurally instead of typed into `specification`.

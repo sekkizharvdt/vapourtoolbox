@@ -77,6 +77,18 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Catalogue taxonomy guardrail (docs/reviews/2026-08-16-materials-taxonomy-cleanup.md).
+# The catalogue's three sizing attributes — discriminators / orderSizing /
+# pricingUnit — are declared per category in packages/types/src/catalog.ts.
+# 33 documents were misfiled as RAW_MATERIAL because nothing ever checked.
+echo "🔍 Running catalogue taxonomy check..."
+node scripts/audit/check-catalog-taxonomy.js --quiet
+if [ $? -ne 0 ]; then
+  echo "❌ Catalogue taxonomy check failed. See output above."
+  echo "   To bypass for this commit only (not recommended): git commit --no-verify"
+  exit 1
+fi
+
 # Test-presence ratchet (docs/archive/2026-07-05-automated-verification-plan.md
 # Phase 6). New service/function files must ship with a test; the pre-existing
 # untested backlog is frozen in scripts/audit/test-baselines.json and may only

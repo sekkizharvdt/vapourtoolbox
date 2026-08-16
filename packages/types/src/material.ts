@@ -6,6 +6,7 @@
 
 import type { Timestamp } from 'firebase/firestore';
 import type { Money, CurrencyCode } from './common';
+import type { CatalogVariant } from './catalog';
 
 // ============================================================================
 // Core Material Types
@@ -124,10 +125,11 @@ export interface Material {
  * Material Variant (for materials with size/thickness variations)
  * Example: Different thicknesses of same grade plate
  */
-export interface MaterialVariant {
-  id: string; // Unique variant ID
-  variantCode: string; // e.g., "3MM", "5MM", "10MM", "SCH40"
-  displayName: string; // e.g., "3mm thickness", "Schedule 40"
+export interface MaterialVariant extends CatalogVariant {
+  // id / variantCode / displayName / discriminators / priceHistory /
+  // isAvailable come from CatalogVariant — one concept, shared vocabulary
+  // (rule 32). What follows is the material-specific extension: geometry and
+  // weight, which a bought-out variant has no use for.
 
   // Dimensional Properties (vary by variant)
   dimensions: {
@@ -149,15 +151,12 @@ export interface MaterialVariant {
 
   // Variant-specific pricing
   currentPrice?: MaterialPrice;
-  priceHistory: string[]; // MaterialPrice document IDs
 
   // Variant-specific stock (if tracked)
   currentStock?: number;
   reorderLevel?: number;
   reorderQuantity?: number;
 
-  // Availability
-  isAvailable: boolean; // In stock or orderable
   discontinuedDate?: Timestamp; // If variant discontinued
 
   // Audit

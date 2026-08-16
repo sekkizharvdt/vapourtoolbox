@@ -1,5 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 import { TimestampFields, Money, CurrencyCode } from './common';
+import type { CatalogVariant } from './catalog';
 
 // ============================================================================
 // Categories
@@ -544,13 +545,12 @@ export interface BoughtOutItem extends TimestampFields {
  * `weightPerUnit`: a bought-out variant differs by rating and model, and is
  * quoted as a unit rate, not derived from geometry.
  */
-export interface BoughtOutVariant {
-  /** Stable id, unique within the parent item. */
-  id: string;
-  /** Short code, e.g. "DN100-150", "2800x960-50". */
-  variantCode: string;
-  /** Human-readable, e.g. "NPS 4 150#", "2800×960, 50mm thk". */
-  displayName: string;
+export interface BoughtOutVariant extends CatalogVariant {
+  // id / variantCode / displayName / discriminators / priceHistory /
+  // isAvailable come from CatalogVariant — the same concept a MaterialVariant
+  // expresses (rule 32). What follows is the bought-out extension: a
+  // specification block and a unit rate, where a material variant carries
+  // geometry and weight instead.
 
   /**
    * Only the specification fields that DIFFER from the parent — the parent's
@@ -571,11 +571,6 @@ export interface BoughtOutVariant {
     effectiveDate?: Timestamp;
   };
 
-  /** `bought_out_prices` document ids for this variant. */
-  priceHistory: string[];
-
-  /** In stock or orderable. */
-  isAvailable: boolean;
   discontinuedDate?: Timestamp;
 
   /**
