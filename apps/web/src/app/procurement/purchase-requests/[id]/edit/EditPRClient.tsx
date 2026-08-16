@@ -48,8 +48,17 @@ import CatalogPickerDialog, {
   type CatalogSelection,
 } from '@/components/catalog/CatalogPickerDialog';
 import EditLineDimensionsDialog from '@/components/materials/EditLineDimensionsDialog';
+import InlineMaterialSelector, {
+  EMPTY_INLINE_STATE,
+  resolveInlineSelection,
+  type InlineSelectorState,
+} from '@/components/materials/InlineMaterialSelector';
+import { getRawMaterialKinds } from '@/lib/catalog/inlineSizing';
+import { queryMaterials } from '@/lib/materials/materialService';
 import { formatLineDimensions, withQuantity } from '@/lib/catalog/lineDimensions';
 import type {
+  Material,
+  MaterialCategory,
   PurchaseRequest,
   PurchaseRequestAttachment,
   PurchaseRequestItem,
@@ -181,6 +190,10 @@ export default function EditPRPage() {
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
   // Row whose dimensions are being adjusted after the fact, or null.
   const [dimensionsRowIndex, setDimensionsRowIndex] = useState<number | null>(null);
+  // Inline dropdown backing data + per-row cascade state, mirroring the New PR
+  // page so create and edit offer the same controls (rule 22 round-trip).
+  const [rawMaterials, setRawMaterials] = useState<Material[]>([]);
+  const [inlineStates, setInlineStates] = useState<InlineSelectorState[]>([]);
   const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
   const [catalogPickerIndex, setCatalogPickerIndex] = useState<number>(0);
@@ -253,6 +266,7 @@ export default function EditPRPage() {
       });
 
       // Populate line items
+      setInlineStates(itemsData.map(() => EMPTY_INLINE_STATE));
       setLineItems(
         itemsData.map((item) => ({
           id: item.id,
@@ -371,7 +385,75 @@ export default function EditPRPage() {
     });
   };
 
+  // Same inline dropdown data as the New PR page — plates and pipes only.
+  useEffect(() => {
+    if (formData.category !== 'RAW_MATERIAL' || rawMaterials.length > 0) return;
+    const { db } = getFirebase();
+    if (!db) return;
+
+    let cancelled = false;
+    const categories = getRawMaterialKinds().flatMap((k) => k.categories) as MaterialCategory[];
+    queryMaterials(db, {
+      categories,
+      isActive: true,
+      sortField: 'name',
+      sortDirection: 'asc',
+      limitResults: 500,
+    })
+      .then((result) => {
+        if (!cancelled) setRawMaterials(result.materials);
+      })
+      .catch((err) => {
+        // Non-fatal — the picker still works, so degrade to it.
+        console.warn('[EditPR] inline material load failed', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.category, rawMaterials.length]);
+
+  /** Writes the same fields the picker would, so both paths agree. */
+  const handleInlineChange = (index: number, next: InlineSelectorState) => {
+    setInlineStates((prev) => prev.map((s, i) => (i === index ? next : s)));
+
+    const resolved = resolveInlineSelection(next, rawMaterials);
+    if (!resolved) return;
+
+    setLineItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const { material } = resolved;
+        return {
+          ...item,
+          catalogRef: {
+            kind: 'RAW_MATERIAL' as const,
+            id: material.id,
+            code: material.materialCode,
+            name: material.name,
+          },
+          dimensions: resolved.dimensions,
+          description: material.name,
+          specification: item.specification?.trim() ? item.specification : material.materialCode,
+          materialId: material.id,
+          materialCode: material.materialCode,
+          materialName: material.name,
+          boughtOutItemId: undefined,
+          boughtOutItemCode: undefined,
+          boughtOutItemName: undefined,
+          serviceId: undefined,
+          serviceCode: undefined,
+          serviceName: undefined,
+          serviceCategory: undefined,
+          unit: resolved.unit,
+          ...(resolved.quantity !== undefined && { quantity: resolved.quantity }),
+        };
+      })
+    );
+  };
+
   const handleAddLineItem = () => {
+    setInlineStates((prev) => [...prev, EMPTY_INLINE_STATE]);
     setLineItems((prev) => [
       ...prev,
       {
@@ -965,6 +1047,18 @@ export default function EditPRPage() {
                               </IconButton>
                             </Tooltip>
                           </Stack>
+                          {/* Express lane, same as the New PR page. */}
+                          {formData.category === 'RAW_MATERIAL' &&
+                            rawMaterials.length > 0 &&
+                            !item.isDeleted && (
+                              <Box sx={{ mt: 1 }}>
+                                <InlineMaterialSelector
+                                  materials={rawMaterials}
+                                  state={inlineStates[index] ?? EMPTY_INLINE_STATE}
+                                  onChange={(next) => handleInlineChange(index, next)}
+                                />
+                              </Box>
+                            )}
                           {item.materialCode && (
                             <Chip
                               label={item.materialCode}
