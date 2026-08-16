@@ -145,6 +145,44 @@ function productName(key, members) {
     .trim();
 }
 
+/**
+ * Duplex 2205 butt-weld fittings (ASTM A815), synthesized from the stainless
+ * set — required 2026-08-16; super duplex explicitly not wanted.
+ *
+ * B16.9 geometry is a dimensional standard, not a material property: a 90°
+ * long-radius elbow at NPS 4 has the same centre-to-end whatever it is forged
+ * from. So the duplex family is the A403 family's type/size set re-badged to
+ * A815, with schedules and wall thicknesses sourced from the DUPLEX pipe
+ * catalogue (PP-DX2205-A790-SMLS) rather than the stainless one. Nothing
+ * dimensional is invented — sizes above the duplex pipe range get no schedule,
+ * exactly as they do for carbon and stainless.
+ */
+function synthesizeDuplexFittings(live) {
+  const source = live.filter((m) => m.familyCode === 'FT-BW-SS-A403');
+  return source.map((m) => {
+    // "FT-BW-SS-A403-90ELR-12" → type code "90ELR"
+    const tail = String(m.materialCode).slice('FT-BW-SS-A403-'.length);
+    const typeCode = tail.replace(/-[^-]*$/, '');
+    return {
+      ...m,
+      materialCode: `FT-BW-DX-A815-${typeCode}-${m.nps}`,
+      familyCode: 'FT-BW-DX-A815',
+      name: String(m.name).replace(
+        /Stainless Steel ASTM A403 WP304L\/WP316L/,
+        'Duplex Steel ASTM A815 UNS S31803'
+      ),
+      specification: { grade: 'UNS S31803 (2205)', standard: 'ASME B16.9-2024' },
+      seedMetadata: {
+        standard: 'ASME B16.9-2024',
+        specification: 'ASTM A815 (Duplex)',
+        derivedFrom: m.materialCode,
+      },
+      /** Marks a record this migration created rather than moved. */
+      isSynthesized: true,
+    };
+  });
+}
+
 /** Normalize an NPS string so "2 1/2", "2-1/2" and "21/2" compare equal. */
 function normNps(v) {
   return String(v).replace(/\s+/g, '').replace(/-/g, '');
@@ -308,8 +346,11 @@ function variantSpecifications(m) {
   }
 
   // ---- Group into products ------------------------------------------------
+  // Duplex fittings do not exist in `materials` — they are created here, so
+  // they join the same grouping/variant path as everything being moved.
+  const synthesized = synthesizeDuplexFittings(live);
   const products = new Map();
-  for (const m of target) {
+  for (const m of [...target, ...synthesized]) {
     const p = productFor(m);
     if (!products.has(p.product)) products.set(p.product, { key: p.product, members: [] });
     products.get(p.product).members.push({ m, p });
@@ -317,6 +358,9 @@ function variantSpecifications(m) {
 
   console.log(`\nstays in materials : ${live.length - moving.length}`);
   console.log(`moving             : ${target.length} docs → ${products.size} products`);
+  console.log(
+    `synthesized (DX)   : ${synthesized.length} duplex fitting sizes (new catalogue data)`
+  );
   console.log(`deferred (OTHER)   : ${deferred.length}`);
   console.log(`\n${APPLY ? 'APPLYING' : 'DRY RUN — no writes'}\n`);
 
