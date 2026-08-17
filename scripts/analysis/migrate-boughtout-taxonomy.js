@@ -458,7 +458,12 @@ function variantSpecifications(m) {
 
   // ---- Write --------------------------------------------------------------
   const now = admin.firestore.Timestamp.now();
-  const tenantId = target.find((m) => m.tenantId)?.tenantId || 'default-entity';
+  // All 138 existing bought_out_items carry 'default-entity', and
+  // listBoughtOutItems filters `where('tenantId','==',...)` — a product written
+  // with anything else would migrate "successfully" and then be invisible in
+  // the picker. Materials are inconsistent here (368 undefined, 32
+  // 'default-entity'), so deriving it from the sources would be luck.
+  const tenantId = 'default-entity';
   let created = 0;
   let flagged = 0;
 
