@@ -297,22 +297,67 @@ function buildVariants(members, pipeIndex) {
   return out.map((v, i) => ({ id: `v${String(i + 1).padStart(3, '0')}`, ...v }));
 }
 
-/** Carry the piping dimensions onto the variant so nothing is lost in the move. */
+/**
+ * Everything dimensional on the source document, carried onto the variant.
+ *
+ * DENYLIST, not an allowlist. The first version listed the fields it thought
+ * mattered and silently dropped 16 of the 25 that exist — every flange's bolt
+ * circle, hole count, bolt size, raised face and thickness, both reducer end
+ * sizes, and weightPerPiece_kg. A migration that quietly loses data is worse
+ * than one that carries a field nobody reads, so the default is now "keep it".
+ */
+const NON_DIMENSIONAL_FIELDS = new Set([
+  'materialCode',
+  'name',
+  'description',
+  'category',
+  'materialType',
+  'specification',
+  'properties',
+  'hasVariants',
+  'baseUnit',
+  'preferredVendors',
+  'priceHistory',
+  'trackInventory',
+  'tags',
+  'isActive',
+  'isStandard',
+  'createdAt',
+  'updatedAt',
+  'createdBy',
+  'updatedBy',
+  'familyCode',
+  'seedMetadata',
+  'isMigrated',
+  'isSynthesized',
+  'variants',
+  'tenantId',
+  'customCode',
+  'subCategory',
+  'needsReview',
+  'id',
+  'currentPrice',
+  'currentStock',
+  'reorderLevel',
+  'reorderQuantity',
+  'leadTimeDays',
+  'minimumOrderQuantity',
+  'datasheetUrl',
+  'imageUrl',
+  'substituteMaterials',
+  'substituteNotes',
+  'alternateUnits',
+]);
+
 function variantSpecifications(m) {
   const spec = {};
-  for (const f of [
-    'nps',
-    'dn',
-    'pressureClass',
-    'schedule',
-    'scheduleType',
-    'fittingType',
-    'outsideDiameter_mm',
-    'wallThickness_mm',
-    'weightPerMeter_kg',
-  ]) {
-    if (m[f] !== undefined) spec[f] = m[f];
+  for (const [key, value] of Object.entries(m)) {
+    if (NON_DIMENSIONAL_FIELDS.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    spec[key] = value;
   }
+  // The grade/standard block travels whole — it is what tells a duplex elbow
+  // from a stainless one once the piping fields look identical.
   if (m.specification && Object.keys(m.specification).length) spec.materialSpec = m.specification;
   return spec;
 }
