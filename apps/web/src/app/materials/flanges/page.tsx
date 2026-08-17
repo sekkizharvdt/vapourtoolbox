@@ -34,20 +34,20 @@ import {
 import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 
 import { getFirebase } from '@/lib/firebase';
-import { queryMaterials } from '@/lib/materials/queries';
+import { loadPipingCatalog, type PipingCatalogRow } from '@/lib/boughtOut/pipingCatalog';
 import {
   MATERIAL_CATEGORY_GROUPS,
   MATERIAL_CATEGORY_LABELS,
-  type Material,
   type MaterialCategory,
 } from '@vapour/types';
 import { parseNPS, parsePressureClass, compareNPS } from '@/lib/materials/variantUtils';
 
 /**
  * Flanges are flat material documents — one doc per NPS + pressure class, with
- * the dimensions on the doc itself. The old parent-doc + `variants`
- * subcollection shape is superseded (those parents carry `isMigrated`, and
- * `queryMaterials` drops them), so this page reads `materials` directly.
+ * the dimensions on the doc itself. Under the sizing model they are
+ * bought-out items (priced per piece), so this page reads them through
+ * `loadPipingCatalog`, which sources `bought_out_items` post-migration and
+ * `materials` before it.
  */
 const FLANGE_CATEGORIES: MaterialCategory[] =
   MATERIAL_CATEGORY_GROUPS.find((g) => g.key === 'flanges')?.categories ?? [];
@@ -56,7 +56,7 @@ export default function FlangesPage() {
   const { db } = getFirebase();
 
   // State
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [materials, setMaterials] = useState<PipingCatalogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,16 +78,11 @@ export default function FlangesPage() {
       setLoading(true);
       setError(null);
 
-      // One indexed query for every flange category (index: category ASC,
-      // materialCode ASC) — the whole catalogue is a few hundred docs.
-      const { materials: flangeMaterials } = await queryMaterials(db, {
-        categories: FLANGE_CATEGORIES,
-        sortField: 'materialCode',
-        sortDirection: 'asc',
-        limitResults: 1000,
-      });
-
-      setMaterials(flangeMaterials.filter((m) => m.isActive !== false));
+      // Flanges and fittings are priced per piece, so the sizing model files
+      // them as bought-out items. `loadPipingCatalog` reads them from
+      // `bought_out_items` once the taxonomy migration has run, and falls back
+      // to `materials` until then — the pages' table code is identical either way.
+      setMaterials(await loadPipingCatalog(db, 'flanges', FLANGE_CATEGORIES));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load flanges');
     } finally {

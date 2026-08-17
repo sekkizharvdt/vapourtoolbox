@@ -34,15 +34,15 @@ import {
 import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 
 import { getFirebase } from '@/lib/firebase';
-import { queryMaterials } from '@/lib/materials/queries';
-import { MATERIAL_CATEGORY_GROUPS, type Material, type MaterialCategory } from '@vapour/types';
+import { loadPipingCatalog, type PipingCatalogRow } from '@/lib/boughtOut/pipingCatalog';
+import { MATERIAL_CATEGORY_GROUPS, type MaterialCategory } from '@vapour/types';
 import { parseNPS, compareNPS } from '@/lib/materials/variantUtils';
 
 /**
  * Fittings are flat material documents — one doc per type + NPS, with the
- * dimensions on the doc itself. The old parent-doc + `variants` subcollection
- * shape is superseded (those parents carry `isMigrated`, and `queryMaterials`
- * drops them), so this page reads `materials` directly.
+ * dimensions on the doc itself. Under the sizing model they are bought-out
+ * items (priced per piece), so this page reads them through `loadPipingCatalog`,
+ * which sources `bought_out_items` post-migration and `materials` before it.
  */
 const FITTING_CATEGORIES: MaterialCategory[] =
   MATERIAL_CATEGORY_GROUPS.find((g) => g.key === 'fittings')?.categories ?? [];
@@ -51,7 +51,7 @@ export default function FittingsPage() {
   const { db } = getFirebase();
 
   // State
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [materials, setMaterials] = useState<PipingCatalogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,16 +72,11 @@ export default function FittingsPage() {
       setLoading(true);
       setError(null);
 
-      // One indexed query for every fitting category (index: category ASC,
-      // materialCode ASC) — the whole catalogue is a few hundred docs.
-      const { materials: fittingMaterials } = await queryMaterials(db, {
-        categories: FITTING_CATEGORIES,
-        sortField: 'materialCode',
-        sortDirection: 'asc',
-        limitResults: 1000,
-      });
-
-      setMaterials(fittingMaterials.filter((m) => m.isActive !== false));
+      // Flanges and fittings are priced per piece, so the sizing model files
+      // them as bought-out items. `loadPipingCatalog` reads them from
+      // `bought_out_items` once the taxonomy migration has run, and falls back
+      // to `materials` until then — the pages' table code is identical either way.
+      setMaterials(await loadPipingCatalog(db, 'fittings', FITTING_CATEGORIES));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load fittings');
     } finally {
@@ -138,7 +133,9 @@ export default function FittingsPage() {
           variant.nps?.toLowerCase().includes(searchLower) ||
           variant.dn?.toLowerCase().includes(searchLower) ||
           variant.type?.toLowerCase().includes(searchLower) ||
-          variant.applicableSchedules?.toLowerCase().includes(searchLower)
+          String(variant.applicableSchedules ?? '')
+            .toLowerCase()
+            .includes(searchLower)
       );
     }
 
