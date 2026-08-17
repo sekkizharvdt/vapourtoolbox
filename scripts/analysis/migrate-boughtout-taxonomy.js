@@ -179,6 +179,11 @@ function synthesizeDuplexFittings(live) {
       },
       /** Marks a record this migration created rather than moved. */
       isSynthesized: true,
+      // The source's document id must NOT ride along: a synthesized record has
+      // no `materials` document of its own, and leaving the stainless id here
+      // would make the flagging pass below stamp the stainless docs with the
+      // DUPLEX product's id.
+      id: undefined,
     };
   });
 }
@@ -501,6 +506,9 @@ function variantSpecifications(m) {
     for (let i = 0; i < members.length; i += 400) {
       const batch = db.batch();
       for (const { m } of members.slice(i, i + 400)) {
+        // Synthesized records (the duplex family) have no source document to
+        // flag — they are created here, not moved.
+        if (m.isSynthesized || !m.id) continue;
         batch.update(db.collection('materials').doc(m.id), {
           isMigrated: true,
           migratedToBoughtOutItemId: ref.id,
