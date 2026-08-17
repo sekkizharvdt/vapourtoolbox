@@ -242,6 +242,12 @@ export interface VendorQuoteItem {
   serviceId?: string;
   serviceCode?: string;
   boughtOutItemId?: string;
+  /**
+   * Which SIZE of the bought-out product — `BoughtOutVariant.id` plus its code,
+   * denormalized per rule 26 (see PurchaseRequestItem for the reasoning).
+   */
+  boughtOutVariantId?: string;
+  boughtOutVariantCode?: string;
   /** Denormalized for display. */
   linkedItemName?: string;
   linkedItemCode?: string;

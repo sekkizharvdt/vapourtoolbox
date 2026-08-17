@@ -35,7 +35,6 @@ import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 
 import { getFirebase } from '@/lib/firebase';
 import { loadPipingCatalog, type PipingCatalogRow } from '@/lib/boughtOut/pipingCatalog';
-import { MATERIAL_CATEGORY_GROUPS, type MaterialCategory } from '@vapour/types';
 import { parseNPS, compareNPS } from '@/lib/materials/variantUtils';
 
 /**
@@ -44,9 +43,6 @@ import { parseNPS, compareNPS } from '@/lib/materials/variantUtils';
  * items (priced per piece), so this page reads them through `loadPipingCatalog`,
  * which sources `bought_out_items` post-migration and `materials` before it.
  */
-const FITTING_CATEGORIES: MaterialCategory[] =
-  MATERIAL_CATEGORY_GROUPS.find((g) => g.key === 'fittings')?.categories ?? [];
-
 export default function FittingsPage() {
   const { db } = getFirebase();
 
@@ -73,10 +69,9 @@ export default function FittingsPage() {
       setError(null);
 
       // Flanges and fittings are priced per piece, so the sizing model files
-      // them as bought-out items. `loadPipingCatalog` reads them from
-      // `bought_out_items` once the taxonomy migration has run, and falls back
-      // to `materials` until then — the pages' table code is identical either way.
-      setMaterials(await loadPipingCatalog(db, 'fittings', FITTING_CATEGORIES));
+      // them as bought-out items — they live in `bought_out_items` as products
+      // with one variant per NPS + class / schedule.
+      setMaterials(await loadPipingCatalog(db, 'fittings'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load fittings');
     } finally {

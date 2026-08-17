@@ -10,17 +10,15 @@
  * module gives them one row shape regardless of where the data currently
  * lives, so the pages keep their filters, table and pagination untouched.
  *
- * The `materials` fallback is deliberate and temporary: it exists only for the
- * window between this code shipping and the migration running, and its removal
- * point is documented in docs/reviews/2026-08-16-materials-taxonomy-cleanup.md.
- * Once `bought_out_items` carries the piping products, `loadPipingCatalog`
- * returns those and the fallback goes unused — delete it then.
+ * The `materials` fallback that covered the pre-migration window is gone: the
+ * migration ran on 2026-08-17 (403 docs → 29 products / 1,185 variants), so
+ * every flange and fitting now lives in `bought_out_items`. An empty result
+ * means the catalogue is genuinely empty, which the pages already handle.
  */
 
 import { collection, getDocs, query, where, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { BoughtOutItem, Material, MaterialCategory } from '@vapour/types';
-import { queryMaterials } from '@/lib/materials/queries';
+import type { BoughtOutItem } from '@vapour/types';
 
 /**
  * One orderable piping article, flattened. Field names match the `materials`
@@ -115,23 +113,10 @@ function inferCategory(item: BoughtOutItem, kind: PipingKind): string | null {
   return code.startsWith('FT-') ? 'FITTINGS_BUTT_WELD' : null;
 }
 
-/** Flatten a pre-migration `materials` document into the same row shape. */
-function rowFromMaterial(material: Material): PipingCatalogRow {
-  return { ...material, id: material.id, name: material.name } as unknown as PipingCatalogRow;
-}
-
-/**
- * Every orderable article for a piping kind, from wherever it currently lives.
- *
- * Prefers `bought_out_items`; falls back to `materials` while the migration is
- * pending. Never merges the two — a document that has moved is flagged
- * `isMigrated` and `queryMaterials` already drops it, so double-counting is
- * not possible either way.
- */
+/** Every orderable article for a piping kind. */
 export async function loadPipingCatalog(
   db: Firestore,
-  kind: PipingKind,
-  fallbackCategories: MaterialCategory[]
+  kind: PipingKind
 ): Promise<PipingCatalogRow[]> {
   const prefix = kind === 'flanges' ? 'FL-' : 'FT-';
 
@@ -149,15 +134,5 @@ export async function loadPipingCatalog(
     (i) => String(i.itemCode).startsWith(prefix) && (i.variants?.length ?? 0) > 0
   );
 
-  if (products.length > 0) {
-    return products.flatMap((item) => pipingRowsFromItem(item, kind));
-  }
-
-  const { materials } = await queryMaterials(db, {
-    categories: fallbackCategories,
-    sortField: 'materialCode',
-    sortDirection: 'asc',
-    limitResults: 1000,
-  });
-  return materials.filter((m) => m.isActive !== false).map(rowFromMaterial);
+  return products.flatMap((item) => pipingRowsFromItem(item, kind));
 }

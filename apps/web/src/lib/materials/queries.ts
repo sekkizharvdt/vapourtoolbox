@@ -108,14 +108,6 @@ export async function queryMaterials(
       }
     }
 
-    if (materialTypes && materialTypes.length > 0) {
-      if (materialTypes.length === 1) {
-        materialQuery = query(materialQuery, where('materialType', '==', materialTypes[0]));
-      } else {
-        materialQuery = query(materialQuery, where('materialType', 'in', materialTypes));
-      }
-    }
-
     // isActive === true is filtered client-side below: where('isActive','==',true)
     // would silently drop docs missing the field (rule 3's soft-delete trap),
     // and missing isActive means active. Explicit false still queries directly.
@@ -149,6 +141,15 @@ export async function queryMaterials(
 
     if (isActive === true) {
       materials = materials.filter((m) => m.isActive !== false);
+    }
+
+    // materialType is filtered CLIENT-SIDE, like isActive above: a server-side
+    // `where('materialType','==',...)` would need a (category, materialType,
+    // <sortField>) composite index for every sort the pickers use (rule 2), and
+    // would silently drop any document missing the field (rule 3's trap). The
+    // fetched page is at most 500 docs, so filtering here is free.
+    if (materialTypes && materialTypes.length > 0) {
+      materials = materials.filter((m) => m.materialType && materialTypes.includes(m.materialType));
     }
 
     // Apply needsReview filter client-side (no composite index needed).

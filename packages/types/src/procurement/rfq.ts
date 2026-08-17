@@ -140,6 +140,14 @@ export interface RFQItem {
   boughtOutItemId?: string;
   boughtOutItemCode?: string;
   boughtOutItemName?: string;
+  /**
+   * Which SIZE of the bought-out product — `BoughtOutVariant.id` plus its code,
+   * denormalized per rule 26. A variant-bearing product is not the orderable
+   * article: "Weld Neck Flange ASTM A105" is the product, "NPS 4 150#" is what
+   * the vendor quotes, so a line that names only the product is under-specified.
+   */
+  boughtOutVariantId?: string;
+  boughtOutVariantCode?: string;
 
   // Service catalog linkage (carried from PR item)
   itemType?: 'MATERIAL' | 'BOUGHT_OUT' | 'SERVICE';

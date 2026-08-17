@@ -116,27 +116,61 @@ describe('Material Querying & Search', () => {
       ]);
     });
 
-    it('should filter by single material type', async () => {
-      mockGetDocs.mockResolvedValue({ docs: [], size: 0 });
+    // materialType is filtered CLIENT-SIDE on purpose: a server-side
+    // where('materialType', ...) would need a (category, materialType,
+    // <sortField>) composite index for every sort the pickers use, and would
+    // silently drop documents missing the field. So these assert the RESULT,
+    // not the query shape.
+    it('filters by a single material type without adding a where clause', async () => {
+      mockGetDocs.mockResolvedValue({
+        docs: [
+          createMockMaterial({ id: 'm1', name: 'Plate', materialType: 'RAW_MATERIAL' }),
+          createMockMaterial({ id: 'm2', name: 'Flange', materialType: 'BOUGHT_OUT_COMPONENT' }),
+        ].map((m) => ({ id: m.id, data: () => m })),
+        size: 2,
+      });
 
-      await queryMaterials(mockDb, {
+      const result = await queryMaterials(mockDb, {
         materialTypes: ['RAW_MATERIAL' as MaterialType],
       });
 
-      expect(mockWhere).toHaveBeenCalledWith('materialType', '==', 'RAW_MATERIAL');
+      expect(result.materials.map((m) => m.name)).toEqual(['Plate']);
+      expect(mockWhere).not.toHaveBeenCalledWith('materialType', '==', 'RAW_MATERIAL');
     });
 
-    it('should filter by multiple material types', async () => {
-      mockGetDocs.mockResolvedValue({ docs: [], size: 0 });
+    it('filters by several material types', async () => {
+      mockGetDocs.mockResolvedValue({
+        docs: [
+          createMockMaterial({ id: 'm1', name: 'Plate', materialType: 'RAW_MATERIAL' }),
+          createMockMaterial({ id: 'm2', name: 'Flange', materialType: 'BOUGHT_OUT_COMPONENT' }),
+          createMockMaterial({ id: 'm3', name: 'Rag', materialType: 'CONSUMABLE' }),
+        ].map((m) => ({ id: m.id, data: () => m })),
+        size: 3,
+      });
 
-      await queryMaterials(mockDb, {
+      const result = await queryMaterials(mockDb, {
         materialTypes: ['RAW_MATERIAL', 'BOUGHT_OUT_COMPONENT'] as MaterialType[],
       });
 
-      expect(mockWhere).toHaveBeenCalledWith('materialType', 'in', [
-        'RAW_MATERIAL',
-        'BOUGHT_OUT_COMPONENT',
-      ]);
+      expect(result.materials.map((m) => m.name)).toEqual(['Plate', 'Flange']);
+    });
+
+    it('drops a document with no materialType when a type filter is set', async () => {
+      // The rule-3 trap in reverse: a server-side equality filter would have
+      // excluded these silently, so the exclusion is made explicit here.
+      mockGetDocs.mockResolvedValue({
+        docs: [
+          createMockMaterial({ id: 'm1', name: 'Typed', materialType: 'RAW_MATERIAL' }),
+          { id: 'm2', name: 'Untyped', category: 'OTHER' },
+        ].map((m) => ({ id: m.id, data: () => m })),
+        size: 2,
+      });
+
+      const result = await queryMaterials(mockDb, {
+        materialTypes: ['RAW_MATERIAL' as MaterialType],
+      });
+
+      expect(result.materials.map((m) => m.name)).toEqual(['Typed']);
     });
 
     it('should filter isActive=true client-side (docs missing the field count as active)', async () => {

@@ -264,6 +264,12 @@ export interface PurchaseOrderItem {
   // bridge: lets PO/GR/bill events feed bought_out_prices the same way
   // materialId feeds materialPrices)
   boughtOutItemId?: string;
+  /**
+   * Which SIZE of the bought-out product — `BoughtOutVariant.id` plus its code,
+   * denormalized per rule 26 (see PurchaseRequestItem for the reasoning).
+   */
+  boughtOutVariantId?: string;
+  boughtOutVariantCode?: string;
   /** Unified catalog linkage, denormalized alongside the per-kind id (rule 26). */
   catalogRef?: CatalogRef;
 

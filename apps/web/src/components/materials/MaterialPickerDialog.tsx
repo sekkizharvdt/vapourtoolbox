@@ -282,6 +282,11 @@ export default function MaterialPickerDialog({
         // 500 limit so both surfaces list identical materials.
         const result = await queryMaterials(db, {
           categories: selectedGroup.categories,
+          // Raw material only. Flanges and fittings live in `materials` no
+          // longer, but the 24 deferred `OTHER` strays and any future
+          // BOUGHT_OUT_COMPONENT record do — and a raw-material request must
+          // never offer them (docs/reviews/2026-08-16-materials-taxonomy-cleanup.md).
+          materialTypes: ['RAW_MATERIAL'],
           isActive: true,
           sortField: 'name',
           sortDirection: 'asc',
