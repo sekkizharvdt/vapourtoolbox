@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-08-16 (catalogue sizing model + inline PR dropdowns; taxonomy migration prepared, NOT applied)
+Last verified: 2026-08-18 (catalogue sizing model, inline PR dropdowns, taxonomy migration APPLIED + references repointed)
 
 ## Firestore admin access (for counting records — rule 31)
 
@@ -112,11 +112,14 @@ answer; never write a second "is this raw material" predicate (the guardrail fai
 by KG/METER (plates, pipes only — derived, never hardcoded), with the catalog picker kept
 for the long tail. Wired into the PR New and Edit rows.
 
-**A taxonomy migration is PREPARED BUT NOT APPLIED.** `scripts/analysis/migrate-boughtout-taxonomy.js`
-(dry run by default) moves 403 unit-rate docs out of `materials` into `bought_out_items` as
-24 products / ~1,185 variants, and synthesizes the duplex A815 fitting family. Blocked on
-re-homing `/materials/flanges` and `/materials/fittings`, which still read `materials` and
-would go empty the moment sources are flagged `isMigrated`. Plan + open items:
+**The taxonomy migration RAN on 2026-08-17.** `materials` now holds raw material only —
+344 pipes, 16 plates, 1 aluminium tube, plus 24 unresolved `OTHER` strays. Flanges,
+fittings, valves, strainers, demister pads, bellows and instruments live in
+`bought_out_items` as 29 products with 1,185 variants (`BoughtOutVariant`), including a
+synthesized duplex A815 fitting family. Sources are flagged `isMigrated` (not deleted) and
+carry `migratedToBoughtOutItemId`. `/materials/flanges` and `/materials/fittings` read
+through `lib/boughtOut/pipingCatalog.ts`. Scripts: `scripts/analysis/migrate-boughtout-taxonomy.js`
+and `repoint-migrated-references.js` (both dry-run by default). Plan + what remains:
 `docs/reviews/2026-08-16-materials-taxonomy-cleanup.md`.
 
 **Plates get sized on the procurement line, pipes don't.** A plate material is

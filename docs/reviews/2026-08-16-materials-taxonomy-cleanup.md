@@ -1,13 +1,20 @@
 # Materials ↔ bought-out taxonomy — agreed plan
 
-> **Status 2026-08-16.** The sizing model, the guardrail, the inline PR dropdowns and
-> the bought-out variant picker have shipped. **The data migration has NOT been run** —
-> `--apply` is still unexecuted. The one remaining blocker is re-homing
-> `/materials/flanges` and `/materials/fittings` (~930 lines) against `bought_out_items`;
-> they read `materials` today and would go empty the moment the migration flags sources
-> `isMigrated`. Everything else on the critical path is done.
-
-> **Nothing has been written to Firestore.** Generated 2026-08-16 against `vapour-toolbox`.
+> **Status 2026-08-18 — COMPLETE.** The migration ran on 2026-08-17: 403 documents
+> moved out of `materials` into `bought_out_items` as 29 products carrying 1,185
+> variants, plus 68 synthesized duplex (A815) fitting sizes. 15 open procurement
+> lines were repointed on 2026-08-18; 3 lines on a finished PR→RFQ→PO chain were
+> deliberately left pointing at their original materials. The picker is gated by
+> `materialType`, the `materials` fallback in `loadPipingCatalog` is deleted, and
+> `scripts/audit/check-catalog-taxonomy.js` guards the model in the pre-commit hook.
+>
+> **Verified after the run:** `bought_out_items` 167 docs (was 138), 29 with variants,
+> 1,185 variants, all `tenantId: default-entity`. `materials` 406 flagged `isMigrated`,
+> 385 live (344 pipes, 16 plates, 25 `OTHER`).
+>
+> **Still open:** the 24 `OTHER` strays (14 duplicate entries that already exist in the
+> piping families), and the socket-weld family, which needs an ASME B16.11 dimensional
+> source before it can be built rather than guessed.
 
 ## The rule (decided)
 
