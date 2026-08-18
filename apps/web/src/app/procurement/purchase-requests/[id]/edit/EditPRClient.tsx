@@ -6,7 +6,7 @@
  * Edit an existing purchase request
  */
 
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Box,
@@ -1014,168 +1014,182 @@ export default function EditPRPage() {
                   lineItems
                     .map((item, index) => ({ item, index }))
                     .filter(({ item }) => !item.isDeleted)
-                    .map(({ item, index }, displayIndex) => (
-                      <TableRow key={item.id || `new-${index}`}>
-                        <TableCell>{displayIndex + 1}</TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={0.5} alignItems="flex-start">
-                            <TextField
-                              size="small"
-                              fullWidth
-                              value={item.description}
-                              onChange={(e) =>
-                                handleLineItemChange(index, 'description', e.target.value)
-                              }
-                              placeholder="Item description"
-                            />
-                            <Tooltip
-                              title={
-                                formData.category === 'SERVICE'
-                                  ? 'Pick from Services Catalog'
-                                  : formData.category === 'BOUGHT_OUT'
-                                    ? 'Pick from Bought-Out DB'
-                                    : 'Pick from Materials DB'
-                              }
-                            >
+                    .map(({ item, index }, displayIndex) => {
+                      // Full table width — inside the Description cell the
+                      // strip wrapped into a stack of controls.
+                      const showInlineStrip =
+                        formData.category === 'RAW_MATERIAL' && rawMaterials.length > 0;
+                      return (
+                        <Fragment key={item.id || `new-${index}`}>
+                          <TableRow>
+                            <TableCell sx={showInlineStrip ? { borderBottom: 'none' } : undefined}>
+                              {displayIndex + 1}
+                            </TableCell>
+                            <TableCell>
+                              <Stack direction="row" spacing={0.5} alignItems="flex-start">
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  value={item.description}
+                                  onChange={(e) =>
+                                    handleLineItemChange(index, 'description', e.target.value)
+                                  }
+                                  placeholder="Item description"
+                                />
+                                <Tooltip
+                                  title={
+                                    formData.category === 'SERVICE'
+                                      ? 'Pick from Services Catalog'
+                                      : formData.category === 'BOUGHT_OUT'
+                                        ? 'Pick from Bought-Out DB'
+                                        : 'Pick from Materials DB'
+                                  }
+                                >
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => openPickerForRow(index)}
+                                    sx={{ mt: 0.25 }}
+                                    aria-label="Search"
+                                  >
+                                    <SearchIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Stack>
+                              {/* No code/size chips while the strip is showing —
+                              they repeated what the controls already say. */}
+                              {item.materialCode && !showInlineStrip && (
+                                <Chip
+                                  label={item.materialCode}
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  sx={{ mt: 0.5 }}
+                                />
+                              )}
+                              {/* Sized plate — click to adjust without re-picking. */}
+                              {item.dimensions && !showInlineStrip && (
+                                <Chip
+                                  label={`${formatLineDimensions(item.dimensions)}${
+                                    item.dimensions.totalWeightKg !== undefined
+                                      ? ` · ${item.dimensions.totalWeightKg} kg`
+                                      : ''
+                                  }`}
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => setDimensionsRowIndex(index)}
+                                  sx={{ mt: 0.5, ml: 0.5 }}
+                                />
+                              )}
+                              {item.boughtOutItemCode && (
+                                <Chip
+                                  label={item.boughtOutItemCode}
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  sx={{ mt: 0.5 }}
+                                />
+                              )}
+                              {item.serviceCode && (
+                                <Chip
+                                  label={item.serviceCode}
+                                  size="small"
+                                  variant="outlined"
+                                  color="secondary"
+                                  sx={{ mt: 0.5 }}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={item.specification}
+                                onChange={(e) =>
+                                  handleLineItemChange(index, 'specification', e.target.value)
+                                }
+                                placeholder="Specification"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                type="number"
+                                fullWidth
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleLineItemChange(
+                                    index,
+                                    'quantity',
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                inputProps={{ min: 0, step: 1 }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={item.unit}
+                                onChange={(e) =>
+                                  handleLineItemChange(index, 'unit', e.target.value)
+                                }
+                                placeholder="NOS"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={item.equipmentCode}
+                                onChange={(e) =>
+                                  handleLineItemChange(index, 'equipmentCode', e.target.value)
+                                }
+                                placeholder="Equipment code"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                type="number"
+                                fullWidth
+                                value={item.estimatedUnitCost || ''}
+                                onChange={(e) =>
+                                  handleLineItemChange(
+                                    index,
+                                    'estimatedUnitCost',
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                inputProps={{ min: 0, step: 0.01 }}
+                              />
+                            </TableCell>
+                            <TableCell>
                               <IconButton
                                 size="small"
-                                onClick={() => openPickerForRow(index)}
-                                sx={{ mt: 0.25 }}
-                                aria-label="Search"
+                                color="error"
+                                onClick={() => handleRemoveLineItem(index)}
+                                aria-label="Remove"
                               >
-                                <SearchIcon fontSize="small" />
+                                <DeleteIcon fontSize="small" />
                               </IconButton>
-                            </Tooltip>
-                          </Stack>
-                          {/* Express lane, same as the New PR page. */}
-                          {formData.category === 'RAW_MATERIAL' &&
-                            rawMaterials.length > 0 &&
-                            !item.isDeleted && (
-                              <Box sx={{ mt: 1 }}>
+                            </TableCell>
+                          </TableRow>
+                          {showInlineStrip && (
+                            <TableRow>
+                              <TableCell />
+                              <TableCell colSpan={6} sx={{ pt: 0 }}>
                                 <InlineMaterialSelector
                                   materials={rawMaterials}
                                   state={inlineStates[index] ?? EMPTY_INLINE_STATE}
                                   onChange={(next) => handleInlineChange(index, next)}
                                 />
-                              </Box>
-                            )}
-                          {item.materialCode && (
-                            <Chip
-                              label={item.materialCode}
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                              sx={{ mt: 0.5 }}
-                            />
+                              </TableCell>
+                            </TableRow>
                           )}
-                          {/* Sized plate — click to adjust without re-picking. */}
-                          {item.dimensions && (
-                            <Chip
-                              label={`${formatLineDimensions(item.dimensions)}${
-                                item.dimensions.totalWeightKg !== undefined
-                                  ? ` · ${item.dimensions.totalWeightKg} kg`
-                                  : ''
-                              }`}
-                              size="small"
-                              color="primary"
-                              onClick={() => setDimensionsRowIndex(index)}
-                              sx={{ mt: 0.5, ml: 0.5 }}
-                            />
-                          )}
-                          {item.boughtOutItemCode && (
-                            <Chip
-                              label={item.boughtOutItemCode}
-                              size="small"
-                              variant="outlined"
-                              color="info"
-                              sx={{ mt: 0.5 }}
-                            />
-                          )}
-                          {item.serviceCode && (
-                            <Chip
-                              label={item.serviceCode}
-                              size="small"
-                              variant="outlined"
-                              color="secondary"
-                              sx={{ mt: 0.5 }}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            value={item.specification}
-                            onChange={(e) =>
-                              handleLineItemChange(index, 'specification', e.target.value)
-                            }
-                            placeholder="Specification"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            type="number"
-                            fullWidth
-                            value={item.quantity}
-                            onChange={(e) =>
-                              handleLineItemChange(
-                                index,
-                                'quantity',
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            inputProps={{ min: 0, step: 1 }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            value={item.unit}
-                            onChange={(e) => handleLineItemChange(index, 'unit', e.target.value)}
-                            placeholder="NOS"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            value={item.equipmentCode}
-                            onChange={(e) =>
-                              handleLineItemChange(index, 'equipmentCode', e.target.value)
-                            }
-                            placeholder="Equipment code"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            type="number"
-                            fullWidth
-                            value={item.estimatedUnitCost || ''}
-                            onChange={(e) =>
-                              handleLineItemChange(
-                                index,
-                                'estimatedUnitCost',
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            inputProps={{ min: 0, step: 0.01 }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleRemoveLineItem(index)}
-                            aria-label="Remove"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                        </Fragment>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>

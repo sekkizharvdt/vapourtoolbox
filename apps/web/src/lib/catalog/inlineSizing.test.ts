@@ -2,6 +2,9 @@ import { Timestamp } from 'firebase/firestore';
 import { MaterialCategory, type Material, type MaterialVariant } from '@vapour/types';
 import {
   buildCascade,
+  buildMaterialOptions,
+  materialOptionIdFor,
+  parseMaterialOptionId,
   compareNpsValues,
   getKindForMaterial,
   getRawMaterialKinds,
@@ -131,7 +134,9 @@ describe('buildCascade — plates', () => {
   it('adds thickness from the chosen grade’s variants', () => {
     const steps = buildCascade(kind, [plate], { grade: 'pl1' });
     expect(steps.map((s) => s.field)).toEqual(['grade', 'thickness']);
-    expect(steps[1]!.options.map((o) => o.label)).toEqual(['3mm thickness', '6mm thickness']);
+    // The stored displayName is "3mm thickness"; the option shows the code
+    // alone, since the control is already labelled Thickness.
+    expect(steps[1]!.options.map((o) => o.label)).toEqual(['3mm', '6mm']);
   });
 });
 
@@ -184,5 +189,45 @@ describe('resolveMaterial', () => {
 
   it('is null while the cascade is incomplete', () => {
     expect(resolveMaterial(pipeKind, pipes, { family: 'PP-CS-A106-SMLS', nps: '4' })).toBeNull();
+  });
+});
+
+describe('buildMaterialOptions — kind and grade merged into one control', () => {
+  it('groups every plate grade and pipe family into a single list', () => {
+    const groups = buildMaterialOptions([plate, ...pipes]);
+    expect(groups.map((g) => g.label)).toEqual(['Plates', 'Pipes']);
+    expect(groups[0]!.options.map((o) => o.label)).toEqual(['Carbon Steel A36 Plate']);
+    // Three pipe documents, one family — the family is what you pick.
+    expect(groups[1]!.options.map((o) => o.label)).toEqual([
+      'Carbon Steel Pipe ASTM A106 Seamless',
+    ]);
+  });
+
+  it('round-trips an option id through select and back', () => {
+    const groups = buildMaterialOptions([plate, ...pipes]);
+    const option = groups[0]!.options[0]!;
+
+    const parsed = parseMaterialOptionId(option.id);
+    expect(parsed).toEqual({ kindKey: 'plates', field: 'grade', value: 'pl1' });
+
+    // What the component stores, and what it reads back to show the selection.
+    const state = { kindKey: parsed!.kindKey, chosen: { [parsed!.field]: parsed!.value } };
+    expect(materialOptionIdFor(state)).toBe(option.id);
+  });
+
+  it('round-trips a pipe family, whose first field is `family` not `grade`', () => {
+    const groups = buildMaterialOptions([plate, ...pipes]);
+    const option = groups[1]!.options[0]!;
+    const parsed = parseMaterialOptionId(option.id)!;
+    expect(parsed.field).toBe('family');
+    expect(materialOptionIdFor({ kindKey: 'pipes', chosen: { family: parsed.value } })).toBe(
+      option.id
+    );
+  });
+
+  it('is empty for a state with nothing chosen, and for a bad id', () => {
+    expect(materialOptionIdFor({ kindKey: '', chosen: {} })).toBe('');
+    expect(materialOptionIdFor({ kindKey: 'plates', chosen: {} })).toBe('');
+    expect(parseMaterialOptionId('nonsense')).toBeNull();
   });
 });

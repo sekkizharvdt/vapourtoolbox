@@ -6,7 +6,7 @@
  * Consolidated single-page form to create purchase requests with all sections visible
  */
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   Box,
   Stack,
@@ -816,208 +816,225 @@ export default function NewPurchaseRequestPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {lineItems.map((item, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.5} alignItems="flex-start">
-                          <TextField
-                            value={item.description}
-                            onChange={(e) =>
-                              handleLineItemChange(index, 'description', e.target.value)
-                            }
-                            placeholder="Item description"
-                            size="small"
-                            fullWidth
-                            multiline
-                            maxRows={3}
-                          />
-                          <Tooltip
-                            title={
-                              formData.category === 'SERVICE'
-                                ? 'Pick from Services Catalog'
-                                : formData.category === 'BOUGHT_OUT'
-                                  ? 'Pick from Bought-Out DB'
-                                  : 'Pick from Materials DB'
-                            }
-                          >
-                            <IconButton
+                  {lineItems.map((item, index) => {
+                    // The sizing strip needs the whole table width — inside the
+                    // Description cell it wrapped into six stacked controls.
+                    const showInlineStrip =
+                      formData.category === 'RAW_MATERIAL' && rawMaterials.length > 0;
+                    return (
+                      <Fragment key={index}>
+                        <TableRow hover>
+                          <TableCell sx={showInlineStrip ? { borderBottom: 'none' } : undefined}>
+                            {index + 1}
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={0.5} alignItems="flex-start">
+                              <TextField
+                                value={item.description}
+                                onChange={(e) =>
+                                  handleLineItemChange(index, 'description', e.target.value)
+                                }
+                                placeholder="Item description"
+                                size="small"
+                                fullWidth
+                                multiline
+                                maxRows={3}
+                              />
+                              <Tooltip
+                                title={
+                                  formData.category === 'SERVICE'
+                                    ? 'Pick from Services Catalog'
+                                    : formData.category === 'BOUGHT_OUT'
+                                      ? 'Pick from Bought-Out DB'
+                                      : 'Pick from Materials DB'
+                                }
+                              >
+                                <IconButton
+                                  size="small"
+                                  onClick={() => openPickerForRow(index)}
+                                  sx={{ mt: 0.25 }}
+                                  aria-label="Search"
+                                >
+                                  <SearchIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
+                            {/* The material code and size are shown by the sizing
+                            strip beneath the row, so no chips here — they
+                            repeated what the controls already say. The chip
+                            stays only when the strip is absent (a bought-out or
+                            service line picked through the dialog). */}
+                            {item.materialCode && !showInlineStrip && (
+                              <Chip
+                                label={item.materialCode}
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                sx={{ mt: 0.5 }}
+                              />
+                            )}
+                            {item.dimensions && !showInlineStrip && (
+                              <Chip
+                                label={`${formatLineDimensions(item.dimensions)}${
+                                  item.dimensions.totalWeightKg !== undefined
+                                    ? ` · ${item.dimensions.totalWeightKg} kg`
+                                    : ''
+                                }`}
+                                size="small"
+                                color="primary"
+                                onClick={() => setDimensionsRowIndex(index)}
+                                sx={{ mt: 0.5, ml: 0.5 }}
+                              />
+                            )}
+                            {item.serviceCode && (
+                              <Chip
+                                label={item.serviceCode}
+                                size="small"
+                                variant="outlined"
+                                color="secondary"
+                                sx={{ mt: 0.5 }}
+                              />
+                            )}
+                            {item.boughtOutItemCode && (
+                              <Chip
+                                label={item.boughtOutItemCode}
+                                size="small"
+                                variant="outlined"
+                                color="info"
+                                sx={{ mt: 0.5 }}
+                              />
+                            )}
+                            {item.description.trim() &&
+                              !item.materialCode &&
+                              !item.serviceCode &&
+                              !item.boughtOutItemCode && (
+                                <Chip
+                                  label={
+                                    formData.category === 'SERVICE'
+                                      ? 'Pick service from catalog'
+                                      : formData.category === 'BOUGHT_OUT'
+                                        ? 'Pick item from bought-out DB'
+                                        : 'Pick material from master'
+                                  }
+                                  size="small"
+                                  color="warning"
+                                  variant="outlined"
+                                  sx={{ mt: 0.5 }}
+                                />
+                              )}
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              value={item.specification || ''}
+                              onChange={(e) =>
+                                handleLineItemChange(index, 'specification', e.target.value)
+                              }
+                              placeholder="Specification"
                               size="small"
-                              onClick={() => openPickerForRow(index)}
-                              sx={{ mt: 0.25 }}
-                              aria-label="Search"
-                            >
-                              <SearchIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                        {/* Express lane: dropdowns for the small structured set
-                            that raw material is, driven by CATALOG_SIZING. The
-                            search icon above stays for everything else. */}
-                        {formData.category === 'RAW_MATERIAL' && rawMaterials.length > 0 && (
-                          <Box sx={{ mt: 1 }}>
-                            <InlineMaterialSelector
-                              materials={rawMaterials}
-                              state={inlineStates[index] ?? EMPTY_INLINE_STATE}
-                              onChange={(next) => handleInlineChange(index, next)}
+                              fullWidth
+                              multiline
+                              maxRows={3}
                             />
-                          </Box>
-                        )}
-                        {item.materialCode && (
-                          <Chip
-                            label={item.materialCode}
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                            sx={{ mt: 0.5 }}
-                          />
-                        )}
-                        {/* Sized plate: show the size, and let it be adjusted
-                            without re-picking the material. */}
-                        {item.dimensions && (
-                          <Chip
-                            label={`${formatLineDimensions(item.dimensions)}${
-                              item.dimensions.totalWeightKg !== undefined
-                                ? ` · ${item.dimensions.totalWeightKg} kg`
-                                : ''
-                            }`}
-                            size="small"
-                            color="primary"
-                            onClick={() => setDimensionsRowIndex(index)}
-                            sx={{ mt: 0.5, ml: 0.5 }}
-                          />
-                        )}
-                        {item.serviceCode && (
-                          <Chip
-                            label={item.serviceCode}
-                            size="small"
-                            variant="outlined"
-                            color="secondary"
-                            sx={{ mt: 0.5 }}
-                          />
-                        )}
-                        {item.boughtOutItemCode && (
-                          <Chip
-                            label={item.boughtOutItemCode}
-                            size="small"
-                            variant="outlined"
-                            color="info"
-                            sx={{ mt: 0.5 }}
-                          />
-                        )}
-                        {item.description.trim() &&
-                          !item.materialCode &&
-                          !item.serviceCode &&
-                          !item.boughtOutItemCode && (
-                            <Chip
-                              label={
-                                formData.category === 'SERVICE'
-                                  ? 'Pick service from catalog'
-                                  : formData.category === 'BOUGHT_OUT'
-                                    ? 'Pick item from bought-out DB'
-                                    : 'Pick material from master'
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) =>
+                                handleLineItemChange(
+                                  index,
+                                  'quantity',
+                                  parseFloat(e.target.value) || 0
+                                )
                               }
                               size="small"
-                              color="warning"
-                              variant="outlined"
-                              sx={{ mt: 0.5 }}
+                              fullWidth
+                              // number inputs have no content-derived width — keep a floor
+                              sx={{ minWidth: 72 }}
+                              inputProps={{ min: 0, step: 0.01 }}
                             />
-                          )}
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          value={item.specification || ''}
-                          onChange={(e) =>
-                            handleLineItemChange(index, 'specification', e.target.value)
-                          }
-                          placeholder="Specification"
-                          size="small"
-                          fullWidth
-                          multiline
-                          maxRows={3}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            handleLineItemChange(index, 'quantity', parseFloat(e.target.value) || 0)
-                          }
-                          size="small"
-                          fullWidth
-                          // number inputs have no content-derived width — keep a floor
-                          sx={{ minWidth: 72 }}
-                          inputProps={{ min: 0, step: 0.01 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          select
-                          value={item.unit}
-                          onChange={(e) => handleLineItemChange(index, 'unit', e.target.value)}
-                          size="small"
-                          fullWidth
-                        >
-                          {/* MUI Select renders BLANK when value isn't among
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              select
+                              value={item.unit}
+                              onChange={(e) => handleLineItemChange(index, 'unit', e.target.value)}
+                              size="small"
+                              fullWidth
+                            >
+                              {/* MUI Select renders BLANK when value isn't among
                               the options — imported units (e.g. "EA", "MTR")
                               vanished that way (feedback cwNypIpmnbcOIzeKWv7N).
                               Render the current value as an extra option when
                               it's not in the fixed list. */}
-                          {item.unit && !PR_UNIT_VALUES.includes(item.unit) && (
-                            <MenuItem value={item.unit}>{item.unit}</MenuItem>
-                          )}
-                          <MenuItem value="NOS">NOS</MenuItem>
-                          <MenuItem value="KG">KG</MenuItem>
-                          <MenuItem value="METER">MTR</MenuItem>
-                          <MenuItem value="LITER">LTR</MenuItem>
-                          <MenuItem value="BOX">BOX</MenuItem>
-                          <MenuItem value="SET">SET</MenuItem>
-                          <MenuItem value="UNIT">UNIT</MenuItem>
-                          {isServiceCategory && [
-                            <MenuItem key="PER TEST" value="PER TEST">
-                              PER TEST
-                            </MenuItem>,
-                            <MenuItem key="PER SAMPLE" value="PER SAMPLE">
-                              PER SAMPLE
-                            </MenuItem>,
-                            <MenuItem key="PER DAY" value="PER DAY">
-                              PER DAY
-                            </MenuItem>,
-                            <MenuItem key="LUMP SUM" value="LUMP SUM">
-                              LUMP SUM
-                            </MenuItem>,
-                            <MenuItem key="PER HOUR" value="PER HOUR">
-                              PER HOUR
-                            </MenuItem>,
-                          ]}
-                        </TextField>
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          value={item.equipmentCode || ''}
-                          onChange={(e) =>
-                            handleLineItemChange(index, 'equipmentCode', e.target.value)
-                          }
-                          placeholder="Optional"
-                          size="small"
-                          fullWidth
-                          sx={{ minWidth: 100 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveLineItem(index)}
-                          color="error"
-                          disabled={lineItems.length === 1}
-                          aria-label="Remove"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              {item.unit && !PR_UNIT_VALUES.includes(item.unit) && (
+                                <MenuItem value={item.unit}>{item.unit}</MenuItem>
+                              )}
+                              <MenuItem value="NOS">NOS</MenuItem>
+                              <MenuItem value="KG">KG</MenuItem>
+                              <MenuItem value="METER">MTR</MenuItem>
+                              <MenuItem value="LITER">LTR</MenuItem>
+                              <MenuItem value="BOX">BOX</MenuItem>
+                              <MenuItem value="SET">SET</MenuItem>
+                              <MenuItem value="UNIT">UNIT</MenuItem>
+                              {isServiceCategory && [
+                                <MenuItem key="PER TEST" value="PER TEST">
+                                  PER TEST
+                                </MenuItem>,
+                                <MenuItem key="PER SAMPLE" value="PER SAMPLE">
+                                  PER SAMPLE
+                                </MenuItem>,
+                                <MenuItem key="PER DAY" value="PER DAY">
+                                  PER DAY
+                                </MenuItem>,
+                                <MenuItem key="LUMP SUM" value="LUMP SUM">
+                                  LUMP SUM
+                                </MenuItem>,
+                                <MenuItem key="PER HOUR" value="PER HOUR">
+                                  PER HOUR
+                                </MenuItem>,
+                              ]}
+                            </TextField>
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              value={item.equipmentCode || ''}
+                              onChange={(e) =>
+                                handleLineItemChange(index, 'equipmentCode', e.target.value)
+                              }
+                              placeholder="Optional"
+                              size="small"
+                              fullWidth
+                              sx={{ minWidth: 100 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleRemoveLineItem(index)}
+                              color="error"
+                              disabled={lineItems.length === 1}
+                              aria-label="Remove"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                        {showInlineStrip && (
+                          <TableRow>
+                            <TableCell />
+                            <TableCell colSpan={5} sx={{ pt: 0 }}>
+                              <InlineMaterialSelector
+                                materials={rawMaterials}
+                                state={inlineStates[index] ?? EMPTY_INLINE_STATE}
+                                onChange={(next) => handleInlineChange(index, next)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

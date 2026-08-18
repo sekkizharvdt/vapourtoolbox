@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { Alert, Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
-import type { CatalogLineDimensions, Material, MaterialVariant } from '@vapour/types';
+import type { CatalogLineDimensions, Material } from '@vapour/types';
 import {
   buildLineDimensions,
   getShapesForMaterial,
@@ -98,6 +98,12 @@ interface MaterialDimensionsFormProps {
    * repeating the control here would be two controls for one value.
    */
   showVariantSelect?: boolean;
+  /**
+   * Lay the controls out as one horizontal run rather than stacked blocks, and
+   * render the weight as plain text instead of a panel. The inline PR row sits
+   * in a table and cannot afford six stacked fields per line.
+   */
+  inline?: boolean;
 }
 
 export default function MaterialDimensionsForm({
@@ -106,6 +112,7 @@ export default function MaterialDimensionsForm({
   onChange,
   showQuantity = true,
   showVariantSelect = true,
+  inline = false,
 }: MaterialDimensionsFormProps) {
   const shapes = useMemo(() => getShapesForMaterial(material), [material]);
   const variants = useMemo(
@@ -135,10 +142,6 @@ export default function MaterialDimensionsForm({
 
   const resolved = useMemo(() => resolveDimensionsDraft(material, draft), [material, draft]);
 
-  const selectedVariant: MaterialVariant | undefined = variants.find(
-    (v) => v.id === draft.variantId
-  );
-
   if (shapes.length === 0) {
     return (
       <Alert severity="info">
@@ -148,101 +151,113 @@ export default function MaterialDimensionsForm({
     );
   }
 
-  return (
-    <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+  const controls = (
+    <>
+      <TextField
+        select
+        label="Shape"
+        value={draft.shapeId}
+        onChange={(e) => onChange({ ...draft, shapeId: e.target.value })}
+        size="small"
+        fullWidth={!inline}
+        required
+        sx={inline ? { minWidth: 165 } : undefined}
+      >
+        {shapes.map((s) => (
+          <MenuItem key={s.id} value={s.id}>
+            {s.name}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      {showVariantSelect && (
         <TextField
           select
-          label="Shape"
-          value={draft.shapeId}
-          onChange={(e) => onChange({ ...draft, shapeId: e.target.value })}
+          label="Thickness"
+          value={draft.variantId}
+          onChange={(e) => onChange({ ...draft, variantId: e.target.value })}
           size="small"
-          fullWidth
+          fullWidth={!inline}
           required
+          disabled={variants.length === 0}
+          helperText={variants.length === 0 ? 'This material has no thickness variants' : undefined}
+          sx={inline ? { minWidth: 140 } : undefined}
         >
-          {shapes.map((s) => (
-            <MenuItem key={s.id} value={s.id}>
-              {s.name}
+          {variants.map((variant) => (
+            <MenuItem key={variant.id} value={variant.id}>
+              {getVariantDisplayName(variant)}
             </MenuItem>
           ))}
         </TextField>
+      )}
 
-        {showVariantSelect && (
-          <TextField
-            select
-            label="Thickness"
-            value={draft.variantId}
-            onChange={(e) => onChange({ ...draft, variantId: e.target.value })}
-            size="small"
-            fullWidth
-            required
-            disabled={variants.length === 0}
-            helperText={
-              variants.length === 0 ? 'This material has no thickness variants' : undefined
-            }
-          >
-            {variants.map((variant) => (
-              <MenuItem key={variant.id} value={variant.id}>
-                {getVariantDisplayName(variant)}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
-      </Stack>
+      {userParams.map((param) => (
+        <TextField
+          key={param.name}
+          type="number"
+          label={param.label}
+          value={draft.parameters[param.name] ?? ''}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              parameters: { ...draft.parameters, [param.name]: e.target.value },
+            })
+          }
+          size="small"
+          fullWidth={!inline}
+          required
+          InputProps={{ endAdornment: <Typography variant="caption">{param.unit}</Typography> }}
+          inputProps={{ min: param.minValue ?? 0, step: 'any' }}
+          sx={inline ? { width: 118 } : undefined}
+        />
+      ))}
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        {userParams.map((param) => (
-          <TextField
-            key={param.name}
-            type="number"
-            label={param.label}
-            value={draft.parameters[param.name] ?? ''}
-            onChange={(e) =>
-              onChange({
-                ...draft,
-                parameters: { ...draft.parameters, [param.name]: e.target.value },
-              })
-            }
-            size="small"
-            fullWidth
-            required
-            InputProps={{ endAdornment: <Typography variant="caption">{param.unit}</Typography> }}
-            inputProps={{ min: param.minValue ?? 0, step: 'any' }}
-          />
-        ))}
+      {showQuantity && (
+        <TextField
+          type="number"
+          label="Pieces"
+          value={draft.quantity}
+          onChange={(e) => onChange({ ...draft, quantity: e.target.value })}
+          size="small"
+          fullWidth={!inline}
+          required
+          inputProps={{ min: 1, step: 1 }}
+          sx={inline ? { width: 100 } : undefined}
+        />
+      )}
+    </>
+  );
 
-        {showQuantity && (
-          <TextField
-            type="number"
-            label="Pieces"
-            value={draft.quantity}
-            onChange={(e) => onChange({ ...draft, quantity: e.target.value })}
-            size="small"
-            fullWidth
-            required
-            inputProps={{ min: 1, step: 1 }}
-          />
-        )}
-      </Stack>
-
-      <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-        {resolved?.dimensions.totalWeightKg !== undefined ? (
-          <Typography variant="body2">
-            <strong>{resolved.dimensions.totalWeightKg} kg</strong> total
-            {resolved.quantity > 1 && resolved.dimensions.unitWeightKg !== undefined && (
-              <>
-                {' '}
-                &mdash; {resolved.dimensions.unitWeightKg} kg per piece &times; {resolved.quantity}
-              </>
-            )}
-            {selectedVariant?.weightPerUnit !== undefined && (
-              <Typography component="span" variant="caption" color="text.secondary">
-                {' '}
-                (at {material.properties?.density ?? 7850} kg/m³)
-              </Typography>
-            )}
+  const weight =
+    resolved?.dimensions.totalWeightKg !== undefined ? (
+      <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+        <strong>{resolved.dimensions.totalWeightKg} kg</strong>
+        {resolved.quantity > 1 && resolved.dimensions.unitWeightKg !== undefined && (
+          <Typography component="span" variant="caption" color="text.secondary">
+            {' '}
+            ({resolved.dimensions.unitWeightKg} × {resolved.quantity})
           </Typography>
-        ) : (
+        )}
+      </Typography>
+    ) : null;
+
+  // Inline: one horizontal run, weight as plain text beside the fields.
+  if (inline) {
+    return (
+      <>
+        {controls}
+        {weight && <Box sx={{ alignSelf: 'center' }}>{weight}</Box>}
+      </>
+    );
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        {controls}
+      </Stack>
+      <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+        {weight ?? (
           <Typography variant="body2" color="text.secondary">
             Enter every dimension to see the weight.
           </Typography>

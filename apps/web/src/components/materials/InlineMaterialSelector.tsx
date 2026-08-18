@@ -1,12 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { ListSubheader, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import type { CatalogLineDimensions, Material, MaterialVariant } from '@vapour/types';
 import {
   buildCascade,
+  buildMaterialOptions,
   getRawMaterialKinds,
+  materialOptionIdFor,
   orderSizingForKind,
+  parseMaterialOptionId,
   resolveMaterial,
   type RawMaterialKind,
 } from '@/lib/catalog/inlineSizing';
@@ -101,6 +104,8 @@ export default function InlineMaterialSelector({
   const kinds = useMemo(() => getRawMaterialKinds(), []);
   const kind: RawMaterialKind | undefined = kinds.find((k) => k.key === state.kindKey);
 
+  const materialOptions = useMemo(() => buildMaterialOptions(materials), [materials]);
+
   const steps = useMemo(
     () => (kind ? buildCascade(kind, materials, state.chosen) : []),
     [kind, materials, state.chosen]
@@ -125,52 +130,62 @@ export default function InlineMaterialSelector({
     onChange({ ...state, chosen: kept, dimensions: undefined });
   };
 
-  const handleKindChange = (kindKey: string) => {
-    onChange({ kindKey, chosen: {}, dimensions: undefined });
-  };
-
   // Seed the shape draft as soon as the material is known.
   const dimensionsDraft =
     state.dimensions ?? (resolved ? initialDimensionsDraft(resolved.material) : undefined);
 
   return (
-    <Stack spacing={1.5}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+    <Stack direction="row" spacing={1.5} alignItems="flex-start" flexWrap="wrap" useFlexGap>
+      {/* Kind and grade are one question, not two — nobody picks "Plates" as an
+          end in itself. One grouped control, 16 plate grades and 6 pipe
+          families, so the row asks for the material once. */}
+      <TextField
+        select
+        label="Material"
+        size="small"
+        value={materialOptionIdFor(state)}
+        onChange={(e) => {
+          const parsed = parseMaterialOptionId(e.target.value);
+          if (!parsed) return;
+          onChange({
+            kindKey: parsed.kindKey,
+            chosen: { [parsed.field]: parsed.value },
+            dimensions: undefined,
+          });
+        }}
+        disabled={disabled}
+        sx={{ minWidth: 250 }}
+      >
+        {materialOptions.flatMap((group) => [
+          <ListSubheader key={group.kindKey}>{group.label}</ListSubheader>,
+          ...group.options.map((option) => (
+            <MenuItem key={option.id} value={option.id}>
+              {option.label}
+            </MenuItem>
+          )),
+        ])}
+      </TextField>
+
+      {/* Remaining discriminators — thickness for a plate, NPS + schedule for a
+          pipe. The first step is already answered by the control above. */}
+      {steps.slice(1).map((step) => (
         <TextField
+          key={step.field}
           select
-          label="Kind"
+          label={step.label}
           size="small"
-          value={state.kindKey}
-          onChange={(e) => handleKindChange(e.target.value)}
-          disabled={disabled}
-          sx={{ minWidth: 130 }}
+          value={state.chosen[step.field] ?? ''}
+          onChange={(e) => handleCascadeChange(step.field, e.target.value)}
+          disabled={disabled || step.options.length === 0}
+          sx={{ minWidth: 120 }}
         >
-          {kinds.map((k) => (
-            <MenuItem key={k.key} value={k.key}>
-              {k.label}
+          {step.options.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
             </MenuItem>
           ))}
         </TextField>
-
-        {steps.map((step) => (
-          <TextField
-            key={step.field}
-            select
-            label={step.label}
-            size="small"
-            value={state.chosen[step.field] ?? ''}
-            onChange={(e) => handleCascadeChange(step.field, e.target.value)}
-            disabled={disabled || step.options.length === 0}
-            sx={{ minWidth: step.field === 'grade' || step.field === 'family' ? 230 : 120 }}
-          >
-            {step.options.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        ))}
-      </Stack>
+      ))}
 
       {/* Order sizing — only a SHAPE kind asks for anything extra. */}
       {sizing === 'SHAPE' && resolved && dimensionsDraft && (
@@ -179,17 +194,15 @@ export default function InlineMaterialSelector({
           draft={{ ...dimensionsDraft, variantId: resolved.variant?.id ?? '' }}
           onChange={(dimensions) => onChange({ ...state, dimensions })}
           showQuantity={showQuantity}
-          // Thickness is the cascade's job — one control per value.
           showVariantSelect={false}
+          inline
         />
       )}
 
       {sizing === 'LENGTH' && resolved && (
-        <Box sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-          <Typography variant="caption" color="text.secondary">
-            {resolved.material.materialCode} &mdash; enter the length in the Qty column (metres).
-          </Typography>
-        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+          Length goes in the Qty column, in metres.
+        </Typography>
       )}
     </Stack>
   );

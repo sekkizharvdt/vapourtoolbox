@@ -166,7 +166,10 @@ export function buildCascade(
       steps.push({
         field: 'thickness',
         label: labelFor('thickness'),
-        options: variants.map((v) => ({ value: v.id, label: v.displayName || v.variantCode })),
+        // `variantCode` ("6mm"), not `displayName` ("6mm thickness"): the step
+        // is already labelled Thickness, so the stored displayName repeats the
+        // field name on every one of the 29 options.
+        options: variants.map((v) => ({ value: v.id, label: v.variantCode || v.displayName })),
       });
     }
     return steps;
@@ -255,4 +258,76 @@ export function resolveMaterial(
     candidates = candidates.filter((m) => discriminatorValue(m, field) === value);
   }
   return candidates.length === 1 && candidates[0] ? { material: candidates[0] } : null;
+}
+
+// ---------------------------------------------------------------------------
+// Merged material picker
+// ---------------------------------------------------------------------------
+
+/** One selectable material, carrying the kind and first cascade step it implies. */
+export interface MaterialOption {
+  /** Encoded as `kindKey|field|value` so a single Select can carry it. */
+  id: string;
+  kindKey: string;
+  field: string;
+  value: string;
+  label: string;
+}
+
+export interface MaterialOptionGroup {
+  kindKey: string;
+  label: string;
+  options: MaterialOption[];
+}
+
+/**
+ * Every inline-selectable material as ONE grouped list — 16 plate grades under
+ * "Plates", 6 pipe families under "Pipes".
+ *
+ * Kind and grade were separate dropdowns at first, which made the row ask two
+ * questions to answer one: nobody picks "Plates" as an end in itself, they pick
+ * a plate. Choosing a grade implies its kind, so the two collapse into a single
+ * control and the row loses a step.
+ */
+export function buildMaterialOptions(materials: Material[]): MaterialOptionGroup[] {
+  const groups: MaterialOptionGroup[] = [];
+  for (const kind of getRawMaterialKinds()) {
+    const [first] = buildCascade(kind, materials, {});
+    if (!first || first.options.length === 0) continue;
+    groups.push({
+      kindKey: kind.key,
+      label: kind.label,
+      options: first.options.map((o) => ({
+        id: `${kind.key}|${first.field}|${o.value}`,
+        kindKey: kind.key,
+        field: first.field,
+        value: o.value,
+        label: o.label,
+      })),
+    });
+  }
+  return groups;
+}
+
+/** Decode what the merged Select produced. */
+export function parseMaterialOptionId(
+  id: string
+): { kindKey: string; field: string; value: string } | null {
+  const [kindKey, field, ...rest] = id.split('|');
+  if (!kindKey || !field || rest.length === 0) return null;
+  return { kindKey, field, value: rest.join('|') };
+}
+
+/** The merged Select's current value, rebuilt from cascade state. */
+export function materialOptionIdFor(state: {
+  kindKey: string;
+  chosen: Record<string, string>;
+}): string {
+  const kind = getRawMaterialKinds().find((k) => k.key === state.kindKey);
+  if (!kind) return '';
+  // The first cascade field is whichever of the kind's steps was chosen first;
+  // for plates that is `grade`, for piping `family`.
+  const field = state.chosen.grade !== undefined ? 'grade' : 'family';
+  const value = state.chosen[field];
+  return value ? `${state.kindKey}|${field}|${value}` : '';
 }
