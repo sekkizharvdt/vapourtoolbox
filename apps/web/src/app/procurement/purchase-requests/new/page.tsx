@@ -80,7 +80,7 @@ import InlineMaterialSelector, {
 } from '@/components/materials/InlineMaterialSelector';
 import { getRawMaterialKinds } from '@/lib/catalog/inlineSizing';
 import { queryMaterials } from '@/lib/materials/materialService';
-import { formatMaterialSpec } from '@/lib/materials/specFormat';
+import { formatLineItemDescription, formatMaterialSpec } from '@/lib/materials/specFormat';
 import { getFirebase } from '@/lib/firebase';
 import { formatLineDimensions, withQuantity } from '@/lib/catalog/lineDimensions';
 
@@ -229,6 +229,15 @@ export default function NewPurchaseRequestPage() {
     const resolved = resolveInlineSelection(next, rawMaterials);
     if (!resolved) return;
 
+    // A pipe states its size through the discriminators the cascade chose
+    // (NPS 4 Sch 40); a plate states it through the dimensions it captured.
+    const sizeFromCascade = [
+      resolved.material.nps ? `NPS ${resolved.material.nps}` : '',
+      resolved.material.schedule ? `Sch ${resolved.material.schedule}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
     setLineItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item;
@@ -241,14 +250,21 @@ export default function NewPurchaseRequestPage() {
             code: material.materialCode,
             name: material.name,
           },
-          description: material.name,
-          // The real spec — "ASTM A516/A516M · Grade 70 · Plate" — via the
-          // canonical formatter, not the internal material code. A vendor
-          // reading the RFQ has no use for PL-CS-516-70 (rule 32: the picker
-          // path already went through this formatter; the inline path skipped it).
+          // "CS Plate 6000 × 1500 × 6 mm" — class, form, size. Not the stored
+          // name, which states the class twice over ("Carbon Steel SA 516 Gr 70
+          // Plate") and carries no size, while the grade it does carry belongs
+          // in `specification` below.
+          description: formatLineItemDescription(
+            material.category,
+            material.specification?.form,
+            resolved.dimensions ? formatLineDimensions(resolved.dimensions) : sizeFromCascade
+          ),
+          // The standard AND grade — "ASTM A516/A516M · Grade 70". Grade alone
+          // is ambiguous ("Grade 70" of what?), and `form` is dropped because
+          // the description already says Plate. A spec the user typed wins.
           specification: item.specification?.trim()
             ? item.specification
-            : formatMaterialSpec(material.specification),
+            : formatMaterialSpec(material.specification, { includeForm: false }),
           materialId: material.id,
           materialCode: material.materialCode,
           materialName: material.name,
