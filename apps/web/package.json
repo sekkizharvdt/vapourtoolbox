@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
     "build": "next build",
+    "predev": "node scripts/copy-pdf-worker.mjs",
     "start": "npx serve@latest out -l 3001",
     "lint": "next lint --max-warnings=0",
     "type-check": "tsc --noEmit",

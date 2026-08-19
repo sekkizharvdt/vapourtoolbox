@@ -13,11 +13,16 @@ import type { TravelExpenseCategory } from '@vapour/types';
 const logger = createLogger({ context: 'pdfMergeUtils' });
 
 // Configure PDF.js worker.
-// The worker ships as .mjs, not .js — pdfjs-dist has published only
-// pdf.worker.min.mjs since v4, and cdnjs mirrors the package contents, so the
-// old .js URL 404s and the image fallback below never runs.
+// Served from our own origin, copied into public/ at build time by
+// scripts/copy-pdf-worker.mjs so it always matches the installed pdfjs-dist.
+// It used to point at cdnjs, which never worked in production: for a
+// cross-origin workerSrc, pdf.js wraps the URL in a blob worker whose body is
+// `await import("<cdn url>")`, and that import is checked against the CSP's
+// script-src, which does not list cdnjs. The fake-worker fallback re-imports the
+// same URL on the main thread, so it failed the same way. A same-origin path is
+// already covered by `worker-src 'self'`.
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 }
 
 /**

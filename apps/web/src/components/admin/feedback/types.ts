@@ -42,6 +42,10 @@ export interface FeedbackItem {
   browserInfo?: string;
   status: FeedbackStatus;
   adminNotes?: string;
+  /** Display name of whoever last wrote adminNotes — read by the onFeedbackNotesUpdated trigger. */
+  adminNotesBy?: string;
+  /** Uid of whoever last wrote adminNotes, so the trigger can skip self-notification. */
+  adminNotesByUserId?: string;
   resolutionNotes?: string;
   followUpComments?: FollowUpComment[];
   /**

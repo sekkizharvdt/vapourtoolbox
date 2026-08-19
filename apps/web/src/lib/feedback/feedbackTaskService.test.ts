@@ -9,7 +9,6 @@ import {
   addFollowUpToFeedback,
   closeFeedbackFromTask,
   getFeedbackById,
-  notifyReporterOfQuestion,
 } from './feedbackTaskService';
 
 // Mock firebase/firestore
@@ -347,72 +346,6 @@ describe('feedbackTaskService', () => {
       mockGetDoc.mockRejectedValue(error);
 
       await expect(getFeedbackById(mockDb, 'feedback-1')).rejects.toThrow('Query failed');
-    });
-  });
-
-  // Phase A of docs/reviews/2026-08-07-feedback-intake-plan.md. The deployed CF
-  // onFeedbackResolved only notifies on status -> 'resolved', so questions asked
-  // mid-flight and reporter replies both reached nobody.
-  describe('notifyReporterOfQuestion', () => {
-    const baseParams = {
-      feedbackId: 'feedback-1',
-      feedbackTitle: 'Payment Method & Bank Accounts',
-      reporterUserId: 'reporter-1',
-      adminNotes: 'Should 1102 be a default, or the only option?',
-      askedByName: 'Sekkizhar',
-      askedByUserId: 'admin-1',
-    };
-
-    it('notifies the reporter as an actionable feedback question', async () => {
-      mockCreateTaskNotification.mockResolvedValue('task-1');
-
-      const result = await notifyReporterOfQuestion(baseParams);
-
-      expect(result).toBe('task-1');
-      expect(mockCreateTaskNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'actionable',
-          category: 'FEEDBACK_QUESTION_ASKED',
-          userId: 'reporter-1',
-          entityType: 'FEEDBACK',
-          entityId: 'feedback-1',
-          linkUrl: '/feedback/feedback-1',
-        })
-      );
-    });
-
-    it('skips anonymous feedback, which has no reporter to notify', async () => {
-      const result = await notifyReporterOfQuestion({
-        ...baseParams,
-        reporterUserId: undefined,
-      });
-
-      expect(result).toBeNull();
-      expect(mockCreateTaskNotification).not.toHaveBeenCalled();
-    });
-
-    it('does not notify someone about their own note', async () => {
-      // Revathi both reports and triages, so this case is real.
-      const result = await notifyReporterOfQuestion({
-        ...baseParams,
-        askedByUserId: 'reporter-1',
-      });
-
-      expect(result).toBeNull();
-      expect(mockCreateTaskNotification).not.toHaveBeenCalled();
-    });
-
-    it('skips blank notes', async () => {
-      const result = await notifyReporterOfQuestion({ ...baseParams, adminNotes: '   ' });
-
-      expect(result).toBeNull();
-      expect(mockCreateTaskNotification).not.toHaveBeenCalled();
-    });
-
-    it('never fails the caller when the notification write fails', async () => {
-      mockCreateTaskNotification.mockRejectedValue(new Error('offline'));
-
-      await expect(notifyReporterOfQuestion(baseParams)).resolves.toBeNull();
     });
   });
 

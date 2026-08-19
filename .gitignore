@@ -68,3 +68,6 @@ firebase-service-account.json
 
 # Feedback images (user-provided screenshots)
 feedback_images/
+
+# Generated at build time by apps/web/scripts/copy-pdf-worker.mjs — pinned to the installed pdfjs-dist
+apps/web/public/pdf.worker.min.mjs

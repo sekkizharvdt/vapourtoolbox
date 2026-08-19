@@ -67,7 +67,7 @@ export { onVendorQuoteWriteUpdateCounter, backfillRFQOfferCounts } from './vendo
 export { syncPOPaymentStatusOnVendorPayment } from './procurementPaymentStatus';
 
 // Import feedback functions
-export { onFeedbackResolved } from './feedback';
+export { onFeedbackResolved, onFeedbackNotesUpdated } from './feedback';
 
 // Import transmittal functions
 // generateTransmittal removed — migrated to client-side @react-pdf/renderer (transmittalPdfService.ts)
