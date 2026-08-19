@@ -414,7 +414,7 @@ export default function PaymentBatchDetailClient() {
       await downloadPaymentBatchPDF(batch);
     } catch (err) {
       console.error('PDF download failed:', err);
-      setError('Failed to generate PDF');
+      setError(err instanceof Error ? err.message : 'Failed to generate PDF');
     } finally {
       setDownloadingPdf(false);
     }

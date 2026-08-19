@@ -284,7 +284,7 @@ export default function ProposalDetailClient() {
       }
     } catch (err) {
       logger.error('Error generating PDF', { error: err });
-      setActionError('Failed to generate PDF');
+      setActionError(err instanceof Error ? err.message : 'Failed to generate PDF');
     } finally {
       setPdfGenerating(false);
     }

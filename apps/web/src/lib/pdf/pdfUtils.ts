@@ -8,6 +8,18 @@
 import type { ReactElement } from 'react';
 
 /**
+ * How long to wait for @react-pdf/renderer before giving up.
+ *
+ * `toBlob()` can hang forever rather than reject: PNGs with an alpha channel go
+ * through png-js -> fflate, whose async inflate runs in a blob-URL Worker. If
+ * anything stops that Worker starting (a CSP without `worker-src blob:`, say),
+ * the decode callback never fires, the document never finalises, and the promise
+ * never settles — the user sees a spinner that only a page refresh clears.
+ * Failing loudly is always better than that.
+ */
+const PDF_GENERATION_TIMEOUT_MS = 60_000;
+
+/**
  * Generate a PDF blob from a @react-pdf/renderer Document element.
  * Uses dynamic import so the renderer is never in the page's static bundle.
  */
@@ -16,7 +28,26 @@ export async function generatePDFBlob(
   document: ReactElement<any>
 ): Promise<Blob> {
   const { pdf } = await import('@react-pdf/renderer');
-  return pdf(document).toBlob();
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            `PDF generation timed out after ${PDF_GENERATION_TIMEOUT_MS / 1000}s. ` +
+              'Please try again, and report this if it keeps happening.'
+          )
+        ),
+      PDF_GENERATION_TIMEOUT_MS
+    );
+  });
+
+  try {
+    return await Promise.race([pdf(document).toBlob(), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

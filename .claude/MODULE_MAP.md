@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-08-18 (catalogue sizing model, inline PR dropdowns, taxonomy migration APPLIED + references repointed)
+Last verified: 2026-08-19 (browser workers + CSP; PDF generation chokepoint)
 
 ## Firestore admin access (for counting records — rule 31)
 
@@ -180,3 +180,31 @@ Weight comes from `calculateShape` with the material's own density, never from
 | Data table with pagination/sort/loading/empty                   | `packages/ui/src/components/DataTable.tsx` (adopt for new list pages — rule 34, plan `docs/archive/2026-07-03-ui-ux-standardisation-plan.md`)                                                                                                                                                                 |
 | Structured line dimensions (shape + variant + size → weight)    | `apps/web/src/lib/catalog/lineDimensions.ts` + `components/materials/MaterialDimensionsForm.tsx` (controlled; shared by the picker and the row-edit dialog)                                                                                                                                                   |
 | Stale-token retry on every call in a save handler (rule 35)     | `apps/web/src/lib/firebase/retryOnStaleToken.ts`; applied throughout `apps/web/src/app/accounting/invoices/components/CreateInvoiceDialog.tsx`                                                                                                                                                                |
+
+## Browser workers and the CSP
+
+The hosting CSP (`firebase.json`) governs every Web Worker the app starts. Three libraries
+start one, and all three build it from a `blob:` URL, so **`worker-src 'self' blob:` must stay
+in the policy**:
+
+- **`@react-pdf/renderer`** — pdfkit 6 → `png-js@2` → `fflate`, whose async `unzlib` runs in a
+  blob worker. Only PNGs **with an alpha channel** take this path (`splitAlphaChannel`), and
+  `public/logo.png` is RGBA, so every PDF that embeds the logo depends on it.
+- **`pdfjs-dist`** — see below.
+- **Sentry** — self-contained blob worker for transport compression; falls back to uncompressed.
+
+**A blocked worker HANGS, it does not throw.** fflate's inflate callback simply never fires, the
+pdfkit document never finalises, and `toBlob()` never settles — an infinite spinner that a
+correct `try/catch/finally` cannot catch, because nothing rejects. That was feedback
+`1YVCNVl6oYPNvOM8SZLq` (Aug 2026): the CSP had no `worker-src`, so it fell back to `script-src`,
+which has no `blob:`. `generatePDFBlob` now carries a 60s watchdog so this class of failure is
+loud rather than silent.
+
+**`pdfjs-dist` is a separate, still-open case.** `lib/hr/travelExpenses/pdfMergeUtils.ts` points
+`GlobalWorkerOptions.workerSrc` at cdnjs. For a cross-origin `workerSrc`, pdfjs wraps it in a
+blob worker whose body is `await import("<cdn url>")` — and that import is checked against
+`script-src`, which does not list cdnjs. Its `#setupFakeWorker` fallback re-imports the same
+cdnjs URL on the main thread, so it fails identically and rejects. pdfjs is therefore
+non-functional in production; the only caller is the travel-expense receipt image fallback,
+which degrades to a "Failed to embed receipt" page. Fix is to self-host `pdf.worker.min.mjs`
+under `public/` and point `workerSrc` at it (same-origin, already allowed) — not to widen the CSP.

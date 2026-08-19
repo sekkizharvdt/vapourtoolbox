@@ -323,7 +323,7 @@ export default function PODetailPage() {
       await downloadPOPDF(po, items);
     } catch (err) {
       console.error('[PODetailPage] Error generating PDF:', err);
-      setError('Failed to generate PDF');
+      setError(err instanceof Error ? err.message : 'Failed to generate PDF');
     } finally {
       setPdfLoading(false);
     }
