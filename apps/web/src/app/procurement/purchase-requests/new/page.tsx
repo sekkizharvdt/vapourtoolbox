@@ -80,6 +80,7 @@ import InlineMaterialSelector, {
 } from '@/components/materials/InlineMaterialSelector';
 import { getRawMaterialKinds } from '@/lib/catalog/inlineSizing';
 import { queryMaterials } from '@/lib/materials/materialService';
+import { formatMaterialSpec } from '@/lib/materials/specFormat';
 import { getFirebase } from '@/lib/firebase';
 import { formatLineDimensions, withQuantity } from '@/lib/catalog/lineDimensions';
 
@@ -241,7 +242,13 @@ export default function NewPurchaseRequestPage() {
             name: material.name,
           },
           description: material.name,
-          specification: item.specification?.trim() ? item.specification : material.materialCode,
+          // The real spec — "ASTM A516/A516M · Grade 70 · Plate" — via the
+          // canonical formatter, not the internal material code. A vendor
+          // reading the RFQ has no use for PL-CS-516-70 (rule 32: the picker
+          // path already went through this formatter; the inline path skipped it).
+          specification: item.specification?.trim()
+            ? item.specification
+            : formatMaterialSpec(material.specification),
           materialId: material.id,
           materialCode: material.materialCode,
           materialName: material.name,
@@ -600,7 +607,9 @@ export default function NewPurchaseRequestPage() {
   const isProcessing = saving || submitting;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    // Full width, matching the PR list and every other page — the 1200px cap
+    // left the form floating in dead space on a wide screen.
+    <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs

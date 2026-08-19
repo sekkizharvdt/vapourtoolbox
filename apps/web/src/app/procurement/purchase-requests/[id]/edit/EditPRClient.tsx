@@ -55,6 +55,7 @@ import InlineMaterialSelector, {
 } from '@/components/materials/InlineMaterialSelector';
 import { getRawMaterialKinds } from '@/lib/catalog/inlineSizing';
 import { queryMaterials } from '@/lib/materials/materialService';
+import { formatMaterialSpec } from '@/lib/materials/specFormat';
 import { formatLineDimensions, withQuantity } from '@/lib/catalog/lineDimensions';
 import type {
   Material,
@@ -434,7 +435,13 @@ export default function EditPRPage() {
           },
           dimensions: resolved.dimensions,
           description: material.name,
-          specification: item.specification?.trim() ? item.specification : material.materialCode,
+          // The real spec — "ASTM A516/A516M · Grade 70 · Plate" — via the
+          // canonical formatter, not the internal material code. A vendor
+          // reading the RFQ has no use for PL-CS-516-70 (rule 32: the picker
+          // path already went through this formatter; the inline path skipped it).
+          specification: item.specification?.trim()
+            ? item.specification
+            : formatMaterialSpec(material.specification),
           materialId: material.id,
           materialCode: material.materialCode,
           materialName: material.name,
