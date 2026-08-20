@@ -26,10 +26,49 @@
  * - chore: Update dependencies
  */
 
+/**
+ * A Firestore feedback document id: exactly 20 chars, letters and digits.
+ * The deploy workflow reads these out of the shipped commit range to resolve
+ * the items automatically, so a truncated id ("feedback MesC9vYA") is not a
+ * cosmetic problem — it cannot be looked up, and the item silently stays open
+ * even though the work shipped. Catch it here, where it is one keystroke to fix.
+ */
+const FEEDBACK_ID = /^[A-Za-z0-9]{20}$/;
+
 module.exports = {
   extends: ['@commitlint/config-conventional'],
 
+  plugins: [
+    {
+      rules: {
+        'feedback-trailer-full-id': ({ raw }) => {
+          const trailers = String(raw ?? '')
+            .split('\n')
+            .map((line) => line.match(/^Feedback:\s*(.*)$/i))
+            .filter(Boolean)
+            .map((m) => m[1].trim());
+
+          if (trailers.length === 0) return [true];
+
+          const bad = trailers.filter((id) => !FEEDBACK_ID.test(id));
+          return [
+            bad.length === 0,
+            `Feedback trailer needs the full 20-character feedback id, not ${bad
+              .map((b) => `"${b}"`)
+              .join(', ')}. ` +
+              'Copy it from the feedback URL (/feedback/<id>) or the admin list. ' +
+              'The deploy uses it to resolve the item automatically.',
+          ];
+        },
+      },
+    },
+  ],
+
   rules: {
+    // Feedback: <20-char id>, one per line, repeatable. Optional — but wrong
+    // when present is worse than absent, because the deploy silently skips it.
+    'feedback-trailer-full-id': [2, 'always'],
+
     // Ensure type is always lowercase
     'type-case': [2, 'always', 'lower-case'],
 

@@ -3,7 +3,7 @@
 Orientation file for AI coding sessions. Read via `/orient` instead of re-exploring the repo.
 Keep this file current: when you add/move a module, service, or route, update the relevant line.
 
-Last verified: 2026-08-19 (browser workers + CSP; PDF generation chokepoint)
+Last verified: 2026-08-19 (browser workers + CSP; deploy-driven feedback resolution; MCP servers repaired)
 
 ## Firestore admin access (for counting records — rule 31)
 
@@ -208,3 +208,42 @@ cdnjs URL on the main thread, so it fails identically and rejects. pdfjs is ther
 non-functional in production; the only caller is the travel-expense receipt image fallback,
 which degrades to a "Failed to embed receipt" page. Fix is to self-host `pdf.worker.min.mjs`
 under `public/` and point `workerSrc` at it (same-origin, already allowed) — not to widen the CSP.
+
+## Feedback lifecycle — who moves the status
+
+`resolved` means **live in production**, and the deploy sets it, not a person.
+
+Cite the item in the commit as a trailer, one per line, full 20-character id:
+
+```
+fix(pdf): let the PDF worker start
+
+Feedback: 1YVCNVl6oYPNvOM8SZLq
+```
+
+`commitlint.config.js` rejects a truncated id (`feedback MesC9vYA` is how a
+built feature sat at `new` for two weeks — a short id cannot be looked up).
+After the `prod-deployed` tag moves, the deploy runs
+`scripts/ci/resolve-deployed-feedback.js <prev-tag> HEAD`, which reads the
+trailers out of the shipped range and moves those items `new`/`in_progress` →
+`resolved`, stamping `resolvedByDeploySha` / `resolvedByDeployRun`. It never
+drags an item backwards and never fails the deploy.
+
+| Transition            | Who                                                      |
+| --------------------- | -------------------------------------------------------- |
+| `new` → `in_progress` | you, when starting                                       |
+| → `resolved`          | **the deploy** — never by hand, it notifies the reporter |
+| `resolved` → `closed` | the reporter, confirming                                 |
+| any → `in_progress`   | the reporter, by adding a follow-up (automatic)          |
+
+Notes are notified too: `onFeedbackNotesUpdated` (functions/src/feedback.ts)
+fires on any `adminNotes` change, so a question reaches the reporter without
+resolving the item. It used to live in the admin screen, which meant a note
+written any other way reached nobody.
+
+**MCP servers.** `.mcp.json` runs `mcp-servers/firebase-feedback` and
+`mcp-servers/accounting-audit`; both are pnpm workspace members, so `pnpm install`
+makes them runnable, and both find the key at
+`docs/inputs/firebase-service-account-key.json` anchored to `__dirname`. A broken
+MCP server does not error — it just does not appear in the tool list, which is how
+this one went unnoticed (dead Codespaces path + uninstalled deps + wrong key path).

@@ -1,5 +1,7 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('../vapour-toolbox-firebase-adminsdk-fbsvc-b36392ed63.json');
+// The one key that exists in this repo (see .claude/MODULE_MAP.md). This used
+// to point at a key filename that was never committed, so the script always threw.
+const serviceAccount = require('../docs/inputs/firebase-service-account-key.json');
 
 if (!admin.apps.length) {
   admin.initializeApp({

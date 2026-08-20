@@ -2,11 +2,17 @@
   "mcpServers": {
     "firebase-feedback": {
       "command": "node",
-      "args": ["/workspaces/vapourtoolbox/mcp-servers/firebase-feedback/index.js"]
+      "args": ["mcp-servers/firebase-feedback/index.js"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "docs/inputs/firebase-service-account-key.json"
+      }
     },
     "accounting-audit": {
       "command": "node",
-      "args": ["/workspaces/vapourtoolbox/mcp-servers/accounting-audit/index.js"]
+      "args": ["mcp-servers/accounting-audit/index.js"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "docs/inputs/firebase-service-account-key.json"
+      }
     }
   }
 }

@@ -34,6 +34,9 @@ let db;
 
 function initializeFirebase() {
   const possiblePaths = [
+    // The one key that actually exists in this repo. Anchored to __dirname so it
+    // resolves no matter what cwd the MCP client launches the server from.
+    resolve(__dirname, '../../docs/inputs/firebase-service-account-key.json'),
     resolve(__dirname, 'service-account-key.json'),
     resolve(__dirname, '../../service-account-key.json'),
     process.env.GOOGLE_APPLICATION_CREDENTIALS,
@@ -49,7 +52,7 @@ function initializeFirebase() {
 
   if (!serviceAccountPath) {
     throw new Error(
-      'Service account key not found. Please create service-account-key.json in the mcp-servers/accounting-audit directory.'
+      'Service account key not found. Expected it at docs/inputs/firebase-service-account-key.json (see .claude/MODULE_MAP.md).'
     );
   }
 

@@ -2,3 +2,7 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'functions'
+  # MCP servers used by Claude Code sessions (.mcp.json). In the workspace so a
+  # plain `pnpm install` makes them runnable — they were unusable for months
+  # because their deps were never installed and nothing said so.
+  - 'mcp-servers/*'

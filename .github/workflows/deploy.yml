@@ -383,9 +383,14 @@ jobs:
       # Move the prod-deployed tag to this commit so the next deploy diffs
       # against this point. Force-push the tag to handle reruns.
       - name: Tag deployed commit
+        id: tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Capture where the tag pointed BEFORE moving it — that is the start of
+          # the range this deploy just shipped, which the feedback step needs.
+          PREV=$(git rev-parse --verify --quiet refs/tags/prod-deployed || true)
+          echo "prev_deployed=$PREV" >> "$GITHUB_OUTPUT"
           git tag -f prod-deployed
           # Deliberately not `continue-on-error`, which hid a 403 here on every
           # run. Deploy has already succeeded by this point, so a tagging
@@ -395,6 +400,19 @@ jobs:
           if ! git push -f origin prod-deployed; then
             echo "::warning title=prod-deployed tag not moved::Deploy succeeded but the tag push failed. The next deploy will diff against HEAD~1 instead of this commit and may redeploy more targets than changed."
           fi
+
+      # Move every feedback item cited by the shipped commits to 'resolved'.
+      # This has to be the deploy's job, not a person's: 'resolved' notifies the
+      # reporter, so setting it by hand at commit time told people an item was
+      # fixed while the code was still unshipped. Runs even if the tag push above
+      # failed — the deploy still happened and the range is still correct.
+      # The script never exits non-zero; a tracker update must not fail a
+      # successful deploy.
+      - name: Resolve feedback for shipped fixes
+        if: steps.tag.outputs.prev_deployed != ''
+        run: node scripts/ci/resolve-deployed-feedback.js "${{ steps.tag.outputs.prev_deployed }}" HEAD
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
       - name: Deployment Success
         run: |
