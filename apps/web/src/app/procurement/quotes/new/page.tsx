@@ -491,11 +491,12 @@ export default function NewProcurementQuotePage() {
           error?: string;
         }
       >(fns, 'parseQuote', {
-        // The server allows up to 300 s for Claude — the client SDK defaults to
-        // 70 s and throws `deadline-exceeded` for any longer document. Match the
-        // server budget so legitimate parses don't time out client-side
-        // (feedback BZPmqnnhA5cl3yNd2M8a).
-        timeout: 300_000,
+        // Must match parseQuote's own budget (TIMEOUT_SECONDS = 900) — the client
+        // SDK defaults to 70 s and throws `deadline-exceeded` for anything longer,
+        // and a client that gives up early looks identical to a server timeout
+        // (feedback BZPmqnnhA5cl3yNd2M8a, then rPmzb4Bz: a large quotation needs
+        // a single long streamed generation, not a short one plus a retry).
+        timeout: 900_000,
       });
 
       const tenantIdForParse = claims?.tenantId || 'default-entity';

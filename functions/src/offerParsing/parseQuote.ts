@@ -263,11 +263,22 @@ Critical rules:
     pumps / instruments (plates, pipes, fittings, fasteners, gaskets,
     services, motors, NOTE rows).`;
 
+/**
+ * Output ceiling for the extraction. Sonnet 4.6 allows up to 128K output
+ * tokens; a 79-line instrument quotation needed more than the old 32K cap.
+ * Streaming is mandatory above ~16K, which `runParse` always uses.
+ */
+const MAX_OUTPUT_TOKENS = 64000;
+
+/** Function budget, and the point past which a second call cannot finish. */
+const TIMEOUT_SECONDS = 900;
+const RETRY_CUTOFF_MS = 420_000;
+
 export const parseQuote = onCall(
   {
     region: 'asia-south1',
     memory: '1GiB',
-    timeoutSeconds: 300,
+    timeoutSeconds: TIMEOUT_SECONDS,
     maxInstances: 10,
     secrets: [anthropicApiKey],
   },
@@ -278,6 +289,8 @@ export const parseQuote = onCall(
 
     const data = request.data as ParseQuoteRequest;
     const warnings: string[] = [];
+    // Wall clock for the retry budget check below.
+    const startedAt = Date.now();
 
     if (!data.storagePath) {
       throw new HttpsError('invalid-argument', 'Storage path is required');
@@ -323,11 +336,17 @@ export const parseQuote = onCall(
     const client = new Anthropic({ apiKey });
 
     // One Claude call. `strictNote` swaps the user instruction on the retry to
-    // demand bare JSON. `maxTokens` is generous and bumped on truncation retry so
-    // large quotes don't get cut off mid-array — the most common cause of
-    // unparseable output (feedback rPmzb4BzcpnIsPiUtTEE). Sonnet 4.6 caps output
-    // at 64K; we stay well under that.
-    const buildParams = (strictNote?: string, maxTokens = 16000) =>
+    // demand bare JSON.
+    //
+    // The ceiling is the whole bug (feedback rPmzb4BzcpnIsPiUtTEE). It used to
+    // start at 16K and retry at 32K, and a real 79-line quotation overflowed
+    // BOTH: the logs for "Rev1 offer.pdf" show stop_reason max_tokens at 16K
+    // (2m28s) and again at 32K (4m39s), 7m07s total against a 300s budget. The
+    // user never saw "too long" — they saw deadline-exceeded and a CORS error,
+    // which are what a killed container looks like from the browser.
+    // Sonnet 4.6 allows up to 128K output, so start high enough to fit a large
+    // quote in ONE pass rather than paying for a truncated attempt first.
+    const buildParams = (strictNote?: string, maxTokens = MAX_OUTPUT_TOKENS) =>
       ({
         model: 'claude-sonnet-4-6' as const,
         max_tokens: maxTokens,
@@ -355,15 +374,13 @@ export const parseQuote = onCall(
         ],
       }) satisfies Anthropic.MessageCreateParamsNonStreaming;
 
-    // The Anthropic SDK requires streaming above ~16K output tokens (a
-    // non-streaming call risks an HTTP timeout). Keep the common path
-    // non-streaming; switch to streaming only for the higher-ceiling retry.
-    const runParse = (strictNote?: string, maxTokens = 16000): Promise<Anthropic.Message> => {
-      const params = buildParams(strictNote, maxTokens);
-      return maxTokens > 16000
-        ? client.messages.stream(params).finalMessage()
-        : client.messages.create(params);
-    };
+    // Always stream: the SDK requires it above ~16K output tokens to avoid an
+    // HTTP timeout, and we now start above that ceiling on every call.
+    const runParse = (
+      strictNote?: string,
+      maxTokens = MAX_OUTPUT_TOKENS
+    ): Promise<Anthropic.Message> =>
+      client.messages.stream(buildParams(strictNote, maxTokens)).finalMessage();
 
     const responseTextOf = (resp: Anthropic.Message): string => {
       const block = resp.content.find((b) => b.type === 'text');
@@ -387,32 +404,56 @@ export const parseQuote = onCall(
     let responseText = responseTextOf(response);
     let parsed = extractQuoteJson(responseText);
 
-    // Bounded retry: if the first reply was prose / fenced / truncated, ask once
-    // more. When the first attempt was truncated at the token ceiling
-    // (stop_reason === 'max_tokens') a strict-prose instruction won't help — the
-    // output overflows again — so we raise the cap instead. Otherwise we demand
-    // bare JSON. Only fires on failure, so the common path stays single-call.
+    // Two different failures, two different answers. Truncation means the quote
+    // is genuinely bigger than one generation and no retry can help. A prose or
+    // fenced reply is a formatting slip worth one more ask — but only while
+    // there is budget left to spend on it.
     if (!parsed) {
       const wasTruncated = response.stop_reason === 'max_tokens';
-      logger.warn('[parseQuote] first response unparseable — retrying', {
-        fileName: data.fileName,
-        stopReason: response.stop_reason,
-        responseTextLength: responseText.length,
-        retryStrategy: wasTruncated ? 'higher-token-ceiling' : 'strict-json-instruction',
-      });
-      try {
-        response = wasTruncated
-          ? await runParse(undefined, 32000)
-          : await runParse(
-              'Your previous reply could not be parsed as JSON. Re-read the document and output ONLY the JSON object described in the system prompt — no prose, no explanation, no markdown code fences, nothing before or after the JSON.'
-            );
-        responseText = responseTextOf(response);
-        parsed = extractQuoteJson(responseText);
-      } catch (err) {
-        logger.error('[parseQuote] retry Claude call failed', {
-          error: err instanceof Error ? err.message : String(err),
+
+      // Truncation at MAX_OUTPUT_TOKENS is not retryable — there is no higher
+      // ceiling left to raise it to, and a second full-length generation is what
+      // burned the old budget. Say so plainly instead of timing out silently.
+      if (wasTruncated) {
+        logger.error('[parseQuote] response truncated at the output ceiling', {
           fileName: data.fileName,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          outputTokens: response.usage?.output_tokens,
         });
+        throw new HttpsError(
+          'resource-exhausted',
+          `This quotation is too long to parse in one pass — the extracted data exceeded the ${MAX_OUTPUT_TOKENS.toLocaleString()}-token limit. Split the PDF into smaller parts and upload them separately, or enter the line items manually.`
+        );
+      }
+
+      // Not truncated — the reply was prose or fenced. One more call is cheap
+      // ONLY if the budget can still absorb it; otherwise the retry is what
+      // causes the deadline-exceeded the user actually sees.
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs > RETRY_CUTOFF_MS) {
+        logger.error('[parseQuote] unparseable reply, no budget left to retry', {
+          fileName: data.fileName,
+          elapsedMs,
+        });
+      } else {
+        logger.warn('[parseQuote] first response unparseable — retrying', {
+          fileName: data.fileName,
+          stopReason: response.stop_reason,
+          responseTextLength: responseText.length,
+          elapsedMs,
+        });
+        try {
+          response = await runParse(
+            'Your previous reply could not be parsed as JSON. Re-read the document and output ONLY the JSON object described in the system prompt — no prose, no explanation, no markdown code fences, nothing before or after the JSON.'
+          );
+          responseText = responseTextOf(response);
+          parsed = extractQuoteJson(responseText);
+        } catch (err) {
+          logger.error('[parseQuote] retry Claude call failed', {
+            error: err instanceof Error ? err.message : String(err),
+            fileName: data.fileName,
+          });
+        }
       }
     }
 
