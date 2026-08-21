@@ -94,7 +94,11 @@ describe('calculateAdvanceAmount', () => {
     expect(result).toBe(1347585.96);
   });
 
-  it('defaults to tax-inclusive when carriesTax is unset', () => {
+  // This case previously asserted the grand total, which is what made the first
+  // fix a no-op: the editor never writes `carriesTax: false`, it just omits the
+  // key, so every real PO took the tax-inclusive branch. An unticked box means
+  // "no tax on the advance" everywhere else in the app; it means that here too.
+  it('is pre-tax when carriesTax is unset — an unticked box, not a missing answer', () => {
     const result = calculateAdvanceAmount({
       grandTotal: GRAND_TOTAL,
       taxableValue: TAXABLE_VALUE,
@@ -103,7 +107,21 @@ describe('calculateAdvanceAmount', () => {
       commercialTerms: termsWith([milestone({ carriesTax: undefined })]),
     });
 
-    expect(result).toBe(1347585.96);
+    expect(result).toBe(1142022);
+  });
+
+  // The exact figures from the reopened report (PO/2026/011): 20% of a
+  // ₹1,18,000 grand total carrying ₹18,000 GST is ₹20,000, not ₹23,600.
+  it('matches the reported PO/2026/011 figures', () => {
+    const result = calculateAdvanceAmount({
+      grandTotal: 118000,
+      taxableValue: 100000,
+      advancePaymentRequired: true,
+      advancePercentage: 20,
+      commercialTerms: termsWith([milestone({ carriesTax: undefined })]),
+    });
+
+    expect(result).toBe(20000);
   });
 
   it('returns 0 when no advance is required', () => {

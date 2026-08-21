@@ -89,8 +89,23 @@ function findAdvanceMilestone(commercialTerms?: POCommercialTerms) {
  * ₹44,91,953.20 grand total instead of the ₹38,06,740 taxable value —
  * ₹2,05,563.96 too high.)
  *
+ * `carriesTax` is treated as opt-IN: only an explicit `true` puts the advance on
+ * the grand total. It used to require an explicit `false` to go pre-tax, which
+ * never happened in practice — the editor's checkbox renders `carriesTax ?? false`
+ * and Firestore drops the key when it is undefined, so a box the user never
+ * ticked is stored as absent, not false. Every other consumer already reads it as
+ * falsy-means-no (POPDFDocument, POTermsSection, the new-PO summary), so the
+ * strict check made the pre-tax branch dead code: all 4 affected POs still
+ * carried a grand-total advance after the first fix shipped, PO/2026/010 among
+ * them — the very PO cited below.
+ *
+ * (Feedback jRO7w8mg: a 30% advance with tax unticked was billed on the
+ * ₹44,91,953.20 grand total instead of ₹11,42,022 pre-tax, and a 20% advance on
+ * PO/2026/011 showed ₹23,600 instead of ₹20,000.)
+ *
  * Defaults to tax-inclusive when no advance milestone is found, preserving the
- * prior behaviour for POs created without a structured payment schedule.
+ * prior behaviour for POs created without a structured payment schedule — there
+ * is no checkbox in that case, so there is no user expectation to honour.
  */
 export function calculateAdvanceAmount(params: {
   grandTotal: number;
@@ -105,8 +120,7 @@ export function calculateAdvanceAmount(params: {
   if (!advancePaymentRequired || !advancePercentage) return 0;
 
   const advanceMilestone = findAdvanceMilestone(commercialTerms);
-  const base =
-    advanceMilestone && advanceMilestone.carriesTax === false ? taxableValue : grandTotal;
+  const base = advanceMilestone && advanceMilestone.carriesTax !== true ? taxableValue : grandTotal;
 
   return roundToPaisa((base * advancePercentage) / 100);
 }
