@@ -65,6 +65,23 @@ export function PDFGenerationResult({ result, onDownload }: PDFGenerationResultP
             </ListItemButton>
           </ListItem>
         )}
+
+        {/* The neutral copy counted towards totalFiles but was never listed, so
+            the one file the user asked for had no download link (BbRGBiKB). */}
+        {result.vendorNeutralPdfUrl && (
+          <ListItem disablePadding>
+            <ListItemButton onClick={() => onDownload(result.vendorNeutralPdfUrl!)}>
+              <ListItemIcon>
+                <PdfIcon color="error" />
+              </ListItemIcon>
+              <ListItemText
+                primary="Vendor-neutral copy (no vendor named)"
+                secondary="Click to download"
+              />
+              <DownloadIcon color="primary" />
+            </ListItemButton>
+          </ListItem>
+        )}
       </List>
     </Box>
   );

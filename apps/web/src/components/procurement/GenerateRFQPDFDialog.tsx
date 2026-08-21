@@ -204,8 +204,13 @@ export default function GenerateRFQPDFDialog({
       return;
     }
 
-    if (mode !== 'COMBINED' && selectedVendorIds.length === 0) {
-      setError('Please select at least one vendor');
+    // A vendor-neutral copy names no vendor, so it needs none selected — that is
+    // the whole point of it. Requiring one blocked the only way to produce a PDF
+    // for a vendor you have not approached yet (feedback BbRGBiKB).
+    if (mode !== 'COMBINED' && selectedVendorIds.length === 0 && !isVendorNeutral) {
+      setError(
+        'Select at least one vendor, or tick "Vendor-neutral copy" to produce a PDF that names no vendor.'
+      );
       return;
     }
 

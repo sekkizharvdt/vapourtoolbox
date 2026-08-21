@@ -671,6 +671,15 @@ export async function generateRFQPDFs(
       ...(result.combinedDocumentId !== undefined && {
         combinedDocumentId: result.combinedDocumentId,
       }),
+      ...(result.vendorNeutralPdfUrl !== undefined && {
+        vendorNeutralPdfUrl: result.vendorNeutralPdfUrl,
+      }),
+      ...(result.vendorNeutralPdfPath !== undefined && {
+        vendorNeutralPdfPath: result.vendorNeutralPdfPath,
+      }),
+      ...(result.vendorNeutralDocumentId !== undefined && {
+        vendorNeutralDocumentId: result.vendorNeutralDocumentId,
+      }),
       termsSnapshot: {
         ...(options.generalTerms !== undefined && { general: options.generalTerms }),
         ...(options.paymentTerms !== undefined && { payment: options.paymentTerms }),
