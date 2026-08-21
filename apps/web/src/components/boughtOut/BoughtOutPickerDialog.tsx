@@ -45,6 +45,7 @@ import { listBoughtOutItems, createBoughtOutItem } from '@/lib/boughtOut/boughtO
 import { getFriendlyQueryError } from '@/lib/utils/errorHandling';
 import { rankByNameSimilarity } from '@/lib/catalog/similarity';
 import { RENDER_CAP } from '@/components/materials/MaterialPickerDialog';
+import { summariseBoughtOutSpec } from '@/lib/boughtOut/specSummary';
 
 interface BoughtOutPickerDialogProps {
   open: boolean;
@@ -349,7 +350,25 @@ export default function BoughtOutPickerDialog({
                           )}
                         </Box>
                       }
-                      secondary={item.name}
+                      secondary={
+                        <>
+                          <Typography variant="body2" component="span" display="block">
+                            {item.name}
+                          </Typography>
+                          {/* The spec is what tells two similar items apart at the
+                              moment of picking one (feedback 9DQ3Nav). */}
+                          {summariseBoughtOutSpec(item.category, item.specifications) && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              component="span"
+                              display="block"
+                            >
+                              {summariseBoughtOutSpec(item.category, item.specifications)}
+                            </Typography>
+                          )}
+                        </>
+                      }
                     />
                   </ListItemButton>
                 </ListItem>
@@ -534,12 +553,19 @@ export default function BoughtOutPickerDialog({
                         }
                         secondary={
                           <>
-                            <Typography variant="body2">{item.name}</Typography>
-                            {(item.specifications?.manufacturer || item.specifications?.model) && (
-                              <Typography variant="caption" color="text.secondary">
-                                {[item.specifications?.manufacturer, item.specifications?.model]
-                                  .filter(Boolean)
-                                  .join(' — ')}
+                            <Typography variant="body2" component="span" display="block">
+                              {item.name}
+                            </Typography>
+                            {/* Was manufacturer/model only; now the same summary the
+                                browse list uses, so the two cannot drift apart again. */}
+                            {summariseBoughtOutSpec(item.category, item.specifications) && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                component="span"
+                                display="block"
+                              >
+                                {summariseBoughtOutSpec(item.category, item.specifications)}
                               </Typography>
                             )}
                           </>
