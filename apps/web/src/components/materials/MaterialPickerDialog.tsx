@@ -65,6 +65,7 @@ import MaterialDimensionsForm, {
 } from './MaterialDimensionsForm';
 import PipingMaterialTable from './PipingMaterialTable';
 import { hasVariants } from '@/lib/materials/variantUtils';
+import { countMaterialsByTileGroup } from '@/lib/materials/queries';
 import { needsDimensions } from '@/lib/catalog/lineDimensions';
 
 /**
@@ -187,6 +188,12 @@ export default function MaterialPickerDialog({
   // Possible-duplicate candidates surfaced before creating (5C — "always ask").
   const [dupCandidates, setDupCandidates] = useState<Material[] | null>(null);
 
+  // Real record counts per group, so the tiles here match the Materials
+  // module exactly. They used to show how many CATEGORY CONSTANTS a group
+  // held ("Pipes — 6 types") while the module showed records ("Pipes 344"),
+  // which read as two different databases (feedback huqiaePA959XRjGnHwwq).
+  const [groupCounts, setGroupCounts] = useState<Record<string, number> | null>(null);
+
   // Derived: which groups are available based on the categories prop
   const availableGroups = useMemo(() => {
     if (!categories || categories.length === 0) return MATERIAL_CATEGORY_GROUPS;
@@ -222,6 +229,27 @@ export default function MaterialPickerDialog({
     return Object.keys(MATERIAL_CATEGORY_LABELS) as MaterialCategory[];
   }, [selectedGroup, categories]);
 
+  // Load the real per-group counts once the dialog opens. Same helper the
+  // Materials module uses, so the two can never drift apart again.
+  useEffect(() => {
+    if (!open || !db) return;
+    let cancelled = false;
+
+    countMaterialsByTileGroup(db, availableGroups)
+      .then((counts) => {
+        if (!cancelled) setGroupCounts(counts);
+      })
+      .catch(() => {
+        // The helper already logs and degrades per group; a total failure just
+        // means no captions rather than a broken picker.
+        if (!cancelled) setGroupCounts({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, db, availableGroups]);
+
   // Reset ALL state when dialog opens
   useEffect(() => {
     if (open) {
@@ -237,6 +265,7 @@ export default function MaterialPickerDialog({
       setSelectedFullCode('');
       setDimensionsDraft(null);
       setSelectedFamily(null);
+      setGroupCounts(null);
       setFamilyMaterials([]);
       setLoadingFamily(false);
       setSelectedPipingMaterial(null);
@@ -820,9 +849,9 @@ export default function MaterialPickerDialog({
                         {group.label}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {group.categories.length === 1
-                          ? '1 type'
-                          : `${group.categories.length} types`}
+                        {groupCounts === null
+                          ? 'Counting…'
+                          : `${groupCounts[group.key] ?? 0} item${(groupCounts[group.key] ?? 0) === 1 ? '' : 's'}`}
                       </Typography>
                     </Paper>
                   </Grid>

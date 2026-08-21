@@ -19,6 +19,7 @@ import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { MATERIAL_MODULE_TILE_GROUPS } from '@vapour/types';
+import { countMaterialsByTileGroup } from '@/lib/materials/queries';
 import { createLogger } from '@vapour/logger';
 import { ModuleLandingPage, type ModuleItem } from '@/components/modules';
 import type { ReactNode } from 'react';
@@ -88,12 +89,9 @@ export default function MaterialsPage() {
       try {
         const col = collection(db, COLLECTIONS.MATERIALS);
 
-        // One count query per module tile, using the canonical category sets.
-        const results = await Promise.all(
-          MATERIAL_MODULE_TILE_GROUPS.map((g) =>
-            getCountFromServer(query(col, where('category', 'in', g.categories)))
-          )
-        );
+        // Shared with the PR/Quote picker so the two can't show different
+        // numbers for the same tile (feedback huqiaePA959XRjGnHwwq).
+        const groupCounts = await countMaterialsByTileGroup(db, MATERIAL_MODULE_TILE_GROUPS);
 
         // Vendor quotes — materials-side tile shows STANDING_QUOTE only.
         const voQuery = query(
@@ -111,9 +109,7 @@ export default function MaterialsPage() {
           vendorOffers: voCount.data().count ?? 0,
           needsReview: reviewCount.data().count ?? 0,
         };
-        MATERIAL_MODULE_TILE_GROUPS.forEach((g, i) => {
-          newCounts[g.key] = results[i]?.data().count ?? 0;
-        });
+        Object.assign(newCounts, groupCounts);
 
         setCounts(newCounts);
       } catch (error) {

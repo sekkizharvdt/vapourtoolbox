@@ -11,6 +11,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  getCountFromServer,
   type Firestore,
   type Query,
   type DocumentData,
@@ -369,4 +370,65 @@ export async function queryPipingFamilies(
       `Failed to query piping families: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
+}
+
+/**
+ * Count the material records behind each module tile group.
+ *
+ * Shared so the Materials module and the PR/Quote picker cannot disagree.
+ * They did: the module counted records ("Pipes 344") while the picker showed
+ * how many category constants were in the group ("Pipes — 6 types"), and to a
+ * user those read as two different databases (feedback huqiaePA959XRjGnHwwq).
+ *
+ * Counts LIVE records only: the superseded parents left behind by the bought-out
+ * taxonomy migration carry `isMigrated: true` and are excluded, matching what
+ * `queryMaterials` actually lists. Without that the Fittings and Flanges tiles
+ * advertise hundreds of records whose lists are empty.
+ *
+ * Keyed by group key. A group whose count query fails resolves to 0 rather than
+ * failing the whole tile grid — a missing number is better than a blank screen.
+ */
+export async function countMaterialsByTileGroup(
+  db: Firestore,
+  groups: ReadonlyArray<{ key: string; categories: readonly MaterialCategory[] }>
+): Promise<Record<string, number>> {
+  const col = collection(db, COLLECTIONS.MATERIALS);
+
+  const counts = await Promise.all(
+    groups.map(async (g) => {
+      try {
+        // `where('category', 'in', ...)` caps at 30 values; every group is far
+        // smaller, and a group that ever grows past it would silently under-count.
+        if (g.categories.length > 30) {
+          logger.warn('Tile group exceeds the 30-value "in" limit; count will be partial', {
+            group: g.key,
+            categories: g.categories.length,
+          });
+        }
+        const cats = g.categories.slice(0, 30);
+
+        // Subtract the superseded parents rather than filtering them out.
+        // `where('isMigrated', '!=', true)` would drop every doc that simply
+        // lacks the field (rule 3), which is most of them, so count both and
+        // take the difference. Needs the (isMigrated, category) composite index.
+        const [total, migrated] = await Promise.all([
+          getCountFromServer(query(col, where('category', 'in', cats))),
+          getCountFromServer(
+            query(col, where('isMigrated', '==', true), where('category', 'in', cats))
+          ),
+        ]);
+
+        const live = (total.data().count ?? 0) - (migrated.data().count ?? 0);
+        return [g.key, Math.max(0, live)] as const;
+      } catch (error) {
+        logger.warn('Could not count materials for tile group', {
+          group: g.key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return [g.key, 0] as const;
+      }
+    })
+  );
+
+  return Object.fromEntries(counts);
 }
