@@ -47,6 +47,7 @@ import {
   getPipingCategory,
   isFlatPipingCategory,
 } from '@vapour/types';
+import { EmptyState, LoadingState } from '@vapour/ui';
 import { getFirebase } from '@/lib/firebase';
 import {
   queryMaterials,
@@ -204,6 +205,20 @@ export default function MaterialPickerDialog({
       categories: group.categories.filter((cat) => categories.includes(cat)),
     }));
   }, [categories]);
+
+  /**
+   * Groups worth offering: the ones with records behind them.
+   *
+   * The landing grid used to show all 13 groups regardless. After the Aug-2026
+   * taxonomy split only plates, pipes and the OTHER strays remain in
+   * `materials`, so ten of those tiles opened onto an empty list — the "two
+   * different databases" complaint (feedback huqiaePA). Driven by the counts
+   * rather than a hardcoded list, so it stays right as the data changes.
+   */
+  const visibleGroups = useMemo(
+    () => (groupCounts ? availableGroups.filter((g) => (groupCounts[g.key] ?? 0) > 0) : []),
+    [availableGroups, groupCounts]
+  );
 
   // Derived: currently selected group
   const selectedGroup = useMemo(
@@ -824,9 +839,23 @@ export default function MaterialPickerDialog({
             )}
 
             {/* ===== CATEGORY LANDING VIEW ===== */}
-            {view === 'categories' && !searchResults && (
+            {view === 'categories' && !searchResults && groupCounts === null && (
+              <LoadingState message="Loading categories…" />
+            )}
+
+            {view === 'categories' &&
+              !searchResults &&
+              groupCounts !== null &&
+              visibleGroups.length === 0 && (
+                <EmptyState
+                  title="Nothing to browse"
+                  message="No raw material is filed under these categories. Search by code or name, or use Create New."
+                />
+              )}
+
+            {view === 'categories' && !searchResults && groupCounts !== null && (
               <Grid container spacing={2}>
-                {availableGroups.map((group) => (
+                {visibleGroups.map((group) => (
                   <Grid key={group.key} size={{ xs: 6, sm: 4, md: 3 }}>
                     <Paper
                       elevation={0}

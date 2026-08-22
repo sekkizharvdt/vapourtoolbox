@@ -364,7 +364,15 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
  * `other` group is the catch-all), so the picker can always reach every
  * material. A unit test guards this partition.
  *
- * `moduleRoute` is set for groups the standalone module surfaces as a tile
+ * `moduleRoute` is set for groups the standalone module surfaces as a tile.
+ *
+ * ONLY raw material qualifies — categories priced by weight or length
+ * (`CATALOG_SIZING` pricingUnit KG or METER), i.e. plates and pipes. Anything
+ * priced per PIECE is a finished article and lives in `bought_out_items`; a
+ * tile for it here opens onto an empty list, which is what made the Materials
+ * module and the PR picker look like two different databases
+ * (feedback huqiaePA959XRjGnHwwq). `material.test.ts` enforces this so a tile
+ * cannot be re-added by hand
  * (each has a dedicated /materials/<x> sub-page). Groups without it
  * (gaskets, instrument accessories, other) are picker-only — the module has no
  * sub-page for them, but the picker still needs them for full coverage.
@@ -416,7 +424,6 @@ export const MATERIAL_CATEGORY_GROUPS: MaterialCategoryGroup[] = [
       MaterialCategory.FITTINGS_FLANGED,
     ],
     pipingMode: true,
-    moduleRoute: '/materials/fittings',
   },
   {
     key: 'flanges',
@@ -428,7 +435,6 @@ export const MATERIAL_CATEGORY_GROUPS: MaterialCategoryGroup[] = [
       MaterialCategory.FLANGES_BLIND,
     ],
     pipingMode: true,
-    moduleRoute: '/materials/flanges',
   },
   {
     key: 'valves',
@@ -442,14 +448,12 @@ export const MATERIAL_CATEGORY_GROUPS: MaterialCategoryGroup[] = [
       MaterialCategory.VALVE_OTHER,
     ],
     pipingMode: false,
-    moduleRoute: '/materials/valves',
   },
   {
     key: 'pumps',
     label: 'Pumps',
     categories: [MaterialCategory.PUMP_CENTRIFUGAL, MaterialCategory.PUMP_POSITIVE_DISPLACEMENT],
     pipingMode: false,
-    moduleRoute: '/materials/pumps',
   },
   {
     key: 'instruments',
@@ -463,7 +467,6 @@ export const MATERIAL_CATEGORY_GROUPS: MaterialCategoryGroup[] = [
       MaterialCategory.INSTRUMENT_OTHER,
     ],
     pipingMode: false,
-    moduleRoute: '/materials/instruments',
   },
   {
     key: 'fasteners',
@@ -477,14 +480,12 @@ export const MATERIAL_CATEGORY_GROUPS: MaterialCategoryGroup[] = [
       MaterialCategory.FASTENERS_SCREWS,
     ],
     pipingMode: false,
-    moduleRoute: '/materials/fasteners',
   },
   {
     key: 'structural-steel',
     label: 'Structural Steel',
     categories: [MaterialCategory.STRUCTURAL_SHAPES],
     pipingMode: false,
-    moduleRoute: '/materials/structural-steel',
   },
   {
     key: 'consumables',
@@ -496,7 +497,6 @@ export const MATERIAL_CATEGORY_GROUPS: MaterialCategoryGroup[] = [
       MaterialCategory.CHEMICALS,
     ],
     pipingMode: false,
-    moduleRoute: '/materials/consumables',
   },
   // Picker-only groups (no standalone module sub-page) — needed so the picker
   // can reach every material.

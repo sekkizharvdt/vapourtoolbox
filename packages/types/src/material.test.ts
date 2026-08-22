@@ -1,3 +1,4 @@
+import { getCatalogSizing } from './catalog';
 import {
   MaterialCategory,
   MATERIAL_CATEGORY_GROUPS,
@@ -32,5 +33,30 @@ describe('MATERIAL_CATEGORY_GROUPS partition', () => {
     expect(MATERIAL_MODULE_TILE_GROUPS.every((g) => typeof g.moduleRoute === 'string')).toBe(true);
     // The module surfaces a strict subset of all groups.
     expect(MATERIAL_MODULE_TILE_GROUPS.length).toBeLessThanOrEqual(MATERIAL_CATEGORY_GROUPS.length);
+  });
+
+  // The Materials module is for RAW material — stock you cut and fabricate,
+  // priced by weight or length. Finished articles priced per piece live in
+  // `bought_out_items` since the Aug-2026 taxonomy split, so a tile for them
+  // here opens onto an empty list. That is exactly how the module and the PR
+  // picker came to look like two different databases (feedback huqiaePA).
+  // Enforced rather than remembered: adding a tile for a PIECE-priced group
+  // fails here.
+  it('only surfaces tiles for groups that actually hold raw material', () => {
+    const offenders = MATERIAL_MODULE_TILE_GROUPS.filter((g) =>
+      g.categories.some((c) => getCatalogSizing(c).pricingUnit === 'PIECE')
+    ).map((g) => g.key);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('surfaces every raw-material group as a tile, so none becomes unreachable', () => {
+    const rawGroups = MATERIAL_CATEGORY_GROUPS.filter(
+      (g) =>
+        g.categories.length > 0 &&
+        g.categories.every((c) => getCatalogSizing(c).pricingUnit !== 'PIECE')
+    ).map((g) => g.key);
+
+    expect(MATERIAL_MODULE_TILE_GROUPS.map((g) => g.key).sort()).toEqual(rawGroups.sort());
   });
 });

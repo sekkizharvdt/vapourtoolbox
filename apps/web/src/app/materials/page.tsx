@@ -4,14 +4,6 @@ import { useState, useEffect } from 'react';
 import {
   Layers as PlatesIcon,
   Circle as PipesIcon,
-  ViewInAr as StructuralIcon,
-  Architecture as FittingsIcon,
-  Build as FastenersIcon,
-  Cake as FlangesIcon,
-  Tune as ValvesIcon,
-  SettingsInputComponent as PumpsIcon,
-  Speed as InstrumentsIcon,
-  Science as ConsumablesIcon,
   RequestQuote as VendorOffersIcon,
   RateReview as ReviewIcon,
 } from '@mui/icons-material';
@@ -27,7 +19,10 @@ import type { ReactNode } from 'react';
 const logger = createLogger({ context: 'MaterialsPage' });
 
 // Per-tile presentation (icon + blurb), keyed by the canonical group key from
-// MATERIAL_MODULE_TILE_GROUPS. The taxonomy itself (label, route, member
+// MATERIAL_MODULE_TILE_GROUPS. Only raw material has a tile since the Aug-2026
+// taxonomy split — fittings, flanges, valves, pumps, instruments, fasteners,
+// structural steel and consumables are bought-out items now, and their tiles
+// opened onto empty lists (feedback huqiaePA). The taxonomy itself (label, route, member
 // categories) is canonical in @vapour/types — only the visuals live here, so
 // the picker and this module can never drift on which categories exist
 // (feedback Jit9v).
@@ -40,38 +35,6 @@ const TILE_PRESENTATION: Record<string, { icon: ReactNode; description: string }
     icon: <PipesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
     description:
       'Carbon Steel, SS 304L, SS 316L seamless pipes with ASTM schedules (Sch 10, 40, 80)',
-  },
-  fittings: {
-    icon: <FittingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'Butt weld elbows, tees, reducers, and other pipe fittings per ASME B16.9',
-  },
-  flanges: {
-    icon: <FlangesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'Weld neck, slip-on, blind, and other flanges per ASME B16.5',
-  },
-  valves: {
-    icon: <ValvesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'Gate, Globe, Ball, Butterfly, Check, and other valves per API/ASME standards',
-  },
-  pumps: {
-    icon: <PumpsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'Centrifugal and Positive Displacement pumps per API standards',
-  },
-  instruments: {
-    icon: <InstrumentsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'Pressure, Temperature, Flow, Level instruments and Control Valves',
-  },
-  fasteners: {
-    icon: <FastenersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'Bolts, nuts, washers, studs, and screws with ASTM grade specifications',
-  },
-  'structural-steel': {
-    icon: <StructuralIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'ISMB, ISMC, ISUA, ISLB sections and structural shapes',
-  },
-  consumables: {
-    icon: <ConsumablesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-    description: 'Welding consumables, paints, coatings, lubricants, and chemicals',
   },
 };
 
