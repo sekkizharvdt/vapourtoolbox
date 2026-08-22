@@ -323,6 +323,15 @@ export async function approvePO(
     await completeTaskNotificationsByEntity('PURCHASE_ORDER', poId, userId);
   }
 
+  // Tell Accounts a new PO exists that they will be paying against (§2 of the
+  // PO-wise payment request). They can already read purchaseOrders, so the
+  // notification is the only thing missing — without it the first they hear of
+  // a PO is a vendor chasing an advance. Best-effort by construction.
+  {
+    const { notifyAccountingOfApprovedPO } = await import('../notifyAccountingOfPO');
+    await notifyAccountingOfApprovedPO({ po, actorId: userId });
+  }
+
   // Create advance payment if required (outside transaction)
   // This involves complex GL entry generation that can't easily be in same transaction
   if (po.advancePaymentRequired && bankAccountId) {

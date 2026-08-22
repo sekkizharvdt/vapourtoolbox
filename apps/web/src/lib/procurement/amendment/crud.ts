@@ -573,6 +573,30 @@ export async function approveAmendment(
       await completeTaskNotificationsByEntity('PURCHASE_ORDER_AMENDMENT', amendmentId, userId);
     }
 
+    // Tell Accounts the order they are paying against has moved (§8). The
+    // milestone amounts were repriced above and the Cloud Function rebuilds the
+    // payment projection off the PO write, so by the time this notification is
+    // opened the figures behind it are already correct.
+    try {
+      const { notifyAccountingOfAmendedPO } = await import('../notifyAccountingOfPO');
+      const amendedPOSnap = await getDoc(poRef);
+      if (amendedPOSnap.exists()) {
+        await notifyAccountingOfAmendedPO({
+          po: { id: amendedPOSnap.id, ...amendedPOSnap.data() } as PurchaseOrder,
+          actorId: userId,
+          previousGrandTotal: amendment.previousGrandTotal,
+          amendmentNumber: amendment.amendmentNumber,
+        });
+      }
+    } catch (notifyErr) {
+      // The amendment is already applied; losing the notification must not
+      // undo it (rule 27).
+      logger.warn('Could not notify accounting of amended PO', {
+        amendmentId,
+        error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+      });
+    }
+
     logger.info('Amendment approved and applied', {
       amendmentId,
       purchaseOrderId: amendment.purchaseOrderId,
