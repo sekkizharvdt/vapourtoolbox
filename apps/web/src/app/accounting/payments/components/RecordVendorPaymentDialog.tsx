@@ -28,6 +28,14 @@ import {
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { getInrAmount, deriveOutstanding, roundToPaisa } from '@/lib/accounting/amountHelpers';
+import {
+  TXN_FIELD_MILESTONE_ID,
+  TXN_FIELD_PURCHASE_ORDER_ID,
+  TXN_FIELD_SOURCE_PO_NUMBER,
+} from '@vapour/constants';
+import { PurchaseOrderSelector } from '@/components/common/forms/PurchaseOrderSelector';
+import { PaymentMilestoneSelector } from '@/components/common/forms/PaymentMilestoneSelector';
+import { assertSingleMilestoneAttribution } from '@/lib/procurement/poPaymentAttribution';
 
 interface RecordVendorPaymentDialogProps {
   open: boolean;
@@ -64,6 +72,11 @@ export function RecordVendorPaymentDialog({
   const [projectId, setProjectId] = useState<string | null>(null);
 
   const [isAdvance, setIsAdvance] = useState<boolean>(false);
+  // PO/milestone tagging for a payment with no bill behind it (see
+  // lib/procurement/poPaymentAttribution.ts).
+  const [directPoId, setDirectPoId] = useState<string | null>(null);
+  const [directPoNumber, setDirectPoNumber] = useState<string>('');
+  const [directMilestoneId, setDirectMilestoneId] = useState<string | null>(null);
 
   // TDS fields
   const [tdsDeducted, setTdsDeducted] = useState<boolean>(false);
@@ -327,6 +340,9 @@ export function RecordVendorPaymentDialog({
         setTdsSection(editingPayment.tdsSection || '');
         setTdsAmount(editingPayment.tdsAmount || 0);
         setIsAdvance(editingPayment.isAdvance ?? false);
+        setDirectPoId(editingPayment.purchaseOrderId ?? null);
+        setDirectPoNumber(editingPayment.sourcePoNumber ?? '');
+        setDirectMilestoneId(editingPayment.milestoneId ?? null);
         setAllocations(editingPayment.billAllocations || []);
       } else {
         setPaymentDate(new Date().toISOString().split('T')[0] || '');
@@ -546,6 +562,22 @@ export function RecordVendorPaymentDialog({
       if (isAdvance) {
         paymentData.isAdvance = true;
       }
+
+      // Direct PO/milestone attribution, only meaningful with no allocations.
+      // Written as explicit null when cleared: the edit path merges, so
+      // omitting the key would leave a stale tag behind.
+      const taggedDirectly = realAllocations.length === 0 && directPoId;
+      paymentData[TXN_FIELD_PURCHASE_ORDER_ID] = taggedDirectly ? directPoId : null;
+      paymentData[TXN_FIELD_SOURCE_PO_NUMBER] = taggedDirectly ? directPoNumber || null : null;
+      paymentData[TXN_FIELD_MILESTONE_ID] = taggedDirectly ? (directMilestoneId ?? null) : null;
+
+      // Belt and braces on the either-or rule the UI already enforces by
+      // hiding the selectors once anything is allocated.
+      assertSingleMilestoneAttribution({
+        billAllocations: realAllocations,
+        purchaseOrderId: paymentData[TXN_FIELD_PURCHASE_ORDER_ID] as string | null,
+        milestoneId: paymentData[TXN_FIELD_MILESTONE_ID] as string | null,
+      });
 
       if (editingPayment?.id) {
         // Update existing payment with GL validation (only pass real allocations for bill updates)
@@ -795,14 +827,50 @@ export function RecordVendorPaymentDialog({
           />
 
           {totalAllocated === 0 && amount > 0 && (
-            <Grid size={{ xs: 12 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox checked={isAdvance} onChange={(e) => setIsAdvance(e.target.checked)} />
-                }
-                label="Mark as advance payment (payment made before bill is received)"
-              />
-            </Grid>
+            <>
+              <Grid size={{ xs: 12 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={isAdvance}
+                      onChange={(e) => setIsAdvance(e.target.checked)}
+                    />
+                  }
+                  label="Mark as advance payment (payment made before bill is received)"
+                />
+              </Grid>
+
+              {/*
+                PO + milestone tagging, shown ONLY while nothing is allocated.
+                A payment that settles bills reaches its milestone through those
+                bills; tagging it here as well would count it twice, so the
+                fields disappear the moment an allocation is entered and
+                assertSingleMilestoneAttribution refuses the write if they
+                somehow both arrive.
+              */}
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Link to Purchase Order (optional)
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <PurchaseOrderSelector
+                  value={directPoId}
+                  onChange={setDirectPoId}
+                  onPOSelect={(po) => setDirectPoNumber(po?.number || '')}
+                  vendorId={entityId}
+                  helperText={!entityId ? 'Select a vendor first to see their POs' : undefined}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <PaymentMilestoneSelector
+                  purchaseOrderId={directPoId}
+                  value={directMilestoneId}
+                  onChange={setDirectMilestoneId}
+                  helperText="Which payment stage this settles"
+                />
+              </Grid>
+            </>
           )}
         </Grid>
       </Box>

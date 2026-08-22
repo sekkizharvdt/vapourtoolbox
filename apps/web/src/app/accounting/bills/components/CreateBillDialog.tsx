@@ -11,7 +11,11 @@ import { getFirebase } from '@/lib/firebase';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import { TXN_FIELD_PURCHASE_ORDER_ID, TXN_FIELD_SOURCE_PO_NUMBER } from '@vapour/constants';
+import {
+  TXN_FIELD_MILESTONE_ID,
+  TXN_FIELD_PURCHASE_ORDER_ID,
+  TXN_FIELD_SOURCE_PO_NUMBER,
+} from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { generateBillGLEntries, type BillGLInput } from '@/lib/accounting/glEntry';
@@ -23,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 import { useTallyKeyboard } from '@/hooks/useTallyKeyboard';
 import { PurchaseOrderSelector } from '@/components/common/forms/PurchaseOrderSelector';
+import { PaymentMilestoneSelector } from '@/components/common/forms/PaymentMilestoneSelector';
 
 interface CreateBillDialogProps {
   open: boolean;
@@ -52,6 +57,7 @@ export function CreateBillDialog({
   // Purchase Order linkage (optional)
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
   const [sourcePoNumber, setSourcePoNumber] = useState('');
+  const [milestoneId, setMilestoneId] = useState<string | null>(null);
 
   // Memoize initial data to prevent useEffect re-runs on every render
   const initialFormData = useMemo(
@@ -117,6 +123,7 @@ export function CreateBillDialog({
       if (prevEntityIdRef.current !== null) {
         setSelectedPoId(null);
         setSourcePoNumber('');
+        setMilestoneId(null);
       }
       prevEntityIdRef.current = formState.entityId;
     }
@@ -132,10 +139,12 @@ export function CreateBillDialog({
       // scripts/analysis/backfill-bill-po-link.js.
       setSelectedPoId(editingBill.purchaseOrderId || null);
       setSourcePoNumber(editingBill.sourcePoNumber || '');
+      setMilestoneId(editingBill.milestoneId || null);
     } else if (open) {
       setVendorBillNumber('');
       setSelectedPoId(null);
       setSourcePoNumber('');
+      setMilestoneId(null);
     }
   }, [open, editingBill]);
 
@@ -255,6 +264,10 @@ export function CreateBillDialog({
         // selector. Firestore rejects `undefined`, not `null` (rule 12).
         [TXN_FIELD_PURCHASE_ORDER_ID]: selectedPoId ?? null,
         [TXN_FIELD_SOURCE_PO_NUMBER]: sourcePoNumber || null,
+        // Which milestone of the PO's payment schedule this bill settles. Null
+        // when no PO is linked, so clearing the PO cannot leave an orphaned
+        // milestone id pointing into a schedule this bill no longer belongs to.
+        [TXN_FIELD_MILESTONE_ID]: selectedPoId ? (milestoneId ?? null) : null,
         sourceModule: selectedPoId ? ('procurement' as const) : null,
         // Payment tracking - preserve existing values on edit, initialize on create
         paidAmount: derivePaid(editingBill),
@@ -421,16 +434,31 @@ export function CreateBillDialog({
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             Link to Purchase Order (optional)
           </Typography>
-          <PurchaseOrderSelector
-            value={selectedPoId}
-            onChange={setSelectedPoId}
-            onPOSelect={(po) => {
-              setSourcePoNumber(po?.number || '');
-            }}
-            vendorId={formState.entityId}
-            disabled={viewOnly}
-            helperText={!formState.entityId ? 'Select a vendor first to see their POs' : undefined}
-          />
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <PurchaseOrderSelector
+                value={selectedPoId}
+                onChange={setSelectedPoId}
+                onPOSelect={(po) => {
+                  setSourcePoNumber(po?.number || '');
+                }}
+                vendorId={formState.entityId}
+                disabled={viewOnly}
+                helperText={
+                  !formState.entityId ? 'Select a vendor first to see their POs' : undefined
+                }
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <PaymentMilestoneSelector
+                purchaseOrderId={selectedPoId}
+                value={milestoneId}
+                onChange={setMilestoneId}
+                disabled={viewOnly}
+                helperText="Which payment stage this bill settles"
+              />
+            </Grid>
+          </Grid>
         </Grid>
 
         {/* Line Items Table */}

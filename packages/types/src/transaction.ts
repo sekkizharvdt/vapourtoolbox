@@ -267,6 +267,19 @@ export interface VendorBill extends BaseTransaction {
   goodsReceiptId?: string;
   goodsReceiptNumber?: string;
   matchNumber?: string;
+
+  /**
+   * Payment milestone this bill settles, keyed to
+   * `PurchaseOrder.commercialTerms.paymentSchedule[].id`.
+   *
+   * The milestone is tagged on the BILL rather than the payment because that is
+   * how the work actually arrives: the vendor invoices for a milestone (live
+   * example — BILL-2627-0064 is exactly 50% of PO/2026/007, its milestone #2),
+   * while a payment may settle several bills at once (22 live payments do) or
+   * only part of one (64 do). Tagging the bill lets the existing allocation
+   * machinery carry partial and multi-bill payments through unchanged.
+   */
+  milestoneId?: string;
 }
 
 /**
@@ -299,6 +312,24 @@ export interface VendorPayment extends BaseTransaction {
   tdsDeducted: boolean;
   tdsAmount?: number;
   tdsSection?: string;
+
+  /**
+   * PO this payment settles, for a payment made with no bill behind it.
+   *
+   * Only set on a DIRECT payment — one with no `billAllocations`. When the
+   * payment allocates to bills, the PO is reached through those bills and
+   * these fields must stay unset, or the amount is counted twice.
+   * `assertSingleMilestoneAttribution` enforces that.
+   */
+  purchaseOrderId?: string;
+  sourcePoNumber?: string;
+
+  /**
+   * Payment milestone this direct payment settles. Same either-or rule as
+   * `purchaseOrderId` above: an advance paid against a proforma has no bill to
+   * hang the milestone on, and 15 live payments are in exactly that shape.
+   */
+  milestoneId?: string;
 
   // Cross-module integration (for future use)
   notifyModules?: Array<'procurement' | 'projects'>; // Which modules should be notified of this payment
