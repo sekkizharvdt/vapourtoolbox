@@ -386,3 +386,23 @@ export const PROCUREMENT_ITEM_STATUS_LABELS = {
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
 } as const;
+
+// ============================================================================
+// PROCUREMENT — PO-wise payment tracking
+// ============================================================================
+
+/**
+ * Labels for `POPaymentStatus`, used on a PO's overall payment position and on
+ * each of its payment milestones (feature request §7).
+ *
+ * PAYMENT_REQUESTED is reachable only once the payment-request workflow ships;
+ * the value exists now so the closed set is defined in one place rather than
+ * being extended later in two.
+ */
+export const PO_PAYMENT_STATUS_LABELS = {
+  PENDING: 'Pending',
+  DUE: 'Due',
+  PAYMENT_REQUESTED: 'Payment Requested',
+  PARTIALLY_PAID: 'Partially Paid',
+  PAID: 'Paid',
+} as const;

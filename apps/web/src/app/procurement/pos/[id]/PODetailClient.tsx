@@ -39,6 +39,7 @@ import { PODetailsSection } from './components/PODetailsSection';
 import { FinancialSummarySection } from './components/FinancialSummarySection';
 import { POLineItemsTable } from './components/POLineItemsTable';
 import { POTermsSection } from './components/POTermsSection';
+import { POPaymentsSection } from './components/POPaymentsSection';
 import { POApprovalInfo } from './components/POApprovalInfo';
 import { POWorkflowDialogs } from './components/POWorkflowDialogs';
 
@@ -415,6 +416,7 @@ export default function PODetailPage() {
         <POLineItemsTable po={po} items={items} editable={false} />
         <FinancialSummarySection po={po} items={items} />
         <POTermsSection po={po} />
+        <POPaymentsSection po={po} />
         <POApprovalInfo po={po} />
         <DocumentUploadWidget
           documents={(po.attachments ?? []).map((a) => ({

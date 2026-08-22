@@ -38,7 +38,8 @@ export type StatusColorContext =
   | 'commentResolution'
   | 'workItem'
   | 'accountingPeriod'
-  | 'manualTask';
+  | 'manualTask'
+  | 'poPayment';
 
 /** Context for `getPriorityColor` — mirrors `StatusColorContext`'s design. */
 export type PriorityColorContext = 'project';
@@ -107,6 +108,16 @@ const contextOverrides: Record<string, Partial<Record<string, StatusChipColor>>>
   bom: {
     RELEASED: 'warning',
     APPROVED: 'success',
+  },
+  // PO payment position. PENDING is neutral rather than a warning: nothing is
+  // wrong with a milestone that simply has not fallen due. DUE is the one that
+  // wants attention.
+  poPayment: {
+    PENDING: 'default',
+    DUE: 'warning',
+    PAYMENT_REQUESTED: 'info',
+    PARTIALLY_PAID: 'warning',
+    PAID: 'success',
   },
   // Invoice/Bill contexts use base colors (APPROVED=info, POSTED=success)
   invoice: {},
