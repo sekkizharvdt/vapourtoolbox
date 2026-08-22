@@ -18,6 +18,18 @@ export {
   // Milestone utilities
   createEmptyMilestone,
   validatePaymentSchedule,
+} from './defaults';
+
+// Milestone amounts — one formula, shared by create / edit / amendment / PDF
+export {
+  calculateMilestoneAmounts,
+  hasTaxAssignment,
+  sumMilestoneAmounts,
+  withPricedSchedule,
+  type PaymentScheduleTotals,
+} from './paymentSchedule';
+
+export {
   // Terms creation
   createCommercialTermsFromTemplate,
   deriveCommercialTermsFromOffer,

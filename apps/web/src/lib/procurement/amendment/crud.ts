@@ -17,7 +17,15 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { PurchaseOrder, PurchaseOrderChange, PurchaseOrderAmendment } from '@vapour/types';
+import type {
+  POCommercialTerms,
+  PurchaseOrder,
+  PurchaseOrderChange,
+  PurchaseOrderAmendment,
+} from '@vapour/types';
+import { withPricedSchedule } from '../commercialTerms/paymentSchedule';
+import { removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
+import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 import { determineAmendmentType } from './helpers';
 import { getAmendmentHistory } from './queries';
 import { createVersionSnapshot } from './versioning';
@@ -484,6 +492,47 @@ export async function approveAmendment(
         ? toTimestampValue(change.newValue)
         : change.newValue;
     });
+
+    // An amendment that moves the PO value must move the payment milestones with
+    // it, or the schedule keeps pricing the superseded order (§8 of the PO-wise
+    // payment plan). Repriced against the amended grandTotal, using whichever
+    // commercialTerms this amendment lands on — its own if it changed them,
+    // otherwise the PO's existing ones.
+    {
+      const poSnap = await getDoc(poRef);
+      if (poSnap.exists()) {
+        const po = poSnap.data() as {
+          totalTax?: number;
+          taxableValue?: number;
+          grandTotal?: number;
+          commercialTerms?: POCommercialTerms;
+        };
+        const amendedTerms =
+          (updateData.commercialTerms as POCommercialTerms | undefined) ?? po.commercialTerms;
+        const newGrandTotal = amendment.newGrandTotal;
+        // The amendment carries a new grand total but no new tax split, so the
+        // existing totalTax is carried forward and the taxable value absorbs
+        // the change. Recomputing GST here would need the line-level rates the
+        // amendment does not capture.
+        const totalTax = po.totalTax ?? 0;
+        const repriced = withPricedSchedule(amendedTerms, {
+          taxableValue: roundToPaisa(newGrandTotal - totalTax),
+          totalTax,
+          grandTotal: newGrandTotal,
+        });
+        if (repriced) {
+          updateData.commercialTerms = removeUndefinedDeep(
+            repriced as unknown as Record<string, unknown>
+          );
+          updateData.taxableValue = roundToPaisa(newGrandTotal - totalTax);
+        }
+      } else {
+        logger.warn('PO not found while repricing milestones for amendment', {
+          amendmentId,
+          purchaseOrderId: amendment.purchaseOrderId,
+        });
+      }
+    }
 
     batch.update(poRef, updateData);
 

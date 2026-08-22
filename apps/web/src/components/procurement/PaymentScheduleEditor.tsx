@@ -7,7 +7,7 @@
  * Validates that total percentages sum to 100%.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Box,
   Table,
@@ -31,45 +31,87 @@ import {
   DragIndicator as DragIcon,
 } from '@mui/icons-material';
 import type { PaymentMilestone } from '@vapour/types';
-import { createEmptyMilestone, validatePaymentSchedule } from '@/lib/procurement/commercialTerms';
+import {
+  calculateMilestoneAmounts,
+  createEmptyMilestone,
+  sumMilestoneAmounts,
+  validatePaymentSchedule,
+  type PaymentScheduleTotals,
+} from '@/lib/procurement/commercialTerms';
+import { formatCurrencyCode } from '@/lib/utils/formatters';
 
 interface PaymentScheduleEditorProps {
   milestones: PaymentMilestone[];
   onChange: (milestones: PaymentMilestone[]) => void;
   disabled?: boolean;
+  /**
+   * PO totals the schedule is priced against. When supplied, each milestone
+   * shows its rupee amount and the footer reconciles against `grandTotal` —
+   * without it the user is asked to split an order into percentages with no
+   * sight of what any of them is worth, and unassigned GST stays invisible.
+   */
+  totals?: PaymentScheduleTotals;
+  /** Currency for the amount column; the PO's own currency. */
+  currency?: string;
 }
 
 export function PaymentScheduleEditor({
   milestones,
   onChange,
   disabled = false,
+  totals,
+  currency = 'INR',
 }: PaymentScheduleEditorProps) {
   const [validationResult, setValidationResult] = useState(() =>
-    validatePaymentSchedule(milestones)
+    validatePaymentSchedule(milestones, totals)
   );
+
+  // Priced view of the rows. Derived on render rather than stored on the
+  // milestones so an in-progress edit cannot persist a half-computed amount —
+  // the write paths in purchaseOrder/crud.ts do the persisting.
+  const pricedMilestones = useMemo(
+    () => (totals ? calculateMilestoneAmounts(milestones, totals) : milestones),
+    [milestones, totals]
+  );
+  const amountTotal = useMemo(() => sumMilestoneAmounts(pricedMilestones), [pricedMilestones]);
+  const amountsReconcile = totals ? Math.abs(amountTotal - totals.grandTotal) < 0.01 : true;
+
+  // Re-validate when the totals move underneath the schedule (a line-item or
+  // discount edit changes grandTotal without touching the milestones).
+  useEffect(() => {
+    setValidationResult(validatePaymentSchedule(milestones, totals));
+  }, [milestones, totals]);
 
   const handleMilestoneChange = useCallback(
     (index: number, field: keyof PaymentMilestone, value: string | number | boolean) => {
       const updated = milestones.map((m, i): PaymentMilestone => {
         if (i !== index) return m;
-        const updatedMilestone: PaymentMilestone = {
-          id: m.id,
-          serialNumber: field === 'serialNumber' ? Number(value) : m.serialNumber,
-          paymentType: field === 'paymentType' ? String(value) : m.paymentType,
-          percentage: field === 'percentage' ? Number(value) : m.percentage,
-          deliverables: field === 'deliverables' ? String(value) : m.deliverables,
-          carriesTax: field === 'carriesTax' ? Boolean(value) : m.carriesTax,
-        };
-        return updatedMilestone;
+        // Spread rather than rebuild field by field: an explicit reconstruction
+        // silently drops every property it does not name, which is how a newly
+        // added field (`amount`) would vanish the moment a user edited any row.
+        switch (field) {
+          case 'serialNumber':
+            return { ...m, serialNumber: Number(value) };
+          case 'percentage':
+            return { ...m, percentage: Number(value) };
+          case 'carriesTax':
+            return { ...m, carriesTax: Boolean(value) };
+          case 'paymentType':
+            return { ...m, paymentType: String(value) };
+          case 'deliverables':
+            return { ...m, deliverables: String(value) };
+          default:
+            return m;
+        }
       });
 
       // Validate
-      const result = validatePaymentSchedule(updated);
+      const result = validatePaymentSchedule(updated, totals);
       setValidationResult(result);
 
       onChange(updated);
     },
-    [milestones, onChange]
+    [milestones, onChange, totals]
   );
 
   const handleAddMilestone = useCallback(() => {
@@ -77,11 +119,11 @@ export function PaymentScheduleEditor({
     const newMilestone = createEmptyMilestone(maxSerial + 1);
     const updated = [...milestones, newMilestone];
 
-    const result = validatePaymentSchedule(updated);
+    const result = validatePaymentSchedule(updated, totals);
     setValidationResult(result);
 
     onChange(updated);
-  }, [milestones, onChange]);
+  }, [milestones, onChange, totals]);
 
   const handleRemoveMilestone = useCallback(
     (index: number) => {
@@ -95,12 +137,12 @@ export function PaymentScheduleEditor({
         m.serialNumber = i + 1;
       });
 
-      const result = validatePaymentSchedule(updated);
+      const result = validatePaymentSchedule(updated, totals);
       setValidationResult(result);
 
       onChange(updated);
     },
-    [milestones, onChange]
+    [milestones, onChange, totals]
   );
 
   return (
@@ -149,6 +191,11 @@ export function PaymentScheduleEditor({
                   <span>Tax</span>
                 </Tooltip>
               </TableCell>
+              {totals && (
+                <TableCell width={130} align="right">
+                  Amount
+                </TableCell>
+              )}
               <TableCell>Deliverables</TableCell>
               <TableCell width={50} />
             </TableRow>
@@ -201,6 +248,13 @@ export function PaymentScheduleEditor({
                     disabled={disabled}
                   />
                 </TableCell>
+                {totals && (
+                  <TableCell align="right">
+                    <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {formatCurrencyCode(pricedMilestones[index]?.amount ?? 0, currency)}
+                    </Typography>
+                  </TableCell>
+                )}
                 <TableCell>
                   <TextField
                     value={milestone.deliverables}
@@ -231,6 +285,34 @@ export function PaymentScheduleEditor({
           </TableBody>
         </Table>
       </TableContainer>
+
+      {totals && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'baseline',
+            gap: 2,
+            mt: 1,
+            px: 1,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Milestones total
+          </Typography>
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            color={amountsReconcile ? 'success.main' : 'error.main'}
+            sx={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {formatCurrencyCode(amountTotal, currency)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            of {formatCurrencyCode(totals.grandTotal, currency)}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }

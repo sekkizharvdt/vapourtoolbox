@@ -46,6 +46,7 @@ import {
   buildBillingAddressFromCompany,
   buildWarrantyClause,
 } from '@/lib/procurement/commercialTerms';
+import { calculatePOTotals } from '@/lib/procurement/purchaseOrder/totals';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { CommercialTermsForm } from '@/components/procurement';
@@ -175,6 +176,25 @@ export default function NewPOPage() {
     }
   };
 
+  // PO totals as they will be written on save, so the payment schedule can
+  // price its milestones against the real order value rather than percentages
+  // in a vacuum. Uses the same calculatePOTotals the create path uses — the
+  // whole point of that extraction is that the preview and the write agree.
+  const poTotals = useMemo(() => {
+    if (!offer) return undefined;
+    const totals = calculatePOTotals({
+      subtotal: offer.subtotal,
+      discount: offer.discount,
+      effectiveTaxRate: offer.subtotal > 0 ? offer.taxAmount / offer.subtotal : 0,
+      commercialTerms,
+    });
+    return {
+      taxableValue: totals.taxableValue,
+      totalTax: totals.totalTax,
+      grandTotal: totals.grandTotal,
+    };
+  }, [offer, commercialTerms]);
+
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
@@ -184,7 +204,7 @@ export default function NewPOPage() {
     }
 
     // Validate payment schedule
-    const scheduleValidation = validatePaymentSchedule(commercialTerms.paymentSchedule);
+    const scheduleValidation = validatePaymentSchedule(commercialTerms.paymentSchedule, poTotals);
     if (!scheduleValidation.isValid) {
       errors.paymentSchedule = scheduleValidation.error || 'Invalid payment schedule';
     }
@@ -522,6 +542,7 @@ export default function NewPOPage() {
                 template={selectedTemplate}
                 onChange={setCommercialTerms}
                 errors={formErrors}
+                totals={poTotals}
               />
             </Paper>
 

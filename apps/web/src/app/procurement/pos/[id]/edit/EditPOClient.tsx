@@ -72,6 +72,7 @@ import {
   buildBillingAddressFromCompany,
   buildWarrantyClause,
 } from '@/lib/procurement/commercialTerms';
+import { getTaxableValue } from '@/lib/procurement/purchaseOrder/totals';
 import { CommercialTermsForm } from '@/components/procurement';
 
 export default function EditPOClient() {
@@ -89,6 +90,18 @@ export default function EditPOClient() {
   const [selectedTemplate, setSelectedTemplate] =
     useState<CommercialTermsTemplate>(getDefaultTemplate());
   const availableTemplates = useMemo(() => getActiveTemplates(), []);
+
+  // The saved PO's own totals — this screen edits terms, not line items, so
+  // grandTotal does not move while the user is on it. getTaxableValue covers
+  // POs written before taxableValue was persisted.
+  const poTotals = useMemo(() => {
+    if (!po) return undefined;
+    return {
+      taxableValue: getTaxableValue(po),
+      totalTax: po.totalTax ?? 0,
+      grandTotal: po.grandTotal ?? 0,
+    };
+  }, [po]);
 
   // Commercial terms state
   const [commercialTerms, setCommercialTerms] = useState<POCommercialTerms>(() =>
@@ -295,7 +308,7 @@ export default function EditPOClient() {
       errors.deliveryAddress = 'Delivery address is required';
     }
 
-    const scheduleValidation = validatePaymentSchedule(commercialTerms.paymentSchedule);
+    const scheduleValidation = validatePaymentSchedule(commercialTerms.paymentSchedule, poTotals);
     if (!scheduleValidation.isValid) {
       errors.paymentSchedule = scheduleValidation.error || 'Invalid payment schedule';
     }
@@ -559,6 +572,7 @@ export default function EditPOClient() {
                 template={selectedTemplate}
                 onChange={setCommercialTerms}
                 errors={formErrors}
+                totals={poTotals}
               />
             </Paper>
 

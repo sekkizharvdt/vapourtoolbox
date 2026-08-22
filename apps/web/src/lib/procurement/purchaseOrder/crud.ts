@@ -52,6 +52,7 @@ import { removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
 import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 import { calculateGST } from '@/lib/accounting/gstCalculator';
 import { calculatePOTotals, getTaxableValue, sumLineItems } from './totals';
+import { calculateMilestoneAmounts, withPricedSchedule } from '../commercialTerms/paymentSchedule';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -77,35 +78,27 @@ function findAdvanceMilestone(commercialTerms?: POCommercialTerms) {
 /**
  * Compute the advance payment amount.
  *
- * The percentage applies to the tax-INCLUSIVE grand total only when the
- * advance milestone actually carries the GST portion. Buyers normally settle
- * the full tax with the dispatch/main payment, so an advance with
- * `carriesTax: false` must be computed on the pre-tax taxable value —
- * otherwise the buyer is asked to advance GST they haven't agreed to pay yet.
+ * A thin wrapper over `calculateMilestoneAmounts` — the advance is just the
+ * advance milestone's amount, so this must not hold a second formula. It used
+ * to: `base = carriesTax ? grandTotal : taxableValue`, then x percentage. That
+ * is only correct when the advance is the sole milestone carrying tax; with
+ * 40/40/20 all flagged it prices each milestone at pct x grandTotal, which
+ * over-counts the GST threefold and does not sum to the order value.
  *
- * This figure is not display-only: `createAdvancePaymentRequest` posts it as a
+ * The rule that does generalise — tax pro-rata across the flagged milestones,
+ * everything else on the pre-tax value — lives in
+ * `commercialTerms/paymentSchedule.ts` and is verified against every live PO.
+ *
+ * This figure is not display-only: `createAdvancePaymentFromPO` posts it as a
  * real accounting transaction, so an inflated advance reaches the ledger.
- * (Feedback jRO7w8mg: a 30% advance with tax unselected was billed on the
- * ₹44,91,953.20 grand total instead of the ₹38,06,740 taxable value —
- * ₹2,05,563.96 too high.)
- *
- * `carriesTax` is treated as opt-IN: only an explicit `true` puts the advance on
- * the grand total. It used to require an explicit `false` to go pre-tax, which
- * never happened in practice — the editor's checkbox renders `carriesTax ?? false`
- * and Firestore drops the key when it is undefined, so a box the user never
- * ticked is stored as absent, not false. Every other consumer already reads it as
- * falsy-means-no (POPDFDocument, POTermsSection, the new-PO summary), so the
- * strict check made the pre-tax branch dead code: all 4 affected POs still
- * carried a grand-total advance after the first fix shipped, PO/2026/010 among
- * them — the very PO cited below.
- *
  * (Feedback jRO7w8mg: a 30% advance with tax unticked was billed on the
  * ₹44,91,953.20 grand total instead of ₹11,42,022 pre-tax, and a 20% advance on
  * PO/2026/011 showed ₹23,600 instead of ₹20,000.)
  *
- * Defaults to tax-inclusive when no advance milestone is found, preserving the
- * prior behaviour for POs created without a structured payment schedule — there
- * is no checkbox in that case, so there is no user expectation to honour.
+ * Falls back to the percentage of the grand total when there is no structured
+ * payment schedule to read an advance milestone from, preserving the behaviour
+ * POs created without one already had — there is no checkbox in that case, so
+ * there is no user expectation to honour.
  */
 export function calculateAdvanceAmount(params: {
   grandTotal: number;
@@ -119,10 +112,20 @@ export function calculateAdvanceAmount(params: {
 
   if (!advancePaymentRequired || !advancePercentage) return 0;
 
+  const schedule = commercialTerms?.paymentSchedule;
   const advanceMilestone = findAdvanceMilestone(commercialTerms);
-  const base = advanceMilestone && advanceMilestone.carriesTax !== true ? taxableValue : grandTotal;
 
-  return roundToPaisa((base * advancePercentage) / 100);
+  if (schedule && advanceMilestone) {
+    const priced = calculateMilestoneAmounts(schedule, {
+      taxableValue,
+      totalTax: roundToPaisa(grandTotal - taxableValue),
+      grandTotal,
+    });
+    const pricedAdvance = priced.find((m) => m.id === advanceMilestone.id);
+    if (pricedAdvance?.amount !== undefined) return pricedAdvance.amount;
+  }
+
+  return roundToPaisa((grandTotal * advancePercentage) / 100);
 }
 
 // ============================================================================
@@ -535,9 +538,17 @@ export async function createPOFromOffer(
         poData.commercialTermsTemplateName = terms.commercialTermsTemplateName;
       }
       if (terms.commercialTerms) {
+        // Price the payment milestones against the order this PO actually is
+        // (rule 22 — the amount is a typed field, so it must be written on
+        // create, not left for a later edit to fill in).
+        const pricedTerms = withPricedSchedule(terms.commercialTerms, {
+          taxableValue,
+          totalTax,
+          grandTotal,
+        });
         // Remove undefined values from commercialTerms - Firestore doesn't accept undefined
         poData.commercialTerms = removeUndefinedDeep(
-          terms.commercialTerms as unknown as Record<string, unknown>
+          pricedTerms as unknown as Record<string, unknown>
         );
       }
 
@@ -1069,8 +1080,13 @@ export async function updateDraftPO(
     updateData.commercialTermsTemplateName = terms.commercialTermsTemplateName;
   }
   if (terms.commercialTerms) {
+    const pricedTerms = withPricedSchedule(terms.commercialTerms, {
+      taxableValue,
+      totalTax: roundToPaisa((po.totalTax as number) ?? 0),
+      grandTotal,
+    });
     updateData.commercialTerms = removeUndefinedDeep(
-      terms.commercialTerms as unknown as Record<string, unknown>
+      pricedTerms as unknown as Record<string, unknown>
     );
   }
   if (terms.description !== undefined) {
@@ -1283,6 +1299,14 @@ export async function updatePOItemQuantity(
     updatedBy: userId,
   });
 
+  // A quantity change moves grandTotal, so the milestone amounts move with it —
+  // otherwise the schedule silently keeps pricing the previous order value.
+  const repricedTerms = withPricedSchedule(po.commercialTerms as POCommercialTerms | undefined, {
+    taxableValue: totals.taxableValue,
+    totalTax: totals.totalTax,
+    grandTotal: totals.grandTotal,
+  });
+
   batch.update(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
     subtotal: totals.subtotal,
     taxableValue: totals.taxableValue,
@@ -1292,6 +1316,9 @@ export async function updatePOItemQuantity(
     totalTax: totals.totalTax,
     grandTotal: totals.grandTotal,
     advanceAmount,
+    ...(repricedTerms && {
+      commercialTerms: removeUndefinedDeep(repricedTerms as unknown as Record<string, unknown>),
+    }),
     updatedAt: now,
     updatedBy: userId,
   });

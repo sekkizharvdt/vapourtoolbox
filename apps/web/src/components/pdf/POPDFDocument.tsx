@@ -613,16 +613,22 @@ export function POPDFDocument({
           <ReportSection title="Payment Schedule">
             <ReportTable
               columns={[
-                { key: 'sno', header: 'S.No', width: '8%' },
-                { key: 'type', header: 'Payment Type', width: '22%' },
-                { key: 'percent', header: '% Payment', width: '10%', align: 'right' },
-                { key: 'tax', header: 'Tax', width: '18%' },
-                { key: 'deliverables', header: 'Deliverables', width: '42%' },
+                { key: 'sno', header: 'S.No', width: '7%' },
+                { key: 'type', header: 'Payment Type', width: '20%' },
+                { key: 'percent', header: '% Payment', width: '9%', align: 'right' },
+                { key: 'amount', header: 'Amount', width: '15%', align: 'right' },
+                { key: 'tax', header: 'Tax', width: '14%' },
+                { key: 'deliverables', header: 'Deliverables', width: '35%' },
               ]}
               rows={po.commercialTerms.paymentSchedule.map((m) => ({
                 sno: m.serialNumber,
                 type: m.paymentType,
                 percent: `${m.percentage}%`,
+                // The contractual figure the vendor invoices against. Blank for
+                // milestones on POs written before amounts were stored rather
+                // than recomputed here, so the PDF can never disagree with what
+                // the PO screen and the payment tracking show.
+                amount: m.amount !== undefined ? formatCurrencyCode(m.amount, po.currency) : '—',
                 tax: m.carriesTax ? '+ 100% tax' : '—',
                 deliverables: m.deliverables,
               }))}

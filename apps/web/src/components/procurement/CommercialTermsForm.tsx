@@ -46,7 +46,11 @@ import type {
   POSafetyCompliance,
 } from '@vapour/types';
 import { PaymentScheduleEditor } from './PaymentScheduleEditor';
-import { validatePaymentSchedule, buildWarrantyClause } from '@/lib/procurement/commercialTerms';
+import {
+  validatePaymentSchedule,
+  buildWarrantyClause,
+  type PaymentScheduleTotals,
+} from '@/lib/procurement/commercialTerms';
 
 // Labels for display
 const PRICE_BASIS_LABELS: Record<POPriceBasis, string> = {
@@ -98,6 +102,12 @@ interface CommercialTermsFormProps {
   onChange: (terms: POCommercialTerms) => void;
   disabled?: boolean;
   errors?: Record<string, string>;
+  /**
+   * PO totals, so the payment schedule can show what each milestone is worth
+   * and reconcile against the order value. Passed through to
+   * `PaymentScheduleEditor`; omit it and the schedule stays percentage-only.
+   */
+  totals?: PaymentScheduleTotals;
 }
 
 export function CommercialTermsForm({
@@ -106,6 +116,7 @@ export function CommercialTermsForm({
   onChange,
   disabled = false,
   errors = {},
+  totals,
 }: CommercialTermsFormProps) {
   // Track expanded accordion sections
   const [expandedSections, setExpandedSections] = useState<string[]>([
@@ -164,8 +175,8 @@ export function CommercialTermsForm({
 
   // Validation
   const paymentScheduleValidation = useMemo(
-    () => validatePaymentSchedule(terms.paymentSchedule),
-    [terms.paymentSchedule]
+    () => validatePaymentSchedule(terms.paymentSchedule, totals),
+    [terms.paymentSchedule, totals]
   );
 
   return (
@@ -239,6 +250,8 @@ export function CommercialTermsForm({
                 milestones={terms.paymentSchedule}
                 onChange={(milestones) => handleChange('paymentSchedule', milestones)}
                 disabled={disabled}
+                totals={totals}
+                currency={terms.currency}
               />
             </Box>
 

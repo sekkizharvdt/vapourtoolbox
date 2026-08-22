@@ -320,6 +320,22 @@ export interface PaymentMilestone {
    * are unambiguous (procurement review round 3, items 2.2c/2.2d).
    */
   carriesTax?: boolean;
+
+  /**
+   * Contract value of this milestone in the PO's currency.
+   *
+   * DERIVED from `percentage` and the PO totals, not entered by hand —
+   * `percentage` remains the source of truth. It is persisted because the
+   * figure is contractual: it prints on the PO, the vendor's proforma quotes
+   * it, and the payment tracking measures against it, so all three must cite
+   * one number rather than each re-deriving it.
+   *
+   * Recomputed by `calculateMilestoneAmounts` on every path that moves
+   * `grandTotal` — PO create, draft edit, and amendment apply.
+   *
+   * Optional: milestones written before this field existed do not carry it.
+   */
+  amount?: number;
 }
 
 /**

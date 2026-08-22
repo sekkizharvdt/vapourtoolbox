@@ -40,7 +40,15 @@ describe('calculateAdvanceAmount', () => {
     expect(result).toBe(1142022);
   });
 
-  it('includes tax when the advance milestone carries it', () => {
+  // Superseded expectation: this asserted 1,347,585.96 — 30% of the grand
+  // total — under the old `base = carriesTax ? grandTotal : taxableValue`
+  // rule. That rule only holds when the advance is the sole taxed milestone
+  // AND is read in isolation; applied across a 40/40/20 schedule with every
+  // milestone flagged it prices each at pct x grandTotal, triple-counting the
+  // GST. The shared formula gives a flagged milestone its pro-rata share of
+  // the tax, so a lone flagged advance carries all of it — which is exactly
+  // what the PO PDF prints for that milestone ("+ 100% tax").
+  it('gives the advance the whole tax when it is the only flagged milestone', () => {
     const result = calculateAdvanceAmount({
       grandTotal: GRAND_TOTAL,
       taxableValue: TAXABLE_VALUE,
@@ -49,7 +57,8 @@ describe('calculateAdvanceAmount', () => {
       commercialTerms: termsWith([milestone({ carriesTax: true })]),
     });
 
-    expect(result).toBe(1347585.96);
+    // 30% of the taxable value plus the full IGST.
+    expect(result).toBe(1142022 + 685213.2);
   });
 
   it('picks the advance milestone, not the first one', () => {
@@ -118,10 +127,35 @@ describe('calculateAdvanceAmount', () => {
       taxableValue: 100000,
       advancePaymentRequired: true,
       advancePercentage: 20,
-      commercialTerms: termsWith([milestone({ carriesTax: undefined })]),
+      commercialTerms: termsWith([milestone({ percentage: 20, carriesTax: undefined })]),
     });
 
     expect(result).toBe(20000);
+  });
+
+  // The milestone is the contractual record; `advancePercentage` on the PO is
+  // a denormalised copy of it, so the milestone wins where they disagree. They
+  // never do in practice — all 8 live POs requiring an advance agree — but
+  // reading one number instead of two removes the drift entirely.
+  it('reads the percentage off the advance milestone, not the denormalised copy', () => {
+    const result = calculateAdvanceAmount({
+      grandTotal: 118000,
+      taxableValue: 100000,
+      advancePaymentRequired: true,
+      advancePercentage: 20,
+      commercialTerms: termsWith([
+        milestone({ id: 'm1', percentage: 30 }),
+        milestone({
+          id: 'm2',
+          serialNumber: 2,
+          paymentType: 'Balance',
+          percentage: 70,
+          carriesTax: true,
+        }),
+      ]),
+    });
+
+    expect(result).toBe(30000);
   });
 
   it('returns 0 when no advance is required', () => {

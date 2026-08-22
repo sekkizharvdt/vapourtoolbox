@@ -11,6 +11,12 @@ import type {
   PaymentMilestone,
   POScopeAssignment,
 } from '@vapour/types';
+import {
+  calculateMilestoneAmounts,
+  hasTaxAssignment,
+  sumMilestoneAmounts,
+  type PaymentScheduleTotals,
+} from './paymentSchedule';
 
 // ============================================================================
 // FIXED TEXT CLAUSES (Common across templates)
@@ -219,9 +225,26 @@ export function createEmptyMilestone(serialNumber: number): PaymentMilestone {
 }
 
 /**
- * Validate that payment milestones sum to 100%
+ * Validate a payment schedule.
+ *
+ * Percentages must account for the whole order and be non-negative. When the
+ * PO totals are supplied, the GST must also be assigned: a schedule where tax
+ * is due but no milestone is marked as carrying it is REFUSED rather than
+ * silently defaulted, because the milestone amounts would then fall short of
+ * the grand total by exactly the tax and nobody would be told.
+ *
+ * That silence is how six live POs ended up with unassigned GST — the editor's
+ * checkbox renders `carriesTax ?? false` and Firestore drops undefined keys, so
+ * a box the user never considered is indistinguishable from a deliberate "no
+ * tax on this milestone".
+ *
+ * `totals` is optional so callers that only care about the percentages (an
+ * in-progress edit, a template preview) keep working unchanged.
  */
-export function validatePaymentSchedule(milestones: PaymentMilestone[]): {
+export function validatePaymentSchedule(
+  milestones: PaymentMilestone[],
+  totals?: PaymentScheduleTotals
+): {
   isValid: boolean;
   totalPercentage: number;
   error?: string;
@@ -242,6 +265,28 @@ export function validatePaymentSchedule(milestones: PaymentMilestone[]): {
       totalPercentage,
       error: 'Payment percentages cannot be negative',
     };
+  }
+
+  if (totals && totals.totalTax > 0 && !hasTaxAssignment(milestones)) {
+    return {
+      isValid: false,
+      totalPercentage,
+      error:
+        'Tick "Carries tax" on the milestone that settles the GST. ' +
+        'Until one is marked, the milestone amounts fall short of the PO total by the full tax.',
+    };
+  }
+
+  if (totals) {
+    const priced = calculateMilestoneAmounts(milestones, totals);
+    const sum = sumMilestoneAmounts(priced);
+    if (Math.abs(sum - totals.grandTotal) >= 0.01) {
+      return {
+        isValid: false,
+        totalPercentage,
+        error: `Milestone amounts total ${sum.toFixed(2)} but the PO total is ${totals.grandTotal.toFixed(2)}.`,
+      };
+    }
   }
 
   return { isValid: true, totalPercentage };
