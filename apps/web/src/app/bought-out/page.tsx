@@ -20,6 +20,7 @@ import {
   InputAdornment,
   Tabs,
   Tab,
+  Stack,
 } from '@mui/material';
 import { PageHeader, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
 import {
@@ -179,6 +180,21 @@ export default function BoughtOutPage() {
           </Button>
         }
       />
+
+      {/* Piping has its own size-first views. The generic list below shows one
+          row per PRODUCT, which for flanges and fittings means ~26 rows hiding
+          1,185 orderable sizes and no NPS column — useless for picking a size.
+          These two pages flatten to one row per NPS + class/schedule with NPS
+          filtering, and moved here from /materials when the taxonomy split
+          confirmed both are bought-out (feedback huqiaePA). */}
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap="wrap">
+        <Button variant="outlined" size="small" onClick={() => router.push('/bought-out/flanges')}>
+          Browse flanges by size
+        </Button>
+        <Button variant="outlined" size="small" onClick={() => router.push('/bought-out/fittings')}>
+          Browse fittings by size
+        </Button>
+      </Stack>
 
       <Card sx={{ mb: 4 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

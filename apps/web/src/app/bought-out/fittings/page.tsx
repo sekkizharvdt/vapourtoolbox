@@ -211,7 +211,7 @@ export default function FittingsPage() {
       {/* Breadcrumbs */}
       <PageBreadcrumbs
         items={[
-          { label: 'Materials', href: '/materials', icon: <HomeIcon fontSize="small" /> },
+          { label: 'Bought-Out Items', href: '/bought-out', icon: <HomeIcon fontSize="small" /> },
           { label: 'Fittings' },
         ]}
       />
