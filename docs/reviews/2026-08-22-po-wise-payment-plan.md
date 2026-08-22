@@ -1,6 +1,8 @@
 # PO-wise payment details, request & tracking
 
-**Status:** Assessed 2026-08-22, decisions locked, no code written.
+**Status:** Batches 0–5 implemented and committed 2026-08-22 (`2c576bfd`, `2a8d7180`,
+`4d706c64`, `6189d47a`, `4c2b776d`, `2adea07c`). **Two data scripts still to run** — see §10.
+Phase 3 (payment requests, §5/§6) deferred as planned.
 **Source:** `docs/inputs/Procurement and Finance Module _PO Wise Payment Integration.pdf` (user feature request, 10 sections).
 **Scope of first cut:** §2, §3, §4, §7, §8 (visibility). §5/§6 (payment request + attachments) deferred to phase 3, design locked below.
 
@@ -377,3 +379,49 @@ from the §7 projection on the PO, not from a `transactions` query.
 - Whether `advancePaymentRequired` / `advancePercentage` / `advanceAmount` should be
   retired once milestone amounts exist — they duplicate milestone #1 for the 8 POs that set
   them, and the auto-post path they feed has never fired. Decide after batch 1.
+
+---
+
+## 10. What remains before this is live
+
+### Data scripts — run once, after the deploy
+
+Both are dry-run by default and idempotent. Run from the repo root, in order.
+
+```bash
+node ./scripts/analysis/backfill-po-link.js            # review
+node ./scripts/analysis/backfill-po-link.js --apply
+node ./scripts/analysis/backfill-milestone-amounts.js  # review
+node ./scripts/analysis/backfill-milestone-amounts.js --apply
+```
+
+`backfill-po-link.js` moves 4 bill links to `purchaseOrderId`, fills `taxableValue` on all
+17 POs, and releases 5 stranded goods-receipt locks. `backfill-milestone-amounts.js` prices
+the milestones on the 12 POs that can be priced.
+
+Then rebuild the projections — **Data Health → Rebuild PO Payment Summaries** — since the
+backfills write behind the Cloud Function triggers.
+
+### Hand fixes
+
+- **PO/2026/01/0003** (COMPLETED, ₹3,170, 30/60/10) has no `carriesTax` milestone and cannot
+  be priced until one is assigned. It is terminal, so the normal edit path will not reach
+  it. Decide whether to assign the GST to a milestone directly or leave it unpriced.
+- **PO/2026/02/0002** and **PO/2026/01/0004** hit the new validation on their next edit and
+  the user assigns the tax then. No action needed now.
+
+### Verification still owed
+
+- **Test the procurement views as a procurement-only account.** Four qualify —
+  Sathiyamoorthi B, Kumaran A, John Mecanroe, Sudhakar RD. An admin session hides the exact
+  permission failure batch 4 exists to prevent.
+- The three pre-existing test failures (`hr/holidays/holidayService`,
+  `hr/holidays/recurringHolidayCalculator`, `utils/dateTime` — 9 tests) are unrelated to
+  this work and were failing before it started.
+
+### Deferred deliberately
+
+- §5/§6 payment requests — phase 3, design locked in §4 and the Phase 3 section above.
+- PDF export for the payment list (§8 open items).
+- Retiring `advancePaymentRequired` / `advancePercentage` / `advanceAmount`, now duplicated
+  by milestone #1 on the 8 POs that set them.
