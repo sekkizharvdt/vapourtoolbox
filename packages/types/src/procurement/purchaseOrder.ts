@@ -189,13 +189,106 @@ export interface PurchaseOrder {
 
   // Progress tracking
   deliveryProgress: number; // 0-100%
+
+  /**
+   * @deprecated Superseded by `paymentSummary`, which derives the same figure
+   * from the actual bills and payments. This was written in exactly two places
+   * and never updated after the advance, so it read 0 or the advance
+   * percentage forever. Read `paymentSummary` instead; kept on the type only
+   * so existing documents still parse.
+   */
   paymentProgress: number; // 0-100%
+
+  /**
+   * Payment position, maintained by the `syncPOPaymentSummary` Cloud Function.
+   * The ONLY way procurement can see what has been paid — see
+   * {@link POPaymentSummary}. Absent until the first sync for this PO runs.
+   */
+  paymentSummary?: POPaymentSummary;
 
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;
   updatedBy: string;
+}
+
+/**
+ * Payment status of a PO or of one of its milestones.
+ *
+ * Labels live in `@vapour/constants/labels.ts` and render through
+ * `StatusChip` (rule 29).
+ */
+export type POPaymentStatus = 'PENDING' | 'DUE' | 'PAYMENT_REQUESTED' | 'PARTIALLY_PAID' | 'PAID';
+
+/** One payment recorded against a PO, as procurement sees it. */
+export interface POPaymentHistoryEntry {
+  /** VENDOR_PAYMENT transaction id. */
+  paymentId: string;
+  paymentNumber: string;
+  paymentDate: Timestamp;
+  /** Amount of this payment attributed to the PO, in the PO's currency. */
+  amount: number;
+  /** UTR / cheque / UPI reference, whichever the payment carries. */
+  reference?: string;
+  /** Milestone settled, when known. */
+  milestoneId?: string;
+  /** Bill the payment was allocated to, when it went through one. */
+  billId?: string;
+  billNumber?: string;
+}
+
+/** Per-milestone rollup inside {@link POPaymentSummary}. */
+export interface POMilestonePaymentSummary {
+  milestoneId: string;
+  serialNumber: number;
+  paymentType: string;
+  percentage: number;
+  /** Contract value of the milestone (PaymentMilestone.amount). */
+  amount: number;
+  /** Settled so far, derived from the bills and direct payments tagged to it. */
+  paid: number;
+  /** amount - paid, floored at zero. */
+  pending: number;
+  status: POPaymentStatus;
+}
+
+/**
+ * Payment position of a PO, written by the `syncPOPaymentSummary` Cloud
+ * Function and read by procurement.
+ *
+ * **This projection exists because procurement cannot read `transactions`.**
+ * That collection requires VIEW_ACCOUNTING (firestore.rules), and four of the
+ * nine live users hold MANAGE_PROCUREMENT without it — so a client-side query
+ * for the bills behind a PO returns permission-denied for exactly the people
+ * this feature is for. The Cloud Function runs with admin credentials, reads
+ * the transactions, and publishes only the fields below onto the PO document,
+ * which procurement already reads.
+ *
+ * **The field list is therefore a disclosure boundary, not a convenience.** It
+ * carries what §7 of the feature request asks for — totals, milestone status,
+ * and payment date/amount/reference — and deliberately nothing else. Never add
+ * bank account, GL entries, TDS, bill line items or vendor pricing here;
+ * widening it is a permissions decision.
+ *
+ * Recomputed from source on every trigger rather than incremented, so repeated
+ * or out-of-order triggers converge (rule 21 — this is a projection, not a
+ * cached counter).
+ */
+export interface POPaymentSummary {
+  /** PO grand total at the time of the last sync. */
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  status: POPaymentStatus;
+  milestones: POMilestonePaymentSummary[];
+  /** Newest first. */
+  history: POPaymentHistoryEntry[];
+  /**
+   * When the projection was last rebuilt. Render it: if the trigger fails,
+   * procurement sees stale numbers with no other signal that anything is wrong.
+   */
+  syncedAt: Timestamp;
 }
 
 /** A buyer-uploaded supporting document stored against a PO. */

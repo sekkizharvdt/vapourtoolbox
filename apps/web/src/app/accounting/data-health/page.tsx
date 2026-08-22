@@ -34,6 +34,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
+import { createLogger } from '@vapour/logger';
 import { collection, query, where, getDocs, documentId, orderBy, limit } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -66,6 +67,8 @@ function getHealthLabel(score: number): string {
   return 'Healthy';
 }
 
+const logger = createLogger({ context: 'data-health' });
+
 export default function DataHealthPage() {
   const router = useRouter();
   useAuth();
@@ -79,6 +82,12 @@ export default function DataHealthPage() {
     checked: number;
   } | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  const [rebuildingSummaries, setRebuildingSummaries] = useState(false);
+  const [rebuildResult, setRebuildResult] = useState<{
+    total: number;
+    rebuilt: number;
+    failed: number;
+  } | null>(null);
   const [recalculateResult, setRecalculateResult] = useState<{
     accountsUpdated: number;
     transactionsProcessed: number;
@@ -136,6 +145,44 @@ export default function DataHealthPage() {
       setError('Account balance recalculation failed. Please try again.');
     } finally {
       setRecalculating(false);
+    }
+  };
+
+  const handleRebuildPOSummaries = async () => {
+    const confirmed = await confirm({
+      title: 'Rebuild PO Payment Summaries',
+      message:
+        "This rebuilds every purchase order's payment summary from its bills and payments. " +
+        'Procurement reads those figures — they cannot see the underlying transactions — so run ' +
+        'this if a PO shows a stale or missing payment position. Safe to repeat. Continue?',
+      confirmText: 'Rebuild',
+      confirmColor: 'warning',
+    });
+    if (!confirmed) return;
+
+    setRebuildingSummaries(true);
+    setRebuildResult(null);
+    try {
+      const { functions } = getFirebase();
+      const rebuildFn = httpsCallable<
+        void,
+        { total: number; rebuilt: number; failures: Array<{ poId: string; error: string }> }
+      >(functions, 'recalculatePOPaymentSummaries');
+      const result = await rebuildFn();
+      setRebuildResult({
+        total: result.data.total,
+        rebuilt: result.data.rebuilt,
+        failed: result.data.failures.length,
+      });
+    } catch (err) {
+      logger.error('PO payment summary rebuild failed', { error: err });
+      setError(
+        err instanceof Error
+          ? `PO payment summary rebuild failed: ${err.message}`
+          : 'PO payment summary rebuild failed. Please try again.'
+      );
+    } finally {
+      setRebuildingSummaries(false);
     }
   };
 
@@ -838,6 +885,30 @@ export default function DataHealthPage() {
                 <Alert severity="success">
                   Recalculation complete: {recalculateResult.accountsUpdated} accounts updated from{' '}
                   {recalculateResult.transactionsProcessed} transactions.
+                </Alert>
+              )}
+              <Alert
+                severity="info"
+                icon={<RecalculateIcon />}
+                action={
+                  <Button
+                    size="small"
+                    onClick={handleRebuildPOSummaries}
+                    disabled={rebuildingSummaries}
+                  >
+                    {rebuildingSummaries ? 'Rebuilding...' : 'Rebuild'}
+                  </Button>
+                }
+              >
+                <strong>PO Payment Summaries:</strong> Rebuild every purchase order&apos;s payment
+                position from its bills and payments. Procurement reads these figures rather than
+                the transactions themselves, so a failed sync leaves them with stale numbers and no
+                way to refresh.
+              </Alert>
+              {rebuildResult && (
+                <Alert severity={rebuildResult.failed > 0 ? 'warning' : 'success'}>
+                  Rebuilt {rebuildResult.rebuilt} of {rebuildResult.total} purchase orders
+                  {rebuildResult.failed > 0 ? ` — ${rebuildResult.failed} failed, see logs.` : '.'}
                 </Alert>
               )}
             </Box>

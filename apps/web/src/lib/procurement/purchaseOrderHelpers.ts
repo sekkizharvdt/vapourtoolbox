@@ -163,11 +163,27 @@ export function getDeliveryStatus(po: PurchaseOrder): {
   }
 }
 
+/**
+ * Percentage of a PO's value that has actually been paid.
+ *
+ * Derived from `paymentSummary`, the Cloud-Function projection over the bills
+ * and payments — not from the legacy `paymentProgress` field, which was written
+ * in two places and never updated after the advance, so it read 0 (or the
+ * advance percentage) forever.
+ *
+ * Returns 0 while the projection has not been built for a PO yet.
+ */
+export function getPaymentProgress(po: PurchaseOrder): number {
+  const summary = po.paymentSummary;
+  if (!summary || summary.totalAmount <= 0) return 0;
+  return Math.min(100, (summary.paidAmount / summary.totalAmount) * 100);
+}
+
 export function getPaymentStatus(po: PurchaseOrder): {
   text: string;
   color: 'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success';
 } {
-  const progress = po.paymentProgress || 0;
+  const progress = getPaymentProgress(po);
 
   if (progress === 0) {
     return { text: 'Not Paid', color: 'default' };

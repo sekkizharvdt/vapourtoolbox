@@ -22,8 +22,15 @@
  */
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import {
+  computePOPaymentSummary,
+  type BillLike,
+  type PaymentLike,
+  type POLike,
+} from './poPaymentSummaryLogic';
 import { derivePaid } from './utils/amountHelpers';
 import { logger } from 'firebase-functions/v2';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 
 // Firestore collection names kept as literals here — the functions package
@@ -145,6 +152,152 @@ export async function syncPOPaymentToGRs(
   });
 }
 
+/**
+ * Rebuild the `paymentSummary` projection on a PO and write it to the PO doc.
+ *
+ * **This is how procurement sees payments at all.** `transactions` requires
+ * VIEW_ACCOUNTING and four of the nine live users hold MANAGE_PROCUREMENT
+ * without it, so the numbers have to be published onto a document procurement
+ * can already read. The projection carries only the fields §7 of the request
+ * asks for — totals, milestone status, and payment date/amount/reference. Do
+ * not widen it here without treating that as a permissions decision.
+ *
+ * Recomputed from source every time, never incremented, so repeated or
+ * out-of-order triggers converge (rule 21). The PO write is a transaction
+ * (rule 19).
+ */
+export async function syncPOPaymentSummary(
+  db: admin.firestore.Firestore,
+  poId: string
+): Promise<void> {
+  const poRef = db.collection(PURCHASE_ORDERS).doc(poId);
+  const poSnap = await poRef.get();
+  if (!poSnap.exists) {
+    logger.warn('[poPaymentSummary] PO not found', { poId });
+    return;
+  }
+  const po = poSnap.data() as POLike;
+
+  // Bills for this PO. Equality-only on two fields, so single-field indexes
+  // serve it — no composite index needed (rule 2 applies to where + orderBy).
+  const billsSnap = await db
+    .collection(TRANSACTIONS)
+    .where('type', '==', 'VENDOR_BILL')
+    .where('purchaseOrderId', '==', poId)
+    .get();
+
+  const bills: BillLike[] = billsSnap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as Omit<BillLike, 'id'>),
+  }));
+  const billIds = new Set(bills.map((b) => b.id));
+
+  // Payments reaching this PO two ways: allocated to one of its bills, or
+  // tagged directly (an advance with no bill behind it). Fetching all vendor
+  // payments to filter by allocation is acceptable at this data size — 204
+  // documents — and avoids an array-contains index on a nested object field
+  // that Firestore cannot express anyway.
+  const paymentsSnap = await db
+    .collection(TRANSACTIONS)
+    .where('type', '==', 'VENDOR_PAYMENT')
+    .get();
+
+  const payments: PaymentLike[] = [];
+  for (const doc of paymentsSnap.docs) {
+    const data = doc.data() as Record<string, unknown>;
+    const allocations = (data.billAllocations as PaymentAllocationShape[] | undefined) ?? [];
+    const touchesOurBills = allocations.some(
+      (a) => a?.invoiceId && billIds.has(a.invoiceId) && (a.allocatedAmount ?? 0) > 0
+    );
+    const taggedToUs = data.purchaseOrderId === poId;
+    if (!touchesOurBills && !taggedToUs) continue;
+
+    const paymentDate = data.paymentDate ?? data.date;
+    payments.push({
+      id: doc.id,
+      ...(data as Omit<PaymentLike, 'id' | 'paymentDateSeconds'>),
+      paymentDateSeconds:
+        paymentDate instanceof admin.firestore.Timestamp ? paymentDate.seconds : 0,
+    });
+  }
+
+  const summary = computePOPaymentSummary(po, bills, payments);
+
+  // Timestamps are stamped here rather than inside the pure logic so that stays
+  // testable without firebase.
+  const now = admin.firestore.Timestamp.now();
+  const payload = {
+    ...summary,
+    history: summary.history.map(({ paymentDateSeconds, ...rest }) => ({
+      ...rest,
+      paymentDate: new admin.firestore.Timestamp(paymentDateSeconds, 0),
+    })),
+    syncedAt: now,
+  };
+
+  await db.runTransaction(async (tx) => {
+    tx.update(poRef, { paymentSummary: payload, updatedAt: now });
+  });
+
+  logger.info('[poPaymentSummary] Rebuilt', {
+    poId,
+    paid: summary.paidAmount,
+    total: summary.totalAmount,
+    status: summary.status,
+    milestones: summary.milestones.length,
+  });
+}
+
+/**
+ * Resolve which POs a transaction write affects.
+ *
+ * Three routes, matching the three ways a PO's payment position can move:
+ * a bill written against it, a payment allocated to one of its bills, and a
+ * payment tagged to it directly. Both sides of the write are inspected so that
+ * clearing a link still re-syncs the PO that just lost it.
+ */
+async function affectedPOIds(
+  db: admin.firestore.Firestore,
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null
+): Promise<Set<string>> {
+  const poIds = new Set<string>();
+  const billIds = new Set<string>();
+
+  for (const data of [before, after]) {
+    if (!data) continue;
+
+    // A bill carries its PO directly.
+    if (data.type === 'VENDOR_BILL' && typeof data.purchaseOrderId === 'string') {
+      poIds.add(data.purchaseOrderId);
+    }
+
+    if (data.type === 'VENDOR_PAYMENT') {
+      // A direct payment carries its PO too.
+      if (typeof data.purchaseOrderId === 'string') poIds.add(data.purchaseOrderId);
+
+      const allocations = (data.billAllocations as PaymentAllocationShape[] | undefined) ?? [];
+      for (const alloc of allocations) {
+        if (alloc?.invoiceId) billIds.add(alloc.invoiceId);
+      }
+    }
+  }
+
+  // Allocated payments reach their PO through the bill.
+  if (billIds.size > 0) {
+    const billSnaps = await Promise.all(
+      Array.from(billIds).map((id) => db.collection(TRANSACTIONS).doc(id).get())
+    );
+    for (const snap of billSnaps) {
+      if (!snap.exists) continue;
+      const bill = snap.data() as { purchaseOrderId?: string };
+      if (bill.purchaseOrderId) poIds.add(bill.purchaseOrderId);
+    }
+  }
+
+  return poIds;
+}
+
 export const syncPOPaymentStatusOnVendorPayment = onDocumentWritten(
   'transactions/{transactionId}',
   async (event) => {
@@ -154,54 +307,146 @@ export const syncPOPaymentStatusOnVendorPayment = onDocumentWritten(
       : null;
     const after = change?.after?.exists ? (change.after.data() as Record<string, unknown>) : null;
 
-    // Only care about vendor payments — either side of the write.
-    const beforeIsPayment = before?.type === 'VENDOR_PAYMENT';
-    const afterIsPayment = after?.type === 'VENDOR_PAYMENT';
-    if (!beforeIsPayment && !afterIsPayment) return;
-
-    // Collect every bill touched by this write so we can find the affected POs.
-    const billIds = new Set<string>();
-    for (const data of [before, after]) {
-      if (!data) continue;
-      const allocations = (data.billAllocations as PaymentAllocationShape[] | undefined) || [];
-      for (const alloc of allocations) {
-        if (alloc?.invoiceId) billIds.add(alloc.invoiceId);
-      }
-    }
-
-    if (billIds.size === 0) {
-      logger.info('[procurementPaymentStatus] Vendor payment has no bill allocations, skipping', {
-        transactionId: event.params.transactionId,
-      });
-      return;
-    }
+    // Bills matter as well as payments: a new or edited bill changes a
+    // milestone's pending amount before any money moves. Only reacting to
+    // VENDOR_PAYMENT was one of two reasons this trigger was inert.
+    const relevant = (data: Record<string, unknown> | null) =>
+      data?.type === 'VENDOR_PAYMENT' || data?.type === 'VENDOR_BILL';
+    if (!relevant(before) && !relevant(after)) return;
 
     const db = admin.firestore();
-
-    // Resolve affected PO IDs via the bills' denormalised `purchaseOrderId`.
-    const billSnaps = await Promise.all(
-      Array.from(billIds).map((id) => db.collection(TRANSACTIONS).doc(id).get())
-    );
-    const poIds = new Set<string>();
-    for (const snap of billSnaps) {
-      if (!snap.exists) continue;
-      const bill = snap.data() as { purchaseOrderId?: string };
-      if (bill.purchaseOrderId) poIds.add(bill.purchaseOrderId);
-    }
+    const poIds = await affectedPOIds(db, before, after);
 
     if (poIds.size === 0) {
-      logger.info('[procurementPaymentStatus] No bill → PO linkage found, skipping', {
+      logger.info('[procurementPaymentStatus] Write touches no PO, skipping', {
         transactionId: event.params.transactionId,
       });
       return;
     }
 
     for (const poId of poIds) {
+      // Each PO is independent: one failing must not stop the others (rule 27).
+      try {
+        await syncPOPaymentSummary(db, poId);
+      } catch (err) {
+        logger.error('[poPaymentSummary] Failed to rebuild summary', {
+          poId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       try {
         await syncPOPaymentToGRs(db, poId);
       } catch (err) {
-        logger.error('[procurementPaymentStatus] Failed to sync PO', { poId, error: err });
+        logger.error('[procurementPaymentStatus] Failed to sync GRs', {
+          poId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
+  }
+);
+
+/**
+ * Rebuild the projection when the PO itself moves.
+ *
+ * An amendment changes grandTotal and the milestone amounts, so the summary
+ * computed against the previous order value is stale the moment it lands.
+ * Guarded against its own write: the trigger fires on the paymentSummary
+ * update it just made, and without this check that recurses forever.
+ */
+export const syncPOPaymentSummaryOnPOWrite = onDocumentWritten(
+  'purchaseOrders/{poId}',
+  async (event) => {
+    const change = event.data;
+    if (!change?.after?.exists) return;
+
+    const before = change.before?.exists ? (change.before.data() as Record<string, unknown>) : null;
+    const after = change.after.data() as Record<string, unknown>;
+
+    // Only the inputs to the projection matter. Comparing them also breaks the
+    // self-trigger loop: a write that only changed paymentSummary/updatedAt
+    // leaves these identical and returns here.
+    //
+    // Built as an array, not an object with `?? null` defaults: JSON.stringify
+    // already renders a missing array element as null, and a fallback chain on
+    // an amount field is exactly what rule 21 forbids — even in a comparison
+    // key, because the next person to read it cannot tell it is not arithmetic.
+    const inputs = (d: Record<string, unknown> | null) =>
+      JSON.stringify([
+        d?.grandTotal,
+        (d?.commercialTerms as { paymentSchedule?: unknown } | undefined)?.paymentSchedule,
+      ]);
+
+    if (before && inputs(before) === inputs(after)) return;
+
+    try {
+      await syncPOPaymentSummary(admin.firestore(), event.params.poId);
+    } catch (err) {
+      logger.error('[poPaymentSummary] Failed to rebuild summary on PO write', {
+        poId: event.params.poId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+);
+
+/**
+ * Rebuild every PO's payment summary.
+ *
+ * The repair path for the projection: if a trigger failed, or a batch of
+ * transactions was backfilled behind the trigger's back, the stored summaries
+ * drift and there is nothing procurement can do about it from their side.
+ * Mirrors `recalculateAccountBalances` on the Data Health page.
+ *
+ * Gated on MANAGE_PROCUREMENT **or** MANAGE_ACCOUNTING: the projection spans
+ * both modules, and either owner has a legitimate reason to repair it.
+ */
+export const recalculatePOPaymentSummaries = onCall(
+  { timeoutSeconds: 540, memory: '1GiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const permissions = (request.auth.token.permissions as number | undefined) ?? 0;
+    const MANAGE_PROCUREMENT = 1 << 16; // 65536
+    const MANAGE_ACCOUNTING = 1 << 14; // 16384
+    const allowed =
+      (permissions & MANAGE_PROCUREMENT) !== 0 || (permissions & MANAGE_ACCOUNTING) !== 0;
+    if (!allowed) {
+      throw new HttpsError(
+        'permission-denied',
+        'Only users who manage procurement or accounting can rebuild PO payment summaries'
+      );
+    }
+
+    const db = admin.firestore();
+    const posSnap = await db.collection(PURCHASE_ORDERS).get();
+
+    let rebuilt = 0;
+    const failures: Array<{ poId: string; error: string }> = [];
+
+    for (const doc of posSnap.docs) {
+      try {
+        await syncPOPaymentSummary(db, doc.id);
+        rebuilt++;
+      } catch (err) {
+        // One bad PO must not abort the sweep — collect and report (rule 27).
+        const message = err instanceof Error ? err.message : String(err);
+        failures.push({ poId: doc.id, error: message });
+        logger.error('[poPaymentSummary] Rebuild failed during recalculation', {
+          poId: doc.id,
+          error: message,
+        });
+      }
+    }
+
+    logger.info('[poPaymentSummary] Recalculation complete', {
+      total: posSnap.size,
+      rebuilt,
+      failed: failures.length,
+    });
+
+    return { total: posSnap.size, rebuilt, failures };
   }
 );

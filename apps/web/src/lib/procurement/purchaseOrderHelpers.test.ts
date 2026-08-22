@@ -331,25 +331,46 @@ describe('Purchase Order Helpers', () => {
   });
 
   describe('getPaymentStatus', () => {
-    it('should return "Not Paid" for 0% progress', () => {
-      const po = createMockPO({ paymentProgress: 0 });
-      const result = getPaymentStatus(po);
+    // Reads paymentSummary, the Cloud-Function projection over the actual bills
+    // and payments. It used to read the `paymentProgress` field, which was
+    // written in two places and never updated after the advance — so it said
+    // "Not Paid" on POs that were fully settled.
+    const withSummary = (paidAmount: number, totalAmount = 100000) =>
+      createMockPO({
+        paymentSummary: {
+          totalAmount,
+          paidAmount,
+          pendingAmount: totalAmount - paidAmount,
+          status: 'PENDING',
+          milestones: [],
+          history: [],
+          syncedAt: createMockTimestamp(new Date()) as never,
+        },
+      });
+
+    it('should return "Not Paid" when nothing is paid', () => {
+      const result = getPaymentStatus(withSummary(0));
       expect(result.text).toBe('Not Paid');
       expect(result.color).toBe('default');
     });
 
     it('should return percentage for partial payment', () => {
-      const po = createMockPO({ paymentProgress: 50 });
-      const result = getPaymentStatus(po);
+      const result = getPaymentStatus(withSummary(50000));
       expect(result.text).toBe('50% Paid');
       expect(result.color).toBe('warning');
     });
 
-    it('should return "Fully Paid" for 100% progress', () => {
-      const po = createMockPO({ paymentProgress: 100 });
-      const result = getPaymentStatus(po);
+    it('should return "Fully Paid" when settled', () => {
+      const result = getPaymentStatus(withSummary(100000));
       expect(result.text).toBe('Fully Paid');
       expect(result.color).toBe('success');
+    });
+
+    it('should return "Not Paid" when the projection has not been built yet', () => {
+      // A PO created before the projection existed, or one whose first sync has
+      // not run. Reporting 0% is right; inventing a number would not be.
+      const result = getPaymentStatus(createMockPO({}));
+      expect(result.text).toBe('Not Paid');
     });
 
     it('should handle undefined payment progress', () => {

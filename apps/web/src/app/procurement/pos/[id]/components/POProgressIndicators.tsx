@@ -8,7 +8,11 @@
 
 import { Box, Paper, Stack, Typography, Chip, LinearProgress } from '@mui/material';
 import type { PurchaseOrder } from '@vapour/types';
-import { getDeliveryStatus, getPaymentStatus } from '@/lib/procurement/purchaseOrderHelpers';
+import {
+  getDeliveryStatus,
+  getPaymentProgress,
+  getPaymentStatus,
+} from '@/lib/procurement/purchaseOrderHelpers';
 
 interface POProgressIndicatorsProps {
   po: PurchaseOrder;
@@ -43,7 +47,7 @@ export function POProgressIndicators({ po }: POProgressIndicatorsProps) {
           </Stack>
           <LinearProgress
             variant="determinate"
-            value={po.paymentProgress || 0}
+            value={getPaymentProgress(po)}
             color="warning"
             sx={{ height: 8, borderRadius: 1 }}
           />

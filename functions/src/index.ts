@@ -64,7 +64,11 @@ export {
 export { onVendorQuoteWriteUpdateCounter, backfillRFQOfferCounts } from './vendorQuoteCounters';
 
 // Import procurement payment status sync (keeps GR paymentStatus in sync with vendor payments)
-export { syncPOPaymentStatusOnVendorPayment } from './procurementPaymentStatus';
+export {
+  syncPOPaymentStatusOnVendorPayment,
+  syncPOPaymentSummaryOnPOWrite,
+  recalculatePOPaymentSummaries,
+} from './procurementPaymentStatus';
 
 // Import feedback functions
 export { onFeedbackResolved, onFeedbackNotesUpdated } from './feedback';
