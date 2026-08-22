@@ -94,6 +94,18 @@ jest.mock('../accounting/transactionService', () => ({
   saveTransaction: (...args: unknown[]) => mockSaveTransaction(...args),
 }));
 
+// Mock the counter-backed transaction number generator. createAdvancePaymentFromPO
+// used to mint `PAY-ADV-${Date.now()}` locally; it now goes through the shared
+// generator like every other accounting document.
+const mockGenerateTransactionNumber = jest.fn().mockResolvedValue('VPAY-2627-0099');
+jest.mock('../accounting/transactionNumberGenerator', () => ({
+  generateTransactionNumber: (...args: unknown[]) => mockGenerateTransactionNumber(...args),
+}));
+
+jest.mock('@/lib/firebase/retryOnStaleToken', () => ({
+  retryOnStaleToken: (fn: () => unknown) => fn(),
+}));
+
 // Mock task notification service
 jest.mock('../tasks/taskNotificationService', () => ({
   createTaskNotification: jest.fn().mockResolvedValue('notif-1'),
@@ -439,6 +451,101 @@ describe('createBillFromGoodsReceipt', () => {
     );
   });
 
+  // ── Bill-creation lock lifecycle ──
+  //
+  // The 'CREATING' sentinel is claimed atomically before any of the fetches
+  // below. Releasing it only around saveTransaction left 5 of 6 live goods
+  // receipts permanently unbillable, because the claim transaction rejects
+  // every retry with BILL_EXISTS.
+
+  it('releases the lock when the PO fetch fails, so the GR can be retried', async () => {
+    const gr = createMockGoodsReceipt();
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false }); // PO not found
+
+    await expect(createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com')).rejects.toThrow(
+      'Purchase order not found'
+    );
+
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      'mock-doc-ref',
+      expect.objectContaining({ paymentRequestId: null })
+    );
+  });
+
+  it('releases the lock when GL generation fails', async () => {
+    const gr = createMockGoodsReceipt();
+    const po = createMockPurchaseOrder();
+
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
+      .mockResolvedValueOnce({ exists: () => true })
+      .mockResolvedValueOnce({ exists: () => true });
+    mockGenerateBillGLEntries.mockResolvedValue({ success: false, errors: ['unbalanced'] });
+
+    await expect(
+      createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com')
+    ).rejects.toThrow();
+
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      'mock-doc-ref',
+      expect.objectContaining({ paymentRequestId: null })
+    );
+  });
+
+  it('does NOT release the lock on BILL_EXISTS — another caller holds it', async () => {
+    const gr = createMockGoodsReceipt();
+    mockRunTransaction.mockImplementation(
+      async (_db: unknown, callback: (t: unknown) => Promise<unknown>) => {
+        const mockTransaction = {
+          get: jest.fn().mockResolvedValue({
+            exists: () => true,
+            data: () => ({ status: 'COMPLETED', paymentRequestId: 'CREATING' }),
+          }),
+          update: jest.fn(),
+        };
+        return callback(mockTransaction);
+      }
+    );
+
+    await expect(createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com')).rejects.toThrow(
+      'Bill already exists'
+    );
+
+    expect(mockUpdateDoc).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ paymentRequestId: null })
+    );
+  });
+
+  it('does NOT release the lock once the bill is persisted — a retry would duplicate it', async () => {
+    const gr = createMockGoodsReceipt();
+    const po = createMockPurchaseOrder();
+
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
+      .mockResolvedValueOnce({ exists: () => true })
+      .mockResolvedValueOnce({ exists: () => true });
+    mockGetDocs
+      .mockResolvedValueOnce({
+        docs: [createMockGRItem()].map((i) => ({ id: i.id, data: () => i })),
+      })
+      .mockResolvedValueOnce({
+        docs: [createMockPOItem()].map((i) => ({ id: i.id, data: () => i })),
+      });
+    mockSaveTransaction.mockResolvedValue('bill-1');
+    // The write that stamps the real bill id onto the GR fails.
+    mockUpdateDoc.mockRejectedValue(new Error('network'));
+
+    await expect(
+      createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com')
+    ).rejects.toThrow();
+
+    expect(mockUpdateDoc).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ paymentRequestId: null })
+    );
+  });
+
   it('should throw error when no accepted items (PR-13)', async () => {
     const gr = createMockGoodsReceipt();
     const po = createMockPurchaseOrder();
@@ -558,8 +665,27 @@ describe('createAdvancePaymentFromPO', () => {
       mockDb,
       expect.objectContaining({
         purchaseOrderId: 'po-123',
+        sourcePoNumber: 'PO/2024/001',
         referenceNumber: 'ADV-PO/2024/001',
       }),
+      expect.anything()
+    );
+  });
+
+  it('numbers the advance through the shared generator, not a local timestamp', async () => {
+    const po = createMockPurchaseOrder({
+      id: 'po-123',
+      number: 'PO/2024/001',
+      advancePaymentRequired: true,
+      advanceAmount: 35400,
+    });
+
+    await createAdvancePaymentFromPO(mockDb, po, 'bank-1', 'user-1', 'user@test.com');
+
+    expect(mockGenerateTransactionNumber).toHaveBeenCalledWith('VENDOR_PAYMENT');
+    expect(mockCreatePaymentWithAllocationsAtomic).toHaveBeenCalledWith(
+      mockDb,
+      expect.objectContaining({ transactionNumber: 'VPAY-2627-0099' }),
       expect.anything()
     );
   });

@@ -24,6 +24,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { TXN_FIELD_PURCHASE_ORDER_ID, TXN_FIELD_SOURCE_PO_NUMBER } from '@vapour/constants';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   PurchaseOrder,
@@ -40,6 +41,8 @@ const logger = createLogger({ context: 'accountingIntegration' });
 import { generateBillGLEntries, type BillGLInput } from '../accounting/glEntry';
 import { createPaymentWithAllocationsAtomic } from '../accounting/paymentHelpers';
 import { saveTransaction } from '../accounting/transactionService';
+import { generateTransactionNumber } from '../accounting/transactionNumberGenerator';
+import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import {
   createTaskNotification,
   findTaskNotificationByEntity,
@@ -87,6 +90,18 @@ export async function createBillFromGoodsReceipt(
 ): Promise<string> {
   // rule8-exempt: sets the initial status on a brand-new document (no prior state to transition from) — state-machine validation only applies to transitions, not first-write
   // rule5-exempt: procurement workflow operation; firestore.rules enforce MANAGE_PROCUREMENT on the affected collections; client-side check is defense-in-depth deferred
+  //
+  // Lock lifecycle: the 'CREATING' sentinel written below must be cleared on
+  // every failure path, or the GR becomes permanently unbillable — the claim
+  // transaction rejects any retry with BILL_EXISTS. Releasing it only around
+  // saveTransaction left 4 of 6 live GRs stranded, because a failure anywhere
+  // between the claim and that call (PO fetch, GL generation, line mapping)
+  // skipped the release entirely. These two flags drive the release in the
+  // outer catch.
+  const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
+  let lockAcquired = false;
+  let billPersisted = false;
+
   try {
     // Validate goods receipt is approved
     if (goodsReceipt.status !== 'COMPLETED') {
@@ -99,7 +114,6 @@ export async function createBillFromGoodsReceipt(
 
     // Phase0#5: Atomically claim the GR for bill creation to prevent race conditions
     // (e.g. two users clicking "Create Bill" at the same time)
-    const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
     await runTransaction(db, async (transaction) => {
       const grSnap = await transaction.get(grRef);
       if (!grSnap.exists()) {
@@ -119,6 +133,7 @@ export async function createBillFromGoodsReceipt(
         updatedAt: Timestamp.now(),
       });
     });
+    lockAcquired = true;
 
     // Fetch the purchase order for vendor and project details
     const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, goodsReceipt.purchaseOrderId);
@@ -321,8 +336,15 @@ export async function createBillFromGoodsReceipt(
       // References — prefer GR project (specific to this receipt) over PO header
       projectId: goodsReceipt.projectId || purchaseOrder.projectIds[0],
       costCentreId: goodsReceipt.projectId || purchaseOrder.projectIds[0],
-      purchaseOrderId: purchaseOrder.id,
+      // Parent refs denormalised for display and for the PO payment rollup
+      // without a lookup (rule 26). `sourceModule` is what marks a bill as
+      // procurement-originated — 0 of 249 live bills carry it, because this
+      // path has never completed successfully.
+      [TXN_FIELD_PURCHASE_ORDER_ID]: purchaseOrder.id,
+      ...(purchaseOrder.number && { [TXN_FIELD_SOURCE_PO_NUMBER]: purchaseOrder.number }),
+      sourceModule: 'procurement' as const,
       goodsReceiptId: goodsReceipt.id,
+      ...(goodsReceipt.number && { goodsReceiptNumber: goodsReceipt.number }),
 
       // GL entries
       entries: glResult.entries,
@@ -344,18 +366,11 @@ export async function createBillFromGoodsReceipt(
     };
 
     // Create the bill with double-entry validation
-    // This will throw UnbalancedEntriesError if entries don't balance
-    let billId: string;
-    try {
-      billId = await saveTransaction(db, billData);
-    } catch (billError) {
-      // Phase0#5: Clear the lock on failure so user can retry
-      await updateDoc(grRef, {
-        paymentRequestId: null,
-        updatedAt: Timestamp.now(),
-      });
-      throw billError;
-    }
+    // This will throw UnbalancedEntriesError if entries don't balance.
+    // No local try/catch: the outer catch releases the lock for every failure
+    // from the claim onwards, not just this one.
+    const billId = await saveTransaction(db, billData);
+    billPersisted = true;
 
     // Update goods receipt with actual bill reference (replaces 'CREATING' lock)
     await updateDoc(grRef, {
@@ -484,6 +499,41 @@ export async function createBillFromGoodsReceipt(
 
     return billId;
   } catch (error) {
+    // Release the 'CREATING' lock so the user can retry.
+    //
+    // Only when no bill was persisted. If the bill exists and it was the GR
+    // update that failed, clearing the lock would let a retry create a second
+    // bill for the same receipt — a stranded lock is the safer failure, so it
+    // is left in place and logged loudly enough to be repaired by hand.
+    //
+    // BILL_EXISTS is excluded: that error means another caller holds the lock,
+    // and releasing it here would break their in-flight run.
+    const holdsOwnLock =
+      lockAcquired &&
+      !billPersisted &&
+      !(error instanceof AccountingIntegrationError && error.code === 'BILL_EXISTS');
+
+    if (holdsOwnLock) {
+      try {
+        await updateDoc(grRef, {
+          paymentRequestId: null,
+          updatedAt: Timestamp.now(),
+        });
+      } catch (releaseError) {
+        logger.error('Failed to release GR bill-creation lock — GR left unbillable', {
+          goodsReceiptId: goodsReceipt.id,
+          goodsReceiptNumber: goodsReceipt.number,
+          releaseError: releaseError instanceof Error ? releaseError.message : String(releaseError),
+        });
+      }
+    } else if (lockAcquired && billPersisted) {
+      logger.error('Bill created but goods receipt not updated — lock left held deliberately', {
+        goodsReceiptId: goodsReceipt.id,
+        goodsReceiptNumber: goodsReceipt.number,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     if (error instanceof AccountingIntegrationError) {
       throw error;
     }
@@ -664,9 +714,13 @@ export async function createAdvancePaymentFromPO(
       );
     }
 
-    // Generate transaction number
-    const timestamp = Date.now();
-    const transactionNumber = `PAY-ADV-${timestamp}`;
+    // Generate transaction number through the counter-backed generator, not a
+    // local `PAY-ADV-${Date.now()}` string: that produced a number no other
+    // accounting screen recognises and sidestepped the duplicate-number check
+    // (rule 32 — four parallel number generators was a past consolidation).
+    const transactionNumber = await retryOnStaleToken(() =>
+      generateTransactionNumber('VENDOR_PAYMENT')
+    );
 
     // Create payment data
     const paymentData = {
@@ -690,10 +744,11 @@ export async function createAdvancePaymentFromPO(
       bankAccountId,
       referenceNumber: `ADV-${purchaseOrder.number || purchaseOrder.id}`,
 
-      // References
+      // References (rule 26)
       projectId: purchaseOrder.projectIds[0],
       costCentreId: purchaseOrder.projectIds[0],
-      purchaseOrderId: purchaseOrder.id,
+      [TXN_FIELD_PURCHASE_ORDER_ID]: purchaseOrder.id,
+      ...(purchaseOrder.number && { [TXN_FIELD_SOURCE_PO_NUMBER]: purchaseOrder.number }),
 
       // Notes
       notes: `Advance payment for PO ${purchaseOrder.number || purchaseOrder.id}`,

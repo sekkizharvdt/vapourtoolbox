@@ -51,7 +51,7 @@ import { rfqStateMachine } from '@/lib/workflow/stateMachines';
 import { removeUndefinedDeep } from '@/lib/firebase/typeHelpers';
 import { roundToPaisa } from '@/lib/accounting/amountHelpers';
 import { calculateGST } from '@/lib/accounting/gstCalculator';
-import { calculatePOTotals, sumLineItems } from './totals';
+import { calculatePOTotals, getTaxableValue, sumLineItems } from './totals';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -459,6 +459,7 @@ export async function createPOFromOffer(
         title: poTitle,
         description: `PO created from offer ${offer.number}`,
         subtotal,
+        taxableValue,
         cgst,
         sgst,
         igst,
@@ -1023,9 +1024,11 @@ export async function updateDraftPO(
   // Calculate advance amount if required (tax-exclusive unless the advance
   // milestone carries GST — see calculateAdvanceAmount)
   const grandTotal = po.grandTotal as number;
-  // The PO stores grandTotal and totalTax; the taxable value GST was computed
-  // on is their difference (subtotal - discount + packingForwardingAmount).
-  const taxableValue = roundToPaisa(grandTotal - ((po.totalTax as number) ?? 0));
+  // Persisted on the PO since the taxableValue field landed; getTaxableValue
+  // falls back to grandTotal - totalTax for records written before that.
+  const taxableValue = getTaxableValue(
+    po as { taxableValue?: number; grandTotal?: number; totalTax?: number }
+  );
   const advanceAmount = calculateAdvanceAmount({
     grandTotal,
     taxableValue,
@@ -1039,6 +1042,9 @@ export async function updateDraftPO(
     deliveryTerms: terms.deliveryTerms,
     deliveryAddress: terms.deliveryAddress,
     advancePaymentRequired: terms.advancePaymentRequired,
+    // Backfills the field on any PO edited before it existed. The totals
+    // themselves are not recomputed here — this path edits terms, not lines.
+    taxableValue,
     updatedAt: now,
     updatedBy: userId,
   };
@@ -1279,6 +1285,7 @@ export async function updatePOItemQuantity(
 
   batch.update(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
     subtotal: totals.subtotal,
+    taxableValue: totals.taxableValue,
     cgst: totals.cgst,
     sgst: totals.sgst,
     igst: totals.igst,

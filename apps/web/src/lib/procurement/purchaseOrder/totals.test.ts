@@ -5,7 +5,7 @@
  * way creation does; these lock that equivalence in.
  */
 
-import { calculatePOTotals, sumLineItems } from './totals';
+import { calculatePOTotals, getTaxableValue, sumLineItems } from './totals';
 import type { POCommercialTerms } from '@vapour/types';
 
 const termsWith = (overrides: Partial<POCommercialTerms>) => overrides as POCommercialTerms;
@@ -107,5 +107,27 @@ describe('calculatePOTotals', () => {
     const double = calculatePOTotals({ subtotal: 2000, effectiveTaxRate: 0.18 });
 
     expect(double.grandTotal).toBe(single.grandTotal * 2);
+  });
+});
+
+describe('getTaxableValue', () => {
+  it('prefers the persisted field', () => {
+    expect(getTaxableValue({ taxableValue: 270000, grandTotal: 318600, totalTax: 48600 })).toBe(
+      270000
+    );
+  });
+
+  it('falls back to grandTotal - totalTax for POs written before the field existed', () => {
+    // Exact identity, not an estimate: grandTotal IS taxableValue + totalTax.
+    // These are the real figures from PO/2026/010, the PO in feedback jRO7w8mg.
+    expect(getTaxableValue({ grandTotal: 4491953.2, totalTax: 685213.2 })).toBe(3806740);
+  });
+
+  it('treats a zero taxable value as present, not missing', () => {
+    expect(getTaxableValue({ taxableValue: 0, grandTotal: 118, totalTax: 18 })).toBe(0);
+  });
+
+  it('returns 0 rather than NaN when the PO carries no totals at all', () => {
+    expect(getTaxableValue({})).toBe(0);
   });
 });

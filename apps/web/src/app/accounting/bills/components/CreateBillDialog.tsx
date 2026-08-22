@@ -11,6 +11,7 @@ import { getFirebase } from '@/lib/firebase';
 import { retryOnStaleToken } from '@/lib/firebase/retryOnStaleToken';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { TXN_FIELD_PURCHASE_ORDER_ID, TXN_FIELD_SOURCE_PO_NUMBER } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { generateBillGLEntries, type BillGLInput } from '@/lib/accounting/glEntry';
@@ -125,8 +126,11 @@ export function CreateBillDialog({
   React.useEffect(() => {
     if (open && editingBill) {
       setVendorBillNumber(editingBill.vendorInvoiceNumber || '');
-      // Restore PO linkage (rule 22: restore all saved fields on edit)
-      setSelectedPoId(editingBill.sourceDocumentId || null);
+      // Restore PO linkage (rule 22: restore all saved fields on edit).
+      // Reads the canonical field only; the 4 bills that carry the PO id in the
+      // legacy `sourceDocumentId` are moved across by
+      // scripts/analysis/backfill-bill-po-link.js.
+      setSelectedPoId(editingBill.purchaseOrderId || null);
       setSourcePoNumber(editingBill.sourcePoNumber || '');
     } else if (open) {
       setVendorBillNumber('');
@@ -233,9 +237,25 @@ export function CreateBillDialog({
         currency: 'INR',
         baseAmount: totalAmount,
         attachments: [],
-        // Purchase Order linkage (conditional spread — rule 12)
-        ...(selectedPoId && { sourceDocumentId: selectedPoId }),
-        ...(sourcePoNumber && { sourcePoNumber }),
+        // Purchase Order linkage.
+        //
+        // `purchaseOrderId` is the ONE name for this link — it is what the CF
+        // payment rollup, arePOPaymentsComplete and three-way match all query.
+        // This dialog used to write the PO id as `sourceDocumentId` instead,
+        // which left 0 of 249 live bills discoverable by any of them.
+        //
+        // `sourceDocumentId` is deliberately NOT written here: it is a
+        // polymorphic "source document" field that vendorBillIntegrationService
+        // uses to hold a three-way-match id and queries by, so a PO id in it is
+        // indistinguishable from a match id.
+        //
+        // Written as explicit `null` rather than omitted when there is no PO:
+        // the edit path uses updateDoc, which merges, so a conditional spread
+        // would leave the previous link in place after the user clears the
+        // selector. Firestore rejects `undefined`, not `null` (rule 12).
+        [TXN_FIELD_PURCHASE_ORDER_ID]: selectedPoId ?? null,
+        [TXN_FIELD_SOURCE_PO_NUMBER]: sourcePoNumber || null,
+        sourceModule: selectedPoId ? ('procurement' as const) : null,
         // Payment tracking - preserve existing values on edit, initialize on create
         paidAmount: derivePaid(editingBill),
         // rule21-exempt: edit-form pre-fill — preserve cached outstanding on edit, default to total on create.

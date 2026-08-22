@@ -79,6 +79,20 @@ export interface PurchaseOrder {
    */
   packingForwardingAmount?: number;
 
+  /**
+   * Pre-tax value GST is charged on: `subtotal - discount + packingForwardingAmount`.
+   *
+   * Persisted because the payment-milestone amounts are computed from it, and
+   * a milestone that does not carry GST must be priced on this, not on
+   * `grandTotal` (feedback jRO7w8mg). It was previously computed at write time
+   * and thrown away, leaving every consumer to reconstruct it as
+   * `grandTotal - totalTax`.
+   *
+   * Optional: POs written before this field existed do not carry it. Read it
+   * through `getTaxableValue(po)` rather than directly.
+   */
+  taxableValue?: number;
+
   // Tax breakdown — computed on the taxable value above (not the raw subtotal)
   cgst: number;
   sgst: number;

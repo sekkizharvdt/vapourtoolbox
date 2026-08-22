@@ -42,3 +42,29 @@ export const FIELD_ENTITY_ID = 'entityId' as const;
 
 /** Soft-delete flag */
 export const FIELD_IS_DELETED = 'isDeleted' as const;
+
+// ── Procurement ↔ accounting linkage (written by the accounting dialogs and
+//    the procurement bridge, read by Cloud Functions and procurement services) ──
+
+/**
+ * PO id denormalised onto a VENDOR_BILL / VENDOR_PAYMENT.
+ *
+ * This is the ONE name for the link. `CreateBillDialog` used to write the same
+ * value as `sourceDocumentId` while every reader queried `purchaseOrderId`,
+ * which left 0 of 249 live bills discoverable and silently emptied the CF
+ * payment rollup, `arePOPaymentsComplete` and three-way match. Do not
+ * reintroduce a second name.
+ */
+export const TXN_FIELD_PURCHASE_ORDER_ID = 'purchaseOrderId' as const;
+
+/**
+ * PO number denormalised alongside {@link TXN_FIELD_PURCHASE_ORDER_ID} for
+ * display without a lookup (rule 26).
+ */
+export const TXN_FIELD_SOURCE_PO_NUMBER = 'sourcePoNumber' as const;
+
+/**
+ * Payment milestone the bill or payment settles, keyed to
+ * `PurchaseOrder.commercialTerms.paymentSchedule[].id`.
+ */
+export const TXN_FIELD_MILESTONE_ID = 'milestoneId' as const;

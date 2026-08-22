@@ -105,6 +105,24 @@ export function calculatePOTotals(input: POTotalsInput): POTotals {
 }
 
 /**
+ * The pre-tax value GST is charged on, for a PO already saved to Firestore.
+ *
+ * Prefer the persisted `taxableValue`. POs written before that field existed do
+ * not carry it, so fall back to `grandTotal - totalTax` — an exact identity,
+ * not an estimate, since `grandTotal` is defined as `taxableValue + totalTax`.
+ * `scripts/analysis/backfill-po-taxable-value.js` fills the field in for the
+ * existing records; this accessor is the one place the fallback lives.
+ */
+export function getTaxableValue(po: {
+  taxableValue?: number;
+  grandTotal?: number;
+  totalTax?: number;
+}): number {
+  if (typeof po.taxableValue === 'number') return roundToPaisa(po.taxableValue);
+  return roundToPaisa((po.grandTotal ?? 0) - (po.totalTax ?? 0));
+}
+
+/**
  * Basic price of a PO, summed from its line items.
  *
  * `amount` is already net of any per-line discount, so it is used directly
